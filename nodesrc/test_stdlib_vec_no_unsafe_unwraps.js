@@ -361,10 +361,36 @@ for (const name of ['buffer', 'range', 'api']) {
 }
 assert.doesNotMatch(sortMergeRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'sort/merge.nepl must be a pure facade without implementation bodies');
 assert.match(sortMergeBufferCode, /fn\s+sort_buf_get\s+<\.T:\s*Copy>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer loads');
-assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T:\s*Copy>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer stores');
+assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer stores as an impure write');
 assert.doesNotMatch(sortFamilyCode, /fn\s+sort_\w+\s+<\.T>\s+</, 'Vec sort raw load/store helpers must not be unconstrained over T');
 assert.doesNotMatch(sortFamilyCode, /fn\s+sort_\w+\s+<\.T:\s*Ord>\s+</, 'Vec sort algorithms must require Ord&Copy until non-Copy move/drop-aware sorting exists');
-assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord&Copy>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own Copy-only range traversal and delegate scratch access');
+for (const [name, signature] of [
+    ['sort_set_unchecked', /<\(&Vec<\.T>,i32,\.T\)\*>\(\)>/],
+    ['sort_set_unchecked_data', /<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/],
+    ['sort_swap_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
+    ['sort_swap', /<\(&Vec<\.T>,i32,i32\)\*>\(\)>/],
+    ['sort_quick_partition_data', /<\(MemPtr<\.T>,i32,i32\)\*>i32>/],
+    ['sort_quick_range_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
+    ['sort_quick', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_slice_quick', /<\(MemPtr<\.T>,i32\)\*>\(\)>/],
+    ['sort_i32', /<\(MemPtr<i32>,i32\)\*>\(\)>/],
+    ['sort_quick_ret', /<\(Vec<\.T>\)\*>Vec<\.T>>/],
+    ['sort', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_heap_sift_down_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
+    ['sort_heap', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_heap_ret', /<\(Vec<\.T>\)\*>Vec<\.T>>/],
+    ['sort_merge_range_data', /<\(MemPtr<\.T>,MemPtr<\.T>,i32,i32\)\*>\(\)>/],
+    ['sort_bubble', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_cocktail', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_shell', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_comb', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_insertion', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_gnome', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_selection', /<\(&Vec<\.T>\)\*>\(\)>/],
+]) {
+    assert.match(sortFamilyCode, new RegExp(`fn\\s+${name}\\s+[^\\n]*${signature.source}`), `${name} mutates Vec/raw storage and must carry an impure effect signature`);
+}
+assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord&Copy>\s+<\(MemPtr<\.T>,MemPtr<\.T>,i32,i32\)\*>\(\)>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own Copy-only impure range traversal and delegate scratch access');
 assert.match(sortMergeApiCode, /pub\s+struct\s+VecSortMergeError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>/, 'sort_merge_ret failure payload must carry the consumed Vec owner and a copyable error kind');
 assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord&Copy>[\s\S]*match\s+alloc_region<\.T>\s+n:[\s\S]*let\s+buf\s+<MemPtr<\.T>>\s+region_ptr\s+&buf_region[\s\S]*match\s+dealloc_region<\.T>\s+buf_region:[\s\S]*Result::Ok\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)[\s\S]*Result::Err\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Err\s+StdErrorKind::InvalidOperation/, 'sort_merge must keep scratch ownership in RegionToken and report cleanup failure without unreachable');
 assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord&Copy>\s+<\(Vec<\.T>\)\*>Result<Vec<\.T>,\s*VecSortMergeError<\.T>>>[\s\S]*let\s+n\s+<i32>\s+len<\.T>\s+&v[\s\S]*match\s+alloc_region<\.T>\s+n:[\s\S]*Result<Vec<\.T>,\s*VecSortMergeError<\.T>>::Err\s+VecSortMergeError<\.T>\s+v\s+StdErrorKind::OutOfMemory[\s\S]*let\s+buf\s+<MemPtr<\.T>>\s+region_ptr\s+&buf_region[\s\S]*match\s+dealloc_region<\.T>\s+buf_region:[\s\S]*Result<Vec<\.T>,\s*VecSortMergeError<\.T>>::Ok\s+v[\s\S]*Result<Vec<\.T>,\s*VecSortMergeError<\.T>>::Err\s+VecSortMergeError<\.T>\s+v\s+StdErrorKind::InvalidOperation/, 'sort_merge_ret must return the consumed Vec owner on all error paths');

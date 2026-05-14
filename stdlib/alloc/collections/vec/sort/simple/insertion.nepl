@@ -24,7 +24,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)、ほぼ整列済みでは O(n) に近づきます。
-pub fn sort_insertion <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
+pub fn sort_insertion <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
     if:
         le n 1
@@ -63,7 +63,7 @@ pub fn sort_insertion <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)
-pub fn sort_gnome <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
+pub fn sort_gnome <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
     if:
         le n 1

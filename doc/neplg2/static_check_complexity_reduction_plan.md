@@ -423,6 +423,7 @@ commit 単位:
 | `BLOOMFILTER-CLEAR-ACCEPTS-UNCONSTRAI` | Stage 6 の BloomFilter mutating API child issue。 | 2026-05-15 に fixed。`BloomFilter.clear` / `CountingBloomFilter.clear` を `.T: HashKey&Copy,.H: Hasher<.T>&Copy` に揃え、forged non-Copy hasher aggregate を clear だけ通す経路を閉じる。 |
 | `BYTEBUF-AND-BYTEBUILDER-EXPOSE-EMPTY` | Stage 6 の byte buffer empty sentinel issue。 | 2026-05-15 に fixed。zero-size `RegionToken<u8>` sentinel helper を private にし、公開 API を typed empty constructor へ限定する。 |
 | `FS-DIR-READER-STILL-DEPENDS-ON-RAW-V` | Stage 6 の fs dir reader migration issue。 | 2026-05-15 に fixed。`fs_sort_strings` を `&Vec<str>` public boundary に移し、`std/fs/dir/read_fd.nepl` から旧 `Vec.data` raw storage 依存を削除した。 |
+| `VEC-IN-PLACE-SORT-APIS-KEEP-PURE-EFF` | Stage 6 の Vec sort effect contract issue。 | 2026-05-15 に fixed。backing storage を書き換える sort helper / public in-place sort / raw slice sort / owner-returning sort wrapper を impure `*>` signature へ揃え、observer helper は pure のまま分離した。 |
 
 新しい個別 bug は、次の基準で追加する。
 

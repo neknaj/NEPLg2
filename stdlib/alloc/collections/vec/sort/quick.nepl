@@ -30,7 +30,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(hi - lo + 1)
-pub fn sort_quick_partition_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)->i32> (data_ptr, lo, hi):
+pub fn sort_quick_partition_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)*>i32> (data_ptr, lo, hi):
     let pivot <.T> sort_get_unchecked_data<.T> data_ptr hi
     let mut i <i32> lo;
     let mut j <i32> lo;
@@ -63,7 +63,7 @@ pub fn sort_quick_partition_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)->i32> (dat
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n)、最悪 O(n^2)
-pub fn sort_quick_range_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)->()> (data_ptr, lo, hi):
+pub fn sort_quick_range_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)*>()> (data_ptr, lo, hi):
     if:
         lt lo hi
         then:
@@ -87,7 +87,7 @@ pub fn sort_quick_range_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)->()> (data_ptr
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n)、最悪 O(n^2)、追加領域は recursion stack です。
-pub fn sort_quick <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
+pub fn sort_quick <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
     let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:
@@ -116,7 +116,7 @@ pub fn sort_quick <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n), 最悪 O(n^2)
-pub fn sort_slice_quick <.T: Ord&Copy> <(MemPtr<.T>,i32)->()> (data_ptr, len):
+pub fn sort_slice_quick <.T: Ord&Copy> <(MemPtr<.T>,i32)*>()> (data_ptr, len):
     if:
         le len 1
         then ()
@@ -137,7 +137,7 @@ pub fn sort_slice_quick <.T: Ord&Copy> <(MemPtr<.T>,i32)->()> (data_ptr, len):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n), 最悪 O(n^2)
-pub fn sort_i32 <(MemPtr<i32>,i32)->()> (data_ptr, n):
+pub fn sort_i32 <(MemPtr<i32>,i32)*>()> (data_ptr, n):
     sort_slice_quick<i32> data_ptr n
 
 //: sort_quick_ret: quick sort 後の Vec を返す
@@ -153,7 +153,7 @@ pub fn sort_i32 <(MemPtr<i32>,i32)->()> (data_ptr, n):
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
-pub fn sort_quick_ret <.T: Ord&Copy> <(Vec<.T>)->Vec<.T>> (v):
+pub fn sort_quick_ret <.T: Ord&Copy> <(Vec<.T>)*>Vec<.T>> (v):
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let storage <VecStorageState> get v "storage"
@@ -182,5 +182,5 @@ pub fn sort_quick_ret <.T: Ord&Copy> <(Vec<.T>)->Vec<.T>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
-pub fn sort <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
+pub fn sort <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     sort_quick<.T> v

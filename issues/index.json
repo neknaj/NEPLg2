@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T17:47:06.961Z",
+  "generated_at": "2026-05-14T18:01:49.060Z",
   "counts": {
-    "total": 780,
+    "total": 781,
     "open": 7,
-    "resolved": 773,
+    "resolved": 774,
     "by_area": {
       "stdlib": {
-        "total": 212,
+        "total": 213,
         "open": 5,
-        "resolved": 207
+        "resolved": 208
       },
       "TEST": {
         "total": 21,
@@ -9148,6 +9148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T174112370Z-BLOOMFILTER-CLEAR-ACCEPTS-UNCONSTRAI-91A43DBC.md"
+    },
+    {
+      "id": "ISS-20260514T175345899Z-VEC-IN-PLACE-SORT-APIS-KEEP-PURE-EFF-6D4F3ABB",
+      "title": "Vec in-place sort APIs keep pure effect signatures",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/vec/sort/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T175345899Z-VEC-IN-PLACE-SORT-APIS-KEEP-PURE-EFF-6D4F3ABB.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

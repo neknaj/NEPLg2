@@ -302,6 +302,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - `Vec.data_ptr<T>(&Vec<T>) -> i32` は public raw address observer として残さず削除した。`data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` は typed non-owning view として残すが、raw `i32` address への変換は raw-memory-boundary 実装箇所に限定する。
 - `kpsearch` の lower/upper bound / unique 内部 raw helper は private とし、公開面は `Vec<i32>` owner wrapper だけに揃えた。ordinary source の利用例は raw buffer 構築ではなく `Vec<i32>` による doctest で表す。
 - `vec_storage_mem_ptr<T>(VecStorageState, &RegionToken<T>)` は public helper として残さず削除した。storage state から data view への projection は `data_mem_ptr<T>(&Vec<T>)` が直接 match して所有する。
+- `Vec` の in-place sort family は storage を書き換える API なので、raw write helper、quick / heap / simple sort、raw slice sort adapter、owner-returning sort wrapper、default `sort` を impure `*>` signature へ揃えた。observer の `sort_is_sorted` と比較 helper は pure のまま残し、effect contract でも観察と破壊的更新を分離する。
 
 ### Stage B: `core/mem` の internal/public 分離
 

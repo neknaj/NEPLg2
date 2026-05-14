@@ -21,11 +21,29 @@ fn make_vec4 <()->Vec<i32>> ():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <Vec<i32>> make_vec4;
     sort_quick<i32> &v;
     free<i32> v;
     1234
+```
+
+## sort_in_place_requires_impure_context
+
+neplg2:test[compile_fail]
+diag_code: effect.pure.calls_impure
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort" as *
+
+fn pure_sort <(&Vec<i32>)->()> (v):
+    sort<i32> v
+
+fn main <()->i32> ():
+    0
 ```
 
 ## sort_merge_i32_basic
@@ -84,7 +102,7 @@ fn make_vec4 <()->Vec<i32>> ():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v sort_quick_ret<i32> make_vec4;
     let n <i32> len<i32> &v;
     let bn <bool> eq n 4;
@@ -126,7 +144,7 @@ ret: 0
 #import "core/field" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 sort_quick_ret<i32> v0;
     let n <i32> len<i32> &v1;
@@ -147,7 +165,7 @@ ret: 1
 #import "core/field" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 sort_quick_ret<i32> v1;
@@ -169,7 +187,7 @@ ret: 3
 #import "core/field" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 4;
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
@@ -201,7 +219,7 @@ fn make_vec4 <()->Vec<i32>> ():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <Vec<i32>> make_vec4;
     sort_heap<i32> &v;
     free<i32> v;
@@ -232,7 +250,7 @@ fn make_vec4 <()->Vec<i32>> ():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v sort_heap_ret<i32> make_vec4;
     let n <i32> len<i32> &v;
     let bn <bool> eq n 4;
@@ -274,7 +292,7 @@ ret: 0
 #import "core/field" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 sort_heap_ret<i32> v0;
     let n <i32> len<i32> &v1;
@@ -295,7 +313,7 @@ ret: 1
 #import "core/field" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 sort_heap_ret<i32> v1;
@@ -317,7 +335,7 @@ ret: 3
 #import "core/field" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 4;
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
@@ -492,7 +510,7 @@ fn make_vec4 <()->Vec<i32>> ():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <Vec<i32>> make_vec4;
     sort<i32> &v;
     free<i32> v;

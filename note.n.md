@@ -1,3 +1,17 @@
+# 2026-05-15 Agent 1 Vec sort effect contract 修正
+
+- `ISS-20260514T175345899Z-VEC-IN-PLACE-SORT-APIS-KEEP-PURE-EFF-6D4F3ABB` を追加して解決した。
+- `Vec` sort family は raw storage write / swap による in-place mutation を行うのに、quick / heap / simple sort と raw slice adapter が pure `->` signature を持っていた。
+- `sort_set_unchecked` / `sort_swap` 系、`sort_quick_range_data`、`sort_heap_sift_down_data`、`sort_merge_range_data`、`sort_buf_set`、`sort_quick` / `sort_heap` / simple sort / `sort_i32` / default `sort` / `sort_quick_ret` / `sort_heap_ret` を impure `*>` signature へ揃えた。
+- `sort_get_unchecked`、比較 helper、`sort_is_sorted` は observer として pure のまま残し、effect contract で観察と破壊的更新を分離した。
+- 回帰として pure function から `sort` を呼ぶ compile-fail doctest と、mutating sort signature を source policy で固定する検査を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/agent1-vec-sort-effect-contract-sort.json -j 1 --dist web/dist --assert-io`: total=24, passed=24
+  - `node nodesrc/tests.js -i tests/stdlib/sort_simple.n.md --no-tree -o tmp/agent1-vec-sort-effect-contract-sort-simple.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の stdlib memory API / effect contract を実装の mutation と同期するもの。
+
 # 2026-05-15 Agent 1 Resource owner raw view policy drift 修正
 
 - `ISS-20260514T150630865Z-RESOURCE-OWNER-RAW-VIEW-POLICY-DRIFT-6883F812` を追加して解決した。

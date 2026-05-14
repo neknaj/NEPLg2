@@ -37,7 +37,7 @@ fn check_sorted4 <(&Vec<i32>)->bool> (v):
     let b3 <bool> check_at v 3 4;
     and b0 and b1 and b2 b3
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v0 <Vec<i32>> make_vec4;
     sort_insertion<i32> &v0;
     let ok0 <bool> check_sorted4 &v0;

@@ -25,7 +25,7 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
-pub fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)->()> (data_ptr, buf, l, r):
+pub fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()> (data_ptr, buf, l, r):
     let width <i32> sub r l;
     if:
         le width 1
