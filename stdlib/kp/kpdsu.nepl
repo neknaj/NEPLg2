@@ -1,22 +1,28 @@
 #indent 4
 #target std
 
-#import "core/math" as *
-#import "core/mem" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
+#import "alloc/collections/disjoint_set" as uf
+#import "alloc/diag/error" as *
+#import "core/result" as *
 
-//: kpdsu: 競技プログラミング向け Union-Find（Disjoint Set Union）
+pub #import "alloc/collections/disjoint_set/types" as @merge
+
+//: # kpdsu
+//: [競技/きょうぎ]プログラミング向け Union-Find（Disjoint Set Union）
 //:
-//: [目的/もくてき]:
-//: - 連結判定・連結成分併合を高速に処理する DSU を提供します。
+//: ### [目的/もくてき]
+//: - [要素/ようそ]の[属/ぞく]する[集合/しゅうごう]の[代表元/だいひょうげん]、[同一/どういつ]集合判定、集合併合、集合サイズ取得を提供します。
+//: - KP 用の関数名を保ちつつ、実装は `alloc/collections/disjoint_set` の型付き owner API に委譲します。
 //:
-//: [実装/じっそう]:
-//: - `parent` / `size` の 2 配列を持つハンドル構造です。
-//: - `find` は経路圧縮、`unite` はサイズ併合を行います。
+//: ### [設計/せっけい]
+//: - `DisjointSet` は parent 配列と size 配列を所有する owner 型です。
+//: - `dsu_unite` は owner を消費し、成功時に更新後 owner を返します。
+//: - [範囲外/はんいがい] index では `DisjointSetUpdateError` に元 owner を戻すため、caller は cleanup できます。
 //:
-//: [注意/ちゅうい]:
-//: - 頂点番号は 0-index 前提です。
+//: ### [注意/ちゅうい]
+//: - 古い raw `i32` ハンドル API は提供しません。
+//: - `dsu_find` / `dsu_same` / `dsu_size` は `&DisjointSet` を読み取る query です。
+//: - [公開/こうかい] API の頂点番号は 0-index です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: "1 0 3\n"
@@ -24,90 +30,50 @@
 //:| #entry main
 //:| #target std
 //:| #import "kp/kpdsu" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():
-//:     let d <i32> dsu_new 5;
-//:     dsu_unite d 0 1;
-//:     dsu_unite d 1 2;
-//:     print_i32 if dsu_same d 0 2 then 1 else 0;
+//:     let d0 <DisjointSet> unwrap_ok<DisjointSet, Diag> dsu_new 5;
+//:     let d1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d0 0 1;
+//:     let d2 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d1 1 2;
+//:     let same02 <bool> unwrap_ok<bool, Diag> dsu_same &d2 0 2;
+//:     let same03 <bool> unwrap_ok<bool, Diag> dsu_same &d2 0 3;
+//:     let sz <i32> unwrap_ok<i32, Diag> dsu_size &d2 0;
+//:     print_i32 if same02 then 1 else 0;
 //:     print " ";
-//:     print_i32 if dsu_same d 0 3 then 1 else 0;
+//:     print_i32 if same03 then 1 else 0;
 //:     print " ";
-//:     println_i32 dsu_size d 0;
-//:     dsu_free d
+//:     println_i32 sz;
+//:     dsu_free d2
 //: ```
 
-//: dsu_new: `n` 頂点の DSU を作る
-pub fn dsu_new <(i32)*>i32> (n):
-    let parent <i32> alloc_raw mul n 4;
-    let size <i32> alloc_raw mul n 4;
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            store_i32 add parent mul i 4 i;
-            store_i32 add size mul i 4 1;
-            set i add i 1;
-    let d <i32> alloc_raw 12;
-    store_i32 d n;
-    store_i32 add d 4 parent;
-    store_i32 add d 8 size;
-    d
+//: dsu_new: `n` [要素/ようそ]の DSU owner を[作/つく]る
+//:
+//: ### [失敗/しっぱい]
+//: - `n < 0` や[確保/かくほ]失敗は `Diag` として返します。
+pub fn dsu_new <(i32)*>Result<DisjointSet, Diag>> (n):
+    uf::new n
 
-//: dsu_free: DSU の内部領域を解放する
-pub fn dsu_free <(i32)*>()> (d):
-    let n <i32> load_i32 d;
-    let parent <i32> load_i32 add d 4;
-    let size <i32> load_i32 add d 8;
-    dealloc_raw parent mul n 4;
-    dealloc_raw size mul n 4;
-    dealloc_raw d 12
+//: dsu_free: DSU owner を[解放/かいほう]する
+pub fn dsu_free <(DisjointSet)*>()> (dsu):
+    uf::free dsu
 
-//: dsu_find: 要素 `x` の代表元を返す
-pub fn dsu_find <(i32,i32)*>i32> (d, x):
-    let parent <i32> load_i32 add d 4;
-    let mut r <i32> x;
-    let mut p <i32> load_i32 add parent mul r 4;
-    while ne p r:
-        do:
-            set r p;
-            set p load_i32 add parent mul r 4;
-    let root <i32> r;
+//: dsu_find: `x` の[代表元/だいひょうげん]を[返/かえ]す
+//:
+//: ### [注意/ちゅうい]
+//: - query として扱うため、path compression による更新は行いません。
+pub fn dsu_find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, x):
+    uf::find dsu x
 
-    let mut v <i32> x;
-    let mut q <i32> load_i32 add parent mul v 4;
-    while ne q v:
-        do:
-            store_i32 add parent mul v 4 root;
-            set v q;
-            set q load_i32 add parent mul v 4;
-    root
+//: dsu_same: `a` と `b` が[同/おな]じ[集合/しゅうごう]かを[返/かえ]す
+pub fn dsu_same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
+    uf::same dsu a b
 
-//: dsu_same: `a` と `b` が同じ連結成分か判定する
-pub fn dsu_same <(i32,i32,i32)*>bool> (d, a, b):
-    eq dsu_find d a dsu_find d b
+//: dsu_unite: `a` と `b` の[集合/しゅうごう]を[併合/へいごう]した owner を[返/かえ]す
+pub fn dsu_unite <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (dsu, a, b):
+    uf::union dsu a b
 
-//: dsu_unite: `a` と `b` の成分を併合する（既に同じなら何もしない）
-pub fn dsu_unite <(i32,i32,i32)*>()> (d, a, b):
-    let size <i32> load_i32 add d 8;
-    let mut ra <i32> dsu_find d a;
-    let mut rb <i32> dsu_find d b;
-    if ne ra rb:
-        then:
-            let sa <i32> load_i32 add size mul ra 4;
-            let sb <i32> load_i32 add size mul rb 4;
-            if lt sa sb:
-                then:
-                    let t <i32> ra;
-                    set ra rb;
-                    set rb t;
-                else ()
-            let parent <i32> load_i32 add d 4;
-            store_i32 add parent mul rb 4 ra;
-            store_i32 add size mul ra 4 add load_i32 add size mul ra 4 load_i32 add size mul rb 4;
-        else ()
-
-//: dsu_size: `x` が属する成分サイズを返す
-pub fn dsu_size <(i32,i32)*>i32> (d, x):
-    let size <i32> load_i32 add d 8;
-    let r <i32> dsu_find d x;
-    load_i32 add size mul r 4
+//: dsu_size: `x` が[属/ぞく]する[集合/しゅうごう]の[大/おお]きさを[返/かえ]す
+pub fn dsu_size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, x):
+    uf::size dsu x

@@ -343,3 +343,13 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 構築処理は `vec::filled` で初期化済み prefix buffer を確保し、`vec::get` / `vec::replace` で累積和を埋める。query も `vec::get` を使い、範囲外は `Diag` を返す。これにより `kpprefix` 自体は `core/mem/raw` を import せず、raw storage identity は `Vec` の実装境界に閉じる。
 
 この修正は `OwnedBuffer<T>` / compiler-issued owner token の最終移行ではないが、ordinary KP helper が raw address と copyable deallocation handle を public surface へ漏らす経路を閉じる Stage 6 の前進である。親 issue は raw-memory-backed stdlib API 全体の移行が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 kpfenwick/kpdsu owner boundary 追記
+
+`ISS-20260514T200755109Z-KPFENWICK-AND-KPDSU-EXPOSE-RAW-I32-O-953345F8` として、`kp/kpfenwick` と `kp/kpdsu` が allocation owner を public raw `i32` handle として公開していた問題を分離して修正した。
+
+`kpfenwick` は raw `i32` handle を返す `fenwick_new`、raw handle を受ける `fenwick_free` / `fenwick_add` / query API を廃止した。公開面は `Fenwick` owner、`FenwickAddError` owner-preserving update error、`Diag` query error に揃えた。実装は raw memory helper を使わず、`alloc/collections/fenwick` の typed storage helper / mutation helper / query helper / diagnostic helper に委譲する。
+
+`kpdsu` も raw parent/size storage handle を public `i32` として扱う構成を削除し、`DisjointSet` owner と `DisjointSetUpdateError` を使う `alloc/collections/disjoint_set` facade へ委譲した。query は `&DisjointSet` を読み取り、update は owner を消費して返すため、public API 上で owner/free obligation が型に残る。
+
+この修正は `kpgraph` など残る KP raw-memory-backed module の最終移行ではない。親 issue は引き続き open とし、ordinary stdlib/KP API が raw storage identity を公開しない状態まで Stage 6 を継続する。
