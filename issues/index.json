@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T16:59:05.721Z",
+  "generated_at": "2026-05-14T17:15:22.857Z",
   "counts": {
-    "total": 776,
+    "total": 777,
     "open": 7,
-    "resolved": 769,
+    "resolved": 770,
     "by_area": {
       "stdlib": {
-        "total": 208,
+        "total": 209,
         "open": 5,
-        "resolved": 203
+        "resolved": 204
       },
       "TEST": {
         "total": 21,
@@ -9088,6 +9088,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T161819706Z-VEC-STORAGE-MEMPTR-HELPER-EXPOSES-LO-A9C5BC02.md"
+    },
+    {
+      "id": "ISS-20260514T171024254Z-BLOOM-FILTER-FREE-DROPS-HASHER-WITHO-D98B768B",
+      "title": "Bloom filter free drops hasher without Copy or Drop contract",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/bloom_filter/api.nepl, stdlib/alloc/collections/counting_bloom_filter/api.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T171024254Z-BLOOM-FILTER-FREE-DROPS-HASHER-WITHO-D98B768B.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

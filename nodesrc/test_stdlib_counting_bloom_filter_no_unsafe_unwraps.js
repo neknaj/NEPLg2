@@ -62,7 +62,7 @@ assert.match(apiCode, /fn\s+len\s+<\.T,\.H>\s+<\(&CountingBloomFilter<\.T,\.H>\)
 assert.match(apiCode, /fn\s+insert\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*counting_bloom_hash0[\s\S]*counting_bloom_counter_inc\s+counters\s+i0[\s\S]*counting_bloom_counter_inc\s+counters\s+i2/, 'CountingBloomFilter.insert must use hash and mutation helpers');
 assert.match(apiCode, /fn\s+remove\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*counting_bloom_hash0[\s\S]*counting_bloom_counter_dec\s+counters\s+i0[\s\S]*counting_bloom_counter_dec\s+counters\s+i2/, 'CountingBloomFilter.remove must use hash and mutation helpers');
 assert.match(apiCode, /fn\s+contains\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*counting_bloom_counter_nonzero\s+counters\s+i0[\s\S]*counting_bloom_counter_nonzero\s+counters\s+i2/, 'CountingBloomFilter.contains must use hash and mutation helpers');
-assert.match(apiCode, /fn\s+free\s+<\.T,\.H>\s+<\(CountingBloomFilter<\.T,\.H>\)->\(\)>[\s\S]*counting_bloom_free_counters\s+counters/, 'CountingBloomFilter.free must close typed Vec<u8> storage through cleanup helper');
+assert.match(apiCode, /fn\s+free\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(CountingBloomFilter<\.T,\.H>\)->\(\)>[\s\S]*counting_bloom_free_counters\s+counters/, 'CountingBloomFilter.free must close typed Vec<u8> storage through cleanup helper with Copy-only key/hasher bounds');
 
 assert.doesNotMatch(code, /\bMemPtr\b/, 'CountingBloomFilter must not expose raw MemPtr storage');
 assert.doesNotMatch(code, /\bmem_ptr_wrap\b/, 'CountingBloomFilter must not use raw pointer arithmetic');
@@ -72,6 +72,7 @@ assert.doesNotMatch(code, /\bload_u8\b/, 'CountingBloomFilter must not read coun
 assert.doesNotMatch(code, /\bstore_u8\b/, 'CountingBloomFilter must not write counter storage through raw byte stores');
 assert.doesNotMatch(code, /\bdealloc_raw\b/, 'CountingBloomFilter must not deallocate counter storage through raw pointer APIs');
 assert.doesNotMatch(code, /fn\s+free\s+<\.T,\.H>\s+<\(CountingBloomFilter<\.T,\.H>\)->\(\)>[\s\S]*dealloc_ptr/, 'CountingBloomFilter.free must not unwrap checked deallocation for owned storage');
+assert.doesNotMatch(apiCode, /fn\s+free\s+<\.T,\.H>\s+<\(CountingBloomFilter<\.T,\.H>\)->\(\)>/, 'CountingBloomFilter.free must not accept unconstrained key/hasher payloads');
 
 console.log('counting bloom filter unsafe unwrap regression passed');
 

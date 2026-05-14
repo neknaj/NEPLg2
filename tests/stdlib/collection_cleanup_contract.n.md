@@ -260,3 +260,61 @@ fn close_hashmap_value <(HashMap<i32, CleanupPayload, DefaultHash32>)->()> (hm):
 fn main <()->i32> ():
     0
 ```
+
+## bloom_filter_free_rejects_non_copy_hasher
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/bloom_filter" as *
+#import "core/traits/hash" as *
+
+struct StatefulHasher:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl Hasher<i32> for StatefulHasher:
+    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+        key
+
+fn close_bloom_filter <(BloomFilter<i32, StatefulHasher>)->()> (bf):
+    free<i32, StatefulHasher> bf
+
+fn main <()->i32> ():
+    0
+```
+
+## counting_bloom_filter_free_rejects_non_copy_hasher
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/counting_bloom_filter" as *
+#import "core/traits/hash" as *
+
+struct StatefulHasher:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl Hasher<i32> for StatefulHasher:
+    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+        key
+
+fn close_counting_bloom_filter <(CountingBloomFilter<i32, StatefulHasher>)->()> (bf):
+    free<i32, StatefulHasher> bf
+
+fn main <()->i32> ():
+    0
+```

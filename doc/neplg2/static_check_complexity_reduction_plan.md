@@ -419,6 +419,7 @@ commit 単位:
 | `VEC-STORES-BACKING-STORAGE-AS-MEMPTR` | Stage 6 の Vec owner boundary issue。 | 2026-05-14 に fixed。Vec storage owner を RegionToken field へ移し、`MemPtr` owner-like field baseline を `RegionToken.ptr` だけの 1 件へ下げる。 |
 | `BYTEBUILDER-GROW-CLEANUP-STILL-USES` | Stage 6 の byte buffer cleanup issue。 | 2026-05-14 に fixed。grow failure cleanup を `dealloc_region` owner-token consumption へ揃え、通常 stdlib 実装の `unreachable` を排除する。 |
 | `RV-STDLIB-004` | Stage 6 の collection API issue。 | collection drop / remove / borrowed read / Copy read の責務が分離される。 |
+| `BLOOM-FILTER-FREE-DROPS-HASHER-WITHO` | Stage 6 の BloomFilter cleanup child issue。 | 2026-05-15 に fixed。`BloomFilter.free` / `CountingBloomFilter.free` を `.T: HashKey&Copy,.H: Hasher<.T>&Copy` に揃え、Drop traversal なしに non-Copy hasher を破棄する経路を閉じる。 |
 
 新しい個別 bug は、次の基準で追加する。
 

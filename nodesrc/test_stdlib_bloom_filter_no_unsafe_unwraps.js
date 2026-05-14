@@ -64,7 +64,7 @@ assert.match(apiCode, /fn\s+new\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[
 assert.match(apiCode, /fn\s+len\s+<\.T,\.H>\s+<\(&BloomFilter<\.T,\.H>\)->i32>\s+\(bf\):/, 'BloomFilter.len must borrow the owner');
 assert.match(apiCode, /fn\s+insert\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*bloom_hash0[\s\S]*bloom_set_bit\s+bits\s+i0[\s\S]*bloom_set_bit\s+bits\s+i2/, 'BloomFilter.insert must use hash and mutation helpers');
 assert.match(apiCode, /fn\s+contains\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*bloom_test_bit\s+bits\s+i0[\s\S]*bloom_test_bit\s+bits\s+i2/, 'BloomFilter.contains must use hash and mutation helpers');
-assert.match(apiCode, /fn\s+free\s+<\.T,\.H>\s+<\(BloomFilter<\.T,\.H>\)->\(\)>[\s\S]*bloom_free_bits\s+bits/, 'BloomFilter.free must close typed Vec<u8> storage through cleanup helper');
+assert.match(apiCode, /fn\s+free\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(BloomFilter<\.T,\.H>\)->\(\)>[\s\S]*bloom_free_bits\s+bits/, 'BloomFilter.free must close typed Vec<u8> storage through cleanup helper with Copy-only key/hasher bounds');
 
 assert.doesNotMatch(code, /\bMemPtr\b/, 'BloomFilter must not expose raw MemPtr storage');
 assert.doesNotMatch(code, /\bmem_ptr_wrap\b/, 'BloomFilter must not use raw pointer arithmetic');
@@ -74,6 +74,7 @@ assert.doesNotMatch(code, /\bload_u8\b/, 'BloomFilter must not read bit storage 
 assert.doesNotMatch(code, /\bstore_u8\b/, 'BloomFilter must not write bit storage through raw byte stores');
 assert.doesNotMatch(code, /\bdealloc_raw\b/, 'BloomFilter must not deallocate bit storage through raw pointer APIs');
 assert.doesNotMatch(code, /fn\s+free\s+<\.T,\.H>\s+<\(BloomFilter<\.T,\.H>\)->\(\)>[\s\S]*dealloc_ptr/, 'BloomFilter.free must not unwrap checked deallocation for owned storage');
+assert.doesNotMatch(apiCode, /fn\s+free\s+<\.T,\.H>\s+<\(BloomFilter<\.T,\.H>\)->\(\)>/, 'BloomFilter.free must not accept unconstrained key/hasher payloads');
 
 console.log('bloom filter unsafe unwrap regression passed');
 

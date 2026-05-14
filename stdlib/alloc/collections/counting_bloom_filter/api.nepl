@@ -196,6 +196,7 @@ pub fn clear <.T,.H> <(CountingBloomFilter<.T,.H>)*>CountingBloomFilter<.T,.H>> 
 //: ### [仕様/しよう]
 //: - `CountingBloomFilter` は `new` が[確保/かくほ]した counter `Vec<u8>` を[所有/しょゆう]します。
 //: - `free` はその owner invariant に[基/もと]づき、counter `Vec<u8>` owner を[閉/と]じます。
+//: - 現行 collection cleanup は element / field の Drop traversal を[持/も]たないため、key と hasher は `Copy` に[限/かぎ]ります。
 //: - caller は `free` [後/ご]の `CountingBloomFilter` を[再利用/さいりよう]してはいけません。
 //:
 //: neplg2:test
@@ -211,6 +212,6 @@ pub fn clear <.T,.H> <(CountingBloomFilter<.T,.H>)*>CountingBloomFilter<.T,.H>> 
 //:     free bf;
 //:     0
 //: ```
-pub fn free <.T,.H> <(CountingBloomFilter<.T,.H>)->()> (bf):
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>)->()> (bf):
     let counters <Vec<u8>> field::get bf "counters"
     counting_bloom_free_counters counters

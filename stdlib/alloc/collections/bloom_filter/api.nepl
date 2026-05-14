@@ -188,6 +188,7 @@ pub fn clear <.T,.H> <(BloomFilter<.T,.H>)*>BloomFilter<.T,.H>> (bf):
 //: ### [仕様/しよう]
 //: - `BloomFilter` は `new` が[確保/かくほ]した `nbytes > 0` の `Vec<u8>` bit array を[所有/しょゆう]します。
 //: - `free` はその owner invariant に[基/もと]づき、`Vec<u8>` owner を[閉/と]じます。
+//: - 現行 collection cleanup は element / field の Drop traversal を[持/も]たないため、key と hasher は `Copy` に[限/かぎ]ります。
 //: - caller は `free` [後/ご]の `BloomFilter` を[再利用/さいりよう]してはいけません。
 //:
 //: neplg2:test
@@ -203,6 +204,6 @@ pub fn clear <.T,.H> <(BloomFilter<.T,.H>)*>BloomFilter<.T,.H>> (bf):
 //:     free bf;
 //:     0
 //: ```
-pub fn free <.T,.H> <(BloomFilter<.T,.H>)->()> (bf):
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>)->()> (bf):
     let bits <Vec<u8>> field::get bf "bits"
     bloom_free_bits bits

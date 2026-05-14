@@ -38247,3 +38247,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `tests/stdlib/fs.n.md` の binary write fixture は ordinary doctest で raw `store_u8` を呼んでいたため、`io_bytebuf_from_str_result "A\x00B"` で public `ByteBuf` API 経由の入力を作る形へ更新した。
 - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-path-filetype-after.json -j 1 --dist web/dist --assert-io`: 7/7 pass。
 - `stdlib/std/fs.nepl`、`stdlib/std/fs/stat.nepl`、`stdlib/alloc/string/builder/types.nepl` の focused doctest も pass。
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T171024254Z BloomFilter free hasher Copy 契約)
+
+- `BloomFilter.free` / `CountingBloomFilter.free` が内部 `Vec<u8>` storage だけを解放し、hasher field `.H` を unconstrained のまま破棄できる問題を確認した。
+- 現行 collection cleanup は field-level Drop traversal を持たないため、両 free を constructor / update / query と同じ `.T: HashKey&Copy,.H: Hasher<.T>&Copy` 境界へ揃えた。
+- `tests/stdlib/collection_cleanup_contract.n.md` に、`Hasher<i32>` は実装するが `Copy` を実装しない `StatefulHasher` で両 free が `type.trait_bound.unsatisfied` になる regression を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-bloom-free-copy-contract.json -j 1 --dist web/dist --assert-io`: 14/14 pass
+  - `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/agent1-bloom-free-runtime-contract.json -j 1 --dist web/dist --assert-io`: 9/9 pass
