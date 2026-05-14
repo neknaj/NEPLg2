@@ -474,3 +474,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\stack_collections.n.md --no-tree -o tmp\agent1-stack-collections-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
 
 この issue はまだ open のまま継続する。Stack collections 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 ByteBuf result stdout report migration
+
+`tests/stdlib/bytebuf_result.n.md` の ByteBuf result focused doctest 6 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- ByteBuf / std io / fs / streamio の result roundtrip と allocation failure propagation を assertion label として stdout に残すようにした。
+- `Result` pattern を使う doctest に `core/result` を明示 import し、report helper と合わせて依存関係を fixture 上で明確にした。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\bytebuf_result.n.md --no-tree -o tmp\agent1-bytebuf-result-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
+
+この issue はまだ open のまま継続する。ByteBuf result 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

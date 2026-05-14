@@ -37708,3 +37708,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - Stack collections の 9 doctest を `ret: 1` による合否だけの表現から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
 - `new` / `push` / `len` / `peek` / `pop` / empty pop / `get` keeps stack / `pop_top` keeps stack / grow-clear-free reallocation の観測結果を assertion label として stdout に固定した。
 - `node nodesrc/tests.js -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/agent1-stack-collections-report-tests.json -j 1 --assert-io --dist web/dist` は total=9, passed=9。
+
+## 2026-05-14 Agent 1 ByteBuf result stdout report doctest migration
+
+- `work/bytebuf-result-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/stdlib/bytebuf_result.n.md` を更新した。
+- ByteBuf result の 6 doctest を `ret: 1` による合否だけの表現から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- ByteBuf / std io / fs / streamio の result roundtrip と allocation failure propagation を assertion label として stdout に固定した。
+- `Result` pattern を使う doctest に `core/result` を明示 import した。
+- `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuf-result-report-tests.json -j 1 --assert-io --dist web/dist` は total=6, passed=6。
