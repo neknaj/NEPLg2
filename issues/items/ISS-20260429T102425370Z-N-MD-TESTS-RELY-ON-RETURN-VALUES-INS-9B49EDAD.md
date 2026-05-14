@@ -883,3 +883,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - 実行時間は約233秒。timeout ではなく 52 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
 
 この issue はまだ open のまま継続する。Move check 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Type annotation stdout report migration
+
+`tests/compiler/typeannot.n.md` の type annotation 成功系 doctest 15 件を canonical `std/test` report へ移行した。
+
+移行内容:
+
+- literal、nested expression、let annotation、block expression、nested annotation、function call、complex expression、if expression、while condition、generic `Option<i32>`、deeply nested call、block/call/pipe/function literal mixed cases の観測値を assertion label として stdout に固定した。
+- 各 case は型注釈を通した後の値を `actual` または直接 assertion input とし、runner の `ret:` 復号だけでなく NEPL 側の検査結果として stdout に残すようにした。
+- この file には compile_fail fixture がないため、成功境界の stdout report 化に集中した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\typeannot.n.md --no-tree -o tmp\agent1-typeannot-report-tests.json -j 1 --assert-io --dist web/dist`: total=15, passed=15
+- 実行時間は約155秒。timeout ではなく 15 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
+
+この issue はまだ open のまま継続する。Type annotation 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

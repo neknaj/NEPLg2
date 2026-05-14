@@ -37922,3 +37922,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 各 case は検査対象の move / borrow / consume 操作を実行した後に `actual` を report へ流す形にし、report 化が Resource IR の検査対象を迂回しないようにした。
 - compile_fail 38 件は `resource.cell.*` / `resource.borrow.*` / `resource.borrow.return_escape` の拒否境界を維持するため変更していない。
 - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/agent1-move-check-report-tests.json -j 1 --assert-io --dist web/dist` は total=52, passed=52。約233秒だが timeout ではなく個別 compile 数が主因。
+
+## 2026-05-14 Agent 1 Type annotation stdout report doctest migration
+
+- `work/typeannot-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/typeannot.n.md` を更新した。
+- type annotation 成功系 doctest 15 件を canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- literal、nested expression、let annotation、block expression、nested annotation、function call、complex expression、if expression、while condition、generic `Option<i32>`、deeply nested call、block/call/pipe/function literal mixed cases の観測値を assertion label として stdout に固定した。
+- 各 case は型注釈を通した後の値を `actual` または直接 assertion input とし、runner の `ret:` 復号だけに依存しない形にした。
+- `node nodesrc/tests.js -i tests/compiler/typeannot.n.md --no-tree -o tmp/agent1-typeannot-report-tests.json -j 1 --assert-io --dist web/dist` は total=15, passed=15。約155秒だが timeout ではなく個別 compile 数が主因。
