@@ -38134,6 +38134,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/issues.js check --dir issues`: pass
 - `git diff --check`: pass
 
+# 2026-05-14 Agent 1 メモ (ISS-20260514T144143390Z collection cleanup contract 分割)
+
+- `RV-STDLIB-004` の現行 Copy-only collection cleanup 境界について、回帰テストが 1 つの compile-fail block にまとまり、個別 API の Copy bound regression を隠せる問題を確認した。
+- `tests/stdlib/collection_cleanup_contract.n.md` を collection family / API ごとに分割し、`Vec.clear` / `Vec.free` / Stack / Queue / Deque / RingBuffer / BinaryHeap / BTreeSet / BTreeMap key / BTreeMap value / List / HashMap value がそれぞれ単独で `type.trait_bound.unsatisfied` を要求するようにした。
+- これは non-Copy payload collection の完成ではなく、`OwnedBuffer<T>` / initialized prefix / drop traversal が完成するまで unsafe な generic cleanup 入口を再発させないための regression 精度改善である。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-collection-cleanup-contract.json -j 1 --dist web/dist --assert-io`: 12/12 pass
+
 # 2026-05-14 Agent 1 メモ (ISS-20260514T093715629Z ByteBuilder grow cleanup unreachable 削除)
 
 - Stage 6 の owner token 境界に合わせ、`byte_builder_realloc_region_or_free` の realloc failure cleanup から `#intrinsic "unreachable"` を削除した。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T14:26:30.665Z",
+  "generated_at": "2026-05-14T14:43:50.465Z",
   "counts": {
-    "total": 763,
+    "total": 764,
     "open": 5,
-    "resolved": 758,
+    "resolved": 759,
     "by_area": {
       "stdlib": {
-        "total": 198,
+        "total": 199,
         "open": 3,
-        "resolved": 195
+        "resolved": 196
       },
       "TEST": {
         "total": 21,
@@ -8893,6 +8893,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T103806044Z-VEC-PUSH-ERR-PAYLOAD-LOSES-VEC-AND-I-7E13FAD9.md"
+    },
+    {
+      "id": "ISS-20260514T144143390Z-COLLECTION-CLEANUP-CONTRACT-DOCTEST--971347AE",
+      "title": "collection cleanup contract doctest masks per-API regressions",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "tests/stdlib/collection_cleanup_contract.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T144143390Z-COLLECTION-CLEANUP-CONTRACT-DOCTEST--971347AE.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
