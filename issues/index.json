@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T23:37:30.705Z",
+  "generated_at": "2026-05-14T23:56:54.870Z",
   "counts": {
-    "total": 804,
+    "total": 805,
     "open": 8,
-    "resolved": 796,
+    "resolved": 797,
     "by_area": {
       "stdlib": {
-        "total": 229,
+        "total": 230,
         "open": 5,
-        "resolved": 224
+        "resolved": 225
       },
       "TEST": {
         "total": 21,
@@ -9493,6 +9493,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T223843320Z-STD-IO-DOCTEST-OMITS-EXPLICIT-IOTARG-12D221C3.md"
+    },
+    {
+      "id": "ISS-20260514T234418963Z-HASHMAP-AND-HASHSET-ROOT-FACADES-RE--68724B49",
+      "title": "HashMap and HashSet root facades re-export internal storage helpers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, nodesrc/test_stdlib_hashmap_storage_contract.js, nodesrc/test_stdlib_hashset_storage_contract.js, tests/stdlib/collection_cleanup_contract.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T234418963Z-HASHMAP-AND-HASHSET-ROOT-FACADES-RE--68724B49.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

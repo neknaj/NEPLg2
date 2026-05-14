@@ -22,7 +22,4 @@
 #indent 4
 
 pub #import "alloc/collections/hashset/types" as @merge
-pub #import "alloc/collections/hashset/storage" as @merge
-pub #import "alloc/collections/hashset/probe" as @merge
-pub #import "alloc/collections/hashset/rehash" as @merge
 pub #import "alloc/collections/hashset/api" as @merge

@@ -21,13 +21,8 @@
 //: - [最悪/さいあく]は probe が[全体/ぜんたい]を[走査/そうさ]して O(n) です。
 
 #indent 4
-#import "core/field" as *
-#import "core/math" as *
 
 pub #import "alloc/collections/hashmap/types" as @merge
-pub #import "alloc/collections/hashmap/storage" as @merge
-pub #import "alloc/collections/hashmap/probe" as @merge
-pub #import "alloc/collections/hashmap/rehash" as @merge
 pub #import "alloc/collections/hashmap/api" as @merge
 
 //: ## user-defined key と DefaultHash32
@@ -38,7 +33,9 @@ pub #import "alloc/collections/hashmap/api" as @merge
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashmap" as *
+//:| #import "alloc/string" as string
 //:| #import "core/field" as field
+//:| #import "core/math" as *
 //:| #import "core/traits/hash_key" as *
 //:| #import "core/traits/hash" as *
 //:| #import "core/traits/copy" as *
@@ -71,7 +68,7 @@ pub #import "alloc/collections/hashmap/api" as @merge
 //:     let ok <i32>:
 //:         match get &map1 (Point 10 20):
 //:             Option::Some name:
-//:                 if eq len name 5 0 1
+//:                 if eq string::len name 5 0 1
 //:             Option::None:
 //:                 1
 //:     free map1;

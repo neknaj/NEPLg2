@@ -406,6 +406,36 @@ fn main <()->i32> ():
     0
 ```
 
+## hashmap_root_facade_hides_storage_allocator
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap" as *
+
+fn main <()->i32> ():
+    hashmap_alloc_storage 4
+```
+
+## hashset_root_facade_hides_storage_allocator
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashset" as *
+
+fn main <()->i32> ():
+    hashset_alloc_storage 4
+```
+
 ## bloom_filter_free_rejects_non_copy_hasher
 
 neplg2:test[compile_fail]

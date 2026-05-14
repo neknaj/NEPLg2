@@ -449,3 +449,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 `StructConstructorPolicy` は definition に付くため、`struct OwnerBox<.T>: item <.T>` のような generic definition は policy 上は public のまま残る。しかし `OwnerBox<Vec<i32>>` は適用後に owner-backed aggregate になるため、constructor call 時の concrete result type を構造判定へ通して `OwnerAggregateConstructorBoundary` を要求するようにした。
 
 これにより constructor と field projection は同じ `target_contains_owner_backed_aggregate` に基づき、generic wrapper だけで collection owner / storage owner invariant を public source 側へ持ち出す経路を閉じる。親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 HashMap/HashSet facade 追記
+
+`ISS-20260514T234418963Z-HASHMAP-AND-HASHSET-ROOT-FACADES-RE--68724B49` として、`alloc/collections/hashmap` / `alloc/collections/hashset` の root safe facade が storage/probe/rehash implementation helper を public merge していた問題を分離して修正した。
+
+今回の修正では、root facade を public type/API の再公開に限定し、storage allocation や probing helper は implementation module の明示 import 境界だけで見えるようにした。これは compiler の owner-backed aggregate 構造判定を stdlib public surface 側から補強するものであり、safe root import から storage owner helper を直接呼べる経路を閉じる。
+
+この親 issue は raw-memory-backed stdlib API 全体の migration issue として open のまま継続する。残件は `OwnedBuffer<T>`、initialized cell、compiler-issued owner token、non-Copy payload drop traversal を含む最終 collection memory model である。

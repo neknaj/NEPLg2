@@ -33,7 +33,7 @@ function between(source, start, end) {
 const codes = Object.fromEntries(Object.entries(modulePaths).map(([name, relPath]) => [name, readCode(relPath)]));
 const allCode = Object.values(codes).join('\n');
 
-for (const submodule of ['types', 'storage', 'probe', 'rehash', 'api']) {
+for (const submodule of ['types', 'api']) {
     assert.match(
         codes.root,
         new RegExp(`pub\\s+#import\\s+"alloc/collections/hashmap/${submodule}"\\s+as\\s+@merge`),
@@ -41,10 +41,24 @@ for (const submodule of ['types', 'storage', 'probe', 'rehash', 'api']) {
     );
 }
 
+for (const submodule of ['storage', 'probe', 'rehash']) {
+    assert.doesNotMatch(
+        codes.root,
+        new RegExp(`pub\\s+#import\\s+"alloc/collections/hashmap/${submodule}"\\s+as\\s+@merge`),
+        `HashMap root facade must not publicly merge internal ${submodule}`,
+    );
+}
+
 assert.doesNotMatch(
     codes.root,
     /\b(fn|struct|enum)\s+\w+/,
     'HashMap root facade must not keep implementation bodies after module split',
+);
+
+assert.doesNotMatch(
+    codes.root,
+    /^\s*#import\s+/m,
+    'HashMap root facade must not keep private implementation imports',
 );
 
 const allocStorageStart = codes.storage.indexOf('fn hashmap_alloc_storage ');

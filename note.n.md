@@ -38596,3 +38596,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir typecheck_rejects_hashmap_owner_storage_field_projection_outside_boundary -- --nocapture`
   - `cargo test -p nepl-core owner_aggregate -- --nocapture`
   - `node nodesrc/test_static_check_boundary_responsibility.js`
+
+## 2026-05-15 Agent 1 HashMap/HashSet root facade boundary
+
+- `ISS-20260514T234418963Z-HASHMAP-AND-HASHSET-ROOT-FACADES-RE--68724B49` を追加して fixed にした。
+- `alloc/collections/hashmap` / `alloc/collections/hashset` root から `storage` / `probe` / `rehash` の public `@merge` re-export を削除した。
+- root facade は `types` と `api` だけを再公開し、`hashmap_alloc_storage` / `hashset_alloc_storage` などの storage owner helper は implementation module の明示 import 境界へ閉じた。
+- HashMap root doctest は `core/math` と `alloc/string` を明示 import し、root facade 経由の偶発的な private import visibility に依存しないようにした。
+- source policy は root が internal module を public merge しないこと、private implementation import を持たないことを検査する。
+- collection cleanup contract に root import だけでは storage allocator helper が `resolve.identifier.undefined` になる compile-fail regression を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_hashmap_storage_contract.js`
+  - `node nodesrc/test_stdlib_hashset_storage_contract.js`
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-hash-root-facade-cleanup.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/alloc/collections/hashset.nepl --no-tree -o tmp/agent1-hash-root-facade-modules.json -j 1 --dist web/dist --assert-io`
