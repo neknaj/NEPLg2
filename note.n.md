@@ -38342,3 +38342,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: pass
   - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-bloom-clear-copy-contract.json -j 1 --dist web/dist --assert-io`: 16/16 pass
   - `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/agent1-bloom-clear-runtime-contract.json -j 1 --dist web/dist --assert-io`: 9/9 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T183506445Z std/env/cliarg raw boundary)
+
+- `std/env/cliarg` root facade が `core/mem/raw` / `core/mem/internal` を直接 import し、`cliarg_get` 内で argv scratch allocation、raw address conversion、out pointer 初期化、`args_get`、raw slot load まで持っていた問題を修正した。
+- 根本原因は、`std/env/cliarg/raw.nepl` が raw ABI 境界として存在しているにもかかわらず、public root file が raw implementation の主要 control flow を保持していたこと。これでは Stage 6 の safe facade / explicit raw submodule 分離が `std/fs` / `std/stdio` と揃わない。
+- `cliarg_count_result` / `cliarg_get_checked` を `std/env/cliarg/raw` に追加し、root の `cliarg_count` / `cliarg_get` は qualified `cli_raw::...` へ委譲する thin facade にした。
+- `cstr_len` / `cstr_to_str` は root から暗黙に見せず、`std/env/cliarg/cstr` を明示 import する境界へ整理した。
+- cstr doctest は `alloc_ptr` owner を直接例示せず、`RegionToken<u8>` owner と `region_ptr` non-owning view で C string helper を呼ぶ形へ更新した。
+- 検証:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-root-raw-boundary-cliarg-tests.json -j 1 --dist web/dist --assert-io`: 6/6 pass
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl -i stdlib/std/env/cliarg/raw.nepl -i stdlib/std/env/cliarg/cstr.nepl --no-tree -o tmp/agent1-cliarg-root-raw-boundary-module-doctests.json -j 1 --dist web/dist --assert-io`: 5/5 pass

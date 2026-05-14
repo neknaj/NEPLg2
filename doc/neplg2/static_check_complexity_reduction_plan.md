@@ -33,6 +33,7 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860](../../issues/items/ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860.md): checked ResourceDropElaborationPlan を実 drop call 生成で消費し、旧 HIR VarState drop walker を削除する。
 - [ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C](../../issues/items/ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C.md): configured stdlib `alloc/string.nepl` と `alloc/string/storage.nepl` を exact raw-memory-boundary capability として扱う。
 - [ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52](../../issues/items/ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52.md): raw-memory-backed scanner / byte helper の Stage 5 boundary と Stage 6 public API 移行を整理する。
+- [ISS-20260514T183506445Z-STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B-C76C9E1E](../../issues/items/ISS-20260514T183506445Z-STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B-C76C9E1E.md): `std/env/cliarg` root facade と raw argv ABI boundary を分離する。
 - [ISS-20260514T051405052Z-STREAMSCANNER-HIDES-BUFFER-OWNER-BEH-0977B2E3](../../issues/items/ISS-20260514T051405052Z-STREAMSCANNER-HIDES-BUFFER-OWNER-BEH-0977B2E3.md): `StreamScanner.header` の raw `MemPtr` owner field を廃止し、ByteBuf owner と typed cursor storage へ分離する。
 - [ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F](../../issues/items/ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F.md): fs / stdio read scratch owner cleanup の Resource IR owner summary。
 - [ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8](../../issues/items/ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8.md): KP stream scanner float doctest runtime timeout。
@@ -383,6 +384,7 @@ commit 単位:
 - 2026-05-15: `ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84` を解決した。compiler typecheck は struct field 型を走査し、direct field に compiler owner token を含む public aggregate を `OwnerBackedAggregateBoundaryOnly` として分類する。`Vec<T>` などの特定名 allowlist ではなく、`RegionToken<T>` の restricted constructor policy と型形状から導出する。
 - 同修正で、owner-backed aggregate の direct constructor は `OwnerAggregateBoundary` source capability を持つ compiler-owned stdlib 実装 source に限定した。configured stdlib 配下でも無条件には付与せず、parsed source に aggregate constructor / field accessor の evidence がある場合だけ capability を付ける。user source では evidence があっても capability は付与せず、`type.owner_aggregate.constructor_restricted` を出す。
 - owner token field projection も field 型を解決した上で boundary 外では `type.owner_token.field_access_restricted` とするため、aggregate を経由して free obligation owner を forge / extract する経路を閉じた。`OwnerAggregateBoundary` は `RawMemoryBoundary` と分離しており、stdlib 実装 module が `Vec` / `ByteBuilder` などの owner aggregate を移動・再構築できても、raw memory operation authority までは広がらない。
+- 2026-05-15: `ISS-20260514T183506445Z-STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B-C76C9E1E` を解決した。`std/env/cliarg` root facade は `core/mem/raw` / `core/mem/internal` を直接 import せず、`cliarg_count` / `cliarg_get` は qualified `std/env/cliarg/raw` helper へ委譲する。argv scratch allocation、raw address conversion、out pointer 初期化、`args_get`、raw slot load は `cliarg_count_result` / `cliarg_get_checked` に集約し、C string helper は `std/env/cliarg/cstr` を明示 import する境界へ分けた。
 
 ### Stage 7: 旧 summary の削除
 
@@ -426,6 +428,7 @@ commit 単位:
 | `VEC-IN-PLACE-SORT-APIS-KEEP-PURE-EFF` | Stage 6 の Vec sort effect contract issue。 | 2026-05-15 に fixed。backing storage を書き換える sort helper / public in-place sort / raw slice sort / owner-returning sort wrapper を impure `*>` signature へ揃え、observer helper は pure のまま分離した。 |
 | `VEC-ROOT-FACADE-RE-EXPORTS-RAW-ELEME` | Stage 6 の Vec public/raw facade split issue。 | 2026-05-15 に fixed。root `alloc/collections/vec` から unchecked `vec/raw` re-export を外し、raw element helper は explicit `alloc/collections/vec/raw` import 境界へ閉じた。 |
 | `STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP` | Stage 6 の std fs/stdio public/raw facade split issue。 | 2026-05-15 に fixed。root `std/fs` と `std/stdio` から raw ABI submodule re-export を外し、WASI / LLVM syscall helper は explicit raw submodule import 境界へ閉じた。 |
+| `STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B` | Stage 6 の std env cliarg public/raw facade split issue。 | 2026-05-15 に fixed。root `std/env/cliarg` から raw argv scratch / out pointer 実装を外し、explicit `std/env/cliarg/raw` と `std/env/cliarg/cstr` 境界へ分離した。 |
 
 新しい個別 bug は、次の基準で追加する。
 

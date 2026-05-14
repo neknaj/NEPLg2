@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T18:27:53.367Z",
+  "generated_at": "2026-05-14T18:44:29.584Z",
   "counts": {
-    "total": 783,
+    "total": 784,
     "open": 7,
-    "resolved": 776,
+    "resolved": 777,
     "by_area": {
       "stdlib": {
-        "total": 215,
+        "total": 216,
         "open": 5,
-        "resolved": 210
+        "resolved": 211
       },
       "TEST": {
         "total": 21,
@@ -9193,6 +9193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T182018325Z-STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP-9492D2E7.md"
+    },
+    {
+      "id": "ISS-20260514T183506445Z-STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B-C76C9E1E",
+      "title": "std env cliarg root mixes raw argv boundary into public facade",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/env/cliarg.nepl, stdlib/std/env/cliarg/raw.nepl, stdlib/std/env/cliarg/cstr.nepl, stdlib/tests/cliarg.n.md, nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T183506445Z-STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B-C76C9E1E.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

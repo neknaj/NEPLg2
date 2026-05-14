@@ -22,6 +22,8 @@
 #import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
+#import "std/env/cliarg/cstr" as cstr
 
 pub struct CliArgSizes:
     argc <i32>
@@ -94,6 +96,131 @@ pub fn cli_load_u8_result <(MemPtr<u8>,i32)->Result<i32,i32>> (base, off):
             Result<i32,i32>::Ok b
         Option::None:
             Result<i32,i32>::Err 1
+
+//: cliarg_count_result: argc を raw argv 境界内で取得する
+//:
+//: 目的:
+//: - `std/env/cliarg` root facade が raw out pointer を直接扱わずに argc を取得できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - 8 byte の scratch 領域を確保し、`cli_args_sizes_result` で argc / buf_size を読みます。
+//: - scratch 領域は成功・失敗にかかわらずこの関数内で解放します。
+//:
+//: 注意(重要):
+//: - 失敗時は `Err(errno)` を返します。root public API はこの結果を 0 に丸めます。
+//:
+//: 計算量:
+//: - O(1)
+pub fn cliarg_count_result <()*>Result<i32,i32>> ():
+    match alloc_ptr<u8> 8:
+        Result::Err _:
+            Result<i32,i32>::Err 1
+        Result::Ok meta:
+            let res <Result<i32,i32>> match cli_args_sizes_result meta:
+                Result::Err e:
+                    Result<i32,i32>::Err e
+                Result::Ok sizes:
+                    let argc <i32> get sizes "argc"
+                    Result<i32,i32>::Ok argc
+            match dealloc_ptr<u8> meta 8:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            res
+
+//: cliarg_get_checked: argv[index] を raw argv 境界内で取得する
+//:
+//: 目的:
+//: - `std/env/cliarg` root facade から raw address / out pointer / scratch buffer の責務を分離します。
+//:
+//: 実装(アルゴリズム):
+//: - argc / argv byte size を取得し、argv pointer 配列と argv byte buffer を scratch 領域として確保します。
+//: - out pointer slot を 0 で初期化してから `args_get` を呼び、返された C string pointer を `cstr_to_str` で独立した `str` へコピーします。
+//: - scratch 領域は戻り値の `str` とは独立して、この関数内で必ず解放します。
+//:
+//: 注意(重要):
+//: - idx が範囲外、raw syscall 失敗、scratch 確保失敗、invalid pointer の場合は `None` を返します。
+//:
+//: 計算量:
+//: - O(total_bytes + len(argv[idx]))
+pub fn cliarg_get_checked <(i32)*>Option<str>> (idx):
+    match alloc_ptr<u8> 8:
+        Result::Err _:
+            none<str>
+        Result::Ok meta:
+            let res <Option<str>> match cli_args_sizes_result meta:
+                Result::Err _:
+                    none<str>
+                Result::Ok sizes:
+                    let argc <i32> get sizes "argc"
+                    let buf_size <i32> get sizes "buf_size"
+                    if:
+                        or ge idx argc le buf_size 0
+                        then:
+                            none<str>
+                        else:
+                            let argv_size <i32> mul argc 4
+                            match alloc_ptr<u8> argv_size:
+                                Result::Err _:
+                                    none<str>
+                                Result::Ok argv:
+                                    match alloc_ptr<u8> buf_size:
+                                        Result::Err _:
+                                            match dealloc_ptr<u8> argv argv_size:
+                                                Result::Ok _:
+                                                    ()
+                                                Result::Err _:
+                                                    ()
+                                            none<str>
+                                        Result::Ok argv_buf:
+                                            let argv_raw <i32> mem_ptr_addr argv
+                                            let argv_buf_raw <i32> mem_ptr_addr argv_buf
+                                            let arg_slot_raw <i32> add argv_raw mul idx 4
+                                            let inner <Option<str>> if:
+                                                or le argv_raw 0 le argv_buf_raw 0
+                                                then:
+                                                    none<str>
+                                                else:
+                                                    match cli_zero_i32_slots_result argv argv_size:
+                                                        Result::Err _:
+                                                            none<str>
+                                                        Result::Ok _:
+                                                            match cli_zero_u8_buffer_result argv_buf buf_size:
+                                                                Result::Err _:
+                                                                    none<str>
+                                                                Result::Ok _:
+                                                                    store_i32 arg_slot_raw 0
+                                                                    let errno2 <i32> args_get argv_raw argv_buf_raw
+                                                                    if:
+                                                                        ne errno2 0
+                                                                        then:
+                                                                            none<str>
+                                                                        else:
+                                                                            let arg_ptr <i32> load_i32 arg_slot_raw
+                                                                            if:
+                                                                                le arg_ptr 0
+                                                                                then:
+                                                                                    none<str>
+                                                                                else:
+                                                                                    some<str> cstr::cstr_to_str mem_ptr_wrap arg_ptr
+                                            match dealloc_ptr<u8> argv_buf buf_size:
+                                                Result::Ok _:
+                                                    ()
+                                                Result::Err _:
+                                                    ()
+                                            match dealloc_ptr<u8> argv argv_size:
+                                                Result::Ok _:
+                                                    ()
+                                                Result::Err _:
+                                                    ()
+                                            inner
+            match dealloc_ptr<u8> meta 8:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            res
 
 #if[target=llvm]
 pub fn __cli_copy_to_cstr <(str)*>Result<MemPtr<u8>,i32>> (s):

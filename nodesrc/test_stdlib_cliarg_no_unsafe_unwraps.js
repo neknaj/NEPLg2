@@ -39,11 +39,26 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(allCode, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
-assert.match(code, /#import\s+"std\/env\/cliarg\/raw"\s+as\s+\*/, 'cliarg root must import the raw argv boundary');
-assert.match(code, /#import\s+"std\/env\/cliarg\/cstr"\s+as\s+\*/, 'cliarg root must import the C string conversion boundary');
+assert.match(code, /#import\s+"std\/env\/cliarg\/raw"\s+as\s+cli_raw\b/, 'cliarg root must import the raw argv boundary only through a qualified namespace');
+assert.doesNotMatch(code, /#import\s+"std\/env\/cliarg\/cstr"/, 'cliarg root facade must not import or re-export the C string conversion boundary directly');
+assert.match(rawCode, /#import\s+"std\/env\/cliarg\/cstr"\s+as\s+cstr\b/, 'cliarg raw boundary must explicitly own the C string conversion dependency');
+assert.doesNotMatch(code, /#import\s+"core\/mem\/(?:raw|internal)"/, 'cliarg root facade must not import raw memory or raw address conversion modules directly');
+for (const pattern of [
+    /\bmem_ptr_addr\b/,
+    /\bmem_ptr_wrap\b/,
+    /\bstore_i32\b/,
+    /\bload_i32\b/,
+    /\bargs_get\b/,
+    /\bcli_zero_i32_slots_result\b/,
+    /\bcli_zero_u8_buffer_result\b/,
+]) {
+    assert.doesNotMatch(code, pattern, 'cliarg root facade must not perform argv raw scratch operations directly');
+}
 for (const pattern of [
     /\bfn\s+cli_load_u8_result\b/,
     /\bfn\s+cli_args_sizes_result\b/,
+    /\bfn\s+cliarg_count_result\b/,
+    /\bfn\s+cliarg_get_checked\b/,
     /\bfn\s+args_get\b/,
 ]) {
     assert.doesNotMatch(code, pattern, 'cliarg root must not keep raw argv boundary implementation bodies');
@@ -64,7 +79,8 @@ assert.doesNotMatch(allCode, /\bfn\s+cli_i32_ptr\b/, 'cliarg must not reintroduc
 assert.match(rawCode, /\b(?:store_i32|load_i32|store_u8|load_u8|mem_ptr_addr)\b/, 'cliarg raw argv implementation must carry source-level raw memory evidence');
 assert.match(cstrCode, /\bload_u8\b/, 'cliarg cstr conversion must carry source-level checked byte-load evidence');
 assert.match(rawCode, /fn\s+cli_args_sizes_result\s+<\(MemPtr<u8>\)\*>Result<CliArgSizes,i32>>\s+\(meta\):[\s\S]*store_i32\s+meta_raw\s+0[\s\S]*store_i32\s+add\s+meta_raw\s+4\s+0[\s\S]*args_sizes_get\s+meta_raw\s+add\s+meta_raw\s+4[\s\S]*load_i32\s+meta_raw[\s\S]*load_i32\s+add\s+meta_raw\s+4/, 'cliarg sizes must initialize and read WASI out pointers in one raw-address boundary');
-assert.match(code, /fn\s+cliarg_count\s+<\(\)\*>i32>\s+\(\):[\s\S]*cli_args_sizes_result\s+meta[\s\S]*get\s+sizes\s+"argc"/, 'cliarg_count must use the raw-address args_sizes boundary');
-assert.match(code, /fn\s+cliarg_get\s+<\(i32\)\*>Option<str>>\s+\(idx\):[\s\S]*cli_args_sizes_result\s+meta[\s\S]*cli_zero_i32_slots_result\s+argv\s+argv_size[\s\S]*cli_zero_u8_buffer_result\s+argv_buf\s+buf_size[\s\S]*store_i32\s+arg_slot_raw\s+0[\s\S]*args_get\s+argv_raw\s+argv_buf_raw[\s\S]*load_i32\s+arg_slot_raw/, 'cliarg_get must initialize argv scratch and read arg slots in one raw-address boundary');
+assert.match(rawCode, /fn\s+cliarg_get_checked\s+<\(i32\)\*>Option<str>>\s+\(idx\):[\s\S]*cli_args_sizes_result\s+meta[\s\S]*cli_zero_i32_slots_result\s+argv\s+argv_size[\s\S]*cli_zero_u8_buffer_result\s+argv_buf\s+buf_size[\s\S]*store_i32\s+arg_slot_raw\s+0[\s\S]*args_get\s+argv_raw\s+argv_buf_raw[\s\S]*load_i32\s+arg_slot_raw/, 'cliarg_get_checked must initialize argv scratch and read arg slots in one raw-address boundary');
+assert.match(code, /fn\s+cliarg_count\s+<\(\)\*>i32>\s+\(\):[\s\S]*cli_raw::cliarg_count_result/, 'cliarg_count must delegate to the raw argv boundary helper');
+assert.match(code, /fn\s+cliarg_get\s+<\(i32\)\*>Option<str>>\s+\(idx\):[\s\S]*cli_raw::cliarg_get_checked\s+idx/, 'cliarg_get must delegate argv scratch handling to the raw boundary helper');
 
 console.log('stdlib cliarg unsafe unwrap regression passed');

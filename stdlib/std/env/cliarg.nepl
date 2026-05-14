@@ -1,14 +1,9 @@
 #indent 4
 
-#import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "std/env/cliarg/cstr" as *
-#import "std/env/cliarg/raw" as *
-#import "core/field" as *
+#import "std/env/cliarg/raw" as cli_raw
 
 //: cliarg: コマンドライン引数取得（WASI / LLVM）
 //:
@@ -19,6 +14,7 @@
 //: - wasm は WASI `args_sizes_get/args_get` を使います。
 //: - llvm は Linux `/proc/self/cmdline` を syscall で読み、互換 `args_sizes_get/args_get` を実装します。
 //: - NUL 終端の文字列を [len][bytes] 形式の str にコピーします。
+//: - raw out pointer と scratch buffer の処理は `std/env/cliarg/raw` に閉じ、この root facade は public API の失敗時規約だけを持ちます。
 //:
 //: 注意(重要):
 //: - WASI ターゲット専用です（wasm では使用できません）。
@@ -60,25 +56,16 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     if eq cliarg_count () 3 0 1
 //: ```
 pub fn cliarg_count <()*>i32> ():
-    match alloc_ptr<u8> 8:
+    match cli_raw::cliarg_count_result ():
+        Result::Ok argc:
+            argc
         Result::Err _:
             0
-        Result::Ok meta:
-            let res <i32> match cli_args_sizes_result meta:
-                Result::Err _:
-                    0
-                Result::Ok sizes:
-                    get sizes "argc"
-            match dealloc_ptr<u8> meta 8:
-                Result::Ok _:
-                    ()
-                Result::Err _:
-                    ()
-            res
 
 //: cliarg_get: 指定 index の引数を取得する
 //:
@@ -129,82 +116,7 @@ pub fn cliarg_get <(i32)*>Option<str>> (idx):
         then:
             none<str>
         else:
-            match alloc_ptr<u8> 8:
-                Result::Err _:
-                    none<str>
-                Result::Ok meta:
-                    let res <Option<str>> match cli_args_sizes_result meta:
-                        Result::Err _:
-                            none<str>
-                        Result::Ok sizes:
-                            let argc <i32> get sizes "argc"
-                            let buf_size <i32> get sizes "buf_size"
-                            if:
-                                or ge idx argc le buf_size 0
-                                then:
-                                    none<str>
-                                else:
-                                    let argv_size <i32> mul argc 4
-                                    match alloc_ptr<u8> argv_size:
-                                        Result::Err _:
-                                            none<str>
-                                        Result::Ok argv:
-                                            match alloc_ptr<u8> buf_size:
-                                                Result::Err _:
-                                                    match dealloc_ptr<u8> argv argv_size:
-                                                        Result::Ok _:
-                                                            ()
-                                                        Result::Err _:
-                                                            ()
-                                                    none<str>
-                                                Result::Ok argv_buf:
-                                                    let argv_raw <i32> mem_ptr_addr argv
-                                                    let argv_buf_raw <i32> mem_ptr_addr argv_buf
-                                                    let arg_slot_raw <i32> add argv_raw mul idx 4
-                                                    let inner <Option<str>> if:
-                                                        or le argv_raw 0 le argv_buf_raw 0
-                                                        then:
-                                                            none<str>
-                                                        else:
-                                                            match cli_zero_i32_slots_result argv argv_size:
-                                                                Result::Err _:
-                                                                    none<str>
-                                                                Result::Ok _:
-                                                                    match cli_zero_u8_buffer_result argv_buf buf_size:
-                                                                        Result::Err _:
-                                                                            none<str>
-                                                                        Result::Ok _:
-                                                                            store_i32 arg_slot_raw 0
-                                                                            let errno2 <i32> args_get argv_raw argv_buf_raw
-                                                                            if:
-                                                                                ne errno2 0
-                                                                                then:
-                                                                                    none<str>
-                                                                                else:
-                                                                                    let arg_ptr <i32> load_i32 arg_slot_raw
-                                                                                    if:
-                                                                                        le arg_ptr 0
-                                                                                        then:
-                                                                                            none<str>
-                                                                                        else:
-                                                                                            some<str> cstr_to_str mem_ptr_wrap arg_ptr
-                                                    match dealloc_ptr<u8> argv_buf buf_size:
-                                                        Result::Ok _:
-                                                            ()
-                                                        Result::Err _:
-                                                            ()
-                                                    match dealloc_ptr<u8> argv argv_size:
-                                                        Result::Ok _:
-                                                            ()
-                                                        Result::Err _:
-                                                            ()
-                                                    inner
-                    match dealloc_ptr<u8> meta 8:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
-                    res
+            cli_raw::cliarg_get_checked idx
 
 //: cliarg_program: argv[0] を返す
 //:
@@ -239,6 +151,7 @@ pub fn cliarg_get <(i32)*>Option<str>> (idx):
 //:| #import "std/env/cliarg" as *
 //:| #import "alloc/string" as *
 //:| #import "core/option" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     match cliarg_program ():
 //:         Option::Some arg:
