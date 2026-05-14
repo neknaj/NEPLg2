@@ -72,6 +72,7 @@ pub fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (
 //:
 //: ### [注意/ちゅうい]
 //: - `filter` と[違/ちが]い、[途中/とちゅう]で `p` が false になったら[残/のこ]りは[見/み]ません。
+//: - [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]も入力 `Vec<.T>` は `VecTransformError` に[戻/もど]ります。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(k) ただし k は[最初/さいしょ]に false になるまでの[走査/そうさ]と[複写/ふくしゃ]を[含/ふく]む
@@ -98,20 +99,19 @@ pub fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (
 //:     free<i32> ys;
 //:     if ok 0 1
 //: ```
-pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let keep_len <i32> vec_take_while_len<.T> &v src_len p
     match vec_storage::with_capacity<.T> keep_len:
         Result::Err e:
-            vec_cleanup::free<.T> v
-            Result::Err<Vec<.T>, StdErrorKind> e
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
             let out_storage <VecStorageState> *field::get_ref &out0 "storage"
             let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
             vec_copy_range_to_raw<.T> &v out_data 0 keep_len
             vec_cleanup::free<.T> v
-            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_storage field::get out0 "region"
+            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> keep_len out_cap out_storage field::get out0 "region"
 
 //: drop_while: [条件/じょうけん]が[成/な]り[立/た]つ[先頭/せんとう][連続部分/れんぞくぶぶん]を[捨/す]てる
 //:
@@ -123,6 +123,7 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKin
 //:
 //: ### [注意/ちゅうい]
 //: - [全要素/ぜんようそ]が `p` を[満/み]たす[場合/ばあい]は[空/から] `Vec` を[返/かえ]します。
+//: - [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]も入力 `Vec<.T>` は `VecTransformError` に[戻/もど]ります。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -155,18 +156,17 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKin
 //:             free<i32> ys;
 //:             1
 //: ```
-pub fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+pub fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let drop_len <i32> vec_take_while_len<.T> &v src_len p
     let keep_len <i32> sub src_len drop_len
     match vec_storage::with_capacity<.T> keep_len:
         Result::Err e:
-            vec_cleanup::free<.T> v
-            Result::Err<Vec<.T>, StdErrorKind> e
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
             let out_storage <VecStorageState> *field::get_ref &out0 "storage"
             let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
             vec_copy_range_to_raw<.T> &v out_data drop_len keep_len
             vec_cleanup::free<.T> v
-            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_storage field::get out0 "region"
+            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> keep_len out_cap out_storage field::get out0 "region"

@@ -32,7 +32,8 @@
 //: - [入力/にゅうりょく][順序/じゅんじょ]は[維持/いじ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.T>, StdErrorKind>` を[返/かえ]します。
+//: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.T>, VecTransformError<.T>>` を[返/かえ]します。
+//: - [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]も入力 `Vec<.T>` は `VecTransformError` に[戻/もど]ります。
 //: - `p` は `(.T)->bool` の[純粋/じゅんすい][関数/かんすう]です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -62,7 +63,7 @@
 //:     free<i32> zs;
 //:     if ok 0 1
 //: ```
-pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let mut keep_len <i32> 0
     let mut i <i32> 0
@@ -78,8 +79,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
             set i add i 1
     match vec_storage::with_capacity<.T> keep_len:
         Result::Err e:
-            vec_cleanup::free<.T> v
-            Result::Err<Vec<.T>, StdErrorKind> e
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
             let out_storage <VecStorageState> *field::get_ref &out0 "storage"
@@ -100,7 +100,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
                             ()
                     set read_i add read_i 1
             vec_cleanup::free<.T> v
-            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_storage field::get out0 "region"
+            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> keep_len out_cap out_storage field::get out0 "region"
 
 //: partition: [条件/じょうけん]で 2 [群/ぐん]に[分/わ]ける
 //:
@@ -113,7 +113,8 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
 //: - [入力/にゅうりょく][順序/じゅんじょ]は[両方/りょうほう]の[出力/しゅつりょく]で[維持/いじ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - 2 [本/ほん]の[新規/しんき] `Vec` を[確保/かくほ]するので `Result<VecPartition<.T>, StdErrorKind>` を[返/かえ]します。
+//: - 2 [本/ほん]の[新規/しんき] `Vec` を[確保/かくほ]するので `Result<VecPartition<.T>, VecTransformError<.T>>` を[返/かえ]します。
+//: - [途中/とちゅう]で[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]、入力 `Vec<.T>` owner は error payload に[戻/もど]ります。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -144,7 +145,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
 //:     free<i32> rest;
 //:     if ok 0 1
 //: ```
-pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
+pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, VecTransformError<.T>>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let mut left_len <i32> 0
     let mut i <i32> 0
@@ -161,14 +162,12 @@ pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, Std
     let right_len <i32> sub src_len left_len
     match vec_storage::with_capacity<.T> left_len:
         Result::Err e:
-            vec_cleanup::free<.T> v
-            Result::Err<VecPartition<.T>, StdErrorKind> e
+            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v e
         Result::Ok left0:
             match vec_storage::with_capacity<.T> right_len:
                 Result::Err e:
                     vec_cleanup::free<.T> left0
-                    vec_cleanup::free<.T> v
-                    Result::Err<VecPartition<.T>, StdErrorKind> e
+                    Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v e
                 Result::Ok right0:
                     let left_cap <i32> *field::get_ref &left0 "cap"
                     let left_storage <VecStorageState> *field::get_ref &left0 "storage"
@@ -195,4 +194,4 @@ pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, Std
                                     ()
                             set read_i add read_i 1
                     vec_cleanup::free<.T> v
-                    Result::Ok<VecPartition<.T>, StdErrorKind> VecPartition<.T> (Vec<.T> left_len left_cap left_storage field::get left0 "region") (Vec<.T> right_len right_cap right_storage field::get right0 "region")
+                    Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> left_len left_cap left_storage field::get left0 "region") (Vec<.T> right_len right_cap right_storage field::get right0 "region")

@@ -34,7 +34,8 @@
 //: - [出力/しゅつりょく] `Vec` の `len` は[最後/さいご]に[確定/かくてい]させ、[途中/とちゅう]で[再確保/さいかくほ]を[発生/はっせい]させません。
 //:
 //: ### [注意/ちゅうい]
-//: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.U>, StdErrorKind>` を[返/かえ]します。
+//: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.U>, VecTransformError<.T>>` を[返/かえ]します。
+//: - [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]も入力 `Vec<.T>` は `VecTransformError` に[戻/もど]ります。
 //: - `f` は `(.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -68,12 +69,11 @@
 //:             free<i32> ys;
 //:             1
 //: ```
-pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
+pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, VecTransformError<.T>>> (v, f):
     let src_len <i32> *field::get_ref &v "len"
     match vec_storage::with_capacity<.U> src_len:
         Result::Err e:
-            vec_cleanup::free<.T> v
-            Result::Err<Vec<.U>, StdErrorKind> e
+            Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
             let out_storage <VecStorageState> *field::get_ref &out0 "storage"
@@ -88,4 +88,4 @@ pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKin
                             ()
                     set i add i 1
             vec_cleanup::free<.T> v
-            Result::Ok<Vec<.U>, StdErrorKind> Vec<.U> src_len out_cap out_storage field::get out0 "region"
+            Result::Ok<Vec<.U>, VecTransformError<.T>> Vec<.U> src_len out_cap out_storage field::get out0 "region"

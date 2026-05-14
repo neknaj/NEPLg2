@@ -38134,6 +38134,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/issues.js check --dir issues`: pass
 - `git diff --check`: pass
 
+# 2026-05-14 Agent 1 メモ (ISS-20260514T144624264Z Vec transform owner-preserving failure)
+
+- `Vec.map` / `filter` / `partition` / `take_while` / `drop_while` が owner-consuming かつ fallible でありながら、allocation failure で入力 `Vec` owner を内部で free し、`StdErrorKind` だけを返していることを確認した。
+- `VecTransformError<T>` を導入し、transform family の `Err` payload が入力 `Vec<T>` owner と error kind を保持する形に統一した。
+- `partition` の 2 本目の出力確保失敗では、部分出力 `left0` は内部で free し、入力 `v` は `VecTransformError<T>` で caller に戻す。
+- source policy で `map` / `filter` / `partition` / `take_while` / `drop_while` の owner-preserving failure contract を固定した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform -i stdlib/tests/vec.n.md -i tests/compiler/list_dot_map.n.md --no-tree -o tmp/agent1-vec-transform-owner-error.json -j 1 --dist web/dist --assert-io`: 15/15 pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec --no-tree -o tmp/agent1-vec-transform-owner-error-module.json -j 1 --dist web/dist --assert-io`: 41/41 pass
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md -i tests/stdlib/sort.n.md -i tests/stdlib/sort_simple.n.md --no-tree -o tmp/agent1-vec-transform-owner-error-stdlib.json -j 1 --dist web/dist --assert-io`: 27/27 pass
+
 # 2026-05-14 Agent 1 メモ (ISS-20260514T144143390Z collection cleanup contract 分割)
 
 - `RV-STDLIB-004` の現行 Copy-only collection cleanup 境界について、回帰テストが 1 つの compile-fail block にまとまり、個別 API の Copy bound regression を隠せる問題を確認した。

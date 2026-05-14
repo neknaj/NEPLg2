@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T14:43:50.465Z",
+  "generated_at": "2026-05-14T14:55:11.617Z",
   "counts": {
-    "total": 764,
+    "total": 765,
     "open": 5,
-    "resolved": 759,
+    "resolved": 760,
     "by_area": {
       "stdlib": {
-        "total": 199,
+        "total": 200,
         "open": 3,
-        "resolved": 196
+        "resolved": 197
       },
       "TEST": {
         "total": 21,
@@ -8908,6 +8908,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T144143390Z-COLLECTION-CLEANUP-CONTRACT-DOCTEST--971347AE.md"
+    },
+    {
+      "id": "ISS-20260514T144624264Z-VEC-TRANSFORM-ERR-PATHS-DESTROY-CONS-7BB8707C",
+      "title": "Vec transform Err paths destroy consumed owner instead of returning it",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/collections/vec/transform/**, stdlib/alloc/collections/vec/types.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T144624264Z-VEC-TRANSFORM-ERR-PATHS-DESTROY-CONS-7BB8707C.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

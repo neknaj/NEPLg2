@@ -15,6 +15,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "core/field" as field
 
 //: ## VecStorageState
 //: `Vec` の backing storage owner state
@@ -83,6 +84,27 @@ pub struct Vec<.T>:
 pub struct VecPushError<.T>:
     vec <Vec<.T>>
     error <StdErrorKind>
+
+//: ## VecTransformError
+//: `Vec` の owner-consuming transform が[失敗/しっぱい]したときに、入力 owner を[返/かえ]す error payload
+//:
+//: ### [目的/もくてき]
+//: - `map` / `filter` / `partition` / `take_while` / `drop_while` は入力 `Vec<.T>` を[消費/しょうひ]して新しい collection を[作/つく]ります。
+//: - [途中/とちゅう]の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]でも、入力 `Vec<.T>` owner を `Err` payload に[戻/もど]し、caller が cleanup、再試行、診断を[選/えら]べるようにします。
+//: - `StdErrorKind` だけを[返/かえ]して内部で入力を[破棄/はき]すると、owner の[行方/ゆくえ]が API 型に[現/あらわ]れないため、この型で明示します。
+pub struct VecTransformError<.T>:
+    vec <Vec<.T>>
+    error <StdErrorKind>
+
+//: ## vec_transform_error_kind
+//: transform [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
+pub fn vec_transform_error_kind <.T> <(&VecTransformError<.T>)->StdErrorKind> (e):
+    *field::get_ref e "error"
+
+//: ## vec_transform_error_vec
+//: transform [失敗/しっぱい]で[戻/もど]された入力 `Vec` owner を[取/と]り[出/だ]す
+pub fn vec_transform_error_vec <.T> <(VecTransformError<.T>)->Vec<.T>> (e):
+    field::get e "vec"
 
 //: ## VecPop
 //: `pop` の結果を名前付き field で返す構造です。
