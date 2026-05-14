@@ -38498,3 +38498,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/agent1-owner-aggregate-split-vec.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-owner-aggregate-split-byte.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-owner-aggregate-split-memory-safety.json -j 1 --dist web/dist --assert-io`
+
+## 2026-05-15 Agent 1 Vec empty Copy-only boundary
+
+- `ISS-20260514T215003679Z-VEC-EMPTY-CONSTRUCTOR-ACCEPTS-NON-CO-258C7574` を追加して fixed にした。
+- `vec_empty<T>` は runtime allocation を持たないが、public `Vec<T>` owner aggregate を作るため、現行の Copy-only collection cleanup contract では `.T: Copy` に限定した。
+- `CleanupPayload` で `vec_empty<CleanupPayload>` を呼ぶ compile-fail regression を `tests/stdlib/collection_cleanup_contract.n.md` に追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` で `vec_empty<T: Copy>` と doc contract を監視するようにした。

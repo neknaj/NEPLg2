@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T21:36:43.382Z",
+  "generated_at": "2026-05-14T21:58:19.621Z",
   "counts": {
-    "total": 796,
+    "total": 797,
     "open": 8,
-    "resolved": 788,
+    "resolved": 789,
     "by_area": {
       "stdlib": {
-        "total": 224,
+        "total": 225,
         "open": 5,
-        "resolved": 219
+        "resolved": 220
       },
       "TEST": {
         "total": 21,
@@ -9388,6 +9388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T204735670Z-VEC-SORT-FACADE-RE-EXPORTS-RAW-MEMPT-6646B4EF.md"
+    },
+    {
+      "id": "ISS-20260514T215003679Z-VEC-EMPTY-CONSTRUCTOR-ACCEPTS-NON-CO-258C7574",
+      "title": "Vec empty constructor accepts non-Copy payload without drop contract",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/vec/storage/view.nepl, tests/stdlib/collection_cleanup_contract.n.md, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T215003679Z-VEC-EMPTY-CONSTRUCTOR-ACCEPTS-NON-CO-258C7574.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

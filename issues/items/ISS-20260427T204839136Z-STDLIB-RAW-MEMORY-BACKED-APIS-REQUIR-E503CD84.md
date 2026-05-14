@@ -399,3 +399,11 @@ owner aggregate constructor capability は owner-backed aggregate constructor �
 今回の修正では `SourceCapability::OwnerAggregateBoundary` を削除し、`OwnerAggregateConstructorBoundary` と `OwnerAggregateFieldBoundary` に分けた。source evidence walker は constructor-like evidence と field accessor evidence を別々に判定し、loader は対応する capability だけを付与する。typecheck 側も direct constructor と owner token field projection で別 method を見るため、field accessor evidence だけの source が constructor 権限まで得たり、constructor evidence だけの source が owner token projection 権限まで得たりしない。
 
 この修正は Stage 6 の compiler 側 source proof 精度を上げるものであり、stdlib public API の最終移行ではない。親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 Vec empty Copy-only boundary 追記
+
+`ISS-20260514T215003679Z-VEC-EMPTY-CONSTRUCTOR-ACCEPTS-NON-CO-258C7574` として、`Vec` の zero-allocation public constructor `vec_empty<T>` が non-Copy payload を受け入れていた問題を分離して修正した。
+
+Empty state は runtime allocation を持たないが、public API としては `VecStorageState::Empty` と private `RegionToken<T>` sentinel を持つ `Vec<T>` owner aggregate を生成する。`Vec.free` / `clear` / `push` / `pop` / raw element helper は現行 `OwnedBuffer<T>` 未完成のため Copy-only に閉じているので、`vec_empty<T>` だけを generic に残すと raw-memory-backed collection migration の safe surface が unsupported `Vec<NonCopyPayload>` を作れてしまう。
+
+今回の修正では `vec_empty<T: Copy>` とし、collection cleanup contract の compile-fail regression と source policy で固定した。これは Stage 6 の中間安全境界であり、親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行が残るため open のまま継続する。

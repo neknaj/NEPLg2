@@ -50,6 +50,27 @@ fn main <()->i32> ():
     0
 ```
 
+## vec_empty_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn make_empty_vec <()->Vec<CleanupPayload>> ():
+    vec_empty<CleanupPayload>
+
+fn main <()->i32> ():
+    0
+```
+
 ## stack_free_rejects_non_copy_payload
 
 neplg2:test[compile_fail]

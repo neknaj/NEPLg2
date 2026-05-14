@@ -26,5 +26,11 @@ fn vec_empty_region <.T> <()->RegionToken<.T>> ():
 //:
 //: ### [目的/もくてき]
 //: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorageState::Empty` で空 storage を[表/あらわ]します。
-pub fn vec_empty <.T> <()->Vec<.T>> ():
+//: - `OwnedBuffer<T>` と initialized prefix drop traversal が[完成/かんせい]するまでは、`Vec<T>` 自体も `.T: Copy` の public collection owner としてだけ[作/つく]ります。
+//:
+//: ### [制約/せいやく]
+//: - Empty state は runtime allocation を[持/も]ちませんが、返り[値/ち]は `RegionToken<T>` sentinel を[含/ふく]む `Vec<T>` owner aggregate です。
+//: - non-Copy payload を[許/ゆる]すと、後続の `free` / `clear` / `push` / `pop` が扱えない `Vec<NonCopyPayload>` を safe surface へ[出/だ]せます。
+//: - non-Copy collection は、compiler-issued owner token と initialized/moved/drop state による `OwnedBuffer<T>` 設計へ[移行/いこう]してから別 API として[解禁/かいきん]します。
+pub fn vec_empty <.T: Copy> <()->Vec<.T>> ():
     Vec<.T> 0 0 VecStorageState::Empty vec_empty_region<.T>
