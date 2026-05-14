@@ -38520,3 +38520,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/std/env/cliarg/cstr.nepl -i stdlib/std/env/cliarg/raw.nepl --no-tree -o tmp/agent1-string-raw-facade-cliarg-modules.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/agent1-string-raw-facade-streamio.json -j 1 --dist web/dist --assert-io`
 - `stdlib/tests/string.n.md` broad run は 7/9 pass。今回更新した raw UTF-8 memory case は pass し、残る 2 件は stale import assumptions として `ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303` に分離した。
+
+## 2026-05-15 Agent 1 stdlib string doctest import drift
+
+- `ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303` を fixed にした。
+- `stdlib/tests/string.n.md` の `string_find_byte_index` doctest は `Result<(),str>` を使うため `core/result` を明示 import した。
+- `string_to_f64_parser` doctest は `cast` を使うため `core/cast` を明示 import した。
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/agent1-string-doctest-import-drift.json -j 1 --dist web/dist --assert-io`: 9/9 pass。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T22:19:56.884Z",
+  "generated_at": "2026-05-14T22:26:48.219Z",
   "counts": {
     "total": 799,
-    "open": 9,
-    "resolved": 790,
+    "open": 8,
+    "resolved": 791,
     "by_area": {
       "stdlib": {
         "total": 227,
-        "open": 6,
-        "resolved": 221
+        "open": 5,
+        "resolved": 222
       },
       "TEST": {
         "total": 21,
@@ -223,21 +223,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303",
-      "title": "stdlib string doctests retain stale import assumptions",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-14",
-      "updated": "2026-05-14",
-      "target": "stdlib/tests/string.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303.md"
     },
     {
       "id": "ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8",
@@ -11908,6 +11893,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T071055890Z-SELFHOST-REQ-DOCTESTS-STILL-RELY-ON--F9CC30E7.md"
+    },
+    {
+      "id": "ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303",
+      "title": "stdlib string doctests retain stale import assumptions",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/tests/string.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",

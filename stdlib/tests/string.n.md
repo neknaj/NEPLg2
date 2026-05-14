@@ -120,6 +120,7 @@ ret: 0
 
 #import "alloc/string" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "std/test" as *
 
 fn expect_find_some <(str,Option<i32>,i32)*>Result<(),str>> (label, got, expected):
@@ -272,6 +273,7 @@ ret: 0
 
 #import "alloc/string" as *
 #import "alloc/collections/vec" as *
+#import "core/cast" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "std/test" as *
