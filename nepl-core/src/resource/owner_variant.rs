@@ -686,6 +686,19 @@ fn apply_pending_variant_owner_return(
         } => {
             let source = pending_return_source(entry, raw_aliases)?;
             if owners.has_transferable_owner(&target) {
+                if !places_overlap(&source, &target)
+                    && engine.has_transferable_owner(owners, raw_aliases, &source)
+                {
+                    engine.move_owner_out(
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        &source,
+                        ResourceOwnerOperation::ReturnValue,
+                        span,
+                    );
+                    raw_views.clear(&source);
+                }
                 return Some(source);
             }
             if let Some(requirement) = extent_requirement {

@@ -69,3 +69,29 @@ Run node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex
 
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/agent1-vec-push-owner-error-neplg2-module-graph-final.json -j 1 --dist web/dist --assert-io`: total=3, errored=3, compile timeout
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-vec-push-owner-error-neplg2-lexer-final.json -j 1 --dist web/dist --assert-io`: partial run, timeout / owner diagnostics observed before later local error-path cleanup
+
+## 2026-05-14 ResourceIR recursive variant owner fix checkpoint
+
+`Result<Vec<T>, E>` を返す再帰関数で、callee の戻り値を caller がそのまま返す場合に、variant return target 側へ owner marker が既に存在すると元引数の owner leaf が未消費のまま残ることを reduced regression で再現した。これは `lex_all_loop` / `lex_line_start` のように `Result<Vec<SelfhostToken>, LexDiagnostic>` を相互再帰で受け渡す経路と同じ形で、`resource.owner.maybe_leak` の直接原因だった。
+
+修正では pending variant owner return の materialize 時に、target に owner が既にあっても source が別 place でまだ transferable なら source を move-out するようにした。これにより、variant payload によって所有権が戻り値へ遅延移動される場合でも、元引数を caller 側に生かしたままにしない。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_recursive_vec_result_err_does_not_keep_inactive_ok_owner -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_vec_push_error_owner_does_not_leak_through_result_err -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result_variant_owner_return -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_prefers_live_return_owner_over_moved_source_alias -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument -- --nocapture`: passed
+- `trunk build`: passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tmp/agent1_probe_lex_empty.n.md --no-tree --dist web/dist -o tmp/agent1_probe_lex_empty_after_owner_variant_fix.json -j 1 --assert-io`: total=1, passed=1
+
+残件:
+
+- `tests/stdlib/neplg2_module_graph.n.md` は default 60000ms budget ではまだ compile timeout する。
+- ただし `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/run_doctest.js -i tests/stdlib/neplg2_module_graph.n.md -n 1 --dist web/dist` は passed で、`compile_ms=65262`, `run_ms=17`。
+- `-n 2` は passed で、`compile_ms=68010`, `run_ms=16`。
+- `-n 3` は passed で、`compile_ms=68373`, `run_ms=14`。
+- native stage timing では case 1 の `resource_static_check=36544ms`、主な内訳は `resource_initialized_raw_init_summaries=15828ms`, `resource_initialized_moves=18160ms`, `resource_owner_summaries=9421ms`, `resource_owner_obligations=9908ms`, `resource_effect_boundaries=6367ms`。
+
+したがって、owner diagnostic blocker は解消したが、この issue はまだ close しない。残りは runtime や出力 wasm の問題ではなく、selfhost graph/import stack を含む大きめの入力で ResourceIR / initialized / owner / effect の静的検査が wasm runner の default 60s budget を超える性能問題として継続調査する。

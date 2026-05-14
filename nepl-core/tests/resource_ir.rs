@@ -11172,6 +11172,122 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_vec_push_error_owner_does_not_leak_through_result_err() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn push_or_error <(Vec<i32>,i32)*>Result<Vec<i32>,str>> (items, item):
+    match push<i32> items item:
+        Result::Ok out:
+            Result<Vec<i32>,str>::Ok out
+        Result::Err err:
+            let returned <Vec<i32>> vec_push_error_vec<i32> err
+            free<i32> returned
+            Result<Vec<i32>,str>::Err "oom"
+
+fn main <()*>()> ():
+    let items <Vec<i32>> unwrap_ok new<i32>
+    match push_or_error items 1:
+        Result::Ok out:
+            free<i32> out
+        Result::Err _err:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("push_or_error__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Vec.push failure payload must not leave an inactive Result::Ok owner live on the Err return path: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_recursive_vec_result_err_does_not_keep_inactive_ok_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/result" as *
+
+fn step_a <(i32,Vec<i32>)*>Result<Vec<i32>,str>> (n, items):
+    if:
+        le n 0
+        then:
+            Result<Vec<i32>,str>::Ok items
+        else:
+            match push<i32> items n:
+                Result::Ok out:
+                    step_b sub n 1 out
+                Result::Err err:
+                    let returned <Vec<i32>> vec_push_error_vec<i32> err
+                    free<i32> returned
+                    Result<Vec<i32>,str>::Err "oom"
+
+fn step_b <(i32,Vec<i32>)*>Result<Vec<i32>,str>> (n, items):
+    if:
+        le n 0
+        then:
+            Result<Vec<i32>,str>::Ok items
+        else:
+            step_a n items
+
+fn main <()*>()> ():
+    let items <Vec<i32>> unwrap_ok new<i32>
+    match step_a 2 items:
+        Result::Ok out:
+            free<i32> out
+        Result::Err _err:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("step_a__")
+                || function.starts_with("step_b__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "recursive Result<Vec<_>, _> summaries must not keep inactive Ok payload owners live on Err paths: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm() {
     let source = r#"
 #entry main
