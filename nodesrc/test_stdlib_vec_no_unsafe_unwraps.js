@@ -178,6 +178,8 @@ assert.doesNotMatch(vecStorageRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'v
 for (const name of ['vec_empty', 'vec_storage_mem_ptr']) {
     assert.match(vecStorageViewCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/view.nepl must own ${name}`);
 }
+assert.match(vecStorageViewCode, /pub\s+fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>/, 'Vec.empty typed constructor must remain public');
+assert.doesNotMatch(vecStorageViewCode, /pub\s+fn\s+vec_empty_region\b/, 'Vec empty RegionToken sentinel helper must remain private to storage/view.nepl');
 for (const name of ['vec_alloc_empty', 'new', 'with_capacity']) {
     assert.match(vecStorageAllocCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/alloc.nepl must own ${name}`);
 }
@@ -299,7 +301,7 @@ for (const relPath of [
     assert.match(readImplementation(relPath), rawBoundaryEvidencePattern, `${relPath} must carry source-level raw memory boundary evidence`);
 }
 assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*region\s+<RegionToken<\.T>>/, 'Vec must keep free obligation in a RegionToken field and not in a raw MemPtr field');
-assert.match(vecCode, /fn\s+vec_empty_region\s+<\.T>\s+<\(\)->RegionToken<\.T>>[\s\S]*region_new\s+ptr\s+0[\s\S]*fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+vec_empty_region<\.T>/, 'Vec.empty must construct typed Empty storage with a zero-length RegionToken sentinel');
+assert.match(vecCode, /fn\s+vec_empty_region\s+<\.T>\s+<\(\)->RegionToken<\.T>>[\s\S]*region_new\s+ptr\s+0[\s\S]*pub\s+fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+vec_empty_region<\.T>/, 'Vec.empty must construct typed Empty storage with a private zero-length RegionToken sentinel');
 assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T:\s*Copy>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*alloc_region<\.T>\s+requested_cap[\s\S]*VecStorageState::Owned\s+region/, 'Vec empty construction must use Empty for zero capacity, Owned for allocated RegionToken storage, and remain Copy-only');
 assert.match(vecCode, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*vec_alloc_empty<\.T>\s+8/, 'Vec.new must remain Copy-only until non-Copy cleanup exists');
 assert.match(vecStorageAllocSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*new<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*with_capacity<NonCopyPayload>/, 'Vec allocation constructors must reject non-Copy payloads in doctests');

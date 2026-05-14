@@ -255,3 +255,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `VecStorageState::Empty` は allocation を持たない状態であり、zero-size `RegionToken<T>` sentinel を owner-consuming `dealloc_region` へ渡すべきではない。修正後の `vec_free_storage<T>` は `Empty` を no-op、`Owned` を `dealloc_region` として分岐するため、raw-memory-backed public API の過渡設計でも owner obligation の有無が `VecStorageState` の enum に現れる。
 
 これは `RegionToken<T>` を compiler-issued token へ置き換える最終修正ではないため、この親 issue は open のまま継続する。次の主対象は `OwnedBuffer<T>` / initialized prefix / forged token API 廃止である。
+
+## 2026-05-15 Agent 1 Vec empty sentinel helper private 化追記
+
+`ISS-20260514T155620178Z-VEC-EMPTY-REGIONTOKEN-SENTINEL-HELPE-B3CF72E9` で、`vec_empty_region<T>` を public API から外した。
+
+`vec_empty_region<T>` は `VecStorageState::Empty` を現行 struct layout に載せるための内部 helper であり、raw-memory-backed public API として公開すると caller が `RegionToken<T>` sentinel construction に依存できてしまう。修正後は `vec_empty<T>` だけを public typed constructor とし、zero-size sentinel helper は `storage/view.nepl` 内部に閉じる。
+
+これは `RegionToken<T>` の forgeability 全体を閉じる修正ではないが、Stage 6 の public surface から不要な owner-token constructor を 1 つ減らす前進である。親 issue は `OwnedBuffer<T>` / compiler-issued token への移行が残るため open のまま継続する。

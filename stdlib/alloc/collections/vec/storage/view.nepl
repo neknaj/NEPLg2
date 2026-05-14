@@ -11,15 +11,21 @@
 #import "core/traits/copy" as *
 #import "../types" as *
 
+//: ## vec_empty_region
+//: allocation を[持/も]たない `VecStorageState::Empty` 用の内部 sentinel を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - `Vec` の struct layout が `region` field を要求する過渡期間だけ、zero-size `RegionToken` を内部で[組/く]み[立/た]てます。
+//: - public API には出さず、caller は `vec_empty` / `with_capacity 0` の typed empty state を[使/つか]います。
+fn vec_empty_region <.T> <()->RegionToken<.T>> ():
+    let ptr <MemPtr<.T>> mem_ptr_wrap 0
+    region_new ptr 0
+
 //: ## vec_empty
 //: allocation を[持/も]たない[空/から]の `Vec` を[作/つく]る
 //:
 //: ### [目的/もくてき]
 //: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorageState::Empty` で空 storage を[表/あらわ]します。
-pub fn vec_empty_region <.T> <()->RegionToken<.T>> ():
-    let ptr <MemPtr<.T>> mem_ptr_wrap 0
-    region_new ptr 0
-
 pub fn vec_empty <.T> <()->Vec<.T>> ():
     Vec<.T> 0 0 VecStorageState::Empty vec_empty_region<.T>
 
