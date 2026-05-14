@@ -333,3 +333,13 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 今回の修正では、`diags.nepl` から `core/mem` / `core/mem/internal` / `core/mem/raw` import を削除し、`diags_has_errors` を borrowed `Vec<Diag>` + `v::len<Diag>` + `v::get<Diag>` の Copy-safe observer traversal へ移した。by-value observer はこれまで通り観測後に `diags_free` で owner を閉じるため、owner cleanup contract は維持される。
 
 これにより diagnostic module の read-only observer から raw Vec storage scan が消えた。`Vec` 本体の raw-memory-backed implementation と `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は引き続きこの親 issue の Stage 6 残件として継続する。
+
+## 2026-05-15 Agent 1 kpprefix Vec owner boundary 追記
+
+`ISS-20260514T195643983Z-KPPREFIX-EXPOSES-COPYABLE-RAW-PREFIX-416FBAB5` として、`kp/kpprefix` が raw prefix storage owner を public Copy handle として公開していた問題を分離して修正した。
+
+`PrefixI32` は `ptr <i32>` / `len <i32>` を持つ `Copy` / `Clone` handle ではなく、`data <Vec<i32>>` を持つ owner handle に変更した。これに合わせて `prefix_build_i32` / `prefix_range_sum_i32` の public raw address API は削除し、公開面を `prefix_build_vec_i32(Vec<i32>) -> Result<PrefixI32, Diag>` と `prefix_sum_i32(&PrefixI32, i32, i32) -> Result<i32, Diag>` に揃えた。
+
+構築処理は `vec::filled` で初期化済み prefix buffer を確保し、`vec::get` / `vec::replace` で累積和を埋める。query も `vec::get` を使い、範囲外は `Diag` を返す。これにより `kpprefix` 自体は `core/mem/raw` を import せず、raw storage identity は `Vec` の実装境界に閉じる。
+
+この修正は `OwnedBuffer<T>` / compiler-issued owner token の最終移行ではないが、ordinary KP helper が raw address と copyable deallocation handle を public surface へ漏らす経路を閉じる Stage 6 の前進である。親 issue は raw-memory-backed stdlib API 全体の移行が残るため open のまま継続する。
