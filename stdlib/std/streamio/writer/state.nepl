@@ -68,12 +68,13 @@ pub fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (t
         Result::Err _e:
             Result<StreamWriter,str>::Err "streamio.stream_writer_new buffer alloc failed"
 
-//: ## close
-//: buffered sink の[確保領域/かくほりょういき]を[解放/かいほう]する
+//: ## stream_writer_close_impl
+//: buffered sink の[確保領域/かくほりょういき]を[解放/かいほう]する cleanup helper
 //:
 //: ### [注意/ちゅうい]
-//: - 未 flush の[内容/ないよう]は[捨/す]てられます。[必要/ひつよう]なら[先/さき]に `flush` を[呼/よ]んでください。
-pub fn close <(StreamWriter)*>()> (w):
+//: - 公開 API 名 `close` は `std/streamio/writer` root が所有します。この helper は state layout を知る実装境界です。
+//: - 未 flush の[内容/ないよう]は[捨/す]てられます。[必要/ひつよう]なら[先/さき]に root の `flush` を[呼/よ]んでください。
+pub fn stream_writer_close_impl <(StreamWriter)*>()> (w):
     let cap <i32> *get_ref &w "cap";
     let buf <MemPtr<u8>> get w "buf";
     stream_writer_try_free_ptr<u8> buf cap

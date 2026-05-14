@@ -1,3 +1,22 @@
+# 2026-05-14 Agent 1 StreamWriter close facade 修正
+
+- `ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36` を解決した。
+- `StreamWriter` の cleanup は `std/streamio/writer/state` に `close(StreamWriter)` として置かれていたが、public writer root は `open` / `write` / `writeln` / `flush` だけを公開していたため、`std/streamio` または `std/streamio/writer` を import した利用側の `|> close` が解決できなかった。
+- state 側の cleanup を `stream_writer_close_impl(StreamWriter)` に改名し、layout を知る実装 helper として閉じ込めた。root 側に public `close(StreamWriter)` facade を追加し、owner-consuming cleanup API の責務を `write` / `flush` と同じ公開境界へ戻した。
+- source policy で state 側 common-name `close(StreamWriter)` の再導入を禁止し、root が `close` を公開して `stream_writer_close_impl` に委譲することを固定した。
+- 検証:
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/std/streamio/writer.nepl -n 1 --assert-io --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/std/streamio.nepl -n 1 --assert-io --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/agent1-streamwriter-close-streamio.json -j 1 --dist web/dist --assert-io`: total=15, passed=15
+  - `node nodesrc/tests.js -i tests/stdlib/kp_i64.n.md --no-tree -o tmp/agent1-streamwriter-close-kp-i64.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-streamwriter-close-kp.json -j 1 --dist web/dist --assert-io`: total=7, passed=4, failed=3
+- 追加で発見した別問題:
+  - `tests/stdlib/kp.n.md` は `StreamWriter close` とは別に、`StreamScanner` owner close 欠落と `core/mem/allocator` import 欠落で失敗している。`ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D` として分離した。
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 周辺の raw-backed stdlib owner cleanup API を public facade 境界へ戻すもの。
+
 # 2026-05-14 Agent 1 StreamScanner owner borrow API 修正
 
 - `ISS-20260514T035102288Z-STREAMSCANNER-COPY-HANDLE-ALLOWS-DOU-5B9AEF3B` を解決した。

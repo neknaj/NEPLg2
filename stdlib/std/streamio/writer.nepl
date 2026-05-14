@@ -2,8 +2,8 @@
 //: `std/streamio` の buffered writer と write target API を提供する submodule
 //:
 //: ### [目的/もくてき]
-//: - `StreamWriter` の owning buffer/state、append/format、public write API を責務別 module に分けます。
-//: - root は `WriteStream` から writer を開く入口と `StreamWritable` trait dispatch を担当します。
+//: - `StreamWriter` の owning buffer/state、append/format、public write/close API を責務別 module に分けます。
+//: - root は `WriteStream` から writer を開く入口、`StreamWritable` trait dispatch、owner-consuming close facade を担当します。
 //:
 //: ### [構成/こうせい]
 //: - `std/streamio/writer/state` は `StreamWriter`、target enum、flush/buffer state を所有します。
@@ -130,3 +130,11 @@ pub fn writeln <.T: StreamWritable> <(.T,StreamWriter)*>StreamWriter> (value, w)
 //: `StreamWriter` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する[共通名/きょうつうめい] overload
 pub fn flush <(StreamWriter)*>StreamWriter> (w):
     drain_impl w
+
+//: ## close
+//: `StreamWriter` を[閉/と]じて buffered sink の[確保領域/かくほりょういき]を[解放/かいほう]する[共通名/きょうつうめい] overload
+//:
+//: ### [注意/ちゅうい]
+//: - `close` は owner を[消費/しょうひ]します。未 flush の[内容/ないよう]は[捨/す]てられるため、[必要/ひつよう]なら[先/さき]に `flush` を[呼/よ]んでください。
+pub fn close <(StreamWriter)*>()> (w):
+    stream_writer_close_impl w

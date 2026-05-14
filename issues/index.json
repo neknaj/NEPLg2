@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T04:12:33.990Z",
+  "generated_at": "2026-05-14T04:23:47.939Z",
   "counts": {
-    "total": 746,
+    "total": 747,
     "open": 6,
-    "resolved": 740,
+    "resolved": 741,
     "by_area": {
       "stdlib": {
         "total": 188,
-        "open": 4,
-        "resolved": 184
+        "open": 3,
+        "resolved": 185
       },
       "TEST": {
-        "total": 20,
-        "open": 1,
+        "total": 21,
+        "open": 2,
         "resolved": 19
       },
       "selfhost": {
@@ -150,21 +150,6 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
-      "id": "ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36",
-      "title": "StreamWriter close is not exported through streamio writer facade",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-14",
-      "updated": "2026-05-14",
-      "target": "stdlib/std/streamio/writer.nepl, stdlib/std/streamio/writer/state.nepl, tests/stdlib/{streamio,kp,kp_i64}.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36.md"
-    },
-    {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
       "title": ".n.md tests rely on return values instead of stdout assertion reports",
       "area": "TEST",
@@ -178,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D",
+      "title": "kp focused doctests are stale after streamio owner and allocator module split",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -8713,6 +8713,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T035102288Z-STREAMSCANNER-COPY-HANDLE-ALLOWS-DOU-5B9AEF3B.md"
+    },
+    {
+      "id": "ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36",
+      "title": "StreamWriter close is not exported through streamio writer facade",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/std/streamio/writer.nepl, stdlib/std/streamio/writer/state.nepl, tests/stdlib/{streamio,kp,kp_i64}.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

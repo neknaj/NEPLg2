@@ -65,6 +65,7 @@ for (const pattern of [
     /\bstruct\s+StreamWriter\b/,
     /\benum\s+StreamWriterTargetKind\b/,
     /\bfn\s+stream_writer_new\b/,
+    /\bfn\s+stream_writer_close_impl\b/,
     /\bfn\s+drain_impl\b/,
     /\bfn\s+append_str_impl\b/,
 ]) {
@@ -118,6 +119,7 @@ for (const pattern of [
     /\bstruct\s+StreamWriter\b/,
     /\benum\s+StreamWriterTargetKind\b/,
     /\bfn\s+stream_writer_new\b/,
+    /\bfn\s+stream_writer_close_impl\b/,
     /\bfn\s+drain_impl\b/,
     /\bfn\s+append_str_impl\b/,
     /\bfn\s+append_i32_impl\b/,
@@ -125,7 +127,7 @@ for (const pattern of [
     assert.doesNotMatch(
         rootCode,
         pattern,
-        'streamio/writer root must keep only public open/trait/write API bodies',
+        'streamio/writer root must keep only public open/trait/write/flush/close API bodies',
     );
 }
 
@@ -153,12 +155,30 @@ assert.match(
     'StreamWriter state module must keep buffer ownership and target enum as visible struct fields',
 );
 
-const writerNewMatch = stateCode.match(/(?:pub\s+)?fn\s+stream_writer_new\b([\s\S]*?)\n(?:pub\s+)?fn\s+close\b/);
+const writerNewMatch = stateCode.match(/(?:pub\s+)?fn\s+stream_writer_new\b([\s\S]*?)\n(?:pub\s+)?fn\s+stream_writer_close_impl\b/);
 assert.ok(writerNewMatch, 'stream_writer_new body must be found');
 assert.match(
     writerNewMatch[1],
     /\bResult<StreamWriter,str>::Ok\s+StreamWriter\s+buf\s+4096\s+0\s+target\s+@stream_writer_noncopy_marker\b/,
     'stream_writer_new must return the buffer owner as a StreamWriter field',
+);
+
+assert.match(
+    stateCode,
+    /\bfn\s+stream_writer_close_impl\s+<\(StreamWriter\)\*>\(\)>/,
+    'writer state module must own the StreamWriter cleanup implementation helper',
+);
+
+assert.doesNotMatch(
+    stateCode,
+    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>/,
+    'writer state module must not own the public common-name close overload',
+);
+
+assert.match(
+    rootCode,
+    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>\s+\(w\):\s*stream_writer_close_impl\s+w\b/,
+    'streamio/writer root must expose owner-consuming close through the public facade',
 );
 
 const drainMatch = stateCode.match(/(?:pub\s+)?fn\s+drain_impl\b([\s\S]*?)\n(?:pub\s+)?fn\s+reserve_impl\b/);

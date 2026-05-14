@@ -224,6 +224,21 @@ assert.match(
     `${writerRelPath} must import the writer append module`,
 );
 assert.match(
+    writerCode,
+    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>\s+\(w\):\s*stream_writer_close_impl\s+w\b/,
+    `${writerRelPath} must expose StreamWriter owner cleanup through the root close facade`,
+);
+assert.match(
+    writerStateCode,
+    /\bfn\s+stream_writer_close_impl\s+<\(StreamWriter\)\*>\(\)>/,
+    `${writerStateRelPath} must keep the StreamWriter cleanup implementation helper`,
+);
+assert.doesNotMatch(
+    writerStateCode,
+    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>/,
+    `${writerStateRelPath} must not expose the public common-name close overload`,
+);
+assert.match(
     writerAppendCode,
     /pub\s+#import\s+"std\/streamio\/writer\/append\/text"\s+as\s+\*/,
     `${writerAppendRelPath} must re-export text append helpers`,
