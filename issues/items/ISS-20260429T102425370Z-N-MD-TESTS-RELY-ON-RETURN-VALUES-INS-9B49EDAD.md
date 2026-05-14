@@ -735,3 +735,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\block_if_semantics.n.md --no-tree -o tmp\agent1-block-if-semantics-report-tests.json -j 1 --assert-io --dist web/dist`: total=5, passed=5
 
 この issue はまだ open のまま継続する。Block if semantics 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Match enum wildcard stdout report migration
+
+`tests/compiler/match_enum_wildcard_patterns.n.md` の enum wildcard 正常系 doctest 2 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。wildcard_not_last / duplicate_arm の compile_fail fixture 2 件は、match arm 検査の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- payload なし enum variant の default wildcard selection と、payload enum の default wildcard selection を assertion label として stdout に残すようにした。
+- `#target std` 化で stdlib の `Outcome` 型と衝突したため、payload fixture の local enum を `LocalOutcome` / `Value` / `Missing` に改名した。wildcard payload default の検査意図は維持している。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\match_enum_wildcard_patterns.n.md --no-tree -o tmp\agent1-match-enum-wildcard-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
+
+この issue はまだ open のまま継続する。Match enum wildcard 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

@@ -37846,3 +37846,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - trailing semicolon による return mismatch の compile_fail 1 件は、型検査の拒否境界を固定するため変更していない。
 - epilogue drop、match arm local、semicolon なし複数行、同一行の複数 semicolon の観測値を assertion label として stdout に固定した。
 - `node nodesrc/tests.js -i tests/compiler/block_if_semantics.n.md --no-tree -o tmp/agent1-block-if-semantics-report-tests.json -j 1 --assert-io --dist web/dist` は total=5, passed=5。
+
+## 2026-05-14 Agent 1 Match enum wildcard stdout report doctest migration
+
+- `work/match-enum-wildcard-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/match_enum_wildcard_patterns.n.md` を更新した。
+- enum wildcard 正常系 doctest 2 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- wildcard_not_last / duplicate_arm の compile_fail 2 件は、match arm 検査の拒否境界を固定するため変更していない。
+- `#target std` 化で stdlib の `Outcome` 型と衝突した payload fixture は、local enum を `LocalOutcome` / `Value` / `Missing` に改名して検査意図を保った。
+- `node nodesrc/tests.js -i tests/compiler/match_enum_wildcard_patterns.n.md --no-tree -o tmp/agent1-match-enum-wildcard-report-tests.json -j 1 --assert-io --dist web/dist` は total=4, passed=4。
