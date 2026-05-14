@@ -69,6 +69,8 @@ neplg2:test
 
 #import "std/io" as *
 #import "std/test" as *
+#import "alloc/string" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new

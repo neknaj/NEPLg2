@@ -5,6 +5,7 @@
 //: - `read target` / `write target data` の[共通/きょうつう][入口/いりぐち]を `std` facade [側/がわ]に[置/お]き、`stdio` / `fs` / [将来/しょうらい]の `network` / `event` を[同/おな]じ[形/かたち]で[扱/あつか]える[土台/どだい]を[作/つく]ります。
 //: - `streamio` が[個別/こべつ] stream handle を[対象/たいしょう]にするのに[対/たい]し、こちらは[入出力/にゅうしゅつりょく][系統/けいとう]そのものを enum target で[選/えら]ぶ facade とします。
 //: - `ReadStream` / `WriteStream` を[分/わ]け、[読/よ]めない target や[書/か]けない target を compile error で[弾/はじ]けるようにします。
+//: - target enum は `std/iotarget` で[定義/ていぎ]し、`std/io` root からも公開します。
 //:
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]は stdin/stdout/stderr と `fs` と in-memory text の[最小/さいしょう]構成だけを[実装/じっそう]しています。`network` / `event` は[将来/しょうらい]の variant [追加/ついか]を[想定/そうてい]した[設計/せっけい]です。
@@ -39,7 +40,7 @@
 #import "alloc/io" as *
 #import "core/result" as *
 #import "std/fs" as *
-#import "std/iotarget" as *
+pub #import "std/iotarget" as *
 #import "std/streamio" as *
 #import "std/text" as *
 

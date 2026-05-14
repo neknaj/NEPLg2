@@ -38540,3 +38540,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_text_boundary.js`: pass
   - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-std-text-root-raw-facade.json -j 1 --dist web/dist --assert-io`: 9/9 pass
   - `node nodesrc/tests.js -i stdlib/std/io.nepl -i stdlib/std/streamio/input.nepl -i stdlib/std/stdio/read/text.nepl -i stdlib/std/fs/bytes.nepl --no-tree -o tmp/agent1-std-text-root-consumers.json -j 1 --dist web/dist --assert-io`: 4/5 pass。失敗は新規別 issue の `std/io` doctest import drift。
+
+## 2026-05-15 Agent 1 std/io iotarget facade contract
+
+- `ISS-20260514T223843320Z-STD-IO-DOCTEST-OMITS-EXPLICIT-IOTARG-12D221C3` を fixed にした。
+- 根本原因は、`std/io` の `read` / `write` / `flush` / `close` API が `ReadStream` / `WriteStream` を public signature として使っているにもかかわらず、root facade が target enum surface を公開していなかったこと。
+- `std/io` root は `std/iotarget` を public re-export し、既存の `tests/stdlib/io.n.md` contract と module doctest の例を一致させた。
+- `ReadStream` / `WriteStream` の定義は `std/iotarget` に集約したままにし、`std/io` へ enum 定義を複製しない。
+- `tests/stdlib/io.n.md` の missing-file case は `concat` と `Result<(),str>` / `std_error_kind_str` を使うため、`alloc/string` と `core/result` を明示 import した。`std/io` に string utility や Result constructor を再公開させる設計にはしない。
+- `nodesrc/test_stdlib_io_target_facade.js` を追加し、`std/iotarget` が target vocabulary module として残り、実行関数・trait・raw memory authority を持たないことを固定した。
+- focused verification:
+  - `node nodesrc/test_stdlib_io_target_facade.js`
+  - `node nodesrc/tests.js -i stdlib/std/io.nepl --no-tree -o tmp/agent1-std-io-iotarget-facade-module.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/agent1-std-io-iotarget-facade-suite.json -j 1 --dist web/dist --assert-io`
