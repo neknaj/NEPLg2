@@ -670,3 +670,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\reference_codegen.n.md --no-tree -o tmp\agent1-reference-codegen-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
 
 この issue はまだ open のまま継続する。Reference codegen 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Drop stdout report migration
+
+`tests/compiler/drop.n.md` の Drop capability / auto drop insertion 回帰 doctest 4 件を、戻り値 0 だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- simple let / nested scope / if branch / multiple binding の各 compile-run 到達点を assertion label として stdout に残すようにした。
+- nested scope と if branch は、旧 fixture では捨てていた branch result も assertion 化し、auto drop epilogue が block/branch value を壊していないことをより直接確認するようにした。
+- runtime の Drop 順序詳細は Rust integration test 側の責務として維持し、この `.n.md` では nodesrc 経路の compile / run と return value 保持を固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\drop.n.md --no-tree -o tmp\agent1-drop-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
+
+この issue はまだ open のまま継続する。Drop 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

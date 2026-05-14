@@ -37813,3 +37813,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - scalar address-of then deref、reference 経由の i32 clone、generic `MemPtr` Clone impl 解決を assertion label として stdout に固定した。
 - report 出力のため `#target std` に移しつつ、reference lowering / Clone dispatch / generic MemPtr impl resolution の観測値は維持している。
 - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/agent1-reference-codegen-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。
+
+## 2026-05-14 Agent 1 Drop stdout report doctest migration
+
+- `work/drop-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/drop.n.md` を更新した。
+- Drop capability / auto drop insertion 回帰 doctest 4 件を、戻り値 0 だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- simple let / nested scope / if branch / multiple binding の compile-run 到達点を assertion label として stdout に固定した。
+- nested scope と if branch は branch result も assertion 化し、auto drop epilogue が block/branch value を壊していないことを旧 fixture より直接確認するようにした。
+- runtime の Drop 順序詳細は Rust integration test 側の責務として維持し、この `.n.md` では nodesrc 経路の compile / run と return value 保持を固定している。
+- `node nodesrc/tests.js -i tests/compiler/drop.n.md --no-tree -o tmp/agent1-drop-report-tests.json -j 1 --assert-io --dist web/dist` は total=4, passed=4。
