@@ -38419,6 +38419,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass
   - `node nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js`: pass
   - `node nodesrc/tests.js -i stdlib/kp/kpprefix.nepl --no-tree -o tmp/agent1-kpprefix-vec-owner-boundary-module.json -j 1 --dist web/dist --assert-io`: 1/1 pass
+## 2026-05-15 Agent 1 kpsearch Vec API boundary
+
+- `ISS-20260514T203142216Z-KPSEARCH-STILL-IMPLEMENTS-PUBLIC-VEC-0D1AFA1D` を追加して fixed にした。
+- `stdlib/kp/kpsearch.nepl` から `core/mem` / `core/mem/internal` / `core/mem/allocator` / `core/mem/raw` import、`mem_ptr_addr data_mem_ptr`、raw `i32` helper を削除した。
+- `lower_bound_vec_i32` / `upper_bound_vec_i32` / `contains_vec_i32` / `count_equal_range_vec_i32` は `&Vec<i32>` を受ける borrowed query API に変更した。
+- query 実装は `Vec.len` / `Vec.get` だけの二分探索にし、入力 owner は caller が保持して free する。
+- `unique_sorted_vec_i32` は owner-consuming API のまま、`Vec.get` / `Vec.replace` で in-place compaction する。
+- `tests/stdlib/kp.n.md` の count example は borrowed query 後に `count_data` を明示 free する形へ更新した。
+- focused verification:
+  - `node nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js`
+  - `node nodesrc/tests.js -i stdlib/kp/kpsearch.nepl --no-tree -o tmp/agent1-kpsearch-vec-boundary-module.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-kpsearch-vec-boundary-kp-suite.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/issues.js check --dir issues`
+
 ## 2026-05-15 Agent 1 kpgraph owner boundary
 
 - `ISS-20260514T202200590Z-KPGRAPH-EXPOSES-DENSE-MATRIX-RAW-I32-F15E55CB` を追加して fixed にした。

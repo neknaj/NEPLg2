@@ -245,7 +245,7 @@ fn main <()*>()> ():
         |> push 2 |> unwrap_ok
         |> push 5 |> unwrap_ok
         |> push 5 |> unwrap_ok
-    let cnt2 <i32> count_equal_range_vec_i32 count_data 2;
+    let cnt2 <i32> count_equal_range_vec_i32 &count_data 2;
     let unique_data <Vec<i32>>:
         unwrap_ok with_capacity<i32> len
         |> push 1 |> unwrap_ok
@@ -259,6 +259,7 @@ fn main <()*>()> ():
     print_i32 cnt2;
     print " ";
     println_i32 new_len;
+    free<i32> count_data;
 
     let mut i <i32> 0;
     while lt i new_len:

@@ -363,3 +363,13 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 BFS の距離配列と queue は `Vec<i32>` で初期化し、`v::get` / `v::replace` / `v::free` を使う。doctest も returned `Vec<i32>` の raw storage を `mem_ptr_addr` / `load_i32` で読む例をやめ、`v::get<i32>` で結果を表示する。
 
 これにより KP graph helper の public surface から raw matrix pointer と raw Vec storage read の入口を閉じた。残る KP raw-memory-backed module では `kpsearch` の internal raw helper / public Vec wrapper 境界が次の確認対象である。
+
+## 2026-05-15 Agent 1 kpsearch Vec API boundary 追記
+
+`ISS-20260514T203142216Z-KPSEARCH-STILL-IMPLEMENTS-PUBLIC-VEC-0D1AFA1D` として、`kp/kpsearch` が public Vec wrapper の内部実装で raw storage view に依存し続けていた問題を分離して修正した。
+
+今回の修正で `kpsearch` から `core/mem` / `core/mem/internal` / `core/mem/allocator` / `core/mem/raw` import、`mem_ptr_addr data_mem_ptr`、raw `i32` helper を削除した。`lower_bound_vec_i32` / `upper_bound_vec_i32` / `contains_vec_i32` / `count_equal_range_vec_i32` は `&Vec<i32>` を受ける borrowed query API に変え、`Vec.len` / `Vec.get` だけで二分探索を行う。
+
+`unique_sorted_vec_i32` は sorted Vec を in-place に圧縮するため owner-consuming API のまま残し、内部は `Vec.get` / `Vec.replace` で compaction する。caller は query 後に入力 owner を保持したまま free でき、unique 後は `UniqueSortedVecI32` が owner を保持する。
+
+これにより KP module 群の public graph/search/prefix/DSU/Fenwick helper から raw storage identity を直接扱う入口を閉じた。今後は `Vec` / collection 本体の internal raw-memory-backed implementation と `OwnedBuffer<T>` / compiler-issued owner token migration を継続する。

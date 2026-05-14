@@ -13,6 +13,34 @@ const implementation = source
     .filter((line) => !/^\s*\/\//.test(line))
     .join("\n");
 
+for (const rawImport of [
+    /#import\s+"core\/mem"/,
+    /#import\s+"core\/mem\/internal"/,
+    /#import\s+"core\/mem\/allocator"/,
+    /#import\s+"core\/mem\/raw"/,
+]) {
+    assert.doesNotMatch(
+        implementation,
+        rawImport,
+        "kpsearch must be implemented through typed Vec APIs, not raw-memory-boundary imports",
+    );
+}
+
+for (const rawHelper of [
+    /\balloc_raw\b/,
+    /\bdealloc_raw\b/,
+    /\bload_i32\b/,
+    /\bstore_i32\b/,
+    /\bmem_ptr_addr\b/,
+    /\bdata_mem_ptr\b/,
+]) {
+    assert.doesNotMatch(
+        implementation,
+        rawHelper,
+        "kpsearch must not manipulate Vec storage through raw addresses",
+    );
+}
+
 for (const name of [
     "lower_bound_i32",
     "upper_bound_i32",
@@ -22,31 +50,23 @@ for (const name of [
 ]) {
     assert.doesNotMatch(
         implementation,
-        new RegExp(`pub\\s+fn\\s+${name}\\b`),
-        `kpsearch.${name} must stay private because it accepts raw i32 storage addresses`,
-    );
-    assert.match(
-        implementation,
-        new RegExp(`\\bfn\\s+${name}\\b`),
-        `kpsearch.${name} internal helper must remain available for safe Vec wrappers`,
+        new RegExp(`\\b(?:pub\\s+)?fn\\s+${name}\\b`),
+        `kpsearch.${name} raw pointer helper must not be reintroduced`,
     );
 }
 
-for (const name of [
-    "lower_bound_vec_i32",
-    "upper_bound_vec_i32",
-    "contains_vec_i32",
-    "count_equal_range_vec_i32",
-    "unique_sorted_vec_i32",
+for (const [name, signature] of [
+    ["lower_bound_vec_i32", /pub\s+fn\s+lower_bound_vec_i32\s+<\(&Vec<i32>,i32\)->i32>/],
+    ["upper_bound_vec_i32", /pub\s+fn\s+upper_bound_vec_i32\s+<\(&Vec<i32>,i32\)->i32>/],
+    ["contains_vec_i32", /pub\s+fn\s+contains_vec_i32\s+<\(&Vec<i32>,i32\)->bool>/],
+    ["count_equal_range_vec_i32", /pub\s+fn\s+count_equal_range_vec_i32\s+<\(&Vec<i32>,i32\)->i32>/],
+    ["unique_sorted_vec_i32", /pub\s+fn\s+unique_sorted_vec_i32\s+<\(Vec<i32>\)\*>UniqueSortedVecI32>/],
 ]) {
     assert.match(
         implementation,
-        new RegExp(`pub\\s+fn\\s+${name}\\b`),
-        `kpsearch.${name} must be the public owner-based API`,
+        signature,
+        `kpsearch.${name} must expose the typed Vec boundary signature`,
     );
 }
 
-assert.doesNotMatch(implementation, /\bdata_ptr\s*</, "kpsearch must not depend on the removed Vec.data_ptr raw address observer");
-assert.doesNotMatch(source, /\balloc_raw\b|\bdealloc_raw\b/, "kpsearch documentation examples must not teach ordinary callers to allocate raw buffers");
-
-console.log("kpsearch raw pointer boundary regression passed");
+console.log("kpsearch Vec API boundary regression passed");
