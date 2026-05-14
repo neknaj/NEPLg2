@@ -184,7 +184,7 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&CountingBloomFilter<.T
 //:     free bf0
 //:     if ok 0 1
 //: ```
-pub fn clear <.T,.H> <(CountingBloomFilter<.T,.H>)*>CountingBloomFilter<.T,.H>> (bf):
+pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>)*>CountingBloomFilter<.T,.H>> (bf):
     let nslots <i32> *field::get_ref &bf "nslots"
     let counters <&Vec<u8>> field::get_ref &bf "counters"
     counting_bloom_fill_counters counters nslots 0

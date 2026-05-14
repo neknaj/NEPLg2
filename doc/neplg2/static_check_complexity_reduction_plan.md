@@ -420,6 +420,7 @@ commit 単位:
 | `BYTEBUILDER-GROW-CLEANUP-STILL-USES` | Stage 6 の byte buffer cleanup issue。 | 2026-05-14 に fixed。grow failure cleanup を `dealloc_region` owner-token consumption へ揃え、通常 stdlib 実装の `unreachable` を排除する。 |
 | `RV-STDLIB-004` | Stage 6 の collection API issue。 | collection drop / remove / borrowed read / Copy read の責務が分離される。 |
 | `BLOOM-FILTER-FREE-DROPS-HASHER-WITHO` | Stage 6 の BloomFilter cleanup child issue。 | 2026-05-15 に fixed。`BloomFilter.free` / `CountingBloomFilter.free` を `.T: HashKey&Copy,.H: Hasher<.T>&Copy` に揃え、Drop traversal なしに non-Copy hasher を破棄する経路を閉じる。 |
+| `BLOOMFILTER-CLEAR-ACCEPTS-UNCONSTRAI` | Stage 6 の BloomFilter mutating API child issue。 | 2026-05-15 に fixed。`BloomFilter.clear` / `CountingBloomFilter.clear` を `.T: HashKey&Copy,.H: Hasher<.T>&Copy` に揃え、forged non-Copy hasher aggregate を clear だけ通す経路を閉じる。 |
 | `BYTEBUF-AND-BYTEBUILDER-EXPOSE-EMPTY` | Stage 6 の byte buffer empty sentinel issue。 | 2026-05-15 に fixed。zero-size `RegionToken<u8>` sentinel helper を private にし、公開 API を typed empty constructor へ限定する。 |
 | `FS-DIR-READER-STILL-DEPENDS-ON-RAW-V` | Stage 6 の fs dir reader migration issue。 | 2026-05-15 に fixed。`fs_sort_strings` を `&Vec<str>` public boundary に移し、`std/fs/dir/read_fd.nepl` から旧 `Vec.data` raw storage 依存を削除した。 |
 

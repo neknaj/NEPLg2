@@ -38281,3 +38281,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: pass
   - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-dir-vec-data-migration-fs.json -j 1 --dist web/dist --assert-io`: 8/8 pass
   - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-fs-dir-vec-data-migration-bytebuf.json -j 1 --dist web/dist --assert-io`: 6/6 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T174112370Z BloomFilter clear key/hasher Copy 契約)
+
+- `BloomFilter.clear` / `CountingBloomFilter.clear` だけが unconstrained `<.T,.H>` のまま残り、constructor / update / query / free と Copy-only contract がずれていた問題を確認した。
+- 現行 collection cleanup は field-level Drop traversal を持たないため、mutating API も unsupported non-Copy hasher を受け入れてはいけない。`clear` は filter owner を消費して返す API なので、`free` と同じ key/hasher contract に揃えるのが妥当。
+- 両 clear を `.T: HashKey&Copy,.H: Hasher<.T>&Copy` に限定し、`StatefulHasher` による compile-fail regression と source policy を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-bloom-clear-copy-contract.json -j 1 --dist web/dist --assert-io`: 16/16 pass
+  - `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/agent1-bloom-clear-runtime-contract.json -j 1 --dist web/dist --assert-io`: 9/9 pass

@@ -290,6 +290,35 @@ fn main <()->i32> ():
     0
 ```
 
+## bloom_filter_clear_rejects_non_copy_hasher
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/bloom_filter" as *
+#import "core/traits/hash" as *
+
+struct StatefulHasher:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl Hasher<i32> for StatefulHasher:
+    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+        key
+
+fn clear_bloom_filter <(BloomFilter<i32, StatefulHasher>)*>BloomFilter<i32, StatefulHasher>> (bf):
+    clear<i32, StatefulHasher> bf
+
+fn main <()->i32> ():
+    0
+```
+
 ## counting_bloom_filter_free_rejects_non_copy_hasher
 
 neplg2:test[compile_fail]
@@ -314,6 +343,35 @@ impl Hasher<i32> for StatefulHasher:
 
 fn close_counting_bloom_filter <(CountingBloomFilter<i32, StatefulHasher>)->()> (bf):
     free<i32, StatefulHasher> bf
+
+fn main <()->i32> ():
+    0
+```
+
+## counting_bloom_filter_clear_rejects_non_copy_hasher
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/counting_bloom_filter" as *
+#import "core/traits/hash" as *
+
+struct StatefulHasher:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl Hasher<i32> for StatefulHasher:
+    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+        key
+
+fn clear_counting_bloom_filter <(CountingBloomFilter<i32, StatefulHasher>)*>CountingBloomFilter<i32, StatefulHasher>> (bf):
+    clear<i32, StatefulHasher> bf
 
 fn main <()->i32> ():
     0

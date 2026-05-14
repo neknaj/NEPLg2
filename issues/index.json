@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T17:38:13.908Z",
+  "generated_at": "2026-05-14T17:47:06.961Z",
   "counts": {
-    "total": 779,
+    "total": 780,
     "open": 7,
-    "resolved": 772,
+    "resolved": 773,
     "by_area": {
       "stdlib": {
-        "total": 211,
+        "total": 212,
         "open": 5,
-        "resolved": 206
+        "resolved": 207
       },
       "TEST": {
         "total": 21,
@@ -9133,6 +9133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T172450328Z-FS-DIR-READER-STILL-DEPENDS-ON-RAW-V-05400C14.md"
+    },
+    {
+      "id": "ISS-20260514T174112370Z-BLOOMFILTER-CLEAR-ACCEPTS-UNCONSTRAI-91A43DBC",
+      "title": "BloomFilter clear accepts unconstrained key and hasher payloads",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/bloom_filter/api.nepl, stdlib/alloc/collections/counting_bloom_filter/api.nepl, tests/stdlib/collection_cleanup_contract.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T174112370Z-BLOOMFILTER-CLEAR-ACCEPTS-UNCONSTRAI-91A43DBC.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
