@@ -38394,3 +38394,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/parse.nepl --no-tree -o tmp/agent1-selfhost-cli-args-vec-observer-parse-module-final.json -j 1 --dist web/dist --assert-io`: 2/2 pass
   - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/options.nepl --no-tree -o tmp/agent1-selfhost-cli-args-vec-observer-options-module-2.json -j 1 --dist web/dist --assert-io`: 2/2 pass
   - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/agent1-selfhost-cli-args-vec-observer-tests-final.json -j 1 --dist web/dist --assert-io`: 10/10 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T194346097Z HashMap/HashSet cleanup contract coverage)
+
+- `RV-STDLIB-004` の現行 Copy-only collection cleanup 境界について、HashMap / HashSet の key / hasher 側 `free` regression が個別に固定されていないことを確認した。
+- 実装の `free` signature は既に `.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy` / `.T: HashKey&Copy,.H: Hasher<.T>&Copy` になっているため、今回は実装を緩めず、回帰検出の欠落だけを閉じた。
+- `tests/stdlib/collection_cleanup_contract.n.md` に HashSet key / HashSet hasher / HashMap key / HashMap hasher の独立 compile-fail regression を追加した。`HashKey` や `Hasher` の実装だけでは Copy 証明にならないことを cleanup 境界で固定する。
+- `nodesrc/test_stdlib_hashmap_storage_contract.js` と `nodesrc/test_stdlib_hashset_storage_contract.js` に `free` の Copy-only signature 監視を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_hashmap_storage_contract.js`: pass
+  - `node nodesrc/test_stdlib_hashset_storage_contract.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-hash-collection-cleanup-contract.json -j 1 --dist web/dist --assert-io`: 20/20 pass

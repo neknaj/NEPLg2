@@ -261,6 +261,130 @@ fn main <()->i32> ():
     0
 ```
 
+## hashset_key_free_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashset" as *
+#import "core/traits/hash" as *
+#import "core/traits/hash_key" as *
+
+struct NonCopyHashKey:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl HashKey for NonCopyHashKey:
+    fn eq <(NonCopyHashKey,NonCopyHashKey)->bool> (_a, _b):
+        true
+
+    fn hash32 <(NonCopyHashKey)->i32> (_self):
+        0
+
+fn close_hashset_key <(HashSet<NonCopyHashKey, DefaultHash32>)->()> (hs):
+    free<NonCopyHashKey, DefaultHash32> hs
+
+fn main <()->i32> ():
+    0
+```
+
+## hashset_hasher_free_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashset" as *
+#import "core/traits/hash" as *
+
+struct StatefulHasher:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl Hasher<i32> for StatefulHasher:
+    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+        key
+
+fn close_hashset_hasher <(HashSet<i32, StatefulHasher>)->()> (hs):
+    free<i32, StatefulHasher> hs
+
+fn main <()->i32> ():
+    0
+```
+
+## hashmap_key_free_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap" as *
+#import "core/traits/hash" as *
+#import "core/traits/hash_key" as *
+
+struct NonCopyHashKey:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl HashKey for NonCopyHashKey:
+    fn eq <(NonCopyHashKey,NonCopyHashKey)->bool> (_a, _b):
+        true
+
+    fn hash32 <(NonCopyHashKey)->i32> (_self):
+        0
+
+fn close_hashmap_key <(HashMap<NonCopyHashKey, i32, DefaultHash32>)->()> (hm):
+    free<NonCopyHashKey, i32, DefaultHash32> hm
+
+fn main <()->i32> ():
+    0
+```
+
+## hashmap_hasher_free_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap" as *
+#import "core/traits/hash" as *
+
+struct StatefulHasher:
+    seed <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl Hasher<i32> for StatefulHasher:
+    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+        key
+
+fn close_hashmap_hasher <(HashMap<i32, i32, StatefulHasher>)->()> (hm):
+    free<i32, i32, StatefulHasher> hm
+
+fn main <()->i32> ():
+    0
+```
+
 ## bloom_filter_free_rejects_non_copy_hasher
 
 neplg2:test[compile_fail]
