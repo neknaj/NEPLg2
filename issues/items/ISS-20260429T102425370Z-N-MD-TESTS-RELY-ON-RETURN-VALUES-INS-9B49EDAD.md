@@ -638,3 +638,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\ret_string_example.n.md --no-tree -o tmp\agent1-ret-string-report-tests.json -j 1 --assert-io --dist web/dist`: total=1, passed=1
 
 この issue はまだ open のまま継続する。Ret string 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 str/i32 boundary stdout report migration
+
+`tests/compiler/str_i32_boundaries.n.md` の string literal 正常系 doctest 1 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。compile_fail 診断 fixture 2 件は `type.annotation.mismatch` / `type.return.mismatch` の境界固定が目的なので変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- string literal が raw i32 ではなく `str` として扱われ、`str_eq` で比較できることを `string literal equality result` assertion として stdout に残すようにした。
+- str/i32 境界の拒否ケースと許可ケースを同じ file で維持した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\str_i32_boundaries.n.md --no-tree -o tmp\agent1-str-i32-boundaries-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
+
+この issue はまだ open のまま継続する。str/i32 boundary 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

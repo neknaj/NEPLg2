@@ -37797,3 +37797,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 旧 `ret: "hello"` による runner 側の string return 復号確認を、NEPL 側の `assert_str_eq` と deterministic `stdout:` expectation へ移行した。
 - `"hello"` の値を `returned string value` assertion として stdout に固定し、戻り値復号ではなくプログラム自身の report で観測できるようにした。
 - `node nodesrc/tests.js -i tests/compiler/ret_string_example.n.md --no-tree -o tmp/agent1-ret-string-report-tests.json -j 1 --assert-io --dist web/dist` は total=1, passed=1。
+
+## 2026-05-14 Agent 1 str/i32 boundary stdout report doctest migration
+
+- `work/str-i32-boundaries-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/str_i32_boundaries.n.md` を更新した。
+- string literal 正常系 doctest 1 件を戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `type.annotation.mismatch` / `type.return.mismatch` の compile_fail 2 件は診断境界を固定するため変更していない。
+- string literal が raw i32 ではなく `str` として扱われることを `string literal equality result` assertion として stdout に固定した。
+- `node nodesrc/tests.js -i tests/compiler/str_i32_boundaries.n.md --no-tree -o tmp/agent1-str-i32-boundaries-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。

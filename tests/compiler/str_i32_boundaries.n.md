@@ -31,15 +31,22 @@ fn main <()->i32> ():
 
 ## string_literal_remains_str
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"string_literal_remains_str\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"string literal equality result\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
 #import "alloc/string" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
-    if str_eq "ok" "ok" 1 0
+    let actual <i32> if str_eq "ok" "ok" 1 0
+    let report:
+        test_report_new "string_literal_remains_str"
+        |> test_report_push assert_eq_i32 "string literal equality result" 1 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
