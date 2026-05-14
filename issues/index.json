@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T04:23:47.939Z",
+  "generated_at": "2026-05-14T04:36:30.099Z",
   "counts": {
     "total": 747,
-    "open": 6,
-    "resolved": 741,
+    "open": 5,
+    "resolved": 742,
     "by_area": {
       "stdlib": {
         "total": 188,
@@ -13,8 +13,8 @@
       },
       "TEST": {
         "total": 21,
-        "open": 2,
-        "resolved": 19
+        "open": 1,
+        "resolved": 20
       },
       "selfhost": {
         "total": 63,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D",
-      "title": "kp focused doctests are stale after streamio owner and allocator module split",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-14",
-      "updated": "2026-05-14",
-      "target": "tests/stdlib/kp.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -9073,6 +9058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09.md"
+    },
+    {
+      "id": "ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D",
+      "title": "kp focused doctests are stale after streamio owner and allocator module split",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "tests/stdlib/kp.n.md, stdlib/kp/kpsearch.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

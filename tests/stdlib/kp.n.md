@@ -23,6 +23,7 @@ fn main <()*>()> ():
     println_i32 a;
     println_i32 b;
     println_i32 c;
+    close sc;
 ```
 
 ## stdio_stdin_to_stream_writer_stdout
@@ -60,8 +61,8 @@ stdout: "6\n14\n15\n"
 
 #import "core/math" as *
 #import "core/result" as *
-#import "core/mem" as *
-#import "core/mem/raw" as *
+#import "core/option" as *
+#import "alloc/collections/vec" as *
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
@@ -71,27 +72,26 @@ fn main <()*>()> ():
     let q <i32> read &sc;
 
     let pref_len <i32> add n 1;
-    let pref <i32> unwrap_ok alloc mul pref_len 4;
-    fill_i32 pref pref_len 0;
+    let pref <Vec<i32>> unwrap_ok filled<i32> pref_len 0;
 
     let mut i <i32> 1;
     while le i n:
         do:
             let a <i32> read &sc;
             let im1 <i32> sub i 1;
-            let prev_off <i32> mul im1 4;
-            let prev_ptr <i32> add pref prev_off;
             let prev <i32> if and ge im1 0 lt im1 pref_len:
                 then:
-                    load_i32 prev_ptr
+                    match get<i32> &pref im1:
+                        Option::Some v:
+                            v
+                        Option::None:
+                            #intrinsic "unreachable" <> ()
                 else:
                     #intrinsic "unreachable" <> ()
             let cur <i32> add prev a;
-            let cur_off <i32> mul i 4;
-            let cur_ptr <i32> add pref cur_off;
             if and ge i 0 lt i pref_len:
                 then:
-                    store_i32 cur_ptr cur
+                    replace<i32> &pref i cur
                 else:
                     #intrinsic "unreachable" <> ()
             set i add i 1;
@@ -103,15 +103,17 @@ fn main <()*>()> ():
             let l1 <i32> read &sc;
             let r1 <i32> read &sc;
             let l <i32> sub l1 1;
-            let left_off <i32> mul l 4;
-            let right_off <i32> mul r1 4;
-            let left_ptr <i32> add pref left_off;
-            let right_ptr <i32> add pref right_off;
             let diff <i32> if and and ge l 0 lt l pref_len and ge r1 0 lt r1 pref_len:
                 then:
-                    let left <i32> load_i32 left_ptr;
-                    let right <i32> load_i32 right_ptr;
-                    sub right left
+                    match get<i32> &pref l:
+                        Option::Some left:
+                            match get<i32> &pref r1:
+                                Option::Some right:
+                                    sub right left
+                                Option::None:
+                                    0
+                        Option::None:
+                            0
                 else:
                     0
             set w writeln w diff;
@@ -120,7 +122,7 @@ fn main <()*>()> ():
     set w flush w;
     close w;
     close sc;
-    unwrap_ok dealloc pref mul pref_len 4;
+    free<i32> pref;
 ```
 
 ## stream_scanner_to_stream_writer_i64
@@ -228,24 +230,32 @@ stdout: "2 3\n1 2 5\n"
 
 #import "kp/kpsearch" as *
 #import "core/result" as *
-#import "core/mem" as *
-#import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "std/stdio" as *
+#import "alloc/collections/vec" as *
 
 fn main <()*>()> ():
     let len <i32> 6;
-    let data <i32> unwrap_ok alloc mul len 4;
-    fill_i32 data len 0;
-    store_i32 add data 0 1;
-    store_i32 add data 4 1;
-    store_i32 add data 8 2;
-    store_i32 add data 12 2;
-    store_i32 add data 16 5;
-    store_i32 add data 20 5;
-
-    let cnt2 <i32> count_equal_range_i32 data len 2;
-    let new_len <i32> unique_sorted_i32 data len;
+    let count_data <Vec<i32>>:
+        unwrap_ok with_capacity<i32> len
+        |> push 1 |> unwrap_ok
+        |> push 1 |> unwrap_ok
+        |> push 2 |> unwrap_ok
+        |> push 2 |> unwrap_ok
+        |> push 5 |> unwrap_ok
+        |> push 5 |> unwrap_ok
+    let cnt2 <i32> count_equal_range_vec_i32 count_data 2;
+    let unique_data <Vec<i32>>:
+        unwrap_ok with_capacity<i32> len
+        |> push 1 |> unwrap_ok
+        |> push 1 |> unwrap_ok
+        |> push 2 |> unwrap_ok
+        |> push 2 |> unwrap_ok
+        |> push 5 |> unwrap_ok
+        |> push 5 |> unwrap_ok
+    let unique <UniqueSortedVecI32> unique_sorted_vec_i32 unique_data;
+    let new_len <i32> unique_sorted_vec_i32_len &unique;
     print_i32 cnt2;
     print " ";
     println_i32 new_len;
@@ -256,10 +266,12 @@ fn main <()*>()> ():
             if gt i 0:
                 then print " "
                 else ()
-            let off <i32> mul i 4;
-            let ptr <i32> add data off;
-            print_i32 load_i32 ptr;
+            match unique_sorted_vec_i32_get &unique i:
+                Option::Some value:
+                    print_i32 value
+                Option::None:
+                    ()
             set i add i 1;
     println "";
-    unwrap_ok dealloc data mul len 4;
+    free unique;
 ```

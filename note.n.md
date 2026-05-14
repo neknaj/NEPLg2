@@ -1,3 +1,17 @@
+# 2026-05-14 Agent 1 KP fixture owner/import/raw boundary 修正
+
+- `ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D` を解決した。
+- `tests/stdlib/kp.n.md::doctest#1` は `StreamScanner` owner を `read &sc` で借用したあと `close sc` しておらず、Resource IR の `resource.owner.leak` が正しく出ていたため、成功 path で owner を閉じるようにした。
+- `doctest#3` / `doctest#7` は `core/mem` root から `alloc` / `dealloc` が見える旧前提に依存していた。さらに allocator import を直すと ordinary doctest source から `fill_i32` / `store_i32` / `load_i32` を呼んで `resource.raw.memory_outside_boundary` になるため、raw boundary を緩めず `Vec<i32>` の safe API へ移した。
+- `stdlib/kp/kpsearch.nepl` には `UniqueSortedVecI32` と `unique_sorted_vec_i32` を追加し、raw pointer API の `unique_sorted_i32` を ordinary source に raw address として露出させない owner-consuming `Vec<i32>` wrapper を用意した。
+- 検証:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --assert-io --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 7 --assert-io --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/kp/kpsearch.nepl -n 4 --assert-io --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-kp-fixture-contract.json -j 1 --dist web/dist --assert-io`: total=7, passed=7
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は Stage 6 の raw-memory-backed stdlib API 移行方針に沿って、ordinary test source から raw storage discipline を外すもの。
+
 # 2026-05-14 Agent 1 StreamWriter close facade 修正
 
 - `ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36` を解決した。
