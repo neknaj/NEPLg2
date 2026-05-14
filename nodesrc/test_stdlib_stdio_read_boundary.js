@@ -73,10 +73,10 @@ const readBufferCode = readBufferSrc
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
 
-assert.match(
+assert.doesNotMatch(
     code,
     /pub\s+#import\s+"\.\/stdio\/raw"\s+as\s+\*/,
-    'std/stdio facade must re-export raw stdio ABI submodule',
+    'std/stdio safe facade must not re-export raw stdio ABI submodule',
 );
 assert.match(
     code,
@@ -105,6 +105,7 @@ for (const helper of [
     'fd_write',
 ]) {
     assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/raw`);
+    assert.doesNotMatch(code, new RegExp(`\\b${helper}\\b`), `std/stdio safe facade must not expose raw helper ${helper}`);
 }
 
 for (const helper of [
@@ -170,6 +171,11 @@ const writeFdMatch = writeFdCode.match(
 );
 assert.ok(writeFdMatch, 'stdio_write_fd_mem_result body must be found');
 assert.match(
+    writeFdCode,
+    /#import\s+"std\/stdio\/raw"\s+as\s+\*/,
+    'std/stdio/write/fd must import std/stdio/raw explicitly when crossing the raw ABI boundary',
+);
+assert.match(
     writeFdMatch[1],
     /\balloc_ptr<u8>/,
     'stdio fd_write scratch allocation must use MemPtr owners',
@@ -226,6 +232,11 @@ assert.match(
     readBytesCode,
     /#import\s+"\.\/buffer"\s+as\s+\*/,
     'std/stdio/read/bytes must depend on read/buffer boundary helpers',
+);
+assert.match(
+    readBufferCode,
+    /#import\s+"std\/stdio\/raw"\s+as\s+\*/,
+    'std/stdio/read/buffer must import std/stdio/raw explicitly when crossing the raw ABI boundary',
 );
 assert.match(
     readTextCode,

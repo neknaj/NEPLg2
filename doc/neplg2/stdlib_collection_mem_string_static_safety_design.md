@@ -304,6 +304,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - `vec_storage_mem_ptr<T>(VecStorageState, &RegionToken<T>)` は public helper として残さず削除した。storage state から data view への projection は `data_mem_ptr<T>(&Vec<T>)` が直接 match して所有する。
 - `Vec` の in-place sort family は storage を書き換える API なので、raw write helper、quick / heap / simple sort、raw slice sort adapter、owner-returning sort wrapper、default `sort` を impure `*>` signature へ揃えた。observer の `sort_is_sorted` と比較 helper は pure のまま残し、effect contract でも観察と破壊的更新を分離する。
 - root `alloc/collections/vec` facade は `vec/raw` を再公開しない。unchecked `vec_read_at` / `vec_write_at` は `alloc/collections/vec/raw` を明示 import した実装境界だけに置き、通常の `Vec` import は safe public surface に限定する。
+- root `std/fs` / `std/stdio` facade は raw ABI submodule を再公開しない。WASI / LLVM syscall helper と raw scratch helper は `std/fs/raw` / `std/stdio/raw` を明示 import した implementation boundary だけに置き、通常の filesystem / standard I/O import は safe public surface に限定する。
 
 ### Stage B: `core/mem` の internal/public 分離
 

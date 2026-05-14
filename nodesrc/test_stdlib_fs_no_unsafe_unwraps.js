@@ -52,6 +52,8 @@ const pathNormalizeValidateCode = codeByPath.get('stdlib/std/fs/path/normalize/v
 const rawCode = codeByPath.get('stdlib/std/fs/raw.nepl');
 const rawFdIoCode = codeByPath.get('stdlib/std/fs/raw/fd_io.nepl');
 const rawLlvmCode = codeByPath.get('stdlib/std/fs/raw/llvm.nepl');
+const fdCode = codeByPath.get('stdlib/std/fs/fd.nepl');
+const statCode = codeByPath.get('stdlib/std/fs/stat.nepl');
 const dirCode = codeByPath.get('stdlib/std/fs/dir.nepl');
 const dirOpenCode = codeByPath.get('stdlib/std/fs/dir/open.nepl');
 const dirReadFdCode = codeByPath.get('stdlib/std/fs/dir/read_fd.nepl');
@@ -94,7 +96,7 @@ for (const [relPath, code] of codeByPath) {
 
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/constants"\s+as\s+\*/, 'std/fs facade must re-export constants submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/path"\s+as\s+\*/, 'std/fs facade must re-export path submodule');
-assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/raw"\s+as\s+\*/, 'std/fs facade must re-export raw syscall submodule');
+assert.doesNotMatch(facadeCode, /pub\s+#import\s+"\.\/fs\/raw"\s+as\s+\*/, 'std/fs safe facade must not re-export raw syscall submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/fd"\s+as\s+\*/, 'std/fs facade must re-export fd submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/stat"\s+as\s+\*/, 'std/fs facade must re-export stat submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/dir"\s+as\s+\*/, 'std/fs facade must re-export dir submodule');
@@ -117,6 +119,18 @@ assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_fd_bytes\b/, 'std/fs facade must
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_to_bytes\b/, 'std/fs facade must not inline path read helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_fd_bytes\b/, 'std/fs facade must not inline fd write helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_to_bytes\b/, 'std/fs facade must not inline path write helpers');
+for (const helper of ['wasi_path_open', 'wasi_path_filestat_get', 'wasi_fd_read', 'wasi_fd_write', 'wasi_fd_readdir', '__linux_syscall_openat_path', '__linux_syscall_rw', 'fs_fd_read_into_result', 'fs_fd_write_from_result']) {
+    assert.doesNotMatch(facadeCode, new RegExp(`\\b${helper}\\b`), `std/fs safe facade must not expose raw helper ${helper}`);
+}
+for (const [relPath, code] of [
+    ['stdlib/std/fs/fd.nepl', fdCode],
+    ['stdlib/std/fs/stat.nepl', statCode],
+    ['stdlib/std/fs/dir/read_fd.nepl', dirReadFdCode],
+    ['stdlib/std/fs/read/fd.nepl', readFdCode],
+    ['stdlib/std/fs/write/fd.nepl', writeFdCode],
+]) {
+    assert.match(code, /#import\s+"std\/fs\/raw"\s+as\s+\*/, `${relPath} must import std/fs/raw explicitly when crossing the raw ABI boundary`);
+}
 
 assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/fd"\s+as\s+\*/, 'std/fs/read facade must re-export fd read helper submodule');
 assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/path"\s+as\s+\*/, 'std/fs/read facade must re-export path read helper submodule');

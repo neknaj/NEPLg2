@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T18:14:07.932Z",
+  "generated_at": "2026-05-14T18:27:53.367Z",
   "counts": {
-    "total": 782,
+    "total": 783,
     "open": 7,
-    "resolved": 775,
+    "resolved": 776,
     "by_area": {
       "stdlib": {
-        "total": 214,
+        "total": 215,
         "open": 5,
-        "resolved": 209
+        "resolved": 210
       },
       "TEST": {
         "total": 21,
@@ -9178,6 +9178,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T180856087Z-VEC-ROOT-FACADE-RE-EXPORTS-RAW-ELEME-93D13B29.md"
+    },
+    {
+      "id": "ISS-20260514T182018325Z-STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP-9492D2E7",
+      "title": "std fs and stdio root facades re-export raw ABI helpers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/fs.nepl, stdlib/std/stdio.nepl, nodesrc/test_stdlib_fs_no_unsafe_unwraps.js, nodesrc/test_stdlib_stdio_read_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T182018325Z-STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP-9492D2E7.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

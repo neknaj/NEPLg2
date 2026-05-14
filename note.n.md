@@ -1,3 +1,25 @@
+# 2026-05-15 Agent 1 std fs/stdio raw facade boundary 修正
+
+- `ISS-20260514T182018325Z-STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP-9492D2E7` を追加して解決した。
+- safe root facade の `std/fs` と `std/stdio` が raw ABI submodule を再公開し、通常 import から WASI / LLVM syscall helper や raw scratch helper が見える状態だった。
+- `std/fs` root から `pub #import "./fs/raw" as *` を削除し、`std/stdio` root から `pub #import "./stdio/raw" as *` を削除した。
+- fd/read/write 実装 module は `std/fs/raw` / `std/stdio/raw` を明示 import するため、raw ABI 境界を explicit raw submodule に閉じたまま通常 public API だけを root から公開する。
+- source policy で root facade が raw submodule / raw helper 名を再公開しないことと、raw ABI を使う内部 module が explicit raw import を持つことを固定した。
+- 検証:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_debug_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/agent1-std-facade-raw-boundary-fs-root.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/agent1-std-facade-raw-boundary-stdio-root.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/write/fd.nepl --no-tree -o tmp/agent1-std-facade-raw-boundary-fs-internal.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/read/buffer.nepl --no-tree -o tmp/agent1-std-facade-raw-boundary-stdio-internal.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-std-facade-raw-boundary-tests-fs.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/agent1-std-facade-raw-boundary-tests-stdout.json -j 1 --dist web/dist --assert-io`: total=7, passed=7
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/agent1-std-facade-raw-boundary-tests-stdin.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の safe public facade と raw ABI implementation boundary の責務分割を進めるもの。
+
 # 2026-05-15 Agent 1 Vec root raw facade boundary 修正
 
 - `ISS-20260514T180856087Z-VEC-ROOT-FACADE-RE-EXPORTS-RAW-ELEME-93D13B29` を追加して解決した。

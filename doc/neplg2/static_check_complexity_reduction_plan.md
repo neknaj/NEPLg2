@@ -425,6 +425,7 @@ commit 単位:
 | `FS-DIR-READER-STILL-DEPENDS-ON-RAW-V` | Stage 6 の fs dir reader migration issue。 | 2026-05-15 に fixed。`fs_sort_strings` を `&Vec<str>` public boundary に移し、`std/fs/dir/read_fd.nepl` から旧 `Vec.data` raw storage 依存を削除した。 |
 | `VEC-IN-PLACE-SORT-APIS-KEEP-PURE-EFF` | Stage 6 の Vec sort effect contract issue。 | 2026-05-15 に fixed。backing storage を書き換える sort helper / public in-place sort / raw slice sort / owner-returning sort wrapper を impure `*>` signature へ揃え、observer helper は pure のまま分離した。 |
 | `VEC-ROOT-FACADE-RE-EXPORTS-RAW-ELEME` | Stage 6 の Vec public/raw facade split issue。 | 2026-05-15 に fixed。root `alloc/collections/vec` から unchecked `vec/raw` re-export を外し、raw element helper は explicit `alloc/collections/vec/raw` import 境界へ閉じた。 |
+| `STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP` | Stage 6 の std fs/stdio public/raw facade split issue。 | 2026-05-15 に fixed。root `std/fs` と `std/stdio` から raw ABI submodule re-export を外し、WASI / LLVM syscall helper は explicit raw submodule import 境界へ閉じた。 |
 
 新しい個別 bug は、次の基準で追加する。
 

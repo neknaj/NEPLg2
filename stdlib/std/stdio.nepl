@@ -1,6 +1,5 @@
 #indent 4
 
-pub #import "./stdio/raw" as *
 pub #import "./stdio/write" as *
 pub #import "./stdio/read" as *
 pub #import "./stdio/print" as *
@@ -13,13 +12,14 @@ pub #import "./stdio/debug" as *
 //: - `print` / `read_line` などの基本 I/O を target 非依存で提供します。
 //:
 //: 実装(アルゴリズム):
-//: - wasm では `std/stdio/raw` の WASI `fd_read` / `fd_write` を呼びます。
-//: - llvm では `std/stdio/raw` の Linux `syscall(read/write)` fallback を使います。
+//: - wasm では内部実装 module が `std/stdio/raw` の WASI `fd_read` / `fd_write` を呼びます。
+//: - llvm では内部実装 module が `std/stdio/raw` の Linux `syscall(read/write)` fallback を使います。
 //: - 文字列は [len][bytes] の形式です。
 //:
 //: 注意(重要):
 //: - text 入力は growable buffer で EOF まで読み込みます。
 //: - 既存の `print` 系 API は互換性のため error を無視します。error を扱う場合は `stdio_write_*_result` を使います。
+//: - `std/stdio/raw` は ABI 境界なので、この root facade からは再公開しません。
 //:
 //: 計算量:
 //: - 文字列長に比例

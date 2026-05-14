@@ -7,6 +7,7 @@
 //:
 //: ### 注意
 //: - 実装本体は submodule に置き、この facade は API 公開境界だけを担当します。
+//: - `std/fs/raw` は WASI / LLVM ABI 境界なので、この root facade からは再公開しません。
 //:
 //: neplg2:test
 //: ret: 0
@@ -23,7 +24,6 @@
 
 pub #import "./fs/constants" as *
 pub #import "./fs/path" as *
-pub #import "./fs/raw" as *
 pub #import "./fs/fd" as *
 pub #import "./fs/stat" as *
 pub #import "./fs/dir" as *

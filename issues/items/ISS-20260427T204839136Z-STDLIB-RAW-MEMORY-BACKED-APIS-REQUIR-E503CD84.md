@@ -299,3 +299,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `fs_sort_strings` は raw `i32` storage pointer を受け取らず、`&Vec<str>` を受け取って `v::len` / `v::get` / `v::replace` 経由で stable insertion sort を行う。`str` は所有権を持たない Copy view として扱い、directory reader 側は sort error 時に `Vec<str>` owner を解放して `Err(e)` を返す。これにより `std/fs` import が削除済み Vec field で compile failure になる経路と、fs module が raw string storage sort に依存する経路を閉じた。
 
 この修正は Stage 6 の public API migration の一部であり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は引き続きこの親 issue で継続する。
+
+## 2026-05-15 Agent 1 std fs/stdio raw facade boundary 追記
+
+`ISS-20260514T182018325Z-STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP-9492D2E7` として、safe root facade の `std/fs` と `std/stdio` が raw ABI submodule を再公開していた問題を分離して修正した。
+
+今回の修正では、`std/fs` root から `pub #import "./fs/raw" as *` を削除し、`std/stdio` root から `pub #import "./stdio/raw" as *` を削除した。fd/read/write の実装 module は `std/fs/raw` / `std/stdio/raw` を明示 import するため、ABI 境界は explicit raw submodule に閉じる。通常の `std/fs` / `std/stdio` import は filesystem / standard I/O の safe public API だけを公開する。
+
+この親 issue は引き続き open とする。今回の修正は raw ABI helper の root re-export を閉じるものであり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は残件である。
