@@ -24,6 +24,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //:| #import "neplg2/core/syntax/parser/module_parser" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
 //: fn main <()*>i32> ():

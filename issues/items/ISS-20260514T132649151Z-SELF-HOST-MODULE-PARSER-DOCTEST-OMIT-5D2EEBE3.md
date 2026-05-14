@@ -2,8 +2,8 @@
 id: ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3
 title: "Self-host module_parser doctest omits current math import for eq"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: bug
 created: 2026-05-14
@@ -40,3 +40,12 @@ Update the module_parser doctest snippet to import the API that provides eq unde
 ## 検証
 
 Run NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/module_parser_doctest_after_import_fix.json -j 1 --assert-io.
+
+## 2026-05-14 修正
+
+`module_parser.nepl` の doctest snippet に `#import "core/math" as *` を追加し、snippet 内の `eq` 呼び出しが module 本体と同じ比較 API から解決されるようにした。実装本体の parser logic は変更していない。
+
+検証:
+
+- before: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/agent1_module_parser_eq_import_before.json -j 1 --assert-io`: total=1, failed=1, `resolve.identifier.undefined`
+- after: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/agent1_module_parser_eq_import_after.json -j 1 --assert-io`: total=1, passed=1, `compile_ms=24435`

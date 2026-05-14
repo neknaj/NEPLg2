@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T13:27:29.445Z",
+  "generated_at": "2026-05-14T13:41:23.458Z",
   "counts": {
     "total": 762,
-    "open": 8,
-    "resolved": 754,
+    "open": 7,
+    "resolved": 755,
     "by_area": {
       "stdlib": {
         "total": 198,
@@ -18,8 +18,8 @@
       },
       "selfhost": {
         "total": 65,
-        "open": 3,
-        "resolved": 62
+        "open": 2,
+        "resolved": 63
       },
       "cli": {
         "total": 19,
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A.md"
-    },
-    {
-      "id": "ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3",
-      "title": "Self-host module_parser doctest omits current math import for eq",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-05-14",
-      "updated": "2026-05-14",
-      "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -10438,6 +10423,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B.md"
+    },
+    {
+      "id": "ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3",
+      "title": "Self-host module_parser doctest omits current math import for eq",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

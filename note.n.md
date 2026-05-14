@@ -38161,3 +38161,9 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `tests/stdlib/neplg2_module_graph.n.md` は default 60000ms budget で 3/3 pass に戻った。再実行時の compile_ms は 42018 / 41556 / 39717。
 - `tmp/agent1_probe_lex_empty.n.md` は 1/1 pass、`stdlib/neplg2/core/module/loader.nepl` は 1/1 pass。
 - `stdlib/neplg2/core/syntax/parser/module_parser.nepl` は timeout ではなく doctest 内の `eq` import drift で `resolve.identifier.undefined` になったため、別 issue `ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3` を追加した。
+
+# 2026-05-14 Agent 1 メモ (ISS-20260514T132649151Z module_parser doctest import)
+
+- `module_parser.nepl` の doctest は parser logic ではなく、snippet 側が `eq` を提供する `core/math` を import していないため compile phase で止まっていた。
+- doctest snippet に `#import "core/math" as *` を追加し、module 本体と同じ比較 API を使う形に揃えた。
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/agent1_module_parser_eq_import_after.json -j 1 --assert-io`: 1/1 pass、`compile_ms=24435`。
