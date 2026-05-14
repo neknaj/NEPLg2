@@ -703,3 +703,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\block_semicolon_return.n.md --no-tree -o tmp\agent1-block-semicolon-return-report-tests.json -j 1 --assert-io --dist web/dist`: total=10, passed=10
 
 この issue はまだ open のまま継続する。Block semicolon return 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 List dot map stdout report migration
+
+`tests/compiler/list_dot_map.n.md` の namespace / alias map 回帰 doctest 4 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `result::map`、`list::map`、star alias 経由の `result map`、star alias 経由の `vec map` を assertion label として stdout に残すようにした。
+- `list::get` は現行 API に合わせて `&ys` を渡すように修正し、`list::map` が返した owning list は `list::free` で明示的に閉じた。Resource IR owner 検査を緩めず、fixture 側の所有権責務を正した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\list_dot_map.n.md --no-tree -o tmp\agent1-list-dot-map-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
+
+この issue はまだ open のまま継続する。List dot map 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
