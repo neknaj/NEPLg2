@@ -6,7 +6,7 @@
 //: - storage owner を取り出して包み直さずに field 全体で移す helper をここへ集約します。
 //:
 //: [注意/ちゅうい]:
-//: - 空 storage は `Option::None`、所有 storage は `Option::Some(ptr)` で表します。
+//: - 空 storage は `size=0` の sentinel `RegionToken`、所有 storage は正の size を持つ `RegionToken` で表します。
 //: - この module は raw memory operation を直接持ちません。
 //:
 //: neplg2:test
@@ -22,7 +22,9 @@
 #indent 4
 
 #import "core/field" as *
+#import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "core/option" as *
 
 //: ## ByteBuilder
@@ -36,42 +38,63 @@
 //: - `ByteBuilder` は[所有権/しょゆうけん]を[持/も]つので `Copy` / `Clone` を[実装/じっそう]しません。
 //: - `push_*` / `reserve` / `finish` は builder を[消費/しょうひ]し、成功時は[新/あたら]しい builder または `ByteBuf` を[返/かえ]します。
 //: - 失敗時は builder 内部 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
+//: - `region` は storage owner token です。payload pointer が必要な処理は参照から非所有 view を取り出します。
 pub struct ByteBuilder:
-    ptr <Option<MemPtr<u8>>>
+    region <RegionToken<u8>>
     len <i32>
     cap <i32>
+
+pub fn byte_builder_empty_region <()->RegionToken<u8>> ():
+    let ptr <MemPtr<u8>> mem_ptr_wrap 0
+    region_new ptr 0
 
 //: byte_builder_empty: storage を持たない空 builder を返す
 //:
 //: [目的/もくてき]:
-//: - `Option::None` によって「解放責務が無い」空 storage を型に明示します。
+//: - `cap=0` の zero-length sentinel token によって「解放責務が無い」空 storage を表します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。
 pub fn byte_builder_empty <()->ByteBuilder> ():
-    ByteBuilder none<MemPtr<u8>> 0 0
+    ByteBuilder byte_builder_empty_region 0 0
 
-//: byte_builder_from_owned_ptr: 所有 byte 領域を `ByteBuilder` に包む
+//: byte_builder_from_owned_region: 所有 byte 領域 token を `ByteBuilder` に包む
 //:
 //: [目的/もくてき]:
-//: - `alloc_ptr` / `realloc_ptr` で得た所有 pointer を、空/非空が型に現れる builder 表現へ集約します。
+//: - `alloc_region_bytes` / builder grow で得た owner token を builder 表現へ集約します。
 //:
 //: [注意/ちゅうい]:
 //: - `cap0` は正でなければなりません。空 builder は `byte_builder_empty` を使ってください。
-//: - 呼び出し後、`ptr` は返った builder が所有します。
+//: - 呼び出し後、`region` は返った builder が所有します。
+pub fn byte_builder_from_owned_region <(RegionToken<u8>,i32,i32)->ByteBuilder> (region, len0, cap0):
+    ByteBuilder region len0 cap0
+
 pub fn byte_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->ByteBuilder> (ptr, len0, cap0):
-    ByteBuilder some<MemPtr<u8>> ptr len0 cap0
+    byte_builder_from_owned_region region_new ptr cap0 len0 cap0
 
 //: byte_builder_with_len: builder の storage owner を保ったまま length だけ更新する
 //:
 //: [目的/もくてき]:
-//: - append が書き込みに成功したあと、`ptr` field の owner を取り出して包み直さず、`Option<MemPtr<u8>>` field 全体を次の builder へ移します。
+//: - append が書き込みに成功したあと、`RegionToken<u8>` owner を取り出して包み直さず、field 全体を次の builder へ移します。
 //:
 //: [注意/ちゅうい]:
 //: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `byte_builder_reserve` で済ませます。
 pub fn byte_builder_with_len <(ByteBuilder,i32)->ByteBuilder> (builder, new_len):
     let cap0 <i32> get builder "cap"
-    ByteBuilder get builder "ptr" new_len cap0
+    ByteBuilder get builder "region" new_len cap0
+
+pub fn byte_builder_data_ptr_ref <(&ByteBuilder)->MemPtr<u8>> (builder):
+    let region_ref <&RegionToken<u8>> get_ref builder "region"
+    region_ptr region_ref
+
+pub fn byte_builder_ptr_ref <(&ByteBuilder)->Option<MemPtr<u8>>> (builder):
+    let cap0 <i32> *get_ref builder "cap"
+    if:
+        le cap0 0
+        then:
+            none<MemPtr<u8>>
+        else:
+            some<MemPtr<u8>> byte_builder_data_ptr_ref builder
 
 //: byte_builder_len: builder に現在入っている byte 数を返す
 //:

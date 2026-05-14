@@ -147,7 +147,7 @@ pub fn fs_discard_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, 
 //: fs_finish_read_buffer: capacity 付き読み込み buffer を ByteBuf の所有権 invariant へ詰め直す
 //:
 //: 目的:
-//: - `alloc_ptr` / `realloc_ptr` で確保した一時読み込み buffer を、`ByteBuf.ptr` が `Some` の場合だけ `ByteBuf.len` byte の所有領域を指す形へ戻します。
+//: - `alloc_ptr` / `realloc_ptr` で確保した一時読み込み buffer を、`ByteBuf.region` が `ByteBuf.len` byte の所有領域を持つ形へ戻します。
 //:
 //: 実装(アルゴリズム):
 //: - 読み込み長が 0 の場合は元 buffer を解放し、空 `ByteBuf` を返します。

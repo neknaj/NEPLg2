@@ -51,11 +51,15 @@ pub fn byte_builder_push_u8 <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind
             Result<ByteBuilder, StdErrorKind>::Err e
         Result::Ok reserved:
             let len0 <i32> get reserved "len"
-            match *get_ref &reserved "ptr":
-                Option::None:
+            let cap0 <i32> *get_ref &reserved "cap"
+            if:
+                le cap0 0
+                then:
                     byte_builder_free reserved
                     Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
-                Option::Some ptr:
+                else:
+                    let region_ref <&RegionToken<u8>> get_ref &reserved "region"
+                    let ptr <MemPtr<u8>> region_ptr region_ref
                     match store_u8 mem_ptr_add ptr len0 byte:
                         Result::Ok _:
                             Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 1
@@ -151,11 +155,15 @@ pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)->Result<ByteBu
                             Result<ByteBuilder, StdErrorKind>::Err e
                         Result::Ok reserved:
                             let len0 <i32> get reserved "len"
-                            match *get_ref &reserved "ptr":
-                                Option::None:
+                            let cap0 <i32> *get_ref &reserved "cap"
+                            if:
+                                le cap0 0
+                                then:
                                     byte_builder_free reserved
                                     Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
-                                Option::Some ptr:
+                                else:
+                                    let region_ref <&RegionToken<u8>> get_ref &reserved "region"
+                                    let ptr <MemPtr<u8>> region_ptr region_ref
                                     let dst <MemPtr<u8>> mem_ptr_add ptr len0
                                     match mem_copy<u8> dst *src data_len:
                                         Result::Ok _:
@@ -169,19 +177,16 @@ pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)->Result<ByteBu
 //: [目的/もくてき]:
 //: - owned `ByteBuf` の payload を builder へコピーし、入力 buffer の解放責務も閉じます。
 pub fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)->Result<ByteBuilder, StdErrorKind>> (builder, bytes):
-    let data_len <i32> get bytes "len"
-    match get bytes "ptr":
-        Option::None:
-            if:
-                eq data_len 0
-                then:
-                    Result<ByteBuilder, StdErrorKind>::Ok builder
-                else:
-                    byte_builder_free builder
-                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
-        Option::Some src:
+    let data_len <i32> io_bytebuf_len_ref &bytes
+    if:
+        le data_len 0
+        then:
+            io_bytebuf_free bytes
+            Result<ByteBuilder, StdErrorKind>::Ok builder
+        else:
+            let src <MemPtr<u8>> io_bytebuf_data_ptr_ref &bytes
             let res <Result<ByteBuilder, StdErrorKind>> byte_builder_push_bytes_ref builder &src data_len
-            byte_builder_dealloc_owned_u8 src io_bytebuf_storage_size data_len
+            io_bytebuf_free bytes
             res
 
 //: byte_builder_push_leb_u32: u32 LEB128 を[追加/ついか]する

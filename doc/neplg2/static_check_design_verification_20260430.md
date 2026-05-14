@@ -35,7 +35,7 @@ NEPLg2 の静的検査が、型安全・メモリ安全を「実装上も設計�
 | drop elaboration | `passes::insert_drops` が Resource IR check より前に HIR 上で動く。 | 設計未完。 | drop は Resource IR 上の checked state から挿入する。旧 `drop_insertion` は移行対象。 |
 | Diagnostic code | Rust core は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` の階層 enum と stable string 境界へ移行済み。 | 方向は正しい。 | `Cell` / `Owner` 分離を維持し、self-host も同じ category contract へ揃える。 |
 | self-host diagnostic | 現在の S1/S2 用 code は enum 化済み。 | 現段階では妥当。 | S3 以降で Type / Effect / Resource / Backend category を Rust と同じ contract で追加する。 |
-| stdlib mem/string/io | ByteBuf / builders は `Option<MemPtr<u8>>` 化で空/所有 storage を型に出した。 | 過渡として妥当。 | `OwnedRegion` / `OwnedBytes` / compiler-issued token へ移行する。 |
+| stdlib mem/string/io | ByteBuf / ByteBuilder は `RegionToken<u8>` owner field へ移行し、`MemPtr<u8>` は参照から得る non-owning view に限定した。StringBuilder は `ByteBuilder` owner wrapper である。 | 過渡として妥当。 | forgeable `RegionToken` から `OwnedRegion` / `OwnedBytes` / compiler-issued token へ移行する。 |
 | stdlib collections | `HashMap` / `HashSet` は enum bucket state、Queue / Deque / RingBuffer / Stack / BinaryHeap / BTreeMap / BTreeSet / List / byte・numeric collection は typed `Vec` storage へ移行済み。`Vec` は `VecStorageState` を持つが、基礎 storage はまだ `MemPtr` owner field に依存する。 | 改善中だが self-host 中核にはまだ制限が必要。 | `OwnedBuffer`、`StorageState`、owner-preserving fallible result、collection-wide drop traversal へ再設計する。 |
 
 ## 確認結果

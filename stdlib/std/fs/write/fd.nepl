@@ -107,19 +107,14 @@ pub fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, 
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
 pub fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
-    let data_len <i32> field::get bytes "len"
-    match field::get bytes "ptr":
-        Option::None:
-            if:
-                eq data_len 0
-                then:
-                    Result<(),i32>::Ok ()
-                else:
-                    Result<(),i32>::Err 22
-        Option::Some data:
+    let data_len <i32> io_bytebuf_len_ref &bytes
+    if:
+        le data_len 0
+        then:
+            io_bytebuf_free bytes
+            Result<(),i32>::Ok ()
+        else:
+            let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &bytes
             let result <Result<(),i32>> fs_write_fd_mem_result fd data data_len
-            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
-                Result::Ok _:
-                    result
-                Result::Err _:
-                    result
+            io_bytebuf_free bytes
+            result

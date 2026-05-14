@@ -1,13 +1,23 @@
 use alloc::vec::Vec;
 
 use super::model::{Place, RawMemoryOp, ResourceOp};
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_summary_raw_transfer::{
-    place_matches_any_alias, push_transferred_aliases, push_transferred_aliases_from,
-    push_transferred_raw_owner_view_aliases,
+    place_matches_any_alias, push_transferred_raw_owner_view_aliases,
+    push_transferred_value_aliases, push_transferred_value_aliases_from,
 };
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
 
 pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Place>) -> bool {
+    let mut raw_views = RawAddressViewTable::default();
+    ops_use_raw_owner_alias_with_views(ops, aliases, &mut raw_views)
+}
+
+fn ops_use_raw_owner_alias_with_views(
+    ops: &[ResourceOp],
+    aliases: &mut Vec<Place>,
+    raw_views: &mut RawAddressViewTable,
+) -> bool {
     for op in ops {
         match op {
             ResourceOp::Read { source, output, .. }
@@ -17,7 +27,7 @@ pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Plac
                 target: output,
                 ..
             } => {
-                push_transferred_aliases(aliases, source, output);
+                push_transferred_value_aliases(aliases, raw_views, source, output);
             }
             ResourceOp::RawAddressView {
                 source,
@@ -25,17 +35,17 @@ pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Plac
                 kind,
                 ..
             } => {
-                push_transferred_raw_owner_view_aliases(aliases, source, output, *kind);
+                push_transferred_raw_owner_view_aliases(aliases, raw_views, source, output, *kind);
             }
             ResourceOp::Assign { target, value, .. } => {
-                push_transferred_aliases(aliases, value, target);
+                push_transferred_value_aliases(aliases, raw_views, value, target);
             }
             ResourceOp::DeclareLocal {
                 place,
                 initializer: Some(initializer),
                 ..
             } => {
-                push_transferred_aliases(aliases, initializer, place);
+                push_transferred_value_aliases(aliases, raw_views, initializer, place);
             }
             ResourceOp::Construct {
                 output,
@@ -45,7 +55,7 @@ pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Plac
             } => {
                 for (index, input) in inputs.iter().enumerate() {
                     let field = construct_aggregate_field_place(output, kind, index, input);
-                    push_transferred_aliases(aliases, input, &field);
+                    push_transferred_value_aliases(aliases, raw_views, input, &field);
                 }
             }
             ResourceOp::RawMemory {
@@ -78,15 +88,42 @@ pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Plac
                 ..
             } => {
                 let mut then_aliases = aliases.clone();
-                if ops_use_raw_owner_alias(then_ops, &mut then_aliases) {
+                let mut then_raw_views = raw_views.clone();
+                if ops_use_raw_owner_alias_with_views(
+                    then_ops,
+                    &mut then_aliases,
+                    &mut then_raw_views,
+                ) {
                     return true;
                 }
                 let mut else_aliases = aliases.clone();
-                if ops_use_raw_owner_alias(else_ops, &mut else_aliases) {
+                let mut else_raw_views = raw_views.clone();
+                if ops_use_raw_owner_alias_with_views(
+                    else_ops,
+                    &mut else_aliases,
+                    &mut else_raw_views,
+                ) {
                     return true;
                 }
-                push_transferred_aliases_from(aliases, then_value, output, &then_aliases);
-                push_transferred_aliases_from(aliases, else_value, output, &else_aliases);
+                push_transferred_value_aliases_from(
+                    aliases,
+                    raw_views,
+                    then_value,
+                    output,
+                    &then_aliases,
+                    &then_raw_views,
+                );
+                let mut else_output_raw_views = raw_views.clone();
+                push_transferred_value_aliases_from(
+                    aliases,
+                    &mut else_output_raw_views,
+                    else_value,
+                    output,
+                    &else_aliases,
+                    &else_raw_views,
+                );
+                *raw_views =
+                    RawAddressViewTable::merge_paths(&[raw_views.clone(), else_output_raw_views]);
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -94,11 +131,19 @@ pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Plac
                 ..
             } => {
                 let mut loop_aliases = aliases.clone();
-                if ops_use_raw_owner_alias(condition_ops, &mut loop_aliases)
-                    || ops_use_raw_owner_alias(body_ops, &mut loop_aliases)
-                {
+                let mut loop_raw_views = raw_views.clone();
+                if ops_use_raw_owner_alias_with_views(
+                    condition_ops,
+                    &mut loop_aliases,
+                    &mut loop_raw_views,
+                ) || ops_use_raw_owner_alias_with_views(
+                    body_ops,
+                    &mut loop_aliases,
+                    &mut loop_raw_views,
+                ) {
                     return true;
                 }
+                *raw_views = RawAddressViewTable::merge_paths(&[raw_views.clone(), loop_raw_views]);
             }
             ResourceOp::Match {
                 output,
@@ -106,17 +151,40 @@ pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Plac
                 arms,
                 ..
             } => {
+                let mut arm_output_raw_views = Vec::new();
                 for arm in arms {
                     let mut arm_aliases = aliases.clone();
+                    let mut arm_raw_views = raw_views.clone();
                     if let Some(bind_local) = &arm.bind_local {
                         if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-                            push_transferred_aliases(&mut arm_aliases, &source, bind_local);
+                            push_transferred_value_aliases(
+                                &mut arm_aliases,
+                                &mut arm_raw_views,
+                                &source,
+                                bind_local,
+                            );
                         }
                     }
-                    if ops_use_raw_owner_alias(&arm.ops, &mut arm_aliases) {
+                    if ops_use_raw_owner_alias_with_views(
+                        &arm.ops,
+                        &mut arm_aliases,
+                        &mut arm_raw_views,
+                    ) {
                         return true;
                     }
-                    push_transferred_aliases_from(aliases, &arm.value, output, &arm_aliases);
+                    let mut output_raw_views = raw_views.clone();
+                    push_transferred_value_aliases_from(
+                        aliases,
+                        &mut output_raw_views,
+                        &arm.value,
+                        output,
+                        &arm_aliases,
+                        &arm_raw_views,
+                    );
+                    arm_output_raw_views.push(output_raw_views);
+                }
+                if !arm_output_raw_views.is_empty() {
+                    *raw_views = RawAddressViewTable::merge_paths(&arm_output_raw_views);
                 }
             }
             ResourceOp::Expr { .. }

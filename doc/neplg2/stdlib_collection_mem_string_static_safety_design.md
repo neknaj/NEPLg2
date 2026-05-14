@@ -21,8 +21,8 @@
 | 領域 | 現状 | 判定 | 次の作業 |
 |---|---|---|---|
 | `core/mem` | `MemPtr<T>` / `RegionToken<T>` / `alloc_ptr` / `dealloc_ptr` が存在する。raw `i32` API と typed wrapper が同じ module に同居している。 | 過渡。Resource IR の防壁は増えたが、設計としては owner token と pointer projection がまだ分離不足。 | internal raw API と public safe API を分離し、compiler-issued owner token へ移行する。 |
-| `alloc/io` `ByteBuf` | `io/bytebuf` が `ByteBuf`、RegionToken 経由の確定境界、str との checked conversion を所有する。`ptr: Option<MemPtr<u8>>` で空/所有領域を型に出した。 | 良い方向。短期 self-host の binary I/O buffer として使用可能。root facade に raw capability を戻さない。 | `OwnedBytes` / `OwnedRegion` 設計が入った後に `Option<MemPtr>` から owner wrapper へ移行する。 |
-| `alloc/io` `ByteBuilder` | `io/bytebuilder` が grow/reserve/append/finish を所有する。`ptr: Option<MemPtr<u8>>` と `byte_builder_with_len` で owner payload の unwrap/rewrap を避けている。safe API は pure surface とし、raw memory effect は raw-memory-boundary source 内で Resource IR が検査する。 | 良い方向。builder owner leak は回帰テストで監視済み。raw capability は `io/bytebuilder` に限定した。 | fallible append の失敗契約を collection と揃え、将来の owner wrapper に合わせる。 |
+| `alloc/io` `ByteBuf` | `io/bytebuf` が `ByteBuf`、RegionToken 経由の確定境界、str との checked conversion を所有する。`ByteBuf.region: RegionToken<u8>` が free obligation owner で、`MemPtr<u8>` は参照から得る非所有 view に限定した。 | 良い方向。短期 self-host の binary I/O buffer として使用可能。root facade に raw capability を戻さない。 | `OwnedBytes` / compiler-issued owner token 設計が入った後に forgeable `RegionToken` から移行する。 |
+| `alloc/io` `ByteBuilder` | `io/bytebuilder` が grow/reserve/append/finish を所有する。`region: RegionToken<u8>` と `byte_builder_with_len` で storage owner を field 全体として移し、append は参照から非所有 pointer view を得る。safe API は pure surface とし、raw memory effect は raw-memory-boundary source 内で Resource IR が検査する。 | 良い方向。builder owner leak は回帰テストで監視済み。raw capability は `io/bytebuilder` に限定した。 | fallible append の失敗契約を collection と揃え、将来の compiler-issued owner wrapper に合わせる。 |
 | `alloc/string` `str` | `string_alloc_region` / `string_finish` で `RegionToken` を使う経路が増えた。UTF-8 と char API も進み、numeric conversion は `integer/common` / `integer/format` / `integer/parse` / `float/format` / `float/parse` へ分割済み。 | 部分的に良い。`str` 確定境界と module 責務は改善済みだが、raw address helper はまだ内部 discipline に依存する。 | `str` 生成 API を `OwnedStringRegion` に寄せ、unchecked helper を internal boundary に閉じる。 |
 | `alloc/string` `StringBuilder` | `bytes: ByteBuilder` を保持する typed text builder wrapper。append は `ByteBuilder` の byte owner boundary へ委譲し、build は `ByteBuilder -> ByteBuf -> str` の確定経路を通す。 | 良い方向。StringBuilder 固有の raw `MemPtr` owner field はなくなった。短期 self-host の text builder として使用可能。 | `ByteBuilder` / `ByteBuf` 側を将来の `OwnedBytes` / `OwnedStringRegion` へ移行する。 |
 | `alloc/collections/Vec` | `VecStorageState::Empty/Owned` と `data: MemPtr<T>` を分け、空 storage は enum state で表す。型定義は `vec/types`、storage allocation/free は `vec/storage`、borrowed observer は `vec/access`、raw load/store と scan/fold helper は `vec/raw`、owner-consuming transform は `vec/transform`、borrowed query は `vec/query`、mutation/cleanup は `vec/mutation` が所有する。allocation constructor、raw data observer、raw element helper、`push` / `pop` / `sort` / `clear` / `free` / `vec_free_storage` は、raw storage identity / raw copy / storage-only cleanup / raw swap に依存するため `.T: Copy` に限定済み。 | 過渡。root はほぼ facade になったが、`MemPtr` が storage owner field である点、non-Copy payload collection の owner-preserving update / move-out / drop traversal は `OwnedBuffer<T>` 化まで残る。 | `OwnedBuffer<T>` + initialized prefix へ移行し、read/copy/move/drop/free を分離する。 |
@@ -50,7 +50,7 @@
 | numeric array collection | SparseSet / Fenwick / SegmentTree / DisjointSet は `Vec<i32>` storage。 | 良い方向。numeric collection 固有の raw i32 storage は解消済みだが、基礎 `Vec` の owner model は未完。 | `OwnedBuffer<i32>` / typed index API へ移す。 |
 | `Vec<T>` | `len/cap/storage/data` を持ち、型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済み。空 owner state は `VecStorageState::Empty`。 | 最重要残件。module 責務は改善したが、`MemPtr` が owner と view を兼ねる。 | `OwnedBuffer<T>` + `StorageState<T>` + initialized prefix に再実装する。 |
 | `core/mem` | raw allocator、`MemPtr<T>`、`RegionToken<T>`、load/store が同居。 | 過渡。token forging と owner/view 混同が残る。 | public safe API と internal raw API を分離し、compiler-issued owner token にする。 |
-| `alloc/string` / `alloc/io` | `RegionToken` と `Option<MemPtr<u8>>` builder で owner flow を改善済み。 | 短期 self-host では使用可能。 | `OwnedBytes` / `OwnedStringRegion` へ移し、unchecked raw conversion を internal boundary に閉じる。 |
+| `alloc/string` / `alloc/io` | `RegionToken` owner と `ByteBuilder` / `ByteBuf` の typed boundary で owner flow を改善済み。`StringBuilder` 固有 raw owner field と `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field は削除済み。 | 短期 self-host では使用可能。 | `OwnedBytes` / `OwnedStringRegion` へ移し、unchecked raw conversion を internal boundary に閉じる。 |
 
 現状実装の粗い集計:
 
@@ -112,15 +112,16 @@
 
 良い点:
 
-- 空 storage は `None`、所有 storage は `Some(ptr)` で表現され、null pointer owner に戻らない source policy がある。
-- `ByteBuf` の free / to-str 変換は `match Option` により owner 有無を明示する。
+- `ByteBuf` / `ByteBuilder` の free obligation は `RegionToken<u8>` field に集約され、`MemPtr<u8>` は参照から得る non-owning view としてだけ扱う。
+- 空 storage は `size=0` の sentinel `RegionToken` で表し、解放時には allocator へ返さない。null pointer を所有 pointer field として公開しない。
+- `ByteBuf` の free / to-str 変換は `RegionToken` owner を centralized cleanup へ渡す。
 - `ByteBuilder` は append 成功時に payload pointer を取り出して包み直さず、owner field 全体を移す。
 - stream trait 群は `io/traits` に分離され、raw memory operation を持たない抽象境界として監視される。
 
 残る問題:
 
-- `Option<MemPtr<u8>>` は「owner を持つ pointer」という意味を表しているが、`MemPtr` 自体は non-owning pointer のままである。型名からは free obligation が分からない。
-- empty と allocated は表せるが、「initialized prefix」「capacity」「dealloc 済み」は struct discipline に残る。
+- `RegionToken<T>` はまだ stdlib code から `region_new` で構築できるため、compiler-issued capability ではない。
+- empty / allocated と capacity / initialized prefix の一部は `ByteBuf` / `ByteBuilder` の struct discipline に残る。
 
 ### `alloc/collections`
 
@@ -236,7 +237,7 @@ struct PushError<.C,.T,.E>:
 
 ### 5. string / byte buffer は collection 設計の先行実装として扱う
 
-`ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` 化は、空/所有 storage を型に出す方向として正しい。ただしこれは完成形ではない。`StringBuilder` は `ByteBuilder` wrapper へ移したため、独立した `Option<MemPtr<u8>>` field は持たない。
+`ByteBuf` / `ByteBuilder` は `RegionToken<u8>` owner に移行し、`MemPtr<u8>` を owner field として公開しない形になった。ただしこれは完成形ではない。`RegionToken` は compiler-issued token ではなく、initialized prefix / capacity の証明も `OwnedBytes` ほど明示的ではない。`StringBuilder` は `ByteBuilder` wrapper へ移したため、独立した raw owner field は持たない。
 
 理想:
 
@@ -283,7 +284,7 @@ Resource IR / typecheck / match check は次を必須にする。
 2026-05-13 追記:
 
 - `nodesrc/test_stdlib_memptr_owner_field_policy.js` を追加し、stdlib 全体の `struct` field に直接現れる `MemPtr` / `Option<MemPtr>` を集約して監視する。
-- この policy は `MemPtr` field を安全証明として認めるものではない。現時点で残る `RegionToken.ptr`、`Vec.data`、`ByteBuf.ptr`、`ByteBuilder.ptr` を Stage C/D/F の移行対象として固定し、それ以外の新規 `MemPtr` owner-like field を禁止する。
+- この policy は `MemPtr` field を安全証明として認めるものではない。現時点で残る `RegionToken.ptr`、`Vec.data` を Stage B/D/F の移行対象として固定し、それ以外の新規 `MemPtr` owner-like field を禁止する。
 - source policy runner に組み込み、module 個別 policy の外で raw-memory-backed owner field が増える退行を検出する。
 
 2026-05-14 追記:
@@ -293,6 +294,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - compiler core 側では、`RegionToken<T>` の direct constructor restriction と同じ `StructConstructorPolicy::RawMemoryBoundaryOnly(OwnerToken)` を Copy capability impl target validation にも接続した。これにより stdlib public API 移行中でも、owner token を構造的 Copy 型として trait 層から複製可能にする経路を閉じる。
 - `VecDataLen<T>` は `Vec.data: MemPtr<T>` と `len` を public struct field として再包装するだけの raw storage view carrier だったため削除した。呼び出し側は `data_mem_ptr<T>(&Vec<T>)` と `len<T>(&Vec<T>)` を明示的に別々に使う。残件 baseline は 6 field ではなく 5 field であり、`VecDataLen.data` を transitional allowlist から外した。
 - `StringBuilder` は `ByteBuilder` と重複して `Option<MemPtr<u8>>` / len / cap を持つ設計をやめ、`ByteBuilder` owner を保持する typed wrapper へ移した。残件 baseline は 5 field ではなく 4 field であり、`StringBuilder.data` を transitional allowlist から外した。
+- `ByteBuf` / `ByteBuilder` は `Option<MemPtr<u8>>` owner field をやめ、storage owner を `RegionToken<u8>` field に集約した。`region_ptr` / `io_bytebuf_data_ptr_ref` / `byte_builder_data_ptr_ref` は参照から non-owning `MemPtr` view だけを返す。残件 baseline は 4 field ではなく 2 field であり、`ByteBuf.ptr` と `ByteBuilder.ptr` を transitional allowlist から外した。
 
 ### Stage B: `core/mem` の internal/public 分離
 
@@ -304,7 +306,7 @@ Resource IR / typecheck / match check は次を必須にする。
 
 ### Stage C: string / byte buffer を owner wrapper へ移行
 
-- `Option<MemPtr<u8>>` を `StorageState<u8>` または `OwnedBytes` に移す。
+- `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field は削除済みである。次は forgeable `RegionToken<u8>` を `StorageState<u8>` または compiler-issued `OwnedBytes` に移す。
 - `string_finish_base` を internal に閉じ、`OwnedStringRegion` だけが `str` を作れるようにする。
 - fallback API と Result API の責務を整理し、allocation failure を空値 success に潰さない入口を標準にする。
 
@@ -358,6 +360,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | raw-memory-backed stdlib API の段階移行親 issue。 |
 | `ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF` | `VecDataLen` raw storage view carrier の削除。 |
 | `ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F` | `StringBuilder` 固有 raw owner field を `ByteBuilder` owner boundary へ集約。 |
+| `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` | `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field を `RegionToken` owner boundary へ集約。 |
 | `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` | fallible collection update の owner loss。 |
 | `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` | ByteBuf の空/所有 storage 構造化。 |
 | `ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB` | builder owner boundary の修正済み回帰。 |

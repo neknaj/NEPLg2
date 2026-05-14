@@ -1,3 +1,13 @@
+# 2026-05-14 Agent 1 ByteBuf / ByteBuilder RegionToken owner 境界修正
+
+- `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` を解決した。
+- `ByteBuf` / `ByteBuilder` は owned byte storage を `Option<MemPtr<u8>>` field として保持する過渡設計をやめ、`RegionToken<u8>` を free obligation owner として保持する構造へ移した。
+- `MemPtr<u8>` は `io_bytebuf_data_ptr_ref` / `byte_builder_data_ptr_ref` で参照から得る non-owning view に限定し、fs / stdio / streamio / text の利用側も旧 `ptr` field を直接見ない形へ同期した。
+- ResourceIR function summary が non-owning projection 由来の `mem_ptr_add` を owner alias と誤認していたため、raw owner alias traversal に raw view state を持たせ、`region_ptr` 由来の offset view が free obligation を運ばないことを証明できるようにした。
+- `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional baseline は `RegionToken.ptr` と `Vec.data` の 2 件になった。
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の `MemPtr = non-owning pointer` 方針に沿って、stdlib byte buffer owner 境界と ResourceIR summary を同期するもの。
+
 # 2026-05-14 Agent 1 KP fixture owner/import/raw boundary 修正
 
 - `ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D` を解決した。

@@ -37,7 +37,7 @@
 //: byte_builder_finish: builder を exact-size の `ByteBuf` へ[変換/へんかん]する
 //:
 //: [目的/もくてき]:
-//: - growable builder の capacity を[隠/かく]し、`ByteBuf.ptr` が `Some` の場合だけ `ByteBuf.len` byte の[所有領域/しょゆうりょういき]を[指/さ]す invariant に[戻/もど]します。
+//: - growable builder の capacity を[隠/かく]し、`ByteBuf.region` が `ByteBuf.len` byte の[所有領域/しょゆうりょういき]だけを[持/も]つ invariant に[戻/もど]します。
 //:
 //: [注意/ちゅうい]:
 //: - 返った `ByteBuf` は caller が `io_bytebuf_free` で[解放/かいほう]してください。
@@ -53,22 +53,23 @@ pub fn byte_builder_finish <(ByteBuilder)->Result<ByteBuf, StdErrorKind>> (build
             if:
                 eq len0 cap0
                 then:
-                    match get builder "ptr":
-                        Option::Some ptr:
-                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len0
-                        Option::None:
+                    if:
+                        le cap0 0
+                        then:
                             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                        else:
+                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region get builder "region" len0
                 else:
-                    match get builder "ptr":
-                        Option::None:
+                    if:
+                        le cap0 0
+                        then:
                             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
-                        Option::Some old:
-                            match realloc_ptr<u8> old cap0 len0:
-                                Result::Ok ptr:
-                                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len0
-                                Result::Err _e:
-                                    byte_builder_dealloc_owned_u8 old cap0
-                                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                        else:
+                            match byte_builder_realloc_region_or_free get builder "region" len0:
+                                Result::Ok region:
+                                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region len0
+                                Result::Err e:
+                                    Result<ByteBuf, StdErrorKind>::Err e
 
 //: io_bytebuf_from_char_utf8_result: char 1 つを UTF-8 `ByteBuf` へ encode する
 //:

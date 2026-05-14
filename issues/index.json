@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T07:11:59.003Z",
+  "generated_at": "2026-05-14T08:42:13.228Z",
   "counts": {
-    "total": 755,
+    "total": 756,
     "open": 6,
-    "resolved": 749,
+    "resolved": 750,
     "by_area": {
       "stdlib": {
-        "total": 193,
+        "total": 194,
         "open": 4,
-        "resolved": 189
+        "resolved": 190
       },
       "TEST": {
         "total": 21,
@@ -8818,6 +8818,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F.md"
+    },
+    {
+      "id": "ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159",
+      "title": "ByteBuf and ByteBuilder store owned bytes as Option MemPtr instead of RegionToken owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/io/bytebuf.nepl, stdlib/alloc/io/bytebuilder, nepl-core/src/resource/owner_summary_raw_transfer.rs, nodesrc/test_stdlib_memptr_owner_field_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

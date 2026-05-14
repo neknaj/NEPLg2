@@ -3,7 +3,7 @@
 //:
 //: [目的/もくてき]:
 //: - binary I/O の媒体になる `ByteBuf` と、その文字列変換境界をまとめます。
-//: - raw byte 領域の所有権は `Option<MemPtr<u8>>` と `RegionToken<u8>` に閉じ、空 buffer と所有 buffer を型で分けます。
+//: - raw byte 領域の所有権は `RegionToken<u8>` に集約し、`MemPtr<u8>` は借用 view としてだけ取り出します。
 //:
 //: [注意/ちゅうい]:
 //: - `ByteBuf` は所有権を持つので `Copy` / `Clone` を実装しません。
@@ -12,7 +12,9 @@
 #indent 4
 
 #import "alloc/diag/error" as *
-#import "alloc/string" as *
+#import "alloc/string/access" as *
+#import "alloc/string/storage" as *
+#import "alloc/string/utf8" as *
 #import "core/field" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
@@ -55,15 +57,19 @@
 //: - `Vec<u8>` の[内部表現/ないぶひょうげん]に[依存/いそん]せず、binary I/O の[媒体/ばいたい]を[明示的/めいじてき]に[表/あらわ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - `ptr` は `Some` のときだけ `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。
-//: - 空 buffer は `ptr=None` / `len=0` で表し、null pointer を所有 field として混ぜません。
+//: - `region` は storage owner token です。`len` が正のときだけ `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。
+//: - 空 buffer は `len=0` の zero-length sentinel token で表し、free 時に allocator へ返しません。
 //: - [使/つか]い[終/お]わったら `io_bytebuf_free` で[解放/かいほう]してください。
 pub struct ByteBuf:
-    ptr <Option<MemPtr<u8>>>
+    region <RegionToken<u8>>
     len <i32>
 
+pub fn io_bytebuf_empty_region <()->RegionToken<u8>> ():
+    let ptr <MemPtr<u8>> mem_ptr_wrap 0
+    region_new ptr 0
+
 pub fn io_bytebuf_empty <()->ByteBuf> ():
-    ByteBuf none<MemPtr<u8>> 0
+    ByteBuf io_bytebuf_empty_region 0
 
 pub fn io_bytebuf_from_owned_ptr <(MemPtr<u8>,i32)->ByteBuf> (ptr, byte_len):
     if:
@@ -71,16 +77,26 @@ pub fn io_bytebuf_from_owned_ptr <(MemPtr<u8>,i32)->ByteBuf> (ptr, byte_len):
         then:
             io_bytebuf_empty
         else:
-            ByteBuf some<MemPtr<u8>> ptr byte_len
+            ByteBuf region_new ptr byte_len byte_len
 
-pub fn io_bytebuf_len <(ByteBuf)->i32> (buf):
-    get buf "len"
+pub fn io_bytebuf_len <(&ByteBuf)->i32> (buf):
+    *get_ref buf "len"
 
 pub fn io_bytebuf_len_ref <(&ByteBuf)->i32> (buf):
     *get_ref buf "len"
 
+pub fn io_bytebuf_data_ptr_ref <(&ByteBuf)->MemPtr<u8>> (buf):
+    let region_ref <&RegionToken<u8>> get_ref buf "region"
+    region_ptr region_ref
+
 pub fn io_bytebuf_ptr_ref <(&ByteBuf)->Option<MemPtr<u8>>> (buf):
-    *get_ref buf "ptr"
+    let byte_len <i32> *get_ref buf "len"
+    if:
+        le byte_len 0
+        then:
+            none<MemPtr<u8>>
+        else:
+            some<MemPtr<u8>> io_bytebuf_data_ptr_ref buf
 
 pub fn io_bytebuf_storage_size <(i32)->i32> (byte_len):
     if:
@@ -97,22 +113,13 @@ pub fn io_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (buf, idx):
         then:
             none<i32>
         else:
-            match *get_ref buf "ptr":
-                Option::Some ptr:
-                    load_u8 mem_ptr_add ptr idx
-                Option::None:
-                    none<i32>
+            load_u8 mem_ptr_add io_bytebuf_data_ptr_ref buf idx
 
 pub fn io_bytebuf_free <(ByteBuf)->()> (buf):
-    let len <i32> get buf "len"
-    match get buf "ptr":
-        Option::Some ptr:
-            match dealloc_ptr<u8> ptr io_bytebuf_storage_size len:
-                Result::Ok _:
-                    ()
-                Result::Err _e:
-                    ()
-        Option::None:
+    match dealloc_region<u8> get buf "region":
+        Result::Ok _:
+            ()
+        Result::Err _e:
             ()
 
 //: io_bytebuf_alloc_region: `ByteBuf` 用の byte 領域を確保する
@@ -172,8 +179,16 @@ pub fn io_bytebuf_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 pub fn io_bytebuf_finish_region <(RegionToken<u8>,i32)->ByteBuf> (region, byte_len):
-    let ptr <MemPtr<u8>> get region "ptr"
-    io_bytebuf_from_owned_ptr ptr byte_len
+    if:
+        le byte_len 0
+        then:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    io_bytebuf_empty
+                Result::Err _e:
+                    io_bytebuf_empty
+        else:
+            ByteBuf region byte_len
 
 //: io_bytebuf_from_str_result: `str` を `ByteBuf` へ複製する
 //:
@@ -245,16 +260,12 @@ pub fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //: - 入力長 n に対して O(n) です。
 pub fn io_bytebuf_to_str_result <(ByteBuf)->Result<str, StdErrorKind>> (buf):
     let byte_len <i32> io_bytebuf_len_ref &buf
-    match io_bytebuf_ptr_ref &buf:
-        Option::None:
-            if:
-                eq byte_len 0
-                then:
-                    Result<str, StdErrorKind>::Ok ""
-                else:
-                    io_bytebuf_free buf
-                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-        Option::Some data:
+    if:
+        le byte_len 0
+        then:
+            Result<str, StdErrorKind>::Ok ""
+        else:
+            let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &buf
             if:
                 le mem_ptr_addr data 0
                 then:

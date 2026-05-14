@@ -12419,6 +12419,31 @@ fn main <()* >()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_byte_builder_free_closes_region_by_token_size() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/io/bytebuilder" as *
+#import "core/result" as *
+
+fn main <()* >()> ():
+    match byte_builder_new:
+        Result::Ok b0:
+            match byte_builder_push_u8 b0 65:
+                Result::Ok b1:
+                    byte_builder_free b1
+                Result::Err _e:
+                    ()
+        Result::Err _e:
+            ()
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("ByteBuilder free must consume the RegionToken owner when token size is positive");
+}
+
+#[test]
 fn resource_ir_owner_check_forwards_byte_builder_owner_through_text_result_mapping() {
     let source = r#"
 #entry main

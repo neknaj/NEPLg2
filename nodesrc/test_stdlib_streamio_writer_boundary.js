@@ -196,8 +196,8 @@ assert.match(
 );
 assert.match(
     drainMatch[1],
-    /\bmatch\s+\*get_ref\s+&builder\s+"ptr":[\s\S]*Option::Some\s+ptr:[\s\S]*stdio_write_mem\s+ptr\s+write_len[\s\S]*byte_builder_with_len\s+builder\s+0\s+target\b/,
-    'drain_impl must flush through the ByteBuilder owned pointer view and reset builder length without moving raw owner into StreamWriter',
+    /\blet\s+ptr\s+<MemPtr<u8>>\s+byte_builder_data_ptr_ref\s+&builder[\s\S]*stdio_write_mem\s+ptr\s+write_len[\s\S]*byte_builder_with_len\s+builder\s+0\s+target\b/,
+    'drain_impl must flush through a non-owning ByteBuilder pointer view and reset builder length without moving raw owner into StreamWriter',
 );
 assert.doesNotMatch(
     drainMatch[1],

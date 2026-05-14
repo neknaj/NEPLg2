@@ -12,44 +12,44 @@ function stripNeplComments(src) {
 function assertByteBuilderOwnerBoundary(code) {
     assert.match(
         code,
-        /struct\s+ByteBuilder:\s+ptr\s+<Option<MemPtr<u8>>>\s+len\s+<i32>\s+cap\s+<i32>/,
-        'ByteBuilder must encode empty storage as Option::None instead of a null owning pointer',
+        /struct\s+ByteBuilder:\s+region\s+<RegionToken<u8>>\s+len\s+<i32>\s+cap\s+<i32>/,
+        'ByteBuilder must keep byte storage ownership in a RegionToken field',
     );
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_from_owned_ptr\s+<\(MemPtr<u8>,i32,i32\)->ByteBuilder>/,
-        'ByteBuilder owned pointer construction must be centralized',
+        /\bfn\s+byte_builder_from_owned_region\s+<\(RegionToken<u8>,i32,i32\)->ByteBuilder>/,
+        'ByteBuilder owned region construction must be centralized',
     );
 
     assert.doesNotMatch(
         code,
-        /\bByteBuilder\s+mem_ptr_wrap\b/,
-        'ByteBuilder must not encode empty storage as mem_ptr_wrap 0',
+        /\bByteBuilder\s+region_new\s+mem_ptr_wrap\b/,
+        'ByteBuilder must not inline null raw pointer ownership in constructor call sites',
     );
 
     assert.doesNotMatch(
         code,
-        /\bResult<ByteBuilder,[^>]+>::Ok\s+ByteBuilder\s+(?!some<MemPtr<u8>>)/,
-        'ByteBuilder Result return paths must use the centralized owned pointer constructor',
+        /\bResult<ByteBuilder,[^>]+>::Ok\s+ByteBuilder\s+(?!byte_builder_empty_region\b|region\b)/,
+        'ByteBuilder Result return paths must use the centralized owned region constructor',
     );
 
     assert.doesNotMatch(
         code,
-        /\b(realloc_ptr|mem_copy|store_u8)<u8>[^;\n]*\bget\s+(?:builder|reserved)\s+"ptr"/,
-        'ByteBuilder storage access must first match the Option pointer',
+        /\b(?:mem_copy|store_u8)<u8>[^;\n]*\bget\s+(?:builder|reserved)\s+"region"/,
+        'ByteBuilder raw writes must project a non-owning pointer view from a RegionToken reference',
     );
 
     assert.doesNotMatch(
         code,
-        /\bmatch\s+get\s+reserved\s+"ptr"/,
-        'ByteBuilder append paths must borrow the reserved pointer and return the same owner',
+        /\b(realloc_ptr|dealloc_ptr)<u8>[^;\n]*\bmem_ptr_addr\s+get\s+(?:builder|reserved)\s+"region"/,
+        'ByteBuilder must not recover ownership from a raw address extracted out of RegionToken',
     );
 
     assert.match(
         code,
-        /\bmatch\s+\*get_ref\s+&reserved\s+"ptr"/,
-        'ByteBuilder append paths must inspect storage through a field reference',
+        /\bget_ref\s+&reserved\s+"region"[\s\S]*\bregion_ptr\s+region_ref\b/,
+        'ByteBuilder append paths must borrow RegionToken and write through a non-owning pointer view',
     );
 
     assert.match(

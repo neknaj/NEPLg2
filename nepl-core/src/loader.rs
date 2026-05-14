@@ -390,7 +390,7 @@ impl Loader {
         }
         for path in prelude_paths {
             let target = self.resolve_path(&base, &path);
-            if imported_once.insert(target.clone()) {
+            if import_not_seen(imported_once, &target) {
                 let imp_mod =
                     self.load_file(&target, sm, cache, processing, imported_once, false)?;
                 for d in imp_mod.directives.clone() {
@@ -423,7 +423,7 @@ impl Loader {
             match &stmt {
                 Stmt::Directive(Directive::Import { path, .. }) => {
                     let target = self.resolve_path(&base, path);
-                    if imported_once.insert(target.clone()) {
+                    if import_not_seen(imported_once, &target) {
                         let imp_mod =
                             self.load_file(&target, sm, cache, processing, imported_once, false)?;
                         // Propagate non-file-scoped directives (e.g., externs) so
@@ -522,7 +522,7 @@ impl Loader {
         }
         for path in prelude_paths {
             let target = self.resolve_path(&base, &path);
-            if imported_once.insert(target.clone()) {
+            if import_not_seen(imported_once, &target) {
                 let imp_mod = self.load_file_with(
                     &target,
                     sm,
@@ -562,7 +562,7 @@ impl Loader {
             match &stmt {
                 Stmt::Directive(Directive::Import { path, .. }) => {
                     let target = self.resolve_path(&base, path);
-                    if imported_once.insert(target.clone()) {
+                    if import_not_seen(imported_once, &target) {
                         let imp_mod = self.load_file_with(
                             &target,
                             sm,
@@ -763,6 +763,10 @@ fn path_to_source_label(path: &PathBuf) -> String {
     path.to_string_lossy().into_owned()
 }
 
+fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> bool {
+    imported_once.insert(canonicalize_path(target))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -794,6 +798,19 @@ mod tests {
             )
             .expect("test source should parse");
         sm.capabilities(FileId(0))
+    }
+
+    #[test]
+    fn imported_once_uses_canonical_paths() {
+        let mut imported_once = BTreeSet::new();
+        let direct = PathBuf::from("C:/nepl-test/stdlib/alloc/io/bytebuf.nepl");
+        let via_parent = PathBuf::from("C:/nepl-test/nepl-core/../stdlib/alloc/io/bytebuf.nepl");
+
+        assert!(import_not_seen(&mut imported_once, &via_parent));
+        assert!(
+            !import_not_seen(&mut imported_once, &direct),
+            "same import reached through a lexical parent path must not be loaded twice"
+        );
     }
 
     #[test]

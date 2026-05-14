@@ -78,20 +78,20 @@ assert.doesNotMatch(
 
 assert.match(
     code,
-    /struct\s+ByteBuf:\s+ptr\s+<Option<MemPtr<u8>>>\s+len\s+<i32>/,
-    'ByteBuf must represent empty storage as Option::None instead of a null owning pointer',
+    /struct\s+ByteBuf:\s+region\s+<RegionToken<u8>>\s+len\s+<i32>/,
+    'ByteBuf must store byte ownership in a RegionToken field',
 );
 
 assert.match(
     code,
     /\bfn\s+io_bytebuf_from_owned_ptr\s+<\(MemPtr<u8>,i32\)->ByteBuf>/,
-    'ByteBuf owned pointer construction must be centralized in io_bytebuf_from_owned_ptr',
+    'legacy raw pointer ingestion must be centralized before RegionToken ownership is formed',
 );
 
 assert.match(
     code,
-    /\bfn\s+io_bytebuf_region_ptr\s+<\(&RegionToken<u8>\)->MemPtr<u8>>/,
-    'ByteBuf string conversion must project copy pointers from RegionToken references',
+    /\bfn\s+io_bytebuf_data_ptr_ref\s+<\(&ByteBuf\)->MemPtr<u8>>/,
+    'ByteBuf public raw-byte access must borrow the owner and return a non-owning pointer view',
 );
 
 assert.match(
@@ -143,13 +143,13 @@ assert.doesNotMatch(
 assert.doesNotMatch(
     code,
     /\bByteBuf\s+mem_ptr_wrap\b/,
-    'ByteBuf construction must not encode empty storage as mem_ptr_wrap 0',
+    'ByteBuf construction must not inline null raw pointer ownership outside the empty-region helper',
 );
 
 assert.doesNotMatch(
     code,
     /\bResult<ByteBuf,[^>]+>::Ok\s+ByteBuf\s+(?:buf|ptr|exact|data)\b/,
-    'ByteBuf Result return paths must use the centralized owned pointer constructor',
+    'ByteBuf Result return paths must not bypass the typed owner finalization boundary',
 );
 
 assert.doesNotMatch(

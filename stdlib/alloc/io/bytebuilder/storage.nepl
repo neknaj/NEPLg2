@@ -54,9 +54,9 @@ pub fn byte_builder_with_capacity <(i32)->Result<ByteBuilder, StdErrorKind>> (ca
                 then:
                     Result<ByteBuilder, StdErrorKind>::Ok byte_builder_empty
                 else:
-                    match alloc_ptr<u8> capacity:
-                        Result::Ok ptr:
-                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_ptr ptr 0 capacity
+                    match alloc_region_bytes<u8> capacity:
+                        Result::Ok region:
+                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region 0 capacity
                         Result::Err _e:
                             Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
@@ -67,51 +67,57 @@ pub fn byte_builder_with_capacity <(i32)->Result<ByteBuilder, StdErrorKind>> (ca
 pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
     byte_builder_with_capacity 64
 
-//: byte_builder_dealloc_owned_u8: builder が所有する byte 領域を解放する
+//: byte_builder_dealloc_owned_region: builder が所有する byte 領域 token を解放する
 //:
 //: [目的/もくてき]:
-//: - `ByteBuilder` / `ByteBuf` から取り出した所有 pointer の解放責務をここに集約します。
+//: - `ByteBuilder` が持つ `RegionToken<u8>` の解放責務をここに集約します。
 //:
 //: [注意/ちゅうい]:
-//: - 所有 pointer と size は builder invariant から来るため、typed owner-consuming `dealloc_ptr` を通して解放します。
+//: - token は必ず `dealloc_region` へ渡し、compiler が token owner の消費を直接追跡できる形にします。
+//: - zero-size sentinel は allocator 側では解放対象でないため、`dealloc_region` が Err を返した場合も no-op として閉じます。
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/mem" as *
-//:| #import "core/mem/internal" as *
-//:| #import "core/mem/allocator" as *
-//:| #import "core/mem/raw" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let checks0 checks_new
-//:     match alloc_ptr<u8> 4:
-//:         Result::Ok ptr:
-//:             byte_builder_dealloc_owned_u8 ptr 4
+//:     match alloc_region_bytes<u8> 4:
+//:         Result::Ok region:
+//:             byte_builder_dealloc_owned_region region
 //:             checks_exit_code checks_push checks0 assert_eq_i32 1 1
 //:         Result::Err _e:
 //:             checks_exit_code checks_push checks0 assert_eq_i32 1 0
 //: ```
-pub fn byte_builder_dealloc_owned_u8 <(MemPtr<u8>,i32)->()> (ptr, size):
-    match dealloc_ptr<u8> ptr size:
+pub fn byte_builder_dealloc_owned_region <(RegionToken<u8>)->()> (region):
+    match dealloc_region<u8> region:
         Result::Ok _:
             ()
         Result::Err _:
-            #intrinsic "unreachable" <> ()
+            ()
+
+pub fn byte_builder_realloc_region_or_free <(RegionToken<u8>,i32)->Result<RegionToken<u8>, StdErrorKind>> (region, new_cap):
+    let old_size <i32> get region "size"
+    let old_ptr <MemPtr<u8>> get region "ptr"
+    match realloc_ptr<u8> old_ptr old_size new_cap:
+        Result::Ok next_ptr:
+            Result<RegionToken<u8>, StdErrorKind>::Ok region_new next_ptr new_cap
+        Result::Err _e:
+            match dealloc_ptr<u8> old_ptr old_size:
+                Result::Ok _:
+                    Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                Result::Err _free:
+                    #intrinsic "unreachable" <> ()
 
 //: byte_builder_free: builder が保持する storage を解放する
 //:
 //: [目的/もくてき]:
-//: - `Some(ptr)` のときだけ owned storage を解放し、`None` の空 builder は何もしません。
+//: - builder の `RegionToken<u8>` を取り出し、token の size に従って owned storage を解放します。
 pub fn byte_builder_free <(ByteBuilder)->()> (builder):
-    let cap <i32> get builder "cap"
-    match get builder "ptr":
-        Option::Some ptr:
-            byte_builder_dealloc_owned_u8 ptr cap
-        Option::None:
-            ()
+    byte_builder_dealloc_owned_region get builder "region"
 
 //: byte_builder_next_capacity: 必要 byte 数を満たす次 capacity を計算する
 //:
@@ -181,24 +187,14 @@ pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind
                             if:
                                 le cap0 0
                                 then:
-                                    match get builder "ptr":
-                                        Option::Some ptr:
-                                            byte_builder_dealloc_owned_u8 ptr 0
-                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
-                                        Option::None:
-                                            match alloc_ptr<u8> next_cap:
-                                                Result::Ok ptr:
-                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_ptr ptr len0 next_cap
-                                                Result::Err _e:
-                                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                    match alloc_region_bytes<u8> next_cap:
+                                        Result::Ok region:
+                                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region len0 next_cap
+                                        Result::Err _e:
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
                                 else:
-                                    match get builder "ptr":
-                                        Option::None:
-                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
-                                        Option::Some old:
-                                            match realloc_ptr<u8> old cap0 next_cap:
-                                                Result::Ok ptr:
-                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_ptr ptr len0 next_cap
-                                                Result::Err _e:
-                                                    byte_builder_dealloc_owned_u8 old cap0
-                                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                    match byte_builder_realloc_region_or_free get builder "region" next_cap:
+                                        Result::Ok region:
+                                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region len0 next_cap
+                                        Result::Err e:
+                                            Result<ByteBuilder, StdErrorKind>::Err e

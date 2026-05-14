@@ -16,14 +16,6 @@ const transitionalFields = new Map([
         "stdlib/alloc/collections/vec/types.nepl::Vec.data::MemPtr<.T>",
         "Vec backing storage until OwnedBuffer<T> carries the free obligation",
     ],
-    [
-        "stdlib/alloc/io/bytebuf.nepl::ByteBuf.ptr::Option<MemPtr<u8>>",
-        "ByteBuf owned bytes until OwnedBytes replaces Option<MemPtr<u8>>",
-    ],
-    [
-        "stdlib/alloc/io/bytebuilder/types.nepl::ByteBuilder.ptr::Option<MemPtr<u8>>",
-        "ByteBuilder owned bytes until OwnedBytesBuilder replaces Option<MemPtr<u8>>",
-    ],
 ]);
 
 const observedFields = collectMemPtrStructFields(stdlibRoot);

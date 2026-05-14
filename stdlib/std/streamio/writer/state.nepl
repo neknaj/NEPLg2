@@ -87,15 +87,12 @@ pub fn drain_impl <(StreamWriter)*>StreamWriter> (w):
         then:
             StreamWriter builder target @stream_writer_noncopy_marker
         else:
-            match *get_ref &builder "ptr":
-                Option::None:
-                    ()
-                Option::Some ptr:
-                    match target:
-                        StreamWriterTargetKind::Stdout:
-                            stdio_write_mem ptr write_len
-                        StreamWriterTargetKind::Stderr:
-                            stdio_write_stderr_mem ptr write_len
+            let ptr <MemPtr<u8>> byte_builder_data_ptr_ref &builder
+            match target:
+                StreamWriterTargetKind::Stdout:
+                    stdio_write_mem ptr write_len
+                StreamWriterTargetKind::Stderr:
+                    stdio_write_stderr_mem ptr write_len
             StreamWriter byte_builder_with_len builder 0 target @stream_writer_noncopy_marker
 
 //: ## reserve_impl
