@@ -506,3 +506,22 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\byte_builder.n.md --no-tree -o tmp\agent1-byte-builder-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
 
 この issue はまだ open のまま継続する。ByteBuilder 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 CapacityStack stdout report migration
+
+`tests/stdlib/capacity_stack.n.md` の capacity / stack-depth focused doctest 6 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- recursive depth、Vec growth length、large memory block store/load、StringBuilder length、enum Vec + recursion mix を assertion label として stdout に残すようにした。
+- 移行前の focused run では 3/6 が既に失敗していた。原因は `Vec` observer の古い by-value 呼び出し、ordinary doctest からの direct raw memory block 操作、`Vec<T: Copy>` 化後も enum payload を Copy として明示していない stale fixture だった。
+- memory block case は raw address 直接操作をやめ、`RegionToken` と `MemPtr` public API の同一関数内 store/load として書き直した。helper 関数に切り出すと Resource IR が initialized cell proof を関数境界越しに保持できないため、検査を弱めず証明可能な形に寄せた。
+- enum payload は所有資源を持たない2値 enum として `Clone` / `Copy` を明示し、現行 `Vec<T: Copy>` 境界に合わせた。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\capacity_stack.n.md --no-tree -o tmp\agent1-capacity-stack-before.json -j 1 --assert-io --dist web/dist`: total=6, passed=3, failed=3 before fix
+- `node nodesrc\tests.js -i tests\stdlib\capacity_stack.n.md --no-tree -o tmp\agent1-capacity-stack-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
+
+この issue はまだ open のまま継続する。CapacityStack 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

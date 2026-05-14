@@ -4,13 +4,15 @@
 
 ## stage1_recursive_depth_64
 
-neplg2:test
-ret: 64
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"stage1_recursive_depth_64\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"recursive depth\" expected=\"64\" actual=\"64\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as *
 
 fn depth <(i32,i32)->i32> (n, acc):
     if le n 0:
@@ -18,19 +20,26 @@ fn depth <(i32,i32)->i32> (n, acc):
     else:
         depth sub n 1 add acc 1
 
-fn main <()->i32> ():
-    depth 64 0
+fn main <()*>i32> ():
+    let actual <i32> depth 64 0
+    let report:
+        test_report_new "stage1_recursive_depth_64"
+        |> test_report_push assert_eq_i32 "recursive depth" 64 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## stage2_recursive_depth_512
 
-neplg2:test
-ret: 512
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"stage2_recursive_depth_512\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"recursive depth\" expected=\"512\" actual=\"512\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as *
 
 fn depth <(i32,i32)->i32> (n, acc):
     if le n 0:
@@ -38,77 +47,141 @@ fn depth <(i32,i32)->i32> (n, acc):
     else:
         depth sub n 1 add acc 1
 
-fn main <()->i32> ():
-    depth 512 0
+fn main <()*>i32> ():
+    let actual <i32> depth 512 0
+    let report:
+        test_report_new "stage2_recursive_depth_512"
+        |> test_report_push assert_eq_i32 "recursive depth" 512 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## stage3_vec_growth_4096
 
-neplg2:test
-ret: 4096
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"stage3_vec_growth_4096\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"vec length after growth\" expected=\"4096\" actual=\"4096\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
 #import "alloc/collections/vec" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let mut v <Vec<i32>> uwok new<i32>;
     let mut i <i32> 0;
     while lt i 4096:
         do:
             set v uwok push<i32> v i;
             set i add i 1;
-    len<i32> v
+    let actual <i32> len<i32> &v
+    free<i32> v
+    let report:
+        test_report_new "stage3_vec_growth_4096"
+        |> test_report_push assert_eq_i32 "vec length after growth" 4096 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## stage4_mem_block_store_load
 
-neplg2:test
-ret: 1535
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"stage4_mem_block_store_load\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"first loaded value\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"middle loaded value\" expected=\"512\" actual=\"512\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"last loaded value\" expected=\"1023\" actual=\"1023\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"loaded value sum\" expected=\"1535\" actual=\"1535\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let n <i32> 1024;
-    let bytes <i32> mul n 4;
-    let p <i32> alloc_raw bytes;
-
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            let slot <i32> add p mul i 4;
-            store_i32 slot i;
-            set i add i 1;
-
-    let a <i32> load_i32 p;
-    let b <i32> load_i32 add p mul 512 4;
-    let c <i32> load_i32 add p mul 1023 4;
-    dealloc_raw p bytes;
-    add add a b c
+    let mut a <i32> -1;
+    let mut b <i32> -1;
+    let mut c <i32> -1;
+    match alloc_region<i32> n:
+        Result::Err _e:
+            ()
+        Result::Ok region:
+            let mid_off <i32> mul 512 4
+            let last_off <i32> mul 1023 4
+            match region_ptr_at<i32, i32> &region 0:
+                Result::Err _:
+                    ()
+                Result::Ok first_ptr:
+                    match region_ptr_at<i32, i32> &region mid_off:
+                        Result::Err _:
+                            ()
+                        Result::Ok mid_ptr:
+                            match region_ptr_at<i32, i32> &region last_off:
+                                Result::Err _:
+                                    ()
+                                Result::Ok last_ptr:
+                                    match store_i32 first_ptr 0:
+                                        Result::Err _:
+                                            ()
+                                        Result::Ok _:
+                                            match store_i32 mid_ptr 512:
+                                                Result::Err _:
+                                                    ()
+                                                Result::Ok _:
+                                                    match store_i32 last_ptr 1023:
+                                                        Result::Err _:
+                                                            ()
+                                                        Result::Ok _:
+                                                            match load_i32 first_ptr:
+                                                                Option::Some value:
+                                                                    set a value
+                                                                Option::None:
+                                                                    ()
+                                                            match load_i32 mid_ptr:
+                                                                Option::Some value:
+                                                                    set b value
+                                                                Option::None:
+                                                                    ()
+                                                            match load_i32 last_ptr:
+                                                                Option::Some value:
+                                                                    set c value
+                                                                Option::None:
+                                                                    ()
+            match dealloc_region<i32> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+    let total <i32> add add a b c
+    let report:
+        test_report_new "stage4_mem_block_store_load"
+        |> test_report_push assert_eq_i32 "first loaded value" 0 a
+        |> test_report_push assert_eq_i32 "middle loaded value" 512 b
+        |> test_report_push assert_eq_i32 "last loaded value" 1023 c
+        |> test_report_push assert_eq_i32 "loaded value sum" 1535 total
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## stage5_string_builder_len_3000
 
-neplg2:test
-ret: 3000
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"stage5_string_builder_len_3000\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"string builder length\" expected=\"3000\" actual=\"3000\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
 #import "alloc/string" as *
+#import "std/test" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let mut sb <StringBuilder> string_builder_new;
     let mut i <i32> 0;
     while lt i 1500:
@@ -116,25 +189,41 @@ fn main <()->i32> ():
             set sb sb_append sb "ab";
             set i add i 1;
     let out <str> sb_build sb;
-    len out
+    let actual <i32> len out
+    let report:
+        test_report_new "stage5_string_builder_len_3000"
+        |> test_report_push assert_eq_i32 "string builder length" 3000 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## stage6_enum_vec_recursive_mix
 
-neplg2:test
-ret: 15
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"stage6_enum_vec_recursive_mix\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"enum vec length\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"recursive mix total\" expected=\"15\" actual=\"15\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "alloc/collections/vec" as *
+#import "std/test" as *
 
 enum Kind:
     A
     B
+
+impl Clone for Kind:
+    fn clone <(&Kind)->Kind> (x):
+        *x
+
+impl Copy for Kind:
+    fn copy_mark <(Kind)->Kind> (x):
+        x
 
 fn depth <(i32)->i32> (n):
     if le n 0:
@@ -142,13 +231,20 @@ fn depth <(i32)->i32> (n):
     else:
         add 1 depth sub n 1
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let mut v <Vec<Kind>> uwok new<Kind>;
     set v uwok push<Kind> v Kind::A;
     set v uwok push<Kind> v Kind::B;
     set v uwok push<Kind> v Kind::A;
     set v uwok push<Kind> v Kind::B;
     set v uwok push<Kind> v Kind::A;
-    let n <i32> len<Kind> v;
-    add n depth 10
+    let n <i32> len<Kind> &v;
+    free<Kind> v
+    let total <i32> add n depth 10
+    let report:
+        test_report_new "stage6_enum_vec_recursive_mix"
+        |> test_report_push assert_eq_i32 "enum vec length" 5 n
+        |> test_report_push assert_eq_i32 "recursive mix total" 15 total
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

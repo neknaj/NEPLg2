@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-13
+updated: 2026-05-14
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -127,6 +127,12 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 - `node nodesrc/tests.js -i stdlib/alloc/string -i stdlib/alloc/collections/vec --no-tree -o tmp/string-vec-submodule-doctests-imports-after.json -j 4 --dist web/dist`: total=46, passed=15, failed=31。失敗は全て `resource.owner.no_free_obligation` で、`resolve.identifier.undefined` は 0 件。
 
 したがって、stdlib doctest の undefined identifier drift は解消済みであり、残る Vec 側の compile failure は `vec_free_storage` / `push` / merge sort buffer cleanup が `MemPtr` storage field を free obligation owner として扱う過渡設計に由来する。これは path / import の問題ではなく、Stage 6 の raw-memory-backed collection owner model 残件として継続する。
+
+## 2026-05-14 CapacityStack fixture migration note
+
+`tests/stdlib/capacity_stack.n.md` の stdout report 移行時に、2026-04-28 時点で記録していた `Vec<Kind>` grow failure は fixture 側を現行設計へ合わせた。`Kind` は payload を持たない enum なので `Clone` / `Copy` を明示し、Copy-only collection boundary を迂回せずに `Vec<Kind>` growth を検証する。
+
+同じ移行で memory block case は `alloc_raw` / `store_i32` / `load_i32` の direct raw address 操作ではなく、`RegionToken` / `MemPtr` public API 経由の store/load に直した。これは raw-memory-backed API 移行 issue の解決ではなく、ordinary doctest が raw boundary privilege を要求しないようにする fixture 側の整理である。non-Copy collection owner model と raw-memory-backed storage の本体はこの issue の Stage 6 残件として継続する。
 
 ## 2026-05-13 Vec storage dealloc owner proof 追記
 

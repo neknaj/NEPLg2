@@ -37724,3 +37724,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - WASM header byte、unsigned LEB128 known vector、capacity growth 後の byte 保持を assertion label として stdout に固定した。
 - growth case は ordinary doctest から direct raw memory 操作を外し、`io_bytebuf_from_str_result` と `byte_builder_push_bytebuf` の public API 経由で capacity growth を検証するようにした。これは `resource.raw.memory_outside_boundary` を弱めず、テストを現在の raw-memory boundary 方針へ合わせる修正である。
 - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/agent1-byte-builder-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。
+
+## 2026-05-14 Agent 1 CapacityStack stdout report doctest migration
+
+- `work/capacity-stack-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/stdlib/capacity_stack.n.md` を更新した。
+- CapacityStack の 6 doctest を戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- 移行前の focused run は 6 件中 3 件が失敗していた。`Vec` observer は borrow API に直し、memory block は `RegionToken` / `MemPtr` public API 経由の同一関数内 store/load に変更し、enum payload は `Clone` / `Copy` を明示して現行 `Vec<T: Copy>` 境界に合わせた。
+- direct raw address 操作や helper 関数越しの initialized cell proof に依存せず、Resource IR が検査できる形で large allocation / stack / collection growth を確認する fixture へ整理した。
+- `node nodesrc/tests.js -i tests/stdlib/capacity_stack.n.md --no-tree -o tmp/agent1-capacity-stack-before.json -j 1 --assert-io --dist web/dist` は修正前 total=6, passed=3, failed=3。
+- `node nodesrc/tests.js -i tests/stdlib/capacity_stack.n.md --no-tree -o tmp/agent1-capacity-stack-report-tests.json -j 1 --assert-io --dist web/dist` は修正後 total=6, passed=6。
