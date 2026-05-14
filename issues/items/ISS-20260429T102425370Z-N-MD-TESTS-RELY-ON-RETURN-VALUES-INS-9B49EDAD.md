@@ -784,3 +784,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\overload_nested_generic_push.n.md --no-tree -o tmp\agent1-overload-nested-generic-push-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
 
 この issue はまだ open のまま継続する。Overload nested generic push 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Prelude Copy stdout report migration
+
+`tests/compiler/prelude_copy.n.md` の prelude / Copy capability 正常系 doctest 3 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。`#no_prelude` が Copy trait supply を無効化する compile_fail fixture 1 件は、拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- default prelude の Copy/Clone supply、`#prelude std/prelude_base` + `#no_prelude` の明示 prelude 優先、generic `MemPtr<T>` Copy impl を assertion label として stdout に残すようにした。
+- stdout report 出力のため正常系は `std` target に移したが、`core/traits/copy` を直接 import しない前提は維持した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\prelude_copy.n.md --no-tree -o tmp\agent1-prelude-copy-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
+
+この issue はまだ open のまま継続する。Prelude Copy 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

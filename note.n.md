@@ -37870,3 +37870,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `Vec<Result<(),str>>` への direct `push` と pipe `push` の overload 解決結果を assertion label として stdout に固定した。
 - `free` は report 構築前に実行し、Resource IR owner obligation を閉じた状態で観測値だけを report へ渡している。
 - `node nodesrc/tests.js -i tests/compiler/overload_nested_generic_push.n.md --no-tree -o tmp/agent1-overload-nested-generic-push-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。
+
+## 2026-05-14 Agent 1 Prelude Copy stdout report doctest migration
+
+- `work/prelude-copy-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/prelude_copy.n.md` を更新した。
+- prelude / Copy capability 正常系 doctest 3 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `#no_prelude` が Copy trait supply を無効化する compile_fail 1 件は、拒否境界を固定するため変更していない。
+- default prelude の Copy/Clone supply、`#prelude std/prelude_base` + `#no_prelude` の明示 prelude 優先、generic `MemPtr<T>` Copy impl を assertion label として stdout に固定した。
+- stdout report 出力のため正常系は `std` target に移したが、`core/traits/copy` を直接 import しない前提は維持している。
+- `node nodesrc/tests.js -i tests/compiler/prelude_copy.n.md --no-tree -o tmp/agent1-prelude-copy-report-tests.json -j 1 --assert-io --dist web/dist` は total=4, passed=4。
