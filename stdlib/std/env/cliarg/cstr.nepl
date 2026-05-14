@@ -81,18 +81,20 @@ pub fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
 //:| #entry main
 //:| #indent 4
 //:| #target std
-//:| #import "std/env/cliarg" as *
+//:| #import "std/env/cliarg/cstr" as *
 //:| #import "core/mem" as *
 //:| #import "core/mem/raw" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
+//:     let region <RegionToken<u8>> unwrap_ok alloc_region<u8> 4;
+//:     let p <MemPtr<u8>> region_ptr &region;
 //:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
 //:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
 //:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
 //:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
 //:     let n <i32> cstr_len p;
-//:     match dealloc_ptr<u8> p 4:
+//:     match dealloc_region<u8> region:
 //:         Result::Ok _:
 //:             ()
 //:         Result::Err _:
@@ -137,19 +139,20 @@ pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:| #entry main
 //:| #indent 4
 //:| #target std
-//:| #import "std/env/cliarg" as *
+//:| #import "std/env/cliarg/cstr" as *
 //:| #import "core/mem" as *
 //:| #import "core/mem/raw" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
+//:     let region <RegionToken<u8>> unwrap_ok alloc_region<u8> 4;
+//:     let p <MemPtr<u8>> region_ptr &region;
 //:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
 //:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
 //:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
 //:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
 //:     let s <str> cstr_to_str p;
-//:     match dealloc_ptr<u8> p 4:
+//:     match dealloc_region<u8> region:
 //:         Result::Ok _:
 //:             ()
 //:         Result::Err _:

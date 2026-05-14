@@ -307,3 +307,13 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 今回の修正では、`std/fs` root から `pub #import "./fs/raw" as *` を削除し、`std/stdio` root から `pub #import "./stdio/raw" as *` を削除した。fd/read/write の実装 module は `std/fs/raw` / `std/stdio/raw` を明示 import するため、ABI 境界は explicit raw submodule に閉じる。通常の `std/fs` / `std/stdio` import は filesystem / standard I/O の safe public API だけを公開する。
 
 この親 issue は引き続き open とする。今回の修正は raw ABI helper の root re-export を閉じるものであり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は残件である。
+
+## 2026-05-15 Agent 1 std env cliarg raw boundary 追記
+
+`ISS-20260514T183506445Z-STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B-C76C9E1E` として、safe root facade の `std/env/cliarg` が raw argv scratch / out pointer 処理を直接持っていた問題を分離して修正した。
+
+今回の修正では、root `std/env/cliarg` から `core/mem/raw` / `core/mem/internal` の直接 import を削除し、`cliarg_count` / `cliarg_get` を `std/env/cliarg/raw` の qualified helper へ委譲する thin facade にした。`args_sizes_get` / `args_get`、`mem_ptr_addr`、argv slot 初期化、raw slot load は `cliarg_count_result` / `cliarg_get_checked` に集約した。
+
+また、C string conversion helper は root facade から暗黙に露出させず、必要な doctest は `std/env/cliarg/cstr` を明示 import する形に整理した。cstr doctest は `alloc_ptr` owner を直接扱う例から、`RegionToken<u8>` owner と `region_ptr` non-owning view を使う例へ更新し、Resource IR の owner obligation と整合させた。
+
+この親 issue は引き続き open とする。今回の修正は env argv ABI helper の root direct raw 実装を閉じるものであり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は残件である。

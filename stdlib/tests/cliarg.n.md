@@ -96,7 +96,7 @@ diag_code: type.overload.no_match
 #indent 4
 #target std
 
-#import "std/env/cliarg" as *
+#import "std/env/cliarg/cstr" as *
 
 fn main <()*>()> ():
     let _n cstr_len 0;
@@ -111,7 +111,7 @@ diag_code: type.overload.no_match
 #indent 4
 #target std
 
-#import "std/env/cliarg" as *
+#import "std/env/cliarg/cstr" as *
 
 fn main <()*>()> ():
     let _s cstr_to_str 0;
