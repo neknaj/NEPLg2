@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T04:50:06.067Z",
+  "generated_at": "2026-05-14T05:06:05.656Z",
   "counts": {
-    "total": 748,
+    "total": 749,
     "open": 5,
-    "resolved": 743,
+    "resolved": 744,
     "by_area": {
       "stdlib": {
-        "total": 188,
+        "total": 189,
         "open": 3,
-        "resolved": 185
+        "resolved": 186
       },
       "TEST": {
         "total": 21,
@@ -8728,6 +8728,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36.md"
+    },
+    {
+      "id": "ISS-20260514T045613682Z-STREAMWRITER-STORES-RAW-MEMPTR-OWNER-448F8E4F",
+      "title": "StreamWriter stores raw MemPtr owner instead of ByteBuilder owner boundary",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/std/streamio/writer/state.nepl, nodesrc/test_stdlib_memptr_owner_field_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T045613682Z-STREAMWRITER-STORES-RAW-MEMPTR-OWNER-448F8E4F.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

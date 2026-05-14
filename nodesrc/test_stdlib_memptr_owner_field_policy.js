@@ -36,10 +36,6 @@ const transitionalFields = new Map([
         "stdlib/std/streamio/scanner/state.nepl::StreamScanner.header::MemPtr<u8>",
         "shared scanner cursor header until typed scanner state replaces raw header storage",
     ],
-    [
-        "stdlib/std/streamio/writer/state.nepl::StreamWriter.buf::MemPtr<u8>",
-        "writer buffer owner until OwnedBytes-backed writer state replaces MemPtr storage",
-    ],
 ]);
 
 const observedFields = collectMemPtrStructFields(stdlibRoot);

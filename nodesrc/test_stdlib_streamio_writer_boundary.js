@@ -151,16 +151,22 @@ assert.doesNotMatch(
 
 assert.match(
     stateCode,
-    /struct\s+StreamWriter:\s+buf\s+<MemPtr<u8>>\s+cap\s+<i32>\s+write_len\s+<i32>\s+target\s+<StreamWriterTargetKind>/,
-    'StreamWriter state module must keep buffer ownership and target enum as visible struct fields',
+    /struct\s+StreamWriter:\s+builder\s+<ByteBuilder>\s+target\s+<StreamWriterTargetKind>/,
+    'StreamWriter state module must keep ByteBuilder ownership and target enum as visible struct fields',
+);
+
+assert.doesNotMatch(
+    stateCode,
+    /^\s+(?:buf|cap|write_len)\s+</m,
+    'StreamWriter must not keep direct MemPtr/cap/write_len owner fields after ByteBuilder migration',
 );
 
 const writerNewMatch = stateCode.match(/(?:pub\s+)?fn\s+stream_writer_new\b([\s\S]*?)\n(?:pub\s+)?fn\s+stream_writer_close_impl\b/);
 assert.ok(writerNewMatch, 'stream_writer_new body must be found');
 assert.match(
     writerNewMatch[1],
-    /\bResult<StreamWriter,str>::Ok\s+StreamWriter\s+buf\s+4096\s+0\s+target\s+@stream_writer_noncopy_marker\b/,
-    'stream_writer_new must return the buffer owner as a StreamWriter field',
+    /\bmatch\s+byte_builder_with_capacity\s+4096:[\s\S]*Result<StreamWriter,str>::Ok\s+StreamWriter\s+builder\s+target\s+@stream_writer_noncopy_marker\b/,
+    'stream_writer_new must allocate through ByteBuilder and return the builder owner as a StreamWriter field',
 );
 
 assert.match(
@@ -187,6 +193,11 @@ assert.match(
     drainMatch[1],
     /\bmatch\s+target:\s*[\s\S]*StreamWriterTargetKind::Stdout:[\s\S]*StreamWriterTargetKind::Stderr:/,
     'drain_impl must branch on StreamWriterTargetKind enum arms',
+);
+assert.match(
+    drainMatch[1],
+    /\bmatch\s+\*get_ref\s+&builder\s+"ptr":[\s\S]*Option::Some\s+ptr:[\s\S]*stdio_write_mem\s+ptr\s+write_len[\s\S]*byte_builder_with_len\s+builder\s+0\s+target\b/,
+    'drain_impl must flush through the ByteBuilder owned pointer view and reset builder length without moving raw owner into StreamWriter',
 );
 assert.doesNotMatch(
     drainMatch[1],

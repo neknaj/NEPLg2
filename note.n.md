@@ -38050,3 +38050,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - return type、argument type、explicit type annotation、zero-arg let annotation、`Result` expected type による overload selection を canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
 - 変更対象は `run_doctest` の個別実行で 5/5 pass を確認した。
 - full file run は total=45, passed=44, failed=1。失敗は未変更の `overload_pair_field_from_generic_result_keeps_tuple_type` が現行 `Vec<T>` の `.T: Copy` 境界に追従していない既存 drift であり、`ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09` を追加して分離した。
+
+## 2026-05-14 Agent 1 StreamWriter ByteBuilder owner boundary
+
+- `work/stream-writer-bytebuilder-owner-boundary` で `ISS-20260514T045613682Z-STREAMWRITER-STORES-RAW-MEMPTR-OWNER-448F8E4F` を修正した。
+- `StreamWriter` は direct `MemPtr<u8>` / `cap` / `write_len` field を持たず、buffer owner を `ByteBuilder` に集約する構造へ変更した。
+- `stream_writer_new` / `close_impl` / `drain_impl` / `push_u8_impl` は `ByteBuilder` owner boundary を move しながら処理し、writer state から raw pointer owner を公開しない設計にした。
+- Stage 6 の stdlib raw-memory-backed public API migration として、`nodesrc/test_stdlib_memptr_owner_field_policy.js` の `StreamWriter.buf` transitional exception を削除した。
+- streamio writer policy、unsafe unwrap policy、MemPtr owner field policy、Resource IR gate policy、focused streamio doctests、move/effect rejection doctest で回帰を確認した。
