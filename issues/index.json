@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T00:29:12.728Z",
+  "generated_at": "2026-05-14T00:34:05.091Z",
   "counts": {
-    "total": 741,
+    "total": 742,
     "open": 5,
-    "resolved": 736,
+    "resolved": 737,
     "by_area": {
       "stdlib": {
-        "total": 185,
+        "total": 186,
         "open": 3,
-        "resolved": 182
+        "resolved": 183
       },
       "TEST": {
         "total": 19,
@@ -8648,6 +8648,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T215221236Z-BTREE-KEY-EQUALITY-DOCUMENTATION-LAC-54512809.md"
+    },
+    {
+      "id": "ISS-20260514T003227548Z-DEBUG-U8-IMPL-MISSES-CAST-IMPORT-CC1EFBAA",
+      "title": "Debug u8 impl misses cast import",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/core/traits/debug.nepl, tests/stdlib/traits_text.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T003227548Z-DEBUG-U8-IMPL-MISSES-CAST-IMPORT-CC1EFBAA.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

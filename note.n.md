@@ -37741,3 +37741,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - i32 / i64 / i128 arithmetic overload、qualified math facade re-export、numeric cast roundtrip を assertion label として stdout に固定した。
 - 既存の `cast_ambiguous_without_expected_type` skip 診断ケースは変更せず、旧 `ret:` 正常系だけを report 化した。
 - `node nodesrc/tests.js -i tests/stdlib/math.n.md --no-tree -o tmp/agent1-math-overload-report-tests.json -j 1 --assert-io --dist web/dist` は total=6, passed=6。
+
+## 2026-05-14 Agent 1 Debug u8 cast import
+
+- `work/debug-trait-u8-cast-import` で `ISS-20260514T003227548Z-DEBUG-U8-IMPL-MISSES-CAST-IMPORT-CC1EFBAA` を追加して解決した。
+- `tests/stdlib/traits_text.n.md` の report migration 前確認で、`Debug for u8` の `from_i32 cast x` が `core/cast` 未 import のため `resolve.identifier.undefined` になることを確認した。
+- `stdlib/core/traits/debug.nepl` に `core/cast` を明示 import し、`Debug` trait module が u8 impl の依存を定義元で閉じるようにした。
+- `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/agent1-traits-text-debug-import.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。
+- `node nodesrc/tests.js -i stdlib/core/traits/debug.nepl --no-tree -o tmp/agent1-debug-trait-doctests.json -j 1 --assert-io --dist web/dist` は total=1, passed=1。

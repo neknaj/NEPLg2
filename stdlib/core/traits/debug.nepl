@@ -13,6 +13,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "core/cast" as *
 #import "core/traits/stringify" as *
 
 //: Debug: [開発者/かいはつしゃ][向/む]け[文字列表現/もじれつひょうげん]
