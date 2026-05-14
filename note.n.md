@@ -38134,6 +38134,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/issues.js check --dir issues`: pass
 - `git diff --check`: pass
 
+# 2026-05-14 Agent 1 メモ (ISS-20260514T150128082Z JSON builder non-Copy Vec 依存)
+
+- `Vec` owner-preserving failure contract の周辺監査中に、`stdlib/alloc/encoding/json/builders.nepl` の doctest が `type.trait_bound.unsatisfied` で失敗することを確認した。
+- 根本原因は、JSON builder が `Vec<JsonValue>` / `Vec<JsonMember>` を前提にしている一方、現行 `Vec` は `OwnedBuffer<T>` / initialized cell / drop traversal が完成するまで Copy-only であること。
+- JSON は別作業と衝突し得るため、コード変更は行わず issue として記録した。対応時は JSON value representation と `RV-STDLIB-004` Stage 6 の non-Copy payload collection 設計を同期させる必要がある。
+- 確認:
+  - `node nodesrc/tests.js -i stdlib/alloc/encoding/json/builders.nepl --no-tree -o tmp/agent1-json-builder-push-contract-probe.json -j 1 --dist web/dist --assert-io`: 1/1 fail, `type.trait_bound.unsatisfied`
+
 # 2026-05-14 Agent 1 メモ (ISS-20260514T144624264Z Vec transform owner-preserving failure)
 
 - `Vec.map` / `filter` / `partition` / `take_while` / `drop_while` が owner-consuming かつ fallible でありながら、allocation failure で入力 `Vec` owner を内部で free し、`StdErrorKind` だけを返していることを確認した。
