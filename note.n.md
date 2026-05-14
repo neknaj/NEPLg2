@@ -37928,6 +37928,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - runtime の Drop 順序詳細は Rust integration test 側の責務として維持し、この `.n.md` では nodesrc 経路の compile / run と return value 保持を固定している。
 - `node nodesrc/tests.js -i tests/compiler/drop.n.md --no-tree -o tmp/agent1-drop-report-tests.json -j 1 --assert-io --dist web/dist` は total=4, passed=4。
 
+## 2026-05-14 Agent 1 Resource IR raw regression fixture refresh
+
+- `work/resource-ir-raw-regression-fixtures` で `ISS-20260514T044352695Z-RESOURCE-IR-RAW-REGRESSIONS-ARE-STAL-9CFFDA5D` を解決した。
+- raw-focused Resource IR fixture を、現在の明示 import / raw-memory-boundary capability / `MemPtr` non-owning 方針に合わせて更新した。
+- positive compiler pipeline test の direct raw memory source は test 専用 helper で `SourceCapabilities::raw_memory_boundary()` を付与し、通常 user source の raw rejection は維持した。
+- `alloc_ptr` owner が `mem_ptr_addr` 経由で raw `i32` owner へ移るという古い期待は拒否テストに変え、free obligation owner と non-owning projection の分離を回帰として固定した。
+- `cargo test -p nepl-core --test resource_ir raw -- --nocapture` は 71/71 passing。
+
 ## 2026-05-14 Agent 1 Block semicolon return stdout report doctest migration
 
 - `work/block-semicolon-return-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/block_semicolon_return.n.md` を更新した。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T04:36:30.099Z",
+  "generated_at": "2026-05-14T04:50:06.067Z",
   "counts": {
-    "total": 747,
+    "total": 748,
     "open": 5,
-    "resolved": 742,
+    "resolved": 743,
     "by_area": {
       "stdlib": {
         "total": 188,
@@ -52,9 +52,9 @@
         "resolved": 4
       },
       "compiler": {
-        "total": 3,
+        "total": 4,
         "open": 0,
-        "resolved": 3
+        "resolved": 4
       },
       "core/resource": {
         "total": 1,
@@ -883,6 +883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A.md"
+    },
+    {
+      "id": "ISS-20260514T044352695Z-RESOURCE-IR-RAW-REGRESSIONS-ARE-STAL-9CFFDA5D",
+      "title": "Resource IR raw regressions are stale after explicit import and raw boundary changes",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T044352695Z-RESOURCE-IR-RAW-REGRESSIONS-ARE-STAL-9CFFDA5D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",
