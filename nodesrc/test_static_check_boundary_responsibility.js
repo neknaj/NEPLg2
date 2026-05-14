@@ -317,6 +317,8 @@ assertLineLimit(
 assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
 assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
+assertContains(sourceMap, 'OwnerAggregateConstructorBoundary', 'source_map.rs');
+assertContains(sourceMap, 'OwnerAggregateFieldBoundary', 'source_map.rs');
 assertContains(sourceMap, 'pub enum CompilerMemoryType', 'source_map.rs');
 assertContains(sourceMap, 'RawPointer', 'source_map.rs');
 assertContains(sourceMap, 'OwnerToken', 'source_map.rs');
@@ -387,17 +389,27 @@ assertContains(
 );
 assertContains(
     sourceCapability,
-    'module_has_owner_aggregate_boundary_evidence',
+    'module_has_owner_aggregate_constructor_evidence',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'module_has_owner_aggregate_field_evidence',
     'source_capability.rs',
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
-    'enum OwnerAggregateBoundaryEvidence',
+    'enum OwnerAggregateCapabilityEvidence',
     'source_capability/owner_aggregate.rs',
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
-    'pub(crate) fn module_has_owner_aggregate_boundary_evidence',
+    'pub(crate) fn module_has_owner_aggregate_constructor_evidence',
+    'source_capability/owner_aggregate.rs',
+);
+assertContains(
+    sourceCapabilityOwnerAggregate,
+    'pub(crate) fn module_has_owner_aggregate_field_evidence',
     'source_capability/owner_aggregate.rs',
 );
 assertContains(
@@ -434,7 +446,8 @@ assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
 assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
 assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
 assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
-assertContains(loader, 'module_has_owner_aggregate_boundary_evidence', 'loader.rs');
+assertContains(loader, 'module_has_owner_aggregate_constructor_evidence', 'loader.rs');
+assertContains(loader, 'module_has_owner_aggregate_field_evidence', 'loader.rs');
 assertContains(loader, 'module_compiler_memory_type_definitions', 'loader.rs');
 assertContains(
     testHarness,

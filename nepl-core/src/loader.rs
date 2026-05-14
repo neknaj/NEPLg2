@@ -4,8 +4,8 @@ use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
 use crate::source_capability::{
-    module_compiler_memory_type_definitions, module_has_owner_aggregate_boundary_evidence,
-    module_has_raw_memory_boundary_evidence,
+    module_compiler_memory_type_definitions, module_has_owner_aggregate_constructor_evidence,
+    module_has_owner_aggregate_field_evidence, module_has_raw_memory_boundary_evidence,
 };
 use crate::source_map::SourceCapability;
 use crate::span::FileId;
@@ -696,8 +696,11 @@ impl Loader {
     ) -> SourceCapabilities {
         let mut capabilities = SourceCapabilities::none();
         if self.configured_stdlib_source_path(canon) {
-            if module_has_owner_aggregate_boundary_evidence(module) {
-                capabilities.insert(SourceCapability::OwnerAggregateBoundary);
+            if module_has_owner_aggregate_constructor_evidence(module) {
+                capabilities.insert(SourceCapability::OwnerAggregateConstructorBoundary);
+            }
+            if module_has_owner_aggregate_field_evidence(module) {
+                capabilities.insert(SourceCapability::OwnerAggregateFieldBoundary);
             }
             if module_has_raw_memory_boundary_evidence(module) {
                 capabilities.insert(SourceCapability::RawMemoryBoundary);
@@ -862,7 +865,7 @@ mod tests {
     }
 
     #[test]
-    fn owner_aggregate_boundary_requires_source_evidence() {
+    fn owner_aggregate_boundaries_require_matching_source_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(
             &loader.stdlib_root,
@@ -872,8 +875,12 @@ mod tests {
         let safe =
             load_source_capabilities(&loader, path.clone(), "fn helper <()->i32> ():\n    1\n");
         assert!(
-            !safe.allows_owner_aggregate_boundary(),
-            "configured stdlib source without aggregate manipulation evidence must not receive owner aggregate capability"
+            !safe.allows_owner_aggregate_constructor_boundary(),
+            "configured stdlib source without constructor evidence must not receive owner aggregate constructor capability"
+        );
+        assert!(
+            !safe.allows_owner_aggregate_field_boundary(),
+            "configured stdlib source without field evidence must not receive owner aggregate field capability"
         );
 
         let aggregate = load_source_capabilities(
@@ -882,8 +889,12 @@ mod tests {
             "fn helper <(Vec<i32>)->i32> (v):\n    field::get v \"len\"\n",
         );
         assert!(
-            aggregate.allows_owner_aggregate_boundary(),
-            "configured stdlib source with field accessor evidence must receive owner aggregate capability"
+            !aggregate.allows_owner_aggregate_constructor_boundary(),
+            "field accessor evidence must not grant owner aggregate constructor capability"
+        );
+        assert!(
+            aggregate.allows_owner_aggregate_field_boundary(),
+            "configured stdlib source with field accessor evidence must receive owner aggregate field capability"
         );
         assert!(
             !aggregate.allows_raw_memory_boundary(),
@@ -907,8 +918,12 @@ mod tests {
             ),
         );
         assert!(
-            capabilities.allows_owner_aggregate_boundary(),
-            "compiler-owned aggregate constructor syntax is owner aggregate boundary evidence"
+            capabilities.allows_owner_aggregate_constructor_boundary(),
+            "compiler-owned aggregate constructor syntax is constructor boundary evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_field_boundary(),
+            "constructor evidence must not grant owner token field projection capability"
         );
         assert!(
             !capabilities.allows_raw_memory_boundary(),
@@ -923,14 +938,15 @@ mod tests {
             &loader.stdlib_root,
             &["alloc", "result_user.nepl"],
         ));
-        let capabilities = load_source_capabilities(
-            &loader,
-            path,
-            "fn helper <()->i32> ():\n    Result::Ok 1\n",
+        let capabilities =
+            load_source_capabilities(&loader, path, "fn helper <()->i32> ():\n    Result::Ok 1\n");
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary(),
+            "qualified enum variants are not owner-backed aggregate constructor evidence"
         );
         assert!(
-            !capabilities.allows_owner_aggregate_boundary(),
-            "qualified enum variants are not owner-backed aggregate constructor evidence"
+            !capabilities.allows_owner_aggregate_field_boundary(),
+            "qualified enum variants are not owner-token field projection evidence"
         );
     }
 
@@ -944,8 +960,12 @@ mod tests {
             "fn helper <(Vec<i32>)->i32> (v):\n    field::get v \"len\"\n",
         );
         assert!(
-            !capabilities.allows_owner_aggregate_boundary(),
-            "aggregate manipulation evidence outside configured stdlib must not grant capability"
+            !capabilities.allows_owner_aggregate_constructor_boundary(),
+            "aggregate constructor evidence outside configured stdlib must not grant capability"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_field_boundary(),
+            "field accessor evidence outside configured stdlib must not grant capability"
         );
     }
 
@@ -962,8 +982,12 @@ mod tests {
             "fn get <()->i32> ():\n    1\n\nfn helper <()->i32> ():\n    get\n",
         );
         assert!(
-            !capabilities.allows_owner_aggregate_boundary(),
+            !capabilities.allows_owner_aggregate_constructor_boundary(),
             "same-module safe helper names are not owner aggregate boundary evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_field_boundary(),
+            "same-module safe helper names are not owner field boundary evidence"
         );
     }
 

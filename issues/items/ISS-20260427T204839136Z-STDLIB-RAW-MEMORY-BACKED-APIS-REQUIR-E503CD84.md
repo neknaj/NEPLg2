@@ -282,7 +282,7 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 
 `Vec<T>` は `region: RegionToken<T>` へ移行済みだが、struct constructor が public のままだと、caller は allocator-issued owner token ではない値を aggregate に詰めたり、`field::get_ref &v "region"` で free obligation owner を取り出したりできる。今回の修正では、特定 stdlib 名の allowlist ではなく、struct field 型が compiler owner token を含むかを typecheck が判定し、`OwnerBackedAggregateBoundaryOnly` policy を付与する。
 
-許可境界は `OwnerAggregateBoundary` source capability として `RawMemoryBoundary` から分けた。configured stdlib root 配下でも無条件には付与せず、parsed source に aggregate constructor / field accessor の evidence がある場合だけ付与する。stdlib 実装 source は owner aggregate の move/reconstruct/projection が必要だが、raw memory operation authority まで得るべきではないためである。これにより Stage 6 の「owner token は compiler が性質を証明した境界内でだけ扱える」という前提を強めつつ、raw-memory-backed public API migration はこの親 issue で継続する。
+許可境界は `OwnerAggregateConstructorBoundary` / `OwnerAggregateFieldBoundary` source capability として `RawMemoryBoundary` から分けた。configured stdlib root 配下でも無条件には付与せず、parsed source に aggregate constructor / field accessor の evidence がある場合だけ、対応する capability を付与する。stdlib 実装 source は owner aggregate の move/reconstruct/projection が必要だが、raw memory operation authority まで得るべきではないためである。これにより Stage 6 の「owner token は compiler が性質を証明した境界内でだけ扱える」という前提を強めつつ、raw-memory-backed public API migration はこの親 issue で継続する。
 
 ## 2026-05-15 Agent 1 empty RegionToken sentinel helper 追記
 
@@ -388,6 +388,14 @@ BFS の距離配列と queue は `Vec<i32>` で初期化し、`v::get` / `v::rep
 
 `ISS-20260514T211956079Z-OWNER-AGGREGATE-BOUNDARY-TREATS-QUAL-8D858CD3` として、compiler の source capability 判定が `Result::Ok` などの qualified enum variant を owner aggregate constructor evidence と誤分類していた問題を分離して修正した。
 
-`OwnerAggregateBoundary` は owner-backed aggregate constructor / owner token field projection を許可する capability なので、configured stdlib source であっても通常の enum variant construction だけを証拠にして付与してはいけない。修正後は constructor-like evidence を unqualified symbol に限定し、`Result::Ok` / `Option::Some` のような qualified enum variant は capability 証拠から外した。`field::get` / `field::get_ref` などの explicit field accessor evidence と、`Vec` のような unqualified owner aggregate constructor evidence は維持している。
+owner aggregate constructor capability は owner-backed aggregate constructor を許可する capability なので、configured stdlib source であっても通常の enum variant construction だけを証拠にして付与してはいけない。修正後は constructor-like evidence を unqualified symbol に限定し、`Result::Ok` / `Option::Some` のような qualified enum variant は capability 証拠から外した。`field::get` / `field::get_ref` などの explicit field accessor evidence と、`Vec` のような unqualified owner aggregate constructor evidence は維持している。
 
 これにより Stage 6 の raw-memory-backed stdlib migration を支える compiler 側の source proof が過大付与にならず、ordinary result/option construction が owner aggregate boundary の静的検査を緩める経路を閉じた。親 issue は引き続き open とし、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行を継続する。
+
+## 2026-05-15 Agent 1 owner aggregate capability 分割追記
+
+`ISS-20260514T212804383Z-OWNER-AGGREGATE-CONSTRUCTOR-AND-OWNE-58143AB3` として、compiler の `OwnerAggregateBoundary` が owner-backed aggregate constructor と owner token field projection を 1 つの file-wide capability で共有していた問題を分離して修正した。
+
+今回の修正では `SourceCapability::OwnerAggregateBoundary` を削除し、`OwnerAggregateConstructorBoundary` と `OwnerAggregateFieldBoundary` に分けた。source evidence walker は constructor-like evidence と field accessor evidence を別々に判定し、loader は対応する capability だけを付与する。typecheck 側も direct constructor と owner token field projection で別 method を見るため、field accessor evidence だけの source が constructor 権限まで得たり、constructor evidence だけの source が owner token projection 権限まで得たりしない。
+
+この修正は Stage 6 の compiler 側 source proof 精度を上げるものであり、stdlib public API の最終移行ではない。親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。

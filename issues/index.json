@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T21:23:47.423Z",
+  "generated_at": "2026-05-14T21:36:43.382Z",
   "counts": {
-    "total": 795,
+    "total": 796,
     "open": 8,
-    "resolved": 787,
+    "resolved": 788,
     "by_area": {
       "stdlib": {
         "total": 224,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 396,
+        "total": 397,
         "open": 0,
-        "resolved": 396
+        "resolved": 397
       },
       "CORE": {
         "total": 1,
@@ -6043,6 +6043,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T211956079Z-OWNER-AGGREGATE-BOUNDARY-TREATS-QUAL-8D858CD3.md"
+    },
+    {
+      "id": "ISS-20260514T212804383Z-OWNER-AGGREGATE-CONSTRUCTOR-AND-OWNE-58143AB3",
+      "title": "Owner aggregate constructor and owner field projection share one source capability",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/source_map.rs, nepl-core/src/source_capability/owner_aggregate.rs, nepl-core/src/loader.rs, nepl-core/src/typecheck/constructor_apply.rs, nepl-core/src/typecheck/field_access.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T212804383Z-OWNER-AGGREGATE-CONSTRUCTOR-AND-OWNE-58143AB3.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

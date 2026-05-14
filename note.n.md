@@ -38482,3 +38482,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core owner_aggregate_boundary_ --lib`
   - `node nodesrc/test_static_check_boundary_responsibility.js`
+
+## 2026-05-15 Agent 1 owner aggregate capability 分割
+
+- `ISS-20260514T212804383Z-OWNER-AGGREGATE-CONSTRUCTOR-AND-OWNE-58143AB3` を追加して fixed にした。
+- `SourceCapability::OwnerAggregateBoundary` を削除し、`OwnerAggregateConstructorBoundary` と `OwnerAggregateFieldBoundary` に分割した。
+- owner aggregate source evidence walker は constructor-like evidence と field accessor evidence を別々に問い合わせる API に変更した。
+- loader は検出した evidence kind に対応する capability だけを付与する。
+- typecheck は owner-backed aggregate constructor を constructor capability で、owner token field projection を field capability で検査する。
+- focused verification:
+  - `cargo test -p nepl-core owner_aggregate --lib`
+  - `cargo test -p nepl-core source_capabilities --lib`
+  - `cargo test -p nepl-core source_map_keeps_capabilities_per_file --lib`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/agent1-owner-aggregate-split-vec.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-owner-aggregate-split-byte.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-owner-aggregate-split-memory-safety.json -j 1 --dist web/dist --assert-io`

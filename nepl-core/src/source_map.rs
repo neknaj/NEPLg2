@@ -64,7 +64,8 @@ impl fmt::Display for SourcePathDisplay<'_> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SourceCapability {
     RawMemoryBoundary,
-    OwnerAggregateBoundary,
+    OwnerAggregateConstructorBoundary,
+    OwnerAggregateFieldBoundary,
     CompilerMemoryTypeDefinition(CompilerMemoryType),
 }
 
@@ -91,8 +92,12 @@ impl SourceCapabilities {
         Self::with(SourceCapability::RawMemoryBoundary)
     }
 
-    pub fn owner_aggregate_boundary() -> Self {
-        Self::with(SourceCapability::OwnerAggregateBoundary)
+    pub fn owner_aggregate_constructor_boundary() -> Self {
+        Self::with(SourceCapability::OwnerAggregateConstructorBoundary)
+    }
+
+    pub fn owner_aggregate_field_boundary() -> Self {
+        Self::with(SourceCapability::OwnerAggregateFieldBoundary)
     }
 
     pub fn compiler_memory_type_definition(memory_type: CompilerMemoryType) -> Self {
@@ -117,8 +122,12 @@ impl SourceCapabilities {
         self.allows(SourceCapability::RawMemoryBoundary)
     }
 
-    pub fn allows_owner_aggregate_boundary(&self) -> bool {
-        self.allows(SourceCapability::OwnerAggregateBoundary)
+    pub fn allows_owner_aggregate_constructor_boundary(&self) -> bool {
+        self.allows(SourceCapability::OwnerAggregateConstructorBoundary)
+    }
+
+    pub fn allows_owner_aggregate_field_boundary(&self) -> bool {
+        self.allows(SourceCapability::OwnerAggregateFieldBoundary)
     }
 
     pub fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool {
@@ -165,8 +174,14 @@ impl SourceMap {
         self.capabilities(id).allows_raw_memory_boundary()
     }
 
-    pub fn owner_aggregate_boundary_allowed(&self, id: FileId) -> bool {
-        self.capabilities(id).allows_owner_aggregate_boundary()
+    pub fn owner_aggregate_constructor_boundary_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id)
+            .allows_owner_aggregate_constructor_boundary()
+    }
+
+    pub fn owner_aggregate_field_boundary_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id)
+            .allows_owner_aggregate_field_boundary()
     }
 
     pub fn compiler_memory_type_definition_allowed(
@@ -257,9 +272,15 @@ mod tests {
         assert!(raw_boundary.allows(SourceCapability::RawMemoryBoundary));
         assert!(raw_boundary.allows_raw_memory_boundary());
 
-        let owner_aggregate_boundary = SourceCapabilities::owner_aggregate_boundary();
-        assert!(owner_aggregate_boundary.allows_owner_aggregate_boundary());
-        assert!(!owner_aggregate_boundary.allows_raw_memory_boundary());
+        let owner_constructor = SourceCapabilities::owner_aggregate_constructor_boundary();
+        assert!(owner_constructor.allows_owner_aggregate_constructor_boundary());
+        assert!(!owner_constructor.allows_owner_aggregate_field_boundary());
+        assert!(!owner_constructor.allows_raw_memory_boundary());
+
+        let owner_field = SourceCapabilities::owner_aggregate_field_boundary();
+        assert!(owner_field.allows_owner_aggregate_field_boundary());
+        assert!(!owner_field.allows_owner_aggregate_constructor_boundary());
+        assert!(!owner_field.allows_raw_memory_boundary());
 
         let memory_type =
             SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::OwnerToken);
@@ -279,7 +300,8 @@ mod tests {
 
         assert!(!source_map.raw_memory_boundary_allowed(plain));
         assert!(source_map.raw_memory_boundary_allowed(raw));
-        assert!(!source_map.owner_aggregate_boundary_allowed(raw));
+        assert!(!source_map.owner_aggregate_constructor_boundary_allowed(raw));
+        assert!(!source_map.owner_aggregate_field_boundary_allowed(raw));
 
         source_map.set_capabilities(
             plain,

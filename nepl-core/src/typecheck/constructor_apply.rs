@@ -179,7 +179,7 @@ impl<'a> BlockChecker<'a> {
                 }
             }
             StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly => {
-                if !self.owner_aggregate_boundary_allowed(span) {
+                if !self.owner_aggregate_constructor_boundary_allowed(span) {
                     self.diagnostics.push(type_error(
                         TypeDiagnosticCode::OwnerAggregateConstructorRestricted,
                         "owner-backed aggregate constructor is restricted to compiler memory boundary",

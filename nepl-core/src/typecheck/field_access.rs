@@ -66,7 +66,7 @@ impl<'a> BlockChecker<'a> {
         span: Span,
     ) -> bool {
         if restricted == RestrictedStructConstructor::OwnerToken
-            && self.owner_aggregate_boundary_allowed(span)
+            && self.owner_aggregate_field_boundary_allowed(span)
         {
             return true;
         }
