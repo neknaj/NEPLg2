@@ -18,12 +18,13 @@ stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 stat
 #import "std/test" as *
 #import "core/field" as *
 #import "core/math" as *
+#import "core/mem/internal" as *
 
 fn main <()*>i32> ():
     let v0_empty <Vec<i32>> unwrap_ok new<i32>;
     let v0_is_empty <bool> is_empty<i32> &v0_empty;
     let v0_ptr <Vec<i32>> unwrap_ok new<i32>;
-    let v0_ptr_positive <bool> gt data_ptr<i32> &v0_ptr 0;
+    let v0_ptr_positive <bool> gt mem_ptr_addr data_mem_ptr<i32> &v0_ptr 0;
 
     let v2:
         unwrap_ok new<i32>

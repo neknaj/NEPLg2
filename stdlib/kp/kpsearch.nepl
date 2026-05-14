@@ -4,6 +4,7 @@
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 #import "core/option" as *
@@ -16,11 +17,12 @@
 //: - 「条件を満たす最初の位置」を求める二分探索の雛形を固定化します。
 //:
 //: [実装/じっそう]:
-//: - 配列は `i32` の連続領域 (`ptr`, `len`) として扱います。
-//: - 不変条件 `lo..hi` を保つ標準的な二分探索で実装します。
+//: - public API は `Vec<i32>` owner を受け取り、module 内部でだけ typed data view を raw address に[変換/へんかん]します。
+//: - 内部 helper は `lo..hi` の不変条件を保つ標準的な二分探索で実装します。
 //:
 //: [注意/ちゅうい]:
 //: - 入力配列は昇順である必要があります。
+//: - raw `i32` pointer を受け取る helper は public にしません。通常の呼び出し側は `*_vec_i32` API を使います。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: "1 3 1\n"
@@ -28,28 +30,40 @@
 //:| #entry main
 //:| #target std
 //:| #import "kp/kpsearch" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/allocator" as *
-//:| #import "core/mem/raw" as *
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():
-//:     let len <i32> 5;
-//:     let data <i32> alloc_raw mul len 4;
-//:     store_i32 add data 0 1;
-//:     store_i32 add data 4 3;
-//:     store_i32 add data 8 3;
-//:     store_i32 add data 12 7;
-//:     store_i32 add data 16 9;
-//:     print_i32 lower_bound_i32 data len 2;
+//:     let lower_data <Vec<i32>>:
+//:         unwrap_ok with_capacity<i32> 5
+//:         |> push 1 |> unwrap_ok
+//:         |> push 3 |> unwrap_ok
+//:         |> push 3 |> unwrap_ok
+//:         |> push 7 |> unwrap_ok
+//:         |> push 9 |> unwrap_ok
+//:     print_i32 lower_bound_vec_i32 lower_data 2;
 //:     print " ";
-//:     print_i32 upper_bound_i32 data len 3;
+//:     let upper_data <Vec<i32>>:
+//:         unwrap_ok with_capacity<i32> 5
+//:         |> push 1 |> unwrap_ok
+//:         |> push 3 |> unwrap_ok
+//:         |> push 3 |> unwrap_ok
+//:         |> push 7 |> unwrap_ok
+//:         |> push 9 |> unwrap_ok
+//:     print_i32 upper_bound_vec_i32 upper_data 3;
 //:     print " ";
-//:     println_i32 if contains_i32 data len 3 then 1 else 0;
-//:     dealloc_raw data mul len 4
+//:     let contains_data <Vec<i32>>:
+//:         unwrap_ok with_capacity<i32> 5
+//:         |> push 1 |> unwrap_ok
+//:         |> push 3 |> unwrap_ok
+//:         |> push 3 |> unwrap_ok
+//:         |> push 7 |> unwrap_ok
+//:         |> push 9 |> unwrap_ok
+//:     println_i32 if contains_vec_i32 contains_data 3 then 1 else 0
 //: ```
 
-//: lower_bound_i32: `x` 以上が最初に現れる位置を返す
-pub fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
+//: lower_bound_i32: raw storage 内で `x` 以上が最初に現れる位置を返す内部 helper
+fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
     let mut lo <i32> 0;
     let mut hi <i32> len;
     while lt lo hi:
@@ -66,8 +80,8 @@ pub fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
                 else set hi mid
     lo
 
-//: upper_bound_i32: `x` より大きい値が最初に現れる位置を返す
-pub fn upper_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
+//: upper_bound_i32: raw storage 内で `x` より大きい値が最初に現れる位置を返す内部 helper
+fn upper_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
     let mut lo <i32> 0;
     let mut hi <i32> len;
     while lt lo hi:
@@ -84,8 +98,8 @@ pub fn upper_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
                 else set hi mid
     lo
 
-//: contains_i32: 値 `x` が存在するか判定する
-pub fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
+//: contains_i32: raw storage 内に値 `x` が存在するか判定する内部 helper
+fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
     let idx <i32> lower_bound_i32 data len x;
     if ge idx len:
         then false
@@ -101,7 +115,7 @@ pub fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
 //: - ソート済み配列における `x` の個数を O(log n) で求めます。
 //:
 //: [実装/じっそう]:
-//: - `lower_bound_i32` と `upper_bound_i32` の差で個数を計算します。
+//: - 内部 raw helper の `lower_bound_i32` と `upper_bound_i32` の差で個数を計算します。
 //:
 //: [注意/ちゅうい]:
 //: - 配列は昇順である必要があります。
@@ -115,23 +129,21 @@ pub fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
 //:| #entry main
 //:| #target std
 //:| #import "kp/kpsearch" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/allocator" as *
-//:| #import "core/mem/raw" as *
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():
-//:     let len <i32> 6;
-//:     let data <i32> alloc_raw mul len 4;
-//:     store_i32 add data 0 1;
-//:     store_i32 add data 4 2;
-//:     store_i32 add data 8 2;
-//:     store_i32 add data 12 2;
-//:     store_i32 add data 16 5;
-//:     store_i32 add data 20 9;
-//:     println_i32 count_equal_range_i32 data len 2;
-//:     dealloc_raw data mul len 4
+//:     let values <Vec<i32>>:
+//:         unwrap_ok with_capacity<i32> 6
+//:         |> push 1 |> unwrap_ok
+//:         |> push 2 |> unwrap_ok
+//:         |> push 2 |> unwrap_ok
+//:         |> push 2 |> unwrap_ok
+//:         |> push 5 |> unwrap_ok
+//:         |> push 9 |> unwrap_ok
+//:     println_i32 count_equal_range_vec_i32 values 2
 //: ```
-pub fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
+fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
     let lb <i32> lower_bound_i32 data len x;
     let ub <i32> upper_bound_i32 data len x;
     sub ub lb
@@ -151,42 +163,7 @@ pub fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-//:
-//: neplg2:test[stdio, normalize_newlines]
-//: stdout: "4\n1 2 3 7\n"
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "kp/kpsearch" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/allocator" as *
-//:| #import "core/mem/raw" as *
-//:| #import "core/math" as *
-//:| #import "std/stdio" as *
-//: fn main <()*> ()> ():
-//:     let len <i32> 7;
-//:     let data <i32> alloc_raw mul len 4;
-//:     store_i32 add data 0 1;
-//:     store_i32 add data 4 1;
-//:     store_i32 add data 8 2;
-//:     store_i32 add data 12 2;
-//:     store_i32 add data 16 3;
-//:     store_i32 add data 20 7;
-//:     store_i32 add data 24 7;
-//:     let new_len <i32> unique_sorted_i32 data len;
-//:     println_i32 new_len;
-//:     let mut i <i32> 0;
-//:     while lt i new_len:
-//:         do:
-//:             if gt i 0:
-//:                 then print " "
-//:                 else ()
-//:             print_i32 load_i32 add data mul i 4;
-//:             set i add i 1;
-//:     println "";
-//:     dealloc_raw data mul len 4
-//: ```
-pub fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
+fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
     if:
         le len 1
         then len
@@ -214,7 +191,7 @@ pub fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
 
 //: lower_bound_vec_i32: Vec<i32> を対象に lower_bound を返す
 pub fn lower_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
-    let data <i32> data_ptr<i32> &v;
+    let data <i32> mem_ptr_addr data_mem_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <i32> lower_bound_i32 data n x;
     free<i32> v;
@@ -222,7 +199,7 @@ pub fn lower_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
 
 //: upper_bound_vec_i32: Vec<i32> を対象に upper_bound を返す
 pub fn upper_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
-    let data <i32> data_ptr<i32> &v;
+    let data <i32> mem_ptr_addr data_mem_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <i32> upper_bound_i32 data n x;
     free<i32> v;
@@ -230,7 +207,7 @@ pub fn upper_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
 
 //: contains_vec_i32: Vec<i32> に値 x が存在するか判定する
 pub fn contains_vec_i32 <(Vec<i32>,i32)*>bool> (v, x):
-    let data <i32> data_ptr<i32> &v;
+    let data <i32> mem_ptr_addr data_mem_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <bool> contains_i32 data n x;
     free<i32> v;
@@ -238,7 +215,7 @@ pub fn contains_vec_i32 <(Vec<i32>,i32)*>bool> (v, x):
 
 //: count_equal_range_vec_i32: Vec<i32> における x の個数を返す
 pub fn count_equal_range_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
-    let data <i32> data_ptr<i32> &v;
+    let data <i32> mem_ptr_addr data_mem_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <i32> count_equal_range_i32 data n x;
     free<i32> v;
@@ -303,7 +280,7 @@ pub struct UniqueSortedVecI32:
 //:     free unique;
 //: ```
 pub fn unique_sorted_vec_i32 <(Vec<i32>)*>UniqueSortedVecI32> (v):
-    let data <i32> data_ptr<i32> &v;
+    let data <i32> mem_ptr_addr data_mem_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let new_len <i32> unique_sorted_i32 data n;
     UniqueSortedVecI32 v new_len

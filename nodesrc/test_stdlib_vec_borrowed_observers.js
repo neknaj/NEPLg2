@@ -78,7 +78,6 @@ for (const [name, resultTy] of [
 }
 
 for (const [name, resultTy] of [
-    ["data_ptr", "i32"],
     ["data_mem_ptr", "MemPtr<\\.T>"],
 ]) {
     assert.match(
@@ -92,6 +91,7 @@ for (const [name, resultTy] of [
         `Vec.${name} must not consume the owner`,
     );
 }
+assert.doesNotMatch(vecCode, /\bfn\s+data_ptr\b/, "Vec must not expose a raw i32 data pointer observer");
 
 assert.match(vecCode, /fn\s+get\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>,i32\)->Option<\.T>>\s+\(v,\s*idx\):/, "Vec.get must borrow the owner and require Copy");
 assert.doesNotMatch(vecCode, /fn\s+get\s+<\.T>\s+<\(Vec<\.T>,i32\)->Option<\.T>>/, "Vec.get must not consume the owner");

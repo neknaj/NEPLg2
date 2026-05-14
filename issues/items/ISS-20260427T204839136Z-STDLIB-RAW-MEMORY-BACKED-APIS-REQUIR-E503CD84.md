@@ -166,7 +166,7 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 `ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF` で、`Vec` の raw data observer が non-Copy payload に対して raw address / `MemPtr<T>` view を返せる入口を閉じた。
 
-`data_ptr` / `data_mem_ptr` / `vec_storage_mem_ptr` は `.T: Copy` に限定済みである。これは raw-memory-backed public API migration の完了ではなく、`OwnedBuffer<T>` と borrow projection が入るまで unsafe な storage identity escape を Copy payload に限定する局所前進である。
+`data_mem_ptr` / `vec_storage_mem_ptr` は `.T: Copy` に限定済みである。`data_ptr` は後続の `ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で削除し、raw `i32` address observer としての互換 API は残さない。これは raw-memory-backed public API migration の完了ではなく、`OwnedBuffer<T>` と borrow projection が入るまで unsafe な storage identity escape を Copy payload に限定しつつ、raw address への変換を raw-memory-boundary implementation point へ押し戻す局所前進である。
 
 ## 2026-05-14 Agent 1 VecDataLen raw view carrier 削除追記
 
@@ -263,3 +263,9 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `vec_empty_region<T>` は `VecStorageState::Empty` を現行 struct layout に載せるための内部 helper であり、raw-memory-backed public API として公開すると caller が `RegionToken<T>` sentinel construction に依存できてしまう。修正後は `vec_empty<T>` だけを public typed constructor とし、zero-size sentinel helper は `storage/view.nepl` 内部に閉じる。
 
 これは `RegionToken<T>` の forgeability 全体を閉じる修正ではないが、Stage 6 の public surface から不要な owner-token constructor を 1 つ減らす前進である。親 issue は `OwnedBuffer<T>` / compiler-issued token への移行が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 Vec/KP raw i32 address public API 削除追記
+
+`ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で、`Vec.data_ptr<T>(&Vec<T>) -> i32` を削除した。互換 alias は残さず、呼び出し側は `data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` を使い、raw-memory-boundary 実装箇所でだけ明示的に `mem_ptr_addr` へ落とす。
+
+同じ根として、`kpsearch` の raw `i32` pointer helper は public API から外し、公開面は `Vec<i32>` owner を消費する wrapper に揃えた。これにより ordinary source が KP の探索 API を使うために raw address を保持・組み立てる必要がなくなった。

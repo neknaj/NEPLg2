@@ -63,3 +63,7 @@ Run Vec source policy checks, focused access/storage doctests, Vec doctests, iss
 
 - `ISS-20260425T000000Z-RV-STDLIB-004-91534828` と `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` の Stage D/Stage 6 残件のうち、raw storage identity observer が non-Copy payload に開いていた入口を閉じた。
 - full non-Copy borrowed access はこの issue では完了扱いにしない。`OwnedBuffer<T>`、borrow projection、initialized cell state、lifetime/borrow checking と接続した dedicated API が必要である。
+
+## 2026-05-15 follow-up
+
+`ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で `data_ptr<T>` 自体を削除した。したがって、この issue の解決時点で行った `data_ptr<T: Copy>` 制約は歴史的な中間状態であり、現在の public observer は `data_mem_ptr<T: Copy>` と `vec_storage_mem_ptr<T: Copy>` だけである。

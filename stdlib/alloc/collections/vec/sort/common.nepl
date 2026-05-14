@@ -79,7 +79,7 @@ pub fn sort_ge <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
 //: - sort loop 内で `Vec` の `data` から `.T` を高速に読み出します。
 //:
 //: [実装/じっそう]:
-//: - `data_ptr(v) + idx * size_of<.T>` を typed `load<.T>` します。
+//: - `data_mem_ptr(v)` で得た typed view から `idx * size_of<.T>` の位置を `load<.T>` します。
 //:
 //: [注意/ちゅうい]:
 //: - `0 <= idx < len(v)` を呼び出し側が保証する内部 helper です。
@@ -88,9 +88,8 @@ pub fn sort_ge <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 pub fn sort_get_unchecked <.T: Copy> <(&Vec<.T>,i32)->.T> (v, idx):
-    let data <i32> data_ptr<.T> v
-    let off <i32> mul idx size_of<.T>
-    load<.T> add data off
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
+    sort_get_unchecked_data<.T> data idx
 
 //: sort_set_unchecked: `Vec` storage へ index を検査せずに書く
 //:
@@ -98,7 +97,7 @@ pub fn sort_get_unchecked <.T: Copy> <(&Vec<.T>,i32)->.T> (v, idx):
 //: - sort loop 内で `.T` を指定 index へ書き戻します。
 //:
 //: [実装/じっそう]:
-//: - `data_ptr(v) + idx * size_of<.T>` を typed `store<.T>` します。
+//: - `data_mem_ptr(v)` で得た typed view から `idx * size_of<.T>` の位置へ `store<.T>` します。
 //:
 //: [注意/ちゅうい]:
 //: - `0 <= idx < len(v)` と上書き時の drop 義務を呼び出し側が保証する内部 helper です。
@@ -106,10 +105,8 @@ pub fn sort_get_unchecked <.T: Copy> <(&Vec<.T>,i32)->.T> (v, idx):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 pub fn sort_set_unchecked <.T: Copy> <(&Vec<.T>,i32,.T)->()> (v, idx, val):
-    let data <i32> data_ptr<.T> v
-    let off <i32> mul idx size_of<.T>
-    store<.T> add data off val;
-    ()
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
+    sort_set_unchecked_data<.T> data idx val
 
 // sort_get_unchecked_data: data ポインタ版の取得
 pub fn sort_get_unchecked_data <.T: Copy> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):

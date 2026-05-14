@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T15:58:34.885Z",
+  "generated_at": "2026-05-14T16:13:23.636Z",
   "counts": {
-    "total": 773,
+    "total": 774,
     "open": 7,
-    "resolved": 766,
+    "resolved": 767,
     "by_area": {
       "stdlib": {
-        "total": 206,
+        "total": 207,
         "open": 5,
-        "resolved": 201
+        "resolved": 202
       },
       "TEST": {
         "total": 21,
@@ -9043,6 +9043,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T155620178Z-VEC-EMPTY-REGIONTOKEN-SENTINEL-HELPE-B3CF72E9.md"
+    },
+    {
+      "id": "ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB",
+      "title": "Vec and KP expose raw i32 storage address public APIs",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/vec/access/data.nepl, stdlib/kp/kpsearch.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

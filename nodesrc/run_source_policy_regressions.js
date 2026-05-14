@@ -42,6 +42,7 @@ const checks = [
     "nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js",
     "nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js",

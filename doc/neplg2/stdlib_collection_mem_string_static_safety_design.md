@@ -297,6 +297,11 @@ Resource IR / typecheck / match check は次を必須にする。
 - `ByteBuf` / `ByteBuilder` は `Option<MemPtr<u8>>` owner field をやめ、storage owner を `RegionToken<u8>` field に集約した。`region_ptr` / `io_bytebuf_data_ptr_ref` / `byte_builder_data_ptr_ref` は参照から non-owning `MemPtr` view だけを返す。残件 baseline は 4 field ではなく 2 field であり、`ByteBuf.ptr` と `ByteBuilder.ptr` を transitional allowlist から外した。
 - `Vec<T>` は `data: MemPtr<T>` owner field をやめ、storage owner を `region: RegionToken<T>` field に集約した。`data_mem_ptr<T>` / `vec_storage_mem_ptr<T>` は参照から non-owning `MemPtr<T>` view だけを返す。残件 baseline は 2 field ではなく 1 field であり、`Vec.data` を transitional allowlist から外した。
 
+2026-05-15 追記:
+
+- `Vec.data_ptr<T>(&Vec<T>) -> i32` は public raw address observer として残さず削除した。`data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` は typed non-owning view として残すが、raw `i32` address への変換は raw-memory-boundary 実装箇所に限定する。
+- `kpsearch` の lower/upper bound / unique 内部 raw helper は private とし、公開面は `Vec<i32>` owner wrapper だけに揃えた。ordinary source の利用例は raw buffer 構築ではなく `Vec<i32>` による doctest で表す。
+
 ### Stage B: `core/mem` の internal/public 分離
 
 - 前提として、typecheck の import visibility が `pub` / private item boundary を binding authority として扱う必要がある。現状の blocker は [ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573](../../issues/items/ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573.md) で追跡する。

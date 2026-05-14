@@ -1,5 +1,5 @@
 //: # vec/access/data
-//: `Vec` の data view observer
+//: `Vec` の typed data view observer
 //:
 //: ### [目的/もくてき]
 //: - storage state を `VecStorageState` の match 経由に[揃/そろ]え、`RegionToken` owner から borrowed data view だけを[取/と]り[出/だ]します。
@@ -7,63 +7,10 @@
 #indent 4
 
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/math" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
 #import "../storage" as *
-
-//: ## data_ptr
-//: [内部/ないぶ]データ[領域/りょういき]の raw address を[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - [既存/きぞん] API との[互換/ごかん]のため、`MemPtr<.T>` の[番地/ばんち]を `i32` として[取/と]り[出/だ]します。
-//:
-//: ### [実装/じっそう]
-//: - field `region` の `RegionToken<.T>` を借用し、`MemPtr<.T>` view を `mem_ptr_addr` で raw address に[戻/もど]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [返/かえ]り[値/あたい]は[生/なま]アドレスなので、[範囲/はんい]・[寿命/じゅみょう]・[再確保/さいかくほ]を[呼/よ]び[出/だ]し[側/がわ]で[管理/かんり]する[必要/ひつよう]があります。
-//: - [新規/しんき]コードでは、できるだけ `data_mem_ptr` を[優先/ゆうせん]します。
-//: - 現行 raw data observer は `.T: Copy` 専用です。non-Copy payload の storage identity は `OwnedBuffer<T>` と borrowed element API が[入/はい]るまで[公開/こうかい]しません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//:| #import "core/result" as *
-//:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let ok <bool> gt data_ptr<i32> &v 0
-//:     free<i32> v;
-//:     if ok 0 1
-//: ```
-//:
-//: neplg2:test[compile_fail]
-//: diag_codes: type.trait_bound.unsatisfied
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: struct NonCopyPayload:
-//:     value <i32>
-//: fn main <()*>i32> ():
-//:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
-//:     let _p <i32> data_ptr<NonCopyPayload> &v;
-//:     0
-//: ```
-pub fn data_ptr <.T: Copy> <(&Vec<.T>)->i32> (v):
-    let v_storage <VecStorageState> *field::get_ref v "storage"
-    let v_region <&RegionToken<.T>> field::get_ref v "region"
-    mem_ptr_addr vec_storage_mem_ptr<.T> v_storage v_region
 
 //: ## data_mem_ptr
 //: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
@@ -76,6 +23,7 @@ pub fn data_ptr <.T: Copy> <(&Vec<.T>)->i32> (v):
 //:
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
+//: - public API は typed `MemPtr<.T>` view で止め、raw `i32` address observer は[提供/ていきょう]しません。raw-memory boundary の[実装/じっそう]が番地を必要とする場合だけ、呼び出し位置で明示的に `mem_ptr_addr` を使います。
 //: - [再確保/さいかくほ]が[起/お]きると pointer は[無効化/むこうか]されうるので、[長期/ちょうき][保持/ほじ]は[避/さ]けます。
 //: - 現行 raw data observer は `.T: Copy` 専用です。non-Copy payload の borrowed observer は pointer escape ではなく dedicated API として[設計/せっけい]します。
 //:
