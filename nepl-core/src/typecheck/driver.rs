@@ -20,6 +20,7 @@ use super::binding_rules::{
     is_callable_binding, shadow_blocked_by_nonshadow,
 };
 use super::check_function;
+use super::copy_capability::target_is_compiler_owner_token;
 use super::diagnostics::{resolve_error, resolve_warning, type_error};
 use super::driver_entry::resolve_entry_function;
 use super::env::{Binding, BindingKind, Env};
@@ -712,7 +713,9 @@ pub fn typecheck(
                 continue;
             }
             if trait_semantics.has_copy_capability(Some(trait_self_ty)) {
-                if !ctx.is_copy_impl_eligible(target_ty) {
+                if target_is_compiler_owner_token(&ctx, &structs, target_ty)
+                    || !ctx.is_copy_impl_eligible(target_ty)
+                {
                     diagnostics.push(type_error(
                         TypeDiagnosticCode::CopyImplTargetNotCopy,
                         "copy impl target type is not copyable",

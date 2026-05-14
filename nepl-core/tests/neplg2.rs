@@ -2463,6 +2463,77 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn copy_impl_rejects_compiler_owner_token_target() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+#import "core/mem" as *
+#import "core/traits/copy" as *
+
+impl<.T> Copy for RegionToken<.T>:
+    fn copy_mark <(RegionToken<.T>)->RegionToken<.T>> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked.diagnostics.iter().any(
+            |diag| diag.code == DiagnosticCode::Type(TypeDiagnosticCode::CopyImplTargetNotCopy)
+        ),
+        "missing Copy impl owner-token rejection: {:?}",
+        checked.diagnostics
+    );
+}
+
+#[test]
+fn copy_impl_allows_user_struct_named_region_token() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait Clone:
+    #capability clone
+    fn clone <(&Self)->Self> (x):
+        *x
+
+trait Copy:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+struct RegionToken:
+    value <i32>
+
+impl Clone for RegionToken:
+    fn clone <(&RegionToken)->RegionToken> (x):
+        *x
+
+impl Copy for RegionToken:
+    fn copy_mark <(RegionToken)->RegionToken> (x):
+        x
+
+fn main <()->i32> ():
+    let a <RegionToken> RegionToken 1
+    let b <RegionToken> a
+    let c <RegionToken> a
+    0
+"#;
+    compile_ok(src);
+}
+
+#[test]
 fn duplicate_impl_has_type_code() {
     let src = r#"
 #entry main

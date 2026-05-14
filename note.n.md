@@ -38072,3 +38072,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_stdlib_memptr_owner_field_policy.js` から `StreamScanner.header` transitional exception を削除し、残存 direct MemPtr owner-like field baseline は 7 件から 6 件へ減った。
 - `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に Stage 6 の進捗を追記し、stdlib documentation 方針の scanner 記述も raw header 前提から typed cursor storage 前提へ更新した。
 - 検証: streamio scanner boundary policy、streamio unsafe unwrap policy、MemPtr owner-field policy、`tests/stdlib/streamio.n.md` doctest #7-#15 は pass。
+
+## 2026-05-14 Agent 1 Copy impl owner-token gate
+
+- `ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048` として、`RegionToken<T>` が構造的に `MemPtr<T>` + `i32` であるため Copy impl target として通り得る問題を修正した。
+- `typecheck/copy_capability.rs` に `StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::OwnerToken)` に基づく判定を分離し、Copy capability impl target validation で compiler-owned owner token だけを `type.copy_impl.target_not_copy` として拒否するようにした。
+- 判定は struct 名の文字列ではなく type identity と constructor policy に基づくため、`#no_prelude` の通常 user struct が偶然 `RegionToken` という名前でも構造的 Copy 判定を維持する。
+- これは Stage 4 Resource IR / typecheck owner-token boundary の補強であり、Stage 6 の `MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` の分離作業へ戻る前の trait capability 層の穴を閉じる対応である。
+- 検証: `cargo test -p nepl-core --test neplg2 copy_impl -- --nocapture`、`node nodesrc/test_static_check_boundary_responsibility.js`、`trunk build`、`node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 99 --dist web/dist`、`node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 100 --dist web/dist` は pass。

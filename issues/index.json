@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T05:34:23.029Z",
+  "generated_at": "2026-05-14T05:54:57.769Z",
   "counts": {
-    "total": 751,
+    "total": 752,
     "open": 5,
-    "resolved": 746,
+    "resolved": 747,
     "by_area": {
       "stdlib": {
         "total": 190,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 391,
+        "total": 392,
         "open": 0,
-        "resolved": 391
+        "resolved": 392
       },
       "CORE": {
         "total": 1,
@@ -5923,6 +5923,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T230312662Z-RESOURCE-OWNER-VARIANT-RETURN-MODULE-817EC208.md"
+    },
+    {
+      "id": "ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048",
+      "title": "Copy impl can mark compiler owner tokens as copyable",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "nepl-core/src/typecheck/copy_capability.rs, nepl-core/src/typecheck/driver.rs, tests/compiler/move_effect.n.md, nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

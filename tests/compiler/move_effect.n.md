@@ -2928,6 +2928,72 @@ fn main <()->i32> ():
     0
 ```
 
+## compiler owner token への Copy impl は拒否する
+
+`RegionToken<T>` は compiler memory boundary が発行する free obligation owner token です。
+field 構造が `MemPtr<T>` と `i32` だけに見えても、`Copy` capability を付けると
+同じ解放責務を持つ token を複製できてしまうため拒否します。
+
+neplg2:test[compile_fail]
+diag_code: type.copy_impl.target_not_copy
+```neplg2
+#entry main
+#indent 4
+#target core
+
+#import "core/mem" as *
+#import "core/traits/copy" as *
+
+impl<.T> Copy for RegionToken<.T>:
+    fn copy_mark <(RegionToken<.T>)->RegionToken<.T>> (x):
+        x
+
+fn main <()->i32> ():
+    0
+```
+
+## 同名の通常 struct への Copy impl は拒否しない
+
+compiler memory owner token として認識された定義だけを禁止対象にします。
+`#no_prelude` の通常 user struct が偶然 `RegionToken` という名前を持つ場合は、
+field が copyable で `Clone` もあるなら通常の `Copy` として扱えます。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#no_prelude
+
+trait Clone:
+    #capability clone
+    fn clone <(&Self)->Self> (x):
+        *x
+
+trait Copy:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+struct RegionToken:
+    value <i32>
+
+impl Clone for RegionToken:
+    fn clone <(&RegionToken)->RegionToken> (x):
+        *x
+
+impl Copy for RegionToken:
+    fn copy_mark <(RegionToken)->RegionToken> (x):
+        x
+
+fn main <()->i32> ():
+    let a <RegionToken> RegionToken 1
+    let b <RegionToken> a
+    let c <RegionToken> a
+    0
+```
+
 ## Copy impl には Clone impl が必要
 
 neplg2:test[compile_fail]

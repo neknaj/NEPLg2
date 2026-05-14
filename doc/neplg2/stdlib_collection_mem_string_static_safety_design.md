@@ -290,6 +290,7 @@ Resource IR / typecheck / match check は次を必須にする。
 
 - `StreamWriter.buf` は `StreamWriter` が buffer owner を `ByteBuilder` に集約したことで移行済みになった。残件 baseline は 8 field ではなく 7 field であり、`nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist と一致させる。
 - `StreamScanner.header` は `StreamScanner` が input owner を `ByteBuf` field、cursor position を typed `Vec<i32>` storage へ分けたことで移行済みになった。残件 baseline は 7 field ではなく 6 field であり、`nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist と一致させる。
+- compiler core 側では、`RegionToken<T>` の direct constructor restriction と同じ `StructConstructorPolicy::RawMemoryBoundaryOnly(OwnerToken)` を Copy capability impl target validation にも接続した。これにより stdlib public API 移行中でも、owner token を構造的 Copy 型として trait 層から複製可能にする経路を閉じる。
 
 ### Stage B: `core/mem` の internal/public 分離
 
@@ -350,6 +351,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | Issue | 関係 |
 |---|---|
 | `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` | `MemPtr` / `RegionToken` の owner/provenance 分離。 |
+| `ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048` | compiler owner token の線形性を Copy capability impl で崩せる経路を typecheck boundary で拒否。 |
 | `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` | initialized payload と storage-only dealloc の分離。 |
 | `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | raw-memory-backed stdlib API の段階移行親 issue。 |
 | `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` | fallible collection update の owner loss。 |
