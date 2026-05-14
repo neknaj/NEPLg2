@@ -11928,6 +11928,56 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_rejects_hashmap_owner_storage_field_projection_outside_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/hashmap" as *
+#import "core/field" as field
+#import "core/traits/hash" as *
+
+fn steal_storage <(HashMap<i32,i32,DefaultHash32>)->HashMapStorage<i32,i32>> (map):
+    field::get map "storage"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.owner_aggregate.field_access_restricted",
+    );
+}
+
+#[test]
+fn typecheck_rejects_nested_owner_backed_aggregate_field_projection_outside_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+
+struct VecBox:
+    items <Vec<i32>>
+
+fn steal_items <(VecBox)->Vec<i32>> (box):
+    field::get box "items"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.owner_aggregate.field_access_restricted",
+    );
+}
+
+#[test]
 fn typecheck_allows_user_struct_named_region_token_field_access() {
     let source = r#"
 #no_prelude

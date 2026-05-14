@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T23:09:38.783Z",
+  "generated_at": "2026-05-14T23:28:06.385Z",
   "counts": {
-    "total": 802,
+    "total": 803,
     "open": 8,
-    "resolved": 794,
+    "resolved": 795,
     "by_area": {
       "stdlib": {
         "total": 229,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 398,
+        "total": 399,
         "open": 0,
-        "resolved": 398
+        "resolved": 399
       },
       "CORE": {
         "total": 1,
@@ -6073,6 +6073,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T230404748Z-OWNER-BACKED-AGGREGATE-POLICY-DOES-N-7D995A6B.md"
+    },
+    {
+      "id": "ISS-20260514T231627302Z-OWNER-BACKED-AGGREGATE-FIELD-PROJECT-290DED97",
+      "title": "Owner-backed aggregate field projection bypasses compiler boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/typecheck/field_access.rs, nepl-core/src/typecheck/copy_capability.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T231627302Z-OWNER-BACKED-AGGREGATE-FIELD-PROJECT-290DED97.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

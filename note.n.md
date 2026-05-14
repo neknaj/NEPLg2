@@ -38567,3 +38567,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_struct_constructor_outside_memory_boundary -- --nocapture`
   - `cargo test -p nepl-core owner_aggregate -- --nocapture`
   - `node nodesrc/test_static_check_boundary_responsibility.js`
+
+## 2026-05-15 Agent 1 owner-backed aggregate field projection
+
+- `ISS-20260514T231627302Z-OWNER-BACKED-AGGREGATE-FIELD-PROJECT-290DED97` を追加して fixed にした。
+- constructor 側で閉じた owner-backed aggregate を `field::get` から取り出せる穴を閉じた。
+- `typecheck/field_access.rs` は base / field type が owner-backed aggregate かを構造判定し、`OwnerAggregateFieldBoundary` capability がない source では `type.owner_aggregate.field_access_restricted` を出す。
+- 判定は generic application の type parameter、enum payload、tuple、box を再帰的に見て、`HashMap.storage` や `Vec` wrapper field を型構造から拒否する。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_hashmap_owner_storage_field_projection_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_nested_owner_backed_aggregate_field_projection_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_field_access_outside_memory_boundary -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`

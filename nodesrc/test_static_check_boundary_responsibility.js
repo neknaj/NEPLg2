@@ -281,6 +281,26 @@ assertMatches(
     /StructConstructorPolicy::RawMemoryBoundaryOnly\(restricted\)\s*=>\s*Some\(restricted\)/,
     'typecheck/field_access.rs field access constructor policy gate',
 );
+assertContains(
+    typecheckFieldAccess,
+    'target_contains_owner_backed_aggregate',
+    'typecheck/field_access.rs owner-backed aggregate field projection gate',
+);
+assertContains(
+    typecheckFieldAccess,
+    'OwnerAggregateFieldAccessRestricted',
+    'typecheck/field_access.rs owner-backed aggregate field diagnostic',
+);
+assertContains(
+    typecheckCopyCapability,
+    'pub(super) fn target_contains_owner_backed_aggregate',
+    'typecheck/copy_capability.rs exposes structural owner-backed aggregate predicate',
+);
+assertContains(
+    typecheckCopyCapability,
+    'target_apply_contains_owner_backed_aggregate',
+    'typecheck/copy_capability.rs checks applied generic owner-backed aggregate fields',
+);
 assertMatches(
     typecheckFieldAccess,
     /RestrictedStructConstructor::OwnerToken[\s\S]*CompilerMemoryType::OwnerToken/,

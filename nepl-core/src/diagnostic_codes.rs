@@ -133,6 +133,7 @@ pub enum TypeDiagnosticCode {
     MatchPatternUnsupported,
     MatchWildcardNotLast,
     OwnerAggregateConstructorRestricted,
+    OwnerAggregateFieldAccessRestricted,
     OwnerTokenConstructorRestricted,
     RawPointerConstructorRestricted,
     OwnerTokenFieldAccessRestricted,
@@ -405,6 +406,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::MatchPatternUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchWildcardNotLast),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerAggregateConstructorRestricted),
+    DiagnosticCode::Type(TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenConstructorRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::RawPointerConstructorRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenFieldAccessRestricted),
@@ -797,6 +799,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::OwnerAggregateConstructorRestricted => {
                 "type.owner_aggregate.constructor_restricted"
             }
+            TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted => {
+                "type.owner_aggregate.field_access_restricted"
+            }
             TypeDiagnosticCode::OwnerTokenConstructorRestricted => {
                 "type.owner_token.constructor_restricted"
             }
@@ -933,6 +938,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::MatchWildcardNotLast => "wildcard match arm must be last",
             TypeDiagnosticCode::OwnerAggregateConstructorRestricted => {
                 "owner-backed aggregate constructor is restricted to compiler memory boundary"
+            }
+            TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted => {
+                "owner-backed aggregate fields are restricted to compiler memory boundary"
             }
             TypeDiagnosticCode::OwnerTokenConstructorRestricted => {
                 "owner token constructor is restricted to compiler memory boundary"

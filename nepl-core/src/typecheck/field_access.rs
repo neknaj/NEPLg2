@@ -9,6 +9,7 @@ use crate::source_map::CompilerMemoryType;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
+use super::copy_capability::target_contains_owner_backed_aggregate;
 use super::diagnostics::type_error;
 use super::model::{RestrictedStructConstructor, StructConstructorPolicy};
 use super::{BlockChecker, FieldIdx};
@@ -32,7 +33,25 @@ impl<'a> BlockChecker<'a> {
             }
         }
 
+        if self.owner_backed_aggregate_field_projection_restricted(base_ty, field_ty, span) {
+            return Some((
+                TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted,
+                "owner-backed aggregate fields are restricted to compiler memory boundary",
+            ));
+        }
+
         None
+    }
+
+    fn owner_backed_aggregate_field_projection_restricted(
+        &self,
+        base_ty: TypeId,
+        field_ty: TypeId,
+        span: Span,
+    ) -> bool {
+        !self.owner_aggregate_field_boundary_allowed(span)
+            && (target_contains_owner_backed_aggregate(self.ctx, self.structs, base_ty)
+                || target_contains_owner_backed_aggregate(self.ctx, self.structs, field_ty))
     }
 
     fn restricted_struct_field_access_allowed(

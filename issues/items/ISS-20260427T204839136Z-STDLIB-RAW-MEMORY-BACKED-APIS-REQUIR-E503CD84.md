@@ -433,3 +433,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 今回の修正では、`OwnerBackedAggregateBoundaryOnly` の判定を fixed-point の構造判定に変更した。`Vec<T>` のように `RegionToken<T>` を直接持つ型だけでなく、`Vec<T>` を field に持つ user wrapper、`HashMapStorage<K,V>`、さらに `HashMap<K,V,H>` のような二段目以降の aggregate も owner-backed として扱う。これにより、通常 user source が `HashMapStorage` や `HashMap` constructor を直接呼び出し、collection storage state / count / capacity の不変条件を再構築する経路を typecheck で拒否する。
 
 この修正は stdlib 名の allowlist ではなく、compiler owner token policy と struct field 型から性質を導出する compiler-core 側の防壁である。親 issue は raw-memory-backed stdlib API 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 owner aggregate field projection 追記
+
+`ISS-20260514T231627302Z-OWNER-BACKED-AGGREGATE-FIELD-PROJECT-290DED97` として、constructor 側で閉じた owner-backed aggregate を field projection から取り出せる問題を分離して修正した。
+
+今回の修正では、`typecheck/field_access.rs` も `target_contains_owner_backed_aggregate` を使い、base または projected field が owner-backed aggregate の場合は `OwnerAggregateFieldBoundary` capability を要求する。これにより通常 user source が `HashMap.storage` や `Vec` wrapper の `items` field を `field::get` で取り出し、collection/storage owner invariant を public API の外へ分解する経路を拒否する。
+
+同時に owner-backed aggregate 判定を generic application / enum payload / tuple / box まで再帰する構造判定に拡張した。これは stdlib path allowlist ではなく型構造から性質を導出する compiler-core 側の防壁であり、親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
