@@ -111,9 +111,8 @@ pub fn diag_to_string <(Diag)->str> (d):
 //: diags_to_string: `Diags` を[改行/かいぎょう][区切/くぎ]りで[連結/れんけつ]する
 pub fn diags_to_string <(&Diags)->str> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
-    let items_view <VecDataLen<Diag>> data_len<Diag> items;
-    let items_len <i32> field::get items_view "len";
-    let items_data <i32> mem_ptr_addr field::get items_view "data";
+    let items_len <i32> len<Diag> items;
+    let items_data <i32> mem_ptr_addr data_mem_ptr<Diag> items;
     diags_to_string_loop items_data items_len 0 ""
 
 pub fn diags_to_string <(Diags)->str> (ds):

@@ -47,6 +47,7 @@ fn main <()->i32> ():
 ## vec sort は core/traits/ord を[使/つか]って[昇順/しょうじゅん]に[整列/せいれつ]する
 
 neplg2:test
+ret: 0
 ```neplg2
 #entry main
 #target std
@@ -57,6 +58,7 @@ neplg2:test
 #import "core/option" as *
 #import "core/field" as *
 #import "core/math" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
@@ -65,11 +67,27 @@ fn main <()*>i32> ():
     let v3 <Vec<i32>> unwrap_ok push<i32> v2 3;
     let v4 <Vec<i32>> unwrap_ok push<i32> v3 2;
     let s sort_quick_ret<i32> v4;
-    let span <VecDataLen<i32>> data_len<i32> s;
-    let data <i32> mem_ptr_addr get span "data";
-    let a0 <i32> load_i32 data;
-    let a1 <i32> load_i32 add data 4;
-    let a2 <i32> load_i32 add data 8;
-    let a3 <i32> load_i32 add data 12;
-    if and and eq a0 1 eq a1 2 and eq a2 3 eq a3 4 1 0
+    let b0 <bool> match get<i32> &s 0:
+        Option::Some x:
+            eq x 1
+        Option::None:
+            false
+    let b1 <bool> match get<i32> &s 1:
+        Option::Some x:
+            eq x 2
+        Option::None:
+            false
+    let b2 <bool> match get<i32> &s 2:
+        Option::Some x:
+            eq x 3
+        Option::None:
+            false
+    let b3 <bool> match get<i32> &s 3:
+        Option::Some x:
+            eq x 4
+        Option::None:
+            false
+    let ok <bool> and and b0 b1 and b2 b3;
+    free<i32> s;
+    if ok 0 1
 ```

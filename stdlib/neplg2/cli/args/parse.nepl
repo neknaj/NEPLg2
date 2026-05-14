@@ -41,7 +41,7 @@
 //: - `Vec<str>` を消費せず、parser 内部で index access します。
 //:
 //: [実装/じっそう]:
-//: - `VecDataLen<str>` から取り出した data address と len を使って境界検査後に `load<str>` します。
+//: - `Vec<str>` から取り出した data address と len を使って境界検査後に `load<str>` します。
 //:
 //: [注意/ちゅうい]:
 //: - `data` は呼び出し元の Vec の内部 pointer なので、parser 中に Vec を変更してはいけません。
@@ -188,7 +188,7 @@ pub fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>
 //: - test fixture や driver 内部から、program name を除いた CLI args を pure に解析します。
 //:
 //: [実装/じっそう]:
-//: - `Vec<str>` を borrow して `VecDataLen` にし、index 0 から `selfhost_cli_parse_loop` へ渡します。
+//: - `Vec<str>` を borrow して data pointer と len を取り出し、index 0 から `selfhost_cli_parse_loop` へ渡します。
 //:
 //: neplg2:test
 //: ret: 0
@@ -198,6 +198,7 @@ pub fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>
 //:| #import "alloc/collections/vec" as v
 //:| #import "alloc/string" as *
 //:| #import "core/field" as *
+//:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/cli/args/emit" as *
@@ -214,6 +215,7 @@ pub fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>
 //:         |> v::push<str> "main.nepl" |> uwok
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
+//:             v::free<str> args;
 //:             1
 //:         Result::Ok opts:
 //:             let output_ref <&Option<str>> get_ref &opts "output"
@@ -232,12 +234,13 @@ pub fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>
 //:                     false
 //:             let check_ok <bool> *check_ref
 //:             let emit_ok <bool> selfhost_cli_emit_is_wasm *emit_ref
-//:             if and check_ok and emit_ok and output_ok input_ok 0 1
+//:             let ok <bool> and check_ok and emit_ok and output_ok input_ok
+//:             v::free<str> args;
+//:             if ok 0 1
 //: ```
 pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args):
-    let span <VecDataLen<str>> v::data_len<str> args;
-    let data <i32> mem_ptr_addr *get_ref &span "data";
-    let count <i32> *get_ref &span "len";
+    let data <i32> mem_ptr_addr v::data_mem_ptr<str> args;
+    let count <i32> v::len<str> args;
     selfhost_cli_parse_loop data count 0 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
 
 //: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
@@ -256,6 +259,7 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:| #import "alloc/collections/vec" as v
 //:| #import "alloc/string" as *
 //:| #import "core/field" as *
+//:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/cli/args/parse" as *
@@ -271,6 +275,7 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:         |> v::push<str> "main.nepl" |> uwok
 //:     match selfhost_cli_parse_argv &argv:
 //:         Result::Err _e:
+//:             v::free<str> argv;
 //:             1
 //:         Result::Ok opts:
 //:             let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
@@ -285,10 +290,11 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:                     str_eq input "main.nepl"
 //:                 Option::None:
 //:                     false
-//:             if and target_ok input_ok 0 1
+//:             let ok <bool> and target_ok input_ok
+//:             v::free<str> argv;
+//:             if ok 0 1
 //: ```
 pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (argv):
-    let span <VecDataLen<str>> v::data_len<str> argv;
-    let data <i32> mem_ptr_addr *get_ref &span "data";
-    let count <i32> *get_ref &span "len";
+    let data <i32> mem_ptr_addr v::data_mem_ptr<str> argv;
+    let count <i32> v::len<str> argv;
     selfhost_cli_parse_loop data count 1 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false

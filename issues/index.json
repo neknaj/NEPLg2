@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T05:54:57.769Z",
+  "generated_at": "2026-05-14T06:25:43.894Z",
   "counts": {
-    "total": 752,
+    "total": 753,
     "open": 5,
-    "resolved": 747,
+    "resolved": 748,
     "by_area": {
       "stdlib": {
-        "total": 190,
+        "total": 191,
         "open": 3,
-        "resolved": 187
+        "resolved": 188
       },
       "TEST": {
         "total": 21,
@@ -8773,6 +8773,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T051405052Z-STREAMSCANNER-HIDES-BUFFER-OWNER-BEH-0977B2E3.md"
+    },
+    {
+      "id": "ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF",
+      "title": "VecDataLen carries raw Vec storage view in a struct field",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/vec/access/data.nepl, stdlib/neplg2/**, tests/stdlib/*.n.md, nodesrc/test_stdlib_memptr_owner_field_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

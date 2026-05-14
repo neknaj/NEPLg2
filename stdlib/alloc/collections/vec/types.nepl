@@ -2,7 +2,7 @@
 //: `Vec` の型定義
 //:
 //: ### [目的/もくてき]
-//: - `VecStorageState`、`Vec`、`VecDataLen`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
+//: - `VecStorageState`、`Vec`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
 //: - storage owner state を enum として[保持/ほじ]し、null pointer sentinel を public owner state に[戻/もど]さないための型境界を[明確/めいかく]にします。
 //:
 //: ### [注意/ちゅうい]
@@ -70,26 +70,6 @@ pub struct Vec<.T>:
     cap <i32>
     storage <VecStorageState>
     data <MemPtr<.T>>
-
-//: ## VecDataLen
-//: `Vec<.T>` の data/len をまとめて[返/かえ]す[軽量/けいりょう] struct
-//:
-//: ### [目的/もくてき]
-//: - [内部/ないぶ]バッファ[先頭/せんとう]と[要素数/ようそすう]を 1 [回/かい]の[呼/よ]び[出/だ]しで[扱/あつか]えるようにします。
-//: - sort [系/けい] helper のように data と len を[対/つい]で[読む/よむ] API で、`.Pair` に[頼/たよ]らず[明示的/めいじてき]な field [名/めい]を[与/あた]えます。
-//:
-//: ### [実装/じっそう]
-//: - `data` は `MemPtr<.T>`、`len` は `i32` を[保持/ほじ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `data` は `Vec<.T>` の[内部/ないぶ][領域/りょういき]を[指/さ]すため、[再確保/さいかくほ]が[起/お]きると[無効/むこう]になります。
-//: - `len` は[取得時点/しゅとくじてん]の[値/あたい]であり、その[後/あと]の[変更/へんこう]には[追従/ついじゅう]しません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - struct [自体/じたい]の[生成/せいせい]と field [読/よ]み[取/と]りは O(1) です。
-pub struct VecDataLen<.T>:
-    data <MemPtr<.T>>
-    len <i32>
 
 //: ## VecPop
 //: `pop` の結果を名前付き field で返す構造です。

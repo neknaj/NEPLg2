@@ -15,20 +15,20 @@ const code = src
 
 assert.doesNotMatch(
     code,
-    /\bget\s+span\s+"(?:data|len)"/,
-    'self-host CLI args parser must read VecDataLen span fields through get_ref so the span owner is not moved',
+    /\b(?:VecDataLen|data_len<|v::data_len)\b/,
+    'self-host CLI args parser must not recreate a raw VecDataLen storage carrier',
 );
 
 assert.match(
     code,
-    /selfhost_cli_parse_args[\s\S]*mem_ptr_addr\s+\*get_ref\s+&span\s+"data"[\s\S]*\*get_ref\s+&span\s+"len"/,
-    'selfhost_cli_parse_args must project VecDataLen data/len by reference',
+    /selfhost_cli_parse_args[\s\S]*mem_ptr_addr\s+v::data_mem_ptr<str>\s+args[\s\S]*v::len<str>\s+args/,
+    'selfhost_cli_parse_args must read Vec data pointer and length through separate borrowed observers',
 );
 
 assert.match(
     code,
-    /selfhost_cli_parse_argv[\s\S]*mem_ptr_addr\s+\*get_ref\s+&span\s+"data"[\s\S]*\*get_ref\s+&span\s+"len"/,
-    'selfhost_cli_parse_argv must project VecDataLen data/len by reference',
+    /selfhost_cli_parse_argv[\s\S]*mem_ptr_addr\s+v::data_mem_ptr<str>\s+argv[\s\S]*v::len<str>\s+argv/,
+    'selfhost_cli_parse_argv must read Vec data pointer and length through separate borrowed observers',
 );
 
 console.log('selfhost CLI args owner field read regression passed');

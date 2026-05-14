@@ -27,25 +27,22 @@
 //:| #entry main
 //:| #target std
 //:| #import "kp/kpprefix" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/internal" as *
-//:| #import "core/mem/allocator" as *
-//:| #import "core/mem/raw" as *
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():
-//:     let n <i32> 5;
-//:     let data <i32> alloc_raw mul n 4;
-//:     store_i32 add data 0 1;
-//:     store_i32 add data 4 2;
-//:     store_i32 add data 8 3;
-//:     store_i32 add data 12 4;
-//:     store_i32 add data 16 5;
-//:     let pref <i32> prefix_build_i32 data n;
-//:     print_i32 prefix_range_sum_i32 pref 0 3;
+//:     let data <Vec<i32>>:
+//:         unwrap_ok v::new<i32>
+//:         |> v::push<i32> 1 |> unwrap_ok
+//:         |> v::push<i32> 2 |> unwrap_ok
+//:         |> v::push<i32> 3 |> unwrap_ok
+//:         |> v::push<i32> 4 |> unwrap_ok
+//:         |> v::push<i32> 5 |> unwrap_ok
+//:     let pref <PrefixI32> prefix_build_vec_i32 data;
+//:     print_i32 prefix_sum_i32 pref 0 3;
 //:     print " ";
-//:     println_i32 prefix_range_sum_i32 pref 1 5;
-//:     dealloc_raw pref mul add n 1 4;
-//:     dealloc_raw data mul n 4
+//:     println_i32 prefix_sum_i32 pref 1 5;
+//:     prefix_free_i32 pref
 //: ```
 
 //: prefix_build_i32: `data[0..n)` の累積和配列 `pref[0..n]` を作る
@@ -54,11 +51,12 @@ pub fn prefix_build_i32 <(i32,i32)*>i32> (data, n):
     let pref <i32> alloc_raw mul pref_len 4;
     store_i32 pref 0;
     let mut i <i32> 0;
+    let mut acc <i32> 0;
     while lt i n:
         do:
-            let prev <i32> load_i32 add pref mul i 4;
             let cur <i32> load_i32 add data mul i 4;
-            store_i32 add pref mul add i 1 4 add prev cur;
+            set acc add acc cur;
+            store_i32 add pref mul add i 1 4 acc;
             set i add i 1;
     pref
 
@@ -88,12 +86,13 @@ impl Clone for PrefixI32:
 //: prefix_build_vec_i32: Vec<i32> から累積和ハンドルを作る
 //:
 //: [実装/じっそう]:
-//: - `data_len` で data pointer と長さを 1 回で[取/と]り[出/だ]してから、raw prefix builder へ[委譲/いじょう]します。
+//: - `data_mem_ptr` と `len` で data pointer と長さを明示的に[取/と]り[出/だ]してから、raw prefix builder へ[委譲/いじょう]します。
+//: - 入力 `Vec<i32>` は読み取り後にこの関数が[解放/かいほう]します。
 pub fn prefix_build_vec_i32 <(Vec<i32>)*>PrefixI32> (v):
-    let info <VecDataLen<i32>> data_len<i32> v
-    let n <i32> get info "len"
-    let data <i32> mem_ptr_addr get info "data"
+    let n <i32> len<i32> &v
+    let data <i32> mem_ptr_addr data_mem_ptr<i32> &v
     let pref_ptr <i32> prefix_build_i32 data n
+    free<i32> v
     PrefixI32 pref_ptr n
 
 //: prefix_sum_i32: ハンドルから半開区間 `[l,r)` の和を返す

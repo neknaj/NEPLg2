@@ -17,10 +17,6 @@ const transitionalFields = new Map([
         "Vec backing storage until OwnedBuffer<T> carries the free obligation",
     ],
     [
-        "stdlib/alloc/collections/vec/types.nepl::VecDataLen.data::MemPtr<.T>",
-        "Copy-only storage identity observer until borrow projection replaces raw data views",
-    ],
-    [
         "stdlib/alloc/io/bytebuf.nepl::ByteBuf.ptr::Option<MemPtr<u8>>",
         "ByteBuf owned bytes until OwnedBytes replaces Option<MemPtr<u8>>",
     ],

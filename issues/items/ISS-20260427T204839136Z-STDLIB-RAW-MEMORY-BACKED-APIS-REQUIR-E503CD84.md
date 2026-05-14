@@ -166,7 +166,15 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 `ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF` で、`Vec` の raw data observer が non-Copy payload に対して raw address / `MemPtr<T>` view を返せる入口を閉じた。
 
-`data_ptr` / `data_mem_ptr` / `data_len` / `vec_storage_mem_ptr` は `.T: Copy` に限定済みである。これは raw-memory-backed public API migration の完了ではなく、`OwnedBuffer<T>` と borrow projection が入るまで unsafe な storage identity escape を Copy payload に限定する局所前進である。
+`data_ptr` / `data_mem_ptr` / `vec_storage_mem_ptr` は `.T: Copy` に限定済みである。これは raw-memory-backed public API migration の完了ではなく、`OwnedBuffer<T>` と borrow projection が入るまで unsafe な storage identity escape を Copy payload に限定する局所前進である。
+
+## 2026-05-14 Agent 1 VecDataLen raw view carrier 削除追記
+
+`ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF` で、`VecDataLen<T>` と `data_len<T>` を削除した。
+
+`VecDataLen<T>` は `Vec.data: MemPtr<T>` と `len` を public struct field としてまとめるだけで、Copy-only にしても raw storage view を field projection 可能な形で再包装していた。これは `MemPtr = non-owning pointer` / `OwnedBuffer = free obligation owner` への Stage 6 移行方針と合わないため、互換 alias は残さず削除する。
+
+呼び出し側は、必要な箇所で `len<T>(&Vec<T>)` と `data_mem_ptr<T>(&Vec<T>)` を明示的に別々に観測する。これにより `MemPtr` owner-like field policy の transitional baseline は `RegionToken.ptr`、`Vec.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data` の 5 件になった。
 
 ## 2026-05-13 Agent 1 region_ptr_at alignment proof 追記
 

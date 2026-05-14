@@ -283,7 +283,7 @@ Resource IR / typecheck / match check は次を必須にする。
 2026-05-13 追記:
 
 - `nodesrc/test_stdlib_memptr_owner_field_policy.js` を追加し、stdlib 全体の `struct` field に直接現れる `MemPtr` / `Option<MemPtr>` を集約して監視する。
-- この policy は `MemPtr` field を安全証明として認めるものではない。現時点で残る `RegionToken.ptr`、`Vec.data`、`VecDataLen.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data` を Stage C/D/F の移行対象として固定し、それ以外の新規 `MemPtr` owner-like field を禁止する。
+- この policy は `MemPtr` field を安全証明として認めるものではない。現時点で残る `RegionToken.ptr`、`Vec.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data` を Stage C/D/F の移行対象として固定し、それ以外の新規 `MemPtr` owner-like field を禁止する。
 - source policy runner に組み込み、module 個別 policy の外で raw-memory-backed owner field が増える退行を検出する。
 
 2026-05-14 追記:
@@ -291,6 +291,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - `StreamWriter.buf` は `StreamWriter` が buffer owner を `ByteBuilder` に集約したことで移行済みになった。残件 baseline は 8 field ではなく 7 field であり、`nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist と一致させる。
 - `StreamScanner.header` は `StreamScanner` が input owner を `ByteBuf` field、cursor position を typed `Vec<i32>` storage へ分けたことで移行済みになった。残件 baseline は 7 field ではなく 6 field であり、`nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist と一致させる。
 - compiler core 側では、`RegionToken<T>` の direct constructor restriction と同じ `StructConstructorPolicy::RawMemoryBoundaryOnly(OwnerToken)` を Copy capability impl target validation にも接続した。これにより stdlib public API 移行中でも、owner token を構造的 Copy 型として trait 層から複製可能にする経路を閉じる。
+- `VecDataLen<T>` は `Vec.data: MemPtr<T>` と `len` を public struct field として再包装するだけの raw storage view carrier だったため削除した。呼び出し側は `data_mem_ptr<T>(&Vec<T>)` と `len<T>(&Vec<T>)` を明示的に別々に使う。残件 baseline は 6 field ではなく 5 field であり、`VecDataLen.data` を transitional allowlist から外した。
 
 ### Stage B: `core/mem` の internal/public 分離
 
@@ -354,6 +355,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048` | compiler owner token の線形性を Copy capability impl で崩せる経路を typecheck boundary で拒否。 |
 | `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` | initialized payload と storage-only dealloc の分離。 |
 | `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | raw-memory-backed stdlib API の段階移行親 issue。 |
+| `ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF` | `VecDataLen` raw storage view carrier の削除。 |
 | `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` | fallible collection update の owner loss。 |
 | `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` | ByteBuf の空/所有 storage 構造化。 |
 | `ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB` | builder owner boundary の修正済み回帰。 |

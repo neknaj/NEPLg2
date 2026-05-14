@@ -55,7 +55,6 @@ for (const name of [
     "get_ref",
     "data_ptr_ref",
     "data_mem_ptr_ref",
-    "data_len_ref",
     "replace_ref",
 ]) {
     assert.doesNotMatch(vecCode, new RegExp(`fn\\s+${name}\\b`), `Vec must not keep duplicate ${name} observer surface`);
@@ -81,7 +80,6 @@ for (const [name, resultTy] of [
 for (const [name, resultTy] of [
     ["data_ptr", "i32"],
     ["data_mem_ptr", "MemPtr<\\.T>"],
-    ["data_len", "VecDataLen<\\.T>"],
 ]) {
     assert.match(
         vecCode,

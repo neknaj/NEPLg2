@@ -23,7 +23,7 @@ CLI と compiler core の境界はおおむね正しい。`driver.nepl` は CLI 
 
 ## 問題とリスク
 
-`args/parse.nepl` は `Vec<str>` を消費しないために `VecDataLen<str>` の `data` / `len` を `get_ref` で読み、`mem_ptr_addr` と `load<str>` で argv 要素を読む。これは既存の source policy が固定している回帰対策だが、理想形ではない。
+`args/parse.nepl` は `Vec<str>` を消費しないために `data_mem_ptr<str>(&Vec<str>)` と `len<str>(&Vec<str>)` を別々に観測し、`mem_ptr_addr` と `load<str>` で argv 要素を読む。`VecDataLen<str>` の raw storage view carrier は削除済みだが、CLI parser がまだ safe indexed read API ではなく raw data pointer に依存している点は理想形ではない。
 
 この raw access は現時点では compiler/stdlib の制約に対する実装上の回避であり、selfhost の CLI parser が `core/mem` に直接依存している状態である。根本的には `Vec` 側に owner を動かさない borrowed/indexed read API を用意し、parser は safe surface だけを使うべきである。この方向は open issue `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` の migration 対象として扱う。
 
@@ -35,7 +35,7 @@ CLI と compiler core の境界はおおむね正しい。`driver.nepl` は CLI 
 |---|---|---|
 | `cli/args/types.nepl` | enum-first option/error model。 | 良い。 |
 | `cli/args/classify.nepl` | hash + match classifier。 | 良い。 |
-| `cli/args/parse.nepl` | pure parserだが `core/mem` / raw load に依存。 | stdlib safe Vec read API への移行が必要。 |
+| `cli/args/parse.nepl` | pure parserだが `core/mem` / raw load に依存。`VecDataLen` 依存は削除済み。 | stdlib safe Vec read API への移行が必要。 |
 | `cli/reporter.nepl` | diagnostic enum code を human/JSON へ出力。 | S1/S2 には十分。 |
 | `cli/file_io.nepl` | CLI/WASI 側の file I/O 境界。 | core と分離されている。 |
 | `cli/driver.nepl` | VFS + pipeline load + reporter。 | codegen/check 接続は未実装。 |

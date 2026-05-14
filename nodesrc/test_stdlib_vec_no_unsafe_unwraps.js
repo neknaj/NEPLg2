@@ -164,7 +164,7 @@ for (const name of ['types', 'storage', 'access', 'raw', 'mutation', 'query', 't
 }
 assert.doesNotMatch(vecRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'Vec root must be a pure facade without implementation bodies');
 assert.doesNotMatch(vecRootCode, /\bas\s+vec_/, 'Vec root must not keep private delegation aliases after becoming a merge facade');
-for (const name of ['VecStorageState', 'Vec', 'VecDataLen', 'VecPop', 'VecPartition']) {
+for (const name of ['VecStorageState', 'Vec', 'VecPop', 'VecPartition']) {
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
 }
@@ -184,7 +184,7 @@ for (const name of ['vec_alloc_empty', 'new', 'with_capacity']) {
 assert.match(vecStorageCleanupCode, /\bfn\s+vec_free_storage\b/, 'vec/storage/cleanup.nepl must own vec_free_storage');
 assert.match(vecStorageCleanupCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>\s+<\(VecStorageState,MemPtr<\.T>,i32\)->\(\)>/, 'vec/storage/cleanup.nepl storage-only cleanup must remain Copy-only until element drop traversal exists');
 assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must own filled');
-for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'data_len', 'is_empty']) {
+for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
 }
 for (const name of ['header', 'data']) {
@@ -194,14 +194,13 @@ assert.doesNotMatch(vecAccessRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 've
 for (const name of ['len', 'cap', 'is_empty']) {
     assert.match(vecAccessHeaderCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/header.nepl must own ${name}`);
 }
-for (const name of ['data_ptr', 'data_mem_ptr', 'data_len']) {
+for (const name of ['data_ptr', 'data_mem_ptr']) {
     assert.match(vecAccessDataCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/data.nepl must own ${name}`);
 }
 assert.match(vecStorageViewCode, /fn\s+vec_storage_mem_ptr\s+<\.T:\s*Copy>\s+<\(VecStorageState,MemPtr<\.T>\)->MemPtr<\.T>>/, 'Vec storage pointer view must remain Copy-only until non-Copy borrowed element APIs exist');
 assert.match(vecAccessDataCode, /fn\s+data_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->i32>/, 'Vec.data_ptr must remain Copy-only because it exposes raw storage identity');
 assert.match(vecAccessDataCode, /fn\s+data_mem_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->MemPtr<\.T>>/, 'Vec.data_mem_ptr must remain Copy-only because it exposes raw storage identity');
-assert.match(vecAccessDataCode, /fn\s+data_len\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->VecDataLen<\.T>>/, 'Vec.data_len must remain Copy-only because it exposes raw storage identity');
-assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_ptr<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_len<NonCopyPayload>/, 'Vec raw data observers must reject non-Copy payloads in doctests');
+assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_ptr<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>/, 'Vec raw data observers must reject non-Copy payloads in doctests');
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
 }

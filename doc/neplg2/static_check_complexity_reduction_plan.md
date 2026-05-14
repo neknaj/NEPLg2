@@ -16,6 +16,7 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF](../../issues/items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md): `MemPtr` / `RegionToken` の provenance / owner model。
 - [ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048](../../issues/items/ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048.md): compiler owner token への `Copy` capability impl を typecheck boundary で拒否する。
 - [ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84](../../issues/items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md): stdlib raw-memory-backed API の段階移行。
+- [ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF](../../issues/items/ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF.md): `VecDataLen` raw storage view carrier を削除し、`MemPtr` owner-like field baseline を下げる。
 - [ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D](../../issues/items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md): Resource IR / self-host model に合わせた compiler diagnostic 再設計。
 - [ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F](../../issues/items/ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F.md): Resource IR field projection / Never merge / move_check doctest authority の同期。
 - [ISS-20260506T091634072Z-RESOURCE-DROP-ELABORATION-CANNOT-BRI-88F5F95B](../../issues/items/ISS-20260506T091634072Z-RESOURCE-DROP-ELABORATION-CANNOT-BRI-88F5F95B.md): monomorphized Resource IR function と source HIR function の対応を `origin_name` metadata で保持する。
@@ -345,6 +346,7 @@ commit 単位:
 - 2026-05-13: `ISS-20260513T214506607Z-BTREE-KEY-EQUALITY-HELPERS-ACCEPT-OR-BFADC667` を解決した。`BTreeMap` / `BTreeSet` の key equality helper は `ord_lt` を値渡しで 2 回呼ぶため、borrowed key comparison と `OwnedBuffer<T>` / initialized cell based non-Copy collection が入るまでは `.K: Ord&Copy` / `.T: Ord&Copy` に限定する。これにより sorted-array BTree API の Stage 6 Copy-only 境界を helper から迂回できない。
 - 2026-05-14: `ISS-20260514T045613682Z-STREAMWRITER-STORES-RAW-MEMPTR-OWNER-448F8E4F` を解決した。`StreamWriter` は direct `MemPtr<u8>` / capacity / pending length field を保持せず、`ByteBuilder` を owner boundary として保持する形へ移行した。flush は `ByteBuilder.ptr` の non-owning view を使い、close は `ByteBuilder` owner を move して解放する。これにより stream writer public state から raw pointer owner field が消え、Stage 6 の transitional MemPtr owner field policy は 8 件から 7 件へ減った。
 - 2026-05-14: `ISS-20260514T051405052Z-STREAMSCANNER-HIDES-BUFFER-OWNER-BEH-0977B2E3` を解決した。`StreamScanner` は raw `MemPtr<u8>` header に buffer pointer / length / cursor position を詰める設計を廃止し、input owner を `ByteBuf` field、cursor position を typed `Vec<i32>` storage として保持する。scanner byte access と token slice construction は state helper に集約し、cursor mutation は `vec::get` / `vec::replace` 経由で Resource IR が typed initialized cell として追跡できる形にした。これにより `StreamScanner.header` の transitional exception を削除し、Stage 6 の MemPtr owner field policy は 7 件から 6 件へ減った。
+- 2026-05-14: `ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF` を解決した。`VecDataLen<T>` は `Vec.data: MemPtr<T>` と `len` を public struct field としてまとめる raw storage view carrier だったため、Copy-only 制約を維持しても `MemPtr` owner-like field migration の例外を増やしていた。互換 alias は残さず `VecDataLen` / `data_len` を削除し、呼び出し側は `len<T>(&Vec<T>)` と `data_mem_ptr<T>(&Vec<T>)` を明示的に別観測する形へ移した。これにより Stage 6 の MemPtr owner field policy は 6 件から 5 件へ減った。
 
 ### Stage 6: stdlib memory API の段階移行
 
@@ -392,6 +394,7 @@ commit 単位:
 | `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` | Stage 5/6 の stdlib public API issue。 | 2026-05-13 に fixed。safe `core/mem` import から raw address escape は呼べない。direct internal/raw module と raw-memory-backed stdlib 全体の discipline は Stage 6 parent で継続する。 |
 | `CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE` | Stage 4 の compiler-core drop obligation issue。 | 2026-05-13 に core 側は fixed / resolved。initialized payload を残した storage-only free は拒否され、collection element cleanup と raw-memory-backed public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` | Stage 6 の stdlib migration parent。 | raw-memory-backed implementation が safe public discipline を漏らさない。 |
+| `VECDATALEN-CARRIES-RAW-VEC-STORAGE` | Stage 6 の Vec raw storage view issue。 | 2026-05-14 に fixed。`VecDataLen` / `data_len` を削除し、`MemPtr` owner-like field baseline を 5 件へ下げる。 |
 | `RV-STDLIB-004` | Stage 6 の collection API issue。 | collection drop / remove / borrowed read / Copy read の責務が分離される。 |
 
 新しい個別 bug は、次の基準で追加する。

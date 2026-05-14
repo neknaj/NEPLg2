@@ -38080,3 +38080,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 判定は struct 名の文字列ではなく type identity と constructor policy に基づくため、`#no_prelude` の通常 user struct が偶然 `RegionToken` という名前でも構造的 Copy 判定を維持する。
 - これは Stage 4 Resource IR / typecheck owner-token boundary の補強であり、Stage 6 の `MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` の分離作業へ戻る前の trait capability 層の穴を閉じる対応である。
 - 検証: `cargo test -p nepl-core --test neplg2 copy_impl -- --nocapture`、`node nodesrc/test_static_check_boundary_responsibility.js`、`trunk build`、`node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 99 --dist web/dist`、`node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 100 --dist web/dist` は pass。
+# 2026-05-14 Agent 1 メモ (ISS-20260514T055830236Z VecDataLen raw view carrier 削除)
+
+- Stage 6 の `MemPtr = non-owning pointer` 方針に合わせ、`VecDataLen<T>` / `data_len<T>` を削除した。
+- 根本原因は、Copy-only observer であっても `Vec.data: MemPtr<T>` を public struct field として再包装すると、raw storage view が field projection 可能な形で残り、`MemPtr` owner-like field migration の例外を維持してしまうこと。
+- self-host CLI args parser、diag renderer、diag error helper、KP prefix helper、sort/trait fixtures は `len<T>(&Vec<T>)` と `data_mem_ptr<T>(&Vec<T>)` の明示的な別観測へ移行した。
+- `nodesrc/test_stdlib_memptr_owner_field_policy.js` の baseline は 5 transitional field へ下がった。残件は `RegionToken.ptr`、`Vec.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data`。
+- この作業中に、`kpprefix` の raw doctest が現在の raw-memory-boundary policy に合っていないことも露出したため、doctest は `Vec<i32>` 経由の典型例へ更新し、`prefix_build_i32` は prefix 配列を読み戻さず accumulator を保持する形に直した。これにより Resource IR の dynamic range false-positive を避けるだけでなく、初期化済みでない prefix slot を読む形そのものを消した。
+- focused verification:
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: pass
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl -i stdlib/neplg2/cli/args/parse.nepl -i stdlib/alloc/diag/diag.nepl -i stdlib/alloc/diag/error/diags.nepl -i stdlib/kp/kpprefix.nepl -i tests/stdlib/traits_order.n.md -i tests/stdlib/sort.n.md --no-tree -o tmp/agent1-vecdatalen-focused.json -j 1 --dist web/dist`: 33/33 pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass

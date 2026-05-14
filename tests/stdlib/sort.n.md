@@ -39,6 +39,7 @@ ret: 1234
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/math" as *
+#import "core/result" as *
 
 fn make_vec4 <()->Vec<i32>> ():
     let mut v <Vec<i32>> unwrap_ok new<i32>;
@@ -123,12 +124,12 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/field" as *
+#import "core/result" as *
 
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 sort_quick_ret<i32> v0;
-    let s data_len<i32> &v1;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v1;
     free<i32> v1;
     n
 ```
@@ -144,13 +145,13 @@ ret: 1
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/field" as *
+#import "core/result" as *
 
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 sort_quick_ret<i32> v1;
-    let s data_len<i32> &v2;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v2;
     free<i32> v2;
     n
 ```
@@ -166,6 +167,7 @@ ret: 3
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/field" as *
+#import "core/result" as *
 
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
@@ -173,8 +175,7 @@ fn main <()->i32> ():
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
     let v3 sort_quick_ret<i32> v2;
     let v4 <Vec<i32>> unwrap_ok push<i32> v3 5;
-    let s data_len<i32> &v4;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v4;
     free<i32> v4;
     n
 ```
@@ -190,6 +191,7 @@ ret: 1234
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/math" as *
+#import "core/result" as *
 
 fn make_vec4 <()->Vec<i32>> ():
     let mut v <Vec<i32>> unwrap_ok new<i32>;
@@ -220,6 +222,7 @@ ret: 1434
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 
 fn make_vec4 <()->Vec<i32>> ():
     let mut v <Vec<i32>> unwrap_ok new<i32>;
@@ -269,12 +272,12 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/field" as *
+#import "core/result" as *
 
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 sort_heap_ret<i32> v0;
-    let s data_len<i32> &v1;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v1;
     free<i32> v1;
     n
 ```
@@ -290,13 +293,13 @@ ret: 1
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/field" as *
+#import "core/result" as *
 
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 sort_heap_ret<i32> v1;
-    let s data_len<i32> &v2;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v2;
     free<i32> v2;
     n
 ```
@@ -312,6 +315,7 @@ ret: 3
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/field" as *
+#import "core/result" as *
 
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
@@ -319,8 +323,7 @@ fn main <()->i32> ():
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
     let v3 sort_heap_ret<i32> v2;
     let v4 <Vec<i32>> unwrap_ok push<i32> v3 5;
-    let s data_len<i32> &v4;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v4;
     free<i32> v4;
     n
 ```
@@ -339,6 +342,7 @@ ret: 1534
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 
 fn make_vec4 <()->Vec<i32>> ():
     let mut v <Vec<i32>> unwrap_ok new<i32>;
@@ -393,8 +397,7 @@ ret: 0
 fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> v0;
-    let s data_len<i32> &v1;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v1;
     free<i32> v1;
     n
 ```
@@ -416,8 +419,7 @@ fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> v1;
-    let s data_len<i32> &v2;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v2;
     free<i32> v2;
     n
 ```
@@ -441,8 +443,7 @@ fn main <()*>i32> ():
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
     let v3 <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> v2;
     let v4 <Vec<i32>> unwrap_ok push<i32> v3 5;
-    let s data_len<i32> &v4;
-    let n <i32> get s "len";
+    let n <i32> len<i32> &v4;
     free<i32> v4;
     n
 ```
@@ -458,6 +459,7 @@ ret: 1234
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/math" as *
+#import "core/result" as *
 
 fn make_vec4 <()->Vec<i32>> ():
     let mut v <Vec<i32>> unwrap_ok new<i32>;
@@ -485,6 +487,7 @@ ret: 10
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/math" as *
+#import "core/result" as *
 
 fn make_vec4 <()->Vec<i32>> ():
     let mut v <Vec<i32>> unwrap_ok new<i32>;

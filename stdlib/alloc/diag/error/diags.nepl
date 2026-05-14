@@ -84,9 +84,8 @@ pub fn diags_len <(Diags)->i32> (ds):
 //: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
 pub fn diags_has_errors <(&Diags)->bool> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
-    let view <VecDataLen<Diag>> v::data_len<Diag> items;
-    let items_len <i32> field::get view "len";
-    let items_data <i32> mem_ptr_addr field::get view "data";
+    let items_len <i32> v::len<Diag> items;
+    let items_data <i32> mem_ptr_addr v::data_mem_ptr<Diag> items;
     diags_has_errors_loop items_data items_len 0
 
 pub fn diags_has_errors <(Diags)->bool> (ds):
