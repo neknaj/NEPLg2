@@ -228,12 +228,8 @@ ret: 0
 #import "std/test" as *
 #import "core/result" as *
 #import "core/option" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
-#import "core/field" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():
@@ -242,12 +238,72 @@ fn main <()*>i32> ():
         Result::Err e:
             set checks checks_push checks Result<(),str>::Err concat "fs_read_dir failed errno=" from_i32 e
         Result::Ok entries:
-            set checks checks_push checks check_eq_i32 3 get entries "len";
-            let entries_data <i32> mem_ptr_addr get entries "data"
-            set checks checks_push checks check_str_eq "alpha.nepl" load<str> entries_data;
-            set checks checks_push checks check_str_eq "beta.n.md" load<str> add entries_data size_of<str>;
-            set checks checks_push checks check_str_eq "zeta.txt" load<str> add entries_data mul 2 size_of<str>;
+            set checks checks_push checks check_eq_i32 3 v::len<str> &entries;
+            match v::get<str> &entries 0:
+                Option::Some entry0:
+                    set checks checks_push checks check_str_eq "alpha.nepl" entry0
+                Option::None:
+                    set checks checks_push checks Result<(),str>::Err "missing directory entry 0";
+            match v::get<str> &entries 1:
+                Option::Some entry1:
+                    set checks checks_push checks check_str_eq "beta.n.md" entry1
+                Option::None:
+                    set checks checks_push checks Result<(),str>::Err "missing directory entry 1";
+            match v::get<str> &entries 2:
+                Option::Some entry2:
+                    set checks checks_push checks check_str_eq "zeta.txt" entry2
+                Option::None:
+                    set checks checks_push checks Result<(),str>::Err "missing directory entry 2";
             v::free<str> entries;
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## fs_sort_strings_uses_vec_boundary
+
+このケースは、directory entry sort が `Vec` の公開 API 経由で `str` view を並べ替えることを確認します。
+host filesystem に依存せず、`fs_read_dir` の sort 境界だけを直接検証するための回帰テストです。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/fs/path" as *
+#import "std/test" as *
+#import "core/result" as *
+#import "core/option" as *
+#import "alloc/collections/vec" as v
+
+fn main <()*>i32> ():
+    let entries <Vec<str>>:
+        unwrap_ok v::new<str>
+        |> v::push<str> "zeta.txt" |> uwok
+        |> v::push<str> "alpha.nepl" |> uwok
+        |> v::push<str> "beta.n.md" |> uwok
+    let mut checks checks_new;
+    match fs_sort_strings &entries:
+        Result::Err _e:
+            set checks checks_push checks Result<(),str>::Err "fs_sort_strings failed"
+        Result::Ok _:
+            match v::get<str> &entries 0:
+                Option::Some entry0:
+                    set checks checks_push checks check_str_eq "alpha.nepl" entry0
+                Option::None:
+                    set checks checks_push checks Result<(),str>::Err "missing sorted entry 0";
+            match v::get<str> &entries 1:
+                Option::Some entry1:
+                    set checks checks_push checks check_str_eq "beta.n.md" entry1
+                Option::None:
+                    set checks checks_push checks Result<(),str>::Err "missing sorted entry 1";
+            match v::get<str> &entries 2:
+                Option::Some entry2:
+                    set checks checks_push checks check_str_eq "zeta.txt" entry2
+                Option::None:
+                    set checks checks_push checks Result<(),str>::Err "missing sorted entry 2";
+    v::free<str> entries;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

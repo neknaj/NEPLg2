@@ -38269,3 +38269,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: pass
   - `node nodesrc/test_stdlib_builder_owner_boundary.js`: pass
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-io-empty-region-private-memory-safety.json -j 1 --dist web/dist --assert-io`: 36/36 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T172450328Z fs dir reader Vec boundary)
+
+- `std/fs/dir/read_fd.nepl` が、Stage 6 で削除済みの `Vec.data` field と raw `i32` pointer sort に依存していた問題を修正した。
+- 根本原因は、directory entry 名の sort が `Vec<str>` の現行 public API ではなく旧 storage layout を直接読む設計だったこと。`str` は所有権を持たない Copy view なので、`Vec` の Copy API で読み書きする境界へ移すのが適切。
+- `fs_sort_strings` は `&Vec<str> -> Result<(), i32>` の mutating helper に変更し、`v::len` / `v::get` / `v::replace` で stable insertion sort を行う。raw `load<str>` / `store<str>` / `mem_ptr_addr` は使わない。
+- `fs_read_dir_fd` は `fs_sort_strings &entries` の失敗時に `Vec<str>` owner を解放して `Err(e)` を返すようにした。
+- `tests/stdlib/fs.n.md` の directory listing check も `get entries "data"` から `v::len` / `v::get` に移し、host filesystem に依存しない `fs_sort_strings_uses_vec_boundary` regression を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-dir-vec-data-migration-fs.json -j 1 --dist web/dist --assert-io`: 8/8 pass
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-fs-dir-vec-data-migration-bytebuf.json -j 1 --dist web/dist --assert-io`: 6/6 pass

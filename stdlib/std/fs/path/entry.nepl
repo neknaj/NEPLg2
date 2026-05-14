@@ -8,10 +8,11 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/collections/vec" as v
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
-#import "core/mem/raw" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
 #import "std/text" as *
@@ -64,33 +65,51 @@ pub fn fs_str_lt <(str,str)->bool> (a, b):
 //:
 //: 実装(アルゴリズム):
 //: - entry 数は通常小さいため、追加の heap 確保を避けた insertion sort を使います。
+//: - Vec の storage layout には依存せず、Copy view としての `str` を `Vec` public API 経由で読み書きします。
 //:
 //: 注意(重要):
-//: - 要素の所有権は Vec 内に保持したまま、str handle だけを並べ替えます。
+//: - 要素の所有権は Vec 内に保持したまま、所有権を持たない `str` view だけを並べ替えます。
+//: - 範囲外 access は内部不変条件違反として `Err(EINVAL)` を返します。
 //:
 //: 計算量:
 //: - entry 数 n、名前長比較を含めて最悪 O(n^2)
-pub fn fs_sort_strings <(i32,i32)*>()> (data, n):
+pub fn fs_sort_strings <(&Vec<str>)*>Result<(),i32>> (entries):
+    let n <i32> v::len<str> entries
     let mut i <i32> 1
-    while lt i n:
+    let mut err <i32> 0
+    while and eq err 0 lt i n:
         do:
-            let key <str> load<str> add data mul i size_of<str>
-            let mut j <i32> i
-            let mut moving <bool> true
-            while and moving gt j 0:
-                do:
-                    let prev_idx <i32> sub j 1
-                    let prev <str> load<str> add data mul prev_idx size_of<str>
+            match v::get<str> entries i:
+                Option::None:
+                    set err fs_errno_inval
+                Option::Some key:
+                    let mut j <i32> i
+                    let mut moving <bool> true
+                    while and and eq err 0 moving gt j 0:
+                        do:
+                            let prev_idx <i32> sub j 1
+                            match v::get<str> entries prev_idx:
+                                Option::None:
+                                    set err fs_errno_inval
+                                Option::Some prev:
+                                    if:
+                                        fs_str_lt key prev
+                                        then:
+                                            v::replace<str> entries j prev
+                                            set j prev_idx
+                                        else:
+                                            set moving false
                     if:
-                        fs_str_lt key prev
+                        eq err 0
                         then:
-                            store<str> add data mul j size_of<str> prev
-                            set j prev_idx
+                            v::replace<str> entries j key
                         else:
-                            set moving false
-            store<str> add data mul j size_of<str> key
+                            ()
             set i add i 1
-    ()
+    if:
+        eq err 0
+        then Result<(),i32>::Ok ()
+        else Result<(),i32>::Err err
 
 //: fs_string_from_bytes: fd_readdir の name byte range を UTF-8 検証して str へ複製する
 //:

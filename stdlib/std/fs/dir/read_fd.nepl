@@ -21,7 +21,6 @@
 #import "std/fs/constants" as *
 #import "std/fs/path" as *
 #import "std/fs/raw" as *
-#import "core/field" as *
 
 //: fs_read_dir_fd: directory fd から entry 名を読み出す
 //:
@@ -134,10 +133,12 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                             if:
                                 eq err 0
                                 then:
-                                    let entries_len <i32> get entries "len"
-                                    let entries_data <i32> mem_ptr_addr get entries "data"
-                                    fs_sort_strings entries_data entries_len
-                                    Result<Vec<str>,i32>::Ok entries
+                                    match fs_sort_strings &entries:
+                                        Result::Ok _:
+                                            Result<Vec<str>,i32>::Ok entries
+                                        Result::Err e:
+                                            v::free<str> entries
+                                            Result<Vec<str>,i32>::Err e
                                 else:
                                     v::free<str> entries
                                     Result<Vec<str>,i32>::Err err

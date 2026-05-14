@@ -421,7 +421,7 @@ commit 単位:
 | `RV-STDLIB-004` | Stage 6 の collection API issue。 | collection drop / remove / borrowed read / Copy read の責務が分離される。 |
 | `BLOOM-FILTER-FREE-DROPS-HASHER-WITHO` | Stage 6 の BloomFilter cleanup child issue。 | 2026-05-15 に fixed。`BloomFilter.free` / `CountingBloomFilter.free` を `.T: HashKey&Copy,.H: Hasher<.T>&Copy` に揃え、Drop traversal なしに non-Copy hasher を破棄する経路を閉じる。 |
 | `BYTEBUF-AND-BYTEBUILDER-EXPOSE-EMPTY` | Stage 6 の byte buffer empty sentinel issue。 | 2026-05-15 に fixed。zero-size `RegionToken<u8>` sentinel helper を private にし、公開 API を typed empty constructor へ限定する。 |
-| `FS-DIR-READER-STILL-DEPENDS-ON-RAW-V` | Stage 6 の fs dir reader migration issue。 | Open。`std/fs/dir/read_fd.nepl` が旧 `Vec.data` raw storage と `Vec<str>` raw sort に依存しているため、safe collection/string API へ再設計する。 |
+| `FS-DIR-READER-STILL-DEPENDS-ON-RAW-V` | Stage 6 の fs dir reader migration issue。 | 2026-05-15 に fixed。`fs_sort_strings` を `&Vec<str>` public boundary に移し、`std/fs/dir/read_fd.nepl` から旧 `Vec.data` raw storage 依存を削除した。 |
 
 新しい個別 bug は、次の基準で追加する。
 

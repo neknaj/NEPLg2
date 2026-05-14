@@ -153,6 +153,9 @@ assert.match(pathNormalizeRangeStackCode, /\bfn\s+fs_normalize_range_pop\b[\s\S]
 assert.match(pathNormalizeBuildCode, /\bfn\s+fs_normalize_build_ranges_builder\b[\s\S]*\bsb_append_slice_result\s+with_sep\s+path\s+part_start\s+part_end/, 'range-stack output construction must stay in normalize/build');
 assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative\s+<\(str\)->Result<str,i32>>\s+\(path\):[\s\S]*fs_normalize_relative_builder\s+path[\s\S]*sb_build_result\s+sb/, 'fs_normalize_relative must delegate through the builder boundary');
 assert.match(pathEntryCode, /\bfn\s+fs_str_lt\b[\s\S]*\bstring_byte_at_unchecked\b/, 'directory entry comparison must stay in std/fs/path/entry');
+assert.match(pathEntryCode, /\bfn\s+fs_sort_strings\s+<\(&Vec<str>\)\*>Result<\(\),i32>>\s+\(entries\):[\s\S]*\bv::get<str>\s+entries\s+i[\s\S]*\bv::replace<str>\s+entries\s+j\s+key/, 'directory entry sort must use Vec public get/replace boundary with an explicit mutation effect');
+assert.doesNotMatch(pathEntryCode, /\bfn\s+fs_sort_strings\s+<\(i32,i32\)/, 'directory entry sort must not accept raw Vec storage pointers');
+assert.doesNotMatch(pathEntryCode, /\b(?:load<str>|store<str>|mem_ptr_addr)\b/, 'directory entry helpers must not sort Vec<str> through raw str storage');
 assert.match(pathEntryCode, /\bfn\s+fs_string_from_bytes\b[\s\S]*\bstring_utf8_validate_mem\b[\s\S]*\bstring_from_mem_unchecked_result\b/, 'directory entry byte conversion must validate UTF-8 before constructing str');
 assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/open"\s+as\s+\*/, 'std/fs/dir facade must re-export directory open helper submodule');
 assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/read_fd"\s+as\s+\*/, 'std/fs/dir facade must re-export fd directory reader submodule');
@@ -160,6 +163,8 @@ assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/path"\s+as\s+\*/, 'std/fs/
 assert.doesNotMatch(dirCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/dir root must stay a facade without implementation bodies');
 assert.match(dirOpenCode, /\bfn\s+fs_open_dir\b[\s\S]*\bfs_normalize_relative\s+path[\s\S]*\bfs_open_with_flags\s+normalized\s+fs_oflags_directory\s+fs_right_fd_readdir/, 'directory open helper must stay in std/fs/dir/open');
 assert.match(dirReadFdCode, /fn\s+fs_read_dir_fd\s+<\(i32\)\*>Result<Vec<str>,i32>>\s+\(fd\):[\s\S]*\bwasi_fd_readdir\b[\s\S]*match\s+v::push<str>\s+entries\s+name:[\s\S]*Result::Err\s+e:[\s\S]*set\s+entries\s+v::vec_push_error_vec<str>\s+e[\s\S]*set\s+err\s+12/, 'fs_read_dir_fd must preserve the entry Vec owner while mapping accumulation push failure to errno 12');
+assert.match(dirReadFdCode, /\bmatch\s+fs_sort_strings\s+&entries:[\s\S]*Result::Err\s+e:[\s\S]*v::free<str>\s+entries[\s\S]*Result<Vec<str>,i32>::Err\s+e/, 'fs_read_dir_fd must sort through the Vec boundary and free entries if sorting reports an invariant error');
+assert.doesNotMatch(dirReadFdCode, /\bget\s+entries\s+"data"/, 'fs_read_dir_fd must not depend on the removed Vec.data field');
 assert.match(dirPathCode, /\bfn\s+fs_read_dir\b[\s\S]*\bfs_open_dir\s+path[\s\S]*\bfs_read_dir_fd\s+fd[\s\S]*\bfs_close\s+fd/, 'path directory listing API must stay in std/fs/dir/path');
 assert.doesNotMatch(dirPathCode, /\b(?:alloc_ptr|wasi_fd_readdir|load_i32|store_i32)\b/, 'std/fs/dir/path must not own fd_readdir raw entry conversion');
 assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/wasi"\s+as\s+\*/, 'std/fs/raw facade must re-export WASI syscall submodule');

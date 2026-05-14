@@ -291,3 +291,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 今回の修正では、zero-size `RegionToken<u8>` sentinel helper を private にし、公開 API を `byte_builder_empty -> ByteBuilder` / `io_bytebuf_empty -> ByteBuf` に限定した。これは `Vec` の `vec_empty_region<T>` private 化と同じ方針であり、transitional owner-token sentinel を safe public surface に出さないための Stage 6 前進である。
 
 同じ focused verification で、`std/fs/dir/read_fd.nepl` が削除済みの `Vec.data` field と `Vec<str>` raw storage sort に依存していることを確認した。これは別 issue `ISS-20260514T172450328Z-FS-DIR-READER-STILL-DEPENDS-ON-RAW-V-05400C14` として記録し、この親 issue の raw-memory-backed stdlib API migration 残件として継続する。
+
+## 2026-05-15 Agent 1 fs dir reader Vec boundary 追記
+
+`ISS-20260514T172450328Z-FS-DIR-READER-STILL-DEPENDS-ON-RAW-V-05400C14` で、`std/fs/dir/read_fd.nepl` の旧 `Vec.data` layout 依存を削除した。
+
+`fs_sort_strings` は raw `i32` storage pointer を受け取らず、`&Vec<str>` を受け取って `v::len` / `v::get` / `v::replace` 経由で stable insertion sort を行う。`str` は所有権を持たない Copy view として扱い、directory reader 側は sort error 時に `Vec<str>` owner を解放して `Err(e)` を返す。これにより `std/fs` import が削除済み Vec field で compile failure になる経路と、fs module が raw string storage sort に依存する経路を閉じた。
+
+この修正は Stage 6 の public API migration の一部であり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は引き続きこの親 issue で継続する。
