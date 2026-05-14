@@ -325,3 +325,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 今回の修正では、renderer file から `core/mem` / `core/mem/internal` / `core/mem/raw` import を削除し、`diags_to_string` を borrowed `Vec<Diag>` + `v::len<Diag>` + `v::get<Diag>` の Copy-safe observer boundary へ移した。`Diag` は `Copy` として定義済みなので、renderer が `mem_ptr_addr data_mem_ptr<Diag>` と `load<Diag>` を直接使う必要はない。
 
 これは `Diags` storage owner の内部実装を消す修正ではない。`alloc/diag/error/diags.nepl` はまだ `Diags` owner helper として raw storage scanner を持つが、ordinary formatting / print API から raw Vec layout 依存を外し、Stage 6 の public renderer / storage boundary 分離を進めた。親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 Diags error observer Vec boundary 追記
+
+`ISS-20260514T190018299Z-DIAGS-ERROR-OBSERVER-SCANS-VEC-STORA-5ABF687A` として、`alloc/diag/error/diags.nepl` の `diags_has_errors` が `Vec<Diag>` storage を raw address と `load<Diag>` で直接走査していた問題を分離して修正した。
+
+今回の修正では、`diags.nepl` から `core/mem` / `core/mem/internal` / `core/mem/raw` import を削除し、`diags_has_errors` を borrowed `Vec<Diag>` + `v::len<Diag>` + `v::get<Diag>` の Copy-safe observer traversal へ移した。by-value observer はこれまで通り観測後に `diags_free` で owner を閉じるため、owner cleanup contract は維持される。
+
+これにより diagnostic module の read-only observer から raw Vec storage scan が消えた。`Vec` 本体の raw-memory-backed implementation と `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は引き続きこの親 issue の Stage 6 残件として継続する。

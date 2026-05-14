@@ -52,7 +52,10 @@ assert.match(code.root, /pub\s+#import\s+"\.\/*error\/diag"\s+as\s+\*/, 'root fa
 assert.match(code.root, /pub\s+#import\s+"\.\/*error\/diags"\s+as\s+\*/, 'root facade must re-export Diags owner helpers');
 assert.match(code.root, /pub\s+#import\s+"\.\/*error\/outcome"\s+as\s+\*/, 'root facade must re-export Outcome helpers');
 assert.doesNotMatch(code.root, /^\s*(fn|struct|enum|impl)\b/m, 'alloc/diag/error.nepl must stay a public facade without implementation bodies');
-assert.match(code.diags, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'Diags storage scanner must carry source-level raw memory evidence');
+assert.doesNotMatch(code.diags, /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/, 'Diags owner helpers must not import raw memory modules for read-only observers');
+assert.doesNotMatch(code.diags, /\b(?:mem_ptr_addr|data_mem_ptr|load<Diag>|size_of<Diag>)\b/, 'Diags read-only observers must not scan Vec storage through raw memory');
+assert.match(code.diags, /fn\s+diags_has_errors\s+<\(&Diags\)->bool>[\s\S]*v::len<Diag>[\s\S]*diags_has_errors_loop\s+items\s+items_len\s+0/, 'diags_has_errors must observe Diags through the borrowed Vec boundary');
+assert.match(code.diags, /fn\s+diags_has_errors_loop\s+<\(&Vec<Diag>,i32,i32\)->bool>[\s\S]*match\s+v::get<Diag>\s+items\s+i:/, 'diags_has_errors traversal must use Vec.get rather than raw loads');
 assert.doesNotMatch(code.diag, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'single diagnostic helpers must not carry direct raw memory evidence');
 assert.doesNotMatch(code.renderer, /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/, 'diagnostic renderer must not import raw memory modules');
 assert.doesNotMatch(code.renderer, /\b(?:mem_ptr_addr|data_mem_ptr|load<Diag>|size_of<Diag>)\b/, 'diagnostic renderer must not scan Diags through raw Vec storage');
