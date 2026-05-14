@@ -574,3 +574,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\numerics.n.md --no-tree -o tmp\agent1-numerics-report-tests.json -j 1 --assert-io --dist web/dist`: total=11, passed=11
 
 この issue はまだ open のまま継続する。Numerics 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Drop overwrite stdout report migration
+
+`tests/compiler/drop_overwrite.n.md` の Drop 型 local overwrite 回帰 doctest 1 件を、戻り値 0 だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- この fixture の主目的は runtime の Drop 順序観測ではなく、nodesrc 経路で `set` による旧値 drop と新値代入の HIR 展開が compile / run できることの確認なので、`drop overwrite exit marker` という到達 assertion を stdout に残す形にした。
+- stdout report のため `#target std` に移しつつ、`#no_prelude` と明示 import による最小依存は維持した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\drop_overwrite.n.md --no-tree -o tmp\agent1-drop-overwrite-report-tests.json -j 1 --assert-io --dist web/dist`: total=1, passed=1
+
+この issue はまだ open のまま継続する。Drop overwrite 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
