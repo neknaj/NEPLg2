@@ -866,3 +866,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - 実行時間は約354秒。timeout ではなく 113 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
 
 この issue はまだ open のまま継続する。Move/effect の孤立 `core` / `#no_prelude` capability test 2 件は意図的に ret 形式で残し、それ以外の `ret:` 依存 fixture と report 省略検出 policy が残っている。
+
+## 2026-05-14 Move check stdout report migration
+
+`tests/compiler/move_check.n.md` の move / borrow / lifetime 成功系 doctest 14 件を canonical `std/test` report へ移行した。compile_fail fixture 38 件は Resource IR / borrow / lifetime の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- single move、non-Copy reassign、Copy reassign、shared/unique borrow last-use release、temporary call-argument borrow、Copy owner reuse、distinct field move、copy deref、match payload borrow、loop accumulator reinit、borrowed field projection の成功境界を assertion label として stdout に固定した。
+- 各 case は検査対象の move / borrow / consume 操作を実行した後に `actual` を report へ流す形にし、report 化が検査対象の resource operation を迂回しないようにした。
+- compile_fail 側の `resource.cell.*` / `resource.borrow.*` / `resource.borrow.return_escape` 診断境界はそのまま維持した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-move-check-report-tests.json -j 1 --assert-io --dist web/dist`: total=52, passed=52
+- 実行時間は約233秒。timeout ではなく 52 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
+
+この issue はまだ open のまま継続する。Move check 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

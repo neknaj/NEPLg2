@@ -37913,3 +37913,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - local `set` が pure のまま扱えること、Copy impl がある struct / generic struct / enum の再利用、Copy 値 borrow 中の再利用、capability を持たない marker/clone-shaped trait が Copy/Clone 扱いされないこと、`str` / unit の Copy trait impl による再利用を assertion label として stdout に固定した。
 - `#no_prelude` の local `Clone` / `Copy` capability trait test 2 件は、`std/test` を入れると stdlib 側の canonical trait universe が混入して元の検査対象を壊すため、`core` / `#no_prelude` / `ret: 0` のまま維持した。
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-move-effect-report-tests.json -j 1 --assert-io --dist web/dist` は total=113, passed=113。約354秒だが timeout ではなく個別 compile 数が主因。
+
+## 2026-05-14 Agent 1 Move check stdout report doctest migration
+
+- `work/move-check-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/move_check.n.md` を更新した。
+- move / borrow / lifetime 成功系 doctest 14 件を canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- single move、non-Copy reassign、Copy reassign、shared/unique borrow last-use release、temporary call-argument borrow、Copy owner reuse、distinct field move、copy deref、match payload borrow、loop accumulator reinit、borrowed field projection の成功境界を assertion label として stdout に固定した。
+- 各 case は検査対象の move / borrow / consume 操作を実行した後に `actual` を report へ流す形にし、report 化が Resource IR の検査対象を迂回しないようにした。
+- compile_fail 38 件は `resource.cell.*` / `resource.borrow.*` / `resource.borrow.return_escape` の拒否境界を維持するため変更していない。
+- `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/agent1-move-check-report-tests.json -j 1 --assert-io --dist web/dist` は total=52, passed=52。約233秒だが timeout ではなく個別 compile 数が主因。

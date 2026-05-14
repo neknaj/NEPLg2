@@ -3,22 +3,30 @@
 このファイルは Rust テスト `move_check.rs` を .n.md 形式へ機械的に移植したものです。移植が難しい（複数ファイルや Rust 専用 API を使う）テストは `skip` として残しています。
 ## move_simple_ok
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_simple_ok\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"single move consumes owner\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
+
 struct LocalToken:
     raw <(i32)->i32>
 
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let t <LocalToken> LocalToken @token_id
     let u <LocalToken> t
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_simple_ok"
+        |> test::test_report_push test::assert_eq_i32 "single move consumes owner" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_use_after_move
@@ -100,12 +108,14 @@ fn main <()->i32> ():
 
 ## move_reassign_non_copy
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_reassign_non_copy\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"non-copy local reassign after move\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -113,39 +123,53 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let mut x <LocalToken> LocalToken @token_id
     let y <LocalToken> x
     set x LocalToken @token_id
     let z <LocalToken> x
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_reassign_non_copy"
+        |> test::test_report_push test::assert_eq_i32 "non-copy local reassign after move" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_reassign_copy
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_reassign_copy\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy local reassign after copy\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let mut x <i32> 1
     let y <i32> x
     set x 2
     let z <i32> x
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_reassign_copy"
+        |> test::test_report_push test::assert_eq_i32 "copy local reassign after copy" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_reference_ok
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_reference_ok\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"borrow last use permits later move\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -153,11 +177,16 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <LocalToken> LocalToken @token_id
     let r <&LocalToken> &x
     let y <LocalToken> x
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_reference_ok"
+        |> test::test_report_push test::assert_eq_i32 "borrow last use permits later move" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_live_reference_blocks_move
@@ -185,12 +214,14 @@ fn main <()->i32> ():
 
 ## move_branch_reference_last_use_releases_at_join
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_branch_reference_last_use_releases_at_join\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"branch borrow last use releases at join\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -198,7 +229,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <LocalToken> LocalToken @token_id
     let r <&LocalToken> &x
     let cnd <bool> true
@@ -209,7 +240,12 @@ fn main <()->i32> ():
         else:
             0
     let y <LocalToken> x
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_branch_reference_last_use_releases_at_join"
+        |> test::test_report_push test::assert_eq_i32 "branch borrow last use releases at join" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_branch_retained_borrow_blocks_later_move
@@ -245,12 +281,14 @@ fn main <()->i32> ():
 
 ## move_reference_call_arg_is_temporary_borrow
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_reference_call_arg_is_temporary_borrow\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"shared call argument borrow is temporary\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -264,20 +302,27 @@ fn observe <(&LocalToken)->i32> (_x):
 fn consume <(LocalToken)->i32> (_x):
     0
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <LocalToken> LocalToken @token_id
     observe &x
-    consume x
+    let actual <i32> consume x
+    let report:
+        test::test_report_new "move_reference_call_arg_is_temporary_borrow"
+        |> test::test_report_push test::assert_eq_i32 "shared call argument borrow is temporary" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_mut_reference_call_arg_is_temporary_borrow
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_mut_reference_call_arg_is_temporary_borrow\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"unique call argument borrow is temporary\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -291,10 +336,15 @@ fn observe_mut <(&mut LocalToken)->i32> (_x):
 fn consume <(LocalToken)->i32> (_x):
     0
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <LocalToken> LocalToken @token_id
     observe_mut &mut x
-    consume x
+    let actual <i32> consume x
+    let report:
+        test::test_report_new "move_mut_reference_call_arg_is_temporary_borrow"
+        |> test::test_report_push test::assert_eq_i32 "unique call argument borrow is temporary" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_call_mut_and_shared_reference_args_overlap_rejected
@@ -416,12 +466,14 @@ fn main <()->i32> ():
 
 ## move_unique_reference_last_use_releases_owner
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_unique_reference_last_use_releases_owner\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"unique borrow last use releases owner\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -429,12 +481,17 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <LocalToken> LocalToken @token_id
     let r <&mut LocalToken> &mut x
     let rr <&mut LocalToken> r
     let y <LocalToken> x
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_unique_reference_last_use_releases_owner"
+        |> test::test_report_push test::assert_eq_i32 "unique borrow last use releases owner" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_mut_reference_is_not_copy
@@ -542,20 +599,27 @@ fn main <()->i32> ():
 
 ## move_copy_shared_borrow_allows_owner_copy_while_reference_live
 
-neplg2:test
-ret: 2
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_copy_shared_borrow_allows_owner_copy_while_reference_live\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy owner may be copied while shared reference lives\" expected=\"2\" actual=\"2\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <i32> 1
     let s <&i32> &x
     let y <i32> x
     let keep <&i32> s
-    add x y
+    let actual <i32> add x y
+    let report:
+        test::test_report_new "move_copy_shared_borrow_allows_owner_copy_while_reference_live"
+        |> test::test_report_push test::assert_eq_i32 "copy owner may be copied while shared reference lives" 2 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_borrow_after_move_err
@@ -629,14 +693,16 @@ fn main <()->()> ():
 
 ## move_distinct_owned_struct_fields_once_ok
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_distinct_owned_struct_fields_once_ok\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"distinct owned struct fields move once\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/field" as field
 #import "core/field" as *
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -651,12 +717,17 @@ struct Pair:
 fn consume <(LocalToken)->i32> (_w):
     0
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
     let left <LocalToken> field::get p "left"
     let right <LocalToken> field::get p "right"
     consume left
-    consume right
+    let actual <i32> consume right
+    let report:
+        test::test_report_new "move_distinct_owned_struct_fields_once_ok"
+        |> test::test_report_push test::assert_eq_i32 "distinct owned struct fields move once" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_same_owned_struct_field_twice_rejected
@@ -749,18 +820,25 @@ fn main <()->()> ():
 
 ## move_deref_copy_reference_ok
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_deref_copy_reference_ok\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy value can be dereferenced and reused\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <i32> 7
     let y <i32> *&x
     let z <i32> x
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_deref_copy_reference_ok"
+        |> test::test_report_push test::assert_eq_i32 "copy value can be dereferenced and reused" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_deref_non_copy_reference_rejected
@@ -930,12 +1008,14 @@ fn main <()->i32> ():
 
 ## move_match_reference_payload_last_use_releases_owner
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_match_reference_payload_last_use_releases_owner\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"match payload borrow last use releases owner\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -947,16 +1027,21 @@ enum RefOpt:
     Some <&LocalToken>
     None
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <LocalToken> LocalToken @token_id
     let e <RefOpt> RefOpt::Some &x
-    match e:
+    let actual <i32> match e:
         RefOpt::Some r:
             let keep <&LocalToken> r
             let y <LocalToken> x
             0
         RefOpt::None:
             0
+    let report:
+        test::test_report_new "move_match_reference_payload_last_use_releases_owner"
+        |> test::test_report_push test::assert_eq_i32 "match payload borrow last use releases owner" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_return_local_reference_err
@@ -1166,14 +1251,16 @@ fn main <()->i32> ():
 
 ## move_loop_owned_accumulator_reassigned_after_result_ok
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_loop_owned_accumulator_reassigned_after_result_ok\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"loop owned accumulator reinitialized each iteration\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1184,7 +1271,7 @@ fn token_id <(i32)->i32> (x):
 fn step <(LocalToken)->Result<LocalToken, i32>> (token):
     Result<LocalToken, i32>::Ok token
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let mut cur <LocalToken> LocalToken @token_id
     let mut i <i32> 0
     while lt i 3:
@@ -1195,7 +1282,12 @@ fn main <()->i32> ():
             Result::Err _e:
                 #intrinsic "unreachable" <> ()
     let out <LocalToken> cur
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_loop_owned_accumulator_reassigned_after_result_ok"
+        |> test::test_report_push test::assert_eq_i32 "loop owned accumulator reinitialized each iteration" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_loop_owned_accumulator_err_continue_without_reinit_rejected
@@ -1234,14 +1326,16 @@ fn main <()->i32> ():
 
 ## move_borrowed_field_projection_keeps_owner_until_reference_last_use
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_borrowed_field_projection_keeps_owner_until_reference_last_use\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"borrowed field projection releases before owner move\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/field" as field
 #import "core/field" as *
+#import "std/test" as test
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1259,12 +1353,17 @@ fn observe <(&LocalToken)->i32> (_w):
 fn consume <(Pair)->i32> (_p):
     0
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <Pair> Pair (LocalToken @token_id) 7
     let token_ref <&LocalToken> field::get_ref &p "token"
     let count <i32> *field::get_ref &p "count"
     observe token_ref
-    consume p
+    let actual <i32> consume p
+    let report:
+        test::test_report_new "move_borrowed_field_projection_keeps_owner_until_reference_last_use"
+        |> test::test_report_push test::assert_eq_i32 "borrowed field projection releases before owner move" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## move_borrowed_field_projection_blocks_owner_move_while_live
