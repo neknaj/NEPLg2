@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T18:44:29.584Z",
+  "generated_at": "2026-05-14T18:55:51.342Z",
   "counts": {
-    "total": 784,
+    "total": 785,
     "open": 7,
-    "resolved": 777,
+    "resolved": 778,
     "by_area": {
       "stdlib": {
-        "total": 216,
+        "total": 217,
         "open": 5,
-        "resolved": 211
+        "resolved": 212
       },
       "TEST": {
         "total": 21,
@@ -9208,6 +9208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T183506445Z-STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B-C76C9E1E.md"
+    },
+    {
+      "id": "ISS-20260514T185052018Z-DIAG-RENDERER-READS-DIAGS-VEC-STORAG-D85114C9",
+      "title": "Diag renderer reads Diags Vec storage through raw memory",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/diag/diag.nepl, nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T185052018Z-DIAG-RENDERER-READS-DIAGS-VEC-STORAG-D85114C9.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
