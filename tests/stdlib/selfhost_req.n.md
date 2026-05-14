@@ -16,6 +16,7 @@ ret: 0
 // 想定: std/fs モジュールの追加、または std/stdio の拡張
 #import "std/fs" as *
 #import "std/stdio" as *
+#import "alloc/string" as *
 #import "core/result" as *
 
 fn consume_str <(str)->()> (s):
@@ -47,6 +48,7 @@ ret: 222
 #import "alloc/diag/error" as *
 #import "core/cast" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "core/field" as *
 
 fn main <()*>i32> ():

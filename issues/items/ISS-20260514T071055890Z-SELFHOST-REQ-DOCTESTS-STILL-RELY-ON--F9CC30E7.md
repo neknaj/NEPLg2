@@ -2,8 +2,8 @@
 id: ISS-20260514T071055890Z-SELFHOST-REQ-DOCTESTS-STILL-RELY-ON--F9CC30E7
 title: "selfhost_req doctests still rely on stale implicit imports"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: test
 created: 2026-05-14
@@ -43,3 +43,16 @@ Audit selfhost_req.n.md and add explicit imports or update the examples to curre
 ## 検証
 
 node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/selfhost-req-imports-fixed.json -j 1 --dist web/dist should pass all doctests.
+
+## 2026-05-14 Agent 1 修正結果
+
+`tests/stdlib/selfhost_req.n.md` の stale implicit import を現行 stdlib API に合わせて整理した。
+
+- `test_req_file_io` は `consume_str` 内で `len` を使うため、`alloc/string` を明示 import した。
+- `test_req_byte_manipulation` は `unwrap_ok` で `Result<Vec<u8>, StdErrorKind>` を受け取るため、`core/result` を明示 import した。
+
+この修正は API や静的検査を緩めるものではなく、doctest が利用する module を明示して fixture を現在の import visibility rule に合わせるものである。
+
+## 回帰テスト
+
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-imports-after.json -j 1 --dist web/dist`: total=6, passed=6
