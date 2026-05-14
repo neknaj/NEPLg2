@@ -38354,3 +38354,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: pass
   - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-root-raw-boundary-cliarg-tests.json -j 1 --dist web/dist --assert-io`: 6/6 pass
   - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl -i stdlib/std/env/cliarg/raw.nepl -i stdlib/std/env/cliarg/cstr.nepl --no-tree -o tmp/agent1-cliarg-root-raw-boundary-module-doctests.json -j 1 --dist web/dist --assert-io`: 5/5 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T185052018Z diag renderer Vec boundary)
+
+- `alloc/diag/diag.nepl` の public renderer が `Diags.items` を raw `Vec` storage として直接走査していた問題を修正した。
+- 根本原因は、表示処理である `diags_to_string` が `core/mem/raw` を import し、`data_mem_ptr<Diag>` / `mem_ptr_addr` / `load<Diag>` により `Vec<Diag>` の内部 layout を知っていたこと。これは Stage 6 の public renderer / storage owner boundary と合わない。
+- `Diag` は `Copy` として定義済みなので、renderer は `v::len<Diag>` と `v::get<Diag>` の Copy-safe observer で順序を保って読む形に変更した。
+- `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` に、renderer file が raw memory import や raw Vec storage scan を再導入しない source policy を追加した。
+- `alloc/diag/error/diags.nepl` の owner helper 側 raw scanner は今回の対象外で、`Diags` storage owner の内部境界として残す。今回閉じたのは ordinary formatting / print API から raw layout を使う経路。
+- 検証:
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md --no-tree -o tmp/agent1-diag-renderer-vec-boundary-diag-tests.json -j 1 --dist web/dist --assert-io`: 2/2 pass
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md --no-tree -o tmp/agent1-diag-renderer-vec-boundary-diag-error-tests.json -j 1 --dist web/dist --assert-io`: 5/5 pass

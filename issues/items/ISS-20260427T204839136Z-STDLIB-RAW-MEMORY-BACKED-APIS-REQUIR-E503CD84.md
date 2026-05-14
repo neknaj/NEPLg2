@@ -317,3 +317,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 また、C string conversion helper は root facade から暗黙に露出させず、必要な doctest は `std/env/cliarg/cstr` を明示 import する形に整理した。cstr doctest は `alloc_ptr` owner を直接扱う例から、`RegionToken<u8>` owner と `region_ptr` non-owning view を使う例へ更新し、Resource IR の owner obligation と整合させた。
 
 この親 issue は引き続き open とする。今回の修正は env argv ABI helper の root direct raw 実装を閉じるものであり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は残件である。
+
+## 2026-05-15 Agent 1 diag renderer Vec boundary 追記
+
+`ISS-20260514T185052018Z-DIAG-RENDERER-READS-DIAGS-VEC-STORAG-D85114C9` として、`alloc/diag/diag.nepl` の public diagnostic renderer が `Diags.items` を raw `Vec` storage として直接走査していた問題を分離して修正した。
+
+今回の修正では、renderer file から `core/mem` / `core/mem/internal` / `core/mem/raw` import を削除し、`diags_to_string` を borrowed `Vec<Diag>` + `v::len<Diag>` + `v::get<Diag>` の Copy-safe observer boundary へ移した。`Diag` は `Copy` として定義済みなので、renderer が `mem_ptr_addr data_mem_ptr<Diag>` と `load<Diag>` を直接使う必要はない。
+
+これは `Diags` storage owner の内部実装を消す修正ではない。`alloc/diag/error/diags.nepl` はまだ `Diags` owner helper として raw storage scanner を持つが、ordinary formatting / print API から raw Vec layout 依存を外し、Stage 6 の public renderer / storage boundary 分離を進めた。親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。

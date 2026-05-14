@@ -20,13 +20,10 @@
 #import "alloc/diag/error" as *
 #import "core/field" as field
 #import "core/math" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "alloc/string" as *
-#import "alloc/collections/vec" as *
+#import "alloc/collections/vec" as v
 #if[target=std]
 #import "std/stdio" as *
 #import "core/field" as *
@@ -111,24 +108,26 @@ pub fn diag_to_string <(Diag)->str> (d):
 //: diags_to_string: `Diags` を[改行/かいぎょう][区切/くぎ]りで[連結/れんけつ]する
 pub fn diags_to_string <(&Diags)->str> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
-    let items_len <i32> len<Diag> items;
-    let items_data <i32> mem_ptr_addr data_mem_ptr<Diag> items;
-    diags_to_string_loop items_data items_len 0 ""
+    let items_len <i32> v::len<Diag> items;
+    diags_to_string_loop items items_len 0 ""
 
 pub fn diags_to_string <(Diags)->str> (ds):
     let s <str> diags_to_string &ds
     diags_free ds
     s
 
-pub fn diags_to_string_loop <(i32,i32,i32,str)->str> (items_data, n, i, acc):
+pub fn diags_to_string_loop <(&Vec<Diag>,i32,i32,str)->str> (items, n, i, acc):
     if:
         ge i n
         then acc
         else:
-            let d <Diag> load<Diag> add items_data mul i size_of<Diag>;
-            let one <str> diag_to_string d;
-            let next <str> concat acc one;
-            diags_to_string_loop items_data n add i 1 next
+            match v::get<Diag> items i:
+                Option::Some d:
+                    let one <str> diag_to_string d;
+                    let next <str> concat acc one;
+                    diags_to_string_loop items n add i 1 next
+                Option::None:
+                    acc
 
 #if[target=std]
 pub fn diag_print <(Diag)*>()> (d):

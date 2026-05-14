@@ -11,6 +11,7 @@ const relPaths = {
     diag: 'stdlib/alloc/diag/error/diag.nepl',
     diags: 'stdlib/alloc/diag/error/diags.nepl',
     outcome: 'stdlib/alloc/diag/error/outcome.nepl',
+    renderer: 'stdlib/alloc/diag/diag.nepl',
 };
 
 const src = Object.fromEntries(
@@ -30,7 +31,7 @@ const code = Object.fromEntries(
     ]),
 );
 
-const implementationCode = [code.types, code.diag, code.diags, code.outcome].join('\n');
+const implementationCode = [code.types, code.diag, code.diags, code.outcome, code.renderer].join('\n');
 const allCode = [code.root, implementationCode].join('\n');
 
 const forbidden = [
@@ -53,6 +54,10 @@ assert.match(code.root, /pub\s+#import\s+"\.\/*error\/outcome"\s+as\s+\*/, 'root
 assert.doesNotMatch(code.root, /^\s*(fn|struct|enum|impl)\b/m, 'alloc/diag/error.nepl must stay a public facade without implementation bodies');
 assert.match(code.diags, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'Diags storage scanner must carry source-level raw memory evidence');
 assert.doesNotMatch(code.diag, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'single diagnostic helpers must not carry direct raw memory evidence');
+assert.doesNotMatch(code.renderer, /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/, 'diagnostic renderer must not import raw memory modules');
+assert.doesNotMatch(code.renderer, /\b(?:mem_ptr_addr|data_mem_ptr|load<Diag>|size_of<Diag>)\b/, 'diagnostic renderer must not scan Diags through raw Vec storage');
+assert.match(code.renderer, /fn\s+diags_to_string\s+<\(&Diags\)->str>[\s\S]*v::len<Diag>[\s\S]*diags_to_string_loop\s+items\s+items_len\s+0\s+""/, 'diagnostic renderer must observe Diags through the borrowed Vec boundary');
+assert.match(code.renderer, /fn\s+diags_to_string_loop\s+<\(&Vec<Diag>,i32,i32,str\)->str>[\s\S]*match\s+v::get<Diag>\s+items\s+i:/, 'diagnostic renderer traversal must use Vec.get rather than raw loads');
 
 const lineLimits = {
     root: 80,
@@ -60,6 +65,7 @@ const lineLimits = {
     diag: 220,
     diags: 190,
     outcome: 340,
+    renderer: 190,
 };
 
 for (const [name, limit] of Object.entries(lineLimits)) {
