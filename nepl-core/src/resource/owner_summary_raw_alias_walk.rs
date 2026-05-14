@@ -1,0 +1,164 @@
+use alloc::vec::Vec;
+
+use super::model::{Place, ResourceOp};
+use super::owner_raw_view::RawAddressViewTable;
+use super::owner_summary_raw_transfer::{
+    push_transferred_raw_owner_view_aliases, push_transferred_value_aliases,
+    push_transferred_value_aliases_from,
+};
+use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
+
+pub(super) fn collect_raw_owner_aliases_with_views(
+    ops: &[ResourceOp],
+    aliases: &mut Vec<Place>,
+    raw_views: &mut RawAddressViewTable,
+) {
+    for op in ops {
+        match op {
+            ResourceOp::Read { source, output, .. }
+            | ResourceOp::Move { source, output, .. }
+            | ResourceOp::RawAddressAlias {
+                source,
+                target: output,
+                ..
+            } => {
+                push_transferred_value_aliases(aliases, raw_views, source, output);
+            }
+            ResourceOp::RawAddressView {
+                source,
+                target: output,
+                kind,
+                ..
+            } => {
+                push_transferred_raw_owner_view_aliases(aliases, raw_views, source, output, *kind);
+            }
+            ResourceOp::Assign { target, value, .. } => {
+                push_transferred_value_aliases(aliases, raw_views, value, target);
+            }
+            ResourceOp::DeclareLocal {
+                place,
+                initializer: Some(initializer),
+                ..
+            } => {
+                push_transferred_value_aliases(aliases, raw_views, initializer, place);
+            }
+            ResourceOp::Construct {
+                output,
+                kind,
+                inputs,
+                ..
+            } => {
+                for (index, input) in inputs.iter().enumerate() {
+                    let field = construct_aggregate_field_place(output, kind, index, input);
+                    push_transferred_value_aliases(aliases, raw_views, input, &field);
+                }
+            }
+            ResourceOp::Branch {
+                output,
+                then_ops,
+                then_value,
+                else_ops,
+                else_value,
+                ..
+            } => collect_branch_raw_owner_aliases(
+                aliases, raw_views, output, then_ops, then_value, else_ops, else_value,
+            ),
+            ResourceOp::Loop {
+                condition_ops,
+                body_ops,
+                ..
+            } => {
+                collect_raw_owner_aliases_with_views(condition_ops, aliases, raw_views);
+                collect_raw_owner_aliases_with_views(body_ops, aliases, raw_views);
+            }
+            ResourceOp::Match {
+                output,
+                scrutinee,
+                arms,
+                ..
+            } => {
+                let mut arm_output_raw_views = Vec::new();
+                for arm in arms {
+                    let mut arm_aliases = aliases.clone();
+                    let mut arm_raw_views = raw_views.clone();
+                    if let Some(bind_local) = &arm.bind_local {
+                        if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
+                            push_transferred_value_aliases(
+                                &mut arm_aliases,
+                                &mut arm_raw_views,
+                                &source,
+                                bind_local,
+                            );
+                        }
+                    }
+                    collect_raw_owner_aliases_with_views(
+                        &arm.ops,
+                        &mut arm_aliases,
+                        &mut arm_raw_views,
+                    );
+                    let mut output_raw_views = raw_views.clone();
+                    push_transferred_value_aliases_from(
+                        aliases,
+                        &mut output_raw_views,
+                        &arm.value,
+                        output,
+                        &arm_aliases,
+                        &arm_raw_views,
+                    );
+                    arm_output_raw_views.push(output_raw_views);
+                }
+                if !arm_output_raw_views.is_empty() {
+                    *raw_views = RawAddressViewTable::merge_paths(&arm_output_raw_views);
+                }
+            }
+            ResourceOp::Expr { .. }
+            | ResourceOp::DeclareLocal {
+                initializer: None, ..
+            }
+            | ResourceOp::Borrow { .. }
+            | ResourceOp::Drop { .. }
+            | ResourceOp::EndScope { .. }
+            | ResourceOp::CallEffect { .. }
+            | ResourceOp::FunctionValue { .. }
+            | ResourceOp::Call { .. }
+            | ResourceOp::IndirectCall { .. }
+            | ResourceOp::RawMemory { .. }
+            | ResourceOp::StorageOrigin { .. } => {}
+        }
+    }
+}
+
+fn collect_branch_raw_owner_aliases(
+    aliases: &mut Vec<Place>,
+    raw_views: &mut RawAddressViewTable,
+    output: &Place,
+    then_ops: &[ResourceOp],
+    then_value: &Place,
+    else_ops: &[ResourceOp],
+    else_value: &Place,
+) {
+    let mut then_aliases = aliases.clone();
+    let mut then_raw_views = raw_views.clone();
+    collect_raw_owner_aliases_with_views(then_ops, &mut then_aliases, &mut then_raw_views);
+    let mut else_aliases = aliases.clone();
+    let mut else_raw_views = raw_views.clone();
+    collect_raw_owner_aliases_with_views(else_ops, &mut else_aliases, &mut else_raw_views);
+    push_transferred_value_aliases_from(
+        aliases,
+        raw_views,
+        then_value,
+        output,
+        &then_aliases,
+        &then_raw_views,
+    );
+    let mut else_output_raw_views = raw_views.clone();
+    push_transferred_value_aliases_from(
+        aliases,
+        &mut else_output_raw_views,
+        else_value,
+        output,
+        &else_aliases,
+        &else_raw_views,
+    );
+    *raw_views = RawAddressViewTable::merge_paths(&[raw_views.clone(), else_output_raw_views]);
+}

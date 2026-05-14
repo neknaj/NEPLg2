@@ -1,3 +1,18 @@
+# 2026-05-15 Agent 1 Resource owner raw view policy drift 修正
+
+- `ISS-20260514T150630865Z-RESOURCE-OWNER-RAW-VIEW-POLICY-DRIFT-6883F812` を追加して解決した。
+- Resource IR responsibility policy が旧 `raw_address_view_carries_owner_alias` helper を監視しており、現行の `RawOwnerAliasTransferKind` ベースの owner alias transfer 分類を監視できていない問題を修正した。
+- `RawAddressViewKind::NonOwningProjection` は projection view、既存 non-owning view 由来の `Offset` は non-owning view、owner-carrying `Offset` は owner alias transfer として扱う分岐を source policy と Rust unit test の両方で固定した。
+- policy 実行で露出した Resource IR helper の責務集中もあわせて分割した。`owner_summary_raw_alias` / `owner_summary_raw_use` は recursive walk を専用 module へ、`owner_summary_update` は canonicalization と test を分離し、`summary_worklist` は初期順序構築を分離した。
+- `initialized_alias_i32_condition` は i32 条件証明の query context と relation condition 推論を別 module に分け、メモリ安全に関わる scalar condition 証明の責務境界を明確化した。
+- 検証:
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `cargo test -p nepl-core --lib owner_summary -- --nocapture`: 6/6 pass
+  - `cargo test -p nepl-core --lib summary_worklist -- --nocapture`: 1/1 pass
+  - `cargo test -p nepl-core --lib initialized_alias_i32 -- --nocapture`: 2/2 pass
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 4/5 の Resource IR 責務境界を source policy と module 分割で維持するもの。
+
 # 2026-05-14 Agent 1 compiler memory field boundary 修正
 
 - `ISS-20260514T141413028Z-COMPILER-MEMORY-FIELDS-BYPASS-RAW-ME-E1E6DAC6` を追加して解決した。

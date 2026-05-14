@@ -130,10 +130,12 @@ for (const moduleName of [
     'owner_raw_view_model.rs',
     'owner_raw_view_table.rs',
     'owner_summary.rs',
+    'owner_summary_canonicalize.rs',
     'owner_summary_consumed.rs',
     'owner_summary_i32_leaf.rs',
     'owner_summary_parameters.rs',
     'owner_summary_raw_alias.rs',
+    'owner_summary_raw_alias_walk.rs',
     'owner_summary_variant_build.rs',
     'owner_summary_variant_conditions.rs',
     'owner_summary_variant_construct.rs',
@@ -147,8 +149,11 @@ for (const moduleName of [
     'owner_summary_update.rs',
     'owner_summary_leaf.rs',
     'owner_summary_raw_consumption.rs',
+    'owner_summary_raw_transfer_tests.rs',
     'owner_summary_raw_use.rs',
+    'owner_summary_raw_use_walk.rs',
     'owner_summary_raw_view_return.rs',
+    'owner_summary_update_tests.rs',
     'owner_summary_record.rs',
     'owner_summary_storage_origin.rs',
     'owner_summary_variant_leaf.rs',
@@ -166,7 +171,10 @@ for (const moduleName of [
     'variant_name.rs',
     'summary.rs',
     'summary_dependency.rs',
+    'summary_index.rs',
     'summary_worklist.rs',
+    'summary_worklist_order.rs',
+    'summary_worklist_tests.rs',
     'timing.rs',
     'effect.rs',
     'effect_check.rs',
@@ -209,8 +217,10 @@ for (const moduleName of [
     'initialized_alias_flow.rs',
     'initialized_alias_i32.rs',
     'initialized_alias_i32_condition.rs',
+    'initialized_alias_i32_condition_context.rs',
     'initialized_alias_i32_condition_tests.rs',
     'initialized_alias_i32_facts.rs',
+    'initialized_alias_i32_relation_condition.rs',
     'initialized_alias_origin.rs',
     'initialized_alias_rank.rs',
     'initialized_alias_relation.rs',
@@ -311,14 +321,17 @@ for (const moduleDecl of [
     'mod owner_raw_view_model;',
     'mod owner_raw_view_table;',
     'mod owner_summary;',
+    'mod owner_summary_canonicalize;',
     'mod owner_summary_consumed;',
     'mod owner_summary_i32_leaf;',
     'mod owner_summary_parameters;',
     'mod owner_summary_raw_alias;',
+    'mod owner_summary_raw_alias_walk;',
     'mod owner_summary_update;',
     'mod owner_summary_variant_build;',
     'mod owner_summary_raw_consumption;',
     'mod owner_summary_raw_use;',
+    'mod owner_summary_raw_use_walk;',
     'mod owner_summary_raw_view_return;',
     'mod owner_summary_variant_conditions;',
     'mod owner_summary_variant_construct;',
@@ -385,8 +398,10 @@ for (const moduleDecl of [
     'mod initialized_alias_flow;',
     'mod initialized_alias_i32;',
     'mod initialized_alias_i32_condition;',
+    'mod initialized_alias_i32_condition_context;',
     'mod initialized_alias_i32_condition_tests;',
     'mod initialized_alias_i32_facts;',
+    'mod initialized_alias_i32_relation_condition;',
     'mod initialized_alias_origin;',
     'mod initialized_alias_rank;',
     'mod initialized_alias_relation;',
@@ -442,7 +457,9 @@ for (const moduleDecl of [
     'mod initialized_summary_variant_unique;',
     'mod initialized_variant;',
     'mod summary_dependency;',
+    'mod summary_index;',
     'mod summary_worklist;',
+    'mod summary_worklist_order;',
     'mod timing;',
     'mod lower_call;',
     'mod lower_aggregate;',
@@ -813,22 +830,72 @@ assertContains(
 );
 const rawOwnerAliasPolicy = braceBlock(
     ownerSummaryRawTransfer,
-    'fn raw_address_view_carries_owner_alias',
+    'fn raw_owner_alias_transfer_kind',
     'owner_summary_raw_transfer.rs',
 );
 assertContains(
     ownerSummaryRawTransfer,
-    'if !raw_address_view_carries_owner_alias(kind) {',
+    'enum RawOwnerAliasTransferKind',
+    'owner_summary_raw_transfer.rs',
+);
+const rawOwnerAliasTransfer = braceBlock(
+    ownerSummaryRawTransfer,
+    'pub(super) fn push_transferred_raw_owner_view_aliases',
     'owner_summary_raw_transfer.rs',
 );
 assertContains(
-    rawOwnerAliasPolicy,
-    'RawAddressViewKind::Offset => true',
+    rawOwnerAliasTransfer,
+    'match raw_owner_alias_transfer_kind(raw_views, source, kind) {',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasTransfer,
+    'RawOwnerAliasTransferKind::NonOwningProjection => {',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasTransfer,
+    'raw_views.mark_non_owning_projection(target);',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasTransfer,
+    'RawOwnerAliasTransferKind::NonOwning => {',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasTransfer,
+    'raw_views.mark_non_owning(target);',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasTransfer,
+    'RawOwnerAliasTransferKind::OwnerAlias => {',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasTransfer,
+    'push_transferred_aliases(aliases, source, target)',
     'owner_summary_raw_transfer.rs raw owner alias policy',
 );
 assertContains(
     rawOwnerAliasPolicy,
-    'RawAddressViewKind::NonOwningProjection => false',
+    'RawAddressViewKind::NonOwningProjection => RawOwnerAliasTransferKind::NonOwningProjection',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasPolicy,
+    'RawAddressViewKind::Offset if raw_views.contains_non_owning_projection(source) =>',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasPolicy,
+    'RawAddressViewKind::Offset if raw_views.contains_non_owning(source) =>',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasPolicy,
+    'RawAddressViewKind::Offset => RawOwnerAliasTransferKind::OwnerAlias',
     'owner_summary_raw_transfer.rs raw owner alias policy',
 );
 assertNotContains(
@@ -958,10 +1025,12 @@ const maxLines = new Map([
     ['owner_raw_view_model.rs', 60],
     ['owner_raw_view_table.rs', 160],
     ['owner_summary.rs', 460],
+    ['owner_summary_canonicalize.rs', 240],
     ['owner_summary_consumed.rs', 80],
     ['owner_summary_i32_leaf.rs', 220],
     ['owner_summary_parameters.rs', 100],
     ['owner_summary_raw_alias.rs', 140],
+    ['owner_summary_raw_alias_walk.rs', 180],
     ['owner_summary_raw_transfer.rs', 150],
     ['owner_summary_variant_build.rs', 360],
     ['owner_summary_resolved_variant.rs', 260],
@@ -978,10 +1047,13 @@ const maxLines = new Map([
     ['owner_summary_update.rs', 100],
     ['owner_summary_leaf.rs', 260],
     ['owner_summary_raw_consumption.rs', 140],
+    ['owner_summary_raw_transfer_tests.rs', 120],
     ['owner_summary_raw_use.rs', 160],
+    ['owner_summary_raw_use_walk.rs', 240],
     ['owner_summary_raw_view_return.rs', 90],
     ['owner_summary_record.rs', 260],
     ['owner_summary_storage_origin.rs', 60],
+    ['owner_summary_update_tests.rs', 140],
     ['owner_summary_variant_leaf.rs', 80],
     ['owner_summary_variant_projection.rs', 100],
     ['owner_return.rs', 220],
@@ -998,7 +1070,10 @@ const maxLines = new Map([
     ['owner_variant_value_condition.rs', 220],
     ['variant_name.rs', 80],
     ['summary_dependency.rs', 220],
+    ['summary_index.rs', 80],
     ['summary_worklist.rs', 100],
+    ['summary_worklist_order.rs', 80],
+    ['summary_worklist_tests.rs', 120],
     ['timing.rs', 80],
     ['trait_identity.rs', 80],
     ['type_pattern.rs', 120],
@@ -1051,8 +1126,10 @@ const maxLines = new Map([
     ['initialized_alias_flow.rs', 550],
     ['initialized_alias_flow_tests.rs', 180],
     ['initialized_alias_i32_condition.rs', 200],
+    ['initialized_alias_i32_condition_context.rs', 120],
     ['initialized_alias_i32_condition_tests.rs', 80],
     ['initialized_alias_i32_facts.rs', 180],
+    ['initialized_alias_i32_relation_condition.rs', 120],
     ['initialized_alias_i32.rs', 80],
     ['initialized_alias_origin.rs', 160],
     ['initialized_alias_rank.rs', 120],

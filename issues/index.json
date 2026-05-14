@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T15:02:03.380Z",
+  "generated_at": "2026-05-14T15:19:53.720Z",
   "counts": {
-    "total": 766,
+    "total": 767,
     "open": 6,
-    "resolved": 760,
+    "resolved": 761,
     "by_area": {
       "stdlib": {
         "total": 201,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 393,
+        "total": 394,
         "open": 0,
-        "resolved": 393
+        "resolved": 394
       },
       "CORE": {
         "total": 1,
@@ -5968,6 +5968,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T141413028Z-COMPILER-MEMORY-FIELDS-BYPASS-RAW-ME-E1E6DAC6.md"
+    },
+    {
+      "id": "ISS-20260514T150630865Z-RESOURCE-OWNER-RAW-VIEW-POLICY-DRIFT-6883F812",
+      "title": "Resource owner raw view policy drift after transfer kind split",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/owner_summary_raw_transfer.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T150630865Z-RESOURCE-OWNER-RAW-VIEW-POLICY-DRIFT-6883F812.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
