@@ -157,14 +157,15 @@ pub fn sort_quick_ret <.T: Ord&Copy> <(Vec<.T>)->Vec<.T>> (v):
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let storage <VecStorageState> get v "storage"
-    let data_ptr <MemPtr<.T>> get v "data"
+    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
+    let region <RegionToken<.T>> get v "region"
     if:
         le n 1
         then ()
         else:
             sort_quick_range_data<.T> data_ptr 0 sub n 1;
             ()
-    Vec<.T> n cap storage data_ptr
+    Vec<.T> n cap storage region
 
 //: sort: default sort として quick sort を実行する
 //:

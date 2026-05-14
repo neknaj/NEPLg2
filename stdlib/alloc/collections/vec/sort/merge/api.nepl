@@ -86,10 +86,11 @@ pub fn sort_merge_ret <.T: Ord&Copy> <(Vec<.T>)*>Result<Vec<.T>, StdErrorKind>> 
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let storage <VecStorageState> get v "storage"
-    let data_ptr <MemPtr<.T>> get v "data"
+    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
+    let region <RegionToken<.T>> get v "region"
     if:
         le n 1
-        then Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap storage data_ptr
+        then Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap storage region
         else:
             match alloc_ptr<.T> mul n size_of<.T>:
                 Result::Err _e:
@@ -98,6 +99,6 @@ pub fn sort_merge_ret <.T: Ord&Copy> <(Vec<.T>)*>Result<Vec<.T>, StdErrorKind>> 
                     sort_merge_range_data<.T> data_ptr buf 0 n;
                     match dealloc_ptr<.T> buf mul n size_of<.T>:
                         Result::Ok _:
-                            Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap storage data_ptr
+                            Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap storage region
                         Result::Err _:
                             #intrinsic "unreachable" <> ()

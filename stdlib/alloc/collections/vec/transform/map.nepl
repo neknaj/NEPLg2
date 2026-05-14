@@ -20,6 +20,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../raw" as vec_raw
 #import "../query/get" as vec_get
+#import "../access/data" as vec_data
 #import "core/field" as *
 
 //: map: [各要素/かくようそ]を[同/おな]じ[規則/きそく]で[変換/へんかん]する
@@ -76,7 +77,7 @@ pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKin
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
             let out_storage <VecStorageState> *field::get_ref &out0 "storage"
-            let out_data <MemPtr<.U>> field::get out0 "data"
+            let out_data <MemPtr<.U>> vec_data::data_mem_ptr<.U> &out0
             let mut i <i32> 0
             while lt i src_len:
                 do:
@@ -87,4 +88,4 @@ pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKin
                             ()
                     set i add i 1
             vec_cleanup::free<.T> v
-            Result::Ok<Vec<.U>, StdErrorKind> Vec<.U> src_len out_cap out_storage out_data
+            Result::Ok<Vec<.U>, StdErrorKind> Vec<.U> src_len out_cap out_storage field::get out0 "region"

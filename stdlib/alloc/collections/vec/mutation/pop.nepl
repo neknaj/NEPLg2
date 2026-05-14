@@ -13,6 +13,7 @@
 #import "../types" as *
 #import "../storage" as vec_storage
 #import "../raw" as vec_raw
+#import "../access/data" as vec_data
 #import "core/field" as *
 
 //: ## pop
@@ -72,11 +73,12 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"
-    let v_data <MemPtr<.T>> field::get v "data"
+    let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &v
+    let v_region <RegionToken<.T>> field::get v "region"
     if:
         eq v_len 0
         then:
-            VecPop<.T> (Vec<.T> v_len v_cap v_storage v_data) none<.T>
+            VecPop<.T> (Vec<.T> v_len v_cap v_storage v_region) none<.T>
         else:
             match v_storage:
                 VecStorageState::Empty:
@@ -84,7 +86,7 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
                 VecStorageState::Owned:
                     let next_len <i32> sub v_len 1
                     let item <.T> vec_raw::vec_read_at<.T> v_data next_len
-                    VecPop<.T> (Vec<.T> next_len v_cap VecStorageState::Owned v_data) some<.T> item
+                    VecPop<.T> (Vec<.T> next_len v_cap VecStorageState::Owned v_region) some<.T> item
 
 //: ## drop_last
 //: [末尾/まつび][要素/ようそ]を[捨/す]て、次の `Vec` owner だけを[返/かえ]す
@@ -119,6 +121,6 @@ pub fn drop_last <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"
-    let v_data <MemPtr<.T>> field::get v "data"
+    let v_region <RegionToken<.T>> field::get v "region"
     let next_len <i32> if eq v_len 0 0 sub v_len 1
-    Vec<.T> next_len v_cap v_storage v_data
+    Vec<.T> next_len v_cap v_storage v_region

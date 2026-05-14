@@ -4,7 +4,7 @@
 - `ByteBuf` / `ByteBuilder` は owned byte storage を `Option<MemPtr<u8>>` field として保持する過渡設計をやめ、`RegionToken<u8>` を free obligation owner として保持する構造へ移した。
 - `MemPtr<u8>` は `io_bytebuf_data_ptr_ref` / `byte_builder_data_ptr_ref` で参照から得る non-owning view に限定し、fs / stdio / streamio / text の利用側も旧 `ptr` field を直接見ない形へ同期した。
 - ResourceIR function summary が non-owning projection 由来の `mem_ptr_add` を owner alias と誤認していたため、raw owner alias traversal に raw view state を持たせ、`region_ptr` 由来の offset view が free obligation を運ばないことを証明できるようにした。
-- `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional baseline は `RegionToken.ptr` と `Vec.data` の 2 件になった。
+- この時点で `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional baseline は `RegionToken.ptr` と `Vec.data` の 2 件になった。その後の Vec owner 境界修正で、現 baseline は `RegionToken.ptr` の 1 件である。
 - plan.md との差分:
   - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の `MemPtr = non-owning pointer` 方針に沿って、stdlib byte buffer owner 境界と ResourceIR summary を同期するもの。
 
@@ -38123,3 +38123,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/alloc/string/builder -i stdlib/alloc/string/builder_ext.nepl -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent1-stringbuilder-bytebuilder-string.json -j 1 --dist web/dist`: 20/20 pass
   - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuilder-bytebuf-surface-noraw.json -j 1 --dist web/dist`: 9/9 pass
   - `node nodesrc/tests.js -i stdlib/alloc/string/builder -i stdlib/alloc/string/builder_ext.nepl -i tests/stdlib/nm.n.md -i tests/stdlib/selfhost_req.n.md -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/agent1-stringbuilder-bytebuilder-focused.json -j 1 --dist web/dist`: 13/15 pass。`selfhost_req` の 2 件は `len` / `unwrap_ok` import drift で、今回対象の StringBuilder doctest は pass。別 issue `ISS-20260514T071055890Z-SELFHOST-REQ-DOCTESTS-STILL-RELY-ON--F9CC30E7` として記録。
+
+# 2026-05-14 Agent 1 メモ (ISS-20260514T085248522Z Vec RegionToken owner 境界)
+
+- Stage 6 の `MemPtr = non-owning pointer` 方針に合わせ、`Vec<T>` の `data: MemPtr<T>` owner field を削除した。
+- 根本原因は、`VecStorageState` で Empty / Owned を分けても backing storage owner が raw pointer field である限り、Resource IR と source policy が non-owning pointer と free obligation owner を同じ型で追う必要が残ること。
+- 修正後の `Vec<T>` は `region: RegionToken<T>` を持つ。`data_mem_ptr<T>` / `vec_storage_mem_ptr<T>` / sort・map・filter・prefix・mutation 系は `RegionToken<T>` 参照から non-owning `MemPtr<T>` view を得て、戻り値には `RegionToken<T>` owner を移す。
+- allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`、grow failure cleanup は `vec_realloc_region_or_free<T>` に集約した。
+- `nodesrc/test_stdlib_memptr_owner_field_policy.js` の baseline は 1 transitional field へ下がった。残件は `RegionToken.ptr` だけである。
+- この修正は `OwnedBuffer<T>` 完成ではない。`RegionToken<T>` の forgeable 性、initialized prefix、non-Copy payload drop traversal、owner-preserving fallible update は Stage D / `RV-STDLIB-004` の残件として継続する。
+- 集約 source policy 監査では、Vec 側の `unreachable` は排除した一方、既存の `ByteBuilder` grow cleanup に同種の unsafe helper が残っていることを確認した。これは `ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` として分離した。
+- 検証:
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass (`1 transitional field(s)`)
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib\alloc\collections\vec --no-tree -o tmp\agent1-vec-region-token-owner-doctests.json -j 1 --dist web/dist`: 41/41 pass
+  - `node nodesrc/tests.js -i tests\stdlib\vec_collections.n.md -i tests\stdlib\sort.n.md -i tests\stdlib\sort_simple.n.md -i tests\stdlib\capacity_stack.n.md -i tests\stdlib\collection_cleanup_contract.n.md --no-tree -o tmp\agent1-vec-region-token-owner-focused-tests.json -j 1 --dist web/dist`: 33/33 pass

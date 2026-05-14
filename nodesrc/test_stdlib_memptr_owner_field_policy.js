@@ -12,10 +12,6 @@ const transitionalFields = new Map([
         "stdlib/core/mem/types.nepl::RegionToken.ptr::MemPtr<.T>",
         "core owner token before compiler-issued OwnedRegion replaces forgeable RegionToken construction",
     ],
-    [
-        "stdlib/alloc/collections/vec/types.nepl::Vec.data::MemPtr<.T>",
-        "Vec backing storage until OwnedBuffer<T> carries the free obligation",
-    ],
 ]);
 
 const observedFields = collectMemPtrStructFields(stdlibRoot);

@@ -21,7 +21,7 @@
 //: - `len` を 0 にして、[確保済/かくほず]み[領域/りょういき]を[再利用/さいりよう]できる[空/から]ベクタを[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - `data` と `cap` はそのままに、`len` だけを 0 にします。
+//: - `region` と `cap` はそのままに、`len` だけを 0 にします。
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ]メモリは[解放/かいほう]しません。
@@ -50,17 +50,17 @@
 pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"
-    let v_data <MemPtr<.T>> field::get v "data"
-    Vec<.T> 0 v_cap v_storage v_data
+    let v_region <RegionToken<.T>> field::get v "region"
+    Vec<.T> 0 v_cap v_storage v_region
 
 //: ## free
 //: [内部/ないぶ]メモリを[解放/かいほう]する
 //:
 //: ### [目的/もくてき]
-//: - `Vec<.T>` が[所有/しょゆう]する `data` [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
+//: - `Vec<.T>` が[所有/しょゆう]する `region` [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - `cap` は `&v` から Copy field として[読/よ]み、`data` owner は `vec/storage` の cleanup helper へ[移動/いどう]します。
+//: - `region` owner は `vec/storage` の cleanup helper へ[移動/いどう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
@@ -84,7 +84,4 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //:     0
 //: ```
 pub fn free <.T: Copy> <(Vec<.T>)->()> (v):
-    let v_cap <i32> *field::get_ref &v "cap"
-    let v_storage <VecStorageState> *field::get_ref &v "storage"
-    let v_data <MemPtr<.T>> field::get v "data"
-    vec_storage::vec_free_storage<.T> v_storage v_data v_cap
+    vec_storage::vec_free_storage<.T> field::get v "region"

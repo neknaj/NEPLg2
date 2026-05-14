@@ -127,7 +127,8 @@ pub fn sort_heap_ret <.T: Ord&Copy> <(Vec<.T>)->Vec<.T>> (v):
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let storage <VecStorageState> get v "storage"
-    let data_ptr <MemPtr<.T>> get v "data"
+    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
+    let region <RegionToken<.T>> get v "region"
     if:
         le n 1
         then ()
@@ -146,4 +147,4 @@ pub fn sort_heap_ret <.T: Ord&Copy> <(Vec<.T>)->Vec<.T>> (v):
                     sort_heap_sift_down_data<.T> data_ptr 0 end;
                     set end sub end 1;
             ()
-    Vec<.T> n cap storage data_ptr
+    Vec<.T> n cap storage region

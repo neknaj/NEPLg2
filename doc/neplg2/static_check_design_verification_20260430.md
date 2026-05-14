@@ -36,7 +36,7 @@ NEPLg2 の静的検査が、型安全・メモリ安全を「実装上も設計�
 | Diagnostic code | Rust core は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` の階層 enum と stable string 境界へ移行済み。 | 方向は正しい。 | `Cell` / `Owner` 分離を維持し、self-host も同じ category contract へ揃える。 |
 | self-host diagnostic | 現在の S1/S2 用 code は enum 化済み。 | 現段階では妥当。 | S3 以降で Type / Effect / Resource / Backend category を Rust と同じ contract で追加する。 |
 | stdlib mem/string/io | ByteBuf / ByteBuilder は `RegionToken<u8>` owner field へ移行し、`MemPtr<u8>` は参照から得る non-owning view に限定した。StringBuilder は `ByteBuilder` owner wrapper である。 | 過渡として妥当。 | forgeable `RegionToken` から `OwnedRegion` / `OwnedBytes` / compiler-issued token へ移行する。 |
-| stdlib collections | `HashMap` / `HashSet` は enum bucket state、Queue / Deque / RingBuffer / Stack / BinaryHeap / BTreeMap / BTreeSet / List / byte・numeric collection は typed `Vec` storage へ移行済み。`Vec` は `VecStorageState` を持つが、基礎 storage はまだ `MemPtr` owner field に依存する。 | 改善中だが self-host 中核にはまだ制限が必要。 | `OwnedBuffer`、`StorageState`、owner-preserving fallible result、collection-wide drop traversal へ再設計する。 |
+| stdlib collections | `HashMap` / `HashSet` は enum bucket state、Queue / Deque / RingBuffer / Stack / BinaryHeap / BTreeMap / BTreeSet / List / byte・numeric collection は typed `Vec` storage へ移行済み。`Vec` は `VecStorageState` と `RegionToken<T>` owner field を持ち、`MemPtr<T>` は参照から得る non-owning view に限定した。 | 改善中だが self-host 中核にはまだ制限が必要。 | forgeable `RegionToken` から `OwnedBuffer`、`StorageState`、owner-preserving fallible result、initialized prefix、collection-wide drop traversal へ再設計する。 |
 
 ## 確認結果
 
@@ -48,7 +48,7 @@ NEPLg2 の静的検査が、型安全・メモリ安全を「実装上も設計�
 2. `passes::insert_drops` が Resource IR check より前に HIR 上で drop を挿入している。
 3. Resource IR の `CellState` / `OwnerState` diagnostic は `resource.cell.*` / `resource.owner.*` へ分離されたが、旧 `passes::move_check::run` との二重 authority はまだ残っている。
 4. raw-memory-boundary capability が file/source 単位の移行中許可として残っている。
-5. `MemPtr<T>` / `RegionToken<T>` が stdlib struct として forge 可能で、owner token と non-owning pointer の分離が完了していない。
+5. `MemPtr<T>` は stdlib public state の owner field から外れつつあるが、`RegionToken<T>` は stdlib struct として forge 可能であり、compiler-issued owner token と non-owning pointer projection の分離は完了していない。
 6. collections が safety-critical state を enum ではなく null pointer / numeric status / raw header layout で表している。
 
 これらは表面的な bug ではなく、静的検査の authority をどこに置くかという設計問題である。したがって、今後も旧 checker の special-case を増やす方向は不可とする。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T08:42:13.228Z",
+  "generated_at": "2026-05-14T09:38:50.282Z",
   "counts": {
-    "total": 756,
-    "open": 6,
-    "resolved": 750,
+    "total": 758,
+    "open": 7,
+    "resolved": 751,
     "by_area": {
       "stdlib": {
-        "total": 194,
-        "open": 4,
-        "resolved": 190
+        "total": 196,
+        "open": 5,
+        "resolved": 191
       },
       "TEST": {
         "total": 21,
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E",
+      "title": "ByteBuilder grow cleanup still uses unreachable on dealloc failure",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/io/bytebuilder/storage.nepl, nodesrc/test_stdlib_no_unsafe_helpers.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -8833,6 +8848,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159.md"
+    },
+    {
+      "id": "ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A",
+      "title": "Vec stores backing storage as MemPtr owner field instead of RegionToken owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/collections/vec/**, nodesrc/test_stdlib_memptr_owner_field_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

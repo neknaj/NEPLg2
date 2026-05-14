@@ -673,3 +673,9 @@ Fenwick / SegmentTree / DisjointSet の numeric storage read helper は `vec::ge
 この issue が対象にしていた「collection の public owner state が数値 / null / raw header / raw node に残る」問題は、HashMap / HashSet / Stack / Queue / Deque / RingBuffer / BinaryHeap / BTreeMap / BTreeSet / BitSet / SparseSet / Fenwick / SegmentTree / DisjointSet / AdjacencyMatrix / BloomFilter / CountingBloomFilter / List の typed storage 移行により完了とする。
 
 残る `Vec<T>` の `OwnedBuffer<T>` 化、`core/mem` の owner token 化、non-Copy payload の drop traversal / fallible update owner contract は、この issue ではなく `ISS-20260425T000000Z-RV-STDLIB-004-91534828`、`ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`、`ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`、`ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` で継続する。
+
+## 2026-05-14 Agent 1 現状同期追記
+
+この issue の完了判定時点では `Vec<T>` の根本残件を `len/cap/data: MemPtr<T>` と記録していた。その後 `ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A` で `Vec.data` は削除され、現在の `Vec<T>` は `len/cap/storage/region: RegionToken<T>` を持つ。
+
+したがって、この issue の対象だった「collection の public owner state が数値 / null / raw header / raw node に残る」問題は引き続き fixed のままとする。現行残件は raw header ではなく、forgeable `RegionToken<T>` から compiler-issued `OwnedBuffer<T>` / initialized prefix / non-Copy drop traversal へ進める Stage 6 / Stage D の問題である。

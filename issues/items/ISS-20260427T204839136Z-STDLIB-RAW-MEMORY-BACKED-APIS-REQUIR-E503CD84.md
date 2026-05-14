@@ -194,6 +194,18 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 これにより `MemPtr` owner-like field policy の transitional baseline は `RegionToken.ptr`、`Vec.data` の 2 件になった。残る Stage 6 の主対象は `Vec` / `OwnedBuffer<T>` と、forgeable `RegionToken` を compiler-issued owner token へ移す設計である。
 
+## 2026-05-14 Agent 1 Vec RegionToken owner 境界追記
+
+`ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A` で、`Vec<T>` の `data: MemPtr<T>` owner field を削除した。
+
+`MemPtr<T>` は non-owning pointer / projection として固定する方針であり、collection の基礎 storage owner を `MemPtr<T>` field に置き続けると Stage 6 の Resource IR は owner と view の二重責務を追い続けることになる。修正後の `Vec<T>` は `region: RegionToken<T>` を free obligation owner として持ち、`data_mem_ptr<T>` / `vec_storage_mem_ptr<T>` / sort・transform・mutation 系は `RegionToken<T>` 参照から non-owning `MemPtr<T>` view を得る。
+
+allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`、grow failure cleanup は `vec_realloc_region_or_free<T>` に集約した。これにより `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional baseline は `RegionToken.ptr` の 1 件だけになった。
+
+この親 issue は引き続き open とする。`RegionToken<T>` はまだ forgeable であり、`OwnedBuffer<T>` / initialized prefix / non-Copy payload drop traversal / owner-preserving fallible collection update は Stage 6 の残件である。
+
+同じ監査で、`byte_builder_realloc_region_or_free` の realloc failure cleanup が `dealloc_ptr` 失敗時に `#intrinsic "unreachable"` へ落ちる未解決問題を確認した。これは今回の Vec owner field 削除とは別件であり、`ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` として分離した。
+
 ## 2026-05-13 Agent 1 region_ptr_at alignment proof 追記
 
 `ISS-20260513T100047236Z-REGION-PTR-AT-RETURNS-TYPED-MEMPTR-W-39BD1C91` で、`region_ptr_at` が byte bounds だけを検査して `MemPtr<U>` を返していた問題を修正した。

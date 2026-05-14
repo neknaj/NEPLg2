@@ -20,6 +20,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../raw" as vec_raw
 #import "../query/get" as vec_get
+#import "../access/data" as vec_data
 
 //: filter: [条件/じょうけん]を[満/み]たす[要素/ようそ]だけを[残/のこ]す
 //:
@@ -82,7 +83,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
             let out_storage <VecStorageState> *field::get_ref &out0 "storage"
-            let out_data <MemPtr<.T>> field::get out0 "data"
+            let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
             let mut read_i <i32> 0
             let mut write_i <i32> 0
             while lt read_i src_len:
@@ -99,7 +100,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
                             ()
                     set read_i add read_i 1
             vec_cleanup::free<.T> v
-            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_storage out_data
+            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_storage field::get out0 "region"
 
 //: partition: [条件/じょうけん]で 2 [群/ぐん]に[分/わ]ける
 //:
@@ -171,10 +172,10 @@ pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, Std
                 Result::Ok right0:
                     let left_cap <i32> *field::get_ref &left0 "cap"
                     let left_storage <VecStorageState> *field::get_ref &left0 "storage"
-                    let left_data <MemPtr<.T>> field::get left0 "data"
+                    let left_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &left0
                     let right_cap <i32> *field::get_ref &right0 "cap"
                     let right_storage <VecStorageState> *field::get_ref &right0 "storage"
-                    let right_data <MemPtr<.T>> field::get right0 "data"
+                    let right_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &right0
                     let mut read_i <i32> 0
                     let mut left_i <i32> 0
                     let mut right_i <i32> 0
@@ -194,4 +195,4 @@ pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, Std
                                     ()
                             set read_i add read_i 1
                     vec_cleanup::free<.T> v
-                    Result::Ok<VecPartition<.T>, StdErrorKind> VecPartition<.T> (Vec<.T> left_len left_cap left_storage left_data) (Vec<.T> right_len right_cap right_storage right_data)
+                    Result::Ok<VecPartition<.T>, StdErrorKind> VecPartition<.T> (Vec<.T> left_len left_cap left_storage field::get left0 "region") (Vec<.T> right_len right_cap right_storage field::get right0 "region")

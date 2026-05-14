@@ -2,7 +2,7 @@
 //: `Vec` の data view observer
 //:
 //: ### [目的/もくてき]
-//: - storage state を `VecStorageState` の match 経由に[揃/そろ]え、empty storage を raw null owner として[扱/あつか]わない data view を[所有/しょゆう]します。
+//: - storage state を `VecStorageState` の match 経由に[揃/そろ]え、`RegionToken` owner から borrowed data view だけを[取/と]り[出/だ]します。
 
 #indent 4
 
@@ -21,7 +21,7 @@
 //: - [既存/きぞん] API との[互換/ごかん]のため、`MemPtr<.T>` の[番地/ばんち]を `i32` として[取/と]り[出/だ]します。
 //:
 //: ### [実装/じっそう]
-//: - field `data` の `MemPtr<.T>` を `mem_ptr_addr` で raw address に[戻/もど]します。
+//: - field `region` の `RegionToken<.T>` を借用し、`MemPtr<.T>` view を `mem_ptr_addr` で raw address に[戻/もど]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [返/かえ]り[値/あたい]は[生/なま]アドレスなので、[範囲/はんい]・[寿命/じゅみょう]・[再確保/さいかくほ]を[呼/よ]び[出/だ]し[側/がわ]で[管理/かんり]する[必要/ひつよう]があります。
@@ -62,8 +62,8 @@
 //: ```
 pub fn data_ptr <.T: Copy> <(&Vec<.T>)->i32> (v):
     let v_storage <VecStorageState> *field::get_ref v "storage"
-    let v_data <MemPtr<.T>> *field::get_ref v "data"
-    mem_ptr_addr vec_storage_mem_ptr<.T> v_storage v_data
+    let v_region <&RegionToken<.T>> field::get_ref v "region"
+    mem_ptr_addr vec_storage_mem_ptr<.T> v_storage v_region
 
 //: ## data_mem_ptr
 //: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
@@ -72,7 +72,7 @@ pub fn data_ptr <.T: Copy> <(&Vec<.T>)->i32> (v):
 //: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付きポインタとして[安全/あんぜん]に[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - field `data` をそのまま[返/かえ]します。
+//: - field `region` を借用し、`region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
@@ -115,5 +115,5 @@ pub fn data_ptr <.T: Copy> <(&Vec<.T>)->i32> (v):
 //: ```
 pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
     let v_storage <VecStorageState> *field::get_ref v "storage"
-    let v_data <MemPtr<.T>> *field::get_ref v "data"
-    vec_storage_mem_ptr<.T> v_storage v_data
+    let v_region <&RegionToken<.T>> field::get_ref v "region"
+    vec_storage_mem_ptr<.T> v_storage v_region

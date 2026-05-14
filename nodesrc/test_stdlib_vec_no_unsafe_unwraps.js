@@ -182,7 +182,7 @@ for (const name of ['vec_alloc_empty', 'new', 'with_capacity']) {
     assert.match(vecStorageAllocCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/alloc.nepl must own ${name}`);
 }
 assert.match(vecStorageCleanupCode, /\bfn\s+vec_free_storage\b/, 'vec/storage/cleanup.nepl must own vec_free_storage');
-assert.match(vecStorageCleanupCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>\s+<\(VecStorageState,MemPtr<\.T>,i32\)->\(\)>/, 'vec/storage/cleanup.nepl storage-only cleanup must remain Copy-only until element drop traversal exists');
+assert.match(vecStorageCleanupCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>\s+<\(RegionToken<\.T>\)->\(\)>/, 'vec/storage/cleanup.nepl storage-only cleanup must consume the RegionToken owner and remain Copy-only until element drop traversal exists');
 assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must own filled');
 for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
@@ -197,7 +197,7 @@ for (const name of ['len', 'cap', 'is_empty']) {
 for (const name of ['data_ptr', 'data_mem_ptr']) {
     assert.match(vecAccessDataCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/data.nepl must own ${name}`);
 }
-assert.match(vecStorageViewCode, /fn\s+vec_storage_mem_ptr\s+<\.T:\s*Copy>\s+<\(VecStorageState,MemPtr<\.T>\)->MemPtr<\.T>>/, 'Vec storage pointer view must remain Copy-only until non-Copy borrowed element APIs exist');
+assert.match(vecStorageViewCode, /fn\s+vec_storage_mem_ptr\s+<\.T:\s*Copy>\s+<\(VecStorageState,&RegionToken<\.T>\)->MemPtr<\.T>>/, 'Vec storage pointer view must borrow RegionToken and remain Copy-only until non-Copy borrowed element APIs exist');
 assert.match(vecAccessDataCode, /fn\s+data_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->i32>/, 'Vec.data_ptr must remain Copy-only because it exposes raw storage identity');
 assert.match(vecAccessDataCode, /fn\s+data_mem_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->MemPtr<\.T>>/, 'Vec.data_mem_ptr must remain Copy-only because it exposes raw storage identity');
 assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_ptr<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>/, 'Vec raw data observers must reject non-Copy payloads in doctests');
@@ -298,12 +298,12 @@ for (const relPath of [
 ]) {
     assert.match(readImplementation(relPath), rawBoundaryEvidencePattern, `${relPath} must carry source-level raw memory boundary evidence`);
 }
-assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*data\s+<MemPtr<\.T>>/, 'Vec must separate enum owner state from the raw pointer field so Resource IR can track memory cells');
-assert.match(vecCode, /fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+mem_ptr_wrap\s+0/, 'Vec.empty must construct typed Empty storage');
-assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T:\s*Copy>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*VecStorageState::Owned\s+data/, 'Vec empty construction must use Empty for zero capacity, Owned for allocated storage, and remain Copy-only');
+assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*region\s+<RegionToken<\.T>>/, 'Vec must keep free obligation in a RegionToken field and not in a raw MemPtr field');
+assert.match(vecCode, /fn\s+vec_empty_region\s+<\.T>\s+<\(\)->RegionToken<\.T>>[\s\S]*region_new\s+ptr\s+0[\s\S]*fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+vec_empty_region<\.T>/, 'Vec.empty must construct typed Empty storage with a zero-length RegionToken sentinel');
+assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T:\s*Copy>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*alloc_region<\.T>\s+requested_cap[\s\S]*VecStorageState::Owned\s+region/, 'Vec empty construction must use Empty for zero capacity, Owned for allocated RegionToken storage, and remain Copy-only');
 assert.match(vecCode, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*vec_alloc_empty<\.T>\s+8/, 'Vec.new must remain Copy-only until non-Copy cleanup exists');
 assert.match(vecStorageAllocSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*new<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*with_capacity<NonCopyPayload>/, 'Vec allocation constructors must reject non-Copy payloads in doctests');
-assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>[\s\S]*match\s+storage:[\s\S]*VecStorageState::Empty:[\s\S]*\(\)[\s\S]*VecStorageState::Owned:[\s\S]*match\s+dealloc_ptr<\.T>\s+data\s+mul\s+cap\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'Vec.free must deallocate through exhaustive VecStorageState matching and Copy-only typed owner-consuming cleanup');
+assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>[\s\S]*match\s+dealloc_region<\.T>\s+region:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*\(\)/, 'Vec.free must deallocate by consuming the RegionToken owner and treat the zero-size sentinel as no-op');
 assert.match(withCapacitySection, /vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must delegate empty storage allocation to vec_alloc_empty');
 assert.doesNotMatch(vecCode, /(?:->|Result<)\.Pair\b|Tuple:/, 'Vec must not return owner-carrying Vec pairs through anonymous .Pair/Tuple values');
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Vec.pop result must be a named struct with an owned Vec field');
@@ -311,19 +311,19 @@ assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s
 for (const relPath of walkNeplFiles(path.join(repoRoot, 'stdlib'))) {
     assert.doesNotMatch(readImplementation(relPath), /\b(?:[a-zA-Z_][\w]*::)?Vec<[^>\n]+>\s+0\s+0\s+mem_ptr_wrap\s+0/, `${relPath} must use Vec.empty typed storage instead of raw null owner sentinel`);
 }
-assert.match(pushSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.push must read typed storage state before moving the data owner from the consumed input Vec');
-assert.match(pushSection, /match\s+v_storage:[\s\S]*VecStorageState::Empty:[\s\S]*alloc_ptr<\.T>\s+new_bytes[\s\S]*VecStorageState::Owned\s+grown_data[\s\S]*VecStorageState::Owned:[\s\S]*realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes/, 'Vec.push must use match over Empty/Owned storage when growing');
-assert.match(popSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.pop must move the data owner and typed storage state into the returned Vec');
+assert.match(pushSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_region\s+<RegionToken<\.T>>\s+field::get\s+v\s+"region"/, 'Vec.push must read typed storage state before moving the RegionToken owner from the consumed input Vec');
+assert.match(pushSection, /match\s+v_storage:[\s\S]*VecStorageState::Empty:[\s\S]*alloc_region<\.T>\s+grown_cap[\s\S]*VecStorageState::Owned\s+grown_region[\s\S]*VecStorageState::Owned:[\s\S]*vec_realloc_region_or_free<\.T>\s+v_region\s+grown_cap/, 'Vec.push must use match over Empty/Owned storage when growing and keep owner transfer in RegionToken form');
+assert.match(popSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+vec_data::data_mem_ptr<\.T>\s+&v[\s\S]*let\s+v_region\s+<RegionToken<\.T>>\s+field::get\s+v\s+"region"/, 'Vec.pop must borrow a data view before moving the RegionToken owner into the returned Vec');
 assert.match(popSection, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, 'Vec.pop must return named VecPop and remain Copy-only until initialized slot move state exists');
 assert.match(popSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*struct\s+NonCopyPayload:[\s\S]*pop<NonCopyPayload>/, 'Vec.pop must reject non-Copy payloads until OwnedBuffer initialized cell move-out exists');
 assert.match(clearSection, /fn\s+clear\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->Vec<\.T>>/, 'Vec.clear must remain Copy-only until initialized element drop traversal exists');
-assert.match(clearSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.clear must explicitly move the data owner into the returned Vec with its storage state');
+assert.match(clearSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_region\s+<RegionToken<\.T>>\s+field::get\s+v\s+"region"/, 'Vec.clear must explicitly move the RegionToken owner into the returned Vec with its storage state');
 assert.match(freeSection, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->\(\)>/, 'Vec.free must remain Copy-only until initialized element drop traversal exists');
-assert.match(freeSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"[\s\S]*vec_free_storage<\.T>\s+v_storage\s+v_data\s+v_cap/, 'Vec.free must explicitly move data before freeing through VecStorageState');
-assert.match(mapSection, /let\s+out_storage\s+<VecStorageState>\s+\*field::get_ref\s+&out0\s+"storage"[\s\S]*let\s+out_data\s+<MemPtr<\.U>>\s+field::get\s+out0\s+"data"/, 'Vec.map must explicitly move the output data owner from the allocated Vec into the returned Vec');
-assert.match(vecCode, /fn\s+push\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*StdErrorKind>>\s+\(v,\s*item\):[\s\S]*match\s+realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes:[\s\S]*Result::Err\s+_e:[\s\S]*match\s+dealloc_ptr<\.T>\s+v_data\s+old_bytes:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"[\s\S]*Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::OutOfMemory/, 'Vec.push must remain Copy-only and release the consumed old buffer through typed owner cleanup when grow fails');
+assert.match(freeSection, /vec_free_storage<\.T>\s+field::get\s+v\s+"region"/, 'Vec.free must move the RegionToken owner directly into storage cleanup');
+assert.match(mapSection, /let\s+out_storage\s+<VecStorageState>\s+\*field::get_ref\s+&out0\s+"storage"[\s\S]*let\s+out_data\s+<MemPtr<\.U>>\s+vec_data::data_mem_ptr<\.U>\s+&out0/, 'Vec.map must borrow the output data view from RegionToken before moving the output owner into the returned Vec');
+assert.match(vecCode, /fn\s+vec_realloc_region_or_free\s+<\.T:\s*Copy>[\s\S]*match\s+realloc_ptr<\.T>\s+old_ptr\s+old_bytes\s+new_bytes:[\s\S]*Result::Ok\s+grown_ptr:[\s\S]*region_new\s+grown_ptr\s+new_bytes[\s\S]*Result::Err\s+_e:[\s\S]*match\s+dealloc_region<\.T>\s+region:[\s\S]*Result::Err<RegionToken<\.T>,\s*StdErrorKind>\s+StdErrorKind::OutOfMemory/, 'Vec.push must keep grow owner transfer in a RegionToken helper and release the consumed old token on grow failure');
 assert.match(vecCode, /Result::Err\s+e:[\s\S]*vec_cleanup::free<\.T>\s+left0[\s\S]*vec_cleanup::free<\.T>\s+v[\s\S]*Result::Err<VecPartition<\.T>,\s*StdErrorKind>\s+e/, 'Vec.partition right allocation failure must free whole Vec owners instead of splitting storage fields at the call site');
-assert.doesNotMatch(vecTransformFilterCode, /\bleft0_(?:cap|storage|data)\b/, 'Vec.partition must not reintroduce left0 storage field splitting for cleanup');
+assert.doesNotMatch(vecTransformFilterCode, /\bleft0_(?:cap|storage|data|region)\b/, 'Vec.partition must not reintroduce left0 storage field splitting for cleanup');
 assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>,\s*StdErrorKind>>/, 'Vec.partition must return named VecPartition and require Copy elements for safe predicate scans');
 assert.match(countSection, /fn\s+count\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->i32>/, 'Vec.count must be a borrowed observer so callers retain and free the Vec owner');
 assert.match(foldSection, /fn\s+fold\s+<\.T:\s+Copy,\s*\.U>\s+<\(&Vec<\.T>,\s*\.U,\s*\(\.U,\.T\)->\.U\)->\.U>/, 'Vec.fold must borrow the Vec owner and copy elements into the reducer');
@@ -357,7 +357,7 @@ assert.doesNotMatch(sortFamilyCode, /fn\s+\w+\s+<\.T>\s+</, 'Vec sort raw load/s
 assert.doesNotMatch(sortFamilyCode, /fn\s+\w+\s+<\.T:\s*Ord>\s+</, 'Vec sort algorithms must require Ord&Copy until non-Copy move/drop-aware sorting exists');
 assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord&Copy>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own Copy-only range traversal and delegate scratch access');
 assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord&Copy>[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge must remain Copy-only and release scratch buffer with typed owner cleanup');
-assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord&Copy>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge_ret must remain Copy-only, release scratch buffer with typed owner cleanup, and return the original Vec storage state and data owner');
+assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord&Copy>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+data_mem_ptr<\.T>\s+&v[\s\S]*let\s+region\s+<RegionToken<\.T>>\s+get\s+v\s+"region"[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+region[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge_ret must remain Copy-only, release scratch buffer with typed owner cleanup, and return the original Vec storage state and RegionToken owner');
 
 console.log('vec unsafe unwrap regression passed');
 
@@ -367,7 +367,7 @@ function unexpectedUnreachableLines(code) {
     for (let i = 0; i < lines.length; i += 1) {
         if (!/#intrinsic\s+"unreachable"/.test(lines[i])) continue;
         const window = lines.slice(Math.max(0, i - 5), i + 1).join('\n');
-        if (/\bmatch\s+dealloc_ptr<[^>]+>\s+[^\n]+:[\s\S]*\bResult::Err\s+_:/.test(window)) continue;
+        if (/\bmatch\s+dealloc_(?:ptr|region)<[^>]+>\s+[^\n]+:[\s\S]*\bResult::Err\s+_\w*:/.test(window)) continue;
         unexpected.push(`${i + 1}: ${lines[i].trim()}`);
     }
     return unexpected;

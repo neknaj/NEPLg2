@@ -5,7 +5,7 @@
 //: - empty/owned storage allocation と public constructor をこの module に[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
-//: - この module は direct `alloc_ptr` を[使/つか]うため exact raw-memory boundary です。
+//: - この module は typed `alloc_region` を[使/つか]い、free obligation owner を `RegionToken` に[集約/しゅうやく]します。
 
 #indent 4
 
@@ -20,7 +20,7 @@
 //: [空/から]の `Vec` 用 owned storage を[確保/かくほ]する
 //:
 //: ### [目的/もくてき]
-//: - `cap > 0` の[空/から] `Vec` に対して、`VecStorageState::Owned` の backing storage を[確保/かくほ]します。
+//: - `cap > 0` の[空/から] `Vec` に対して、`VecStorageState::Owned` の backing storage owner token を[確保/かくほ]します。
 //:
 //: ### [実装/じっそう]
 //:
@@ -32,9 +32,9 @@ pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (reques
         then:
             Result::Ok<Vec<.T>, StdErrorKind> view::vec_empty<.T>
         else:
-            match alloc_ptr<.T> mul requested_cap size_of<.T>:
-                Result::Ok data:
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 requested_cap VecStorageState::Owned data
+            match alloc_region<.T> requested_cap:
+                Result::Ok region:
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 requested_cap VecStorageState::Owned region
                 Result::Err _e:
                     Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
 
@@ -45,8 +45,8 @@ pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (reques
 //: - [空/から]の `Vec<.T>` を[返/かえ]し、`push` [連鎖/れんさ]の[起点/きてん]として[使/つか]えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - [初期/しょき][容量/ようりょう]を 8 とし、その byte [数/すう]だけ typed `alloc_ptr<.T>` で[確保/かくほ]します。
-//: - `len = 0`、`cap = 8`、`data = allocated pointer` の struct を[返/かえ]します。
+//: - [初期/しょき][容量/ようりょう]を 8 とし、その要素数ぶん typed `alloc_region<.T>` で[確保/かくほ]します。
+//: - `len = 0`、`cap = 8`、`region = allocated token` の struct を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [初期/しょき][容量/ようりょう]は[固定値/こていち] 8 です。
@@ -96,7 +96,7 @@ pub fn new <.T: Copy> <()->Result<Vec<.T>, StdErrorKind>> ():
 //: - [事前/じぜん]に[必要/ひつよう]な[容量/ようりょう]が[分/わ]かっている[場面/ばめん]で、[再確保/さいかくほ]を[減/へ]らした `Vec<.T>` を[作/つく]ります。
 //:
 //: ### [実装/じっそう]
-//: - [指定/してい]した `cap` に[応/おう]じて typed `alloc_ptr<.T>` を[呼/よ]び、`len = 0` で[返/かえ]します。
+//: - [指定/してい]した `cap` に[応/おう]じて typed `alloc_region<.T>` を[呼/よ]び、`len = 0` で[返/かえ]します。
 //: - `cap = 0` は null pointer sentinel ではなく、`VecStorageState::Empty` に[正規化/せいきか]します。
 //:
 //: ### [注意/ちゅうい]
