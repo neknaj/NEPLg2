@@ -401,6 +401,16 @@ assertContains(
     'source_capability/owner_aggregate.rs',
 );
 assertContains(
+    sourceCapabilityOwnerAggregate,
+    'crate::qualified_name::member_tail(symbol) != symbol',
+    'owner aggregate constructor evidence must ignore qualified enum variants',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_ignores_qualified_enum_variant_constructors()',
+    'loader.rs owner aggregate enum variant regression',
+);
+assertContains(
     sourceCapabilityScope,
     'struct SourceCapabilityScope',
     'source_capability/scope.rs',

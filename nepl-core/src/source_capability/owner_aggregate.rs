@@ -13,7 +13,7 @@ impl OwnerAggregateBoundaryEvidence {
         let base = helper_base_name(name);
         match base {
             "get" | "get_ref" | "put" | "get_field" | "get_field_ref" => Some(Self::FieldAccessor),
-            _ if constructor_like_symbol(base) => Some(Self::AggregateConstructor),
+            _ if constructor_like_symbol(name, base) => Some(Self::AggregateConstructor),
             _ => None,
         }
     }
@@ -117,8 +117,11 @@ fn prefix_item_owner_aggregate_boundary_evidence(
     }
 }
 
-fn constructor_like_symbol(name: &str) -> bool {
-    name.as_bytes()
+fn constructor_like_symbol(symbol: &str, base: &str) -> bool {
+    if crate::qualified_name::member_tail(symbol) != symbol {
+        return false;
+    }
+    base.as_bytes()
         .first()
         .is_some_and(|byte| byte.is_ascii_uppercase())
 }

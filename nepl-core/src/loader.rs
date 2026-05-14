@@ -917,6 +917,24 @@ mod tests {
     }
 
     #[test]
+    fn owner_aggregate_boundary_ignores_qualified_enum_variant_constructors() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "result_user.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <()->i32> ():\n    Result::Ok 1\n",
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_boundary(),
+            "qualified enum variants are not owner-backed aggregate constructor evidence"
+        );
+    }
+
+    #[test]
     fn owner_aggregate_boundary_rejects_user_source_even_with_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&path_from_segments("C:/nepl-test/user", &["vec_like.nepl"]));

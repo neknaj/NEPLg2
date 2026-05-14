@@ -383,3 +383,11 @@ BFS の距離配列と queue は `Vec<i32>` で初期化し、`v::get` / `v::rep
 `sort_is_sorted` は `Vec.get` / `Option` による borrowed observer に変更し、`sort/merge` root facade も public API だけを再公開する。raw traversal を必要とする implementation module は explicit raw submodule を import するため、Stage 6 の safe facade / raw implementation boundary が source layout と source policy の両方で見える。
 
 この親 issue は引き続き open とする。今回閉じたのは Vec sort facade の raw re-export であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / non-Copy payload drop traversal は Stage 6 の残件である。
+
+## 2026-05-15 Agent 1 owner aggregate source capability 精度追記
+
+`ISS-20260514T211956079Z-OWNER-AGGREGATE-BOUNDARY-TREATS-QUAL-8D858CD3` として、compiler の source capability 判定が `Result::Ok` などの qualified enum variant を owner aggregate constructor evidence と誤分類していた問題を分離して修正した。
+
+`OwnerAggregateBoundary` は owner-backed aggregate constructor / owner token field projection を許可する capability なので、configured stdlib source であっても通常の enum variant construction だけを証拠にして付与してはいけない。修正後は constructor-like evidence を unqualified symbol に限定し、`Result::Ok` / `Option::Some` のような qualified enum variant は capability 証拠から外した。`field::get` / `field::get_ref` などの explicit field accessor evidence と、`Vec` のような unqualified owner aggregate constructor evidence は維持している。
+
+これにより Stage 6 の raw-memory-backed stdlib migration を支える compiler 側の source proof が過大付与にならず、ordinary result/option construction が owner aggregate boundary の静的検査を緩める経路を閉じた。親 issue は引き続き open とし、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行を継続する。

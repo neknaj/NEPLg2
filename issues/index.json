@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T21:07:27.364Z",
+  "generated_at": "2026-05-14T21:23:47.423Z",
   "counts": {
-    "total": 794,
+    "total": 795,
     "open": 8,
-    "resolved": 786,
+    "resolved": 787,
     "by_area": {
       "stdlib": {
         "total": 224,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 395,
+        "total": 396,
         "open": 0,
-        "resolved": 395
+        "resolved": 396
       },
       "CORE": {
         "total": 1,
@@ -6028,6 +6028,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84.md"
+    },
+    {
+      "id": "ISS-20260514T211956079Z-OWNER-AGGREGATE-BOUNDARY-TREATS-QUAL-8D858CD3",
+      "title": "Owner aggregate boundary treats qualified enum variants as aggregate constructor evidence",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/source_capability/owner_aggregate.rs, nepl-core/src/loader.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T211956079Z-OWNER-AGGREGATE-BOUNDARY-TREATS-QUAL-8D858CD3.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

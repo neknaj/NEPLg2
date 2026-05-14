@@ -38471,3 +38471,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/agent1-vec-sort-facade-module.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/agent1-vec-sort-facade-raw-boundary-sort-tests.json -j 1 --dist web/dist --assert-io`
+
+## 2026-05-15 Agent 1 owner aggregate source capability 精度修正
+
+- `ISS-20260514T211956079Z-OWNER-AGGREGATE-BOUNDARY-TREATS-QUAL-8D858CD3` を追加して fixed にした。
+- `OwnerAggregateBoundary` の source evidence 判定が `Result::Ok` のような qualified enum variant を uppercase constructor と誤分類していた問題を修正した。
+- constructor evidence は unqualified constructor-like symbol のみに限定し、`field::get` / `field::get_ref` などの explicit field accessor evidence は維持した。
+- `loader` の unit regression に、configured stdlib source が `Result::Ok` を使うだけでは owner aggregate capability を得ないケースを追加した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、qualified enum variant を capability evidence にしない source policy 監視を追加した。
+- focused verification:
+  - `cargo test -p nepl-core owner_aggregate_boundary_ --lib`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
