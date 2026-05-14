@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T20:38:40.933Z",
+  "generated_at": "2026-05-14T21:07:27.364Z",
   "counts": {
-    "total": 793,
+    "total": 794,
     "open": 8,
-    "resolved": 785,
+    "resolved": 786,
     "by_area": {
       "stdlib": {
-        "total": 223,
+        "total": 224,
         "open": 5,
-        "resolved": 218
+        "resolved": 219
       },
       "TEST": {
         "total": 21,
@@ -9343,6 +9343,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T203142216Z-KPSEARCH-STILL-IMPLEMENTS-PUBLIC-VEC-0D1AFA1D.md"
+    },
+    {
+      "id": "ISS-20260514T204735670Z-VEC-SORT-FACADE-RE-EXPORTS-RAW-MEMPT-6646B4EF",
+      "title": "Vec sort facade re-exports raw MemPtr sort helpers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/vec/sort*.nepl, stdlib/alloc/collections/vec/sort/**, tests/stdlib/sort.n.md, nodesrc/test_stdlib_vec_sort_module_split.js, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T204735670Z-VEC-SORT-FACADE-RE-EXPORTS-RAW-MEMPT-6646B4EF.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

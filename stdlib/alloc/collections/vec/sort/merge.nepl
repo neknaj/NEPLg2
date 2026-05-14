@@ -1,14 +1,12 @@
 //: merge: stable merge sort facade
 //:
 //: [目的/もくてき]:
-//: - merge sort の scratch buffer 操作、range merge、public API を re-export します。
-//: - raw memory boundary は facade ではなく、直接 raw intrinsic を使う submodule に限定します。
+//: - merge sort の public API だけを canonical facade から re-export します。
+//: - scratch buffer と range merge の raw `MemPtr` helper は `merge/api` が内部 import し、facade からは公開しません。
 //:
 //: [注意/ちゅうい]:
 //: - stable sort が必要な caller は `sort_merge` または `sort_merge_ret` を使います。
 
 #indent 4
 
-pub #import "./merge/buffer" as *
-pub #import "./merge/range" as *
 pub #import "./merge/api" as *

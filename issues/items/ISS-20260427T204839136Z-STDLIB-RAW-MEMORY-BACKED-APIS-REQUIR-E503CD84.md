@@ -373,3 +373,13 @@ BFS の距離配列と queue は `Vec<i32>` で初期化し、`v::get` / `v::rep
 `unique_sorted_vec_i32` は sorted Vec を in-place に圧縮するため owner-consuming API のまま残し、内部は `Vec.get` / `Vec.replace` で compaction する。caller は query 後に入力 owner を保持したまま free でき、unique 後は `UniqueSortedVecI32` が owner を保持する。
 
 これにより KP module 群の public graph/search/prefix/DSU/Fenwick helper から raw storage identity を直接扱う入口を閉じた。今後は `Vec` / collection 本体の internal raw-memory-backed implementation と `OwnedBuffer<T>` / compiler-issued owner token migration を継続する。
+
+## 2026-05-15 Agent 1 Vec sort facade raw boundary 追記
+
+`ISS-20260514T204735670Z-VEC-SORT-FACADE-RE-EXPORTS-RAW-MEMPT-6646B4EF` として、canonical `alloc/collections/vec/sort` facade が raw `MemPtr` helper と raw slice sort adapter を再公開していた問題を分離して修正した。
+
+今回の修正では、unchecked read/write/swap を `sort/raw/access`、raw quick-sort traversal を `sort/raw/quick`、raw heap helper を `sort/raw/heap` に移し、safe root facade は `sort_quick` / `sort_heap` / `sort_merge` / simple sort / `sort_is_sorted` などの `Vec` API だけを公開する構成にした。`sort_i32` は raw address discipline を ordinary sort facade に固定する入口だったため、互換 alias を残さず削除した。
+
+`sort_is_sorted` は `Vec.get` / `Option` による borrowed observer に変更し、`sort/merge` root facade も public API だけを再公開する。raw traversal を必要とする implementation module は explicit raw submodule を import するため、Stage 6 の safe facade / raw implementation boundary が source layout と source policy の両方で見える。
+
+この親 issue は引き続き open とする。今回閉じたのは Vec sort facade の raw re-export であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / non-Copy payload drop traversal は Stage 6 の残件である。

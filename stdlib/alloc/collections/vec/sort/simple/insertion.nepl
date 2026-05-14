@@ -10,6 +10,7 @@
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
+#import "alloc/collections/vec/sort/raw/access" as *
 
 //: sort_insertion: insertion sort で in-place 整列する
 //:

@@ -38,6 +38,10 @@ const files = {
     simpleSelection: "stdlib/alloc/collections/vec/sort/simple/selection.nepl",
     simpleExchange: "stdlib/alloc/collections/vec/sort/simple/exchange.nepl",
     simpleGap: "stdlib/alloc/collections/vec/sort/simple/gap.nepl",
+    raw: "stdlib/alloc/collections/vec/sort/raw.nepl",
+    rawAccess: "stdlib/alloc/collections/vec/sort/raw/access.nepl",
+    rawQuick: "stdlib/alloc/collections/vec/sort/raw/quick.nepl",
+    rawHeap: "stdlib/alloc/collections/vec/sort/raw/heap.nepl",
     quick: "stdlib/alloc/collections/vec/sort/quick.nepl",
     heap: "stdlib/alloc/collections/vec/sort/heap.nepl",
     merge: "stdlib/alloc/collections/vec/sort/merge.nepl",
@@ -56,6 +60,7 @@ for (const moduleName of ["common", "simple", "quick", "heap", "merge"]) {
 
 assert.doesNotMatch(impl.facade, /\bfn\s+/, "vec/sort facade must not own sort implementations");
 assert.doesNotMatch(impl.simple, /\bfn\s+/, "vec/sort/simple facade must not own sort implementations");
+assert.doesNotMatch(impl.raw, /\bfn\s+/, "vec/sort/raw facade must not own raw sort implementations");
 assert.doesNotMatch(impl.merge, /\bfn\s+/, "vec/sort/merge facade must not own merge sort implementations");
 
 for (const moduleName of ["insertion", "selection", "exchange", "gap"]) {
@@ -63,10 +68,12 @@ for (const moduleName of ["insertion", "selection", "exchange", "gap"]) {
     assert.match(sources.simple, pattern, `vec/sort/simple facade must re-export simple/${moduleName}`);
 }
 
-for (const moduleName of ["buffer", "range", "api"]) {
-    const pattern = new RegExp(`pub\\s+#import\\s+"\\./merge/${moduleName}"\\s+as\\s+\\*`);
-    assert.match(sources.merge, pattern, `vec/sort/merge facade must re-export merge/${moduleName}`);
+for (const moduleName of ["access", "quick", "heap"]) {
+    const pattern = new RegExp(`pub\\s+#import\\s+"\\./raw/${moduleName}"\\s+as\\s+\\*`);
+    assert.match(sources.raw, pattern, `vec/sort/raw facade must re-export raw/${moduleName}`);
 }
+assert.match(sources.merge, /pub\s+#import\s+"\.\/merge\/api"\s+as\s+\*/, "vec/sort/merge facade must re-export only the public merge API");
+assert.doesNotMatch(sources.merge, /pub\s+#import\s+"\.\/merge\/(?:buffer|range)"\s+as\s+\*/, "vec/sort/merge facade must not re-export raw merge buffer/range helpers");
 
 for (const [key, limit] of [
     ["facade", 90],
@@ -76,8 +83,12 @@ for (const [key, limit] of [
     ["simpleSelection", 80],
     ["simpleExchange", 150],
     ["simpleGap", 150],
-    ["quick", 240],
-    ["heap", 190],
+    ["raw", 40],
+    ["rawAccess", 110],
+    ["rawQuick", 90],
+    ["rawHeap", 100],
+    ["quick", 150],
+    ["heap", 140],
     ["merge", 80],
     ["mergeBuffer", 80],
     ["mergeRange", 140],
@@ -91,15 +102,22 @@ for (const name of [
     "sort_le",
     "sort_gt",
     "sort_ge",
+    "sort_is_sorted",
+]) {
+    assertOwns(impl.common, name, files.common);
+    assertNotOwns(impl.facade, name, files.facade);
+}
+
+for (const name of [
     "sort_get_unchecked",
     "sort_set_unchecked",
     "sort_get_unchecked_data",
     "sort_set_unchecked_data",
     "sort_swap_data",
     "sort_swap",
-    "sort_is_sorted",
 ]) {
-    assertOwns(impl.common, name, files.common);
+    assertOwns(impl.rawAccess, name, files.rawAccess);
+    assertNotOwns(impl.common, name, files.common);
     assertNotOwns(impl.facade, name, files.facade);
 }
 
@@ -117,22 +135,29 @@ for (const [moduleKey, names] of [
 }
 
 for (const name of [
-    "sort_quick_partition_data",
-    "sort_quick_range_data",
     "sort_quick",
-    "sort_slice_quick",
-    "sort_i32",
     "sort_quick_ret",
     "sort",
 ]) {
     assertOwns(impl.quick, name, files.quick);
     assertNotOwns(impl.facade, name, files.facade);
 }
+for (const name of ["sort_quick_partition_data", "sort_quick_range_data", "sort_slice_quick"]) {
+    assertOwns(impl.rawQuick, name, files.rawQuick);
+    assertNotOwns(impl.quick, name, files.quick);
+    assertNotOwns(impl.facade, name, files.facade);
+}
+for (const [key, source] of Object.entries(impl)) {
+    assert.doesNotMatch(source, /\bsort_i32\b/, `${files[key]} must not expose the removed raw sort_i32 adapter`);
+}
 
-for (const name of ["sort_heap_sift_down_data", "sort_heap", "sort_heap_ret"]) {
+for (const name of ["sort_heap", "sort_heap_ret"]) {
     assertOwns(impl.heap, name, files.heap);
     assertNotOwns(impl.facade, name, files.facade);
 }
+assertOwns(impl.rawHeap, "sort_heap_sift_down_data", files.rawHeap);
+assertNotOwns(impl.heap, "sort_heap_sift_down_data", files.heap);
+assertNotOwns(impl.facade, "sort_heap_sift_down_data", files.facade);
 
 for (const name of ["sort_buf_get", "sort_buf_set"]) {
     assertOwns(impl.mergeBuffer, name, files.mergeBuffer);

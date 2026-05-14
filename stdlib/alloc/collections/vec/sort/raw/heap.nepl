@@ -1,0 +1,71 @@
+//: raw/heap: heap sort の raw heap traversal
+//:
+//: [目的/もくてき]:
+//: - max-heap の sift-down を raw `MemPtr` implementation boundary に閉じます。
+//: - public heap sort API は `sort/heap.nepl` の `Vec` based wrapper だけを使います。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "../common" as *
+#import "./access" as *
+
+//: sort_heap_sift_down_data: max-heap の root を下へ沈める
+//:
+//: [目的/もくてき]:
+//: - heap sort の heapify と extraction 後の復元で、`start` から `end` までの heap 条件を回復します。
+//:
+//: [実装/じっそう]:
+//: - root と左右 child を比較し、最大 child と交換しながら下へ進みます。
+//:
+//: [注意/ちゅうい]:
+//: - `[0, end)` が有効な raw storage 内にあることを caller が保証します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(log n)
+pub fn sort_heap_sift_down_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)*>()> (data_ptr, start, end):
+    let mut root <i32> start;
+    let mut done <i32> 0;
+
+    while eq done 0:
+        do:
+            let doubled_root <i32> mul root 2;
+            let child <i32> add doubled_root 1;
+            if:
+                lt child end
+                then:
+                    let mut swap_idx <i32> root;
+
+                    let swap_v <.T> sort_get_unchecked_data<.T> data_ptr swap_idx;
+                    let child_v <.T> sort_get_unchecked_data<.T> data_ptr child;
+                    if:
+                        sort_lt<.T> swap_v child_v
+                        then set swap_idx child
+                        else ()
+
+                    let right <i32> add child 1;
+                    if:
+                        lt right end
+                        then:
+                            let swap_v2 <.T> sort_get_unchecked_data<.T> data_ptr swap_idx;
+                            let right_v <.T> sort_get_unchecked_data<.T> data_ptr right;
+                            if:
+                                sort_lt<.T> swap_v2 right_v
+                                then set swap_idx right
+                                else ()
+                            ()
+                        else ()
+
+                    if:
+                        eq swap_idx root
+                        then set done 1
+                        else:
+                            sort_swap_data<.T> data_ptr root swap_idx;
+                            set root swap_idx;
+                            ();
+                    ()
+                else set done 1
+
+    ()

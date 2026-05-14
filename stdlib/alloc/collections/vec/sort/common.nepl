@@ -1,19 +1,16 @@
-//: common: sort algorithms で共有する比較と raw access helper
+//: common: sort algorithms で共有する比較と safe observer
 //:
 //: [目的/もくてき]:
-//: - `Vec` sort family の比較規約と unchecked raw access を 1 箇所に集約します。
-//: - algorithm module が個別に raw load/store 境界を再定義しないようにします。
+//: - `Vec` sort family の比較規約と sortedness observer を 1 箇所に集約します。
+//: - canonical sort facade から raw `MemPtr` helper を公開しないよう、unchecked access は `sort/raw/access` に分離します。
 //:
 //: [注意/ちゅうい]:
-//: - unchecked helper の index 境界は caller が保証します。
 //: - 現行 sort family は raw load/store による in-place swap を使うため、`OwnedBuffer<T>` と move/drop-aware sort が入るまでは `.T: Copy` に限定します。
 
 #indent 4
 
-#import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 //: sort_lt: sort 内部の strict less-than predicate
@@ -72,91 +69,6 @@ pub fn sort_gt <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
 pub fn sort_ge <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
     ord_ge a b
 
-
-//: sort_get_unchecked: `Vec` storage から index を検査せずに読む
-//:
-//: [目的/もくてき]:
-//: - sort loop 内で `Vec` の `data` から `.T` を高速に読み出します。
-//:
-//: [実装/じっそう]:
-//: - `data_mem_ptr(v)` で得た typed view から `idx * size_of<.T>` の位置を `load<.T>` します。
-//:
-//: [注意/ちゅうい]:
-//: - `0 <= idx < len(v)` を呼び出し側が保証する内部 helper です。
-//: - この helper は `.T: Copy` 専用です。non-Copy payload の move-out sort は `OwnedBuffer<T>` と initialized cell traversal が入るまで実装しません。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-pub fn sort_get_unchecked <.T: Copy> <(&Vec<.T>,i32)->.T> (v, idx):
-    let data <MemPtr<.T>> data_mem_ptr<.T> v
-    sort_get_unchecked_data<.T> data idx
-
-//: sort_set_unchecked: `Vec` storage へ index を検査せずに書く
-//:
-//: [目的/もくてき]:
-//: - sort loop 内で `.T` を指定 index へ書き戻します。
-//:
-//: [実装/じっそう]:
-//: - `data_mem_ptr(v)` で得た typed view から `idx * size_of<.T>` の位置へ `store<.T>` します。
-//:
-//: [注意/ちゅうい]:
-//: - `0 <= idx < len(v)` と上書き時の drop 義務を呼び出し側が保証する内部 helper です。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-pub fn sort_set_unchecked <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, val):
-    let data <MemPtr<.T>> data_mem_ptr<.T> v
-    sort_set_unchecked_data<.T> data idx val
-
-// sort_get_unchecked_data: data ポインタ版の取得
-pub fn sort_get_unchecked_data <.T: Copy> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):
-    let off <i32> mul idx size_of<.T>
-    load<.T> add mem_ptr_addr data_ptr off
-
-// sort_set_unchecked_data: data ポインタ版の設定
-pub fn sort_set_unchecked_data <.T: Copy> <(MemPtr<.T>,i32,.T)*>()> (data_ptr, idx, val):
-    let off <i32> mul idx size_of<.T>
-    store<.T> add mem_ptr_addr data_ptr off val;
-    ()
-
-// sort_swap_data: data ポインタ版の交換
-pub fn sort_swap_data <.T: Copy> <(MemPtr<.T>,i32,i32)*>()> (data_ptr, i, j):
-    if:
-        eq i j
-        then ()
-        else:
-            let a <.T> sort_get_unchecked_data<.T> data_ptr i
-            let b <.T> sort_get_unchecked_data<.T> data_ptr j
-            sort_set_unchecked_data<.T> data_ptr i b;
-            sort_set_unchecked_data<.T> data_ptr j a;
-            ()
-
-
-//: sort_swap: `Vec` の 2 要素を入れ替える
-//:
-//: [目的/もくてき]:
-//: - sort algorithm が見つけた 2 つの index の値を交換します。
-//:
-//: [実装/じっそう]:
-//: - 2 要素を unchecked load で読み、逆順に unchecked store します。
-//:
-//: [注意/ちゅうい]:
-//: - `i` と `j` が同じ場合は何もしません。
-//: - 両 index は `Vec` の範囲内である必要があります。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-pub fn sort_swap <.T: Copy> <(&Vec<.T>,i32,i32)*>()> (v, i, j):
-    if:
-        eq i j
-        then ()
-        else:
-            let a <.T> sort_get_unchecked<.T> v i
-            let b <.T> sort_get_unchecked<.T> v j
-            sort_set_unchecked<.T> v i b;
-            sort_set_unchecked<.T> v j a;
-            ()
-
 //: sort_is_sorted: `Vec` が昇順か確認する
 //:
 //: [目的/もくてき]:
@@ -173,7 +85,6 @@ pub fn sort_swap <.T: Copy> <(&Vec<.T>,i32,i32)*>()> (v, i, j):
 //: - O(n)
 pub fn sort_is_sorted <.T: Ord&Copy> <(&Vec<.T>)->bool> (v):
     let n <i32> len<.T> v
-    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then true
@@ -182,12 +93,18 @@ pub fn sort_is_sorted <.T: Ord&Copy> <(&Vec<.T>)->bool> (v):
             let mut ok <bool> true
             while and ok lt i n:
                 do:
-                    let a <.T> sort_get_unchecked_data<.T> data_ptr sub i 1;
-                    let b <.T> sort_get_unchecked_data<.T> data_ptr i;
-                    if:
-                        sort_lt<.T> b a
-                        then set ok false
-                        else ()
+                    match get<.T> v sub i 1:
+                        Option::None:
+                            set ok false
+                        Option::Some a:
+                            match get<.T> v i:
+                                Option::None:
+                                    set ok false
+                                Option::Some b:
+                                    if:
+                                        sort_lt<.T> b a
+                                        then set ok false
+                                        else ()
                     set i add i 1;
             ok
 

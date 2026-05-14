@@ -303,6 +303,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - `kpsearch` の lower/upper bound / unique 内部 raw helper は private とし、公開面は `Vec<i32>` owner wrapper だけに揃えた。ordinary source の利用例は raw buffer 構築ではなく `Vec<i32>` による doctest で表す。
 - `vec_storage_mem_ptr<T>(VecStorageState, &RegionToken<T>)` は public helper として残さず削除した。storage state から data view への projection は `data_mem_ptr<T>(&Vec<T>)` が直接 match して所有する。
 - `Vec` の in-place sort family は storage を書き換える API なので、raw write helper、quick / heap / simple sort、raw slice sort adapter、owner-returning sort wrapper、default `sort` を impure `*>` signature へ揃えた。observer の `sort_is_sorted` と比較 helper は pure のまま残し、effect contract でも観察と破壊的更新を分離する。
+- `alloc/collections/vec/sort` root facade は raw `MemPtr` helper と raw slice adapter を再公開しない。raw traversal は `sort/raw/*` に閉じ、ordinary caller は `Vec` の sort API と `sort_is_sorted` observer だけを使う。
 - root `alloc/collections/vec` facade は `vec/raw` を再公開しない。unchecked `vec_read_at` / `vec_write_at` は `alloc/collections/vec/raw` を明示 import した実装境界だけに置き、通常の `Vec` import は safe public surface に限定する。
 - root `std/fs` / `std/stdio` facade は raw ABI submodule を再公開しない。WASI / LLVM syscall helper と raw scratch helper は `std/fs/raw` / `std/stdio/raw` を明示 import した implementation boundary だけに置き、通常の filesystem / standard I/O import は safe public surface に限定する。
 

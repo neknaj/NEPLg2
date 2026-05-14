@@ -2,7 +2,7 @@
 //:
 //: [目的/もくてき]:
 //: - `[l, r)` の再帰分割と stable merge traversal を所有します。
-//: - raw access の実体は `sort/common` と `merge/buffer` に委譲します。
+//: - raw access の実体は `sort/raw/access` と `merge/buffer` に委譲します。
 //:
 //: [注意/ちゅうい]:
 //: - `data_ptr` と `buf` は `.T` を `r` 個分まで安全に読み書きできる領域である必要があります。
@@ -14,6 +14,7 @@
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "../common" as *
+#import "../raw/access" as *
 #import "./buffer" as *
 
 //: ## sort_merge_range_data

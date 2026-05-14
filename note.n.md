@@ -38457,3 +38457,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/kp/kpfenwick.nepl --no-tree -o tmp/agent1-kpfenwick-owner-boundary-module.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i stdlib/kp/kpdsu.nepl --no-tree -o tmp/agent1-kpdsu-owner-boundary-module.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/issues.js check --dir issues`
+
+## 2026-05-15 Agent 1 Vec sort facade raw boundary
+
+- `ISS-20260514T204735670Z-VEC-SORT-FACADE-RE-EXPORTS-RAW-MEMPT-6646B4EF` を追加して fixed にした。
+- canonical `alloc/collections/vec/sort` facade が raw `MemPtr` helper と raw slice sort adapter `sort_i32` を再公開していた問題を修正した。
+- unchecked access は `sort/raw/access`、raw quick traversal は `sort/raw/quick`、raw heap helper は `sort/raw/heap` に分離した。
+- `sort_i32` は互換 alias を残さず削除し、ordinary sort caller は `Vec` API だけを見る構造にした。
+- `sort_is_sorted` は `data_mem_ptr` / unchecked read ではなく `Vec.get` / `Option` による safe observer に変えた。
+- `sort/merge` root facade は public API だけを再公開し、buffer/range raw traversal は internal explicit import に閉じた。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_sort_module_split.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/agent1-vec-sort-facade-module.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/agent1-vec-sort-facade-raw-boundary-sort-tests.json -j 1 --dist web/dist --assert-io`
