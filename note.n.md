@@ -37822,3 +37822,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - nested scope と if branch は branch result も assertion 化し、auto drop epilogue が block/branch value を壊していないことを旧 fixture より直接確認するようにした。
 - runtime の Drop 順序詳細は Rust integration test 側の責務として維持し、この `.n.md` では nodesrc 経路の compile / run と return value 保持を固定している。
 - `node nodesrc/tests.js -i tests/compiler/drop.n.md --no-tree -o tmp/agent1-drop-report-tests.json -j 1 --assert-io --dist web/dist` は total=4, passed=4。
+
+## 2026-05-14 Agent 1 Block semicolon return stdout report doctest migration
+
+- `work/block-semicolon-return-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/block_semicolon_return.n.md` を更新した。
+- block / semicolon 正常系 doctest 4 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- parser / type checker の拒否境界を固定する compile_fail 6 件は変更していない。
+- block last expression、unit context trailing semicolon、if branch value、single-line let semicolon の観測値を assertion label として stdout に固定した。
+- `node nodesrc/tests.js -i tests/compiler/block_semicolon_return.n.md --no-tree -o tmp/agent1-block-semicolon-return-report-tests.json -j 1 --assert-io --dist web/dist` は total=10, passed=10。

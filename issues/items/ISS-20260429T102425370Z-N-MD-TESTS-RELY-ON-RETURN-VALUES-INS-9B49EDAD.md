@@ -687,3 +687,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\drop.n.md --no-tree -o tmp\agent1-drop-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
 
 この issue はまだ open のまま継続する。Drop 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Block semicolon return stdout report migration
+
+`tests/compiler/block_semicolon_return.n.md` の block / semicolon 正常系 doctest 4 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。compile_fail 診断 fixture 6 件は parser / type checker の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- block last expression、unit context trailing semicolon、if branch value、single-line let semicolon の観測値を assertion label として stdout に残すようにした。
+- `;` による unit 化の拒否ケースと許可ケースを同じ file で維持し、成功側も runner output から意味を読める形にした。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\block_semicolon_return.n.md --no-tree -o tmp\agent1-block-semicolon-return-report-tests.json -j 1 --assert-io --dist web/dist`: total=10, passed=10
+
+この issue はまだ open のまま継続する。Block semicolon return 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
