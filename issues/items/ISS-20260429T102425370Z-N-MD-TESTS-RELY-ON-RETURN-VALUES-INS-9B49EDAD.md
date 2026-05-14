@@ -490,3 +490,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\bytebuf_result.n.md --no-tree -o tmp\agent1-bytebuf-result-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
 
 この issue はまだ open のまま継続する。ByteBuf result 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 ByteBuilder stdout report migration
+
+`tests/stdlib/byte_builder.n.md` の ByteBuilder focused doctest 3 件を、`ret: 0` と stdout 期待なしの旧 `checks_*` report から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- WASM header byte、unsigned LEB128 known vector、capacity growth 後の byte 保持を assertion label として stdout に残すようにした。
+- growth case は ordinary doctest から `store_u8` / `mem_ptr_addr` を直接使う形をやめ、`io_bytebuf_from_str_result` と `byte_builder_push_bytebuf` の public API 経由で capacity growth を検証する形へ直した。これにより `resource.raw.memory_outside_boundary` を回避するために静的検査を緩めず、テスト側を現在の raw-memory boundary 方針へ合わせた。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\byte_builder.n.md --no-tree -o tmp\agent1-byte-builder-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
+
+この issue はまだ open のまま継続する。ByteBuilder 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

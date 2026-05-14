@@ -37716,3 +37716,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - ByteBuf / std io / fs / streamio の result roundtrip と allocation failure propagation を assertion label として stdout に固定した。
 - `Result` pattern を使う doctest に `core/result` を明示 import した。
 - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuf-result-report-tests.json -j 1 --assert-io --dist web/dist` は total=6, passed=6。
+
+## 2026-05-14 Agent 1 ByteBuilder stdout report doctest migration
+
+- `work/byte-builder-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/stdlib/byte_builder.n.md` を更新した。
+- ByteBuilder の 3 doctest を `ret: 0` と stdout 期待なしの旧 `checks_*` report から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- WASM header byte、unsigned LEB128 known vector、capacity growth 後の byte 保持を assertion label として stdout に固定した。
+- growth case は ordinary doctest から direct raw memory 操作を外し、`io_bytebuf_from_str_result` と `byte_builder_push_bytebuf` の public API 経由で capacity growth を検証するようにした。これは `resource.raw.memory_outside_boundary` を弱めず、テストを現在の raw-memory boundary 方針へ合わせる修正である。
+- `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/agent1-byte-builder-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。
