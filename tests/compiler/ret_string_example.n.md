@@ -4,12 +4,21 @@
 
 ## return_str
 
-neplg2:test
-ret: "hello"
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"return_str\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"returned string value\" expected=\"hello\" actual=\"hello\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
+#target std
 
-fn main <()->str>():
-    "hello"
+#import "std/test" as *
+
+fn main <()*>i32>():
+    let actual <str> "hello"
+    let report:
+        test_report_new "return_str"
+        |> test_report_push assert_str_eq "returned string value" "hello" actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

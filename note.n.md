@@ -37790,3 +37790,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - compile_fail 診断 fixture は `type.impl.target_not_concrete` を固定する責務なので変更せず、許可ケースの runtime observation だけを stdout report 化した。
 - 抽象化機能の回帰として、generic impl dispatch の成功と generic target 拒否の両方を同じ file で維持している。
 - `node nodesrc/tests.js -i tests/compiler/generic_impl_trait_args.n.md --no-tree -o tmp/agent1-generic-impl-trait-args-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。
+
+## 2026-05-14 Agent 1 Ret string stdout report doctest migration
+
+- `work/ret-string-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/ret_string_example.n.md` を更新した。
+- 旧 `ret: "hello"` による runner 側の string return 復号確認を、NEPL 側の `assert_str_eq` と deterministic `stdout:` expectation へ移行した。
+- `"hello"` の値を `returned string value` assertion として stdout に固定し、戻り値復号ではなくプログラム自身の report で観測できるようにした。
+- `node nodesrc/tests.js -i tests/compiler/ret_string_example.n.md --no-tree -o tmp/agent1-ret-string-report-tests.json -j 1 --assert-io --dist web/dist` は total=1, passed=1。

@@ -622,3 +622,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\generic_impl_trait_args.n.md --no-tree -o tmp\agent1-generic-impl-trait-args-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
 
 この issue はまだ open のまま継続する。Generic impl trait args 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Ret string stdout report migration
+
+`tests/compiler/ret_string_example.n.md` の string return doctest 1 件を、runner の `ret: "hello"` 復号だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- 文字列値 `"hello"` を NEPL 側の `assert_str_eq` で検証し、`returned string value` assertion として stdout に残すようにした。
+- runner の戻り値復号結果に依存せず、プログラム自身が観測した `str` 値を report へ出す方針に合わせた。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\ret_string_example.n.md --no-tree -o tmp\agent1-ret-string-report-tests.json -j 1 --assert-io --dist web/dist`: total=1, passed=1
+
+この issue はまだ open のまま継続する。Ret string 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
