@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T03:32:14.514Z",
+  "generated_at": "2026-05-14T03:46:21.714Z",
   "counts": {
-    "total": 743,
+    "total": 744,
     "open": 5,
-    "resolved": 738,
+    "resolved": 739,
     "by_area": {
       "stdlib": {
         "total": 186,
@@ -30,6 +30,11 @@
         "total": 391,
         "open": 0,
         "resolved": 391
+      },
+      "CORE": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "resource": {
         "total": 3,
@@ -473,6 +478,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD.md"
+    },
+    {
+      "id": "ISS-20260514T033438215Z-UNUSED-LET-INITIALIZER-CAN-HIDE-AMBI-612FD419",
+      "title": "unused let initializer can hide ambiguous overload diagnostics",
+      "area": "CORE",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "nepl-core/src/typecheck/**, tests/compiler/overload.n.md, tests/stdlib/math.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T033438215Z-UNUSED-LET-INITIALIZER-CAN-HIDE-AMBI-612FD419.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

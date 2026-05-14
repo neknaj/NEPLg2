@@ -1,3 +1,20 @@
+# 2026-05-14 Agent 1 overload 戻り値文脈なし選択の静的検査修正
+
+- `ISS-20260514T033438215Z-UNUSED-LET-INITIALIZER-CAN-HIDE-AMBI-612FD419` を解決した。
+- `let v cast 1` / `let v cast 10` は未使用 let が原因で初期化式を見逃していたのではなく、overload 候補の具体度計算が期待戻り値型の無い呼び出しでも戻り値型の形を使っていたため、`i128` など構造的に大きい戻り値の候補を文脈証明なしに選び得る設計だった。
+- `function_user_param_specificity` を名前どおり引数側だけの具体度に修正し、戻り値型は型注釈や外側文脈など期待型がある場合の候補フィルタでのみ使うようにした。
+- `castlike (i32)->i32` / `castlike (i32)->Wide` の Rust 回帰テストを追加し、`tests/compiler/overload.n.md` と `tests/stdlib/math.n.md` の `cast` 曖昧性 fixture を `compile_fail` に更新した。
+- 検証:
+  - `cargo test -p nepl-core --test neplg2 overloads_without_expected_return_do_not_use_return_shape_specificity -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 overloads_ambiguous_return_type_is_error -- --nocapture`: passed
+  - `cargo fmt --package nepl-core --check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 35 --assert-io --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/math.n.md -n 6 --assert-io --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md -o .tmp-overload-tests.json --dist web/dist --assert-io --no-tree`: total=45, passed=45
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は overload 型検査の静的検証正確性を改善するもの。
+
 # 2026-05-14 Agent 1 Overload generic Vec helper Copy boundary 修正
 
 - `ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09` を解決した。

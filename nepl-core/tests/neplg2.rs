@@ -1695,6 +1695,29 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn overloads_without_expected_return_do_not_use_return_shape_specificity() {
+    let src = r#"
+#entry main
+#indent 4
+
+struct Wide:
+    lo <i32>
+    hi <i32>
+
+fn castlike <(i32)->i32> (x):
+    x
+
+fn castlike <(i32)->Wide> (x):
+    Wide x x
+
+fn main <()->i32> ():
+    let y castlike 1
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::OverloadAmbiguous);
+}
+
+#[test]
 fn trait_method_call_with_impl_compiles() {
     let src = r#"
 #entry main

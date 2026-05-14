@@ -911,8 +911,8 @@ fn main <()->i32> ():
 
 ## overload_cast_mixed_requires_ascription
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4

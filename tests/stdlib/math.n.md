@@ -135,9 +135,9 @@ fn main <()*>i32> ():
 
 ## cast_ambiguous_without_expected_type
 
-`let v cast 1` の `v` に型注釈がなく `cast` のオーバーロードが曖昧なはずだが、コンパイラが `v` を未使用として処理しているためコンパイルが通る。type.overload.ambiguous が発生しないためスキップ。
+`let v cast 1` の `v` に型注釈がなく `cast` の戻り値型を決める文脈も無いため、戻り値型の形だけで候補を選ばず `type.overload.ambiguous` として拒否する。
 
-neplg2:test[skip]
+neplg2:test[compile_fail]
 diag_code: type.overload.ambiguous
 ```neplg2
 #entry main

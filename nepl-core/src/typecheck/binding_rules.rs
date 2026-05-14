@@ -188,20 +188,23 @@ pub(super) fn type_shape_specificity(ctx: &TypeCtx, ty: TypeId) -> usize {
     }
 }
 
+/// 呼び出し元が実際に与えた引数型だけで overload 候補の具体度を測ります。
+///
+/// 戻り値型は、期待型がある場合の候補フィルタでは使えますが、
+/// 期待型が無い呼び出しで候補を一意化する根拠にはなりません。
 pub(super) fn function_user_param_specificity(
     ctx: &TypeCtx,
     ty: TypeId,
     user_arity: usize,
 ) -> usize {
     match ctx.get(ctx.resolve_id(ty)) {
-        TypeKind::Function { params, result, .. } => {
+        TypeKind::Function { params, .. } => {
             let capture_len = params.len().saturating_sub(user_arity);
             let user_params = &params[capture_len..];
             user_params
                 .iter()
                 .map(|param| type_shape_specificity(ctx, *param))
                 .sum::<usize>()
-                + type_shape_specificity(ctx, result)
         }
         _ => 0,
     }
