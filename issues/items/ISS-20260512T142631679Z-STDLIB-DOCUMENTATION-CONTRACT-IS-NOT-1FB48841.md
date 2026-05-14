@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: doc
 created: 2026-05-12
-updated: 2026-05-12
+updated: 2026-05-15
 target: "stdlib/**/*.nepl; nodesrc/test_stdlib_documentation_contract.js; doc/neplg2/stdlib_documentation_contract_plan.md"
 ---
 
@@ -87,3 +87,9 @@ Add a stdlib documentation contract plan and a nodesrc source policy that freeze
 
 - `node nodesrc\test_stdlib_documentation_contract.js`
 - `node nodesrc\issues.js check --dir issues`
+
+## 2026-05-15 Agent 1 baseline regression 追記
+
+`ISS-20260514T154316014Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-5F916C0F` で、global documentation contract の宣言 doctest baseline が `1032 -> 1052` へ悪化していることを別 issue として記録した。
+
+この issue の主題である「global enforcement が存在しない」問題は解決済みのままだが、enforcement が実際に regression を検出しているため、baseline を緩めずに不足 doctest を追加して戻す必要がある。
