@@ -38419,6 +38419,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass
   - `node nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js`: pass
   - `node nodesrc/tests.js -i stdlib/kp/kpprefix.nepl --no-tree -o tmp/agent1-kpprefix-vec-owner-boundary-module.json -j 1 --dist web/dist --assert-io`: 1/1 pass
+## 2026-05-15 Agent 1 kpgraph owner boundary
+
+- `ISS-20260514T202200590Z-KPGRAPH-EXPOSES-DENSE-MATRIX-RAW-I32-F15E55CB` を追加して fixed にした。
+- `stdlib/kp/kpgraph.nepl` の `DenseGraph.mat <i32>` と `dense_graph_bfs_dist_raw(n, mat, start)` を削除した。
+- `DenseGraph` は `matrix <AdjacencyMatrix>` の owner wrapper にし、構築は `Result<DenseGraph, Diag>`、無向辺追加は `Result<DenseGraph, DenseGraphUpdateError>`、BFS は `Result<Vec<i32>, Diag>` に変更した。
+- BFS の距離配列と queue は raw allocation ではなく `Vec<i32>` で持ち、`v::get` / `v::replace` / `v::free` だけを使う。
+- doctest は returned `Vec<i32>` を `mem_ptr_addr` / `load_i32` で読む例をやめ、`v::get<i32>` と `print_i32` で stdout を出す形に更新した。
+- `nodesrc/test_stdlib_kpgraph_owner_boundary.js` を追加し、raw memory import/helper、raw matrix field、raw BFS API の再導入を拒否する。
+- focused verification:
+  - `node nodesrc/test_stdlib_kpgraph_owner_boundary.js`
+  - `node nodesrc/tests.js -i stdlib/kp/kpgraph.nepl --no-tree -o tmp/agent1-kpgraph-owner-boundary-module.json -j 1 --dist web/dist --assert-io`
+
 ## 2026-05-15 Agent 1 kpfenwick/kpdsu owner boundary
 
 - `ISS-20260514T200755109Z-KPFENWICK-AND-KPDSU-EXPOSE-RAW-I32-O-953345F8` を追加して fixed にした。

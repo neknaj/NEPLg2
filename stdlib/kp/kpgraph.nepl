@@ -1,16 +1,32 @@
-//: kpgraph: 競技プログラミング向けグラフ補助ライブラリ
+#indent 4
+#target std
+
+#import "alloc/collections/adjacency_matrix" as am
+#import "alloc/collections/adjacency_matrix/types" as *
+#import "alloc/collections/vec" as v
+#import "alloc/diag/error" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/streamio" as *
+
+//: # kpgraph
+//: [競技/きょうぎ]プログラミング向けグラフ補助ライブラリ
 //:
-//: [目的/もくてき]:
+//: ### [目的/もくてき]
 //: - 小〜中規模入力で使いやすい密行列表現のグラフ API を提供します。
 //: - 無向グラフの BFS 距離計算を定型化し、解法実装を短くします。
 //:
-//: [実装/じっそう]:
-//: - 辺は `n*n` の `u8` 行列（0/1）で保持します。
-//: - BFS は配列キュー（head/tail）で実装し、距離は `-1` を未訪問として管理します。
+//: ### [設計/せっけい]
+//: - `DenseGraph` は raw pointer ではなく `AdjacencyMatrix` owner を保持します。
+//: - 辺の更新は owner を消費して更新後 owner を返し、失敗時は `DenseGraphUpdateError` に owner を戻します。
+//: - BFS の距離配列とキューは `Vec<i32>` を使い、raw load/store や raw address observer を公開しません。
 //:
-//: [注意/ちゅうい]:
+//: ### [注意/ちゅうい]
 //: - メモリ使用量は O(n^2) です。大規模グラフには不向きです。
 //: - 頂点番号は 0-index を前提にしています。
+//: - 古い `dense_graph_bfs_dist_raw(n, mat, start)` は提供しません。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdin: "4 3\n1 2\n2 3\n3 4\n"
@@ -20,235 +36,246 @@
 //:| #target std
 //:| #import "std/streamio" as *
 //:| #import "std/iotarget" as *
+//:| #import "std/stdio" as *
 //:| #import "kp/kpgraph" as *
-//:| #import "alloc/collections/vec" as *
-//:| #import "core/field" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/internal" as *
-//:| #import "core/mem/allocator" as *
-//:| #import "core/mem/raw" as *
+//:| #import "alloc/collections/vec" as v
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
 //: fn main <()*> ()> ():
 //:     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-//:     let g <DenseGraph> dense_graph_read_undirected_1indexed sc;
-//:     let n <i32> get g "n";
-//:     let mat <i32> get g "mat";
-//:     let dist <Vec<i32>> dense_graph_bfs_dist_raw n mat 0;
-//:
-//:     let data <i32> mem_ptr_addr get dist "data";
-//:     let mut w <StreamWriter> unwrap_ok open WriteStream::Stdio;
+//:     let g <DenseGraph> unwrap_ok<DenseGraph, Diag> dense_graph_read_undirected_1indexed &sc;
+//:     let dist <Vec<i32>> unwrap_ok<Vec<i32>, Diag> dense_graph_bfs_dist &g 0;
+//:     let n <i32> dense_graph_len &g;
 //:     let mut i <i32> 0;
 //:     while lt i n:
 //:         do:
 //:             if lt 0 i:
-//:                 then set w write w " "
+//:                 then print " "
 //:                 else ()
-//:             set w write w load_i32 add data mul i 4;
+//:             let d <i32> match v::get<i32> &dist i:
+//:                 Option::Some x:
+//:                     x
+//:                 Option::None:
+//:                     -1
+//:             print_i32 d;
 //:             set i add i 1;
-//:     set w write w "\n";
-//:     set w flush w;
-//:     close w;
-//:     close sc;
-//:
-//:     dense_graph_free g
+//:     print "\n";
+//:     v::free<i32> dist;
+//:     dense_graph_free g;
+//:     close sc
 //: ```
 
-#indent 4
-#target std
-
-#import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
-#import "core/math" as *
-#import "alloc/collections/vec" as *
-#import "alloc/collections/vec" as v
-#import "core/field" as *
-#import "std/streamio" as *
-
-//: DenseGraph: 密行列表現の無向グラフ
+//: DenseGraph
+//: 密行列表現の graph owner
 //:
-//: [目的/もくてき]:
-//: - 頂点数 `n` と辺行列 `mat` をまとめて管理します。
-//:
-//: [実装/じっそう]:
-//: - `mat` は長さ `n*n` の `u8` 配列（0: 辺なし, 1: 辺あり）です。
+//: ### [目的/もくてき]
+//: - `AdjacencyMatrix` owner を KP 用 API の型として包みます。
+//: - raw matrix address を public field として見せないことで、free obligation を型に残します。
 pub struct DenseGraph:
-    n <i32>
-    mat <i32>
+    matrix <AdjacencyMatrix>
 
-//: KpI32PushRes: `Vec<i32>` push の結果
+//: DenseGraphUpdateError
+//: graph 更新失敗時に owner を返す error
+pub struct DenseGraphUpdateError:
+    graph <DenseGraph>
+    diag <Diag>
+
+//: dense_graph_update_error_diag: 更新失敗の診断を owner を動かさず読む
+pub fn dense_graph_update_error_diag <(&DenseGraphUpdateError)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: dense_graph_update_error_graph: 更新失敗で戻された graph owner を取り出す
+pub fn dense_graph_update_error_graph <(DenseGraphUpdateError)->DenseGraph> (e):
+    field::get e "graph"
+
+fn dense_graph_diag_vertex <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "dense graph vertex out of bounds"
+
+fn dense_graph_diag_input <()*>Diag> ():
+    diag_error StdErrorKind::InvalidOperation "dense graph input is invalid"
+
+fn dense_graph_diag_storage <()*>Diag> ():
+    diag_error StdErrorKind::InvalidOperation "dense graph storage invariant failed"
+
+fn dense_graph_diag_std_error <(StdErrorKind)*>Diag> (kind):
+    diag_error kind "dense graph storage operation failed"
+
+fn dense_graph_matrix_error <(AdjacencyMatrixUpdateError)->Result<DenseGraph, DenseGraphUpdateError>> (e):
+    let d <Diag> am::adjacency_matrix_update_error_diag &e
+    let matrix <AdjacencyMatrix> am::adjacency_matrix_update_error_owner e
+    err<DenseGraph, DenseGraphUpdateError> DenseGraphUpdateError DenseGraph matrix d
+
+//: dense_graph_new: 頂点数 `n` の空グラフを作る
 //:
-//: [目的/もくてき]:
-//: - BFS 結果 Vec の owner と push 成否を同時に返します。
-pub struct KpI32PushRes:
-    items <Vec<i32>>
-    ok <bool>
-
-//: kp_i32_empty_vec: 空の `Vec<i32>` を作る
-//:
-//: [目的/もくてき]:
-//: - `Vec` 初期確保に失敗した場合の空 BFS 結果を作ります。
-pub fn kp_i32_empty_vec <()->Vec<i32>> ():
-    v::vec_empty<i32>
-
-//: kp_push_i32: `Vec<i32>` push を trap せず結果化する
-pub fn kp_push_i32 <(Vec<i32>,i32)->KpI32PushRes> (items, item):
-    match v::push<i32> items item:
-        Result::Ok next:
-            KpI32PushRes next true
-        Result::Err e:
-            KpI32PushRes v::vec_push_error_vec<i32> e false
-
-//: dense_graph_new: 頂点数 n の空グラフを作る
-//:
-//: [計算量/けいさんりょう]:
+//: ### [計算量/けいさんりょう]
 //: - O(n^2)
-pub fn dense_graph_new <(i32)*>DenseGraph> (n):
-    let size <i32> mul n n;
-    let mat <i32> alloc_raw size;
-    let mut i <i32> 0;
-    while lt i size:
-        do:
-            store_u8 add mat i 0;
-            set i add i 1;
-    DenseGraph n mat
+pub fn dense_graph_new <(i32)*>Result<DenseGraph, Diag>> (n):
+    match am::new n:
+        Result::Ok matrix:
+            ok<DenseGraph, Diag> DenseGraph matrix
+        Result::Err d:
+            err<DenseGraph, Diag> d
 
-//: dense_graph_free: グラフの内部メモリを解放する
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-pub fn dense_graph_free <(DenseGraph)*>()> (g):
-    let n <i32> get g "n";
-    let mat <i32> get g "mat";
-    dealloc_raw mat mul n n
+//: dense_graph_free: graph owner を解放する
+pub fn dense_graph_free <(DenseGraph)->()> (g):
+    am::free field::get g "matrix"
 
-//: dense_graph_add_undirected: 無向辺 (u,v) を追加する
+//: dense_graph_len: 頂点数を返す
+pub fn dense_graph_len <(&DenseGraph)->i32> (g):
+    let matrix <&AdjacencyMatrix> field::get_ref g "matrix"
+    am::len matrix
+
+//: dense_graph_has_edge: 辺 `(from, to)` の有無を返す
+pub fn dense_graph_has_edge <(&DenseGraph,i32,i32)*>Result<bool, Diag>> (g, from, to):
+    let matrix <&AdjacencyMatrix> field::get_ref g "matrix"
+    am::contains matrix from to
+
+//: dense_graph_add_undirected: 無向辺 `(u, v)` を追加する
 //:
-//: [注意/ちゅうい]:
-//: - 0-index の頂点番号を前提にします。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-pub fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>()> (g, u, v):
-    let n <i32> get g "n";
-    let mat <i32> get g "mat";
-    let uv <i32> add mul u n v;
-    let vu <i32> add mul v n u;
-    store_u8 add mat uv 1;
-    store_u8 add mat vu 1
+//: ### [注意/ちゅうい]
+//: - 更新 API なので `DenseGraph` owner を消費し、成功時に更新後 owner を返します。
+//: - 範囲外頂点は `DenseGraphUpdateError` として owner を戻します。
+pub fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>Result<DenseGraph, DenseGraphUpdateError>> (g, u, vtx):
+    let matrix <AdjacencyMatrix> field::get g "matrix"
+    match am::insert matrix u vtx:
+        Result::Ok matrix_uv:
+            match am::insert matrix_uv vtx u:
+                Result::Ok matrix_next:
+                    ok<DenseGraph, DenseGraphUpdateError> DenseGraph matrix_next
+                Result::Err e:
+                    dense_graph_matrix_error e
+        Result::Err e:
+            dense_graph_matrix_error e
 
 //: dense_graph_read_undirected_1indexed: 1-index 入力の無向グラフを読む
 //:
-//: [入力形式]:
-//: - n m
-//: - u1 v1
+//: ### [入力形式/にゅうりょくけいしき]
+//: - `n m`
+//: - `u1 v1`
 //: - ...
-//: - um vm
+//: - `um vm`
 //:
-//: [注意/ちゅうい]:
-//: - 入力は 1-index を想定し、内部では 0-index に変換します。
-//:
-//: [計算量/けいさんりょう]:
+//: ### [計算量/けいさんりょう]
 //: - O(n^2 + m)
-pub fn dense_graph_read_undirected_1indexed <(StreamScanner)*>DenseGraph> (sc):
-    let n <i32> read &sc;
-    let m <i32> read &sc;
-    let size <i32> mul n n;
-    let mat <i32> alloc_raw size;
-    let mut z <i32> 0;
-    while lt z size:
-        do:
-            store_u8 add mat z 0;
-            set z add z 1;
-    let mut i <i32> 0;
-    while lt i m:
-        do:
-            let u1 <i32> read &sc;
-            let v1 <i32> read &sc;
-            let u <i32> sub u1 1;
-            let v <i32> sub v1 1;
-            let uv <i32> add mul u n v;
-            let vu <i32> add mul v n u;
-            store_u8 add mat uv 1;
-            store_u8 add mat vu 1;
-            set i add i 1;
-    DenseGraph n mat
+pub fn dense_graph_read_undirected_1indexed <(&StreamScanner)*>Result<DenseGraph, Diag>> (sc):
+    let n <i32> read sc
+    let m <i32> read sc
+    if:
+        or lt n 1 lt m 0
+        then:
+            diag_err<DenseGraph> dense_graph_diag_input
+        else:
+            match dense_graph_new n:
+                Result::Err d:
+                    err<DenseGraph, Diag> d
+                Result::Ok initial:
+                    let mut graph <DenseGraph> initial
+                    let mut i <i32> 0
+                    let mut failed <bool> false
+                    while and lt i m not failed:
+                        do:
+                            let u1 <i32> read sc
+                            let v1 <i32> read sc
+                            let u <i32> sub u1 1
+                            let vtx <i32> sub v1 1
+                            match dense_graph_add_undirected graph u vtx:
+                                Result::Ok next:
+                                    set graph next
+                                    set i add i 1
+                                Result::Err e:
+                                    set graph dense_graph_update_error_graph e
+                                    set failed true
+                    if:
+                        failed
+                        then:
+                            dense_graph_free graph
+                            diag_err<DenseGraph> dense_graph_diag_vertex
+                        else:
+                            ok<DenseGraph, Diag> graph
 
-//: dense_graph_bfs_dist_raw: 開始頂点からの最短距離配列を返す
+//: dense_graph_bfs_dist: 開始頂点からの最短距離配列を返す
 //:
-//: [目的/もくてき]:
+//: ### [目的/もくてき]
 //: - 辺重み 1 のグラフで、開始頂点 `start` から各頂点への最短距離を計算します。
 //:
-//: [実装/じっそう]:
-//: - 配列キューを使う通常の BFS です。
+//: ### [実装/じっそう]
+//: - 配列キューを `Vec<i32>` で持つ通常の BFS です。
 //: - 未訪問は `-1` で表現し、最初の訪問時に距離を確定します。
 //:
-//: [注意/ちゅうい]:
-//: - 返却値の `Vec<i32>` は 0-index 頂点順です。
-//:
-//: [計算量/けいさんりょう]:
+//: ### [計算量/けいさんりょう]
 //: - O(n^2)（密行列の隣接走査）
-pub fn dense_graph_bfs_dist_raw <(i32,i32,i32)*>Vec<i32>> (n, mat, start):
-    let dist <i32> alloc_raw mul n 4;
-    let mut i0 <i32> 0;
-    while lt i0 n:
-        do:
-            store_i32 add dist mul i0 4 -1;
-            set i0 add i0 1;
-
-    let q <i32> alloc_raw mul n 4;
-    let mut head <i32> 0;
-    let mut tail <i32> 0;
-
-    store_i32 add dist mul start 4 0;
-    store_i32 add q mul tail 4 start;
-    set tail add tail 1;
-
-    while lt head tail:
-        do:
-            let v <i32> load_i32 add q mul head 4;
-            set head add head 1;
-            let dv <i32> load_i32 add dist mul v 4;
-
-            let mut to <i32> 0;
-            while lt to n:
-                do:
-                    let edge_idx <i32> add mul v n to;
-                    let has <i32> load_u8 add mat edge_idx;
-                    if eq has 1:
-                        then:
-                            let to_ptr <i32> add dist mul to 4;
-                            if eq load_i32 to_ptr -1:
+pub fn dense_graph_bfs_dist <(&DenseGraph,i32)*>Result<Vec<i32>, Diag>> (g, start):
+    let n <i32> dense_graph_len g
+    if:
+        not and le 0 start lt start n
+        then:
+            diag_err<Vec<i32>> dense_graph_diag_vertex
+        else:
+            let unvisited <i32> sub 0 1
+            match v::filled<i32> n unvisited:
+                Result::Err e:
+                    let d <Diag> dense_graph_diag_std_error e
+                    err<Vec<i32>, Diag> d
+                Result::Ok dist:
+                    match v::filled<i32> n 0:
+                        Result::Err e:
+                            v::free<i32> dist
+                            let d <Diag> dense_graph_diag_std_error e
+                            err<Vec<i32>, Diag> d
+                        Result::Ok queue:
+                            v::replace<i32> &dist start 0
+                            v::replace<i32> &queue 0 start
+                            let mut head <i32> 0
+                            let mut tail <i32> 1
+                            let mut failed <bool> false
+                            while and lt head tail not failed:
+                                do:
+                                    match v::get<i32> &queue head:
+                                        Option::Some node:
+                                            set head add head 1
+                                            match v::get<i32> &dist node:
+                                                Option::Some node_dist:
+                                                    let mut to <i32> 0
+                                                    while and lt to n not failed:
+                                                        do:
+                                                            match dense_graph_has_edge g node to:
+                                                                Result::Ok has_edge:
+                                                                    if:
+                                                                        has_edge
+                                                                        then:
+                                                                            match v::get<i32> &dist to:
+                                                                                Option::Some current:
+                                                                                    if:
+                                                                                        eq current unvisited
+                                                                                        then:
+                                                                                            v::replace<i32> &dist to add node_dist 1
+                                                                                            if:
+                                                                                                lt tail n
+                                                                                                then:
+                                                                                                    v::replace<i32> &queue tail to
+                                                                                                    set tail add tail 1
+                                                                                                else:
+                                                                                                    set failed true
+                                                                                        else:
+                                                                                            ()
+                                                                                Option::None:
+                                                                                    set failed true
+                                                                        else:
+                                                                            ()
+                                                                Result::Err _d:
+                                                                    set failed true
+                                                            set to add to 1
+                                                Option::None:
+                                                    set failed true
+                                        Option::None:
+                                            set failed true
+                            v::free<i32> queue
+                            if:
+                                failed
                                 then:
-                                    store_i32 to_ptr add dv 1;
-                                    store_i32 add q mul tail 4 to;
-                                    set tail add tail 1;
-                                else ()
-                        else ()
-                    set to add to 1;
-
-    let mut out <Vec<i32>> kp_i32_empty_vec;
-    let mut failed <bool> false;
-    match v::new<i32>:
-        Result::Ok out0:
-            set out out0
-        Result::Err _e:
-            set failed true;
-    let mut i1 <i32> 0;
-    while and lt i1 n not failed:
-        do:
-            let pushed_out <KpI32PushRes> kp_push_i32 out load_i32 add dist mul i1 4;
-            let pushed_ok <bool> get pushed_out "ok";
-            set out get pushed_out "items";
-            if:
-                pushed_ok
-                then:
-                    set i1 add i1 1;
-                    ()
-                else:
-                    set failed true;
-                    ()
-
-    dealloc_raw q mul n 4;
-    dealloc_raw dist mul n 4;
-    out
+                                    v::free<i32> dist
+                                    diag_err<Vec<i32>> dense_graph_diag_storage
+                                else:
+                                    ok<Vec<i32>, Diag> dist
