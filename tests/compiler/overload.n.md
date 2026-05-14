@@ -340,13 +340,14 @@ fn main <()*>i32> ():
 
 ## overload_result_inferred_from_outer_arg_context
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_result_inferred_from_outer_arg_context\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"outer bool argument context selects bool overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
 fn choice <(i32)->i32> (v):
     v
@@ -357,20 +358,26 @@ fn choice <(i32)->bool> (v):
 fn use_bool <(bool)->i32> (b):
     if b 1 0
 
-fn main <()->i32> ():
-    use_bool choice 7
+fn main <()*>i32> ():
+    let actual <i32> use_bool choice 7;
+    let report:
+        test::test_report_new "overload_result_inferred_from_outer_arg_context"
+        |> test::test_report_push test::assert_eq_i32 "outer bool argument context selects bool overload" 1 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_star_import_prefers_concrete_over_generic_new
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_star_import_prefers_concrete_over_generic_new\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"let annotation selects Vec new overload\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/collections/vec" as v
 #import "core/result" as *
+#import "std/test" as test
 
 fn new <()*>Vec<i32>> ():
     unwrap_ok v::new<i32>
@@ -379,7 +386,11 @@ fn main <()*>i32> ():
     let v <Vec<i32>> <Vec<i32>> new;
     let n <i32> v::len<i32> &v;
     v::free<i32> v;
-    n
+    let report:
+        test::test_report_new "overload_star_import_prefers_concrete_over_generic_new"
+        |> test::test_report_push test::assert_eq_i32 "let annotation selects Vec new overload" 0 n
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_different_arity_is_error
@@ -429,16 +440,17 @@ fn main <()->i32> ():
 
 ## overload_nested_len_with_stack_and_string
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_nested_len_with_stack_and_string\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"str len overload selected\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"Stack len overload selected\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/string" as *
 #import "alloc/collections/stack" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as test
 
 fn main <()*>i32> ():
     let s <str> "abc";
@@ -446,56 +458,79 @@ fn main <()*>i32> ():
     let n1 <i32> len s;
     let n2 <i32> len<i32> &st;
     free<i32> st;
-    if and eq n1 3 eq n2 0 1 0
+    let report:
+        test::test_report_new "overload_nested_len_with_stack_and_string"
+        |> test::test_report_push test::assert_eq_i32 "str len overload selected" 3 n1
+        |> test::test_report_push test::assert_eq_i32 "Stack len overload selected" 0 n2
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_nested_call_arg_position_len
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_nested_call_arg_position_len\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested str_trim result selects str len overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/string" as *
 #import "alloc/collections/stack" as *
 #import "core/math" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let t <str> str_trim "  x  ";
-    if eq len t 1 1 0
+    let actual <i32> len t;
+    let report:
+        test::test_report_new "overload_nested_call_arg_position_len"
+        |> test::test_report_push test::assert_eq_i32 "nested str_trim result selects str len overload" 1 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_nested_call_arg_position_bool_chain
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested bool chain keeps comparison overloads\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
-    if and eq 1 1 lt 2 3 1 0
+fn main <()*>i32> ():
+    let actual <i32> if and eq 1 1 lt 2 3 1 0;
+    let report:
+        test::test_report_new "overload_nested_call_arg_position_bool_chain"
+        |> test::test_report_push test::assert_eq_i32 "nested bool chain keeps comparison overloads" 1 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_nested_call_arg_position_bool_chain_literals
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain_literals\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"literal locals keep comparison overloads\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let a <i32> 1;
     let b <i32> 1;
     let c <i32> 2;
     let d <i32> 3;
-    if and eq a b lt c d 1 0
+    let actual <i32> if and eq a b lt c d 1 0;
+    let report:
+        test::test_report_new "overload_nested_call_arg_position_bool_chain_literals"
+        |> test::test_report_push test::assert_eq_i32 "literal locals keep comparison overloads" 1 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_new_resolve_with_typed_block_context
