@@ -45,7 +45,7 @@
 //:
 //: [目的/もくてき]:
 //: - capacity を確保してから `store_u8` で末尾へ 1 byte 書き込みます。
-pub fn byte_builder_push_u8 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, byte):
+pub fn byte_builder_push_u8 <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind>> (builder, byte):
     match byte_builder_reserve builder 1:
         Result::Err e:
             Result<ByteBuilder, StdErrorKind>::Err e
@@ -70,7 +70,7 @@ pub fn byte_builder_push_u8 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind
 //:
 //: [注意/ちゅうい]:
 //: - 非 ASCII char は `InvalidOperation` です。失敗時は builder を[解放/かいほう]します。
-pub fn byte_builder_push_ascii <(ByteBuilder,char)*>Result<ByteBuilder, StdErrorKind>> (builder, c):
+pub fn byte_builder_push_ascii <(ByteBuilder,char)->Result<ByteBuilder, StdErrorKind>> (builder, c):
     if:
         char_is_ascii c
         then:
@@ -86,7 +86,7 @@ pub fn byte_builder_push_ascii <(ByteBuilder,char)*>Result<ByteBuilder, StdError
 //:
 //: [注意/ちゅうい]:
 //: - `count` は `char_utf8_len` から来る値を想定します。
-pub fn byte_builder_push_utf8_tail <(ByteBuilder,char,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, c, count):
+pub fn byte_builder_push_utf8_tail <(ByteBuilder,char,i32)->Result<ByteBuilder, StdErrorKind>> (builder, c, count):
     if:
         eq count 1
         then:
@@ -119,7 +119,7 @@ pub fn byte_builder_push_utf8_tail <(ByteBuilder,char,i32)*>Result<ByteBuilder, 
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
-pub fn byte_builder_push_char_utf8 <(ByteBuilder,char)*>Result<ByteBuilder, StdErrorKind>> (builder, c):
+pub fn byte_builder_push_char_utf8 <(ByteBuilder,char)->Result<ByteBuilder, StdErrorKind>> (builder, c):
     let count <i32> char_utf8_len c
     match byte_builder_push_u8 builder char_utf8_byte0 c:
         Result::Err e:
@@ -134,7 +134,7 @@ pub fn byte_builder_push_char_utf8 <(ByteBuilder,char)*>Result<ByteBuilder, StdE
 //:
 //: [注意/ちゅうい]:
 //: - source の[所有権/しょゆうけん]は[移動/いどう]しません。
-pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, src, data_len):
+pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)->Result<ByteBuilder, StdErrorKind>> (builder, src, data_len):
     if:
         lt data_len 0
         then:
@@ -168,7 +168,7 @@ pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)*>Result<ByteBu
 //:
 //: [目的/もくてき]:
 //: - owned `ByteBuf` の payload を builder へコピーし、入力 buffer の解放責務も閉じます。
-pub fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)*>Result<ByteBuilder, StdErrorKind>> (builder, bytes):
+pub fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)->Result<ByteBuilder, StdErrorKind>> (builder, bytes):
     let data_len <i32> get bytes "len"
     match get bytes "ptr":
         Option::None:
@@ -191,7 +191,7 @@ pub fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)*>Result<ByteBuilder, Std
 //:
 //: [実装/じっそう]:
 //: - 下位 7 bit を[出力/しゅつりょく]し、残りを unsigned shift で 7 bit ずつ[進/すす]めます。
-pub fn byte_builder_push_leb_u32 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, value):
+pub fn byte_builder_push_leb_u32 <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind>> (builder, value):
     let low <i32> and value 127
     let rest <i32> shr_u value 7
     let out <i32>:

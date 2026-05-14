@@ -243,7 +243,7 @@ pub fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //:
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
-pub fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
+pub fn io_bytebuf_to_str_result <(ByteBuf)->Result<str, StdErrorKind>> (buf):
     let byte_len <i32> io_bytebuf_len_ref &buf
     match io_bytebuf_ptr_ref &buf:
         Option::None:
@@ -289,7 +289,7 @@ pub fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
 //:
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
-pub fn io_bytebuf_to_str <(ByteBuf)*>str> (buf):
+pub fn io_bytebuf_to_str <(ByteBuf)->str> (buf):
     match io_bytebuf_to_str_result buf:
         Result::Ok text:
             text

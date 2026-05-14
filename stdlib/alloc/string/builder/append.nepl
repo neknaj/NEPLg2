@@ -3,22 +3,20 @@
 //:
 //: [目的/もくてき]:
 //: - `str`、`char`、ASCII、byte を builder buffer へ追加する処理を所有します。
-//: - capacity grow は `builder/reserve`、owner state は `builder/types` に委譲します。
+//: - 実 storage 操作は `ByteBuilder` へ委譲し、StringBuilder は text API 境界だけを持ちます。
 //:
 //: [注意/ちゅうい]:
 //: - `_result` API は失敗時に入力 builder を解放し、owner を残しません。
 
 #indent 4
 
-#import "core/mem" as *
-#import "core/mem/raw" as *
-#import "core/result" as *
-#import "core/option" as *
-#import "core/math" as *
-#import "core/char" as *
-#import "core/field" as *
+#import "alloc/io/bytebuilder" as *
 #import "alloc/string/storage" as *
 #import "alloc/string/access" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "core/char" as *
 #import "./types" as *
 #import "./reserve" as *
 
@@ -28,7 +26,7 @@
 //: - `s` の byte 列を builder の末尾へ copy し、更新後の builder を返します。
 //:
 //: [実装/じっそう]:
-//: - `string_builder_reserve_result` で capacity を確保し、`mem_copy<u8>` で本文 byte を追加します。
+//: - source `str` の data pointer は borrow view として扱い、copy と grow は `byte_builder_push_bytes_ref` に委譲します。
 //:
 //: [注意/ちゅうい]:
 //: - `s` は source として参照されるだけで、builder は `str` owner を保持しません。
@@ -37,98 +35,32 @@
 //: [計算量/けいさんりょう]:
 //: - O(len(s))。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
 pub fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s):
-    let s_len <i32> len s;
+    let s_len <i32> len s
     if:
         eq s_len 0
         then:
             Result<StringBuilder,str>::Ok sb
         else:
-            match string_builder_reserve_result sb s_len:
+            let src <MemPtr<u8>> string_data_ptr s
+            match byte_builder_push_bytes_ref string_builder_into_byte_builder sb &src s_len:
+                Result::Ok bytes:
+                    Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    Result<StringBuilder,str>::Err e
-                Result::Ok reserved:
-                    let len0 <i32> get reserved "len";
-                    match *get_ref &reserved "data":
-                        Option::None:
-                            string_builder_free reserved;
-                            Result<StringBuilder,str>::Err "string.builder append invalid storage"
-                        Option::Some data:
-                            let dst <MemPtr<u8>> mem_ptr_add data len0;
-                            match mem_copy<u8> dst string_data_ptr s s_len:
-                                Result::Ok _:
-                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 s_len
-                                Result::Err _e:
-                                    string_builder_free reserved;
-                                    Result<StringBuilder,str>::Err "string.builder append copy failed"
-
-pub fn sb_finish_char_append <(StringBuilder,i32)->Result<StringBuilder,str>> (reserved, count):
-    let len0 <i32> get reserved "len"
-    match *get_ref &reserved "data":
-        Option::Some _data:
-            Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
-        Option::None:
-            string_builder_free reserved
-            Result<StringBuilder,str>::Err "string.builder append invalid storage"
+                    Result<StringBuilder,str>::Err string_builder_error e
 
 //: sb_append_char_result: builder に char を UTF-8 として追加する
 //:
 //: [目的/もくてき]:
 //: - 1 つの `char` を UTF-8 bytes に encode し、builder の末尾へ追加します。
 //:
-//: [注意/ちゅうい]:
-//: - 失敗時は入力 builder の内部 buffer を解放します。
-//:
 //: [計算量/けいさんりょう]:
 //: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
 pub fn sb_append_char_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb, c):
-    let count <i32> char_utf8_len c
-    match string_builder_reserve_result sb count:
+    match byte_builder_push_char_utf8 string_builder_into_byte_builder sb c:
+        Result::Ok bytes:
+            Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
         Result::Err e:
-            Result<StringBuilder,str>::Err e
-        Result::Ok reserved:
-            let len0 <i32> get reserved "len"
-            match *get_ref &reserved "data":
-                Option::None:
-                    string_builder_free reserved
-                    Result<StringBuilder,str>::Err "string.builder append invalid storage"
-                Option::Some data:
-                    let dst <MemPtr<u8>> mem_ptr_add data len0
-                    match store_u8 dst char_utf8_byte0 c:
-                        Result::Err _e:
-                            string_builder_free reserved
-                            Result<StringBuilder,str>::Err "string.builder append char failed"
-                        Result::Ok _:
-                            if:
-                                eq count 1
-                                then:
-                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
-                                else:
-                                    match store_u8 mem_ptr_add dst 1 char_utf8_byte1 c:
-                                        Result::Err _e:
-                                            string_builder_free reserved
-                                            Result<StringBuilder,str>::Err "string.builder append char failed"
-                                        Result::Ok _:
-                                            if:
-                                                eq count 2
-                                                then:
-                                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
-                                                else:
-                                                    match store_u8 mem_ptr_add dst 2 char_utf8_byte2 c:
-                                                        Result::Err _e:
-                                                            string_builder_free reserved
-                                                            Result<StringBuilder,str>::Err "string.builder append char failed"
-                                                        Result::Ok _:
-                                                            if:
-                                                                eq count 3
-                                                                then:
-                                                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
-                                                                else:
-                                                                    match store_u8 mem_ptr_add dst 3 char_utf8_byte3 c:
-                                                                        Result::Err _e:
-                                                                            string_builder_free reserved
-                                                                            Result<StringBuilder,str>::Err "string.builder append char failed"
-                                                                        Result::Ok _:
-                                                                            Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
+            Result<StringBuilder,str>::Err string_builder_error e
 
 //: sb_append_ascii_result: builder に ASCII char を 1 byte として追加する
 //:
@@ -141,23 +73,11 @@ pub fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> 
     if:
         char_is_ascii c
         then:
-            match string_builder_reserve_result sb 1:
+            match byte_builder_push_ascii string_builder_into_byte_builder sb c:
+                Result::Ok bytes:
+                    Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    Result<StringBuilder,str>::Err e
-                Result::Ok reserved:
-                    let len0 <i32> get reserved "len"
-                    match *get_ref &reserved "data":
-                        Option::None:
-                            string_builder_free reserved
-                            Result<StringBuilder,str>::Err "string.builder append invalid storage"
-                        Option::Some data:
-                            let dst <MemPtr<u8>> mem_ptr_add data len0
-                            match store_u8 dst char_to_i32 c:
-                                Result::Ok _:
-                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 1
-                                Result::Err _e:
-                                    string_builder_free reserved
-                                    Result<StringBuilder,str>::Err "string.builder append ascii failed"
+                    Result<StringBuilder,str>::Err string_builder_error e
         else:
             string_builder_free sb
             Result<StringBuilder,str>::Err "string.builder non-ascii char"
@@ -170,9 +90,6 @@ pub fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> 
 //: [注意/ちゅうい]:
 //: - この関数は byte の UTF-8 妥当性を検証しません。呼び出し側は元の byte 列が UTF-8 として妥当であることを保証してください。
 //: - `byte` が 0..255 の範囲外なら入力 builder を解放して `Err` を返します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
 pub fn sb_append_byte_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, byte):
     if:
         or lt byte 0 gt byte 255
@@ -180,23 +97,11 @@ pub fn sb_append_byte_result <(StringBuilder,i32)->Result<StringBuilder,str>> (s
             string_builder_free sb
             Result<StringBuilder,str>::Err "string.builder invalid byte"
         else:
-            match string_builder_reserve_result sb 1:
+            match byte_builder_push_u8 string_builder_into_byte_builder sb byte:
+                Result::Ok bytes:
+                    Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    Result<StringBuilder,str>::Err e
-                Result::Ok reserved:
-                    let len0 <i32> get reserved "len"
-                    match *get_ref &reserved "data":
-                        Option::None:
-                            string_builder_free reserved
-                            Result<StringBuilder,str>::Err "string.builder append invalid storage"
-                        Option::Some data:
-                            let dst <MemPtr<u8>> mem_ptr_add data len0
-                            match store_u8 dst byte:
-                                Result::Ok _:
-                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 1
-                                Result::Err _e:
-                                    string_builder_free reserved
-                                    Result<StringBuilder,str>::Err "string.builder append byte failed"
+                    Result<StringBuilder,str>::Err string_builder_error e
 
 pub fn sb_append_char <(StringBuilder,char)->StringBuilder> (sb, c):
     match sb_append_char_result sb c:

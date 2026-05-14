@@ -38093,5 +38093,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: pass
   - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: pass
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl -i stdlib/neplg2/cli/args/parse.nepl -i stdlib/alloc/diag/diag.nepl -i stdlib/alloc/diag/error/diags.nepl -i stdlib/kp/kpprefix.nepl -i tests/stdlib/traits_order.n.md -i tests/stdlib/sort.n.md --no-tree -o tmp/agent1-vecdatalen-focused.json -j 1 --dist web/dist`: 33/33 pass
-  - `node nodesrc/issues.js check --dir issues`: pass
-  - `git diff --check`: pass
+- `node nodesrc/issues.js check --dir issues`: pass
+- `git diff --check`: pass
+
+# 2026-05-14 Agent 1 メモ (ISS-20260514T063755030Z StringBuilder owner boundary 集約)
+
+- Stage 6 の `MemPtr = non-owning pointer` 方針に合わせ、`StringBuilder` 固有の `Option<MemPtr<u8>>` / len / cap owner state を削除した。
+- 根本原因は、`ByteBuilder` が byte buffer owner boundary を既に持っているにもかかわらず、`StringBuilder` が同じ raw owner layout を重複実装していたこと。これにより static check / source policy は同じ性質を `ByteBuilder.ptr` と `StringBuilder.data` の 2 箇所で追う必要があった。
+- 修正後の `StringBuilder` は `bytes: ByteBuilder` を持つ typed text builder wrapper であり、capacity / append / free は `ByteBuilder`、build は `ByteBuilder -> ByteBuf -> str` の確定経路へ委譲する。
+- `ByteBuilder` / `ByteBuf` の safe buffer API は pure surface とし、raw memory effect は各 raw-memory-boundary source 内で Resource IR / source capability gate が検査する形に揃えた。これにより旧 `StringBuilder` の pure public API と同じ利用契約を保つ。
+- `string_builder_from_owned_ptr` / `string_builder_with_len` は raw layout helper として削除した。互換 alias は残していない。
+- `nodesrc/test_stdlib_memptr_owner_field_policy.js` の baseline は 4 transitional field へ下がった。残件は `RegionToken.ptr`、`Vec.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`。
+- 検証:
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: pass
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass (`4 transitional field(s)`)
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string/builder -i stdlib/alloc/string/builder_ext.nepl -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent1-stringbuilder-bytebuilder-string.json -j 1 --dist web/dist`: 20/20 pass
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuilder-bytebuf-surface-noraw.json -j 1 --dist web/dist`: 9/9 pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string/builder -i stdlib/alloc/string/builder_ext.nepl -i tests/stdlib/nm.n.md -i tests/stdlib/selfhost_req.n.md -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/agent1-stringbuilder-bytebuilder-focused.json -j 1 --dist web/dist`: 13/15 pass。`selfhost_req` の 2 件は `len` / `unwrap_ok` import drift で、今回対象の StringBuilder doctest は pass。別 issue `ISS-20260514T071055890Z-SELFHOST-REQ-DOCTESTS-STILL-RELY-ON--F9CC30E7` として記録。

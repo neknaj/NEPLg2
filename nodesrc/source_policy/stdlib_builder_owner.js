@@ -58,6 +58,20 @@ function assertByteBuilderOwnerBoundary(code) {
         'ByteBuilder must centralize len updates that preserve the storage owner field',
     );
 
+    for (const [name, pattern] of [
+        ['byte_builder_free', /\bfn\s+byte_builder_free\s+<\(ByteBuilder\)->\(\)>/],
+        ['byte_builder_reserve', /\bfn\s+byte_builder_reserve\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
+        ['byte_builder_push_u8', /\bfn\s+byte_builder_push_u8\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
+        ['byte_builder_push_bytes_ref', /\bfn\s+byte_builder_push_bytes_ref\s+<\(ByteBuilder,&MemPtr<u8>,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
+        ['byte_builder_finish', /\bfn\s+byte_builder_finish\s+<\(ByteBuilder\)->Result<ByteBuf,\s*StdErrorKind>>/],
+    ]) {
+        assert.match(
+            code,
+            pattern,
+            `${name} must expose a pure safe surface; raw memory effects remain checked inside the source boundary`,
+        );
+    }
+
     assert.match(
         code,
         /\bbyte_builder_with_len\s+reserved\s+add\s+len0\b/,
@@ -74,14 +88,14 @@ function assertStringBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /struct\s+StringBuilder:\s+data\s+<Option<MemPtr<u8>>>\s+len\s+<i32>\s+cap\s+<i32>/,
-        'StringBuilder must encode empty storage as Option::None instead of a null owning pointer',
+        /struct\s+StringBuilder:\s+bytes\s+<ByteBuilder>/,
+        'StringBuilder must delegate byte storage ownership to ByteBuilder instead of duplicating raw MemPtr state',
     );
 
-    assert.match(
+    assert.doesNotMatch(
         code,
-        /\bfn\s+string_builder_from_owned_ptr\s+<\(MemPtr<u8>,i32,i32\)->StringBuilder>/,
-        'StringBuilder owned pointer construction must be centralized',
+        /struct\s+StringBuilder:[\s\S]*\b(?:data|ptr)\s+<Option<MemPtr<u8>>>/,
+        'StringBuilder must not keep a direct Option<MemPtr<u8>> owner field',
     );
 
     assert.doesNotMatch(
@@ -92,38 +106,44 @@ function assertStringBuilderOwnerBoundary(code) {
 
     assert.doesNotMatch(
         code,
-        /\bResult<StringBuilder,[^>]+>::Ok\s+StringBuilder\s+(?!some<MemPtr<u8>>)/,
-        'StringBuilder Result return paths must use the centralized owned pointer constructor',
+        /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)<u8>/,
+        'StringBuilder must not allocate or free raw byte storage directly; use ByteBuilder',
     );
 
     assert.doesNotMatch(
         code,
-        /\b(realloc_ptr|mem_copy|store_u8)<u8>[^;\n]*\bget\s+(?:sb|reserved)\s+"data"/,
-        'StringBuilder storage access must first match the Option pointer',
+        /\b(?:mem_copy|store_u8)<u8>/,
+        'StringBuilder append/build must not perform raw byte mutation directly; use ByteBuilder',
     );
 
     assert.doesNotMatch(
         code,
-        /\bmatch\s+get\s+reserved\s+"data"/,
-        'StringBuilder append paths must borrow the reserved pointer and return the same owner',
+        /\bget(?:_ref)?\s+(?:&)?(?:sb|reserved)\s+"(?:data|ptr|cap|len)"/,
+        'StringBuilder must not inspect a duplicated raw byte layout',
     );
 
     assert.match(
         code,
-        /\bmatch\s+\*get_ref\s+&reserved\s+"data"/,
-        'StringBuilder append paths must inspect storage through a field reference',
+        /\bfn\s+string_builder_from_byte_builder\s+<\(ByteBuilder\)->StringBuilder>/,
+        'StringBuilder must centralize wrapping a ByteBuilder owner',
     );
 
     assert.match(
         code,
-        /\bfn\s+string_builder_with_len\s+<\(StringBuilder,i32\)->StringBuilder>/,
-        'StringBuilder must centralize len updates that preserve the storage owner field',
+        /\bfn\s+string_builder_into_byte_builder\s+<\(StringBuilder\)->ByteBuilder>/,
+        'StringBuilder must centralize consuming conversion back to ByteBuilder',
     );
 
     assert.match(
         code,
-        /\bstring_builder_with_len\s+reserved\s+add\s+len0\b/,
-        'StringBuilder append paths must update len through the owner-preserving helper',
+        /\bbyte_builder_push_bytes_ref\b[\s\S]*\bbyte_builder_push_char_utf8\b[\s\S]*\bbyte_builder_push_ascii\b[\s\S]*\bbyte_builder_push_u8\b/,
+        'StringBuilder append APIs must delegate all byte writes to ByteBuilder',
+    );
+
+    assert.match(
+        code,
+        /\bbyte_builder_finish\b[\s\S]*\bio_bytebuf_to_str_result\b/,
+        'StringBuilder build must finalize through ByteBuilder and ByteBuf typed owner boundaries',
     );
 }
 

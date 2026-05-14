@@ -94,7 +94,7 @@ pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
 //:         Result::Err _e:
 //:             checks_exit_code checks_push checks0 assert_eq_i32 1 0
 //: ```
-pub fn byte_builder_dealloc_owned_u8 <(MemPtr<u8>,i32)*>()> (ptr, size):
+pub fn byte_builder_dealloc_owned_u8 <(MemPtr<u8>,i32)->()> (ptr, size):
     match dealloc_ptr<u8> ptr size:
         Result::Ok _:
             ()
@@ -105,7 +105,7 @@ pub fn byte_builder_dealloc_owned_u8 <(MemPtr<u8>,i32)*>()> (ptr, size):
 //:
 //: [目的/もくてき]:
 //: - `Some(ptr)` のときだけ owned storage を解放し、`None` の空 builder は何もしません。
-pub fn byte_builder_free <(ByteBuilder)*>()> (builder):
+pub fn byte_builder_free <(ByteBuilder)->()> (builder):
     let cap <i32> get builder "cap"
     match get builder "ptr":
         Option::Some ptr:
@@ -152,7 +152,7 @@ pub fn byte_builder_next_capacity <(i32,i32)->Result<i32, StdErrorKind>> (cap, n
 //:
 //: [注意/ちゅうい]:
 //: - 失敗時は builder を[解放/かいほう]します。
-pub fn byte_builder_reserve <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, additional):
+pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind>> (builder, additional):
     let len0 <i32> get builder "len"
     let cap0 <i32> get builder "cap"
     if:

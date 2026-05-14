@@ -176,6 +176,14 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 呼び出し側は、必要な箇所で `len<T>(&Vec<T>)` と `data_mem_ptr<T>(&Vec<T>)` を明示的に別々に観測する。これにより `MemPtr` owner-like field policy の transitional baseline は `RegionToken.ptr`、`Vec.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data` の 5 件になった。
 
+## 2026-05-14 Agent 1 StringBuilder owner boundary 集約追記
+
+`ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F` で、`StringBuilder` 固有の `Option<MemPtr<u8>>` / len / cap owner state を削除した。
+
+`StringBuilder` は text API の境界であり、byte storage の free obligation は既に `ByteBuilder` が保持している。両者が独立に raw owner layout を持つと、Stage 6 の静的検査は同じ性質を 2 つの public struct で追跡する必要があり、`MemPtr = non-owning pointer` / owner wrapper 分離に反する。
+
+修正後の `StringBuilder` は `bytes: ByteBuilder` だけを持つ typed wrapper である。capacity / append / free は `ByteBuilder` API へ委譲し、build は `ByteBuilder -> ByteBuf -> str` の typed owner boundary を通す。これにより `StringBuilder.data` は `MemPtr` owner-like field policy から外れ、transitional baseline は `RegionToken.ptr`、`Vec.data`、`ByteBuf.ptr`、`ByteBuilder.ptr` の 4 件になった。
+
 ## 2026-05-13 Agent 1 region_ptr_at alignment proof 追記
 
 `ISS-20260513T100047236Z-REGION-PTR-AT-RETURNS-TYPED-MEMPTR-W-39BD1C91` で、`region_ptr_at` が byte bounds だけを検査して `MemPtr<U>` を返していた問題を修正した。

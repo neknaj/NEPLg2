@@ -10,7 +10,7 @@
 #indent 4
 
 #import "core/mem" as *
-#import "core/mem/raw" as *
+#import "alloc/io/bytebuilder" as *
 #import "core/result" as *
 #import "core/option" as *
 #import "core/math" as *
@@ -62,24 +62,12 @@ pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder
                 then:
                     Result<StringBuilder,str>::Ok sb
                 else:
-                    match string_builder_reserve_result sb out_len:
+                    let src <MemPtr<u8>> mem_ptr_add string_data_ptr s s0
+                    match byte_builder_push_bytes_ref string_builder_into_byte_builder sb &src out_len:
+                        Result::Ok bytes:
+                            Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                         Result::Err e:
-                            Result<StringBuilder,str>::Err e
-                        Result::Ok reserved:
-                            let len0 <i32> get reserved "len"
-                            match *get_ref &reserved "data":
-                                Option::None:
-                                    string_builder_free reserved
-                                    Result<StringBuilder,str>::Err "string.builder append slice invalid storage"
-                                Option::Some data:
-                                    let dst <MemPtr<u8>> mem_ptr_add data len0
-                                    let src <MemPtr<u8>> mem_ptr_add string_data_ptr s s0
-                                    match mem_copy<u8> dst src out_len:
-                                        Result::Ok _:
-                                            Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 out_len
-                                        Result::Err _e:
-                                            string_builder_free reserved
-                                            Result<StringBuilder,str>::Err "string.builder append slice copy failed"
+                            Result<StringBuilder,str>::Err string_builder_error e
         else:
             string_builder_free sb
             Result<StringBuilder,str>::Err "string.builder append slice invalid utf8 boundary"

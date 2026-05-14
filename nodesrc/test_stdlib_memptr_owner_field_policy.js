@@ -24,10 +24,6 @@ const transitionalFields = new Map([
         "stdlib/alloc/io/bytebuilder/types.nepl::ByteBuilder.ptr::Option<MemPtr<u8>>",
         "ByteBuilder owned bytes until OwnedBytesBuilder replaces Option<MemPtr<u8>>",
     ],
-    [
-        "stdlib/alloc/string/builder/types.nepl::StringBuilder.data::Option<MemPtr<u8>>",
-        "StringBuilder owned bytes until OwnedStringRegion replaces Option<MemPtr<u8>>",
-    ],
 ]);
 
 const observedFields = collectMemPtrStructFields(stdlibRoot);
