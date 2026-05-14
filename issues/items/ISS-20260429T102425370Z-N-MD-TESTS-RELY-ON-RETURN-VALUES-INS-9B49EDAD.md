@@ -833,3 +833,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\sizeof.n.md --no-tree -o tmp\agent1-sizeof-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
 
 この issue はまだ open のまま継続する。Sizeof 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Generics stdout report migration
+
+`tests/compiler/generics.n.md` の generics 正常系 doctest 16 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。generic parameter syntax / type mismatch / arity mismatch の compile_fail fixture 8 件は、型検査と parser の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- identity multi-instantiation、generic enum match、generic struct construction、multi type parameter function、context inference、nested generic payload、pipe into generic などの観測値を assertion label として stdout に固定した。
+- `std/test` 導入で std 側の `Option` と衝突した正常系 local enum は `LocalOption` に改名し、generic enum / payload / inference の検査意図は維持した。compile_fail 側は `core` / `#no_prelude` の拒否境界を変えないため既存名のまま残した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\generics.n.md --no-tree -o tmp\agent1-generics-report-tests.json -j 1 --assert-io --dist web/dist`: total=24, passed=24
+- 実行時間は約162秒。timeout ではなく 24 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
+
+この issue はまだ open のまま継続する。Generics 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

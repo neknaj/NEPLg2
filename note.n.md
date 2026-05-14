@@ -37896,3 +37896,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - primitive layout、generic function、generic wrapper struct、multi-field struct、algebraic type、nested generic struct、collection struct、diag struct の観測値を assertion label として stdout に固定した。
 - report 出力のため正常系は `std` target に移したが、既存の `size_of<T>` の期待値と拒否境界は維持している。
 - `node nodesrc/tests.js -i tests/compiler/sizeof.n.md --no-tree -o tmp/agent1-sizeof-report-tests.json -j 1 --assert-io --dist web/dist` は total=9, passed=9。
+
+## 2026-05-14 Agent 1 Generics stdout report doctest migration
+
+- `work/generics-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/generics.n.md` を更新した。
+- generics 正常系 doctest 16 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- generic parameter syntax / type mismatch / arity mismatch の compile_fail 8 件は、型検査と parser の拒否境界を固定するため変更していない。
+- identity multi-instantiation、generic enum match、generic struct construction、multi type parameter function、context inference、nested generic payload、pipe into generic などの観測値を assertion label として stdout に固定した。
+- `std/test` 導入で std 側の `Option` と衝突した正常系 local enum は `LocalOption` に改名した。compile_fail 側は `core` / `#no_prelude` の拒否境界を維持するため既存名のまま残している。
+- `node nodesrc/tests.js -i tests/compiler/generics.n.md --no-tree -o tmp/agent1-generics-report-tests.json -j 1 --assert-io --dist web/dist` は total=24, passed=24。約162秒だが timeout ではなく個別 compile 数が主因。
