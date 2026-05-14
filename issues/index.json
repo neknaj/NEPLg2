@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T19:36:14.903Z",
+  "generated_at": "2026-05-14T19:47:55.818Z",
   "counts": {
-    "total": 788,
+    "total": 789,
     "open": 8,
-    "resolved": 780,
+    "resolved": 781,
     "by_area": {
       "stdlib": {
-        "total": 218,
+        "total": 219,
         "open": 5,
-        "resolved": 213
+        "resolved": 214
       },
       "TEST": {
         "total": 21,
@@ -9268,6 +9268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T190018299Z-DIAGS-ERROR-OBSERVER-SCANS-VEC-STORA-5ABF687A.md"
+    },
+    {
+      "id": "ISS-20260514T194346097Z-HASHMAP-AND-HASHSET-CLEANUP-CONTRACT-D83E5B8B",
+      "title": "HashMap and HashSet cleanup contract misses key and hasher Copy-bound regressions",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "tests/stdlib/collection_cleanup_contract.n.md, nodesrc/test_stdlib_hashmap_storage_contract.js, nodesrc/test_stdlib_hashset_storage_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T194346097Z-HASHMAP-AND-HASHSET-CLEANUP-CONTRACT-D83E5B8B.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

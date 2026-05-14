@@ -154,6 +154,12 @@ assert.match(
 
 assert.match(
     freeSection,
+    /fn\s+free\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>\)->\(\)>/,
+    'HashSet.free must expose the Copy-only key/hasher cleanup contract',
+);
+
+assert.match(
+    freeSection,
     /let\s+storage\s+<HashSetStorage<\.T>>\s+field::get\s+hs\s+"storage"[\s\S]*hashset_free_storage<\.T>\s+storage/,
     'HashSet.free must release the typed storage owner',
 );
