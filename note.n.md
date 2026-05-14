@@ -1,3 +1,13 @@
+# 2026-05-14 Agent 1 selfhost TypeArena doctest API/owner flow 修正
+
+- `ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A` を解決した。
+- `tests/stdlib/neplg2_type_arena.n.md` は `SelfhostTypeRecord` の primitive/function payload 分離後も `selfhost_type_arena_add_primitive` に旧 `SelfhostTypeKind::*` を渡していたため、`SelfhostPrimitiveTypeKind::*` に同期した。
+- 追加で露出した stale fixture も同じ issue の範囲として直した。`selfhost_type_id_invalid` への旧依存を `selfhost_type_id_new -1` に置き換え、`push<SelfhostTypeId>` の失敗時には `VecPushError<SelfhostTypeId>` から返却 `Vec` owner を取り出して解放し、途中の `SelfhostTypeArena` owner も閉じるようにした。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-type-arena-after2.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は selfhost TypeArena の regression fixture を現在の enum-first API と ResourceIR owner flow に同期するもの。
+
 # 2026-05-14 Agent 1 ByteBuf / ByteBuilder RegionToken owner 境界修正
 
 - `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` を解決した。

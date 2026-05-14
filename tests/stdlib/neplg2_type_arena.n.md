@@ -26,19 +26,19 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
-            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::Unit:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
                 Result::Ok alloc1:
                     let unit_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostTypeKind::Bool:
+                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
                             let bool_id <SelfhostTypeId> alloc2.type_id
-                            match selfhost_type_arena_add_primitive alloc2.arena SelfhostTypeKind::F32:
+                            match selfhost_type_arena_add_primitive alloc2.arena SelfhostPrimitiveTypeKind::F32:
                                 Result::Ok alloc3:
                                     let f32_id <SelfhostTypeId> alloc3.type_id
-                                    match selfhost_type_arena_add_primitive alloc3.arena SelfhostTypeKind::F64:
+                                    match selfhost_type_arena_add_primitive alloc3.arena SelfhostPrimitiveTypeKind::F64:
                                         Result::Ok alloc4:
                                             let f64_id <SelfhostTypeId> alloc4.type_id
-                                            match selfhost_type_arena_add_primitive alloc4.arena SelfhostTypeKind::Never:
+                                            match selfhost_type_arena_add_primitive alloc4.arena SelfhostPrimitiveTypeKind::Never:
                                                 Result::Ok alloc5:
                                                     let never_id <SelfhostTypeId> alloc5.type_id
                                                     let arena5 <SelfhostTypeArena> alloc5.arena
@@ -115,10 +115,10 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
-            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::I32:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok alloc1:
                     let i32_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostTypeKind::Bool:
+                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
                             let bool_id <SelfhostTypeId> alloc2.type_id
                             match new<SelfhostTypeId>:
@@ -145,14 +145,21 @@ fn main <()*>i32> ():
                                                             let shown checks_print_report checks1
                                                             checks_exit_code shown
                                                 Result::Err _e:
+                                                    let returned <Vec<SelfhostTypeId>> vec_push_error_vec<SelfhostTypeId> _e
+                                                    free<SelfhostTypeId> returned
+                                                    selfhost_type_arena_free alloc2.arena
                                                     let checks1 checks_push checks0 Result<(),str>::Err "second param push failed"
                                                     let shown checks_print_report checks1
                                                     checks_exit_code shown
                                         Result::Err _e:
+                                            let returned <Vec<SelfhostTypeId>> vec_push_error_vec<SelfhostTypeId> _e
+                                            free<SelfhostTypeId> returned
+                                            selfhost_type_arena_free alloc2.arena
                                             let checks1 checks_push checks0 Result<(),str>::Err "first param push failed"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
+                                    selfhost_type_arena_free alloc2.arena
                                     let checks1 checks_push checks0 Result<(),str>::Err "param vector allocation failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
@@ -189,11 +196,11 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
-            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::Bool:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Bool:
                 Result::Ok alloc1:
                     let bool_id <SelfhostTypeId> alloc1.type_id
                     let arena1 <SelfhostTypeArena> alloc1.arena
-                    let invalid_id <SelfhostTypeId> selfhost_type_id_invalid
+                    let invalid_id <SelfhostTypeId> selfhost_type_id_new -1
                     let checks1 checks_push checks0 check is_none<SelfhostTypeRecord> selfhost_type_arena_get_record &arena1 invalid_id
                     let checks2 checks_push checks1 check is_none<i32> selfhost_type_arena_function_arg_count &arena1 bool_id
                     let checks3 checks_push checks2 check is_none<SelfhostTypeId> selfhost_type_arena_function_arg &arena1 bool_id 0
@@ -233,18 +240,23 @@ fn add_one_arg_function <(SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)*>Resu
                 Result::Ok params1:
                     selfhost_type_arena_add_function arena params1 result_id
                 Result::Err e:
-                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+                    let error <StdErrorKind> vec_push_error_kind<SelfhostTypeId> &e
+                    let returned <Vec<SelfhostTypeId>> vec_push_error_vec<SelfhostTypeId> e
+                    free<SelfhostTypeId> returned
+                    selfhost_type_arena_free arena
+                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err error
         Result::Err e:
+            selfhost_type_arena_free arena
             Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
 
 fn main <()*>i32> ():
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
-            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::I32:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok alloc1:
                     let i32_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostTypeKind::Bool:
+                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
                             let bool_id <SelfhostTypeId> alloc2.type_id
                             match add_one_arg_function alloc2.arena i32_id bool_id:
@@ -303,8 +315,13 @@ fn add_one_arg_function <(SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)*>Resu
                 Result::Ok params1:
                     selfhost_type_arena_add_function arena params1 result_id
                 Result::Err e:
-                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+                    let error <StdErrorKind> vec_push_error_kind<SelfhostTypeId> &e
+                    let returned <Vec<SelfhostTypeId>> vec_push_error_vec<SelfhostTypeId> e
+                    free<SelfhostTypeId> returned
+                    selfhost_type_arena_free arena
+                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err error
         Result::Err e:
+            selfhost_type_arena_free arena
             Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
 
 fn add_zero_arg_function <(SelfhostTypeArena,SelfhostTypeId)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, result_id):
@@ -312,16 +329,17 @@ fn add_zero_arg_function <(SelfhostTypeArena,SelfhostTypeId)*>Result<SelfhostTyp
         Result::Ok params:
             selfhost_type_arena_add_function arena params result_id
         Result::Err e:
+            selfhost_type_arena_free arena
             Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
 
 fn main <()*>i32> ():
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
-            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::I32:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok alloc1:
                     let i32_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostTypeKind::Bool:
+                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
                             let bool_id <SelfhostTypeId> alloc2.type_id
                             match add_one_arg_function alloc2.arena i32_id bool_id:
@@ -337,7 +355,7 @@ fn main <()*>i32> ():
                                                         Result::Ok alloc6:
                                                             let fn_arity_mismatch <SelfhostTypeId> alloc6.type_id
                                                             let arena6 <SelfhostTypeArena> alloc6.arena
-                                                            let invalid_id <SelfhostTypeId> selfhost_type_id_invalid
+                                                            let invalid_id <SelfhostTypeId> selfhost_type_id_new -1
                                                             let checks1 checks_push checks0 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_arg_mismatch
                                                             let checks2 checks_push checks1 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_result_mismatch
                                                             let checks3 checks_push checks2 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_arity_mismatch

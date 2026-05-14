@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T13:51:29.197Z",
+  "generated_at": "2026-05-14T14:04:25.849Z",
   "counts": {
     "total": 762,
-    "open": 6,
-    "resolved": 756,
+    "open": 5,
+    "resolved": 757,
     "by_area": {
       "stdlib": {
         "total": 198,
@@ -18,8 +18,8 @@
       },
       "selfhost": {
         "total": 65,
-        "open": 2,
-        "resolved": 63
+        "open": 1,
+        "resolved": 64
       },
       "cli": {
         "total": 19,
@@ -178,21 +178,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A",
-      "title": "selfhost type arena doctests use old primitive kind API",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-14",
-      "updated": "2026-05-14",
-      "target": "tests/stdlib/neplg2_type_arena.n.md, stdlib/neplg2/core/ty/ty.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -10423,6 +10408,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B.md"
+    },
+    {
+      "id": "ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A",
+      "title": "selfhost type arena doctests use old primitive kind API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "tests/stdlib/neplg2_type_arena.n.md, stdlib/neplg2/core/ty/ty.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A.md"
     },
     {
       "id": "ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3",

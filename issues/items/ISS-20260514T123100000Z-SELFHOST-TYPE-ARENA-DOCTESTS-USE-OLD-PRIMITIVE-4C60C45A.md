@@ -2,8 +2,8 @@
 id: ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A
 title: "selfhost type arena doctests use old primitive kind API"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: test
 created: 2026-05-14
@@ -42,4 +42,12 @@ doctest を現在の `SelfhostPrimitiveTypeKind::*` API に更新し、期待値
 
 ## 検証
 
-- `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-vec-push-owner-error-neplg2-type-arena-final.json -j 1 --dist web/dist --assert-io`: total=5, failed=5。top issue は `type.overload.no_match`。
+- 修正前: `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-type-arena-before.json -j 1 --dist web/dist --assert-io`: total=5, passed=0, failed=5。top issue は `type.overload.no_match`。
+- primitive kind API の更新後に追加で、`VecPushError<SelfhostTypeId>` を `StdErrorKind` として返していた補助関数、`push` 失敗時に返る `Vec<SelfhostTypeId>` owner を解放していない failure path、廃止済みの `selfhost_type_id_invalid` 依存が露出した。
+- 修正後: `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-type-arena-after2.json -j 1 --dist web/dist --assert-io`: total=5, passed=5, failed=0。
+
+## 解決内容
+
+- `selfhost_type_arena_add_primitive` の呼び出しを `SelfhostPrimitiveTypeKind::*` に更新し、primitive payload と公開 `SelfhostTypeKind` の責務分離に追従した。
+- `selfhost_type_id_invalid` への旧依存を削除し、invalid id は `selfhost_type_id_new -1` で明示的に作る形にした。
+- doctest 補助関数の `push` error handling を `VecPushError<SelfhostTypeId>` に同期し、`vec_push_error_kind` で error kind を取り出したうえで、返却された `Vec<SelfhostTypeId>` owner と途中の `SelfhostTypeArena` owner を必ず閉じるようにした。
