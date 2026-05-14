@@ -31,11 +31,7 @@ impl ResourceOwnerCheckEngine<'_> {
             Some(RawAddressReturnOwnership::NonOwningAddressView) => return,
             None => {}
         }
-        let Some(summary) = self
-            .summaries
-            .iter()
-            .find(|summary| summary.function == name.as_str())
-        else {
+        let Some(summary) = self.summaries.get(name) else {
             return;
         };
         variant_owner_effects.apply_resolved_parameter_variants(
@@ -91,11 +87,7 @@ impl ResourceOwnerCheckEngine<'_> {
             return;
         }
         for function in functions {
-            if let Some(summary) = self
-                .summaries
-                .iter()
-                .find(|summary| summary.function == function.as_str())
-            {
+            if let Some(summary) = self.summaries.get(function) {
                 variant_owner_effects.apply_resolved_parameter_variants(
                     self,
                     owners,

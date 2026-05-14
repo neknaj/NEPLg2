@@ -8,8 +8,8 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellReleaseParamRequirement,
-    RawCellReleaseRequirementKind,
+    RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
+    RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
 };
 use super::initialized_summary_indirect_release::{
     collect_unknown_indirect_call_release_requirements, indirect_call_may_release_raw_cells,
@@ -30,7 +30,7 @@ pub(super) fn collect_param_release_requirements_from_ops(
     pending_reallocs: &mut PendingRawReallocs,
     variant_initializations: &mut PendingVariantRawCellInitializations,
     params: &[ResourceLocal],
-    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     ops: &[ResourceOp],
 ) {
     let mut step_engine = summary_check_engine(engine);
@@ -72,7 +72,7 @@ fn collect_param_release_requirements_from_op(
     pending_reallocs: &PendingRawReallocs,
     variant_initializations: &PendingVariantRawCellInitializations,
     params: &[ResourceLocal],
-    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     op: &ResourceOp,
 ) {
     match op {
@@ -103,9 +103,7 @@ fn collect_param_release_requirements_from_op(
                     args,
                     raw_aliases,
                     params,
-                    raw_init_summaries
-                        .iter()
-                        .find(|summary| summary.function == function.as_str()),
+                    raw_init_summaries.get(function),
                 );
             }
             if functions.is_empty() && indirect_call_may_release_raw_cells(effect) {
@@ -222,7 +220,7 @@ fn collect_match_arm_release_requirements(
     pending_reallocs: &PendingRawReallocs,
     variant_initializations: &PendingVariantRawCellInitializations,
     params: &[ResourceLocal],
-    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     scrutinee: &Place,
     arm: &super::model::ResourceMatchArm,
 ) {
@@ -277,7 +275,7 @@ fn collect_nested_release_requirements(
     pending_reallocs: &PendingRawReallocs,
     variant_initializations: &PendingVariantRawCellInitializations,
     params: &[ResourceLocal],
-    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     ops: &[ResourceOp],
 ) {
     let mut path_cells = cells.clone();
@@ -306,7 +304,7 @@ fn collect_call_release_requirements(
     args: &[Place],
     raw_aliases: &RawCellAddressAliases,
     params: &[ResourceLocal],
-    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
 ) {
     let ResourceCallTarget::User { name, .. } = target else {
         return;
@@ -317,9 +315,7 @@ fn collect_call_release_requirements(
         args,
         raw_aliases,
         params,
-        raw_init_summaries
-            .iter()
-            .find(|summary| summary.function == name.as_str()),
+        raw_init_summaries.get(name),
     );
 }
 

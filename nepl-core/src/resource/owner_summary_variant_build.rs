@@ -16,7 +16,7 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerReturnSummary, OwnerVariantCondition, OwnerVariantConsumedExtentRequirement,
+    OwnerReturnSummaryIndex, OwnerVariantCondition, OwnerVariantConsumedExtentRequirement,
     OwnerVariantParameterIndex, OwnerVariantPayloadCondition, OwnerVariantProjectionReturn,
     OwnerVariantProjectionSource,
 };
@@ -29,7 +29,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
     function: &ResourceFunction,
     types: &TypeCtx,
-    summaries: &[OwnerReturnSummary],
+    summaries: &OwnerReturnSummaryIndex<'_>,
     parameter_storage_sources: &[OwnerParameterStorageSource],
     parameter_condition_sources: &[OwnerParameterConditionSource],
     ops: &[ResourceOp],

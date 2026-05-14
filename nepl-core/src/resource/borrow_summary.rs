@@ -7,7 +7,7 @@ use super::borrow_state::BorrowTable;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::report::ResourceBorrowCheckDeferred;
-use super::summary::BorrowTokenReturnSummary;
+use super::summary::{BorrowTokenReturnSummary, BorrowTokenReturnSummaryIndex};
 
 pub(super) fn compute_borrow_token_return_summaries(
     module: &ResourceModule,
@@ -16,10 +16,11 @@ pub(super) fn compute_borrow_token_return_summaries(
     let mut summaries = Vec::new();
     for _ in 0..=module.functions.len() {
         let mut next = Vec::new();
+        let summary_index = BorrowTokenReturnSummaryIndex::new(&summaries);
         for function in &module.functions {
             let mut parameter_indices = Vec::new();
             for (index, param) in function.params.iter().enumerate() {
-                if function_returns_borrow_token(function, &param.place, &summaries, types) {
+                if function_returns_borrow_token(function, &param.place, &summary_index, types) {
                     parameter_indices.push(index);
                 }
             }
@@ -41,7 +42,7 @@ pub(super) fn compute_borrow_token_return_summaries(
 fn function_returns_borrow_token(
     function: &ResourceFunction,
     parameter: &Place,
-    summaries: &[BorrowTokenReturnSummary],
+    summaries: &BorrowTokenReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> bool {
     let mut engine = ResourceBorrowCheckEngine {

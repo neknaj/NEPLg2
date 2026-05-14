@@ -22,11 +22,7 @@ impl ResourceCheckEngine<'_> {
         let ResourceCallTarget::User { name, .. } = target else {
             return true;
         };
-        let Some(summary) = self
-            .raw_init_summaries
-            .iter()
-            .find(|summary| summary.function == name.as_str())
-        else {
+        let Some(summary) = self.raw_init_summaries.get(name) else {
             return true;
         };
         self.apply_raw_cell_initialization_function_summary(
@@ -53,11 +49,7 @@ impl ResourceCheckEngine<'_> {
     ) -> bool {
         let mut ok = true;
         for function in function_aliases.functions(callee) {
-            let Some(summary) = self
-                .raw_init_summaries
-                .iter()
-                .find(|summary| summary.function == function.as_str())
-            else {
+            let Some(summary) = self.raw_init_summaries.get(function) else {
                 continue;
             };
             ok &= self.apply_raw_cell_initialization_function_summary(

@@ -6,7 +6,7 @@ use super::function_alias::{construct_function_alias_fields, FunctionAliasTable}
 use super::initialized_alias::{ProjectedRawCellAddressAlias, RawCellAddressAliases};
 use super::initialized_alias_flow::{
     expr_kind_preserves_raw_alias, expr_output_preserves_raw_alias, push_unique_return_alias,
-    RawCellAddressReturnAlias, RawCellAddressReturnSummary,
+    RawCellAddressReturnAlias, RawCellAddressReturnSummaryIndex,
 };
 use super::initialized_alias_flow_apply::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
@@ -23,7 +23,7 @@ pub(super) fn function_raw_cell_address_return_aliases(
     function: &ResourceFunction,
     parameter_index: usize,
     parameter: &Place,
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> Vec<RawCellAddressReturnAlias> {
     let mut raw_aliases = RawCellAddressAliases::default();
@@ -59,7 +59,7 @@ fn propagate_raw_address_alias_ops(
     raw_aliases: &mut RawCellAddressAliases,
     function_aliases: &mut FunctionAliasTable,
     ops: &[ResourceOp],
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) {
     for op in ops {
@@ -71,7 +71,7 @@ fn propagate_raw_address_alias_op(
     raw_aliases: &mut RawCellAddressAliases,
     function_aliases: &mut FunctionAliasTable,
     op: &ResourceOp,
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) {
     match op {

@@ -1,11 +1,11 @@
 use super::borrow_state::BorrowTable;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, PlaceRoot, ResourceCallTarget};
-use super::summary::BorrowTokenReturnSummary;
+use super::summary::BorrowTokenReturnSummaryIndex;
 
 pub(super) fn propagate_call_return_token(
     borrows: &mut BorrowTable,
-    summaries: &[BorrowTokenReturnSummary],
+    summaries: &BorrowTokenReturnSummaryIndex<'_>,
     output: &Place,
     target: &ResourceCallTarget,
     args: &[Place],
@@ -13,10 +13,7 @@ pub(super) fn propagate_call_return_token(
     let ResourceCallTarget::User { name, .. } = target else {
         return;
     };
-    let Some(summary) = summaries
-        .iter()
-        .find(|summary| summary.function == name.as_str())
-    else {
+    let Some(summary) = summaries.get(name) else {
         return;
     };
     for arg in summary
@@ -33,7 +30,7 @@ pub(super) fn propagate_call_return_token(
 pub(super) fn propagate_indirect_call_return_token(
     borrows: &mut BorrowTable,
     function_aliases: &FunctionAliasTable,
-    summaries: &[BorrowTokenReturnSummary],
+    summaries: &BorrowTokenReturnSummaryIndex<'_>,
     output: &Place,
     callee: &Place,
     args: &[Place],
@@ -44,10 +41,7 @@ pub(super) fn propagate_indirect_call_return_token(
         return;
     }
     for function in functions {
-        if let Some(summary) = summaries
-            .iter()
-            .find(|summary| summary.function == function.as_str())
-        {
+        if let Some(summary) = summaries.get(function) {
             for arg in summary
                 .parameter_indices
                 .iter()

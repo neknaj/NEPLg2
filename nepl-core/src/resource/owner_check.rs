@@ -23,12 +23,12 @@ use super::place_utils::{
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{ResourceOwnerCheckDeferred, ResourceOwnerDiagnostic, ResourceOwnerOperation};
 use super::storage_origin::StorageOriginTable;
-use super::summary::OwnerReturnSummary;
+use super::summary::OwnerReturnSummaryIndex;
 
 pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
-    pub(super) summaries: &'a [OwnerReturnSummary],
+    pub(super) summaries: &'a OwnerReturnSummaryIndex<'a>,
     pub(super) diagnostics: Vec<ResourceOwnerDiagnostic>,
     pub(super) deferred: ResourceOwnerCheckDeferred,
     pub(super) owner_extent_requirements: Vec<PendingOwnerExtentRequirement>,

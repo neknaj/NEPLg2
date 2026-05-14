@@ -8,8 +8,12 @@ use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_alias_flow::RawCellAddressReturnSummary;
-use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_alias_flow::{
+    RawCellAddressReturnSummary, RawCellAddressReturnSummaryIndex,
+};
+use super::initialized_summary::{
+    RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
+};
 use super::initialized_summary_cells::collect_return_initialized_raw_cells;
 use super::initialized_summary_param_byte_ranges::collect_param_initialized_raw_byte_ranges;
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
@@ -30,13 +34,15 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
 ) -> Vec<RawCellInitializationFunctionSummary> {
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
+    let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
+        let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(&summaries);
         let summary = function_raw_cell_initialization_summary(
             function,
             types,
-            raw_alias_summaries,
-            &summaries,
+            &raw_alias_summary_index,
+            &raw_init_summary_index,
         );
         if update_raw_cell_initialization_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
@@ -90,8 +96,8 @@ fn update_raw_cell_initialization_summary(
 fn function_raw_cell_initialization_summary(
     function: &ResourceFunction,
     types: &TypeCtx,
-    raw_alias_summaries: &[RawCellAddressReturnSummary],
-    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
 ) -> RawCellInitializationFunctionSummary {
     let engine = ResourceCheckEngine {
         function: function.name.as_str(),

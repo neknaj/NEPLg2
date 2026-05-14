@@ -38151,3 +38151,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
   - `node nodesrc/tests.js -i stdlib\alloc\collections\vec --no-tree -o tmp\agent1-vec-region-token-owner-doctests.json -j 1 --dist web/dist`: 41/41 pass
   - `node nodesrc/tests.js -i tests\stdlib\vec_collections.n.md -i tests\stdlib\sort.n.md -i tests\stdlib\sort_simple.n.md -i tests\stdlib\capacity_stack.n.md -i tests\stdlib\collection_cleanup_contract.n.md --no-tree -o tmp\agent1-vec-region-token-owner-focused-tests.json -j 1 --dist web/dist`: 33/33 pass
+
+# 2026-05-14 Agent 1 メモ (ISS-20260506T193839798Z ResourceIR summary worklist timeout)
+
+- module graph doctest の再発 timeout は、wasm runtime や出力 wasm ではなく ResourceIR summary fixed point の再計算順序が支配的だった。
+- `SummaryWorklist` の初期 queue を module 定義順から dependency postorder へ変え、callee summary を caller summary より先に安定させるようにした。recursive/SCC は `Visiting` marker で一度だけ初期投入し、summary 変更時の dependent enqueue は維持している。
+- `RawCellAddressReturnSummary`、`RawCellInitializationFunctionSummary`、`OwnerReturnSummary`、`BorrowTokenReturnSummary`、effect summary に関数名 index を追加し、summary 適用側は線形探索ではなく明示 index で引く形にした。
+- native stage timing は `resource_static_check` が約 36.5s から約 22.9s に低下し、raw alias / raw init / owner summary recomputation もそれぞれ 839->636、962->626、1034->641 へ減った。
+- `tests/stdlib/neplg2_module_graph.n.md` は default 60000ms budget で 3/3 pass に戻った。再実行時の compile_ms は 42018 / 41556 / 39717。
+- `tmp/agent1_probe_lex_empty.n.md` は 1/1 pass、`stdlib/neplg2/core/module/loader.nepl` は 1/1 pass。
+- `stdlib/neplg2/core/syntax/parser/module_parser.nepl` は timeout ではなく doctest 内の `eq` import drift で `resolve.identifier.undefined` になったため、別 issue `ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3` を追加した。

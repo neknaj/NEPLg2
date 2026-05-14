@@ -13,10 +13,10 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
-    expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
+    expr_kind_preserves_raw_alias, RawCellAddressReturnSummaryIndex,
 };
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
-use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
@@ -43,10 +43,13 @@ pub fn check_resource_initialized_moves(
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
     let raw_alias_summaries = compute_raw_cell_address_return_summaries(module, types);
+    let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(&raw_alias_summaries);
     stage_start.log("resource_initialized_raw_alias_summaries");
     let stage_start = ResourceStageTimer::start();
     let raw_init_summaries =
         compute_raw_cell_initialization_function_summaries(module, types, &raw_alias_summaries);
+    let raw_init_summary_index =
+        RawCellInitializationFunctionSummaryIndex::new(&raw_init_summaries);
     stage_start.log("resource_initialized_raw_init_summaries");
     let stage_start = ResourceStageTimer::start();
 
@@ -54,8 +57,8 @@ pub fn check_resource_initialized_moves(
         let mut engine = ResourceCheckEngine {
             function: function.name.as_str(),
             types,
-            raw_alias_summaries: &raw_alias_summaries,
-            raw_init_summaries: &raw_init_summaries,
+            raw_alias_summaries: &raw_alias_summary_index,
+            raw_init_summaries: &raw_init_summary_index,
             diagnostics: Vec::new(),
             auto_drop_points: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
@@ -82,8 +85,8 @@ pub fn check_resource_initialized_moves(
 pub(super) struct ResourceCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
-    pub(super) raw_alias_summaries: &'a [RawCellAddressReturnSummary],
-    pub(super) raw_init_summaries: &'a [RawCellInitializationFunctionSummary],
+    pub(super) raw_alias_summaries: &'a RawCellAddressReturnSummaryIndex<'a>,
+    pub(super) raw_init_summaries: &'a RawCellInitializationFunctionSummaryIndex<'a>,
     pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
     pub(super) auto_drop_points: Vec<ResourceDropPoint>,
     pub(super) deferred: ResourceCheckDeferred,

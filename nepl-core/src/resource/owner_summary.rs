@@ -33,7 +33,7 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::OwnerExtentSummary;
-use super::summary::OwnerReturnSummary;
+use super::summary::{OwnerReturnSummary, OwnerReturnSummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_owner_return_summaries(
@@ -43,8 +43,9 @@ pub(super) fn compute_owner_return_summaries(
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
     while let Some(function_index) = worklist.pop() {
+        let summary_index = OwnerReturnSummaryIndex::new(&summaries);
         let summary =
-            function_owner_return_summary(&module.functions[function_index], types, &summaries);
+            function_owner_return_summary(&module.functions[function_index], types, &summary_index);
         if update_owner_return_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
         }
@@ -63,7 +64,7 @@ pub(super) fn compute_owner_return_summaries(
 fn function_owner_return_summary(
     function: &ResourceFunction,
     types: &TypeCtx,
-    summaries: &[OwnerReturnSummary],
+    summaries: &OwnerReturnSummaryIndex<'_>,
 ) -> OwnerReturnSummary {
     let mut engine = ResourceOwnerCheckEngine {
         function: function.name.as_str(),

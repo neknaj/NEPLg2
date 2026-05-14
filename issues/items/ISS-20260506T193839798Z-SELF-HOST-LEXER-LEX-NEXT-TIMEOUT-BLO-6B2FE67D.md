@@ -2,8 +2,8 @@
 id: ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D
 title: "Self-host lexer lex_next timeout blocks parser loader and module graph doctests"
 area: selfhost
-status: investigating
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
@@ -95,3 +95,25 @@ Run node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex
 - native stage timing では case 1 の `resource_static_check=36544ms`、主な内訳は `resource_initialized_raw_init_summaries=15828ms`, `resource_initialized_moves=18160ms`, `resource_owner_summaries=9421ms`, `resource_owner_obligations=9908ms`, `resource_effect_boundaries=6367ms`。
 
 したがって、owner diagnostic blocker は解消したが、この issue はまだ close しない。残りは runtime や出力 wasm の問題ではなく、selfhost graph/import stack を含む大きめの入力で ResourceIR / initialized / owner / effect の静的検査が wasm runner の default 60s budget を超える性能問題として継続調査する。
+
+## 2026-05-14 ResourceIR summary worklist fix closeout
+
+module graph の再発 timeout は、出力 wasm や runtime ではなく ResourceIR summary fixed point の再計算順序が主因だった。従来の `SummaryWorklist` は module 内の定義順で初期 queue を作っていたため、callee summary が安定する前に caller summary を計算し、`lex_line_start`、`lex_all_loop`、`selfhost_module_graph_visit_imports`、`main` などの高コスト summary を複数回再評価していた。
+
+修正では function summary dependency graph から caller -> callee 依存を作り、初期 worklist を callee-before-caller の DFS postorder に変更した。recursive/SCC は `Visiting` marker で一度だけ初期投入し、summary が変化した場合の dependent enqueue は従来通り維持するため、fixed point semantics は弱めていない。併せて summary lookup を関数名 index 経由にし、各検査の分岐を summary 線形探索ではなく dataflow 本体へ集中させた。
+
+native stage timing の改善:
+
+- before: `resource_static_check=36544ms`
+- after: `resource_static_check=22923ms`
+- `resource_raw_alias_summary_recomputations`: 839 -> 636
+- `resource_raw_init_summary_recomputations`: 962 -> 626
+- `resource_owner_summary_recomputations`: 1034 -> 641
+
+default 60000ms wasm budget での再検証:
+
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tmp/agent1_probe_lex_empty.n.md --no-tree --dist web/dist -o tmp/agent1_probe_lex_empty_summary_worklist_default.json -j 1 --assert-io`: total=1, passed=1, `compile_ms=19775`
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree --dist web/dist -o tmp/agent1_module_graph_summary_worklist_default_rerun.json -j 1 --assert-io`: total=3, passed=3, `compile_ms=42018/41556/39717`
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/loader.nepl --no-tree --dist web/dist -o tmp/agent1_loader_summary_worklist_default.json -j 1 --assert-io`: total=1, passed=1
+
+`stdlib/neplg2/core/syntax/parser/module_parser.nepl` focused doctest は timeout ではなく `eq` の stale import による `resolve.identifier.undefined` まで到達する。これは今回の timeout root cause ではないため、`ISS-20260514T132649151Z-SELF-HOST-MODULE-PARSER-DOCTEST-OMIT-5D2EEBE3` として別 issue 化した。

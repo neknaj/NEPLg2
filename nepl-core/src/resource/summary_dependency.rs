@@ -26,6 +26,25 @@ pub(super) fn build_function_summary_dependents(module: &ResourceModule) -> Vec<
     dependents
 }
 
+pub(super) fn build_function_summary_dependencies(module: &ResourceModule) -> Vec<Vec<usize>> {
+    let mut function_indices = BTreeMap::new();
+    for (index, function) in module.functions.iter().enumerate() {
+        function_indices.insert(function.name.as_str(), index);
+    }
+
+    let mut dependencies = vec![Vec::new(); module.functions.len()];
+    for (caller_index, function) in module.functions.iter().enumerate() {
+        let mut dependency_names = BTreeSet::new();
+        collect_function_summary_dependencies(function, &mut dependency_names);
+        for dependency in dependency_names {
+            if let Some(dependency_index) = function_indices.get(dependency.as_str()) {
+                dependencies[caller_index].push(*dependency_index);
+            }
+        }
+    }
+    dependencies
+}
+
 fn collect_function_summary_dependencies(function: &ResourceFunction, out: &mut BTreeSet<String>) {
     for block in &function.blocks {
         collect_ops_summary_dependencies(&block.ops, out);

@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 use super::model::{I32ValueCondition, PlaceProjection, StorageOrigin};
 use super::report::ResourceOwnerOperation;
+use super::summary_index::{FunctionSummary, SummaryIndex};
 use crate::types::TypeId;
 
 pub(super) use super::borrow_summary::compute_borrow_token_return_summaries;
@@ -12,6 +13,14 @@ pub(super) use super::owner_summary::compute_owner_return_summaries;
 pub(super) struct BorrowTokenReturnSummary {
     pub(super) function: String,
     pub(super) parameter_indices: Vec<usize>,
+}
+
+pub(super) type BorrowTokenReturnSummaryIndex<'a> = SummaryIndex<'a, BorrowTokenReturnSummary>;
+
+impl FunctionSummary for BorrowTokenReturnSummary {
+    fn function_name(&self) -> &str {
+        &self.function
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -37,6 +46,14 @@ pub(super) struct OwnerReturnSummary {
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
     pub(super) projection_markers: Vec<OwnerProjectionMarker>,
     pub(super) storage_origin_markers: Vec<OwnerStorageOriginMarker>,
+}
+
+pub(super) type OwnerReturnSummaryIndex<'a> = SummaryIndex<'a, OwnerReturnSummary>;
+
+impl FunctionSummary for OwnerReturnSummary {
+    fn function_name(&self) -> &str {
+        &self.function
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

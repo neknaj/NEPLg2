@@ -10,9 +10,9 @@ use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_alias_flow::RawCellAddressReturnSummary;
+use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
+    RawCellInitializationFunctionSummaryIndex, RawCellInitializationVariantCondition,
     RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
 };
 use super::initialized_summary_byte_range_model::RawCellInitializationVariantParamByteRange;
@@ -40,8 +40,8 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     condition_out: &mut Vec<RawCellInitializationVariantCondition>,
     function: &ResourceFunction,
     types: &TypeCtx,
-    raw_alias_summaries: &[RawCellAddressReturnSummary],
-    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     ops: &[ResourceOp],
     return_value: &Place,
 ) {

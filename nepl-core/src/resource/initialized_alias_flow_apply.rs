@@ -4,7 +4,7 @@ use crate::types::TypeCtx;
 
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_alias_flow::RawCellAddressReturnSummary;
+use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_alias_flow_projection::substitute_summary_projection_offsets;
 use super::model::{AggregateKind, Place, ResourceCallTarget};
 use super::place_utils::{construct_aggregate_field_place, projected_place_with_concrete_type};
@@ -26,16 +26,13 @@ pub(super) fn apply_direct_call_raw_alias_summary(
     output: &Place,
     target: &ResourceCallTarget,
     args: &[Place],
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> bool {
     let ResourceCallTarget::User { name, .. } = target else {
         return false;
     };
-    let Some(summary) = summaries
-        .iter()
-        .find(|summary| summary.function == name.as_str())
-    else {
+    let Some(summary) = summaries.get(name) else {
         return false;
     };
     apply_raw_alias_summary(raw_aliases, output, args, summary, types)
@@ -47,16 +44,13 @@ pub(super) fn apply_indirect_call_raw_alias_summary(
     output: &Place,
     callee: &Place,
     args: &[Place],
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> bool {
     let functions = function_aliases.functions(callee);
     let mut applied = false;
     for function in functions {
-        if let Some(summary) = summaries
-            .iter()
-            .find(|summary| summary.function == function.as_str())
-        {
+        if let Some(summary) = summaries.get(function) {
             applied |= apply_raw_alias_summary(raw_aliases, output, args, summary, types);
         }
     }
@@ -67,7 +61,7 @@ fn apply_raw_alias_summary(
     raw_aliases: &mut RawCellAddressAliases,
     output: &Place,
     args: &[Place],
-    summary: &RawCellAddressReturnSummary,
+    summary: &super::initialized_alias_flow::RawCellAddressReturnSummary,
     types: &TypeCtx,
 ) -> bool {
     let mut applied = false;

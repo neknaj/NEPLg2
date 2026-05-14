@@ -9,6 +9,7 @@ use super::initialized_alias_flow_raw::function_raw_cell_address_return_aliases;
 use super::initialized_alias_flow_value_projection::function_value_projection_return_aliases;
 use super::model::{Place, PlaceProjection, ResourceExprKind, ResourceFunction, ResourceModule};
 use super::place_utils::type_preserves_raw_address_alias;
+use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 
 pub(super) use super::initialized_alias_flow_apply::{
@@ -21,6 +22,15 @@ pub(super) struct RawCellAddressReturnSummary {
     pub(super) function: String,
     pub(super) parameters: Vec<Place>,
     pub(super) aliases: Vec<RawCellAddressReturnAlias>,
+}
+
+pub(super) type RawCellAddressReturnSummaryIndex<'a> =
+    SummaryIndex<'a, RawCellAddressReturnSummary>;
+
+impl FunctionSummary for RawCellAddressReturnSummary {
+    fn function_name(&self) -> &str {
+        &self.function
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +64,8 @@ pub(super) fn compute_raw_cell_address_return_summaries(
     let mut summaries = Vec::new();
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
-        let summary = function_raw_cell_address_return_summary(function, &summaries, types);
+        let summary_index = RawCellAddressReturnSummaryIndex::new(&summaries);
+        let summary = function_raw_cell_address_return_summary(function, &summary_index, types);
         if update_raw_cell_address_return_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
         }
@@ -98,16 +109,16 @@ fn update_raw_cell_address_return_summary(
 
 fn function_raw_cell_address_return_summary(
     function: &ResourceFunction,
-    summaries: &[RawCellAddressReturnSummary],
+    summary_index: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> RawCellAddressReturnSummary {
-    let mut aliases = function_value_projection_return_aliases(function, summaries, types);
+    let mut aliases = function_value_projection_return_aliases(function, summary_index, types);
     for (index, param) in function.params.iter().enumerate() {
         for alias in function_raw_cell_address_return_aliases(
             function,
             index,
             &param.place,
-            summaries,
+            summary_index,
             types,
         ) {
             push_unique_return_alias(&mut aliases, alias);

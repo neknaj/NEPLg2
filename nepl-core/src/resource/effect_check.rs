@@ -13,7 +13,7 @@ use super::effect_identity::{
     raw_memory_op_produces_identity, RawIdentityTable, RawMemoryIdentityTable,
     RawPointerAliasTable,
 };
-use super::effect_summary::{RawIdentityReturnSummary, RawPointerReturnSummary};
+use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
     EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceCallTarget, ResourceFunction, ResourceOp,
@@ -23,8 +23,8 @@ use super::model::{
 pub(super) struct ResourceEffectBoundaryEngine<'a> {
     pub(super) function: &'a str,
     pub(super) effect: Effect,
-    pub(super) summaries: &'a [RawIdentityReturnSummary],
-    pub(super) pointer_summaries: &'a [RawPointerReturnSummary],
+    pub(super) summaries: &'a RawIdentityReturnSummaryIndex<'a>,
+    pub(super) pointer_summaries: &'a RawPointerReturnSummaryIndex<'a>,
     pub(super) track_alloc_identities: bool,
     pub(super) diagnostics: Vec<ResourceEffectBoundaryDiagnostic>,
     pub(super) counts: ResourceEffectCounts,
@@ -375,11 +375,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         let ResourceCallTarget::User { name, .. } = target else {
             return;
         };
-        let Some(summary) = self
-            .summaries
-            .iter()
-            .find(|summary| summary.function == name.as_str())
-        else {
+        let Some(summary) = self.summaries.get(name) else {
             return;
         };
         if summary.returns_internal_alloc {
@@ -411,19 +407,14 @@ impl ResourceEffectBoundaryEngine<'_> {
             return;
         }
         for function in functions {
-            if self
-                .summaries
-                .iter()
-                .find(|summary| summary.function == function.as_str())
-                .is_some_and(|summary| {
-                    summary.returns_internal_alloc
-                        || summary
-                            .parameter_indices
-                            .iter()
-                            .filter_map(|index| args.get(*index))
-                            .any(|arg| identities.contains(arg))
-                })
-            {
+            if self.summaries.get(function).is_some_and(|summary| {
+                summary.returns_internal_alloc
+                    || summary
+                        .parameter_indices
+                        .iter()
+                        .filter_map(|index| args.get(*index))
+                        .any(|arg| identities.contains(arg))
+            }) {
                 identities.mark(output);
                 return;
             }
@@ -441,11 +432,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         let ResourceCallTarget::User { name, .. } = target else {
             return;
         };
-        let Some(summary) = self
-            .pointer_summaries
-            .iter()
-            .find(|summary| summary.function == name.as_str())
-        else {
+        let Some(summary) = self.pointer_summaries.get(name) else {
             return;
         };
         for arg in summary
@@ -474,11 +461,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             return;
         }
         for function in functions {
-            if let Some(summary) = self
-                .pointer_summaries
-                .iter()
-                .find(|summary| summary.function == function.as_str())
-            {
+            if let Some(summary) = self.pointer_summaries.get(function) {
                 for arg in summary
                     .parameter_indices
                     .iter()

@@ -6,6 +6,7 @@ use super::effect_counts::ResourceEffectCounts;
 use super::effect_identity::{RawIdentityTable, RawMemoryIdentityTable, RawPointerAliasTable};
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};
+use super::summary_index::{FunctionSummary, SummaryIndex};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawIdentityReturnSummary {
@@ -14,10 +15,26 @@ pub(super) struct RawIdentityReturnSummary {
     pub(super) returns_internal_alloc: bool,
 }
 
+pub(super) type RawIdentityReturnSummaryIndex<'a> = SummaryIndex<'a, RawIdentityReturnSummary>;
+
+impl FunctionSummary for RawIdentityReturnSummary {
+    fn function_name(&self) -> &str {
+        &self.function
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawPointerReturnSummary {
     pub(super) function: String,
     pub(super) parameter_indices: Vec<usize>,
+}
+
+pub(super) type RawPointerReturnSummaryIndex<'a> = SummaryIndex<'a, RawPointerReturnSummary>;
+
+impl FunctionSummary for RawPointerReturnSummary {
+    fn function_name(&self) -> &str {
+        &self.function
+    }
 }
 
 pub(super) fn compute_raw_identity_return_summaries(
@@ -27,6 +44,8 @@ pub(super) fn compute_raw_identity_return_summaries(
     let mut summaries = Vec::new();
     for _ in 0..=module.functions.len() {
         let mut next = Vec::new();
+        let summary_index = RawIdentityReturnSummaryIndex::new(&summaries);
+        let pointer_summary_index = RawPointerReturnSummaryIndex::new(pointer_summaries);
         for function in &module.functions {
             let mut parameter_indices = Vec::new();
             for (index, param) in function.params.iter().enumerate() {
@@ -35,14 +54,17 @@ pub(super) fn compute_raw_identity_return_summaries(
                 if function_returns_marked_identity(
                     function,
                     identities,
-                    &summaries,
-                    pointer_summaries,
+                    &summary_index,
+                    &pointer_summary_index,
                 ) {
                     parameter_indices.push(index);
                 }
             }
-            let returns_internal_alloc =
-                function_returns_internal_alloc_identity(function, &summaries, pointer_summaries);
+            let returns_internal_alloc = function_returns_internal_alloc_identity(
+                function,
+                &summary_index,
+                &pointer_summary_index,
+            );
             if !parameter_indices.is_empty() || returns_internal_alloc {
                 next.push(RawIdentityReturnSummary {
                     function: function.name.clone(),
@@ -61,8 +83,8 @@ pub(super) fn compute_raw_identity_return_summaries(
 
 fn function_returns_internal_alloc_identity(
     function: &ResourceFunction,
-    summaries: &[RawIdentityReturnSummary],
-    pointer_summaries: &[RawPointerReturnSummary],
+    summaries: &RawIdentityReturnSummaryIndex<'_>,
+    pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
 ) -> bool {
     let identities = RawIdentityTable::default();
     function_returns_identity_with_engine(function, identities, summaries, pointer_summaries, true)
@@ -71,8 +93,8 @@ fn function_returns_internal_alloc_identity(
 fn function_returns_marked_identity(
     function: &ResourceFunction,
     identities: RawIdentityTable,
-    summaries: &[RawIdentityReturnSummary],
-    pointer_summaries: &[RawPointerReturnSummary],
+    summaries: &RawIdentityReturnSummaryIndex<'_>,
+    pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
 ) -> bool {
     function_returns_identity_with_engine(function, identities, summaries, pointer_summaries, false)
 }
@@ -80,8 +102,8 @@ fn function_returns_marked_identity(
 fn function_returns_identity_with_engine(
     function: &ResourceFunction,
     mut identities: RawIdentityTable,
-    summaries: &[RawIdentityReturnSummary],
-    pointer_summaries: &[RawPointerReturnSummary],
+    summaries: &RawIdentityReturnSummaryIndex<'_>,
+    pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
     track_alloc_identities: bool,
 ) -> bool {
     let mut engine = ResourceEffectBoundaryEngine {
@@ -122,6 +144,7 @@ pub(super) fn compute_raw_pointer_return_summaries(
     let mut summaries = Vec::new();
     for _ in 0..=module.functions.len() {
         let mut next = Vec::new();
+        let summary_index = RawPointerReturnSummaryIndex::new(&summaries);
         for function in &module.functions {
             let mut parameter_indices = Vec::new();
             for (index, param) in function.params.iter().enumerate() {
@@ -131,7 +154,7 @@ pub(super) fn compute_raw_pointer_return_summaries(
                     function,
                     &param.place,
                     pointer_aliases,
-                    &summaries,
+                    &summary_index,
                 ) {
                     parameter_indices.push(index);
                 }
@@ -155,12 +178,14 @@ fn function_returns_pointer_alias(
     function: &ResourceFunction,
     parameter: &Place,
     mut pointer_aliases: RawPointerAliasTable,
-    pointer_summaries: &[RawPointerReturnSummary],
+    pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
 ) -> bool {
+    let empty_identity_summaries: &[RawIdentityReturnSummary] = &[];
+    let empty_identity_summary_index = RawIdentityReturnSummaryIndex::new(empty_identity_summaries);
     let mut engine = ResourceEffectBoundaryEngine {
         function: function.name.as_str(),
         effect: function.effect,
-        summaries: &[],
+        summaries: &empty_identity_summary_index,
         pointer_summaries,
         track_alloc_identities: false,
         diagnostics: Vec::new(),

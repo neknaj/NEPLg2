@@ -13,6 +13,7 @@ pub(super) use super::initialized_summary_release_model::{
     RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
 };
 use super::model::PlaceProjection;
+use super::summary_index::{FunctionSummary, SummaryIndex};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationFunctionSummary {
@@ -26,6 +27,15 @@ pub(super) struct RawCellInitializationFunctionSummary {
     pub(super) variant_param_byte_ranges: Vec<RawCellInitializationVariantParamByteRange>,
     pub(super) variant_required_param_cells: Vec<RawCellInitializationVariantParamRequirement>,
     pub(super) variant_conditions: Vec<RawCellInitializationVariantCondition>,
+}
+
+pub(super) type RawCellInitializationFunctionSummaryIndex<'a> =
+    SummaryIndex<'a, RawCellInitializationFunctionSummary>;
+
+impl FunctionSummary for RawCellInitializationFunctionSummary {
+    fn function_name(&self) -> &str {
+        &self.function
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

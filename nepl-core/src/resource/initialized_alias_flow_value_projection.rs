@@ -5,7 +5,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias_flow::{
     expr_kind_preserves_raw_alias, expr_output_preserves_raw_alias, push_unique_return_alias,
-    RawCellAddressReturnAlias, RawCellAddressReturnSummary,
+    RawCellAddressReturnAlias, RawCellAddressReturnSummary, RawCellAddressReturnSummaryIndex,
 };
 use super::model::{
     EffectOp, Place, PlaceProjection, ResourceCallTarget, ResourceFunction, ResourceOp,
@@ -26,7 +26,7 @@ struct ValueProjectionAlias {
 
 pub(super) fn function_value_projection_return_aliases(
     function: &ResourceFunction,
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> Vec<RawCellAddressReturnAlias> {
     if !function_allows_value_projection_summary(function, types) {
@@ -107,7 +107,7 @@ fn propagate_value_projection_ops(
     value_aliases: &mut Vec<ValueProjectionAlias>,
     function_aliases: &mut FunctionAliasTable,
     ops: &[ResourceOp],
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) {
     for op in ops {
@@ -119,7 +119,7 @@ fn propagate_value_projection_op(
     value_aliases: &mut Vec<ValueProjectionAlias>,
     function_aliases: &mut FunctionAliasTable,
     op: &ResourceOp,
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) {
     match op {
@@ -399,16 +399,13 @@ fn apply_direct_call_value_projection_summary(
     output: &Place,
     target: &ResourceCallTarget,
     args: &[Place],
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> bool {
     let ResourceCallTarget::User { name, .. } = target else {
         return false;
     };
-    let Some(summary) = summaries
-        .iter()
-        .find(|summary| summary.function == name.as_str())
-    else {
+    let Some(summary) = summaries.get(name) else {
         return false;
     };
     apply_value_projection_summary(value_aliases, output, args, summary, types)
@@ -420,16 +417,13 @@ fn apply_indirect_call_value_projection_summary(
     output: &Place,
     callee: &Place,
     args: &[Place],
-    summaries: &[RawCellAddressReturnSummary],
+    summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> bool {
     let functions = function_aliases.functions(callee);
     let mut applied = false;
     for function in functions {
-        if let Some(summary) = summaries
-            .iter()
-            .find(|summary| summary.function == function.as_str())
-        {
+        if let Some(summary) = summaries.get(function) {
             applied |= apply_value_projection_summary(value_aliases, output, args, summary, types);
         }
     }

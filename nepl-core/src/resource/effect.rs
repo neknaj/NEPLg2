@@ -13,6 +13,7 @@ use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_counts::ResourceEffectCounts;
 use super::effect_summary::{
     compute_raw_identity_return_summaries, compute_raw_pointer_return_summaries,
+    RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex,
 };
 use super::model::{
     ExternalIoOp, NondetOp, Place, RawMemoryOp, ResourceModule, UnknownEffectReason,
@@ -95,14 +96,16 @@ pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffe
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let pointer_summaries = compute_raw_pointer_return_summaries(module);
+    let pointer_summary_index = RawPointerReturnSummaryIndex::new(&pointer_summaries);
     let summaries = compute_raw_identity_return_summaries(module, &pointer_summaries);
+    let summary_index = RawIdentityReturnSummaryIndex::new(&summaries);
 
     for function in &module.functions {
         let mut engine = ResourceEffectBoundaryEngine {
             function: function.name.as_str(),
             effect: function.effect,
-            summaries: &summaries,
-            pointer_summaries: &pointer_summaries,
+            summaries: &summary_index,
+            pointer_summaries: &pointer_summary_index,
             track_alloc_identities: true,
             diagnostics: Vec::new(),
             counts: ResourceEffectCounts::default(),

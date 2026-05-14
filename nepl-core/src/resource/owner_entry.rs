@@ -11,6 +11,7 @@ use super::report::{
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerFunctionCheck,
 };
 use super::summary::compute_owner_return_summaries;
+use super::summary::OwnerReturnSummaryIndex;
 use super::timing::ResourceStageTimer;
 
 pub fn check_resource_owner_obligations(
@@ -22,6 +23,7 @@ pub fn check_resource_owner_obligations(
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceOwnerCheckDeferred::default();
     let summaries = compute_owner_return_summaries(module, types);
+    let summary_index = OwnerReturnSummaryIndex::new(&summaries);
     stage_start.log("resource_owner_summaries");
     let stage_start = ResourceStageTimer::start();
 
@@ -29,7 +31,7 @@ pub fn check_resource_owner_obligations(
         let mut engine = ResourceOwnerCheckEngine {
             function: function.name.as_str(),
             types,
-            summaries: &summaries,
+            summaries: &summary_index,
             diagnostics: Vec::new(),
             deferred: ResourceOwnerCheckDeferred::default(),
             owner_extent_requirements: Vec::new(),

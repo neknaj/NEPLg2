@@ -25,7 +25,7 @@ use super::report::{
     ResourceBorrowCheckDeferred, ResourceBorrowCheckReport, ResourceBorrowDiagnostic,
     ResourceBorrowFunctionCheck, ResourceBorrowOperation,
 };
-use super::summary::{compute_borrow_token_return_summaries, BorrowTokenReturnSummary};
+use super::summary::{compute_borrow_token_return_summaries, BorrowTokenReturnSummaryIndex};
 
 pub fn check_resource_borrow_lifetimes(
     module: &ResourceModule,
@@ -35,12 +35,13 @@ pub fn check_resource_borrow_lifetimes(
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceBorrowCheckDeferred::default();
     let summaries = compute_borrow_token_return_summaries(module, types);
+    let summary_index = BorrowTokenReturnSummaryIndex::new(&summaries);
 
     for function in &module.functions {
         let mut engine = ResourceBorrowCheckEngine {
             function: function.name.as_str(),
             types,
-            summaries: &summaries,
+            summaries: &summary_index,
             parameter_names: Vec::new(),
             diagnostics: Vec::new(),
             deferred: ResourceBorrowCheckDeferred::default(),
@@ -65,7 +66,7 @@ pub fn check_resource_borrow_lifetimes(
 pub(super) struct ResourceBorrowCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
-    pub(super) summaries: &'a [BorrowTokenReturnSummary],
+    pub(super) summaries: &'a BorrowTokenReturnSummaryIndex<'a>,
     pub(super) parameter_names: Vec<String>,
     pub(super) diagnostics: Vec<ResourceBorrowDiagnostic>,
     pub(super) deferred: ResourceBorrowCheckDeferred,

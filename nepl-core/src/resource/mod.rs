@@ -203,6 +203,7 @@ mod shadow;
 mod storage_origin;
 mod summary;
 mod summary_dependency;
+mod summary_index;
 mod summary_worklist;
 mod timing;
 mod trait_identity;
