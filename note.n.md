@@ -38106,6 +38106,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/issues.js check --dir issues`: pass
 - `git diff --check`: pass
 
+# 2026-05-14 Agent 1 メモ (ISS-20260514T093715629Z ByteBuilder grow cleanup unreachable 削除)
+
+- Stage 6 の owner token 境界に合わせ、`byte_builder_realloc_region_or_free` の realloc failure cleanup から `#intrinsic "unreachable"` を削除した。
+- 根本原因は、helper が `RegionToken<u8>` を受け取っているにもかかわらず、失敗時に `old_ptr` / `old_size` へ分解して `dealloc_ptr<u8>` を呼び、Err branch を到達不能扱いにしていたこと。
+- 修正後は grow 用の `size` / `ptr` を旧 token から取り出し、失敗時は `dealloc_region<u8> region` へ token owner を丸ごと渡す。
+- `nodesrc/source_policy/stdlib_builder_owner.js` に、ByteBuilder grow failure cleanup が `dealloc_region<u8> region` を使い、`dealloc_ptr<u8> old_ptr old_size` に戻らないことを固定する regression を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`: pass
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass
+  - `node nodesrc/tests.js -i stdlib\alloc\io\bytebuilder -i tests\stdlib\byte_builder.n.md -i tests\stdlib\bytebuf_result.n.md --no-tree -o tmp\agent1-bytebuilder-grow-cleanup-focused.json -j 1 --dist web/dist`: 14/14 pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+
 # 2026-05-14 Agent 1 メモ (ISS-20260514T063755030Z StringBuilder owner boundary 集約)
 
 - Stage 6 の `MemPtr = non-owning pointer` 方針に合わせ、`StringBuilder` 固有の `Option<MemPtr<u8>>` / len / cap owner state を削除した。

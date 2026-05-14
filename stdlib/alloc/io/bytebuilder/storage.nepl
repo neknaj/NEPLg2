@@ -99,6 +99,14 @@ pub fn byte_builder_dealloc_owned_region <(RegionToken<u8>)->()> (region):
         Result::Err _:
             ()
 
+//: byte_builder_realloc_region_or_free: storage token を grow し失敗時に旧 token を閉じる
+//:
+//: [目的/もくてき]:
+//: - `ByteBuilder` の grow で、旧 `RegionToken<u8>` の free obligation を新しい token へ移す処理を集約します。
+//:
+//: [注意/ちゅうい]:
+//: - 成功時は返った `RegionToken<u8>` が storage owner です。
+//: - 失敗時は旧 token を `dealloc_region` へ渡し、caller へは `OutOfMemory` を返します。
 pub fn byte_builder_realloc_region_or_free <(RegionToken<u8>,i32)->Result<RegionToken<u8>, StdErrorKind>> (region, new_cap):
     let old_size <i32> get region "size"
     let old_ptr <MemPtr<u8>> get region "ptr"
@@ -106,11 +114,11 @@ pub fn byte_builder_realloc_region_or_free <(RegionToken<u8>,i32)->Result<Region
         Result::Ok next_ptr:
             Result<RegionToken<u8>, StdErrorKind>::Ok region_new next_ptr new_cap
         Result::Err _e:
-            match dealloc_ptr<u8> old_ptr old_size:
+            match dealloc_region<u8> region:
                 Result::Ok _:
                     Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
                 Result::Err _free:
-                    #intrinsic "unreachable" <> ()
+                    Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: byte_builder_free: builder が保持する storage を解放する
 //:

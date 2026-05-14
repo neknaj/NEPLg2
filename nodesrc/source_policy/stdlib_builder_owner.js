@@ -48,6 +48,18 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
+        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bget\s+region\s+"size"[\s\S]*\bget\s+region\s+"ptr"[\s\S]*\bmatch\s+dealloc_region<u8>\s+region:/,
+        'ByteBuilder grow failure cleanup must consume the RegionToken owner directly',
+    );
+
+    assert.doesNotMatch(
+        code,
+        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bdealloc_ptr<u8>\s+old_ptr\s+old_size/,
+        'ByteBuilder grow failure cleanup must not split RegionToken into raw ptr/size owner cleanup',
+    );
+
+    assert.match(
+        code,
         /\bget_ref\s+&reserved\s+"region"[\s\S]*\bregion_ptr\s+region_ref\b/,
         'ByteBuilder append paths must borrow RegionToken and write through a non-owning pointer view',
     );

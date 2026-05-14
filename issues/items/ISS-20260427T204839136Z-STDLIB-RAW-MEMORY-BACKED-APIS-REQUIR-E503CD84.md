@@ -204,7 +204,7 @@ allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`�
 
 この親 issue は引き続き open とする。`RegionToken<T>` はまだ forgeable であり、`OwnedBuffer<T>` / initialized prefix / non-Copy payload drop traversal / owner-preserving fallible collection update は Stage 6 の残件である。
 
-同じ監査で、`byte_builder_realloc_region_or_free` の realloc failure cleanup が `dealloc_ptr` 失敗時に `#intrinsic "unreachable"` へ落ちる未解決問題を確認した。これは今回の Vec owner field 削除とは別件であり、`ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` として分離した。
+同じ監査で、`byte_builder_realloc_region_or_free` の realloc failure cleanup が `dealloc_ptr` 失敗時に `#intrinsic "unreachable"` へ落ちる問題を確認した。これは今回の Vec owner field 削除とは別件として、`ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` に分離して修正した。ByteBuilder grow failure cleanup は現在、`dealloc_region<u8> region` で owner token を直接消費する。
 
 ## 2026-05-13 Agent 1 region_ptr_at alignment proof 追記
 
