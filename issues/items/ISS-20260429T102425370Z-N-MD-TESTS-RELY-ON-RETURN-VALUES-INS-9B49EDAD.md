@@ -719,3 +719,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\list_dot_map.n.md --no-tree -o tmp\agent1-list-dot-map-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
 
 この issue はまだ open のまま継続する。List dot map 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Block if semantics stdout report migration
+
+`tests/compiler/block_if_semantics.n.md` の block / match / semicolon 正常系 doctest 4 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。trailing semicolon による return mismatch の compile_fail fixture 1 件は、型検査の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- epilogue drop、match arm local、semicolon なし複数行、同一行の複数 semicolon の観測値を assertion label として stdout に残すようにした。
+- 連続式の正常系は `block:` 内で値を受け、最後の式値が保持されることを report に固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\block_if_semantics.n.md --no-tree -o tmp\agent1-block-if-semantics-report-tests.json -j 1 --assert-io --dist web/dist`: total=5, passed=5
+
+この issue はまだ open のまま継続する。Block if semantics 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
