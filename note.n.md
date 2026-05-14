@@ -37887,3 +37887,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - single-line block に multiline if を含められない compile_fail 1 件は、parser の拒否境界を固定するため変更していない。
 - literal / arithmetic / let / multiple statements / nested block / argument position / if branch / while body / semicolon unit / shadowing / mutation / type annotation / tuple element / pipe source / match arm / trailing comment / unit block / deeply nested block の観測値を assertion label として stdout に固定した。
 - `node nodesrc/tests.js -i tests/compiler/block_single_line.n.md --no-tree -o tmp/agent1-block-single-line-report-tests.json -j 1 --assert-io --dist web/dist` は total=21, passed=21。約200秒だが timeout ではなく個別 compile 数が主因。
+
+## 2026-05-14 Agent 1 Sizeof stdout report doctest migration
+
+- `work/sizeof-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/sizeof.n.md` を更新した。
+- `size_of<T>` 正常系 doctest 8 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- generic parameter の `.` 必須を固定する compile_fail 1 件は、parser の拒否境界を維持するため変更していない。
+- primitive layout、generic function、generic wrapper struct、multi-field struct、algebraic type、nested generic struct、collection struct、diag struct の観測値を assertion label として stdout に固定した。
+- report 出力のため正常系は `std` target に移したが、既存の `size_of<T>` の期待値と拒否境界は維持している。
+- `node nodesrc/tests.js -i tests/compiler/sizeof.n.md --no-tree -o tmp/agent1-sizeof-report-tests.json -j 1 --assert-io --dist web/dist` は total=9, passed=9。

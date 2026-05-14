@@ -817,3 +817,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - 実行時間は約200秒。timeout ではなく 21 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
 
 この issue はまだ open のまま継続する。Block single-line 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Sizeof stdout report migration
+
+`tests/compiler/sizeof.n.md` の `size_of<T>` 正常系 doctest 8 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。generic parameter の `.` 必須を固定する compile_fail fixture 1 件は、parser の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- primitive layout、generic function、generic wrapper struct、multi-field struct、algebraic type、nested generic struct、collection struct、diag struct の `size_of<T>` 観測値を assertion label として stdout に固定した。
+- report 出力のため正常系は `std` target に移したが、既存の `size_of<T>` の期待値と拒否境界は維持している。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\sizeof.n.md --no-tree -o tmp\agent1-sizeof-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
+
+この issue はまだ open のまま継続する。Sizeof 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

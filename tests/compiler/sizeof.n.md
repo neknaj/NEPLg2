@@ -4,17 +4,19 @@
 
 ## sizeof_primitives
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_primitives\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"primitive size layout\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
-#target core
+#target std
 #entry main
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "std/test" as *
 
-fn main <()->i32> ():
-    if:
+fn main <()*>i32> ():
+    let actual <i32> if:
         eq size_of<i32> 4
         then:
             if:
@@ -35,24 +37,31 @@ fn main <()->i32> ():
                     2
         else:
             1
+    let report:
+        test_report_new "sizeof_primitives"
+        |> test_report_push assert_eq_i32 "primitive size layout" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_generic_function
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_generic_function\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"generic function size_of\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
-#target core
+#target std
 #entry main
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "std/test" as *
 
 fn size_of_t <.T> <()->i32> ():
     size_of<.T>
 
-fn main <()->i32> ():
-    if:
+fn main <()*>i32> ():
+    let actual <i32> if:
         eq size_of<i32> size_of_t<i32>
         then:
             if:
@@ -63,41 +72,55 @@ fn main <()->i32> ():
                     2
         else:
             1
+    let report:
+        test_report_new "sizeof_generic_function"
+        |> test_report_push assert_eq_i32 "generic function size_of" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_generic_struct_wrapper
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_generic_struct_wrapper\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"generic struct wrapper size\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
-#target core
+#target std
 #entry main
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "std/test" as *
 
 struct Wrap<.T>:
     value <.T>
 
-fn main <()->i32> ():
-    if:
+fn main <()*>i32> ():
+    let actual <i32> if:
         eq size_of<i32> size_of<Wrap<i32>>
         then:
             if eq size_of<str> size_of<Wrap<str>> 0 2
         else:
             1
+    let report:
+        test_report_new "sizeof_generic_struct_wrapper"
+        |> test_report_push assert_eq_i32 "generic struct wrapper size" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_multi_field_struct_regression
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_multi_field_struct_regression\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"multi-field struct size\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
-#target core
+#target std
 #entry main
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "std/test" as *
 
 struct Pair:
     a <i32>
@@ -107,35 +130,42 @@ struct WidePair:
     a <i64>
     b <i32>
 
-fn main <()->i32> ():
-    if:
+fn main <()*>i32> ():
+    let actual <i32> if:
         eq size_of<Pair> 8
         then:
             if eq size_of<WidePair> 12 0 2
         else:
             1
+    let report:
+        test_report_new "sizeof_multi_field_struct_regression"
+        |> test_report_push assert_eq_i32 "multi-field struct size" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_algebraic_types
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_algebraic_types\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"algebraic type size\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
-#target core
+#target std
 #entry main
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let s_i32 <i32> size_of<i32>;
     let s_str <i32> size_of<str>;
     let s_opt_i32 <i32> size_of<Option<i32>>;
     let s_opt_str <i32> size_of<Option<str>>;
     let s_res_i32_str <i32> size_of<Result<i32,str>>;
-    if:
+    let actual <i32> if:
         lt s_opt_i32 s_i32
         then:
             1
@@ -151,20 +181,27 @@ fn main <()->i32> ():
                             3
                         else:
                             0
+    let report:
+        test_report_new "sizeof_algebraic_types"
+        |> test_report_push assert_eq_i32 "algebraic type size" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_nested_generic_struct
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_nested_generic_struct\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested generic struct size\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
-#target core
+#target std
 #entry main
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 struct Cell<.T>:
     v <.T>
@@ -173,12 +210,12 @@ struct Node<.T>:
     head <.T>
     tail <Option<.T>>
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let s_cell_i64 <i32> size_of<Cell<i64>>;
     let s_i64 <i32> size_of<i64>;
     let s_node_i32 <i32> size_of<Node<i32>>;
     let s_res <i32> size_of<Result<Node<i32>, Cell<i64>>>;
-    if:
+    let actual <i32> if:
         eq s_cell_i64 s_i64
         then:
             if:
@@ -194,12 +231,18 @@ fn main <()->i32> ():
                             0
         else:
             1
+    let report:
+        test_report_new "sizeof_nested_generic_struct"
+        |> test_report_push assert_eq_i32 "nested generic struct size" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_collection_structs
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_collection_structs\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"collection struct size\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #target std
 #entry main
@@ -212,11 +255,12 @@ ret: 0
 #import "alloc/collections/stack" as *
 #import "alloc/collections/hashmap" as *
 #import "alloc/collections/hashset" as *
+#import "std/test" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let vec_expected <i32> add (add 4 4) (add size_of<VecStorageState> size_of<MemPtr<i32>>);
     let stack_expected <i32> add (add 4 4) size_of<Vec<Option<i32>>>;
-    if:
+    let actual <i32> if:
         eq size_of<Vec<i32>> vec_expected
         then:
             if:
@@ -232,6 +276,11 @@ fn main <()->i32> ():
                     2
         else:
             1
+    let report:
+        test_report_new "sizeof_collection_structs"
+        |> test_report_push assert_eq_i32 "collection struct size" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_diag_structs
@@ -243,8 +292,9 @@ fn main <()->i32> ():
 - `Span` の layout が 3 つの `i32` ぶんである。
 - `Diag` / `Diags` / `Outcome` が[不正/ふせい]な zero-size 扱いになっていない。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sizeof_diag_structs\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"diag struct size\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #target std
 #entry main
@@ -252,9 +302,10 @@ ret: 0
 #import "core/math" as *
 #import "core/mem" as *
 #import "alloc/diag/error" as *
+#import "std/test" as *
 
-fn main <()->i32> ():
-    if:
+fn main <()*>i32> ():
+    let actual <i32> if:
         eq size_of<Span> 12
         then:
             if:
@@ -275,6 +326,11 @@ fn main <()->i32> ():
                     2
         else:
             1
+    let report:
+        test_report_new "sizeof_diag_structs"
+        |> test_report_push assert_eq_i32 "diag struct size" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sizeof_generic_param_requires_dot
