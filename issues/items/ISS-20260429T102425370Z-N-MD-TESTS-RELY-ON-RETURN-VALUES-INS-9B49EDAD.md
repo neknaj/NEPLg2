@@ -900,3 +900,24 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - 実行時間は約155秒。timeout ではなく 15 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
 
 この issue はまだ open のまま継続する。Type annotation 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Overload initial stdout report migration
+
+`tests/compiler/overload.n.md` の先頭 overload 成功系 doctest 5 件を canonical `std/test` report へ移行した。
+
+移行内容:
+
+- return type による overload selection、argument type による overload selection、explicit type annotation による overload selection、zero-arg overload の let annotation selection、`Result` expected type による zero-arg overload selection を assertion label として stdout に固定した。
+- 抽象化機能の回帰として、どの overload resolution 経路が壊れたかを `ret:` ではなく stdout から追える形にした。
+- full file focused run 中に未変更の `overload_pair_field_from_generic_result_keeps_tuple_type` が現行 `Vec<T>` の `.T: Copy` 境界に追従していないことを確認し、`ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09` を追加した。この変更では触った doctest だけを個別検証し、既存失敗は別 issue として分離する。
+
+検証:
+
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 1 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 2 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 3 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 4 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 6 --assert-io --dist web/dist`: pass
+- `node nodesrc\tests.js -i tests\compiler\overload.n.md --no-tree -o tmp\agent1-overload-initial-report-tests.json -j 1 --assert-io --dist web/dist`: total=45, passed=44, failed=1。失敗は未変更の doctest#10 で、上記の新規 issue に分離した。
+
+この issue はまだ open のまま継続する。Overload の残り `ret:` 依存 fixture、未変更 fixture drift、report 省略検出 policy が残っている。

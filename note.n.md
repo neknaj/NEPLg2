@@ -37930,3 +37930,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - literal、nested expression、let annotation、block expression、nested annotation、function call、complex expression、if expression、while condition、generic `Option<i32>`、deeply nested call、block/call/pipe/function literal mixed cases の観測値を assertion label として stdout に固定した。
 - 各 case は型注釈を通した後の値を `actual` または直接 assertion input とし、runner の `ret:` 復号だけに依存しない形にした。
 - `node nodesrc/tests.js -i tests/compiler/typeannot.n.md --no-tree -o tmp/agent1-typeannot-report-tests.json -j 1 --assert-io --dist web/dist` は total=15, passed=15。約155秒だが timeout ではなく個別 compile 数が主因。
+
+## 2026-05-14 Agent 1 Overload initial stdout report doctest migration
+
+- `work/overload-initial-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/overload.n.md` の先頭成功系 5 件を更新した。
+- return type、argument type、explicit type annotation、zero-arg let annotation、`Result` expected type による overload selection を canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- 変更対象は `run_doctest` の個別実行で 5/5 pass を確認した。
+- full file run は total=45, passed=44, failed=1。失敗は未変更の `overload_pair_field_from_generic_result_keeps_tuple_type` が現行 `Vec<T>` の `.T: Copy` 境界に追従していない既存 drift であり、`ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09` を追加して分離した。

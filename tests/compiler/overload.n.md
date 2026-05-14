@@ -3,13 +3,16 @@
 このファイルは Rust テスト `overload.rs` を .n.md 形式へ機械的に移植したものです。移植が難しい（複数ファイルや Rust 専用 API を使う）テストは `skip` として残しています。
 ## test_overload_cast_like
 
-neplg2:test
-ret: 10
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"test_overload_cast_like\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return type selects overload\" expected=\"10\" actual=\"10\" message=\"\"\n"
 ```neplg2
 
 #entry main
 #indent 4
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
 // val_cast: Same name, same input type, different return type.
 // Case 1: i32 -> i32 (identity)
@@ -22,27 +25,35 @@ fn val_cast <(i32)->bool> (v):
 
 fn main <()*>i32> ():
     let v <i32> 10
-    
+
     // Use type annotation on variable to select overload
     let res_i32 <i32> val_cast v
     let res_bool <bool> val_cast v
-    
+
     // res_i32 should be 10, res_bool should be true
-    if:
+    let actual <i32> if:
         res_bool
         then res_i32
         else 0
+    let report:
+        test::test_report_new "test_overload_cast_like"
+        |> test::test_report_push test::assert_eq_i32 "return type selects overload" 10 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## test_overload_print_like
 
-neplg2:test
-ret: 3
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"test_overload_print_like\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"argument type selects overload\" expected=\"3\" actual=\"3\" message=\"\"\n"
 ```neplg2
 
 #entry main
 #indent 4
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
 // my_print: Same name, different input types.
 // Case 1: i32 -> i32 (returns 1 to signal "printed i32")
@@ -56,19 +67,27 @@ fn my_print <(bool)->i32> (v):
 fn main <()*>i32> ():
     let s1 <i32> my_print 100
     let s2 <i32> my_print true
-    
-    add s1 s2
+
+    let actual <i32> add s1 s2
+    let report:
+        test::test_report_new "test_overload_print_like"
+        |> test::test_report_push test::assert_eq_i32 "argument type selects overload" 3 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## test_explicit_type_annotation_prefix
 
-neplg2:test
-ret: 11
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"test_explicit_type_annotation_prefix\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"explicit annotation selects overload\" expected=\"11\" actual=\"11\" message=\"\"\n"
 ```neplg2
 
 #entry main
 #indent 4
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
 // magic: Same input, different return types
 fn magic <(i32)->i32> (v):
@@ -80,28 +99,35 @@ fn magic <(i32)->bool> (v):
 fn main <()*>i32> ():
     // Use <type> prefix expression to explicitly select overload
     // This is useful when type cannot be inferred from context
-    
+
     // Force selection of (i32)->i32
     let v1 <i32> magic 10
-    
+
     // Force selection of (i32)->bool
     let v2 <bool> magic 10
-    
-    if:
+
+    let actual <i32> if:
         v2
         then v1
         else 0
+    let report:
+        test::test_report_new "test_explicit_type_annotation_prefix"
+        |> test::test_report_push test::assert_eq_i32 "explicit annotation selects overload" 11 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_new_selected_by_let_annotation
 
-neplg2:test
-ret: 7
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"overload_new_selected_by_let_annotation\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"zero argument overload selected by let annotation\" expected=\"7\" actual=\"7\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
 fn new <()->i32> ():
     7
@@ -109,10 +135,15 @@ fn new <()->i32> ():
 fn new <()->bool> ():
     true
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let a <i32> new;
     let b <bool> new;
-    if b a 0
+    let actual <i32> if b a 0
+    let report:
+        test::test_report_new "overload_new_selected_by_let_annotation"
+        |> test::test_report_push test::assert_eq_i32 "zero argument overload selected by let annotation" 7 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_new_ambiguous_without_expected_type
@@ -137,14 +168,16 @@ fn main <()->i32> ():
 
 ## overload_zero_arg_result_selected_by_expected_type
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"overload_zero_arg_result_selected_by_expected_type\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"result overload selected by expected type\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as test
 
 fn build <()->Result<i32,str>> ():
     Result::Ok 9
@@ -152,7 +185,7 @@ fn build <()->Result<i32,str>> ():
 fn build <()->Result<bool,str>> ():
     Result::Ok true
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let a <Result<i32,str>> build;
     let b <Result<bool,str>> build;
 
@@ -168,7 +201,12 @@ fn main <()->i32> ():
                 v
             Result::Err _e:
                 false
-    if and ok_a ok_b 1 0
+    let actual <i32> if and ok_a ok_b 1 0
+    let report:
+        test::test_report_new "overload_zero_arg_result_selected_by_expected_type"
+        |> test::test_report_push test::assert_eq_i32 "result overload selected by expected type" 1 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_zero_arg_result_ambiguous_without_expected_type

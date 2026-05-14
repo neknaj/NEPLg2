@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T02:52:17.550Z",
+  "generated_at": "2026-05-14T03:01:43.140Z",
   "counts": {
-    "total": 742,
-    "open": 5,
+    "total": 743,
+    "open": 6,
     "resolved": 737,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 183
       },
       "TEST": {
-        "total": 19,
-        "open": 1,
+        "total": 20,
+        "open": 2,
         "resolved": 18
       },
       "selfhost": {
@@ -158,6 +158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09",
+      "title": "overload generic Vec helper lacks Copy bound after Vec Copy-only boundary",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "tests/compiler/overload.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
