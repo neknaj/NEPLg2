@@ -19,10 +19,15 @@ const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     'memory_type_definition.rs',
 );
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
-const SOURCE_CAPABILITY_RAW_MEMORY_SCOPE = path.join(
+const SOURCE_CAPABILITY_OWNER_AGGREGATE = path.join(
     CORE_SRC,
     'source_capability',
-    'raw_memory_scope.rs',
+    'owner_aggregate.rs',
+);
+const SOURCE_CAPABILITY_SCOPE = path.join(
+    CORE_SRC,
+    'source_capability',
+    'scope.rs',
 );
 const PASSES_MOD = path.join(CORE_SRC, 'passes', 'mod.rs');
 const DROP_INSERTION = path.join(CORE_SRC, 'passes', 'drop_insertion.rs');
@@ -104,9 +109,13 @@ const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
     'source_capability/raw_memory.rs',
 );
-const sourceCapabilityRawMemoryScope = assertFile(
-    SOURCE_CAPABILITY_RAW_MEMORY_SCOPE,
-    'source_capability/raw_memory_scope.rs',
+const sourceCapabilityOwnerAggregate = assertFile(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE,
+    'source_capability/owner_aggregate.rs',
+);
+const sourceCapabilityScope = assertFile(
+    SOURCE_CAPABILITY_SCOPE,
+    'source_capability/scope.rs',
 );
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
@@ -265,12 +274,12 @@ assertMatches(
 );
 assertMatches(
     typecheckFieldAccess,
-    /RestrictedStructConstructor::OwnerToken\s*=>\s*Some\(\(\s*TypeDiagnosticCode::OwnerTokenFieldAccessRestricted/,
+    /RestrictedStructConstructor::OwnerToken\s*=>\s*\(\s*TypeDiagnosticCode::OwnerTokenFieldAccessRestricted/,
     'typecheck/field_access.rs owner token field diagnostic branch',
 );
 assertMatches(
     typecheckFieldAccess,
-    /RestrictedStructConstructor::RawPointer\s*=>\s*Some\(\(\s*TypeDiagnosticCode::RawPointerFieldAccessRestricted/,
+    /RestrictedStructConstructor::RawPointer\s*=>\s*\(\s*TypeDiagnosticCode::RawPointerFieldAccessRestricted/,
     'typecheck/field_access.rs raw pointer field diagnostic branch',
 );
 assertNotContains(
@@ -300,7 +309,12 @@ assertLineLimit(
     100,
 );
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 220);
-assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY_SCOPE, 'source_capability/raw_memory_scope.rs', 100);
+assertLineLimit(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE,
+    'source_capability/owner_aggregate.rs',
+    160,
+);
+assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
 assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
 assertContains(sourceMap, 'pub enum CompilerMemoryType', 'source_map.rs');
@@ -363,23 +377,43 @@ assertContains(
 );
 assertContains(
     sourceCapability,
-    'mod raw_memory_scope;',
+    'mod owner_aggregate;',
     'source_capability.rs',
 );
 assertContains(
-    sourceCapabilityRawMemoryScope,
-    'struct RawMemoryBoundaryScope',
-    'source_capability/raw_memory_scope.rs',
+    sourceCapability,
+    'mod scope;',
+    'source_capability.rs',
 );
 assertContains(
-    sourceCapabilityRawMemoryScope,
+    sourceCapability,
+    'module_has_owner_aggregate_boundary_evidence',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapabilityOwnerAggregate,
+    'enum OwnerAggregateBoundaryEvidence',
+    'source_capability/owner_aggregate.rs',
+);
+assertContains(
+    sourceCapabilityOwnerAggregate,
+    'pub(crate) fn module_has_owner_aggregate_boundary_evidence',
+    'source_capability/owner_aggregate.rs',
+);
+assertContains(
+    sourceCapabilityScope,
+    'struct SourceCapabilityScope',
+    'source_capability/scope.rs',
+);
+assertContains(
+    sourceCapabilityScope,
     'bind_stmt_locals',
-    'source_capability/raw_memory_scope.rs',
+    'source_capability/scope.rs',
 );
 assertContains(
-    sourceCapabilityRawMemoryScope,
+    sourceCapabilityScope,
     'bind_match_pattern',
-    'source_capability/raw_memory_scope.rs',
+    'source_capability/scope.rs',
 );
 assertContains(sourceCapabilityRawMemory, 'raw_memory_op_from_name', 'source_capability/raw_memory.rs');
 assertContains(sourceCapabilityRawMemory, 'PrefixItem::Intrinsic', 'source_capability/raw_memory.rs');
@@ -390,6 +424,7 @@ assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
 assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
 assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
 assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
+assertContains(loader, 'module_has_owner_aggregate_boundary_evidence', 'loader.rs');
 assertContains(loader, 'module_compiler_memory_type_definitions', 'loader.rs');
 assertContains(
     testHarness,

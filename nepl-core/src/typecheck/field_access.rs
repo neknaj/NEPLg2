@@ -17,22 +17,22 @@ impl<'a> BlockChecker<'a> {
     pub(super) fn restricted_struct_field_access_error(
         &mut self,
         base_ty: TypeId,
+        field_ty: TypeId,
         span: Span,
     ) -> Option<(TypeDiagnosticCode, &'static str)> {
-        let restricted = self.restricted_struct_constructor_for_field_access(base_ty)?;
-        if self.restricted_struct_field_access_allowed(restricted, span) {
-            return None;
+        if let Some(restricted) = self.restricted_struct_constructor_for_field_access(base_ty) {
+            if !self.restricted_struct_field_access_allowed(restricted, span) {
+                return Some(restricted_struct_field_access_error(restricted));
+            }
         }
-        match restricted {
-            RestrictedStructConstructor::OwnerToken => Some((
-                TypeDiagnosticCode::OwnerTokenFieldAccessRestricted,
-                "owner token fields are restricted to compiler memory boundary",
-            )),
-            RestrictedStructConstructor::RawPointer => Some((
-                TypeDiagnosticCode::RawPointerFieldAccessRestricted,
-                "raw pointer fields are restricted to compiler memory boundary",
-            )),
+
+        if let Some(restricted) = self.restricted_struct_constructor_for_field_access(field_ty) {
+            if !self.restricted_owner_field_projection_allowed(restricted, span) {
+                return Some(restricted_struct_field_access_error(restricted));
+            }
         }
+
+        None
     }
 
     fn restricted_struct_field_access_allowed(
@@ -58,6 +58,19 @@ impl<'a> BlockChecker<'a> {
                     CompilerMemoryType::RawPointer,
                 ),
         }
+    }
+
+    fn restricted_owner_field_projection_allowed(
+        &self,
+        restricted: RestrictedStructConstructor,
+        span: Span,
+    ) -> bool {
+        if restricted == RestrictedStructConstructor::OwnerToken
+            && self.owner_aggregate_boundary_allowed(span)
+        {
+            return true;
+        }
+        self.restricted_struct_field_access_allowed(restricted, span)
     }
 
     fn restricted_struct_constructor_for_field_access(
@@ -109,14 +122,7 @@ impl<'a> BlockChecker<'a> {
         }
 
         let resolved_ty = self.ctx.resolve(base_ty);
-        if let Some((code, message)) = self.restricted_struct_field_access_error(resolved_ty, span)
-        {
-            if emit_diagnostics {
-                self.diagnostics.push(type_error(code, message, span));
-            }
-            return None;
-        }
-        match self.ctx.get(resolved_ty) {
+        let access = match self.ctx.get(resolved_ty) {
             TypeKind::Struct {
                 fields,
                 field_names,
@@ -367,7 +373,20 @@ impl<'a> BlockChecker<'a> {
                 span,
                 "cannot access field on non-composite type".to_string(),
             ),
+        };
+
+        if let Some((field_ty, _offset)) = access {
+            if let Some((code, message)) =
+                self.restricted_struct_field_access_error(resolved_ty, field_ty, span)
+            {
+                if emit_diagnostics {
+                    self.diagnostics.push(type_error(code, message, span));
+                }
+                return None;
+            }
         }
+
+        access
     }
 }
 
@@ -377,5 +396,21 @@ fn restricted_struct_constructor_policy(
     match policy {
         StructConstructorPolicy::Public => None,
         StructConstructorPolicy::RawMemoryBoundaryOnly(restricted) => Some(restricted),
+        StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly => None,
+    }
+}
+
+fn restricted_struct_field_access_error(
+    restricted: RestrictedStructConstructor,
+) -> (TypeDiagnosticCode, &'static str) {
+    match restricted {
+        RestrictedStructConstructor::OwnerToken => (
+            TypeDiagnosticCode::OwnerTokenFieldAccessRestricted,
+            "owner token fields are restricted to compiler memory boundary",
+        ),
+        RestrictedStructConstructor::RawPointer => (
+            TypeDiagnosticCode::RawPointerFieldAccessRestricted,
+            "raw pointer fields are restricted to compiler memory boundary",
+        ),
     }
 }

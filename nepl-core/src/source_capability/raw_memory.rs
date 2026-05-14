@@ -4,7 +4,7 @@ use crate::effects::{
 };
 use crate::hir::HirBody;
 use crate::runtime_helpers::helper_base_name;
-use crate::source_capability::raw_memory_scope::RawMemoryBoundaryScope;
+use crate::source_capability::scope::SourceCapabilityScope;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RawMemoryBoundaryEvidence {
@@ -88,13 +88,13 @@ impl RawMemoryBoundaryEvidence {
 }
 
 pub(crate) fn module_has_raw_memory_boundary_evidence(module: &Module) -> bool {
-    let scope = RawMemoryBoundaryScope::from_module(module);
+    let scope = SourceCapabilityScope::from_module(module);
     block_raw_memory_boundary_evidence(&module.root, &scope).is_some()
 }
 
 fn block_raw_memory_boundary_evidence(
     block: &Block,
-    scope: &RawMemoryBoundaryScope,
+    scope: &SourceCapabilityScope,
 ) -> Option<RawMemoryBoundaryEvidence> {
     let mut block_scope = scope.clone();
     for stmt in &block.items {
@@ -108,7 +108,7 @@ fn block_raw_memory_boundary_evidence(
 
 fn stmt_raw_memory_boundary_evidence(
     stmt: &Stmt,
-    scope: &RawMemoryBoundaryScope,
+    scope: &SourceCapabilityScope,
 ) -> Option<RawMemoryBoundaryEvidence> {
     match stmt {
         Stmt::FnDef(def) => {
@@ -133,7 +133,7 @@ fn stmt_raw_memory_boundary_evidence(
 
 fn fn_body_raw_memory_boundary_evidence(
     body: &FnBody,
-    scope: &RawMemoryBoundaryScope,
+    scope: &SourceCapabilityScope,
 ) -> Option<RawMemoryBoundaryEvidence> {
     match body {
         FnBody::Parsed(block) => block_raw_memory_boundary_evidence(block, scope),
@@ -156,7 +156,7 @@ fn raw_body_evidence(body: HirBody) -> Option<RawMemoryBoundaryEvidence> {
 
 fn expr_raw_memory_boundary_evidence(
     expr: &PrefixExpr,
-    scope: &RawMemoryBoundaryScope,
+    scope: &SourceCapabilityScope,
 ) -> Option<RawMemoryBoundaryEvidence> {
     expr.items
         .iter()
@@ -165,7 +165,7 @@ fn expr_raw_memory_boundary_evidence(
 
 fn prefix_item_raw_memory_boundary_evidence(
     item: &PrefixItem,
-    scope: &RawMemoryBoundaryScope,
+    scope: &SourceCapabilityScope,
 ) -> Option<RawMemoryBoundaryEvidence> {
     match item {
         PrefixItem::Symbol(Symbol::Ident(ident, _, _)) if !scope.shadows(&ident.name) => {

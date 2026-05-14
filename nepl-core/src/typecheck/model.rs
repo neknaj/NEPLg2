@@ -10,6 +10,7 @@ use crate::types::{EnumVariantInfo, TypeId};
 pub(super) enum StructConstructorPolicy {
     Public,
     RawMemoryBoundaryOnly(RestrictedStructConstructor),
+    OwnerBackedAggregateBoundaryOnly,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

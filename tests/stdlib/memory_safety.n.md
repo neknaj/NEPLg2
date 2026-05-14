@@ -860,6 +860,47 @@ fn main <()*>()> ():
                     ()
 ```
 
+## owner token を field に持つ aggregate の直 constructor は memory boundary 外で使えない
+
+neplg2:test[compile_fail]
+diag_code: type.owner_aggregate.constructor_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<i32> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let _v <Vec<i32>> Vec<i32> 0 1 VecStorageState::Owned region
+            0
+```
+
+## owner token 型の aggregate field は memory boundary 外で投影できない
+
+neplg2:test[compile_fail]
+diag_code: type.owner_token.field_access_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    let v <Vec<i32>> vec_empty<i32>
+    let _region <&RegionToken<i32>> field::get_ref &v "region"
+    0
+```
+
 ## core/mem facade は raw allocator を公開しない
 
 neplg2:test[compile_fail]

@@ -64,6 +64,7 @@ impl fmt::Display for SourcePathDisplay<'_> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SourceCapability {
     RawMemoryBoundary,
+    OwnerAggregateBoundary,
     CompilerMemoryTypeDefinition(CompilerMemoryType),
 }
 
@@ -90,6 +91,10 @@ impl SourceCapabilities {
         Self::with(SourceCapability::RawMemoryBoundary)
     }
 
+    pub fn owner_aggregate_boundary() -> Self {
+        Self::with(SourceCapability::OwnerAggregateBoundary)
+    }
+
     pub fn compiler_memory_type_definition(memory_type: CompilerMemoryType) -> Self {
         Self::with(SourceCapability::CompilerMemoryTypeDefinition(memory_type))
     }
@@ -110,6 +115,10 @@ impl SourceCapabilities {
 
     pub fn allows_raw_memory_boundary(&self) -> bool {
         self.allows(SourceCapability::RawMemoryBoundary)
+    }
+
+    pub fn allows_owner_aggregate_boundary(&self) -> bool {
+        self.allows(SourceCapability::OwnerAggregateBoundary)
     }
 
     pub fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool {
@@ -154,6 +163,10 @@ impl SourceMap {
 
     pub fn raw_memory_boundary_allowed(&self, id: FileId) -> bool {
         self.capabilities(id).allows_raw_memory_boundary()
+    }
+
+    pub fn owner_aggregate_boundary_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id).allows_owner_aggregate_boundary()
     }
 
     pub fn compiler_memory_type_definition_allowed(
@@ -244,6 +257,10 @@ mod tests {
         assert!(raw_boundary.allows(SourceCapability::RawMemoryBoundary));
         assert!(raw_boundary.allows_raw_memory_boundary());
 
+        let owner_aggregate_boundary = SourceCapabilities::owner_aggregate_boundary();
+        assert!(owner_aggregate_boundary.allows_owner_aggregate_boundary());
+        assert!(!owner_aggregate_boundary.allows_raw_memory_boundary());
+
         let memory_type =
             SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::OwnerToken);
         assert!(memory_type.allows_compiler_memory_type_definition(CompilerMemoryType::OwnerToken));
@@ -262,6 +279,7 @@ mod tests {
 
         assert!(!source_map.raw_memory_boundary_allowed(plain));
         assert!(source_map.raw_memory_boundary_allowed(raw));
+        assert!(!source_map.owner_aggregate_boundary_allowed(raw));
 
         source_map.set_capabilities(
             plain,

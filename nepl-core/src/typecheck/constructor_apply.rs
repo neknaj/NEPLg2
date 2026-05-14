@@ -178,6 +178,16 @@ impl<'a> BlockChecker<'a> {
                     return Some(None);
                 }
             }
+            StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly => {
+                if !self.owner_aggregate_boundary_allowed(span) {
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::OwnerAggregateConstructorRestricted,
+                        "owner-backed aggregate constructor is restricted to compiler memory boundary",
+                        span,
+                    ));
+                    return Some(None);
+                }
+            }
         }
         let struct_ty = info.ty;
         let fields = info.fields.clone();

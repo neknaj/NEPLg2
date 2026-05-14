@@ -20,7 +20,9 @@ use super::binding_rules::{
     is_callable_binding, shadow_blocked_by_nonshadow,
 };
 use super::check_function;
-use super::copy_capability::target_is_compiler_owner_token;
+use super::copy_capability::{
+    mark_owner_backed_aggregate_constructor_policies, target_is_compiler_owner_token,
+};
 use super::diagnostics::{resolve_error, resolve_warning, type_error};
 use super::driver_entry::resolve_entry_function;
 use super::env::{Binding, BindingKind, Env};
@@ -571,6 +573,8 @@ pub fn typecheck(
             _ => {}
         }
     }
+
+    mark_owner_backed_aggregate_constructor_policies(&ctx, &mut structs);
 
     // Constructors for enums/structs
     for (name, info) in enums.iter() {

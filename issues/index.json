@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T16:22:25.263Z",
+  "generated_at": "2026-05-14T16:59:05.721Z",
   "counts": {
-    "total": 775,
+    "total": 776,
     "open": 7,
-    "resolved": 768,
+    "resolved": 769,
     "by_area": {
       "stdlib": {
         "total": 208,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 394,
+        "total": 395,
         "open": 0,
-        "resolved": 394
+        "resolved": 395
       },
       "CORE": {
         "total": 1,
@@ -5998,6 +5998,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T150630865Z-RESOURCE-OWNER-RAW-VIEW-POLICY-DRIFT-6883F812.md"
+    },
+    {
+      "id": "ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84",
+      "title": "Owner-backed aggregate constructors are forgeable outside compiler boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/typecheck, nepl-core/src/source_map.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

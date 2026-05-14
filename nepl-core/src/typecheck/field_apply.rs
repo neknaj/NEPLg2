@@ -54,14 +54,8 @@ impl<'a> BlockChecker<'a> {
         } else {
             obj.ty
         };
-        if let Some((code, message)) =
-            self.restricted_struct_field_access_error(access_base_ty, span)
-        {
-            self.diagnostics.push(type_error(code, message, span));
-            return FieldAccessorApplyResult::Handled(None);
-        }
         let Some((f_ty, offset)) =
-            self.resolve_field_access_with_mode(access_base_ty, f_idx, span, false)
+            self.resolve_field_access_with_mode(access_base_ty, f_idx, span, true)
         else {
             return FieldAccessorApplyResult::NotHandled;
         };

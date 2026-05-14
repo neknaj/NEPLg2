@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -27,5 +28,28 @@ pub(super) fn target_is_compiler_owner_token(
                 )
         }),
         _ => false,
+    }
+}
+
+pub(super) fn mark_owner_backed_aggregate_constructor_policies(
+    ctx: &TypeCtx,
+    structs: &mut BTreeMap<String, StructInfo>,
+) {
+    let owner_backed = structs
+        .iter()
+        .filter_map(|(name, info)| {
+            (info.constructor_policy == StructConstructorPolicy::Public
+                && info
+                    .fields
+                    .iter()
+                    .any(|field| target_is_compiler_owner_token(ctx, structs, *field)))
+            .then(|| name.clone())
+        })
+        .collect::<Vec<_>>();
+
+    for name in owner_backed {
+        if let Some(info) = structs.get_mut(&name) {
+            info.constructor_policy = StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly;
+        }
     }
 }

@@ -275,3 +275,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `ISS-20260514T161819706Z-VEC-STORAGE-MEMPTR-HELPER-EXPOSES-LO-A9C5BC02` で、`vec_storage_mem_ptr<T>(VecStorageState, &RegionToken<T>) -> MemPtr<T>` を削除した。公開 API は `data_mem_ptr<T>(&Vec<T>)` に集約し、storage state の `Empty` / `Owned` match はその observer boundary が直接所有する。
 
 これにより caller が `VecStorageState` と `RegionToken` 参照を組み合わせて lower-level storage projection helper を呼ぶ経路を閉じた。`data_mem_ptr` 自体はまだ Copy-only raw storage view observer であり、`OwnedBuffer<T>` / borrow projection の残件は継続する。
+
+## 2026-05-15 Agent 1 owner-backed aggregate boundary 追記
+
+`ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84` で、`RegionToken<T>` を direct field に持つ aggregate を user source が直接構築・投影できる経路を compiler 側で閉じた。
+
+`Vec<T>` は `region: RegionToken<T>` へ移行済みだが、struct constructor が public のままだと、caller は allocator-issued owner token ではない値を aggregate に詰めたり、`field::get_ref &v "region"` で free obligation owner を取り出したりできる。今回の修正では、特定 stdlib 名の allowlist ではなく、struct field 型が compiler owner token を含むかを typecheck が判定し、`OwnerBackedAggregateBoundaryOnly` policy を付与する。
+
+許可境界は `OwnerAggregateBoundary` source capability として `RawMemoryBoundary` から分けた。configured stdlib root 配下でも無条件には付与せず、parsed source に aggregate constructor / field accessor の evidence がある場合だけ付与する。stdlib 実装 source は owner aggregate の move/reconstruct/projection が必要だが、raw memory operation authority まで得るべきではないためである。これにより Stage 6 の「owner token は compiler が性質を証明した境界内でだけ扱える」という前提を強めつつ、raw-memory-backed public API migration はこの親 issue で継続する。

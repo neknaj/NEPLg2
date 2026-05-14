@@ -4,7 +4,8 @@ use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
 use crate::source_capability::{
-    module_compiler_memory_type_definitions, module_has_raw_memory_boundary_evidence,
+    module_compiler_memory_type_definitions, module_has_owner_aggregate_boundary_evidence,
+    module_has_raw_memory_boundary_evidence,
 };
 use crate::source_map::SourceCapability;
 use crate::span::FileId;
@@ -695,6 +696,9 @@ impl Loader {
     ) -> SourceCapabilities {
         let mut capabilities = SourceCapabilities::none();
         if self.configured_stdlib_source_path(canon) {
+            if module_has_owner_aggregate_boundary_evidence(module) {
+                capabilities.insert(SourceCapability::OwnerAggregateBoundary);
+            }
             if module_has_raw_memory_boundary_evidence(module) {
                 capabilities.insert(SourceCapability::RawMemoryBoundary);
             }
@@ -854,6 +858,94 @@ mod tests {
         assert!(
             raw.allows_raw_memory_boundary(),
             "configured raw boundary candidate with raw helper evidence must receive capability"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_requires_source_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "future_safe.nepl"],
+        ));
+
+        let safe =
+            load_source_capabilities(&loader, path.clone(), "fn helper <()->i32> ():\n    1\n");
+        assert!(
+            !safe.allows_owner_aggregate_boundary(),
+            "configured stdlib source without aggregate manipulation evidence must not receive owner aggregate capability"
+        );
+
+        let aggregate = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(Vec<i32>)->i32> (v):\n    field::get v \"len\"\n",
+        );
+        assert!(
+            aggregate.allows_owner_aggregate_boundary(),
+            "configured stdlib source with field accessor evidence must receive owner aggregate capability"
+        );
+        assert!(
+            !aggregate.allows_raw_memory_boundary(),
+            "owner aggregate manipulation is not raw memory operation authority"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_accepts_constructor_syntax_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "mutation", "pop.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <(RegionToken<i32>)->Vec<i32>> (region):\n",
+                "    Vec<i32> 0 1 VecStorageState::Owned region\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_boundary(),
+            "compiler-owned aggregate constructor syntax is owner aggregate boundary evidence"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "aggregate constructor syntax does not grant raw memory boundary capability"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_rejects_user_source_even_with_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&path_from_segments("C:/nepl-test/user", &["vec_like.nepl"]));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(Vec<i32>)->i32> (v):\n    field::get v \"len\"\n",
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_boundary(),
+            "aggregate manipulation evidence outside configured stdlib must not grant capability"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_ignores_shadowed_helper_names() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "safe_shadow.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn get <()->i32> ():\n    1\n\nfn helper <()->i32> ():\n    get\n",
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_boundary(),
+            "same-module safe helper names are not owner aggregate boundary evidence"
         );
     }
 

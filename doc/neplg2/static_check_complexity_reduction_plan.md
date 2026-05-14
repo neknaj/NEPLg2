@@ -15,6 +15,7 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04](../../issues/items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md): raw memory operation の effect / ownership 境界。
 - [ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF](../../issues/items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md): `MemPtr` / `RegionToken` の provenance / owner model。
 - [ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048](../../issues/items/ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048.md): compiler owner token への `Copy` capability impl を typecheck boundary で拒否する。
+- [ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84](../../issues/items/ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84.md): compiler owner token を直接 field に持つ aggregate の constructor / field projection を compiler owner aggregate boundary で制限する。
 - [ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84](../../issues/items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md): stdlib raw-memory-backed API の段階移行。
 - [ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF](../../issues/items/ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF.md): `VecDataLen` raw storage view carrier を削除し、`MemPtr` owner-like field baseline を下げる。
 - [ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F](../../issues/items/ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F.md): `StringBuilder` 固有の raw `MemPtr` owner state を `ByteBuilder` owner boundary へ集約する。
@@ -377,6 +378,12 @@ commit 単位:
 3. collection drop contract。
 4. self-host buffer API 移行。
 
+進捗:
+
+- 2026-05-15: `ISS-20260514T164856024Z-OWNER-BACKED-AGGREGATE-CONSTRUCTORS--61400B84` を解決した。compiler typecheck は struct field 型を走査し、direct field に compiler owner token を含む public aggregate を `OwnerBackedAggregateBoundaryOnly` として分類する。`Vec<T>` などの特定名 allowlist ではなく、`RegionToken<T>` の restricted constructor policy と型形状から導出する。
+- 同修正で、owner-backed aggregate の direct constructor は `OwnerAggregateBoundary` source capability を持つ compiler-owned stdlib 実装 source に限定した。configured stdlib 配下でも無条件には付与せず、parsed source に aggregate constructor / field accessor の evidence がある場合だけ capability を付ける。user source では evidence があっても capability は付与せず、`type.owner_aggregate.constructor_restricted` を出す。
+- owner token field projection も field 型を解決した上で boundary 外では `type.owner_token.field_access_restricted` とするため、aggregate を経由して free obligation owner を forge / extract する経路を閉じた。`OwnerAggregateBoundary` は `RawMemoryBoundary` と分離しており、stdlib 実装 module が `Vec` / `ByteBuilder` などの owner aggregate を移動・再構築できても、raw memory operation authority までは広がらない。
+
 ### Stage 7: 旧 summary の削除
 
 目的: 複雑化の原因になっていた HIR 個別 summary を取り除く。
@@ -402,6 +409,7 @@ commit 単位:
 | `CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS` | Stage 5 の compiler-core issue。raw memory effect / ownership boundary を追跡した。 | 2026-05-13 に core 側は verified / resolved。stdlib public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `MEMPTR-AND-REGIONTOKEN` | Stage 3/4 の compiler-core issue。`MemPtr` / owner token / initialized cell の compiler 側分離を追跡した。 | 2026-05-13 に core 側は fixed / resolved。stdlib public API と collection/string/self-host buffer の移行は Stage 6 の stdlib issue へ分離する。 |
 | `COPY-IMPL-CAN-MARK-COMPILER-OWNER` | Stage 4 の compiler-core issue。owner token の線形性を trait capability layer で崩せる経路を追跡した。 | 2026-05-14 に fixed。`StructConstructorPolicy::RawMemoryBoundaryOnly(OwnerToken)` に基づき compiler owner token への `Copy` impl を拒否する。 |
+| `OWNER-BACKED-AGGREGATE-CONSTRUCTORS` | Stage 6 の compiler-core issue。owner token を direct field に持つ aggregate の forge / projection 経路を追跡した。 | 2026-05-15 に fixed。型形状から owner-backed aggregate を分類し、constructor と owner-token field projection を owner aggregate boundary へ限定する。 |
 | `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` | Stage 5/6 の stdlib public API issue。 | 2026-05-13 に fixed。safe `core/mem` import から raw address escape は呼べない。direct internal/raw module と raw-memory-backed stdlib 全体の discipline は Stage 6 parent で継続する。 |
 | `CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE` | Stage 4 の compiler-core drop obligation issue。 | 2026-05-13 に core 側は fixed / resolved。initialized payload を残した storage-only free は拒否され、collection element cleanup と raw-memory-backed public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` | Stage 6 の stdlib migration parent。 | raw-memory-backed implementation が safe public discipline を漏らさない。 |

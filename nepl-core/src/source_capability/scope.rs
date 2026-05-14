@@ -4,11 +4,11 @@ use alloc::string::String;
 use crate::ast::{Ident, MatchPattern, Module, PrefixItem, Stmt, Symbol};
 
 #[derive(Debug, Clone, Default)]
-pub(super) struct RawMemoryBoundaryScope {
+pub(super) struct SourceCapabilityScope {
     shadowed_symbols: BTreeSet<String>,
 }
 
-impl RawMemoryBoundaryScope {
+impl SourceCapabilityScope {
     pub(super) fn from_module(module: &Module) -> Self {
         let mut scope = Self::default();
         for stmt in &module.root.items {
