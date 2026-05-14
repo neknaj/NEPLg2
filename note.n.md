@@ -37854,3 +37854,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - wildcard_not_last / duplicate_arm の compile_fail 2 件は、match arm 検査の拒否境界を固定するため変更していない。
 - `#target std` 化で stdlib の `Outcome` 型と衝突した payload fixture は、local enum を `LocalOutcome` / `Value` / `Missing` に改名して検査意図を保った。
 - `node nodesrc/tests.js -i tests/compiler/match_enum_wildcard_patterns.n.md --no-tree -o tmp/agent1-match-enum-wildcard-report-tests.json -j 1 --assert-io --dist web/dist` は total=4, passed=4。
+
+## 2026-05-14 Agent 1 Match literal patterns stdout report doctest migration
+
+- `work/match-literal-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/match_literal_patterns.n.md` を更新した。
+- literal pattern 正常系 doctest 9 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- duplicate literal / non-exhaustive / wildcard_not_last / unsupported pattern の compile_fail 4 件は、match pattern 検査の拒否境界を固定するため変更していない。
+- i32 literal matching/default、bool literal、char literal、Unicode scalar、char literal as i32/u8 code point、integer context argument、escape literal の観測値を assertion label として stdout に固定した。
+- `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md --no-tree -o tmp/agent1-match-literal-report-tests.json -j 1 --assert-io --dist web/dist` は total=13, passed=13。約96秒だが timeout ではなく個別 compile 数が主因。

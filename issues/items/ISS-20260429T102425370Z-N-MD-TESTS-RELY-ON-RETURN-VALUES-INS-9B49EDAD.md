@@ -751,3 +751,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\match_enum_wildcard_patterns.n.md --no-tree -o tmp\agent1-match-enum-wildcard-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
 
 この issue はまだ open のまま継続する。Match enum wildcard 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Match literal patterns stdout report migration
+
+`tests/compiler/match_literal_patterns.n.md` の literal pattern 正常系 doctest 9 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。duplicate literal / non-exhaustive / wildcard_not_last / unsupported pattern の compile_fail fixture 4 件は、match pattern 検査の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- i32 literal matching/default、bool literal、char literal、Unicode scalar、char literal as i32/u8 code point、integer context argument、escape literal の観測値を assertion label として stdout に残すようにした。
+- 成功時も、どの literal pattern / context-sensitive char lowering が壊れたかを runner output から読める形にした。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\match_literal_patterns.n.md --no-tree -o tmp\agent1-match-literal-report-tests.json -j 1 --assert-io --dist web/dist`: total=13, passed=13
+- 実行時間は約96秒。timeout ではなく 13 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
+
+この issue はまだ open のまま継続する。Match literal patterns 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
