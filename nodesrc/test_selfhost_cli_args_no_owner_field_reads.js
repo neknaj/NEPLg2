@@ -19,16 +19,34 @@ assert.doesNotMatch(
     'self-host CLI args parser must not recreate a raw VecDataLen storage carrier',
 );
 
-assert.match(
+assert.doesNotMatch(
     code,
-    /selfhost_cli_parse_args[\s\S]*mem_ptr_addr\s+v::data_mem_ptr<str>\s+args[\s\S]*v::len<str>\s+args/,
-    'selfhost_cli_parse_args must read Vec data pointer and length through separate borrowed observers',
+    /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/,
+    'self-host CLI args parser must not import raw memory modules for argv observation',
+);
+
+assert.doesNotMatch(
+    code,
+    /\b(?:mem_ptr_addr|data_mem_ptr|load<str>|size_of<str>)\b/,
+    'self-host CLI args parser must not read Vec<str> through raw storage',
 );
 
 assert.match(
     code,
-    /selfhost_cli_parse_argv[\s\S]*mem_ptr_addr\s+v::data_mem_ptr<str>\s+argv[\s\S]*v::len<str>\s+argv/,
-    'selfhost_cli_parse_argv must read Vec data pointer and length through separate borrowed observers',
+    /fn\s+selfhost_cli_arg_at\s+<\(&Vec<str>,i32\)->Option<str>>[\s\S]*v::get<str>\s+args\s+idx/,
+    'selfhost_cli_arg_at must use Vec.get for checked borrowed argv reads',
+);
+
+assert.match(
+    code,
+    /selfhost_cli_parse_args[\s\S]*let\s+count\s+<i32>\s+v::len<str>\s+args[\s\S]*selfhost_cli_parse_loop\s+args\s+count\s+0/,
+    'selfhost_cli_parse_args must pass the borrowed Vec and count without extracting raw storage',
+);
+
+assert.match(
+    code,
+    /selfhost_cli_parse_argv[\s\S]*let\s+count\s+<i32>\s+v::len<str>\s+argv[\s\S]*selfhost_cli_parse_loop\s+argv\s+count\s+1/,
+    'selfhost_cli_parse_argv must pass the borrowed Vec and count without extracting raw storage',
 );
 
 console.log('selfhost CLI args owner field read regression passed');

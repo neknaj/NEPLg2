@@ -28,6 +28,7 @@ fn main <()*>i32> ():
         |> v::push<str> "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
+            v::free<str> args;
             1
         Result::Ok opts:
             let output_ref <&Option<str>> get_ref &opts "output"
@@ -52,7 +53,9 @@ fn main <()*>i32> ():
                 |> checks_push assert emit_ok
                 |> checks_push assert output_ok
                 |> checks_push assert input_ok
-            checks_exit_code checks
+            let exit_code <i32> checks_exit_code checks
+            v::free<str> args;
+            exit_code
 ```
 
 ## selfhost_cliarg_parser_rejects_unknown_option
@@ -74,9 +77,12 @@ fn main <()*>i32> ():
         |> v::push<str> "--unknown" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
+            v::free<str> args;
             1
         Result::Err e:
-            if selfhost_cli_error_is_unknown_option e 0 1
+            let ok <bool> selfhost_cli_error_is_unknown_option e
+            v::free<str> args;
+            if ok 0 1
 ```
 
 ## selfhost_cliarg_parser_rejects_missing_value
@@ -98,9 +104,12 @@ fn main <()*>i32> ():
         |> v::push<str> "--emit" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
+            v::free<str> args;
             1
         Result::Err e:
-            if selfhost_cli_error_is_missing_value e 0 1
+            let ok <bool> selfhost_cli_error_is_missing_value e
+            v::free<str> args;
+            if ok 0 1
 ```
 
 ## selfhost_cliarg_parser_rejects_multiple_input
@@ -123,9 +132,12 @@ fn main <()*>i32> ():
         |> v::push<str> "b.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
+            v::free<str> args;
             1
         Result::Err e:
-            if selfhost_cli_error_is_multiple_input e 0 1
+            let ok <bool> selfhost_cli_error_is_multiple_input e
+            v::free<str> args;
+            if ok 0 1
 ```
 
 ## selfhost_cliarg_parser_skips_program_name
@@ -155,6 +167,7 @@ fn main <()*>i32> ():
         |> v::push<str> "main.nepl" |> uwok
     match selfhost_cli_parse_argv &argv:
         Result::Err _e:
+            v::free<str> argv;
             1
         Result::Ok opts:
             let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
@@ -173,7 +186,9 @@ fn main <()*>i32> ():
                 checks_new
                 |> checks_push assert target_ok
                 |> checks_push assert input_ok
-            checks_exit_code checks
+            let exit_code <i32> checks_exit_code checks
+            v::free<str> argv;
+            exit_code
 ```
 
 ## selfhost_cliarg_parser_records_run_args_start
@@ -201,14 +216,18 @@ fn main <()*>i32> ():
         |> v::push<str> "--program-flag" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
+            v::free<str> args;
             1
         Result::Ok opts:
             let start_ref <&Option<i32>> get_ref &opts "run_args_start"
             let start <Option<i32>> *start_ref
             match start:
                 Option::Some idx:
-                    if eq idx 3 0 1
+                    let ok <bool> eq idx 3
+                    v::free<str> args;
+                    if ok 0 1
                 Option::None:
+                    v::free<str> args;
                     1
 ```
 
@@ -250,6 +269,7 @@ fn main <()*>i32> ():
         |> v::push<str> "--program-flag" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
+            v::free<str> args;
             1
         Result::Ok opts:
             let attach_ref <&bool> get_ref &opts "attach_source"
@@ -305,7 +325,9 @@ fn main <()*>i32> ():
                 |> checks_push assert stdlib_root_ok
                 |> checks_push assert input_ok
                 |> checks_push assert run_args_start_ok
-            checks_exit_code checks
+            let exit_code <i32> checks_exit_code checks
+            v::free<str> args;
+            exit_code
 ```
 
 ## selfhost_cliarg_parser_accepts_emit_list_and_deduplicates
@@ -332,6 +354,7 @@ fn main <()*>i32> ():
         |> v::push<str> "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
+            v::free<str> args;
             1
         Result::Ok opts:
             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
@@ -343,7 +366,9 @@ fn main <()*>i32> ():
                 |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
                 |> checks_push assert not selfhost_cli_emit_set_has_wat_min emit
                 |> checks_push assert not selfhost_cli_emit_set_has_llvm emit
-            checks_exit_code checks
+            let exit_code <i32> checks_exit_code checks
+            v::free<str> args;
+            exit_code
 ```
 
 ## selfhost_cliarg_parser_accepts_emit_all
@@ -369,6 +394,7 @@ fn main <()*>i32> ():
         |> v::push<str> "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
+            v::free<str> args;
             1
         Result::Ok opts:
             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
@@ -380,7 +406,9 @@ fn main <()*>i32> ():
                 |> checks_push assert selfhost_cli_emit_set_has_wat_min emit
                 |> checks_push assert selfhost_cli_emit_set_has_llvm emit
                 |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
-            checks_exit_code checks
+            let exit_code <i32> checks_exit_code checks
+            v::free<str> args;
+            exit_code
 ```
 
 ## selfhost_cliarg_parser_rejects_invalid_emit_member
@@ -403,7 +431,10 @@ fn main <()*>i32> ():
         |> v::push<str> "wasm,,wat" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
+            v::free<str> args;
             1
         Result::Err e:
-            if selfhost_cli_error_is_invalid_emit e 0 1
+            let ok <bool> selfhost_cli_error_is_invalid_emit e
+            v::free<str> args;
+            if ok 0 1
 ```

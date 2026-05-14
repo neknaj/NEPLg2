@@ -18420,3 +18420,40 @@ fn main <()*>()> ():
     compile_resource_source_with_target(source, CompileTarget::Wasi)
         .expect("stdio string temporaries must compile under Resource IR owner gate");
 }
+
+#[test]
+fn resource_ir_compiler_accepts_vec_get_copy_str_option_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+
+struct Parsed:
+    input <Option<str>>
+
+fn parse <(&Vec<str>)->Parsed> (args):
+    Parsed v::get<str> args 0
+
+fn main <()* >i32> ():
+    let args <Vec<str>>:
+        unwrap_ok v::new<str>
+        |> v::push<str> "alpha" |> uwok
+    let parsed <Parsed> parse &args
+    let input_ref <&Option<str>> field::get_ref &parsed "input"
+    let ok <bool> match *input_ref:
+        Option::Some text:
+            str_eq text "alpha"
+        Option::None:
+            false
+    v::free<str> args
+    if ok 0 1
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("Vec.get<str> must copy the element value without moving the Vec storage owner");
+}

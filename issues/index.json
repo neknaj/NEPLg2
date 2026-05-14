@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T19:03:20.492Z",
+  "generated_at": "2026-05-14T19:36:14.903Z",
   "counts": {
-    "total": 786,
-    "open": 7,
-    "resolved": 779,
+    "total": 788,
+    "open": 8,
+    "resolved": 780,
     "by_area": {
       "stdlib": {
         "total": 218,
@@ -17,9 +17,14 @@
         "resolved": 20
       },
       "selfhost": {
-        "total": 66,
+        "total": 67,
         "open": 1,
-        "resolved": 65
+        "resolved": 66
+      },
+      "test": {
+        "total": 7,
+        "open": 1,
+        "resolved": 6
       },
       "cli": {
         "total": 19,
@@ -95,11 +100,6 @@
         "total": 1,
         "open": 0,
         "resolved": 1
-      },
-      "test": {
-        "total": 6,
-        "open": 0,
-        "resolved": 6
       },
       "tools": {
         "total": 2,
@@ -223,6 +223,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8",
+      "title": "selfhost CLI arg parser doctest suite repeats expensive compile work",
+      "area": "test",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "tests/stdlib/selfhost_cliarg_parser.n.md, nodesrc/tests.js, nepl-core",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -7033,6 +7048,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T153421179Z-SOURCETEXT-LINE-MAP-POLICY-STILL-EXP-597F282C.md"
+    },
+    {
+      "id": "ISS-20260514T190700987Z-SELF-HOST-CLI-ARGS-PARSER-READS-VEC--5193AE7F",
+      "title": "Self-host CLI args parser reads Vec str storage through raw memory",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/neplg2/cli/args/parse.nepl, nodesrc/test_selfhost_cli_args_no_owner_field_reads.js, tests/stdlib/selfhost_cliarg_parser.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T190700987Z-SELF-HOST-CLI-ARGS-PARSER-READS-VEC--5193AE7F.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

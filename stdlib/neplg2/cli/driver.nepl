@@ -30,6 +30,7 @@
 //:| #import "neplg2/cli/driver" as *
 //:| #import "neplg2/core/infra/diag" as *
 //:| #import "neplg2/core/module/loader" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let args <Vec<str>>:
 //:         unwrap_ok v::new<str>
@@ -37,19 +38,23 @@
 //:         |> v::push<str> "main.nepl" |> uwok
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
+//:             v::free<str> args;
 //:             1
 //:         Result::Ok options:
 //:             match selfhost_vfs_new:
 //:                 Result::Err _e:
+//:                     v::free<str> args;
 //:                     2
 //:                 Result::Ok vfs0:
 //:                     match selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> ():\n    0\n":
 //:                         Result::Err _e:
+//:                             v::free<str> args;
 //:                             3
 //:                         Result::Ok vfs1:
 //:                             match selfhost_cli_driver_compile_vfs &vfs1 options:
 //:                                 Result::Err _e:
 //:                                     selfhost_vfs_free vfs1
+//:                                     v::free<str> args;
 //:                                     4
 //:                                 Result::Ok result:
 //:                                     let exit_code <i32> selfhost_cli_driver_result_exit_code &result
@@ -57,6 +62,7 @@
 //:                                     let diag_len <i32> selfhost_diagnostics_len diagnostics
 //:                                     selfhost_cli_driver_result_free result
 //:                                     selfhost_vfs_free vfs1
+//:                                     v::free<str> args;
 //:                                     if and eq exit_code 0 eq diag_len 0 0 5
 //: ```
 

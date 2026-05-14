@@ -38378,3 +38378,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
   - `node nodesrc/tests.js -i stdlib/tests/error.n.md --no-tree -o tmp/agent1-diags-error-observer-vec-boundary-error-tests.json -j 1 --dist web/dist --assert-io`: 3/3 pass
   - `node nodesrc/tests.js -i stdlib/alloc/diag/error/diags.nepl --no-tree -o tmp/agent1-diags-error-observer-vec-boundary-module.json -j 1 --dist web/dist --assert-io`: 1/1 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T190700987Z self-host CLI args Vec boundary)
+
+- `stdlib/neplg2/cli/args/parse.nepl` が `Vec<str>` を borrow しているにもかかわらず、`data_mem_ptr` / `mem_ptr_addr` / `load<str>` で raw storage を直接読んでいた問題を修正した。
+- parser の read-only token access は `selfhost_cli_arg_at <(&Vec<str>,i32)->Option<str>>` に集約し、`v::get<str>` と `v::len<str>` だけで処理する形にした。`core/mem` / `core/mem/raw` import は parser file から削除した。
+- raw storage 経由で隠れていた caller 側の `Vec<str>` owner obligation が表面化したため、parser / options / driver doctest の parse 成功・失敗 branch で入力 `Vec<str>` を明示的に解放するようにした。
+- `nepl-core/tests/resource_ir.rs` に `Vec.get<str>` の Copy read が `Option<str>` 戻り値や aggregate field へ入っても `Vec` storage owner を移動しない regression を追加した。
+- `tests/stdlib/selfhost_cliarg_parser.n.md` は 10/10 pass だが約 130 秒かかり、各 case の実行時間は 5-10ms、compile が約 10-17s を占める。これは今回の raw storage issue とは別の性能問題として `ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8` に分離した。
+- `stdlib/neplg2/cli/driver.nepl` と `tests/stdlib/selfhost_cli_driver.n.md` の owner cleanup も更新済み。ただし focused driver run は既知の JSON issue `ISS-20260514T150128082Z-JSON-BUILDERS-STILL-DEPEND-ON-NON-CO-493D5962` で compile fail するため、今回の完了条件からは除外した。
+- 検証:
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: pass
+  - `node nodesrc/test_selfhost_cli_args_types_split.js`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_accepts_vec_get_copy_str_option_return -- --nocapture`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/parse.nepl --no-tree -o tmp/agent1-selfhost-cli-args-vec-observer-parse-module-final.json -j 1 --dist web/dist --assert-io`: 2/2 pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/options.nepl --no-tree -o tmp/agent1-selfhost-cli-args-vec-observer-options-module-2.json -j 1 --dist web/dist --assert-io`: 2/2 pass
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/agent1-selfhost-cli-args-vec-observer-tests-final.json -j 1 --dist web/dist --assert-io`: 10/10 pass
