@@ -64,7 +64,7 @@ pub struct ByteBuf:
     region <RegionToken<u8>>
     len <i32>
 
-pub fn io_bytebuf_empty_region <()->RegionToken<u8>> ():
+fn io_bytebuf_empty_region <()->RegionToken<u8>> ():
     let ptr <MemPtr<u8>> mem_ptr_wrap 0
     region_new ptr 0
 

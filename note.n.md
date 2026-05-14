@@ -38258,3 +38258,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: pass
   - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-bloom-free-copy-contract.json -j 1 --dist web/dist --assert-io`: 14/14 pass
   - `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/agent1-bloom-free-runtime-contract.json -j 1 --dist web/dist --assert-io`: 9/9 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T171944501Z ByteBuf/ByteBuilder empty sentinel private 化)
+
+- `byte_builder_empty_region` / `io_bytebuf_empty_region` が zero-size `RegionToken<u8>` sentinel を作るだけの内部 helper なのに public re-export されている問題を確認した。
+- `Vec` の `vec_empty_region<T>` と同じ方針で両 helper を private にし、公開 API は `byte_builder_empty` / `io_bytebuf_empty` の typed empty constructor に限定した。
+- `tests/stdlib/memory_safety.n.md` に、facade import から両 sentinel helper が解決できない compile-fail regression を追加した。
+- focused run 中に `std/fs/dir/read_fd.nepl` が旧 `Vec.data` field と `Vec<str>` raw sort に依存している別問題を確認し、`ISS-20260514T172450328Z-FS-DIR-READER-STILL-DEPENDS-ON-RAW-V-05400C14` として記録した。
+- 検証:
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-io-empty-region-private-memory-safety.json -j 1 --dist web/dist --assert-io`: 36/36 pass

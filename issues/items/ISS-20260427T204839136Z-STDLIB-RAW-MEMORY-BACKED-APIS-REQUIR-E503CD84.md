@@ -283,3 +283,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `Vec<T>` は `region: RegionToken<T>` へ移行済みだが、struct constructor が public のままだと、caller は allocator-issued owner token ではない値を aggregate に詰めたり、`field::get_ref &v "region"` で free obligation owner を取り出したりできる。今回の修正では、特定 stdlib 名の allowlist ではなく、struct field 型が compiler owner token を含むかを typecheck が判定し、`OwnerBackedAggregateBoundaryOnly` policy を付与する。
 
 許可境界は `OwnerAggregateBoundary` source capability として `RawMemoryBoundary` から分けた。configured stdlib root 配下でも無条件には付与せず、parsed source に aggregate constructor / field accessor の evidence がある場合だけ付与する。stdlib 実装 source は owner aggregate の move/reconstruct/projection が必要だが、raw memory operation authority まで得るべきではないためである。これにより Stage 6 の「owner token は compiler が性質を証明した境界内でだけ扱える」という前提を強めつつ、raw-memory-backed public API migration はこの親 issue で継続する。
+
+## 2026-05-15 Agent 1 empty RegionToken sentinel helper 追記
+
+`ISS-20260514T171944501Z-BYTEBUF-AND-BYTEBUILDER-EXPOSE-EMPTY-6E06A830` で、`byte_builder_empty_region` / `io_bytebuf_empty_region` が public re-export されていた問題を分離して修正した。
+
+今回の修正では、zero-size `RegionToken<u8>` sentinel helper を private にし、公開 API を `byte_builder_empty -> ByteBuilder` / `io_bytebuf_empty -> ByteBuf` に限定した。これは `Vec` の `vec_empty_region<T>` private 化と同じ方針であり、transitional owner-token sentinel を safe public surface に出さないための Stage 6 前進である。
+
+同じ focused verification で、`std/fs/dir/read_fd.nepl` が削除済みの `Vec.data` field と `Vec<str>` raw storage sort に依存していることを確認した。これは別 issue `ISS-20260514T172450328Z-FS-DIR-READER-STILL-DEPENDS-ON-RAW-V-05400C14` として記録し、この親 issue の raw-memory-backed stdlib API migration 残件として継続する。

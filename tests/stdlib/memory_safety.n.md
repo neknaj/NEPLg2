@@ -945,3 +945,35 @@ diag_code: type.overload.no_match
 fn main <()->i32> ():
     load_i32 0
 ```
+
+## ByteBuilder の empty RegionToken sentinel helper は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io/bytebuilder" as *
+#import "core/mem" as *
+
+fn main <()->RegionToken<u8>> ():
+    byte_builder_empty_region
+```
+
+## ByteBuf の empty RegionToken sentinel helper は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io/bytebuf" as *
+#import "core/mem" as *
+
+fn main <()->RegionToken<u8>> ():
+    io_bytebuf_empty_region
+```

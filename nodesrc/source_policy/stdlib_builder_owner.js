@@ -24,6 +24,18 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.doesNotMatch(
         code,
+        /\bpub\s+fn\s+byte_builder_empty_region\b/,
+        'ByteBuilder empty RegionToken sentinel helper must not be public API',
+    );
+
+    assert.match(
+        code,
+        /\bpub\s+fn\s+byte_builder_empty\s+<\(\)->ByteBuilder>/,
+        'ByteBuilder typed empty constructor must remain public',
+    );
+
+    assert.doesNotMatch(
+        code,
         /\bByteBuilder\s+region_new\s+mem_ptr_wrap\b/,
         'ByteBuilder must not inline null raw pointer ownership in constructor call sites',
     );

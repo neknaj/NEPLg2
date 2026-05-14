@@ -82,6 +82,18 @@ assert.match(
     'ByteBuf must store byte ownership in a RegionToken field',
 );
 
+assert.doesNotMatch(
+    code,
+    /\bpub\s+fn\s+io_bytebuf_empty_region\b/,
+    'ByteBuf empty RegionToken sentinel helper must not be public API',
+);
+
+assert.match(
+    code,
+    /\bpub\s+fn\s+io_bytebuf_empty\s+<\(\)->ByteBuf>/,
+    'ByteBuf typed empty constructor must remain public',
+);
+
 assert.match(
     code,
     /\bfn\s+io_bytebuf_from_owned_ptr\s+<\(MemPtr<u8>,i32\)->ByteBuf>/,
