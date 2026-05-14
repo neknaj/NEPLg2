@@ -768,3 +768,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - 実行時間は約96秒。timeout ではなく 13 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
 
 この issue はまだ open のまま継続する。Match literal patterns 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Overload nested generic push stdout report migration
+
+`tests/compiler/overload_nested_generic_push.n.md` の nested generic overload 正常系 doctest 2 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `Vec<Result<(),str>>` への direct `push` と pipe `push` の overload 解決結果を assertion label として stdout に残すようにした。
+- `free` は report 構築前に実行し、Resource IR owner obligation を閉じたうえで観測値だけを report へ渡す形を維持した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\overload_nested_generic_push.n.md --no-tree -o tmp\agent1-overload-nested-generic-push-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+
+この issue はまだ open のまま継続する。Overload nested generic push 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
