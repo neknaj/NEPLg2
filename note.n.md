@@ -27,6 +27,15 @@
 - plan.md との差分:
   - `plan.md` は変更していない。今回の変更は compiler overload regression の観測性を高める doctest 移行であり、言語計画の変更ではない。
 
+# 2026-05-14 Agent 1 Overload typed block stdout report doctest migration
+
+- `work/overload-typed-block-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/overload.n.md` を更新した。
+- typed block による `Stack` / `Vec` constructor selection、typed block pipe、nested add/sub、nested add/mul、parameter context、explicit result ascription の成功系 6 件を canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `Stack` / `Vec` owner は report 構築前に `free` し、Resource IR owner obligation を閉じた後に観測値だけを stdout report へ渡すようにした。
+- `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/agent1-overload-typed-block-report-tests.json -j 1 --assert-io --dist web/dist` は total=45, passed=45。約236秒だが timeout ではなく 45 doctest の個別 compile が主因。
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は compiler overload regression の観測性を高める doctest 移行であり、言語計画の変更ではない。
+
 # 2026-05-14 Agent 1 一般 stdlib documentation 追加監査
 
 - `ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F` を追加して解決した。

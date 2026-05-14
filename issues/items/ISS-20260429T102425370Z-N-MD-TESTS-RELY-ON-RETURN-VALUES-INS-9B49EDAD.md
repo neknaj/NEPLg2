@@ -963,3 +963,26 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - full file focused run は約194秒。timeout や runtime hang ではなく、45 doctest の個別 compile が主因。
 
 この issue はまだ open のまま継続する。Overload の残り `ret:` 依存 fixture と、report 省略検出 policy が残っている。
+
+## 2026-05-14 Overload typed block stdout report migration
+
+`tests/compiler/overload.n.md` の typed block / arithmetic chain / parameter context 成功系 doctest 6 件を canonical `std/test` report へ移行した。
+
+移行内容:
+
+- typed block による `Stack` / `Vec` constructor selection、typed block pipe による `Stack` push overload、nested add/sub、nested add/mul、parameter context、explicit result ascription を stdout assertion label として固定した。
+- `Stack` / `Vec` owner は report 構築前に `free` し、Resource IR owner obligation を閉じた後に観測値だけを report へ渡す形にした。
+- arity ambiguity と no-match の compile_fail fixtures は、overload 拒否境界を固定するため変更していない。
+
+検証:
+
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 19 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 20 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 21 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 22 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 26 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 27 --assert-io --dist web/dist`: pass
+- `node nodesrc\tests.js -i tests\compiler\overload.n.md --no-tree -o tmp\agent1-overload-typed-block-report-tests.json -j 1 --assert-io --dist web/dist`: total=45, passed=45
+- full file focused run は約236秒。timeout や runtime hang ではなく、45 doctest の個別 compile が主因。
+
+この issue はまだ open のまま継続する。Overload の残り `ret:` 依存 fixture と、report 省略検出 policy が残っている。

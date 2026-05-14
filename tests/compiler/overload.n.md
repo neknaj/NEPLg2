@@ -535,17 +535,18 @@ fn main <()*>i32> ():
 
 ## overload_new_resolve_with_typed_block_context
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_new_resolve_with_typed_block_context\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"typed block selects Stack new overload\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"typed block selects Vec new overload\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/collections/vec" as *
 #import "alloc/collections/stack" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as test
 
 fn main <()*>i32> ():
     let st <Stack<i32>>:
@@ -558,22 +559,28 @@ fn main <()*>i32> ():
     free<i32> st;
     let vn <i32> len<i32> &v;
     free<i32> v;
-    if and eq sn 0 eq vn 0 1 0
+    let report:
+        test::test_report_new "overload_new_resolve_with_typed_block_context"
+        |> test::test_report_push test::assert_eq_i32 "typed block selects Stack new overload" 0 sn
+        |> test::test_report_push test::assert_eq_i32 "typed block selects Vec new overload" 0 vn
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_new_resolve_with_typed_block_and_pipe
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_new_resolve_with_typed_block_and_pipe\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"typed block pipe selects Stack push overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/collections/vec" as *
 #import "alloc/collections/stack" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as test
 
 fn main <()*>i32> ():
     let st <Stack<i32>>:
@@ -583,36 +590,51 @@ fn main <()*>i32> ():
         |> unwrap_ok<Stack<i32>, Diag>
     let n <i32> len<i32> &st;
     free<i32> st;
-    if eq n 1 1 0
+    let report:
+        test::test_report_new "overload_new_resolve_with_typed_block_and_pipe"
+        |> test::test_report_push test::assert_eq_i32 "typed block pipe selects Stack push overload" 1 n
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_nested_call_arg_position_add_sub
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_nested_call_arg_position_add_sub\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested add/sub resolves numeric overloads\" expected=\"15\" actual=\"15\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
-    if eq add 10 sub 8 3 15 1 0
+fn main <()*>i32> ():
+    let actual <i32> add 10 sub 8 3;
+    let report:
+        test::test_report_new "overload_nested_call_arg_position_add_sub"
+        |> test::test_report_push test::assert_eq_i32 "nested add/sub resolves numeric overloads" 15 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_nested_call_chain_add_mul
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_nested_call_chain_add_mul\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested add/mul call chain resolves numeric overloads\" expected=\"15\" actual=\"15\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <i32> add mul 2 3 add 4 5;
-    if eq v 15 1 0
+    let report:
+        test::test_report_new "overload_nested_call_chain_add_mul"
+        |> test::test_report_push test::assert_eq_i32 "nested add/mul call chain resolves numeric overloads" 15 v
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_different_arity_from_param_context_unary_is_error
@@ -686,13 +708,14 @@ fn main <()->i32> ():
 
 ## overload_select_by_parameter_context
 
-neplg2:test
-ret: 12
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_select_by_parameter_context\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parameter context selects i32 and bool overloads\" expected=\"12\" actual=\"12\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
 fn choose <(i32)->i32> (v):
     v
@@ -706,19 +729,25 @@ fn take_i32 <(i32)->i32> (v):
 fn take_bool <(bool)->i32> (v):
     if v 2 0
 
-fn main <()->i32> ():
-    add take_i32 choose 10 take_bool choose 1
+fn main <()*>i32> ():
+    let actual <i32> add take_i32 choose 10 take_bool choose 1;
+    let report:
+        test::test_report_new "overload_select_by_parameter_context"
+        |> test::test_report_push test::assert_eq_i32 "parameter context selects i32 and bool overloads" 12 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_select_by_explicit_result_ascription
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_select_by_explicit_result_ascription\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"explicit result ascription selects bool overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "core/math" as *
+#import "std/test" as test
 
 fn convert <(i32)->i32> (v):
     v
@@ -726,9 +755,14 @@ fn convert <(i32)->i32> (v):
 fn convert <(i32)->bool> (v):
     ne v 0
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let b <bool> <bool> convert 9;
-    if b 1 0
+    let actual <i32> if b 1 0;
+    let report:
+        test::test_report_new "overload_select_by_explicit_result_ascription"
+        |> test::test_report_push test::assert_eq_i32 "explicit result ascription selects bool overload" 1 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_ambiguous_same_input_no_context
