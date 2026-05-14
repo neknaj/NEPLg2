@@ -38505,3 +38505,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `vec_empty<T>` は runtime allocation を持たないが、public `Vec<T>` owner aggregate を作るため、現行の Copy-only collection cleanup contract では `.T: Copy` に限定した。
 - `CleanupPayload` で `vec_empty<CleanupPayload>` を呼ぶ compile-fail regression を `tests/stdlib/collection_cleanup_contract.n.md` に追加した。
 - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` で `vec_empty<T: Copy>` と doc contract を監視するようにした。
+
+## 2026-05-15 Agent 1 alloc/string root raw facade boundary
+
+- `ISS-20260514T220733927Z-ALLOC-STRING-ROOT-RE-EXPORTS-RAW-STR-BF0F0254` を追加して fixed にした。
+- `alloc/string` root から `./string/storage` と `./string/utf8` の public wildcard re-export を削除し、ordinary string user が root import だけで raw `MemPtr` helper に到達できないようにした。
+- raw helper を本当に使う `std/fs` / `std/stdio` / `std/env/cliarg` / `std/streamio` 実装は、`alloc/string/storage` / `alloc/string/utf8` を明示 import する形へ変更した。
+- `string_utf8_mem_result` doctest は raw address store/free を使わず、checked `MemPtr` store と `dealloc_ptr` で invalid UTF-8 fixture を構成するようにした。
+- focused verification:
+  - `node nodesrc/test_stdlib_string_utf8_boundary.js`
+  - `node nodesrc/test_stdlib_string_storage_boundary.js`
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write/text.nepl -i stdlib/std/stdio/print.nepl --no-tree -o tmp/agent1-string-raw-facade-stdio-modules.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl -i stdlib/std/fs/path/entry.nepl --no-tree -o tmp/agent1-string-raw-facade-fs-modules.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg/cstr.nepl -i stdlib/std/env/cliarg/raw.nepl --no-tree -o tmp/agent1-string-raw-facade-cliarg-modules.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/agent1-string-raw-facade-streamio.json -j 1 --dist web/dist --assert-io`
+- `stdlib/tests/string.n.md` broad run は 7/9 pass。今回更新した raw UTF-8 memory case は pass し、残る 2 件は stale import assumptions として `ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303` に分離した。

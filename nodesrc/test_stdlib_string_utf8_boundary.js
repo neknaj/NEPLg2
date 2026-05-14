@@ -32,8 +32,9 @@ const rootCode = implementation(root);
 const utf8Code = implementation(utf8);
 const storageCode = implementation(storage);
 
-assert.match(rootCode, /pub\s+#import\s+"\.\/string\/utf8"\s+as\s+\*/, "alloc/string root must re-export UTF-8 validation APIs");
-assert.match(rootCode, /pub\s+#import\s+"\.\/string\/storage"\s+as\s+\*/, "alloc/string root must re-export string storage APIs");
+assert.doesNotMatch(rootCode, /pub\s+#import\s+"\.\/string\/utf8"\s+as\s+\*/, "alloc/string root must not re-export raw UTF-8 memory helpers");
+assert.doesNotMatch(rootCode, /pub\s+#import\s+"\.\/string\/storage"\s+as\s+\*/, "alloc/string root must not re-export raw string storage helpers");
+assert.match(root, /raw `MemPtr` \/ storage helper/, "alloc/string root must document that raw helpers require explicit boundary imports");
 assert.doesNotMatch(rootCode, /fn\s+string_utf8_validate_mem\b/, "alloc/string root must not own raw UTF-8 validation");
 assert.doesNotMatch(rootCode, /fn\s+string_utf8_validate_(?:two|three|four)\b/, "alloc/string root must not own UTF-8 sequence validators");
 assert.doesNotMatch(rootCode, /fn\s+string_utf8_lead_kind\b/, "alloc/string root must not own UTF-8 leading byte classification");

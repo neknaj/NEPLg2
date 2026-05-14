@@ -8,6 +8,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/mem" as *
 #import "core/mem/raw" as *
 #import "core/option" as *

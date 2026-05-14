@@ -13,7 +13,9 @@ const storageSrc = fs.readFileSync(path.join(repoRoot, storageRelPath), 'utf8');
 const rootCode = stripNeplComments(rootSrc);
 const storageCode = stripNeplComments(storageSrc);
 
-assert.match(rootSrc, /pub #import "\.\/string\/storage" as \*/, 'alloc/string facade must re-export string/storage');
+assert.doesNotMatch(rootSrc, /pub #import "\.\/string\/storage" as \*/, 'alloc/string facade must not re-export string/storage raw helpers');
+assert.doesNotMatch(rootSrc, /pub #import "\.\/string\/utf8" as \*/, 'alloc/string facade must not re-export string/utf8 raw helpers');
+assert.match(rootSrc, /通常利用者向けの安全な string API/, 'alloc/string facade must document the safe public surface');
 assert.match(storageSrc, /#import "alloc\/string\/utf8" as \*/, 'string/storage must depend on UTF-8 validation instead of duplicating it');
 
 for (const name of [

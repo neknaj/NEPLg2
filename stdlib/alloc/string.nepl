@@ -6,6 +6,8 @@
 //:
 //: [注意/ちゅうい]:
 //: - 利用時は各関数の「目的」「注意」「計算量」を確認してください。
+//: - raw `MemPtr` / storage helper は `alloc/string/storage` と `alloc/string/utf8` の明示 import だけで使います。
+//: - この root facade は通常利用者向けの安全な string API だけを再公開します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -18,8 +20,6 @@
 
 #indent 4
 
-pub #import "./string/utf8" as *
-pub #import "./string/storage" as *
 pub #import "./string/access" as *
 pub #import "./string/builder" as *
 pub #import "./string/search" as *

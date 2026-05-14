@@ -15,6 +15,7 @@
 #import "alloc/collections/vec" as vec
 #import "alloc/io" as *
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/option" as *

@@ -11,6 +11,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *

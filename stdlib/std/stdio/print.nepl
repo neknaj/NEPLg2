@@ -12,6 +12,7 @@
 #indent 4
 
 #import "alloc/string" as string
+#import "alloc/string/storage" as string_storage
 #import "alloc/string/integer/format" as string_integer
 #import "std/stdio/write" as *
 
@@ -49,7 +50,7 @@
 //:     print "sample";
 //: ```
 pub fn noshadow print <(str)*>()> (s):
-    stdio_write_mem string::string_data_ptr s string::len s
+    stdio_write_mem string_storage::string_data_ptr s string::len s
 
 //: println: 改行付き出力
 //:

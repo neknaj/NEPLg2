@@ -223,10 +223,8 @@ ret: 0
 #target std
 
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/test" as *
 
@@ -243,14 +241,20 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data;
-            store_u8 raw 128;
-            match string_from_utf8_mem_result data 1:
-                Result::Ok text:
-                    set checks checks_push checks Result<(),str>::Err text
+            match store_u8 data 128:
+                Result::Err e:
+                    set checks checks_push checks Result<(),str>::Err e
+                Result::Ok _:
+                    match string_from_utf8_mem_result data 1:
+                        Result::Ok text:
+                            set checks checks_push checks Result<(),str>::Err text
+                        Result::Err _e:
+                            set checks checks_push checks Result<(),str>::Ok ();
+            match dealloc_ptr<u8> data 1:
+                Result::Ok _:
+                    ()
                 Result::Err _e:
-                    set checks checks_push checks Result<(),str>::Ok ();
-            dealloc_raw raw 1;
+                    set checks checks_push checks Result<(),str>::Err "dealloc failed";
     checks_exit_code checks
 ```
 

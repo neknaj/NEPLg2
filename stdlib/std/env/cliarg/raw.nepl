@@ -15,6 +15,7 @@
 #extern "c" "syscall" fn __cli_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
 
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/cast" as *
 #import "core/math" as *
 #import "core/mem" as *

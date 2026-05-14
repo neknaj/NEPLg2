@@ -76,6 +76,7 @@ neplg2:test
 
 #import "std/stdio" as *
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/mem" as *
 #import "core/result" as *
 

@@ -204,6 +204,14 @@ allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`�
 
 この親 issue は引き続き open とする。`RegionToken<T>` はまだ forgeable であり、`OwnedBuffer<T>` / initialized prefix / non-Copy payload drop traversal / owner-preserving fallible collection update は Stage 6 の残件である。
 
+## 2026-05-15 Agent 1 alloc/string root facade raw helper 分離追記
+
+`ISS-20260514T220733927Z-ALLOC-STRING-ROOT-RE-EXPORTS-RAW-STR-BF0F0254` で、ordinary `alloc/string` root facade から `alloc/string/storage` と `alloc/string/utf8` の public wildcard re-export を削除した。
+
+`string_data_ptr`、`string_from_mem_unchecked_result`、`string_from_utf8_mem_result`、`string_utf8_validate_mem` などの raw `MemPtr`-based helper は、今後 root `alloc/string` import からは到達できない。OS boundary / storage conversion / scanner など本当に raw helper を使う stdlib 実装は、`alloc/string/storage` / `alloc/string/utf8` を明示 import する。
+
+これは raw helper 自体を削除する変更ではなく、`MemPtr = non-owning pointer` と safe public facade の責務を分ける Stage 6 の public/raw boundary split である。`std/fs` / `std/stdio` / `std/env/cliarg` / `std/streamio` の focused doctest は pass している。`stdlib/tests/string.n.md` の broad run に残る stale import fixture は `ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303` として別管理にした。
+
 同じ監査で、`byte_builder_realloc_region_or_free` の realloc failure cleanup が `dealloc_ptr` 失敗時に `#intrinsic "unreachable"` へ落ちる問題を確認した。これは今回の Vec owner field 削除とは別件として、`ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` に分離して修正した。ByteBuilder grow failure cleanup は現在、`dealloc_region<u8> region` で owner token を直接消費する。
 
 ## 2026-05-14 Agent 1 Vec merge sort fallible owner 追記
