@@ -37782,3 +37782,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `char` 変数から code point への明示 `cast` と、checked code point から `char` への明示 `cast` を assertion label として stdout に固定した。
 - 暗黙変換を許さない char 型境界が成功時にも runner output から確認できるようにした。
 - `node nodesrc/tests.js -i tests/compiler/char_cast.n.md --no-tree -o tmp/agent1-char-cast-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。
+
+## 2026-05-14 Agent 1 Generic impl trait args stdout report doctest migration
+
+- `work/generic-impl-trait-args-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/generic_impl_trait_args.n.md` を更新した。
+- concrete target が trait argument 側だけに現れる type parameter を量化できる正常系 doctest 1 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- compile_fail 診断 fixture は `type.impl.target_not_concrete` を固定する責務なので変更せず、許可ケースの runtime observation だけを stdout report 化した。
+- 抽象化機能の回帰として、generic impl dispatch の成功と generic target 拒否の両方を同じ file で維持している。
+- `node nodesrc/tests.js -i tests/compiler/generic_impl_trait_args.n.md --no-tree -o tmp/agent1-generic-impl-trait-args-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。

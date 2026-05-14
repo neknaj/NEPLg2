@@ -606,3 +606,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\char_cast.n.md --no-tree -o tmp\agent1-char-cast-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
 
 この issue はまだ open のまま継続する。Char cast 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Generic impl trait args stdout report migration
+
+`tests/compiler/generic_impl_trait_args.n.md` の generic impl trait argument 正常系 doctest 1 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。compile_fail 診断 fixture は既存どおり `type.impl.target_not_concrete` を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- concrete impl target が trait argument 側だけに現れる type parameter を量化できることを、`concrete impl generic trait arg dispatch` assertion として stdout に残すようにした。
+- 抽象化機能の回帰として、許可される generic impl dispatch と拒否される generic target 診断の両方を同じ file で維持した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\generic_impl_trait_args.n.md --no-tree -o tmp\agent1-generic-impl-trait-args-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+
+この issue はまだ open のまま継続する。Generic impl trait args 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
