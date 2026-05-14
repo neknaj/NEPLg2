@@ -2,7 +2,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_test_support::local;
 use super::model::{I32ValueCondition, Place, ResourceI32RelationOp, ResourceId};
 
-use ResourceI32RelationOp::Lt;
+use ResourceI32RelationOp::{Eq, Lt};
 
 #[test]
 fn i32_scaled_relation_condition_derives_checked_size_non_negative() {
@@ -27,6 +27,31 @@ fn i32_scaled_relation_condition_derives_checked_size_non_negative() {
     );
     assert_eq!(
         aliases.i32_condition_truth(&size_read, I32ValueCondition::Negative),
+        Some(false)
+    );
+}
+
+#[test]
+fn i32_relation_condition_cycle_terminates_without_losing_real_proofs() {
+    let a = local("a");
+    let b = local("b");
+    let c = local("c");
+    let d = local("d");
+    let mut aliases = RawCellAddressAliases::default();
+
+    aliases.add_i32_relation(&a, Eq, &b);
+    aliases.add_i32_relation(&b, Eq, &c);
+    aliases.add_i32_relation(&c, Eq, &a);
+    aliases.add_i32_relation(&c, Eq, &d);
+    aliases.add_i32_relation(&d, Eq, &b);
+    aliases.add_i32_condition(&d, I32ValueCondition::Positive);
+
+    assert_eq!(
+        aliases.i32_condition_truth(&a, I32ValueCondition::Positive),
+        Some(true)
+    );
+    assert_eq!(
+        aliases.i32_condition_truth(&a, I32ValueCondition::Negative),
         Some(false)
     );
 }

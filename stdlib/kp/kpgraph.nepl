@@ -87,7 +87,7 @@ pub struct KpI32PushRes:
 //: kp_i32_empty_vec: 空の `Vec<i32>` を作る
 //:
 //: [目的/もくてき]:
-//: - allocation failure 時に consumed owner を再利用せず、空の BFS 結果へ切り替えます。
+//: - `Vec` 初期確保に失敗した場合の空 BFS 結果を作ります。
 pub fn kp_i32_empty_vec <()->Vec<i32>> ():
     v::vec_empty<i32>
 
@@ -96,8 +96,8 @@ pub fn kp_push_i32 <(Vec<i32>,i32)->KpI32PushRes> (items, item):
     match v::push<i32> items item:
         Result::Ok next:
             KpI32PushRes next true
-        Result::Err _e:
-            KpI32PushRes kp_i32_empty_vec false
+        Result::Err e:
+            KpI32PushRes v::vec_push_error_vec<i32> e false
 
 //: dense_graph_new: 頂点数 n の空グラフを作る
 //:

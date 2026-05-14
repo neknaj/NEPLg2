@@ -10,6 +10,7 @@
 #import "alloc/collections/vec" as *
 #import "alloc/hash/sha256/padding" as *
 #import "alloc/hash/sha256/round" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -47,28 +48,39 @@ pub fn sha256_schedule_word <(&Vec<i32>,i32)->Result<i32, StdErrorKind>> (w, i):
 //: [実装/じっそう]:
 //: - 先頭 16 word は padded block から[読/よ]み、残りは schedule recurrence で[追加/ついか]します。
 pub fn sha256_build_schedule_loop <(&Vec<i32>,i32,i32,i32,i32,Vec<i32>)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start, i, w):
-    if:
-        ge i 64
-        then:
-            Result<Vec<i32>, StdErrorKind>::Ok w
-        else:
+    let mut out <Vec<i32>> w
+    let mut idx <i32> i
+    let mut failed <bool> false
+    let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
+    while and lt idx 64 not failed:
+        do:
             let word_result <Result<i32, StdErrorKind>>:
                 if:
-                    lt i 16
+                    lt idx 16
                     then:
-                        sha256_word_at buf msg_len total_len block_start i
+                        sha256_word_at buf msg_len total_len block_start idx
                     else:
-                        sha256_schedule_word &w i
+                        sha256_schedule_word &out idx
             match word_result:
                 Result::Err e:
-                    free<i32> w
-                    Result<Vec<i32>, StdErrorKind>::Err e
+                    set failure e
+                    set failed true
                 Result::Ok word:
-                    match push<i32> w word:
+                    match push<i32> out word:
                         Result::Err e:
-                            Result<Vec<i32>, StdErrorKind>::Err e
+                            set failure field::get e "error"
+                            set out field::get e "vec"
+                            set failed true
                         Result::Ok next_w:
-                            sha256_build_schedule_loop buf msg_len total_len block_start add i 1 next_w
+                            set out next_w
+                            set idx add idx 1
+    if:
+        failed
+        then:
+            free<i32> out
+            Result<Vec<i32>, StdErrorKind>::Err failure
+        else:
+            Result<Vec<i32>, StdErrorKind>::Ok out
 
 //: sha256_build_schedule: 1 block の message schedule を[初期化/しょきか]する
 //:

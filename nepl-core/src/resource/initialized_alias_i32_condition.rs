@@ -10,7 +10,13 @@ impl RawCellAddressAliases {
         place: &Place,
         condition: I32ValueCondition,
     ) -> Option<bool> {
-        self.i32_condition_truth_inner(place, condition, 0, true)
+        self.i32_condition_truth_inner(
+            place,
+            condition,
+            0,
+            true,
+            &mut I32ConditionQueryContext::default(),
+        )
     }
 
     pub(super) fn i32_condition_is_known_true(
@@ -18,7 +24,13 @@ impl RawCellAddressAliases {
         place: &Place,
         condition: I32ValueCondition,
     ) -> bool {
-        self.i32_condition_truth_inner(place, condition, 0, false) == Some(true)
+        self.i32_condition_truth_inner(
+            place,
+            condition,
+            0,
+            false,
+            &mut I32ConditionQueryContext::default(),
+        ) == Some(true)
     }
 
     fn i32_condition_truth_inner(
@@ -27,6 +39,33 @@ impl RawCellAddressAliases {
         condition: I32ValueCondition,
         depth: usize,
         derive_false: bool,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<bool> {
+        if let Some(result) = context.memo_result(place, condition, depth, derive_false) {
+            return result;
+        }
+        if !context.push_active(place, condition, derive_false) {
+            return None;
+        }
+        let result = self.i32_condition_truth_inner_unvisited(
+            place,
+            condition,
+            depth,
+            derive_false,
+            context,
+        );
+        context.pop_active();
+        context.memoize(place, condition, depth, derive_false, result);
+        result
+    }
+
+    fn i32_condition_truth_inner_unvisited(
+        &self,
+        place: &Place,
+        condition: I32ValueCondition,
+        depth: usize,
+        derive_false: bool,
+        context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
         if let Some(value) = self.i32_value(place) {
             return Some(condition.holds(value));
@@ -41,19 +80,19 @@ impl RawCellAddressAliases {
             return None;
         }
         if let Some(truth) =
-            self.i32_scaled_condition_truth(place, condition, depth + 1, derive_false)
+            self.i32_scaled_condition_truth(place, condition, depth + 1, derive_false, context)
         {
             return Some(truth);
         }
         if let Some(truth) =
-            self.i32_relation_condition_truth(place, condition, depth + 1, derive_false)
+            self.i32_relation_condition_truth(place, condition, depth + 1, derive_false, context)
         {
             return Some(truth);
         }
         if !derive_false {
             return None;
         }
-        self.i32_implied_condition_truth(place, condition, depth + 1)
+        self.i32_implied_condition_truth(place, condition, depth + 1, context)
     }
 
     fn i32_scaled_condition_truth(
@@ -62,12 +101,13 @@ impl RawCellAddressAliases {
         condition: I32ValueCondition,
         depth: usize,
         derive_false: bool,
+        context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
         let (source, scale) = self.i32_scaled_source(place)?;
         if scale == 0 {
             return None;
         }
-        self.i32_condition_truth_inner(&source, condition, depth, derive_false)
+        self.i32_condition_truth_inner(&source, condition, depth, derive_false, context)
     }
 
     fn i32_relation_condition_truth(
@@ -76,6 +116,7 @@ impl RawCellAddressAliases {
         condition: I32ValueCondition,
         depth: usize,
         derive_false: bool,
+        context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
         let aliases = self.scalar_aliases_for(place);
         for fact in self.i32_relations.relations_touching_aliases(&aliases) {
@@ -87,6 +128,7 @@ impl RawCellAddressAliases {
                     condition,
                     depth,
                     derive_false,
+                    context,
                 ) == Some(true)
             {
                 return Some(true);
@@ -99,6 +141,7 @@ impl RawCellAddressAliases {
                     condition,
                     depth,
                     derive_false,
+                    context,
                 ) == Some(true)
             {
                 return Some(true);
@@ -112,9 +155,10 @@ impl RawCellAddressAliases {
         place: &Place,
         condition: I32ValueCondition,
         depth: usize,
+        context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
         for &known in i32_condition_contradictors(condition) {
-            if self.i32_condition_truth_inner(place, known, depth, false) == Some(true) {
+            if self.i32_condition_truth_inner(place, known, depth, false, context) == Some(true) {
                 return Some(false);
             }
         }
@@ -129,12 +173,13 @@ impl RawCellAddressAliases {
         condition: I32ValueCondition,
         depth: usize,
         derive_false: bool,
+        context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
         use I32ValueCondition::{Negative, NonNegative, NonPositive, Positive};
         use ResourceI32RelationOp::{Eq, Ge, Gt, Le, Lt};
 
         if relation == Eq {
-            return self.i32_condition_truth_inner(other, condition, depth, derive_false);
+            return self.i32_condition_truth_inner(other, condition, depth, derive_false, context);
         }
 
         let required = match (target_is_left, relation, condition) {
@@ -152,13 +197,96 @@ impl RawCellAddressAliases {
             (false, Ge, NonPositive) => NonPositive,
             _ => return None,
         };
-        if self.i32_condition_truth_inner(other, required, depth, derive_false) != Some(true) {
+        if self.i32_condition_truth_inner(other, required, depth, derive_false, context)
+            != Some(true)
+        {
             return None;
         }
         if condition_implication(required, condition) == Some(false) {
             return None;
         }
         Some(true)
+    }
+}
+
+#[derive(Default)]
+struct I32ConditionQueryContext {
+    active: alloc::vec::Vec<I32ConditionQuery>,
+    memo: alloc::vec::Vec<I32ConditionMemo>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct I32ConditionQuery {
+    place: Place,
+    condition: I32ValueCondition,
+    derive_false: bool,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct I32ConditionMemo {
+    query: I32ConditionQuery,
+    depth: usize,
+    result: Option<bool>,
+}
+
+impl I32ConditionQueryContext {
+    fn push_active(
+        &mut self,
+        place: &Place,
+        condition: I32ValueCondition,
+        derive_false: bool,
+    ) -> bool {
+        let query = I32ConditionQuery {
+            place: place.clone(),
+            condition,
+            derive_false,
+        };
+        if self.active.iter().any(|entry| entry == &query) {
+            return false;
+        }
+        self.active.push(query);
+        true
+    }
+
+    fn pop_active(&mut self) {
+        self.active.pop();
+    }
+
+    fn memo_result(
+        &self,
+        place: &Place,
+        condition: I32ValueCondition,
+        depth: usize,
+        derive_false: bool,
+    ) -> Option<Option<bool>> {
+        self.memo
+            .iter()
+            .find(|entry| {
+                entry.depth == depth
+                    && entry.query.place == *place
+                    && entry.query.condition == condition
+                    && entry.query.derive_false == derive_false
+            })
+            .map(|entry| entry.result)
+    }
+
+    fn memoize(
+        &mut self,
+        place: &Place,
+        condition: I32ValueCondition,
+        depth: usize,
+        derive_false: bool,
+        result: Option<bool>,
+    ) {
+        self.memo.push(I32ConditionMemo {
+            query: I32ConditionQuery {
+                place: place.clone(),
+                condition,
+                derive_false,
+            },
+            depth,
+            result,
+        });
     }
 }
 

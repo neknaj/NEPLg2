@@ -13,6 +13,7 @@
 
 #import "core/mem" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
 //: ## VecStorageState
@@ -71,6 +72,17 @@ pub struct Vec<.T>:
     cap <i32>
     storage <VecStorageState>
     region <RegionToken<.T>>
+
+//: ## VecPushError
+//: `push` の[失敗/しっぱい]時に `Vec` owner を[返/かえ]す error payload
+//:
+//: ### [目的/もくてき]
+//: - 現行 `push` は `.T: Copy` に[限定/げんてい]しているため、[失敗/しっぱい]時に caller が[回収/かいしゅう]すべき linear owner は collection の `Vec<.T>` です。
+//: - 将来 non-Copy payload を[扱/あつか]う場合は、`OwnedBuffer<T>` / initialized prefix / item owner の[状態/じょうたい]を[別/べつ]の owner-preserving API として[設計/せっけい]します。
+//: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner [回収/かいしゅう]と error [確認/かくにん]を別操作にします。
+pub struct VecPushError<.T>:
+    vec <Vec<.T>>
+    error <StdErrorKind>
 
 //: ## VecPop
 //: `pop` の結果を名前付き field で返す構造です。

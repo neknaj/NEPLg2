@@ -12,6 +12,7 @@
 #import "alloc/hash/sha256/digest" as *
 #import "alloc/hash/sha256/padding" as *
 #import "alloc/hash/sha256/types" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/result" as *
 
@@ -33,12 +34,22 @@ pub fn new_sha256 <()*>Result<Sha256, StdErrorKind>> ():
 //:
 //: [注意/ちゅうい]:
 //: - 返された state を[使/つか]って[次/つぎ]の update / finalize を[呼/よ]んでください。
-pub fn sha256_update <(Sha256, i32)*>Result<Sha256, StdErrorKind>> (ctx, byte):
+//: - `Err` の[場合/ばあい]も state owner は `Sha256UpdateError.ctx` に[戻/もど]るため、caller が `sha256_free` などで[閉/と]じます。
+pub fn sha256_update <(Sha256, i32)*>Result<Sha256, Sha256UpdateError>> (ctx, byte):
     match push<i32> ctx.buffer and byte 255:
         Result::Err e:
-            Result<Sha256, StdErrorKind>::Err e
+            let error <StdErrorKind> field::get e "error"
+            let returned <Vec<i32>> field::get e "vec"
+            Result<Sha256, Sha256UpdateError>::Err Sha256UpdateError (Sha256 returned) error
         Result::Ok new_vec:
-            Result<Sha256, StdErrorKind>::Ok Sha256 new_vec
+            Result<Sha256, Sha256UpdateError>::Ok Sha256 new_vec
+
+//: sha256_free: incremental state の入力 buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - `sha256_update` 失敗後に返った state や、finalize せず破棄する state の owner を明示的に閉じます。
+pub fn sha256_free <(Sha256)->()> (ctx):
+    free<i32> ctx.buffer
 
 //: sha256_finalize: 32 byte SHA-256 digest を[返/かえ]す
 //:

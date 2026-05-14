@@ -2,12 +2,12 @@
 id: ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D
 title: "Self-host lexer lex_next timeout blocks parser loader and module graph doctests"
 area: selfhost
-status: fixed
-resolved: true
+status: investigating
+resolved: false
 priority: P1
 type: bug
 created: 2026-05-06
-updated: 2026-05-07
+updated: 2026-05-14
 target: "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl, stdlib/neplg2/core/module/graph.nepl"
 ---
 
@@ -58,3 +58,14 @@ Run node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex
 - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/selfhost_module_parser_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
 - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/loader.nepl --no-tree --dist web/dist -o tmp/selfhost_loader_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
 - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree --dist web/dist -o tmp/selfhost_graph_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+
+## 2026-05-14 再発観測
+
+`Vec.push` の owner-preserving failure payload 化後に current `web/dist` で module graph / lexer 系 focused doctest を再確認したところ、module graph は default 60000ms compile budget で 3/3 timeout した。lexer 側も full focused run が timeout / owner diagnostic を含んで完走せず、個別再実行では `resource.owner.maybe_leak` ではなく return value mismatch まで進むケースがある。
+
+現時点では Vec.push API 変更が直接の根因とは判断しない。module graph は lexer / parser / loader を通るため、ResourceIR summary と selfhost lexer owner flow の静的検査コストを再監査し、timeout を単にテスト予算で隠さない。
+
+再検証:
+
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/agent1-vec-push-owner-error-neplg2-module-graph-final.json -j 1 --dist web/dist --assert-io`: total=3, errored=3, compile timeout
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-vec-push-owner-error-neplg2-lexer-final.json -j 1 --dist web/dist --assert-io`: partial run, timeout / owner diagnostics observed before later local error-path cleanup

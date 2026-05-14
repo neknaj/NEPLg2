@@ -118,13 +118,13 @@ pub fn source_text_next_index_after_cr <(str,i32,i32)->i32> (source, n, idx):
 //:
 //: [目的/もくてき]:
 //: - `Vec::push` は consuming API なので、while loop の accumulator へ戻す owner を成功/失敗の両方で明示します。
-//: - 失敗時、入力 Vec の owner は `Vec::push` 側で閉じられているため、ここでは owner を持たない空 Vec を返します。
+//: - 失敗時、`Vec::push` が返した入力 Vec owner を保持し、呼び出し側が cleanup できるようにします。
 pub fn source_text_push_line_start <(Vec<i32>,i32)->SourceTextLineStartPush> (starts, offset):
     match v::push<i32> starts offset:
         Result::Ok next_starts:
             SourceTextLineStartPush SourceTextLineStartPushState::Ok next_starts
-        Result::Err _e:
-            SourceTextLineStartPush SourceTextLineStartPushState::Err v::vec_empty<i32>
+        Result::Err e:
+            SourceTextLineStartPush SourceTextLineStartPushState::Err v::vec_push_error_vec<i32> e
 
 //: source_text_collect_line_starts: source を 1 [回/かい][走査/そうさ]して line start table を[作/つく]る
 //:

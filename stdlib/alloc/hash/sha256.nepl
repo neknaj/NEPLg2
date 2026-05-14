@@ -2,7 +2,7 @@
 //: SHA-256 digest を[計算/けいさん]する incremental hash API の public facade
 //:
 //: ### [目的/もくてき]
-//: - `Sha256` / `new_sha256` / `sha256_update` / `sha256_finalize` を既存の `alloc/hash/sha256` import path から公開します。
+//: - `Sha256` / `Sha256UpdateError` / `new_sha256` / `sha256_update` / `sha256_free` / `sha256_finalize` を既存の `alloc/hash/sha256` import path から公開します。
 //: - state 型、round 演算、padding、schedule、compression、digest 出力を submodule に分け、crypto hash の各責務を混ぜないようにします。
 //:
 //: ### [実装/じっそう]
@@ -15,6 +15,7 @@
 //: ### [注意/ちゅうい]
 //: - ここは互換 import path のための facade です。新しい処理本体は submodule に置きます。
 //: - `sha256_update` の `byte` は lower 8 bit だけを[使用/しよう]します。
+//: - `sha256_update` 失敗時は `Sha256UpdateError.ctx` で state owner が[戻/もど]ります。
 //: - `sha256_finalize` は state を[消費/しょうひ]し、内部 buffer を[解放/かいほう]してから digest を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]

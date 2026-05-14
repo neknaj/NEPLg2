@@ -594,8 +594,10 @@ pub fn selfhost_type_arena_push_record <(SelfhostTypeArena,SelfhostTypeRecord)*>
         Result::Ok next_records:
             Result<SelfhostTypeArenaAlloc, StdErrorKind>::Ok selfhost_type_arena_alloc_new (SelfhostTypeArena next_records function_args) type_id
         Result::Err e:
+            let error <StdErrorKind> field::get e "error"
+            v::free<SelfhostTypeRecord> field::get e "vec"
             v::free<SelfhostTypeId> function_args
-            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err error
 
 //: selfhost_type_arena_add_primitive: primitive type を arena に[追加/ついか]する
 pub fn selfhost_type_arena_add_primitive <(SelfhostTypeArena,SelfhostPrimitiveTypeKind)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, kind):
@@ -614,7 +616,9 @@ pub fn selfhost_type_arena_copy_function_args <(Vec<SelfhostTypeId>,&Vec<Selfhos
                         Result::Ok next_out:
                             selfhost_type_arena_copy_function_args next_out params n add idx 1
                         Result::Err e:
-                            Result<Vec<SelfhostTypeId>, StdErrorKind>::Err e
+                            let error <StdErrorKind> field::get e "error"
+                            v::free<SelfhostTypeId> field::get e "vec"
+                            Result<Vec<SelfhostTypeId>, StdErrorKind>::Err error
                 Option::None:
                     v::free<SelfhostTypeId> out
                     Result<Vec<SelfhostTypeId>, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds

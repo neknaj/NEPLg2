@@ -14,7 +14,7 @@ pub(super) struct BorrowTokenReturnSummary {
     pub(super) parameter_indices: Vec<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerReturnSummary {
     pub(super) function: String,
     pub(super) parameter_indices: Vec<usize>,
@@ -39,34 +39,34 @@ pub(super) struct OwnerReturnSummary {
     pub(super) storage_origin_markers: Vec<OwnerStorageOriginMarker>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerProjectionSource {
     pub(super) parameter_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum OwnerExtentSummary {
     Unknown,
     PayloadBytesParameter(OwnerProjectionSource),
     PayloadBytesI32Constant { value: i32, ty: TypeId },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerConsumedExtentRequirement {
     pub(super) owner: OwnerProjectionSource,
     pub(super) extent: OwnerExtentSummary,
     pub(super) operation: ResourceOwnerOperation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerParameterReturnExtent {
     pub(super) source: OwnerProjectionSource,
     pub(super) extent: OwnerExtentSummary,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerVariantConsumedExtentRequirement {
     pub(super) variant: String,
     pub(super) owner: OwnerProjectionSource,
@@ -74,19 +74,19 @@ pub(super) struct OwnerVariantConsumedExtentRequirement {
     pub(super) operation: ResourceOwnerOperation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerVariantParameterIndex {
     pub(super) variant: String,
     pub(super) parameter_index: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerVariantProjectionSource {
     pub(super) variant: String,
     pub(super) source: OwnerProjectionSource,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerVariantProjectionReturn {
     pub(super) variant: String,
     pub(super) suffix: Vec<PlaceProjection>,
@@ -94,7 +94,7 @@ pub(super) struct OwnerVariantProjectionReturn {
     pub(super) owner: OwnerProjectionReturnOwner,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum OwnerProjectionReturnOwner {
     Parameter {
         source: OwnerProjectionSource,
@@ -106,19 +106,19 @@ pub(super) enum OwnerProjectionReturnOwner {
     Maybe,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerResolvedParameterVariant {
     pub(super) parameter_index: usize,
     pub(super) variant: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerVariantCondition {
     pub(super) variant: String,
     pub(super) condition: OwnerValueCondition,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum OwnerValueCondition {
     Always,
     Param {
@@ -129,7 +129,7 @@ pub(super) enum OwnerValueCondition {
     All(Vec<OwnerValueCondition>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerVariantPayloadCondition {
     pub(super) variant: String,
     pub(super) suffix: Vec<PlaceProjection>,
@@ -137,33 +137,33 @@ pub(super) struct OwnerVariantPayloadCondition {
     pub(super) condition: I32ValueCondition,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerProjectionMarker {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerNonOwningRawViewReturn {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) kind: OwnerNonOwningRawViewKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum OwnerNonOwningRawViewKind {
     AliasView,
     ProjectionView,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerStorageOriginMarker {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) origin: StorageOrigin,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerProjectionReturnSummary {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,

@@ -430,7 +430,7 @@ pub fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>Se
 //: - 追加位置を `SelfhostDefId` として割り当て、binding 側にも同じ id を保存します。
 //:
 //: [注意/ちゅうい]:
-//: - 失敗時、入力 scope の owner はこの関数が消費します。`Vec::push` の失敗時は入力 buffer が解放済みです。
+//: - 失敗時、入力 scope の owner はこの関数が消費し、`Vec::push` から戻った binding buffer を閉じます。
 pub fn selfhost_name_scope_add_binding <(SelfhostNameScope,SelfhostNameBinding)*>Result<SelfhostNameScopeAddResult, StdErrorKind>> (scope, binding):
     let def_id <SelfhostDefId> selfhost_def_id_new selfhost_name_scope_len &scope
     let bindings <Vec<SelfhostNameBinding>> field::get scope "bindings"
@@ -439,7 +439,9 @@ pub fn selfhost_name_scope_add_binding <(SelfhostNameScope,SelfhostNameBinding)*
         Result::Ok next_bindings:
             Result<SelfhostNameScopeAddResult, StdErrorKind>::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
         Result::Err e:
-            Result<SelfhostNameScopeAddResult, StdErrorKind>::Err e
+            let error <StdErrorKind> field::get e "error"
+            v::free<SelfhostNameBinding> field::get e "vec"
+            Result<SelfhostNameScopeAddResult, StdErrorKind>::Err error
 
 //: selfhost_name_scope_get: DefId の binding record を[返/かえ]す
 pub fn selfhost_name_scope_get <(&SelfhostNameScope,SelfhostDefId)->Option<SelfhostNameBinding>> (scope, def_id):

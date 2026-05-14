@@ -8,6 +8,7 @@
 #indent 4
 
 #import "alloc/collections/vec" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
 //: Sha256: SHA-256 の incremental state
@@ -20,6 +21,14 @@
 //: - `sha256_finalize` 後に state は[再利用/さいりよう]できません。
 pub struct Sha256:
     buffer <Vec<i32>>
+
+//: Sha256UpdateError: `sha256_update` 失敗時に state owner と error kind を返す payload
+//:
+//: [目的/もくてき]:
+//: - byte 追加に失敗しても `Sha256` owner の行方を型に表し、caller が cleanup や再試行を選べるようにします。
+pub struct Sha256UpdateError:
+    ctx <Sha256>
+    error <StdErrorKind>
 
 //: Sha256State: SHA-256 compression の 8 word state
 //:

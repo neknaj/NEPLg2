@@ -927,7 +927,9 @@ pub fn selfhost_hir_module_copy_params <(Vec<SelfhostHirParam>,&Vec<SelfhostHirP
                         Result::Ok next_out:
                             selfhost_hir_module_copy_params next_out params n add idx 1
                         Result::Err e:
-                            Result<Vec<SelfhostHirParam>, StdErrorKind>::Err e
+                            let error <StdErrorKind> field::get e "error"
+                            v::free<SelfhostHirParam> field::get e "vec"
+                            Result<Vec<SelfhostHirParam>, StdErrorKind>::Err error
                 Option::None:
                     v::free<SelfhostHirParam> out
                     Result<Vec<SelfhostHirParam>, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
@@ -945,7 +947,9 @@ pub fn selfhost_hir_module_copy_expr_children <(Vec<SelfhostHirExprId>,&Vec<Self
                         Result::Ok next_out:
                             selfhost_hir_module_copy_expr_children next_out children n add idx 1
                         Result::Err e:
-                            Result<Vec<SelfhostHirExprId>, StdErrorKind>::Err e
+                            let error <StdErrorKind> field::get e "error"
+                            v::free<SelfhostHirExprId> field::get e "vec"
+                            Result<Vec<SelfhostHirExprId>, StdErrorKind>::Err error
                 Option::None:
                     v::free<SelfhostHirExprId> out
                     Result<Vec<SelfhostHirExprId>, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
@@ -964,10 +968,12 @@ pub fn selfhost_hir_module_add_expr <(SelfhostHirModule,SelfhostHirExpr)*>Result
         Result::Ok next_exprs:
             Result<SelfhostHirModuleExprAlloc, StdErrorKind>::Ok selfhost_hir_module_add_expr_alloc_new (SelfhostHirModule functions params next_exprs expr_children) expr_id
         Result::Err e:
+            let error <StdErrorKind> field::get e "error"
+            v::free<SelfhostHirExpr> field::get e "vec"
             v::free<SelfhostHirFunction> functions
             v::free<SelfhostHirParam> params
             v::free<SelfhostHirExprId> expr_children
-            Result<SelfhostHirModuleExprAlloc, StdErrorKind>::Err e
+            Result<SelfhostHirModuleExprAlloc, StdErrorKind>::Err error
 
 //: selfhost_hir_module_add_function: function table に record を[追加/ついか]する
 //:
@@ -983,10 +989,12 @@ pub fn selfhost_hir_module_add_function <(SelfhostHirModule,SelfhostHirFunction)
         Result::Ok next_functions:
             Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>::Ok selfhost_hir_module_add_function_alloc_new (SelfhostHirModule next_functions params exprs expr_children) function_id
         Result::Err e:
+            let error <StdErrorKind> field::get e "error"
+            v::free<SelfhostHirFunction> field::get e "vec"
             v::free<SelfhostHirParam> params
             v::free<SelfhostHirExpr> exprs
             v::free<SelfhostHirExprId> expr_children
-            Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>::Err e
+            Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>::Err error
 
 //: selfhost_hir_module_add_param_range: parameter table に parameter record 列を[追加/ついか]する
 //:

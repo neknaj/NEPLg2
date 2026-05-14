@@ -362,7 +362,8 @@ pub fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Resu
     match v::push<SelfhostDiagnostic> field::get diagnostics "items" diag:
         Result::Ok items:
             Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
-        Result::Err _e:
+        Result::Err e:
+            v::free<SelfhostDiagnostic> v::vec_push_error_vec<SelfhostDiagnostic> e
             Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_len: diagnostic [件数/けんすう]を[返/かえ]す

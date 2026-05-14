@@ -227,7 +227,8 @@ pub fn selfhost_import_specs_loop <(&SelfhostModuleAst,i32,i32,Vec<SelfhostImpor
                                     match v::push<SelfhostImportSpec> out spec:
                                         Result::Ok next_out:
                                             selfhost_import_specs_loop ast n add idx 1 next_out
-                                        Result::Err _e:
+                                        Result::Err e:
+                                            v::free<SelfhostImportSpec> v::vec_push_error_vec<SelfhostImportSpec> e
                                             Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err selfhost_import_diag item.span SelfhostParserDiagnosticCode::OutOfMemory "import spec buffer allocation failed" "allocation failed"
                                 Result::Err diag:
                                     v::free<SelfhostImportSpec> out

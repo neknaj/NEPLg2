@@ -126,7 +126,7 @@ assert.match(bufferWrapCode, /fn\s+buffer_set_wrapped_text\s+<\(i32,i32,i32,i32,
 assert.match(bufferWrapCode, /fn\s+buffer_set_wrapped_text[\s\S]*buffer_set_line/, 'TUI buffer wrap module must delegate raw slot updates to storage');
 assert.match(bufferPresentCode, /fn\s+buffer_present_diff\s+<\(i32\)\*>\(\)>\s+\(b\):[\s\S]*move_cursor[\s\S]*print/, 'TUI buffer present module must own cursor output policy');
 assert.match(textWrapCode, /fn\s+tui_empty_str_vec\s+<\(\)->Vec<str>>\s+\(\):\s+v::vec_empty<str>/, 'text_wrap_lines allocation fallback must use typed empty Vec storage');
-assert.match(textWrapCode, /fn\s+tui_push_str\s+<\(Vec<str>,str\)->TuiStrPushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<str>\s+items\s+item:[\s\S]*Result::Err\s+_e:[\s\S]*TuiStrPushRes\s+tui_empty_str_vec\s+false/, 'text_wrap_lines push must convert grow failure to ok=false');
+assert.match(textWrapCode, /fn\s+tui_push_str\s+<\(Vec<str>,str\)->TuiStrPushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<str>\s+items\s+item:[\s\S]*Result::Err\s+e:[\s\S]*TuiStrPushRes\s+v::vec_push_error_vec<str>\s+e\s+false/, 'text_wrap_lines push must preserve the Vec owner and convert grow failure to ok=false');
 assert.match(textWrapCode, /fn\s+text_wrap_lines\s+<\(str,i32\)\*>Vec<str>>\s+\(text,\s*cols\):[\s\S]*match\s+v::new<str>:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+failed\s+true/, 'text_wrap_lines must handle Vec allocation failure');
 assert.match(textWrapCode, /while\s+and\s+lt\s+i\s+n\s+not\s+failed:/, 'text_wrap_lines must stop scanning after line accumulation failure');
 assert.match(textWrapCode, /let\s+pushed_tail\s+<TuiStrPushRes>\s+tui_push_str\s+out\s+tail/, 'text_wrap_lines tail accumulation must go through checked push');

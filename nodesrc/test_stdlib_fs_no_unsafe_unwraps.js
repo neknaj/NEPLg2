@@ -129,7 +129,7 @@ assert.match(writeCode, /pub\s+#import\s+"std\/fs\/write\/fd"\s+as\s+\*/, 'std/f
 assert.match(writeCode, /pub\s+#import\s+"std\/fs\/write\/path"\s+as\s+\*/, 'std/fs/write facade must re-export path write helper submodule');
 assert.doesNotMatch(writeCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/write root must stay a facade without implementation bodies');
 assert.match(writeFdCode, /\bfn\s+fs_write_fd_mem_result\b[\s\S]*\bfs_fd_write_from_result\b[\s\S]*\bdealloc_ptr<u8>\s+nwritten_buf\s+4[\s\S]*\bdealloc_ptr<u8>\s+iov_buf\s+8/, 'fd write loop must stay in std/fs/write/fd');
-assert.match(writeFdCode, /\bfn\s+fs_write_fd_bytes\b[\s\S]*\bfs_write_fd_mem_result\s+fd\s+data\s+data_len[\s\S]*\bdealloc_ptr<u8>\s+data\s+io_bytebuf_storage_size\s+data_len/, 'ByteBuf-consuming fd write API must stay in std/fs/write/fd');
+assert.match(writeFdCode, /\bfn\s+fs_write_fd_bytes\b[\s\S]*\bfs_write_fd_mem_result\s+fd\s+data\s+data_len[\s\S]*\bio_bytebuf_free\s+bytes/, 'ByteBuf-consuming fd write API must stay in std/fs/write/fd and close storage through the ByteBuf owner boundary');
 assert.match(writePathCode, /\bfn\s+fs_write_to_bytes\b[\s\S]*\bfs_open_write\s+path[\s\S]*\bfs_write_fd_bytes\s+fd\s+bytes[\s\S]*\bfs_close\s+fd/, 'path write API must stay in std/fs/write/path');
 assert.match(writePathCode, /\bfn\s+fs_write_to_string\b[\s\S]*\bio_bytebuf_from_str_result\s+text[\s\S]*\bfs_write_to_bytes\s+path\s+bytes/, 'string write API must build ByteBuf then delegate in std/fs/write/path');
 assert.doesNotMatch(writePathCode, /\b(?:alloc_ptr|realloc_ptr|fs_fd_write_from_result)\b/, 'std/fs/write/path must not own fd scratch raw write loop');
@@ -159,7 +159,7 @@ assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/read_fd"\s+as\s+\*/, 'std/
 assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/path"\s+as\s+\*/, 'std/fs/dir facade must re-export path directory listing submodule');
 assert.doesNotMatch(dirCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/dir root must stay a facade without implementation bodies');
 assert.match(dirOpenCode, /\bfn\s+fs_open_dir\b[\s\S]*\bfs_normalize_relative\s+path[\s\S]*\bfs_open_with_flags\s+normalized\s+fs_oflags_directory\s+fs_right_fd_readdir/, 'directory open helper must stay in std/fs/dir/open');
-assert.match(dirReadFdCode, /fn\s+fs_read_dir_fd\s+<\(i32\)\*>Result<Vec<str>,i32>>\s+\(fd\):[\s\S]*\bwasi_fd_readdir\b[\s\S]*match\s+v::push<str>\s+entries\s+name:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+entries\s+v::vec_empty<str>[\s\S]*set\s+err\s+12/, 'fs_read_dir_fd must map entry accumulation push failure to errno 12 in std/fs/dir/read_fd');
+assert.match(dirReadFdCode, /fn\s+fs_read_dir_fd\s+<\(i32\)\*>Result<Vec<str>,i32>>\s+\(fd\):[\s\S]*\bwasi_fd_readdir\b[\s\S]*match\s+v::push<str>\s+entries\s+name:[\s\S]*Result::Err\s+e:[\s\S]*set\s+entries\s+v::vec_push_error_vec<str>\s+e[\s\S]*set\s+err\s+12/, 'fs_read_dir_fd must preserve the entry Vec owner while mapping accumulation push failure to errno 12');
 assert.match(dirPathCode, /\bfn\s+fs_read_dir\b[\s\S]*\bfs_open_dir\s+path[\s\S]*\bfs_read_dir_fd\s+fd[\s\S]*\bfs_close\s+fd/, 'path directory listing API must stay in std/fs/dir/path');
 assert.doesNotMatch(dirPathCode, /\b(?:alloc_ptr|wasi_fd_readdir|load_i32|store_i32)\b/, 'std/fs/dir/path must not own fd_readdir raw entry conversion');
 assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/wasi"\s+as\s+\*/, 'std/fs/raw facade must re-export WASI syscall submodule');

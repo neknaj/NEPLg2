@@ -26,7 +26,7 @@ pub struct TuiStrPushRes:
 //: tui_empty_str_vec: 空の `Vec<str>` を作る
 //:
 //: [目的/もくてき]:
-//: - allocation failure 時に consumed owner を再利用せず、空の折り返し結果へ切り替えます。
+//: - `Vec` 初期確保に失敗した場合の空の折り返し結果を作ります。
 pub fn tui_empty_str_vec <()->Vec<str>> ():
     v::vec_empty<str>
 
@@ -35,8 +35,8 @@ pub fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):
     match v::push<str> items item:
         Result::Ok next:
             TuiStrPushRes next true
-        Result::Err _e:
-            TuiStrPushRes tui_empty_str_vec false
+        Result::Err e:
+            TuiStrPushRes v::vec_push_error_vec<str> e false
 
 //: text_wrap_lines: 表示幅で折り返した行配列を作る
 //:

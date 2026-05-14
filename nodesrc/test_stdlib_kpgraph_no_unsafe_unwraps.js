@@ -28,7 +28,7 @@ for (const pattern of forbidden) {
 
 assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+v/, 'kpgraph must qualify implementation Vec allocation calls');
 assert.match(code, /fn\s+kp_i32_empty_vec\s+<\(\)->Vec<i32>>\s+\(\):\s+v::vec_empty<i32>/, 'BFS result allocation fallback must use typed empty Vec storage');
-assert.match(code, /fn\s+kp_push_i32\s+<\(Vec<i32>,i32\)->KpI32PushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<i32>\s+items\s+item:[\s\S]*Result::Err\s+_e:[\s\S]*KpI32PushRes\s+kp_i32_empty_vec\s+false/, 'BFS result push must convert grow failure to ok=false');
+assert.match(code, /fn\s+kp_push_i32\s+<\(Vec<i32>,i32\)->KpI32PushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<i32>\s+items\s+item:[\s\S]*Result::Err\s+e:[\s\S]*KpI32PushRes\s+v::vec_push_error_vec<i32>\s+e\s+false/, 'BFS result push must preserve the Vec owner and convert grow failure to ok=false');
 assert.match(code, /fn\s+dense_graph_bfs_dist_raw\s+<\(i32,i32,i32\)\*>Vec<i32>>\s+\(n,\s*mat,\s*start\):[\s\S]*match\s+v::new<i32>:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+failed\s+true/, 'BFS result Vec creation must handle allocation failure');
 assert.match(code, /while\s+and\s+lt\s+i1\s+n\s+not\s+failed:[\s\S]*kp_push_i32\s+out\s+load_i32\s+add\s+dist\s+mul\s+i1\s+4/, 'BFS result accumulation must stop after push failure');
 

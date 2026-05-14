@@ -64,8 +64,10 @@ fn collect_owner_variant_payload_condition(
 ) {
     for payload in &constructed_variant.payloads {
         let payload_place = place_with_suffix(value, &payload.suffix, payload.ty);
-        for leaf in i32_leaf_places(types, &payload_place) {
-            let input_leaf = input_payload_leaf(types, payload, &leaf.suffix);
+        let leaves = i32_leaf_places(types, &payload_place);
+        let input_leaves = i32_leaf_places(types, &payload.input);
+        for leaf in leaves {
+            let input_leaf = input_payload_leaf(&input_leaves, &leaf.suffix);
             let output_has_condition =
                 raw_aliases.i32_condition_is_known_true(&leaf.place, condition);
             let input_has_condition = input_leaf
@@ -93,15 +95,13 @@ fn collect_owner_variant_payload_condition(
 }
 
 fn input_payload_leaf(
-    types: &TypeCtx,
-    payload: &super::owner_summary_variant_construct::ConstructedVariantPayload,
+    input_leaves: &[super::owner_summary_leaf::OwnerLeafPlace],
     leaf_suffix: &[PlaceProjection],
 ) -> Option<Place> {
-    let input_leaves = i32_leaf_places(types, &payload.input);
     input_leaves
-        .into_iter()
+        .iter()
         .find(|input_leaf| input_leaf.suffix == leaf_suffix)
-        .map(|input_leaf| input_leaf.place)
+        .map(|input_leaf| input_leaf.place.clone())
 }
 
 fn push_unique_variant_payload_condition(

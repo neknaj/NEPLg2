@@ -308,7 +308,7 @@ pub enum ResourceI32RelationOp {
     Ge,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum I32ValueCondition {
     EqZero,
     NeZero,
@@ -331,14 +331,14 @@ impl I32ValueCondition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Place {
     pub root: PlaceRoot,
     pub projections: Vec<PlaceProjection>,
     pub ty: TypeId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlaceRoot {
     Local(String),
     Temporary(ResourceId),
@@ -348,7 +348,7 @@ pub enum PlaceRoot {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlaceProjection {
     Field { index: usize, offset_bytes: usize },
     TupleField { index: usize, offset_bytes: usize },
@@ -357,7 +357,7 @@ pub enum PlaceProjection {
     StorageOffset(ResourceOffset),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceOffset {
     Known(usize),
     Symbolic { place: Box<Place> },
@@ -460,7 +460,7 @@ pub struct StorageOriginEntry {
     pub origin: StorageOrigin,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StorageOrigin {
     Owned,
     Unmanaged,

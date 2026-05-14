@@ -41,8 +41,9 @@ pub fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (l
                                     set out next_out
                                     set i add i 1
                                 Result::Err e:
-                                    set out vec::vec_empty<.U>
-                                    set failure e
+                                    let error <StdErrorKind> field::get e "error"
+                                    set out field::get e "vec"
+                                    set failure error
                                     set failed true
                         Option::None:
                             vec::free<.U> out
@@ -82,8 +83,9 @@ pub fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, 
                                         Result::Ok next_out:
                                             set out next_out
                                         Result::Err e:
-                                            set out vec::vec_empty<.T>
-                                            set failure e
+                                            let error <StdErrorKind> field::get e "error"
+                                            set out field::get e "vec"
+                                            set failure error
                                             set failed true
                                 else:
                                     ()

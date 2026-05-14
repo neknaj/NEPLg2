@@ -58,7 +58,8 @@ pub fn diags_one <(Diag)*>Diags> (d):
             match v::push<Diag> items0 d:
                 Result::Ok items:
                     Diags items
-                Result::Err _e:
+                Result::Err e:
+                    v::free<Diag> v::vec_push_error_vec<Diag> e
                     Diags diag_empty_diag_vec
         Result::Err _e:
             Diags diag_empty_diag_vec
@@ -68,7 +69,8 @@ pub fn diags_push <(Diags,Diag)*>Diags> (ds, d):
     match v::push<Diag> field::get ds "items" d:
         Result::Ok items:
             Diags items
-        Result::Err _e:
+        Result::Err e:
+            v::free<Diag> v::vec_push_error_vec<Diag> e
             Diags diag_empty_diag_vec
 
 //: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す

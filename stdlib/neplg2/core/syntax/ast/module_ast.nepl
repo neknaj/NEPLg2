@@ -172,7 +172,9 @@ pub fn selfhost_module_ast_push <(SelfhostModuleAst,SelfhostModuleItem)*>Result<
         Result::Ok items:
             Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
         Result::Err e:
-            Result<SelfhostModuleAst, StdErrorKind>::Err e
+            let error <StdErrorKind> field::get e "error"
+            v::free<SelfhostModuleItem> field::get e "vec"
+            Result<SelfhostModuleAst, StdErrorKind>::Err error
 
 //: selfhost_module_ast_len: module item [数/すう]を[返/かえ]す
 pub fn selfhost_module_ast_len <(&SelfhostModuleAst)->i32> (ast):

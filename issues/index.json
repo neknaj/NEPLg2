@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T10:33:30.553Z",
+  "generated_at": "2026-05-14T12:23:27.843Z",
   "counts": {
-    "total": 759,
-    "open": 5,
-    "resolved": 754,
+    "total": 761,
+    "open": 8,
+    "resolved": 753,
     "by_area": {
-      "stdlib": {
-        "total": 197,
+      "selfhost": {
+        "total": 64,
         "open": 3,
+        "resolved": 61
+      },
+      "stdlib": {
+        "total": 198,
+        "open": 4,
         "resolved": 194
       },
       "TEST": {
         "total": 21,
         "open": 1,
         "resolved": 20
-      },
-      "selfhost": {
-        "total": 63,
-        "open": 1,
-        "resolved": 62
       },
       "cli": {
         "total": 19,
@@ -120,6 +120,21 @@
   },
   "issues": [
     {
+      "id": "ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D",
+      "title": "Self-host lexer lex_next timeout blocks parser loader and module graph doctests",
+      "area": "selfhost",
+      "status": "investigating",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-14",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl, stdlib/neplg2/core/module/graph.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -150,6 +165,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF",
+      "title": "fs_path_filetype leaks normalized str owner under strict Resource IR",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-14",
+      "target": "stdlib/std/fs.nepl, stdlib/std/fs/path.nepl, tests/stdlib/fs.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF.md"
+    },
+    {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
       "title": ".n.md tests rely on return values instead of stdout assertion reports",
       "area": "TEST",
@@ -178,6 +208,21 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A",
+      "title": "selfhost type arena doctests use old primitive kind API",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "tests/stdlib/neplg2_type_arena.n.md, stdlib/neplg2/core/ty/ty.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -6750,21 +6795,6 @@
       "file": "items/ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF.md"
     },
     {
-      "id": "ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D",
-      "title": "Self-host lexer lex_next timeout blocks parser loader and module graph doctests",
-      "area": "selfhost",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-07",
-      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl, stdlib/neplg2/core/module/graph.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D.md"
-    },
-    {
       "id": "ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE",
       "title": "Self-host lexer owner flow fails after raw alias timeout fix",
       "area": "selfhost",
@@ -8265,21 +8295,6 @@
       "file": "items/ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB.md"
     },
     {
-      "id": "ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF",
-      "title": "fs_path_filetype leaks normalized str owner under strict Resource IR",
-      "area": "stdlib",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "stdlib/std/fs.nepl, stdlib/std/fs/path.nepl, tests/stdlib/fs.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF.md"
-    },
-    {
       "id": "ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700",
       "title": "Resource owner checker reports stdio fd_write scratch MaybeLeak after duplicate import cleanup",
       "area": "stdlib",
@@ -8863,6 +8878,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T102108865Z-VEC-SORT-MERGE-RET-ERR-PATH-LOSES-CO-98B83660.md"
+    },
+    {
+      "id": "ISS-20260514T103806044Z-VEC-PUSH-ERR-PAYLOAD-LOSES-VEC-AND-I-7E13FAD9",
+      "title": "Vec push Err payload loses Vec owner under Stage 6 owner-preserving update",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/collections/vec/mutation/push.nepl, stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/list, stdlib/alloc/hash/sha256, stdlib/std/fs, stdlib/neplg2/core, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T103806044Z-VEC-PUSH-ERR-PAYLOAD-LOSES-VEC-AND-I-7E13FAD9.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -39,7 +39,10 @@ pub fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
         Result::Ok next_items:
             ok<List<.T>, Diag> List<.T> next_items
         Result::Err e:
-            diag_err<List<.T>> list_diag_from_vec_error e
+            let error <StdErrorKind> field::get e "error"
+            let returned_items <Vec<.T>> field::get e "vec"
+            vec::free<.T> returned_items
+            diag_err<List<.T>> list_diag_from_vec_error error
 
 //: push: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
 pub fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, Diag>> (lst, head):

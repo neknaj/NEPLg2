@@ -100,7 +100,9 @@ pub fn selfhost_vfs_add <(SelfhostVirtualFileSystem,str,str)*>Result<SelfhostVir
         Result::Ok files:
             Result<SelfhostVirtualFileSystem, StdErrorKind>::Ok SelfhostVirtualFileSystem files
         Result::Err e:
-            Result<SelfhostVirtualFileSystem, StdErrorKind>::Err e
+            let error <StdErrorKind> field::get e "error"
+            v::free<SelfhostVirtualFile> field::get e "vec"
+            Result<SelfhostVirtualFileSystem, StdErrorKind>::Err error
 
 //: selfhost_vfs_len: VFS に[登録/とうろく]された file 数を[返/かえ]す
 pub fn selfhost_vfs_len <(&SelfhostVirtualFileSystem)->i32> (vfs):

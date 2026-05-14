@@ -21,17 +21,28 @@ neplg2:test
 #import "core/field" as *
 
 fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (ctx, text, idx, n):
-    if:
-        ge idx n
-        then:
-            Result<Sha256, StdErrorKind>::Ok ctx
-        else:
-            let b <i32> string::string_byte_at_unchecked text idx
-            match sha256_update ctx b:
+    let mut current <Sha256> ctx
+    let mut cursor <i32> idx
+    let mut failed <bool> false
+    let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
+    while and lt cursor n not failed:
+        do:
+            let b <i32> string::string_byte_at_unchecked text cursor
+            match sha256_update current b:
                 Result::Err e:
-                    Result<Sha256, StdErrorKind>::Err e
+                    set failure get e "error"
+                    set current get e "ctx"
+                    set failed true
                 Result::Ok next_ctx:
-                    sha256_update_str_loop next_ctx text add idx 1 n
+                    set current next_ctx
+                    set cursor add cursor 1
+    if:
+        failed
+        then:
+            sha256_free current
+            Result<Sha256, StdErrorKind>::Err failure
+        else:
+            Result<Sha256, StdErrorKind>::Ok current
 
 fn sha256_update_str <(Sha256,str)*>Result<Sha256, StdErrorKind>> (ctx, text):
     sha256_update_str_loop ctx text 0 string::len text

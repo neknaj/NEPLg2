@@ -110,8 +110,8 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                                                                                             match v::push<str> entries name:
                                                                                                 Result::Ok next_entries:
                                                                                                     set entries next_entries
-                                                                                                Result::Err _e:
-                                                                                                    set entries v::vec_empty<str>
+                                                                                                Result::Err e:
+                                                                                                    set entries v::vec_push_error_vec<str> e
                                                                                                     set err 12
                                                                             set cookie <i64> cast next_cookie_low
                                                                             set off name_off

@@ -207,7 +207,8 @@ pub fn selfhost_module_graph_push_node <(SelfhostModuleGraph,SelfhostModuleGraph
     match v::push<SelfhostModuleGraphNode> nodes node:
         Result::Ok next_nodes:
             Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok SelfhostModuleGraph next_nodes edges
-        Result::Err _e:
+        Result::Err e:
+            v::free<SelfhostModuleGraphNode> v::vec_push_error_vec<SelfhostModuleGraphNode> e
             v::free<SelfhostModuleGraphEdge> edges
             Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag span
 
@@ -218,7 +219,8 @@ pub fn selfhost_module_graph_push_edge <(SelfhostModuleGraph,SelfhostModuleGraph
     match v::push<SelfhostModuleGraphEdge> edges edge:
         Result::Ok next_edges:
             Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok SelfhostModuleGraph nodes next_edges
-        Result::Err _e:
+        Result::Err e:
+            v::free<SelfhostModuleGraphEdge> v::vec_push_error_vec<SelfhostModuleGraphEdge> e
             v::free<SelfhostModuleGraphNode> nodes
             Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag span
 

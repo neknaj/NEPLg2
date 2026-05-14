@@ -23,17 +23,21 @@
 //: - `Vec<i32>` に start/end を順に push します。
 //:
 //: 注意(重要):
-//: - 失敗時は `v::push` が入力 stack owner を消費するため、呼び出し側は sentinel に差し替えます。
+//: - 失敗時は `v::push` が返した stack owner をこの関数内で閉じ、呼び出し側へ errno 12 を返します。
 //:
 //: 計算量:
 //: - ならし O(1)
 pub fn fs_normalize_range_push <(Vec<i32>,i32,i32)->Result<Vec<i32>,i32>> (stack, start, end):
     match v::push<i32> stack start:
-        Result::Err _e:
+        Result::Err e:
+            let returned <Vec<i32>> v::vec_push_error_vec<i32> e
+            v::free<i32> returned
             Result<Vec<i32>,i32>::Err 12
         Result::Ok with_start:
             match v::push<i32> with_start end:
-                Result::Err _e:
+                Result::Err e:
+                    let returned <Vec<i32>> v::vec_push_error_vec<i32> e
+                    v::free<i32> returned
                     Result<Vec<i32>,i32>::Err 12
                 Result::Ok with_end:
                     Result<Vec<i32>,i32>::Ok with_end
