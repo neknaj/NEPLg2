@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
-updated: 2026-05-07
+updated: 2026-05-15
 target: "stdlib/neplg2/core/infra/text.nepl, stdlib/alloc/collections/vec.nepl"
 ---
 
@@ -59,3 +59,9 @@ Run focused selfhost doctests for stdlib/neplg2/core/infra/text.nepl and stdlib/
 - `node nodesrc/tests.js -i stdlib/neplg2/core/infra/text.nepl -i stdlib/neplg2/core/resolve/name_resolver.nepl --no-tree -o tmp/source-text-line-map-owner-after-trunk.json -j 1`: total=3, passed=3
 - `node nodesrc/issues.js check`: passed
 - `git diff --check`: passed
+
+## 2026-05-15 Agent 1 VecPushError contract 追記
+
+`ISS-20260514T153421179Z-SOURCETEXT-LINE-MAP-POLICY-STILL-EXP-597F282C` で、この issue の対応時に置いた source policy を現行 `VecPushError<T>` contract へ追従させた。
+
+当初の「push failure では owner を持たない空 Vec を返す」設計は、現在の `Vec::push` が `VecPushError<T>` に入力 `Vec<T>` owner を返す設計へ進んだため古い。現在の `SourceText` line map は、Err branch で `vec_push_error_vec<i32>` から入力 owner を戻し、caller 側で loop accumulator を再初期化してから `v::free<i32> out` で閉じる契約を採用する。

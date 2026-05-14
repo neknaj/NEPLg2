@@ -53,8 +53,13 @@ assert.match(
 );
 assert.match(
     pushLineStart,
-    /Result::Err\s+_e:[\s\S]*SourceTextLineStartPush\s+SourceTextLineStartPushState::Err\s+v::vec_empty<i32>/,
-    'source_text_push_line_start must return an owner-neutral empty Vec on push failure'
+    /Result::Err\s+e:[\s\S]*SourceTextLineStartPush\s+SourceTextLineStartPushState::Err\s+v::vec_push_error_vec<i32>\s+e/,
+    'source_text_push_line_start must return the Vec owner carried by VecPushError on push failure'
+);
+assert.doesNotMatch(
+    pushLineStart,
+    /Result::Err[\s\S]*SourceTextLineStartPush\s+SourceTextLineStartPushState::Err\s+v::vec_empty<i32>/,
+    'source_text_push_line_start must not hide the failed input owner behind a fresh empty Vec'
 );
 assert.match(
     collect,

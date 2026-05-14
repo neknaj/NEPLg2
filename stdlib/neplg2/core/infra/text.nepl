@@ -24,6 +24,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //:| #import "neplg2/core/infra/text" as *
 //: fn main <()*>i32> ():
 //:     match source_text_new 0 "smoke.nepl" "a\nb":
@@ -72,7 +73,7 @@ pub struct SelfhostSourceLocation:
 //: SourceTextLineStartPushState: line start 追加結果の[状態/じょうたい]
 //:
 //: [目的/もくてき]:
-//: - `Vec::push` が失敗時に入力 owner を閉じる契約を、呼び出し側の loop へ enum と returned owner で明示します。
+//: - `Vec::push` が成功したか失敗したかを、呼び出し側の loop へ enum と returned owner で明示します。
 pub enum SourceTextLineStartPushState:
     Ok
     Err
@@ -80,7 +81,7 @@ pub enum SourceTextLineStartPushState:
 //: SourceTextLineStartPush: line start 追加後に loop へ戻す owner と状態
 //:
 //: [目的/もくてき]:
-//: - 成功時は追加済み Vec、失敗時は owner を持たない空 Vec を返し、loop 変数を常に再初期化できるようにします。
+//: - 成功時は追加済み Vec、失敗時は `VecPushError` に戻された入力 Vec を返し、loop 変数を常に再初期化できるようにします。
 pub struct SourceTextLineStartPush:
     state <SourceTextLineStartPushState>
     starts <Vec<i32>>

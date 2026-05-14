@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T15:30:26.022Z",
+  "generated_at": "2026-05-14T15:35:47.026Z",
   "counts": {
-    "total": 768,
+    "total": 769,
     "open": 6,
-    "resolved": 762,
+    "resolved": 763,
     "by_area": {
       "stdlib": {
         "total": 202,
@@ -17,9 +17,9 @@
         "resolved": 20
       },
       "selfhost": {
-        "total": 65,
+        "total": 66,
         "open": 1,
-        "resolved": 64
+        "resolved": 65
       },
       "cli": {
         "total": 19,
@@ -6758,7 +6758,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-05-06",
-      "updated": "2026-05-07",
+      "updated": "2026-05-15",
       "target": "stdlib/neplg2/core/infra/text.nepl, stdlib/alloc/collections/vec.nepl",
       "legacy_id": "",
       "source": "",
@@ -6988,6 +6988,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T215609976Z-SELF-HOST-LEXER-READS-VEC-RAW-DATA-F-8A56A6A1.md"
+    },
+    {
+      "id": "ISS-20260514T153421179Z-SOURCETEXT-LINE-MAP-POLICY-STILL-EXP-597F282C",
+      "title": "SourceText line map policy still expects pre-VecPushError empty owner",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/neplg2/core/infra/text.nepl, nodesrc/test_selfhost_source_text_no_recursive_line_map.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T153421179Z-SOURCETEXT-LINE-MAP-POLICY-STILL-EXP-597F282C.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
