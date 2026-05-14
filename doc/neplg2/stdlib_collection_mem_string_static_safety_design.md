@@ -134,7 +134,7 @@ collections は self-host に必要な基礎構造だが、現状は安全設計
 - `BTreeMap` / `BTreeSet` は sorted-array 形式の typed `Vec<Option<T>>` storage へ移行済みであり、raw key/value pointer layout ではない。
 - `List` は raw node chain を廃止し、`items: Vec<T>` storage へ移行済みである。論理先頭を `Vec` 末尾に置くことで先頭追加と `tail` を owner-preserving に実装している。
 - CountingBloomFilter / BitSet / AdjacencyMatrix / BloomFilter / SparseSet / Fenwick / SegmentTree / DisjointSet は `Vec<u8>` / `Vec<i32>` storage へ移行済みである。payload は主に Copy だが、基礎 `Vec` 自体はまだ raw memory owner field を持つ。
-- `Vec<T>` は `len/cap/storage/region` を持ち、空 Vec は `VecStorageState::Empty` と zero-size `RegionToken<T>` で表す。型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済みで、`MemPtr<T>` は `data_mem_ptr<T>(&Vec<T>)` や `vec_storage_mem_ptr<T>` が参照から返す raw pointer view に限定される。ただし基礎型 `Vec` はまだ forgeable `RegionToken<T>` と Copy-only raw element helper に依存するため、owner model の完成には `OwnedBuffer<T>` が必要である。
+- `Vec<T>` は `len/cap/storage/region` を持ち、空 Vec は `VecStorageState::Empty` と zero-size `RegionToken<T>` で表す。型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済みで、`MemPtr<T>` は `data_mem_ptr<T>(&Vec<T>)` が参照から返す raw pointer view に限定される。ただし基礎型 `Vec` はまだ forgeable `RegionToken<T>` と Copy-only raw element helper に依存するため、owner model の完成には `OwnedBuffer<T>` が必要である。
 - `get_ref<T: Copy>` のように Copy 読み取りへ制限した API はあるが、`get(Vec<T>) -> Option<T>` や `pop` などは move-out と owner state の扱いが明確でない。
 - `free<T>(Vec<T>)` などの storage free は、要素の Drop / consume と storage-only dealloc を完全には分けていない。
 
@@ -295,12 +295,13 @@ Resource IR / typecheck / match check は次を必須にする。
 - `VecDataLen<T>` は `Vec.data: MemPtr<T>` と `len` を public struct field として再包装するだけの raw storage view carrier だったため削除した。呼び出し側は `data_mem_ptr<T>(&Vec<T>)` と `len<T>(&Vec<T>)` を明示的に別々に使う。残件 baseline は 6 field ではなく 5 field であり、`VecDataLen.data` を transitional allowlist から外した。
 - `StringBuilder` は `ByteBuilder` と重複して `Option<MemPtr<u8>>` / len / cap を持つ設計をやめ、`ByteBuilder` owner を保持する typed wrapper へ移した。残件 baseline は 5 field ではなく 4 field であり、`StringBuilder.data` を transitional allowlist から外した。
 - `ByteBuf` / `ByteBuilder` は `Option<MemPtr<u8>>` owner field をやめ、storage owner を `RegionToken<u8>` field に集約した。`region_ptr` / `io_bytebuf_data_ptr_ref` / `byte_builder_data_ptr_ref` は参照から non-owning `MemPtr` view だけを返す。残件 baseline は 4 field ではなく 2 field であり、`ByteBuf.ptr` と `ByteBuilder.ptr` を transitional allowlist から外した。
-- `Vec<T>` は `data: MemPtr<T>` owner field をやめ、storage owner を `region: RegionToken<T>` field に集約した。`data_mem_ptr<T>` / `vec_storage_mem_ptr<T>` は参照から non-owning `MemPtr<T>` view だけを返す。残件 baseline は 2 field ではなく 1 field であり、`Vec.data` を transitional allowlist から外した。
+- `Vec<T>` は `data: MemPtr<T>` owner field をやめ、storage owner を `region: RegionToken<T>` field に集約した。`data_mem_ptr<T>` は参照から non-owning `MemPtr<T>` view だけを返す。残件 baseline は 2 field ではなく 1 field であり、`Vec.data` を transitional allowlist から外した。
 
 2026-05-15 追記:
 
 - `Vec.data_ptr<T>(&Vec<T>) -> i32` は public raw address observer として残さず削除した。`data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` は typed non-owning view として残すが、raw `i32` address への変換は raw-memory-boundary 実装箇所に限定する。
 - `kpsearch` の lower/upper bound / unique 内部 raw helper は private とし、公開面は `Vec<i32>` owner wrapper だけに揃えた。ordinary source の利用例は raw buffer 構築ではなく `Vec<i32>` による doctest で表す。
+- `vec_storage_mem_ptr<T>(VecStorageState, &RegionToken<T>)` は public helper として残さず削除した。storage state から data view への projection は `data_mem_ptr<T>(&Vec<T>)` が直接 match して所有する。
 
 ### Stage B: `core/mem` の internal/public 分離
 

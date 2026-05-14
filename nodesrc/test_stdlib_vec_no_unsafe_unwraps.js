@@ -168,18 +168,19 @@ for (const name of ['VecStorageState', 'Vec', 'VecPushError', 'VecTransformError
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
 }
-for (const name of ['vec_empty', 'vec_alloc_empty', 'vec_storage_mem_ptr', 'vec_free_storage', 'new', 'with_capacity', 'filled']) {
+for (const name of ['vec_empty', 'vec_alloc_empty', 'vec_free_storage', 'new', 'with_capacity', 'filled']) {
     assert.match(vecStorageCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage.nepl must own ${name}`);
 }
 for (const name of ['view', 'alloc', 'cleanup', 'fill']) {
     assert.match(vecStorageRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/storage\\/${name}"\\s+as\\s+@merge`), `vec/storage.nepl must merge re-export storage/${name}.nepl`);
 }
 assert.doesNotMatch(vecStorageRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/storage.nepl must be a pure facade without implementation bodies');
-for (const name of ['vec_empty', 'vec_storage_mem_ptr']) {
+for (const name of ['vec_empty']) {
     assert.match(vecStorageViewCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/view.nepl must own ${name}`);
 }
 assert.match(vecStorageViewCode, /pub\s+fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>/, 'Vec.empty typed constructor must remain public');
 assert.doesNotMatch(vecStorageViewCode, /pub\s+fn\s+vec_empty_region\b/, 'Vec empty RegionToken sentinel helper must remain private to storage/view.nepl');
+assert.doesNotMatch(vecStorageViewCode, /\bfn\s+vec_storage_mem_ptr\b/, 'Vec storage MemPtr projection must not be exposed as a lower-level storage-state helper');
 for (const name of ['vec_alloc_empty', 'new', 'with_capacity']) {
     assert.match(vecStorageAllocCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/alloc.nepl must own ${name}`);
 }
@@ -199,9 +200,9 @@ for (const name of ['len', 'cap', 'is_empty']) {
 for (const name of ['data_mem_ptr']) {
     assert.match(vecAccessDataCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/data.nepl must own ${name}`);
 }
-assert.match(vecStorageViewCode, /fn\s+vec_storage_mem_ptr\s+<\.T:\s*Copy>\s+<\(VecStorageState,&RegionToken<\.T>\)->MemPtr<\.T>>/, 'Vec storage pointer view must borrow RegionToken and remain Copy-only until non-Copy borrowed element APIs exist');
 assert.doesNotMatch(vecAccessDataCode, /\bfn\s+data_ptr\b/, 'Vec.data_ptr must not reappear as a public raw i32 storage observer');
 assert.match(vecAccessDataCode, /fn\s+data_mem_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->MemPtr<\.T>>/, 'Vec.data_mem_ptr must remain Copy-only because it exposes raw storage identity');
+assert.match(vecAccessDataCode, /match\s+v_storage:[\s\S]*VecStorageState::Empty:[\s\S]*mem_ptr_wrap\s+0[\s\S]*VecStorageState::Owned:[\s\S]*region_ptr\s+v_region/, 'Vec.data_mem_ptr must own the storage-state projection so lower-level helpers do not become public API');
 assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>/, 'Vec raw data observer must reject non-Copy payloads in doctests');
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
@@ -266,7 +267,6 @@ const rawBoundaryEvidencePattern = /\b(?:mem_ptr_wrap|mem_ptr_addr|mem_ptr_add|a
 for (const relPath of [
     'stdlib/alloc/collections/vec.nepl',
     'stdlib/alloc/collections/vec/access.nepl',
-    'stdlib/alloc/collections/vec/access/data.nepl',
     'stdlib/alloc/collections/vec/access/header.nepl',
     'stdlib/alloc/collections/vec/storage.nepl',
     'stdlib/alloc/collections/vec/mutation.nepl',
@@ -288,6 +288,7 @@ for (const relPath of [
     assert.doesNotMatch(readImplementation(relPath), rawBoundaryEvidencePattern, `${relPath} must not carry direct raw memory boundary evidence`);
 }
 for (const relPath of [
+    'stdlib/alloc/collections/vec/access/data.nepl',
     'stdlib/alloc/collections/vec/mutation/push.nepl',
     'stdlib/alloc/collections/vec/raw/element.nepl',
     'stdlib/alloc/collections/vec/storage/alloc.nepl',

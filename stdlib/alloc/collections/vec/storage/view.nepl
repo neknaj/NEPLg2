@@ -1,8 +1,8 @@
 //: # vec/storage/view
-//: `Vec` storage state の raw-free view helper
+//: `Vec` storage state の empty constructor helper
 //:
 //: ### [目的/もくてき]
-//: - allocation を[持/も]たない empty storage と typed pointer view の[変換/へんかん]を[所有/しょゆう]します。
+//: - allocation を[持/も]たない empty storage の構築を[所有/しょゆう]します。
 
 #indent 4
 
@@ -28,18 +28,3 @@ fn vec_empty_region <.T> <()->RegionToken<.T>> ():
 //: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorageState::Empty` で空 storage を[表/あらわ]します。
 pub fn vec_empty <.T> <()->Vec<.T>> ():
     Vec<.T> 0 0 VecStorageState::Empty vec_empty_region<.T>
-
-//: ## vec_storage_mem_ptr
-//: storage state を raw pointer view へ[変換/へんかん]する
-//:
-//: ### [目的/もくてき]
-//: - `VecStorageState::Empty` は owner state としては allocation を[持/も]ちませんが、legacy raw pointer observer では 0 address view を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - 現行 raw pointer view は `.T: Copy` 専用です。non-Copy payload の storage identity は `OwnedBuffer<T>` と borrowed element API が[入/はい]るまで[公開/こうかい]しません。
-pub fn vec_storage_mem_ptr <.T: Copy> <(VecStorageState,&RegionToken<.T>)->MemPtr<.T>> (storage, region):
-    match storage:
-        VecStorageState::Empty:
-            mem_ptr_wrap 0
-        VecStorageState::Owned:
-            region_ptr region

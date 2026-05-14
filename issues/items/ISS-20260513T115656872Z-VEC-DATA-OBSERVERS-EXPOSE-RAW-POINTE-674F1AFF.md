@@ -66,4 +66,4 @@ Run Vec source policy checks, focused access/storage doctests, Vec doctests, iss
 
 ## 2026-05-15 follow-up
 
-`ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で `data_ptr<T>` 自体を削除した。したがって、この issue の解決時点で行った `data_ptr<T: Copy>` 制約は歴史的な中間状態であり、現在の public observer は `data_mem_ptr<T: Copy>` と `vec_storage_mem_ptr<T: Copy>` だけである。
+`ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で `data_ptr<T>` 自体を削除し、`ISS-20260514T161819706Z-VEC-STORAGE-MEMPTR-HELPER-EXPOSES-LO-A9C5BC02` で `vec_storage_mem_ptr<T>` も削除した。したがって、この issue の解決時点で行った `data_ptr<T: Copy>` / `vec_storage_mem_ptr<T: Copy>` 制約は歴史的な中間状態であり、現在の public observer は `data_mem_ptr<T: Copy>` だけである。

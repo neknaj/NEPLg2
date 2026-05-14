@@ -166,7 +166,7 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 `ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF` で、`Vec` の raw data observer が non-Copy payload に対して raw address / `MemPtr<T>` view を返せる入口を閉じた。
 
-`data_mem_ptr` / `vec_storage_mem_ptr` は `.T: Copy` に限定済みである。`data_ptr` は後続の `ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で削除し、raw `i32` address observer としての互換 API は残さない。これは raw-memory-backed public API migration の完了ではなく、`OwnedBuffer<T>` と borrow projection が入るまで unsafe な storage identity escape を Copy payload に限定しつつ、raw address への変換を raw-memory-boundary implementation point へ押し戻す局所前進である。
+`data_mem_ptr` は `.T: Copy` に限定済みである。`data_ptr` は後続の `ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で削除し、`vec_storage_mem_ptr` は `ISS-20260514T161819706Z-VEC-STORAGE-MEMPTR-HELPER-EXPOSES-LO-A9C5BC02` で削除した。raw `i32` address observer や lower-level storage-state helper の互換 API は残さない。これは raw-memory-backed public API migration の完了ではなく、`OwnedBuffer<T>` と borrow projection が入るまで unsafe な storage identity escape を Copy payload に限定しつつ、raw address への変換を raw-memory-boundary implementation point へ押し戻す局所前進である。
 
 ## 2026-05-14 Agent 1 VecDataLen raw view carrier 削除追記
 
@@ -198,7 +198,7 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 `ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A` で、`Vec<T>` の `data: MemPtr<T>` owner field を削除した。
 
-`MemPtr<T>` は non-owning pointer / projection として固定する方針であり、collection の基礎 storage owner を `MemPtr<T>` field に置き続けると Stage 6 の Resource IR は owner と view の二重責務を追い続けることになる。修正後の `Vec<T>` は `region: RegionToken<T>` を free obligation owner として持ち、`data_mem_ptr<T>` / `vec_storage_mem_ptr<T>` / sort・transform・mutation 系は `RegionToken<T>` 参照から non-owning `MemPtr<T>` view を得る。
+`MemPtr<T>` は non-owning pointer / projection として固定する方針であり、collection の基礎 storage owner を `MemPtr<T>` field に置き続けると Stage 6 の Resource IR は owner と view の二重責務を追い続けることになる。修正後の `Vec<T>` は `region: RegionToken<T>` を free obligation owner として持ち、`data_mem_ptr<T>` / sort・transform・mutation 系は `RegionToken<T>` 参照から non-owning `MemPtr<T>` view を得る。
 
 allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`、grow failure cleanup は `vec_realloc_region_or_free<T>` に集約した。これにより `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional baseline は `RegionToken.ptr` の 1 件だけになった。
 
@@ -269,3 +269,9 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB` で、`Vec.data_ptr<T>(&Vec<T>) -> i32` を削除した。互換 alias は残さず、呼び出し側は `data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` を使い、raw-memory-boundary 実装箇所でだけ明示的に `mem_ptr_addr` へ落とす。
 
 同じ根として、`kpsearch` の raw `i32` pointer helper は public API から外し、公開面は `Vec<i32>` owner を消費する wrapper に揃えた。これにより ordinary source が KP の探索 API を使うために raw address を保持・組み立てる必要がなくなった。
+
+## 2026-05-15 Agent 1 Vec storage MemPtr helper 削除追記
+
+`ISS-20260514T161819706Z-VEC-STORAGE-MEMPTR-HELPER-EXPOSES-LO-A9C5BC02` で、`vec_storage_mem_ptr<T>(VecStorageState, &RegionToken<T>) -> MemPtr<T>` を削除した。公開 API は `data_mem_ptr<T>(&Vec<T>)` に集約し、storage state の `Empty` / `Owned` match はその observer boundary が直接所有する。
+
+これにより caller が `VecStorageState` と `RegionToken` 参照を組み合わせて lower-level storage projection helper を呼ぶ経路を閉じた。`data_mem_ptr` 自体はまだ Copy-only raw storage view observer であり、`OwnedBuffer<T>` / borrow projection の残件は継続する。

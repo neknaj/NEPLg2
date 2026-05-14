@@ -7,10 +7,10 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../storage" as *
 
 //: ## data_mem_ptr
 //: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
@@ -20,6 +20,7 @@
 //:
 //: ### [実装/じっそう]
 //: - field `region` を借用し、`region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
+//: - `VecStorageState::Empty` は allocation を[持/も]たないため、0 address の typed view を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
@@ -64,4 +65,8 @@
 pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let v_region <&RegionToken<.T>> field::get_ref v "region"
-    vec_storage_mem_ptr<.T> v_storage v_region
+    match v_storage:
+        VecStorageState::Empty:
+            mem_ptr_wrap 0
+        VecStorageState::Owned:
+            region_ptr v_region

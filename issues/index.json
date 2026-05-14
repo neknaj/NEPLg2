@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T16:13:23.636Z",
+  "generated_at": "2026-05-14T16:22:25.263Z",
   "counts": {
-    "total": 774,
+    "total": 775,
     "open": 7,
-    "resolved": 767,
+    "resolved": 768,
     "by_area": {
       "stdlib": {
-        "total": 207,
+        "total": 208,
         "open": 5,
-        "resolved": 202
+        "resolved": 203
       },
       "TEST": {
         "total": 21,
@@ -9058,6 +9058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T160255919Z-VEC-DATA-PTR-EXPOSES-RAW-I32-STORAGE-546EA2EB.md"
+    },
+    {
+      "id": "ISS-20260514T161819706Z-VEC-STORAGE-MEMPTR-HELPER-EXPOSES-LO-A9C5BC02",
+      "title": "Vec storage MemPtr helper exposes lower-level storage state",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/vec/storage/view.nepl, stdlib/alloc/collections/vec/access/data.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T161819706Z-VEC-STORAGE-MEMPTR-HELPER-EXPOSES-LO-A9C5BC02.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

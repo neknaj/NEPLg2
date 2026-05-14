@@ -6,7 +6,7 @@
 //: - この file は public re-export だけを[持/も]ち、direct raw memory operation は用途別 submodule に[閉/と]じます。
 //:
 //: ### [実装/じっそう]
-//: - `storage/view` は empty storage と typed pointer view を[所有/しょゆう]します。
+//: - `storage/view` は empty storage constructor を[所有/しょゆう]します。
 //: - `storage/alloc` は `vec_alloc_empty` / `new` / `with_capacity` を[所有/しょゆう]します。
 //: - `storage/cleanup` は storage-only dealloc helper を[所有/しょゆう]します。
 //: - `storage/fill` は同一 Copy 値で[初期化/しょきか]する constructor を[所有/しょゆう]します。
