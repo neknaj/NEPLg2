@@ -305,7 +305,7 @@ ret: 1
 #import "core/math" as *
 #import "core/result" as *
 
-fn pair_with_empty <.T> <(Vec<.T>)->Result<.Pair, StdErrorKind>> (left):
+fn pair_with_empty <.T: Copy> <(Vec<.T>)->Result<.Pair, StdErrorKind>> (left):
     let right <Vec<.T>> uwok v::new<.T>;
     Result::Ok<.Pair, StdErrorKind> Tuple:
         left

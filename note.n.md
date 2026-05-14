@@ -1,3 +1,14 @@
+# 2026-05-14 Agent 1 Overload generic Vec helper Copy boundary 修正
+
+- `ISS-20260514T030107222Z-OVERLOAD-GENERIC-VEC-HELPER-LACKS-CO-87D93F09` を解決した。
+- `tests/compiler/overload.n.md::doctest#10` の `pair_with_empty<.T>` が `v::new<.T>` を呼ぶ一方、現行 `Vec` API は `.T: Copy` を要求するため、generic helper の契約が不足していた。
+- `pair_with_empty<.T: Copy>` に変更し、Vec 生成に必要な境界を呼び出し側契約として明示した。`Vec` 側の Copy-only boundary や compiler の trait bound 検査は緩めていない。
+- 検証:
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 10 --assert-io --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/agent1-overload-generic-vec-copy-bound.json -j 1 --assert-io --dist web/dist`: total=45, passed=45
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は doctest / regression fixture の generic trait bound 契約を現行 `Vec` API に同期するもの。
+
 # 2026-05-14 Agent 1 一般 stdlib documentation 追加監査
 
 - `ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F` を追加して解決した。
