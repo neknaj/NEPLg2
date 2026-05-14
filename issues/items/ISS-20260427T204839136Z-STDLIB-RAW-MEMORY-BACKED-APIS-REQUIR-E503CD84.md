@@ -206,6 +206,14 @@ allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`�
 
 同じ監査で、`byte_builder_realloc_region_or_free` の realloc failure cleanup が `dealloc_ptr` 失敗時に `#intrinsic "unreachable"` へ落ちる問題を確認した。これは今回の Vec owner field 削除とは別件として、`ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` に分離して修正した。ByteBuilder grow failure cleanup は現在、`dealloc_region<u8> region` で owner token を直接消費する。
 
+## 2026-05-14 Agent 1 Vec merge sort fallible owner 追記
+
+`ISS-20260514T102108865Z-VEC-SORT-MERGE-RET-ERR-PATH-LOSES-CO-98B83660` で、`sort_merge_ret<T>` の失敗時 owner contract を修正した。
+
+`sort_merge_ret<T>` は `Vec<T>` owner を消費する API であるため、`Result<Vec<T>, StdErrorKind>` では allocation failure や cleanup failure で caller が `Vec<T>` を回収できなかった。修正後は `Result<Vec<T>, VecSortMergeError<T>>` を返し、`Err` payload に `Vec<T>` owner と `StdErrorKind` を保持する。
+
+また、merge sort scratch buffer は `alloc_ptr` / `dealloc_ptr` の raw pointer owner ではなく、`alloc_region<T>` / `dealloc_region<T>` の `RegionToken<T>` owner として閉じる。`MemPtr<T>` は `region_ptr &buf_region` 由来の non-owning view であり、scratch cleanup も `unreachable` ではなく明示的な `Result` error として扱う。
+
 ## 2026-05-13 Agent 1 region_ptr_at alignment proof 追記
 
 `ISS-20260513T100047236Z-REGION-PTR-AT-RETURNS-TYPED-MEMPTR-W-39BD1C91` で、`region_ptr_at` が byte bounds だけを検査して `MemPtr<U>` を返していた問題を修正した。

@@ -42,7 +42,7 @@ for (const name of ['sort_merge', 'sort_merge_ret']) {
     assert.deepEqual(
         unexpectedUnreachableLines(code),
         [],
-        `${name} may only use unreachable for typed dealloc_ptr owner-cleanup invariants`,
+        `${name} must report allocation and cleanup failures through Result without unreachable`,
     );
 }
 
@@ -69,8 +69,6 @@ function unexpectedUnreachableLines(code) {
     const unexpected = [];
     for (let i = 0; i < functionLines.length; i += 1) {
         if (!/#intrinsic\s+"unreachable"/.test(functionLines[i])) continue;
-        const window = functionLines.slice(Math.max(0, i - 5), i + 1).join('\n');
-        if (/\bmatch\s+dealloc_ptr<[^>]+>\s+[^\n]+:[\s\S]*\bResult::Err\s+_:/.test(window)) continue;
         unexpected.push(`${i + 1}: ${functionLines[i].trim()}`);
     }
     return unexpected;

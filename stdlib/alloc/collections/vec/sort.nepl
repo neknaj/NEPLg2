@@ -49,7 +49,7 @@
 //:         |> push 3 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 1 |> uwok
-//:     let sorted <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> unsorted
+//:     let sorted <Vec<i32>> unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> unsorted
 //:     let ok <bool> sort_is_sorted<i32> &sorted
 //:     free<i32> sorted
 //:     if ok 1 0

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T10:18:03.525Z",
+  "generated_at": "2026-05-14T10:33:30.553Z",
   "counts": {
-    "total": 758,
+    "total": 759,
     "open": 5,
-    "resolved": 753,
+    "resolved": 754,
     "by_area": {
       "stdlib": {
-        "total": 196,
+        "total": 197,
         "open": 3,
-        "resolved": 193
+        "resolved": 194
       },
       "TEST": {
         "total": 21,
@@ -8848,6 +8848,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E.md"
+    },
+    {
+      "id": "ISS-20260514T102108865Z-VEC-SORT-MERGE-RET-ERR-PATH-LOSES-CO-98B83660",
+      "title": "Vec sort_merge_ret Err path loses consumed Vec owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/collections/vec/sort/merge/api.nepl, tests/stdlib/sort.n.md, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T102108865Z-VEC-SORT-MERGE-RET-ERR-PATH-LOSES-CO-98B83660.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
