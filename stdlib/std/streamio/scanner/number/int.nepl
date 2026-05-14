@@ -7,10 +7,9 @@
 
 #indent 4
 
+#import "alloc/io" as *
 #import "core/cast" as *
 #import "core/math" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
 #import "std/streamio/scanner/cursor" as *
 #import "std/streamio/scanner/state" as *
 #import "core/field" as *
@@ -18,18 +17,17 @@
 //: ## scan_i32_impl
 //: [次/つぎ]の token を `i32` として[読/よ]む
 pub fn scan_i32_impl <(&StreamScanner)*>i32> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+    stream_scanner_skip_ws_state sc;
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> stream_scanner_len sc;
+    let mut p <i32> stream_scanner_load_pos sc;
     if:
         ge p len
         then:
             0
         else:
             let mut sign <i32> 1;
-            let b0 <i32> stream_scanner_byte_at buf len p;
+            let b0 <i32> stream_scanner_byte_at bytes p;
             if:
                 eq b0 '-'
                 then:
@@ -43,7 +41,7 @@ pub fn scan_i32_impl <(&StreamScanner)*>i32> (sc):
                 if:
                     lt p len
                     then:
-                        let byte <i32> stream_scanner_byte_at buf len p;
+                        let byte <i32> stream_scanner_byte_at bytes p;
                         if:
                             eq byte 0
                             then:
@@ -58,24 +56,23 @@ pub fn scan_i32_impl <(&StreamScanner)*>i32> (sc):
                                         set done 1;
                     else:
                         set done 1;
-            stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+            stream_scanner_store_pos sc p;
             mul val sign
 
 //: ## scan_u32_impl
 //: [次/つぎ]の token を `u32` として[読/よ]む
 pub fn scan_u32_impl <(&StreamScanner)*>u32> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+    stream_scanner_skip_ws_state sc;
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> stream_scanner_len sc;
+    let mut p <i32> stream_scanner_load_pos sc;
     if:
         ge p len
         then:
             <u32> cast 0
         else:
             if:
-                eq stream_scanner_byte_at buf len p '+'
+                eq stream_scanner_byte_at bytes p '+'
                 then:
                     set p add p 1;
                 else:
@@ -86,7 +83,7 @@ pub fn scan_u32_impl <(&StreamScanner)*>u32> (sc):
                 if:
                     lt p len
                     then:
-                        let byte <i32> stream_scanner_byte_at buf len p;
+                        let byte <i32> stream_scanner_byte_at bytes p;
                         if:
                             eq byte 0
                             then:
@@ -103,17 +100,16 @@ pub fn scan_u32_impl <(&StreamScanner)*>u32> (sc):
                                         set done 1;
                     else:
                         set done 1;
-            stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+            stream_scanner_store_pos sc p;
             <u32> cast val
 
 //: ## scan_u64_impl
 //: [次/つぎ]の token を `u64` として[読/よ]む
 pub fn scan_u64_impl <(&StreamScanner)*>u64> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+    stream_scanner_skip_ws_state sc;
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> stream_scanner_len sc;
+    let mut p <i32> stream_scanner_load_pos sc;
     if:
         ge p len
         then:
@@ -121,7 +117,7 @@ pub fn scan_u64_impl <(&StreamScanner)*>u64> (sc):
             <u64> cast zero64
         else:
             if:
-                eq stream_scanner_byte_at buf len p '+'
+                eq stream_scanner_byte_at bytes p '+'
                 then:
                     set p add p 1;
                 else:
@@ -132,7 +128,7 @@ pub fn scan_u64_impl <(&StreamScanner)*>u64> (sc):
                 if:
                     lt p len
                     then:
-                        let byte <i32> stream_scanner_byte_at buf len p;
+                        let byte <i32> stream_scanner_byte_at bytes p;
                         if:
                             eq byte 0
                             then:
@@ -150,24 +146,23 @@ pub fn scan_u64_impl <(&StreamScanner)*>u64> (sc):
                                         set done 1;
                     else:
                         set done 1;
-            stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+            stream_scanner_store_pos sc p;
             <u64> cast val
 
 //: ## scan_i64_impl
 //: [次/つぎ]の token を `i64` として[読/よ]む
 pub fn scan_i64_impl <(&StreamScanner)*>i64> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+    stream_scanner_skip_ws_state sc;
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> stream_scanner_len sc;
+    let mut p <i32> stream_scanner_load_pos sc;
     if:
         ge p len
         then:
             <i64> cast 0
         else:
             let mut is_neg <i32> 0;
-            let b0 <i32> stream_scanner_byte_at buf len p;
+            let b0 <i32> stream_scanner_byte_at bytes p;
             if:
                 eq b0 '-'
                 then:
@@ -186,7 +181,7 @@ pub fn scan_i64_impl <(&StreamScanner)*>i64> (sc):
                 if:
                     lt p len
                     then:
-                        let byte <i32> stream_scanner_byte_at buf len p;
+                        let byte <i32> stream_scanner_byte_at bytes p;
                         if:
                             eq byte 0
                             then:
@@ -204,7 +199,7 @@ pub fn scan_i64_impl <(&StreamScanner)*>i64> (sc):
                                         set done 1;
                     else:
                         set done 1;
-            stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+            stream_scanner_store_pos sc p;
             if:
                 eq is_neg 1
                 then:

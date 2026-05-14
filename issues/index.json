@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T05:11:22.340Z",
+  "generated_at": "2026-05-14T05:34:23.029Z",
   "counts": {
-    "total": 750,
+    "total": 751,
     "open": 5,
-    "resolved": 745,
+    "resolved": 746,
     "by_area": {
       "stdlib": {
-        "total": 189,
+        "total": 190,
         "open": 3,
-        "resolved": 186
+        "resolved": 187
       },
       "TEST": {
         "total": 21,
@@ -8743,6 +8743,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T045613682Z-STREAMWRITER-STORES-RAW-MEMPTR-OWNER-448F8E4F.md"
+    },
+    {
+      "id": "ISS-20260514T051405052Z-STREAMSCANNER-HIDES-BUFFER-OWNER-BEH-0977B2E3",
+      "title": "StreamScanner hides buffer owner behind raw header MemPtr",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/std/streamio/scanner/state.nepl, stdlib/std/streamio/scanner.nepl, stdlib/std/streamio/scanner/cursor.nepl, stdlib/std/streamio/scanner/number",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T051405052Z-STREAMSCANNER-HIDES-BUFFER-OWNER-BEH-0977B2E3.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

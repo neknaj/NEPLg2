@@ -94,7 +94,7 @@ module documentation は次を説明する。
 - `alloc/io/bytebuf.nepl` は module doctest と owner doc が良いが、小さい public helper の declaration doc が不足している。
 - `alloc/collections` は `Vec` が facade / storage state / doctest / move-after-use compile_fail の基準例になる。一方で bitset / adjacency_matrix / fenwick / binary_heap などの layout、storage、order helper には declaration doc 欠落が多く、collection 固有の owner flow、slot invariant、index formula、algorithm complexity を明文化する必要がある。
 - `std/test/types.nepl` は enum / struct で test report を表す方向が良いが、stable renderer output と owner-consuming helper の契約をさらに書く必要がある。
-- `std/streamio/scanner/state.nepl` は scanner の copy / close 規則が良いが、raw header field enum と low-level helper の memory-safety contract が不足している。
+- `std/streamio/scanner/state.nepl` は scanner の copy / close 規則と typed cursor storage の方向が良いが、`ByteBuf` owner と cursor storage を分ける理由、`scanner_from_bytes` の成功/失敗時 owner 消費、token slice helper の memory-safety contract はさらに厚くする必要がある。
 
 この監査により、Stage 1 から Stage 3 では `kp` ではなく通常利用される `core` / `alloc` / `std` API を優先して baseline を下げる。特に `sha256` のような facade は実装本体を持たなくても module-level doctest を置き、`ByteBuf` や `StreamScanner` のような owner-bearing helper は小さな public API でも doc を必須にする。`alloc/collections` は `Vec` を基準例にしつつ、bitset / graph / tree / heap / map / queue 系の helper へ同じ水準を広げる。
 

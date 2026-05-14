@@ -1,21 +1,22 @@
 //: # streamio/scanner/state
-//: `StreamScanner` の共有 header state と ByteBuf からの初期化境界
+//: `StreamScanner` の owning state と ByteBuf/cursor 境界
 //:
 //: ### [目的/もくてき]
-//: - scanner の raw memory backed header layout と ByteBuf 所有権の受け渡しを `std/streamio/scanner` 本体から分離します。
-//: - token parser は header field を直接組み立てず、この module の境界 helper を通して cursor state を読み書きします。
+//: - scanner の input buffer owner を `ByteBuf` field として静的検査に見える形で保持します。
+//: - borrowed `read &sc` で cursor だけを進められるよう、cursor position は小さな typed storage に閉じます。
+//: - token parser は raw pointer を直接組み立てず、この module の ByteBuf/cursor helper を通して byte と slice を扱います。
 //:
 //: ### [注意/ちゅうい]
-//: - `StreamScanner` は header と buffer を所有する handle です。読み取りは borrow、解放は `close` で行います。
+//: - `StreamScanner` は input bytes と typed cursor storage を所有する handle です。読み取りは borrow、解放は `close` で行います。
 //: - `scanner_from_bytes` は渡された `ByteBuf` を成功/失敗にかかわらず消費します。
 
 #indent 4
 
+#import "alloc/collections/vec" as vec
 #import "alloc/io" as *
+#import "alloc/string" as *
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
@@ -28,185 +29,144 @@
 //: - `kpread` にあった token parser の[中核/ちゅうかく]を `std` 側へ[昇格/しょうかく]し、stdin / in-memory text / binary / file を[同/おな]じ scanner [面/めん]へ[載/の]せます。
 //:
 //: ### [注意/ちゅうい]
-//: - scanner handle は header と buffer の[解放/かいほう][責務/せきむ]を[持/も]つため、`Copy` / `Clone` は[実装/じっそう]しません。
+//: - scanner handle は input bytes と cursor storage の[解放/かいほう][責務/せきむ]を[持/も]つため、`Copy` / `Clone` を[実装/じっそう]しません。
 //: - `read` / `skip` / `is_eof` は `&StreamScanner` を[受/う]け[取/と]り、cursor だけを[進/すす]めます。
-//: - buffer の[解放/かいほう]は owner を[消費/しょうひ]する `close` が[担当/たんとう]します。
+//: - buffer と cursor storage の[解放/かいほう]は owner を[消費/しょうひ]する `close` が[担当/たんとう]します。
 //: - [別々/べつべつ]に `open` した scanner [同士/どうし]は[状態/じょうたい]を[共有/きょうゆう]しないので、[複数/ふくすう]の stream を[同時/どうじ]に[維持/いじ]できます。
 pub struct StreamScanner:
-    header <MemPtr<u8>>
-
-pub enum StreamScannerHeaderField:
-    BufPtr
-    Len
-    Pos
-
-pub fn stream_scanner_wrap <(MemPtr<u8>)->StreamScanner> (raw):
-    StreamScanner raw
-
-pub fn stream_scanner_header_off <(StreamScannerHeaderField)->i32> (field):
-    match field:
-        StreamScannerHeaderField::BufPtr:
-            0
-        StreamScannerHeaderField::Len:
-            4
-        StreamScannerHeaderField::Pos:
-            8
-
-//: ## stream_scanner_load_header_result
-//: scanner header の 32 bit field を scanner state boundary として読む
-//:
-//: ### [目的/もくてき]
-//: - `StreamScanner` の共有 cursor state を保持する header から field を読み、invalid header を `Result` として呼び出し側へ返します。
-//: - scanner の公開 facade が失敗を sentinel へ丸める前に、内部初期化では失敗を検出できるようにします。
-pub fn stream_scanner_load_header_result <(MemPtr<u8>,StreamScannerHeaderField)->Result<i32,str>> (header, field):
-    let raw <i32> mem_ptr_addr header
-    if:
-        le raw 0
-        then:
-            Result<i32,str>::Err "streamio.stream_scanner_load_header failed"
-        else:
-            Result<i32,str>::Ok load_i32 add raw stream_scanner_header_off field
-
-//: ## stream_scanner_load_header
-//: scanner header を読む互換 facade
-//:
-//: ### [注意/ちゅうい]
-//: - 既存の scanner API は `Result` を返さないため、header が壊れている場合は 0 に丸めます。
-//: - 初期化など失敗を区別すべき箇所では `stream_scanner_load_header_result` を使います。
-pub fn stream_scanner_load_header <(MemPtr<u8>,StreamScannerHeaderField)->i32> (header, field):
-    match stream_scanner_load_header_result header field:
-        Result::Ok v:
-            v
-        Result::Err _e:
-            0
-
-//: ## stream_scanner_store_header_result
-//: scanner header の 32 bit field を scanner state boundary として書く
-//:
-//: ### [目的/もくてき]
-//: - `StreamScanner` の共有 cursor state を保持する header へ field を書き、invalid header を `Result` として呼び出し側へ返します。
-//: - scanner 初期化時に header 設定失敗を握りつぶさず、buffer と header を解放して失敗できます。
-pub fn stream_scanner_store_header_result <(MemPtr<u8>,StreamScannerHeaderField,i32)->Result<(),str>> (header, field, v):
-    let raw <i32> mem_ptr_addr header
-    if:
-        le raw 0
-        then:
-            Result<(),str>::Err "streamio.stream_scanner_store_header failed"
-        else:
-            store_i32 add raw stream_scanner_header_off field v
-            Result<(),str>::Ok ()
-
-//: ## stream_scanner_store_header
-//: scanner header を書く互換 facade
-//:
-//: ### [注意/ちゅうい]
-//: - 既存の scanner API は `Result` を返さないため、失敗時は状態を進めず no-op にします。
-//: - 初期化など失敗を区別すべき箇所では `stream_scanner_store_header_result` を使います。
-pub fn stream_scanner_store_header <(MemPtr<u8>,StreamScannerHeaderField,i32)->()> (header, field, v):
-    match stream_scanner_store_header_result header field v:
-        Result::Ok _:
-            ()
-        Result::Err _e:
-            ()
+    bytes <ByteBuf>
+    cursor <Vec<i32>>
 
 //: ## stream_scanner_byte_at
 //: scanner buffer の byte を安全な範囲内で読む
 //:
 //: ### [目的/もくてき]
-//: - scanner header に保存された buffer pointer を `MemPtr<u8>` として扱い、tokenizer が直接 raw address を読まないようにします。
+//: - scanner が所有する `ByteBuf` を borrowed view として読み、tokenizer が raw address を直接扱わないようにします。
 //: - 呼び出し側の境界確認漏れや低レベル load 失敗は byte `0` として扱い、scanner の sentinel と同じ意味に丸めます。
-pub fn stream_scanner_byte_at <(MemPtr<u8>,i32,i32)->i32> (buf, len, pos):
-    if:
-        or lt pos 0 ge pos len
-        then:
+pub fn stream_scanner_byte_at <(&ByteBuf,i32)->i32> (bytes, pos):
+    match io_bytebuf_byte_at bytes pos:
+        Option::Some byte:
+            byte
+        Option::None:
             0
+
+//: ## stream_scanner_load_pos_result
+//: scanner cursor position を読む
+//:
+//: ### [目的/もくてき]
+//: - borrowed scanner API から cursor だけを更新するため、position は dedicated typed cursor storage に保持します。
+//: - cursor storage の破損は `Result` として返し、public facade が必要に応じて sentinel へ丸めます。
+pub fn stream_scanner_load_pos_result <(&StreamScanner)->Result<i32,str>> (sc):
+    let cursor <&Vec<i32>> get_ref sc "cursor";
+    match vec::get<i32> cursor 0:
+        Option::Some pos:
+            Result<i32,str>::Ok pos
+        Option::None:
+            Result<i32,str>::Err "streamio.stream_scanner_load_pos failed"
+
+//: ## stream_scanner_load_pos
+//: scanner cursor position を読む互換 facade
+//:
+//: ### [注意/ちゅうい]
+//: - 既存の scanner API は `Result` を返さないため、cursor storage が壊れている場合は 0 に丸めます。
+pub fn stream_scanner_load_pos <(&StreamScanner)->i32> (sc):
+    match stream_scanner_load_pos_result sc:
+        Result::Ok v:
+            v
+        Result::Err _e:
+            0
+
+//: ## stream_scanner_store_pos_result
+//: scanner cursor position を書く
+//:
+//: ### [目的/もくてき]
+//: - `read &sc` のような borrowed API で scanner owner を移動せず、typed cursor position だけを scanner state boundary として更新します。
+pub fn stream_scanner_store_pos_result <(&StreamScanner,i32)*>Result<(),str>> (sc, pos):
+    let cursor <&Vec<i32>> get_ref sc "cursor";
+    match vec::get<i32> cursor 0:
+        Option::Some _old:
+            vec::replace<i32> cursor 0 pos
+            Result<(),str>::Ok ()
+        Option::None:
+            Result<(),str>::Err "streamio.stream_scanner_store_pos failed"
+
+//: ## stream_scanner_store_pos
+//: scanner cursor position を書く互換 facade
+pub fn stream_scanner_store_pos <(&StreamScanner,i32)*>()> (sc, pos):
+    match stream_scanner_store_pos_result sc pos:
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+
+//: ## stream_scanner_len
+//: scanner input byte length を返す
+pub fn stream_scanner_len <(&StreamScanner)->i32> (sc):
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    io_bytebuf_len_ref bytes
+
+//: ## stream_scanner_slice_to_str_result
+//: scanner input の byte slice を `str` へ複製する
+//:
+//: ### [目的/もくてき]
+//: - token parser が `ByteBuf` の raw pointer を直接取り出さず、slice-to-string の raw boundary をこの module に閉じます。
+//: - `ByteBuf` owner は借用のまま保持し、返る `str` は新しい owned string です。
+pub fn stream_scanner_slice_to_str_result <(&StreamScanner,i32,i32)*>Result<str,str>> (sc, start, tlen):
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> io_bytebuf_len_ref bytes;
+    let end <i32> add start tlen;
+    if:
+        or or or lt start 0 lt tlen 0 lt end start gt end len
+        then:
+            Result<str,str>::Err "streamio.stream_scanner_slice invalid range"
         else:
-            match load_u8 mem_ptr_add buf pos:
-                Option::Some byte:
-                    byte
-                Option::None:
-                    0
+            if:
+                eq tlen 0
+                then:
+                    Result<str,str>::Ok ""
+                else:
+                    match io_bytebuf_ptr_ref bytes:
+                        Option::Some ptr:
+                            match string_from_mem_unchecked_result mem_ptr_add ptr start tlen:
+                                Result::Ok token:
+                                    Result<str,str>::Ok token
+                                Result::Err _e:
+                                    Result<str,str>::Err "streamio.stream_scanner_slice alloc failed"
+                        Option::None:
+                            Result<str,str>::Err "streamio.stream_scanner_slice missing buffer"
+
+//: ## stream_scanner_cursor_new
+//: cursor position storage を作る
+//:
+//: ### [目的/もくてき]
+//: - input buffer owner とは別に、borrowed scanner API が更新する 1 element の typed cursor storage を確保します。
+pub fn stream_scanner_cursor_new <()->Result<Vec<i32>,str>> ():
+    match vec::filled<i32> 1 0:
+        Result::Err _e:
+            Result<Vec<i32>,str>::Err "streamio.scanner cursor alloc failed"
+        Result::Ok cursor:
+            Result<Vec<i32>,str>::Ok cursor
 
 pub fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
-    let len <i32> get bytes "len";
-    match get bytes "ptr":
+    let len <i32> io_bytebuf_len_ref &bytes;
+    match io_bytebuf_ptr_ref &bytes:
         Option::None:
             if:
                 eq len 0
                 then:
-                    match alloc_ptr<u8> 12:
-                        Result::Err _e:
+                    match stream_scanner_cursor_new:
+                        Result::Ok cursor:
+                            Result<StreamScanner,str>::Ok StreamScanner bytes cursor
+                        Result::Err e:
                             io_bytebuf_free bytes
-                            Result<StreamScanner,str>::Err "streamio.scanner header alloc failed"
-                        Result::Ok header:
-                            match stream_scanner_store_header_result header StreamScannerHeaderField::BufPtr 0:
-                                Result::Err _e:
-                                    io_bytebuf_free bytes
-                                    match dealloc_ptr<u8> header 12:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e2:
-                                            ();
-                                    Result<StreamScanner,str>::Err "streamio.scanner header init failed"
-                                Result::Ok _:
-                                    match stream_scanner_store_header_result header StreamScannerHeaderField::Len 0:
-                                        Result::Err _e:
-                                            io_bytebuf_free bytes
-                                            match dealloc_ptr<u8> header 12:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _e2:
-                                                    ();
-                                            Result<StreamScanner,str>::Err "streamio.scanner header init failed"
-                                        Result::Ok _:
-                                            match stream_scanner_store_header_result header StreamScannerHeaderField::Pos 0:
-                                                Result::Err _e:
-                                                    io_bytebuf_free bytes
-                                                    match dealloc_ptr<u8> header 12:
-                                                        Result::Ok _:
-                                                            ()
-                                                        Result::Err _e2:
-                                                            ();
-                                                    Result<StreamScanner,str>::Err "streamio.scanner header init failed"
-                                                Result::Ok _:
-                                                    Result<StreamScanner,str>::Ok stream_scanner_wrap header
+                            Result<StreamScanner,str>::Err e
                 else:
                     io_bytebuf_free bytes
                     Result<StreamScanner,str>::Err "streamio.scanner invalid byte buffer"
-        Option::Some buf:
-            match alloc_ptr<u8> 12:
-                Result::Err _e:
+        Option::Some _buf:
+            match stream_scanner_cursor_new:
+                Result::Ok cursor:
+                    Result<StreamScanner,str>::Ok StreamScanner bytes cursor
+                Result::Err e:
                     io_bytebuf_free bytes
-                    Result<StreamScanner,str>::Err "streamio.scanner header alloc failed"
-                Result::Ok header:
-                    match stream_scanner_store_header_result header StreamScannerHeaderField::BufPtr mem_ptr_addr buf:
-                        Result::Err _e:
-                            io_bytebuf_free bytes
-                            match dealloc_ptr<u8> header 12:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e2:
-                                    ();
-                            Result<StreamScanner,str>::Err "streamio.scanner header init failed"
-                        Result::Ok _:
-                            match stream_scanner_store_header_result header StreamScannerHeaderField::Len len:
-                                Result::Err _e:
-                                    io_bytebuf_free bytes
-                                    match dealloc_ptr<u8> header 12:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e2:
-                                            ();
-                                    Result<StreamScanner,str>::Err "streamio.scanner header init failed"
-                                Result::Ok _:
-                                    match stream_scanner_store_header_result header StreamScannerHeaderField::Pos 0:
-                                        Result::Err _e:
-                                            io_bytebuf_free bytes
-                                            match dealloc_ptr<u8> header 12:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _e2:
-                                                    ();
-                                            Result<StreamScanner,str>::Err "streamio.scanner header init failed"
-                                        Result::Ok _:
-                                            Result<StreamScanner,str>::Ok stream_scanner_wrap header
+                    Result<StreamScanner,str>::Err e

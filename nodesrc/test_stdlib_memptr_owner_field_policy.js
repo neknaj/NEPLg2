@@ -32,10 +32,6 @@ const transitionalFields = new Map([
         "stdlib/alloc/string/builder/types.nepl::StringBuilder.data::Option<MemPtr<u8>>",
         "StringBuilder owned bytes until OwnedStringRegion replaces Option<MemPtr<u8>>",
     ],
-    [
-        "stdlib/std/streamio/scanner/state.nepl::StreamScanner.header::MemPtr<u8>",
-        "shared scanner cursor header until typed scanner state replaces raw header storage",
-    ],
 ]);
 
 const observedFields = collectMemPtrStructFields(stdlibRoot);

@@ -145,8 +145,8 @@ collection documentation では、次を必須観点にする。
 
 不足:
 
-- `StreamScannerHeaderField` enum と low-level header helper の説明が薄い。
-- raw header layout、ByteBuf owner の消費、allocation failure 時 cleanup、alias された scanner copy の close 規則は、一般 stdlib でも memory-safety contract なので必ず doc に書く。
+- `StreamScanner` の `ByteBuf` owner と typed cursor storage を分ける理由、cursor mutation helper、token slice helper の説明が薄い。
+- ByteBuf owner の消費、allocation failure 時 cleanup、borrowed scanner API と owner-consuming close の区別は、一般 stdlib でも memory-safety contract なので必ず doc に書く。
 - `scanner_from_bytes` のような convenience constructor は、入力 owner を成功時・失敗時にどう扱うかを示す doctest または近傍説明が必要である。
 
 結論として、一般 stdlib でも module doc は多くの file で存在するが、十分な整備とは言えない。特に facade の module-level doctest、public helper の declaration doc、所有権・effect・target・stable output の明文化、旧 `ret:` doctest から stdout/assertion 例への移行が必要である。

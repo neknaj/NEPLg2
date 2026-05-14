@@ -7,10 +7,9 @@
 
 #indent 4
 
+#import "alloc/io" as *
 #import "core/cast" as *
 #import "core/math" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
 #import "std/streamio/scanner/cursor" as *
 #import "std/streamio/scanner/state" as *
 #import "core/field" as *
@@ -18,18 +17,17 @@
 //: ## scan_f64_impl
 //: [次/つぎ]の token を `f64` として[読/よ]む
 pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let buf_len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+    stream_scanner_skip_ws_state sc;
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let buf_len <i32> stream_scanner_len sc;
+    let mut p <i32> stream_scanner_load_pos sc;
     if:
         ge p buf_len
         then:
             <f64> cast 0
         else:
             let mut is_neg <i32> 0;
-            let b0 <i32> stream_scanner_byte_at buf buf_len p;
+            let b0 <i32> stream_scanner_byte_at bytes p;
             if:
                 eq b0 '-'
                 then:
@@ -50,7 +48,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                 if:
                     lt p buf_len
                     then:
-                        let byte <i32> stream_scanner_byte_at buf buf_len p;
+                        let byte <i32> stream_scanner_byte_at bytes p;
                         if:
                             stream_scanner_is_ascii_digit byte
                             then:
@@ -67,7 +65,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                 lt p buf_len
                 then:
                     if:
-                        eq stream_scanner_byte_at buf buf_len p '.'
+                        eq stream_scanner_byte_at bytes p '.'
                         then set has_dot 1
                         else ()
                 else:
@@ -83,7 +81,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                         if:
                             lt p buf_len
                             then:
-                                let byte <i32> stream_scanner_byte_at buf buf_len p;
+                                let byte <i32> stream_scanner_byte_at bytes p;
                                 if:
                                     stream_scanner_is_ascii_digit byte
                                     then:
@@ -102,7 +100,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
             if:
                 lt p buf_len
                 then:
-                    let ec <i32> stream_scanner_byte_at buf buf_len p;
+                    let ec <i32> stream_scanner_byte_at bytes p;
                     if:
                         stream_scanner_is_exponent_marker ec
                         then set has_exp 1
@@ -117,7 +115,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                     if:
                         lt p buf_len
                         then:
-                            let eb <i32> stream_scanner_byte_at buf buf_len p;
+                            let eb <i32> stream_scanner_byte_at bytes p;
                             if:
                                 eq eb '-'
                                 then:
@@ -138,7 +136,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                         if:
                             lt p buf_len
                             then:
-                                let byte <i32> stream_scanner_byte_at buf buf_len p;
+                                let byte <i32> stream_scanner_byte_at bytes p;
                                 if:
                                     stream_scanner_is_ascii_digit byte
                                     then:
@@ -160,7 +158,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                             set k add k 1;
                 else:
                     ();
-            stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+            stream_scanner_store_pos sc p;
             if:
                 eq any_digit 0
                 then:

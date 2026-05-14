@@ -29,7 +29,7 @@ The current stdlib documentation style guide uses kpgraph as the concrete audit 
 - `stdlib/alloc/io/bytebuf.nepl` は owner doc と module doctest が良いが、小さい public helper の declaration doc が不足している。
 - `stdlib/alloc/collections/vec.nepl` と `vec/types.nepl` は facade、storage state enum、`Copy` 制約、再確保、move-after-use `compile_fail` を説明しており基準例になる。一方で bitset / adjacency_matrix / fenwick / binary_heap などの layout/storage/order helper には declaration doc 欠落が多く、collection 固有の owner flow、slot invariant、index formula、algorithm complexity を整理する必要がある。
 - `stdlib/std/test/types.nepl` は enum / struct による test report model が良いが、stable renderer output と owner-consuming helper の contract が薄い。
-- `stdlib/std/streamio/scanner/state.nepl` は scanner copy / close 規則が良いが、raw header field enum と low-level helper の memory-safety contract が不足している。
+- `stdlib/std/streamio/scanner/state.nepl` は scanner copy / close 規則と typed cursor storage の方向が良いが、`ByteBuf` owner と cursor storage を分ける理由、constructor の owner 消費、token slice helper の memory-safety contract が不足している。
 
 ## 問題
 

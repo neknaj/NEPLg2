@@ -2,11 +2,11 @@
 //: `std/streamio` の token scanner と read target API を提供する submodule
 //:
 //: ### [目的/もくてき]
-//: - `StreamScanner` の cursor/header state、token parser、`open ReadStream`、scanner read overload を `std/streamio` facade から分離します。
-//: - scanner の raw memory backed header boundary を writer とは別 module に閉じ込め、source policy で再肥大化を検出できるようにします。
+//: - `StreamScanner` の ByteBuf/cursor state、token parser、`open ReadStream`、scanner read overload を `std/streamio` facade から分離します。
+//: - scanner の typed cursor storage boundary を writer とは別 module に閉じ込め、source policy で再肥大化を検出できるようにします。
 //:
 //: ### [注意/ちゅうい]
-//: - `StreamScanner` は header と buffer を所有する handle です。`read` は borrow で呼び、`close` は owner を消費します。
+//: - `StreamScanner` は input `ByteBuf` と typed cursor storage を所有する handle です。`read` は borrow で呼び、`close` は owner を消費します。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -26,10 +26,9 @@
 
 #indent 4
 
+#import "alloc/collections/vec" as vec
 #import "alloc/io" as *
 #import "alloc/string" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
 #import "core/result" as *
 #import "std/fs" as *
 #import "std/iotarget" as *
@@ -48,7 +47,7 @@
 //: - `ReadStream` だけを[受/う]け[付/つ]けることで、`open WriteStream::Stdio` のような[誤用/ごよう]を compile error にします。
 //:
 //: ### [実装/じっそう]
-//: - target ごとに byte [列/れつ]へ[正規化/せいきか]してから header を[確保/かくほ]し、`buf ptr` / `len` / `pos` を[保持/ほじ]します。
+//: - target ごとに byte [列/れつ]へ[正規化/せいきか]してから typed cursor storage を[確保/かくほ]し、input owner は `ByteBuf` field として[保持/ほじ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - file read [失敗/しっぱい]や[確保/かくほ][失敗/しっぱい]は `Result::Err` に[丸/まる]めます。
@@ -74,29 +73,27 @@ pub fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
 //: ## skip_ws
 //: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす
 pub fn skip_ws <(&StreamScanner)*>()> (sc):
-    stream_scanner_skip_ws_header *get_ref sc "header"
+    stream_scanner_skip_ws_state sc
 
 //: ## is_eof
 //: token が[残/のこ]っていないか[確認/かくにん]する
 pub fn is_eof <(&StreamScanner)*>bool> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    ge stream_scanner_load_header header StreamScannerHeaderField::Pos stream_scanner_load_header header StreamScannerHeaderField::Len
+    stream_scanner_skip_ws_state sc;
+    ge stream_scanner_load_pos sc stream_scanner_len sc
 
 //: ## skip
 //: [現在/げんざい] token を 1 [個/こ][消費/しょうひ]する
 pub fn skip <(&StreamScanner)*>()> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+    stream_scanner_skip_ws_state sc;
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> stream_scanner_len sc;
+    let mut p <i32> stream_scanner_load_pos sc;
     let mut done <i32> 0;
     while eq done 0:
         if:
             lt p len
             then:
-                let byte <i32> stream_scanner_byte_at buf len p;
+                let byte <i32> stream_scanner_byte_at bytes p;
                 if:
                     stream_scanner_is_token_separator byte
                     then:
@@ -105,24 +102,23 @@ pub fn skip <(&StreamScanner)*>()> (sc):
                         set p add p 1;
             else:
                 set done 1;
-    stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+    stream_scanner_store_pos sc p;
     ()
 
 //: ## scan_token_impl
 //: [次/つぎ]の token を `str` として[読/よ]む
 pub fn scan_token_impl <(&StreamScanner)*>str> (sc):
-    let header <MemPtr<u8>> *get_ref sc "header";
-    stream_scanner_skip_ws_header header;
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let start <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+    stream_scanner_skip_ws_state sc;
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> stream_scanner_len sc;
+    let start <i32> stream_scanner_load_pos sc;
     let mut p <i32> start;
     let mut done <i32> 0;
     while eq done 0:
         if:
             lt p len
             then:
-                let byte <i32> stream_scanner_byte_at buf len p;
+                let byte <i32> stream_scanner_byte_at bytes p;
                 if:
                     stream_scanner_is_token_separator byte
                     then:
@@ -137,12 +133,12 @@ pub fn scan_token_impl <(&StreamScanner)*>str> (sc):
         then:
             ""
         else:
-            match string_from_mem_unchecked_result mem_ptr_add buf start tlen:
+            match stream_scanner_slice_to_str_result sc start tlen:
                 Result::Err _e:
-                    stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+                    stream_scanner_store_pos sc p;
                     ""
                 Result::Ok token:
-                    stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+                    stream_scanner_store_pos sc p;
                     token
 
 //: ## read
@@ -178,19 +174,7 @@ pub fn read <(&StreamScanner)*>f32> (sc):
 //: ## close
 //: `StreamScanner` を[閉/と]じて[内部/ないぶ] buffer を[解放/かいほう]する
 pub fn close <(StreamScanner)*>()> (sc):
-    let header <MemPtr<u8>> get sc "header";
-    let buf_addr <i32> stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let bytes <ByteBuf>:
-        if:
-            eq len 0
-            then:
-                io_bytebuf_empty
-            else:
-                io_bytebuf_from_owned_ptr mem_ptr_wrap buf_addr len
+    let bytes <ByteBuf> get sc "bytes";
+    let cursor <Vec<i32>> get sc "cursor";
     io_bytebuf_free bytes;
-    match dealloc_ptr<u8> header 12:
-        Result::Ok _:
-            ()
-        Result::Err _e:
-            ()
+    vec::free<i32> cursor

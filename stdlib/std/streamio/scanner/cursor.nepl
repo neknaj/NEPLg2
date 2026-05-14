@@ -3,13 +3,13 @@
 //:
 //: ### [目的/もくてき]
 //: - scanner の BOM / 空白 skip と ASCII byte classifier を token parser / numeric parser から分離します。
-//: - parser 本体は cursor header を直接走査せず、この module の境界 helper を通して読み取り開始位置を整えます。
+//: - parser 本体は cursor storage を直接走査せず、この module の境界 helper を通して読み取り開始位置を整えます。
 
 #indent 4
 
-#import "core/mem" as *
-#import "core/mem/internal" as *
+#import "alloc/io" as *
 #import "std/streamio/scanner/state" as *
+#import "core/field" as *
 #import "core/math" as *
 
 //: stream_scanner_is_leading_skip_byte: scanner 先頭で読み飛ばす byte か判定する
@@ -63,10 +63,10 @@ pub fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
         _:
             false
 
-pub fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
-    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
-    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
-    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+pub fn stream_scanner_skip_ws_state <(&StreamScanner)*>()> (sc):
+    let bytes <&ByteBuf> get_ref sc "bytes";
+    let len <i32> stream_scanner_len sc;
+    let mut p <i32> stream_scanner_load_pos sc;
 
     if:
         eq p 0
@@ -74,12 +74,12 @@ pub fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
             if:
                 ge len 2
                 then:
-                    let b0 <i32> stream_scanner_byte_at buf len 0;
-                    let b1 <i32> stream_scanner_byte_at buf len 1;
+                    let b0 <i32> stream_scanner_byte_at bytes 0;
+                    let b1 <i32> stream_scanner_byte_at bytes 1;
                     if:
                         ge len 3
                         then:
-                            let b2 <i32> stream_scanner_byte_at buf len 2;
+                            let b2 <i32> stream_scanner_byte_at bytes 2;
                             if:
                                 and and eq b0 239 eq b1 187 eq b2 191
                                 then:
@@ -108,7 +108,7 @@ pub fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
         if:
             lt p len
             then:
-                let byte <i32> stream_scanner_byte_at buf len p;
+                let byte <i32> stream_scanner_byte_at bytes p;
                 if:
                     stream_scanner_is_leading_skip_byte byte
                     then:
@@ -118,5 +118,5 @@ pub fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
             else:
                 set done 1;
 
-    stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+    stream_scanner_store_pos sc p;
     ()

@@ -38064,3 +38064,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `work/static-check-memptr-doc-baseline-refresh` で `ISS-20260514T051035869Z-MEMPTR-OWNER-FIELD-MIGRATION-DOC-STI-601B2E4F` を修正した。
 - `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の残存 `MemPtr` owner-like field baseline から、移行済みの `StreamWriter.buf` を削除した。
 - 2026-05-14 追記として、StreamWriter の `ByteBuilder` 移行により baseline が 8 field から 7 field へ下がったことを明記した。
+## 2026-05-14 Agent 1 StreamScanner typed cursor storage
+
+- `StreamScanner` の旧 raw header は input buffer owner、byte length、cursor position を 1 つの `MemPtr<u8>` header に混在させており、Stage 6 の MemPtr owner field migration と Resource IR の initialized cell 証明を妨げていた。
+- `StreamScanner` を `bytes <ByteBuf>` と `cursor <Vec<i32>>` を持つ owner handle に変更し、input owner は source type structure に直接出し、cursor mutation は typed storage の `vec::get<i32>` / `vec::replace<i32>` へ移した。
+- scanner root、cursor helper、integer / float parser は `stream_scanner_byte_at`、`stream_scanner_len`、`stream_scanner_load_pos`、`stream_scanner_store_pos` 経由に統一し、token parser が raw pointer header を扱わない構造にした。
+- `nodesrc/test_stdlib_memptr_owner_field_policy.js` から `StreamScanner.header` transitional exception を削除し、残存 direct MemPtr owner-like field baseline は 7 件から 6 件へ減った。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に Stage 6 の進捗を追記し、stdlib documentation 方針の scanner 記述も raw header 前提から typed cursor storage 前提へ更新した。
+- 検証: streamio scanner boundary policy、streamio unsafe unwrap policy、MemPtr owner-field policy、`tests/stdlib/streamio.n.md` doctest #7-#15 は pass。

@@ -296,20 +296,20 @@ assert.match(code, /fn\s+close\s+<\(StreamScanner\)\*>/, 'StreamScanner close mu
 
 assert.match(
     code,
-    /fn\s+stream_scanner_load_header_result\s+<\(MemPtr<u8>,StreamScannerHeaderField\)->Result<i32,str>>\s+\(header,\s*field\):[\s\S]*le\s+raw\s+0[\s\S]*Result<i32,str>::Err\s+"streamio\.stream_scanner_load_header failed"[\s\S]*Result<i32,str>::Ok\s+load_i32\s+add\s+raw\s+stream_scanner_header_off\s+field/,
-    'stream scanner header loads must return Result through the scanner header boundary instead of trapping',
+    /fn\s+stream_scanner_load_pos_result\s+<\(&StreamScanner\)->Result<i32,str>>\s+\(sc\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+pos:[\s\S]*Result<i32,str>::Ok\s+pos[\s\S]*Result<i32,str>::Err\s+"streamio\.stream_scanner_load_pos failed"/,
+    'stream scanner cursor loads must return Result through typed cursor storage instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+stream_scanner_store_header_result\s+<\(MemPtr<u8>,StreamScannerHeaderField,i32\)->Result<\(\),str>>\s+\(header,\s*field,\s*v\):[\s\S]*le\s+raw\s+0[\s\S]*Result<\(\),str>::Err\s+"streamio\.stream_scanner_store_header failed"[\s\S]*store_i32\s+add\s+raw\s+stream_scanner_header_off\s+field\s+v[\s\S]*Result<\(\),str>::Ok\s+\(\)/,
-    'stream scanner header stores must return Result through the scanner header boundary instead of trapping',
+    /fn\s+stream_scanner_store_pos_result\s+<\(&StreamScanner,i32\)\*>Result<\(\),str>>\s+\(sc,\s*pos\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+_old:[\s\S]*vec::replace<i32>\s+cursor\s+0\s+pos[\s\S]*Result<\(\),str>::Ok\s+\(\)[\s\S]*Result<\(\),str>::Err\s+"streamio\.stream_scanner_store_pos failed"/,
+    'stream scanner cursor stores must return Result through typed cursor storage instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+scanner_from_bytes\s+<\(ByteBuf\)\*>Result<StreamScanner,str>>\s+\(bytes\):[\s\S]*stream_scanner_store_header_result\s+header\s+StreamScannerHeaderField::BufPtr[\s\S]*Result::Err\s+_e:[\s\S]*io_bytebuf_free\s+bytes[\s\S]*stream_scanner_store_header_result\s+header\s+StreamScannerHeaderField::Len[\s\S]*stream_scanner_store_header_result\s+header\s+StreamScannerHeaderField::Pos/,
-    'scanner_from_bytes must initialize scanner headers through Result-returning stores and clean up on failure',
+    /fn\s+scanner_from_bytes\s+<\(ByteBuf\)\*>Result<StreamScanner,str>>\s+\(bytes\):[\s\S]*match\s+io_bytebuf_ptr_ref\s+&bytes:[\s\S]*Option::None:[\s\S]*eq\s+len\s+0[\s\S]*stream_scanner_cursor_new[\s\S]*Result<StreamScanner,str>::Ok\s+StreamScanner\s+bytes\s+cursor[\s\S]*Option::Some\s+_buf:[\s\S]*stream_scanner_cursor_new/,
+    'scanner_from_bytes must keep the ByteBuf owner in StreamScanner and allocate only cursor storage separately',
 );
 
 assert.match(

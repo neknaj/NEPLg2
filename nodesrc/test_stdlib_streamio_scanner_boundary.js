@@ -74,8 +74,8 @@ assert.match(
 
 for (const pattern of [
     /\bstruct\s+StreamScanner\b/,
-    /\benum\s+StreamScannerHeaderField\b/,
-    /\bfn\s+stream_scanner_load_header_result\b/,
+    /\bfn\s+stream_scanner_load_pos_result\b/,
+    /\bfn\s+stream_scanner_slice_to_str_result\b/,
     /\bfn\s+scanner_from_bytes\b/,
     /\bfn\s+scan_token_impl\b/,
 ]) {
@@ -88,9 +88,9 @@ for (const pattern of [
 
 for (const pattern of [
     /\bstruct\s+StreamScanner\b/,
-    /\benum\s+StreamScannerHeaderField\b/,
-    /\bfn\s+stream_scanner_load_header_result\b/,
+    /\bfn\s+stream_scanner_load_pos_result\b/,
     /\bfn\s+stream_scanner_byte_at\b/,
+    /\bfn\s+stream_scanner_slice_to_str_result\b/,
     /\bfn\s+scanner_from_bytes\b/,
 ]) {
     assert.doesNotMatch(
@@ -109,7 +109,7 @@ for (const pattern of [
     /\bfn\s+stream_scanner_is_leading_skip_byte\b/,
     /\bfn\s+stream_scanner_is_token_separator\b/,
     /\bfn\s+stream_scanner_is_ascii_digit\b/,
-    /\bfn\s+stream_scanner_skip_ws_header\b/,
+    /\bfn\s+stream_scanner_skip_ws_state\b/,
 ]) {
     assert.doesNotMatch(
         code,
@@ -180,8 +180,20 @@ assert.match(
 
 assert.match(
     stateCode,
-    /\bfn\s+stream_scanner_byte_at\s+<\(MemPtr<u8>,i32,i32\)->i32>/,
-    'StreamScanner byte access must go through stream_scanner_byte_at',
+    /struct\s+StreamScanner:\s+bytes\s+<ByteBuf>\s+cursor\s+<Vec<i32>>/,
+    'StreamScanner state must expose the input ByteBuf owner and typed cursor storage as fields',
+);
+
+assert.doesNotMatch(
+    stateCode,
+    /^\s+header\s+<MemPtr<u8>>/m,
+    'StreamScanner must not keep a direct raw MemPtr header owner field',
+);
+
+assert.match(
+    stateCode,
+    /\bfn\s+stream_scanner_byte_at\s+<\(&ByteBuf,i32\)->i32>/,
+    'StreamScanner byte access must go through a borrowed ByteBuf boundary',
 );
 
 assert.doesNotMatch(
@@ -223,13 +235,18 @@ assert.doesNotMatch(
     'StreamScanner must not reintroduce a RegionToken header pointer helper',
 );
 const scannerHeaderMatch = stateCode.match(
-    /(?:pub\s+)?fn\s+stream_scanner_header_off\b([\s\S]*?)\n(?:pub\s+)?fn\s+scanner_from_bytes\b/,
+    /(?:pub\s+)?fn\s+stream_scanner_load_pos_result\b([\s\S]*?)\n(?:pub\s+)?fn\s+scanner_from_bytes\b/,
 );
-assert.ok(scannerHeaderMatch, 'StreamScanner header helper section must be found');
+assert.ok(scannerHeaderMatch, 'StreamScanner cursor helper section must be found');
 assert.doesNotMatch(
     scannerHeaderMatch[1],
-    /\bmatch\s+load_i32\s+p\b/,
-    'StreamScanner header load must not read through an unproven RegionToken pointer',
+    /\b(?:load_i32|store_i32)\b/,
+    'StreamScanner cursor state must not use raw i32 memory load/store',
+);
+assert.match(
+    scannerHeaderMatch[1],
+    /\bvec::get<i32>\s+cursor\s+0[\s\S]*\bvec::replace<i32>\s+cursor\s+0\s+pos/,
+    'StreamScanner cursor stores must use typed Vec cursor storage instead of a raw header owner field',
 );
 
 for (const pattern of [
@@ -246,7 +263,7 @@ for (const pattern of [
 }
 
 for (const fnName of [
-    'stream_scanner_skip_ws_header',
+    'stream_scanner_skip_ws_state',
     'skip',
     'scan_token_impl',
     'scan_i32_impl',
@@ -267,8 +284,8 @@ for (const fnName of [
 
 assert.match(
     code,
-    /\bstring_from_mem_unchecked_result\s+mem_ptr_add\s+buf\s+start\s+tlen\b/,
-    'scan_token_impl must delegate token string construction to alloc/string',
+    /\bstream_scanner_slice_to_str_result\s+sc\s+start\s+tlen\b/,
+    'scan_token_impl must delegate token string construction to the scanner state ByteBuf slice boundary',
 );
 
 console.log('stdlib streamio scanner boundary regression passed');
