@@ -37757,3 +37757,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `Clone` generic bound、`Stringify` の i32 / bool / u8 表示、`Debug` の str quote / i32 / u8 表示を assertion label として stdout に固定した。
 - `debug u8` assertion を追加し、直前の `Debug for u8` import 修正が再度壊れた場合に focused doctest で検出できるようにした。
 - `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/agent1-traits-text-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。
+
+## 2026-05-14 Agent 1 Numerics stdout report doctest migration
+
+- `work/numerics-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/stdlib/numerics.n.md` を更新した。
+- numerics focused doctest 11 件を戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- i32 decimal / hex literal、f32 literal、u8 wrapping add/sub/mul、u8 division/remainder、u8 comparison、bitwise、shift、f32 comparison を assertion label として stdout に固定した。
+- division/remainder、bitwise、shift、comparison 系は合計値だけでなく個別の演算結果や比較結果も assertion 化し、失敗した性質が runner output から分かるようにした。
+- `node nodesrc/tests.js -i tests/stdlib/numerics.n.md --no-tree -o tmp/agent1-numerics-before.json -j 1 --assert-io --dist web/dist` は移行前 total=11, passed=11。
+- `node nodesrc/tests.js -i tests/stdlib/numerics.n.md --no-tree -o tmp/agent1-numerics-report-tests.json -j 1 --assert-io --dist web/dist` は移行後 total=11, passed=11。

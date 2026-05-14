@@ -557,3 +557,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\traits_text.n.md --no-tree -o tmp\agent1-traits-text-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
 
 この issue はまだ open のまま継続する。Trait text 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Numerics stdout report migration
+
+`tests/stdlib/numerics.n.md` の numerics focused doctest 11 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- i32 decimal / hex literal、f32 literal、u8 wrapping add/sub/mul、u8 division/remainder、u8 comparison、bitwise、shift、f32 comparison を assertion label として stdout に残すようにした。
+- division/remainder、bitwise、shift、comparison 系は合計値だけでなく個別の演算結果や比較結果も assertion として固定し、壊れた性質を runner output から特定できるようにした。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\numerics.n.md --no-tree -o tmp\agent1-numerics-before.json -j 1 --assert-io --dist web/dist`: total=11, passed=11 before migration
+- `node nodesrc\tests.js -i tests\stdlib\numerics.n.md --no-tree -o tmp\agent1-numerics-report-tests.json -j 1 --assert-io --dist web/dist`: total=11, passed=11
+
+この issue はまだ open のまま継続する。Numerics 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
