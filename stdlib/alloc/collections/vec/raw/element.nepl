@@ -37,6 +37,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/raw" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
@@ -55,6 +56,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/raw" as *
 //:| #import "core/result" as *
 //: struct NonCopyPayload:
 //:     value <i32>
@@ -88,6 +90,7 @@ pub fn vec_read_at <.T: Copy> <(MemPtr<.T>, i32)->.T> (data, idx):
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/raw" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
@@ -105,6 +108,7 @@ pub fn vec_read_at <.T: Copy> <(MemPtr<.T>, i32)->.T> (data, idx):
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/raw" as *
 //:| #import "core/result" as *
 //: struct NonCopyPayload:
 //:     value <i32>

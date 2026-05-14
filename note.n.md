@@ -1,3 +1,17 @@
+# 2026-05-15 Agent 1 Vec root raw facade boundary 修正
+
+- `ISS-20260514T180856087Z-VEC-ROOT-FACADE-RE-EXPORTS-RAW-ELEME-93D13B29` を追加して解決した。
+- safe root facade の `alloc/collections/vec` が `vec/raw` を `@merge` 再公開しており、通常 import から unchecked `vec_read_at` / `vec_write_at` が見える状態だった。
+- root から `pub #import "./vec/raw" as @merge` を削除し、raw element helper は `alloc/collections/vec/raw` を明示 import した実装境界だけで使う形にした。
+- `vec/raw/element.nepl` の doctest は root `Vec` API と raw submodule を分けて import するよう更新した。
+- source policy で root facade が raw helper を再公開しないことと、raw submodule が `element` だけを明示 re-export することを固定した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/raw/element.nepl --no-tree -o tmp/agent1-vec-root-raw-facade-raw-element.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/agent1-vec-root-raw-facade-vec-tests.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の safe public Vec facade と unchecked raw helper facade の責務分割を進めるもの。
+
 # 2026-05-15 Agent 1 Vec sort effect contract 修正
 
 - `ISS-20260514T175345899Z-VEC-IN-PLACE-SORT-APIS-KEEP-PURE-EFF-6D4F3ABB` を追加して解決した。

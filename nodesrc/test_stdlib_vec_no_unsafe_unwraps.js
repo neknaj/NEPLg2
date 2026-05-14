@@ -159,9 +159,10 @@ const freeSection = vecCode.slice(vecCode.indexOf('fn free '));
 
 assert.doesNotMatch(vecCode, /\bfield::get\s+\w+\s+"(?:len|cap)"/, 'Vec implementation must read Copy len/cap header fields through field::get_ref so owner-consuming helpers do not move them');
 assert.match(withCapacitySection, /fn\s+with_capacity\s+<\.T:\s*Copy>[\s\S]*if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*else:\s+vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must reject negative capacity before allocating owned storage and remain Copy-only');
-for (const name of ['types', 'storage', 'access', 'raw', 'mutation', 'query', 'transform', 'sort']) {
+for (const name of ['types', 'storage', 'access', 'mutation', 'query', 'transform', 'sort']) {
     assert.match(vecRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/vec\\/${name}"\\s+as\\s+@merge`), `Vec root must merge re-export vec/${name}.nepl`);
 }
+assert.doesNotMatch(vecRootCode, /pub\s+#import\s+"\.\/vec\/raw"\s+as\s+@merge/, 'Vec root must not merge re-export unchecked vec/raw.nepl');
 assert.doesNotMatch(vecRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'Vec root must be a pure facade without implementation bodies');
 assert.doesNotMatch(vecRootCode, /\bas\s+vec_/, 'Vec root must not keep private delegation aliases after becoming a merge facade');
 for (const name of ['VecStorageState', 'Vec', 'VecPushError', 'VecTransformError', 'VecPop', 'VecPartition']) {
@@ -206,6 +207,7 @@ assert.match(vecAccessDataCode, /match\s+v_storage:[\s\S]*VecStorageState::Empty
 assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>/, 'Vec raw data observer must reject non-Copy payloads in doctests');
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
+    assert.doesNotMatch(vecRootCode, new RegExp(`\\b${name}\\b`), `Vec root facade must not expose ${name}; import alloc/collections/vec/raw explicitly`);
 }
 for (const name of ['element']) {
     assert.match(vecRawRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/raw\\/${name}"\\s+as\\s+@merge`), `vec/raw.nepl must merge re-export raw/${name}.nepl`);
