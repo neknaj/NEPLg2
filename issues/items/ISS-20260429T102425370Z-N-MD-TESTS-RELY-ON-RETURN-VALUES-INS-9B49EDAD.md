@@ -800,3 +800,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\prelude_copy.n.md --no-tree -o tmp\agent1-prelude-copy-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
 
 この issue はまだ open のまま継続する。Prelude Copy 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Block single-line stdout report migration
+
+`tests/compiler/block_single_line.n.md` の single-line `block` 正常系 doctest 20 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。single-line block に multiline if を含められない compile_fail fixture 1 件は、parser の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- 正常系 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- literal / arithmetic / let / multiple statements / nested block / argument position / if branch / while body / semicolon unit / shadowing / mutation / type annotation / tuple element / pipe source / match arm / trailing comment / unit block / deeply nested block の観測値を assertion label として stdout に残すようにした。
+- 旧 `ret:` の値だけではなく、どの single-line block 構文規則が壊れたかを runner output から読める形にした。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\block_single_line.n.md --no-tree -o tmp\agent1-block-single-line-report-tests.json -j 1 --assert-io --dist web/dist`: total=21, passed=21
+- 実行時間は約200秒。timeout ではなく 21 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
+
+この issue はまだ open のまま継続する。Block single-line 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
