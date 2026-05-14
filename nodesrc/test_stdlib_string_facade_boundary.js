@@ -59,10 +59,6 @@ assert.doesNotMatch(
 );
 
 for (const relPath of [
-    'stdlib/alloc/string/builder/append.nepl',
-    'stdlib/alloc/string/builder/build.nepl',
-    'stdlib/alloc/string/builder/reserve.nepl',
-    'stdlib/alloc/string/builder/types.nepl',
     'stdlib/alloc/string/concat.nepl',
     'stdlib/alloc/string/builder_ext.nepl',
     'stdlib/alloc/string/integer/format.nepl',
@@ -73,6 +69,20 @@ for (const relPath of [
         code,
         rawBoundaryEvidencePattern,
         `${relPath} must carry source-level raw memory boundary evidence`,
+    );
+}
+
+for (const relPath of [
+    'stdlib/alloc/string/builder/append.nepl',
+    'stdlib/alloc/string/builder/build.nepl',
+    'stdlib/alloc/string/builder/reserve.nepl',
+    'stdlib/alloc/string/builder/types.nepl',
+]) {
+    const code = stripNeplComments(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
+    assert.doesNotMatch(
+        code,
+        rawBoundaryEvidencePattern,
+        `${relPath} is a StringBuilder wrapper and must not regain direct raw memory evidence`,
     );
 }
 

@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: bug
 created: 2026-05-13
-updated: 2026-05-13
+updated: 2026-05-15
 target: "nepl-core/src/loader.rs, nodesrc/test_stdlib_string_facade_boundary.js, nodesrc/test_stdlib_core_mem_boundary.js"
 ---
 
@@ -53,3 +53,9 @@ raw implementation body や checked wrapper が存在しない facade/type-only 
 - `node nodesrc/test_stdlib_core_mem_boundary.js`
 - `trunk build`
 - `node nodesrc/issues.js check`
+
+## 2026-05-15 Agent 1 StringBuilder wrapper boundary 追記
+
+`ISS-20260514T153830277Z-STRING-APPEND-BOUNDARY-POLICY-STILL--F431B18E` で、`nodesrc/test_stdlib_string_facade_boundary.js` が `stdlib/alloc/string/builder/append.nepl` に raw boundary evidence を要求していた stale policy を修正した。
+
+同じ監査で `build.nepl` / `reserve.nepl` / `types.nepl` も direct raw operation を持たない `StringBuilder` wrapper 層であることを確認した。これらは現在、`ByteBuilder` / `ByteBuf` 境界へ storage mutation を委譲している。direct raw operation を持たない wrapper に raw evidence を要求すると、Stage 6 の source-based raw capability proof を必要以上に広げるため、これらの file は「raw evidence を持たない」側の監視対象に移した。

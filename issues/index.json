@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T15:35:47.026Z",
+  "generated_at": "2026-05-14T15:41:17.043Z",
   "counts": {
-    "total": 769,
+    "total": 770,
     "open": 6,
-    "resolved": 763,
+    "resolved": 764,
     "by_area": {
       "stdlib": {
-        "total": 202,
+        "total": 203,
         "open": 4,
-        "resolved": 198
+        "resolved": 199
       },
       "TEST": {
         "total": 21,
@@ -5753,7 +5753,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-05-13",
-      "updated": "2026-05-13",
+      "updated": "2026-05-15",
       "target": "nepl-core/src/loader.rs, nodesrc/test_stdlib_string_facade_boundary.js, nodesrc/test_stdlib_core_mem_boundary.js",
       "legacy_id": "",
       "source": "",
@@ -8983,6 +8983,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T152732869Z-CORE-MEM-INTERNAL-REGION-NEW-DOCTEST-F1D709F2.md"
+    },
+    {
+      "id": "ISS-20260514T153830277Z-STRING-APPEND-BOUNDARY-POLICY-STILL--F431B18E",
+      "title": "StringBuilder wrapper boundary policy still requires raw evidence for safe wrappers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nodesrc/test_stdlib_string_facade_boundary.js, stdlib/alloc/string/builder/{append,build,reserve,types}.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T153830277Z-STRING-APPEND-BOUNDARY-POLICY-STILL--F431B18E.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
