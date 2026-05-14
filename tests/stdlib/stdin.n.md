@@ -83,11 +83,12 @@ stdout: "1\n3\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 #import "std/stdio" as *
+#import "core/result" as *
 
 fn main <()*> ()> ():
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i32> read sc;
-    let b <i32> read sc;
+    let a <i32> read &sc;
+    let b <i32> read &sc;
     close sc;
     println_i32 a;
     println_i32 b;

@@ -1,3 +1,20 @@
+# 2026-05-14 Agent 1 StreamScanner owner borrow API 修正
+
+- `ISS-20260514T035102288Z-STREAMSCANNER-COPY-HANDLE-ALLOWS-DOU-5B9AEF3B` を解決した。
+- `StreamScanner` は header と backing `ByteBuf` storage を `close` で解放する owner handle なのに、`Copy` / `Clone` と by-value `read sc` API により同じ raw-backed owner を複製でき、double close / use-after-close を型で防げない状態だった。
+- `StreamScanner` の `Copy` / `Clone` 実装を削除し、`read` / `skip_ws` / `is_eof` / `skip` / token / number scanner は `&StreamScanner` を受け取る borrow API へ統一した。`close <(StreamScanner)*>()>` は owner-consuming のまま維持した。
+- `stdlib/kp/kpgraph.nepl` と `tests/stdlib/{streamio,stdin,kp,kp_i64}.n.md`、stdin fixture の呼び出しを `read &sc` に同期した。`read sc` は `type.overload.no_match` になる compile-fail doctest を追加した。
+- source policy で `StreamScanner` への `Copy` / `Clone` 再導入、by-value scanner cursor/read API、borrow でない scanner number implementation を検出するようにした。
+- 検証:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/std/streamio/scanner.nepl -n 1 --assert-io --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/agent1-streamscanner-borrow-stdin-3.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+- 追加で発見した別問題:
+  - `std/streamio/writer` の `close(StreamWriter)` が `writer/state` 側に閉じており、public facade 経由の `|> close` が解決できない。scanner の owner alias とは別問題として `ISS-20260514T041207146Z-STREAMWRITER-CLOSE-IS-NOT-EXPORTED-T-ED15EF36` を追加した。
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の raw-memory-backed stdlib API ownership contract を型に反映するもの。
+
 # 2026-05-14 Agent 1 overload 戻り値文脈なし選択の静的検査修正
 
 - `ISS-20260514T033438215Z-UNUSED-LET-INITIALIZER-CAN-HIDE-AMBI-612FD419` を解決した。

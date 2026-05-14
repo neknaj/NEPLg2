@@ -273,9 +273,11 @@ for (const pattern of forbidden) {
 }
 
 assert.doesNotMatch(code, /trait\s+ScannerReadable/, 'StreamScanner read must use concrete overloads, not an unreachable generic trait default');
-assert.match(code, /fn\s+read\s+<\(StreamScanner\)\*>str>\s+\(sc\):[\s\S]*scan_token_impl\s+sc/, 'StreamScanner must keep a str read overload');
-assert.match(code, /fn\s+read\s+<\(StreamScanner\)\*>i32>\s+\(sc\):[\s\S]*scan_i32_impl\s+sc/, 'StreamScanner must keep an i32 read overload');
-assert.match(code, /fn\s+read\s+<\(StreamScanner\)\*>f64>\s+\(sc\):[\s\S]*scan_f64_impl\s+sc/, 'StreamScanner must keep an f64 read overload');
+assert.doesNotMatch(scannerStateCode, /impl\s+(?:Copy|Clone)\s+for\s+StreamScanner/, 'StreamScanner owns scanner storage and must not be Copy or Clone');
+assert.match(code, /fn\s+read\s+<\(&StreamScanner\)\*>str>\s+\(sc\):[\s\S]*scan_token_impl\s+sc/, 'StreamScanner must keep a borrowed str read overload');
+assert.match(code, /fn\s+read\s+<\(&StreamScanner\)\*>i32>\s+\(sc\):[\s\S]*scan_i32_impl\s+sc/, 'StreamScanner must keep a borrowed i32 read overload');
+assert.match(code, /fn\s+read\s+<\(&StreamScanner\)\*>f64>\s+\(sc\):[\s\S]*scan_f64_impl\s+sc/, 'StreamScanner must keep a borrowed f64 read overload');
+assert.match(code, /fn\s+close\s+<\(StreamScanner\)\*>/, 'StreamScanner close must remain owner-consuming');
 
 assert.match(
     code,

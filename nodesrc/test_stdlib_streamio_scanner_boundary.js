@@ -185,6 +185,39 @@ assert.match(
 );
 
 assert.doesNotMatch(
+    stateCode,
+    /\bimpl\s+(?:Copy|Clone)\s+for\s+StreamScanner\b/,
+    'StreamScanner owns raw-backed header/buffer storage and must not be Copy or Clone',
+);
+
+for (const [fnName, relPath, owner] of [
+    ['skip_ws', scannerRelPath, 'scanner root'],
+    ['is_eof', scannerRelPath, 'scanner root'],
+    ['skip', scannerRelPath, 'scanner root'],
+    ['scan_token_impl', scannerRelPath, 'scanner root'],
+    ['read', scannerRelPath, 'scanner root'],
+    ['scan_i32_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_u32_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_u64_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_i64_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_f64_impl', scannerNumberFloatRelPath, 'scanner float parser'],
+    ['scan_f32_impl', scannerNumberFloatRelPath, 'scanner float parser'],
+]) {
+    const fnCode = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+    assert.match(
+        fnCode,
+        new RegExp(`\\bfn\\s+${fnName}\\s+<\\(\\&StreamScanner\\)\\*>`),
+        `StreamScanner ${fnName} in ${owner} must borrow the owning handle instead of copying it`,
+    );
+}
+
+assert.match(
+    code,
+    /\bfn\s+close\s+<\(StreamScanner\)\*>/,
+    'StreamScanner close must remain the owner-consuming cleanup API',
+);
+
+assert.doesNotMatch(
     code,
     /\bfn\s+stream_scanner_header_ptr\b/,
     'StreamScanner must not reintroduce a RegionToken header pointer helper',

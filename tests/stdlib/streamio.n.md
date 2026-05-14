@@ -96,6 +96,7 @@ stdout: "1 2\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 #import "core/cast" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     unwrap_ok open WriteStream::Stdio
@@ -217,14 +218,15 @@ stdout: "10\n-20\n30\n4.500000\n"
 
 #import "std/streamio" as *
 #import "std/iotarget" as *
+#import "core/result" as *
 fn main <()*>i32> ():
     let input <ReadStream> ReadStream::Stdio;
     let output <WriteStream> WriteStream::Stdio;
     let sc <StreamScanner> unwrap_ok open input;
-    let a <i32> read sc;
-    let b <i32> read sc;
-    let c <i64> read sc;
-    let d <f64> read sc;
+    let a <i32> read &sc;
+    let b <i32> read &sc;
+    let c <i64> read &sc;
+    let d <f64> read &sc;
     close sc;
     unwrap_ok open output
     |> writeln a
@@ -248,13 +250,14 @@ stdout: "4294967295\n18446744073709551615\n"
 
 #import "std/streamio" as *
 #import "std/iotarget" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     let input <ReadStream> ReadStream::Stdio;
     let output <WriteStream> WriteStream::Stdio;
     let sc <StreamScanner> unwrap_ok open input;
-    let a <u32> read sc;
-    let b <u64> read sc;
+    let a <u32> read &sc;
+    let b <u64> read &sc;
     close sc;
     unwrap_ok open output
     |> writeln a
@@ -277,12 +280,13 @@ stdout: "abc\n42\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 #import "std/stdio" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     let input <ReadStream> ReadStream::Stdio;
     let sc <StreamScanner> unwrap_ok open input;
-    let token <str> read sc;
-    let value <i32> read sc;
+    let token <str> read &sc;
+    let value <i32> read &sc;
     close sc;
     print token;
     println "";
@@ -301,13 +305,35 @@ diag_code: type.overload.no_match
 
 #import "std/streamio" as *
 #import "std/iotarget" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     let input <ReadStream> ReadStream::Text "true";
     let sc <StreamScanner> unwrap_ok open input;
-    let value <bool> read sc;
+    let value <bool> read &sc;
     close sc;
     if value 0 1
+```
+
+## stream_scanner_read_requires_borrowed_handle
+
+neplg2:test[compile_fail]
+diag_code: type.overload.no_match
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/streamio" as *
+#import "std/iotarget" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let input <ReadStream> ReadStream::Text "1";
+    let sc <StreamScanner> unwrap_ok open input;
+    let value <i32> read sc;
+    close sc;
+    value
 ```
 
 ## stdout_binary_writer_pipe_data_to_target
@@ -345,14 +371,15 @@ stdout: "13\n24\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 #import "core/math" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     let left <StreamScanner> unwrap_ok open ReadStream::Text "10 3"
     let right <StreamScanner> unwrap_ok open ReadStream::Text "20 4"
-    let a <i32> read left
-    let b <i32> read left
-    let c <i32> read right
-    let d <i32> read right
+    let a <i32> read &left
+    let b <i32> read &left
+    let c <i32> read &right
+    let d <i32> read &right
     close left;
     close right;
     unwrap_ok open WriteStream::Stdio

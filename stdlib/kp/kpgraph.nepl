@@ -151,8 +151,8 @@ pub fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>()> (g, u, v):
 //: [計算量/けいさんりょう]:
 //: - O(n^2 + m)
 pub fn dense_graph_read_undirected_1indexed <(StreamScanner)*>DenseGraph> (sc):
-    let n <i32> read sc;
-    let m <i32> read sc;
+    let n <i32> read &sc;
+    let m <i32> read &sc;
     let size <i32> mul n n;
     let mat <i32> alloc_raw size;
     let mut z <i32> 0;
@@ -163,8 +163,8 @@ pub fn dense_graph_read_undirected_1indexed <(StreamScanner)*>DenseGraph> (sc):
     let mut i <i32> 0;
     while lt i m:
         do:
-            let u1 <i32> read sc;
-            let v1 <i32> read sc;
+            let u1 <i32> read &sc;
+            let v1 <i32> read &sc;
             let u <i32> sub u1 1;
             let v <i32> sub v1 1;
             let uv <i32> add mul u n v;

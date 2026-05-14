@@ -23,6 +23,9 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/io" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
 //:| #import "std/streamio" as *
 //:| #import "std/iotarget" as *
 //: fn main <()*>i32> ():
@@ -30,8 +33,8 @@
 //:     let _len <i32> io_bytebuf_len_ref &bytes0;
 //:     io_bytebuf_free bytes0;
 //:     let sc <StreamScanner> unwrap_ok open ReadStream::Text "1 2";
-//:     let a <i32> read sc;
-//:     let b <i32> read sc;
+//:     let a <i32> read &sc;
+//:     let b <i32> read &sc;
 //:     close sc;
 //:     unwrap_ok open WriteStream::Stdio
 //:     |> write "x"

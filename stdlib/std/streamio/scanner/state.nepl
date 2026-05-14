@@ -6,7 +6,7 @@
 //: - token parser は header field を直接組み立てず、この module の境界 helper を通して cursor state を読み書きします。
 //:
 //: ### [注意/ちゅうい]
-//: - `StreamScanner` は header と buffer を共有する軽量 handle です。copy / clone は同じ cursor を指します。
+//: - `StreamScanner` は header と buffer を所有する handle です。読み取りは borrow、解放は `close` で行います。
 //: - `scanner_from_bytes` は渡された `ByteBuf` を成功/失敗にかかわらず消費します。
 
 #indent 4
@@ -28,20 +28,12 @@
 //: - `kpread` にあった token parser の[中核/ちゅうかく]を `std` 側へ[昇格/しょうかく]し、stdin / in-memory text / binary / file を[同/おな]じ scanner [面/めん]へ[載/の]せます。
 //:
 //: ### [注意/ちゅうい]
-//: - scanner handle [自体/じたい]は[軽量/けいりょう]なので `Copy` / `Clone` を[実装/じっそう]します。
-//: - copy / clone は[同/おな]じ cursor と buffer を[共有/きょうゆう]する alias です。`read` を[進/すす]めると、ほかの alias から[見/み]える[位置/いち]も[進/すす]みます。
-//: - buffer の[解放/かいほう]は `close` が[担当/たんとう]するので、alias を[作/つく]った[場合/ばあい]でも `close` は[最後/さいご]に 1 [回/かい]だけ[呼/よ]んでください。
+//: - scanner handle は header と buffer の[解放/かいほう][責務/せきむ]を[持/も]つため、`Copy` / `Clone` は[実装/じっそう]しません。
+//: - `read` / `skip` / `is_eof` は `&StreamScanner` を[受/う]け[取/と]り、cursor だけを[進/すす]めます。
+//: - buffer の[解放/かいほう]は owner を[消費/しょうひ]する `close` が[担当/たんとう]します。
 //: - [別々/べつべつ]に `open` した scanner [同士/どうし]は[状態/じょうたい]を[共有/きょうゆう]しないので、[複数/ふくすう]の stream を[同時/どうじ]に[維持/いじ]できます。
 pub struct StreamScanner:
     header <MemPtr<u8>>
-
-impl Copy for StreamScanner:
-    fn copy_mark <(StreamScanner)->StreamScanner> (sc):
-        sc
-
-impl Clone for StreamScanner:
-    fn clone <(&StreamScanner)->StreamScanner> (sc):
-        *sc
 
 pub enum StreamScannerHeaderField:
     BufPtr

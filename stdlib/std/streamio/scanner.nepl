@@ -6,19 +6,20 @@
 //: - scanner の raw memory backed header boundary を writer とは別 module に閉じ込め、source policy で再肥大化を検出できるようにします。
 //:
 //: ### [注意/ちゅうい]
-//: - `StreamScanner` は header と buffer を共有する軽量 handle です。`close` は最後に 1 回だけ呼び出してください。
+//: - `StreamScanner` は header と buffer を所有する handle です。`read` は borrow で呼び、`close` は owner を消費します。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //:| #import "std/iotarget" as *
 //:| #import "std/streamio/scanner" as *
 //: fn main <()*>i32> ():
 //:     let sc <StreamScanner> unwrap_ok open ReadStream::Text "4 5";
-//:     let a <i32> read sc;
-//:     let b <i32> read sc;
+//:     let a <i32> read &sc;
+//:     let b <i32> read &sc;
 //:     close sc;
 //:     add a b
 //: ```
@@ -72,20 +73,20 @@ pub fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
 
 //: ## skip_ws
 //: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす
-pub fn skip_ws <(StreamScanner)*>()> (sc):
-    stream_scanner_skip_ws_header get sc "header"
+pub fn skip_ws <(&StreamScanner)*>()> (sc):
+    stream_scanner_skip_ws_header *get_ref sc "header"
 
 //: ## is_eof
 //: token が[残/のこ]っていないか[確認/かくにん]する
-pub fn is_eof <(StreamScanner)*>bool> (sc):
-    let header <MemPtr<u8>> get sc "header";
+pub fn is_eof <(&StreamScanner)*>bool> (sc):
+    let header <MemPtr<u8>> *get_ref sc "header";
     stream_scanner_skip_ws_header header;
     ge stream_scanner_load_header header StreamScannerHeaderField::Pos stream_scanner_load_header header StreamScannerHeaderField::Len
 
 //: ## skip
 //: [現在/げんざい] token を 1 [個/こ][消費/しょうひ]する
-pub fn skip <(StreamScanner)*>()> (sc):
-    let header <MemPtr<u8>> get sc "header";
+pub fn skip <(&StreamScanner)*>()> (sc):
+    let header <MemPtr<u8>> *get_ref sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
     let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
@@ -109,8 +110,8 @@ pub fn skip <(StreamScanner)*>()> (sc):
 
 //: ## scan_token_impl
 //: [次/つぎ]の token を `str` として[読/よ]む
-pub fn scan_token_impl <(StreamScanner)*>str> (sc):
-    let header <MemPtr<u8>> get sc "header";
+pub fn scan_token_impl <(&StreamScanner)*>str> (sc):
+    let header <MemPtr<u8>> *get_ref sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
     let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
@@ -148,30 +149,30 @@ pub fn scan_token_impl <(StreamScanner)*>str> (sc):
 //: `StreamScanner` から token / [数値/すうち]を[読/よ]む
 //:
 //: ### [目的/もくてき]
-//: - suffix [付/つ]き API を[残/のこ]さず、`read sc` の 1 [個/こ]の[名前/なまえ]へ[統一/とういつ]します。
+//: - suffix [付/つ]き API を[残/のこ]さず、`read &sc` の 1 [個/こ]の[名前/なまえ]へ[統一/とういつ]します。
 //: - 対応型ごとの overload として定義し、未対応型は runtime trap ではなく overload 解決失敗にします。
 //:
 //: ### [注意/ちゅうい]
 //: - [受/う]け[側/がわ]の[型注釈/かたちゅうしゃく]または式の期待型で[読/よ]む[型/かた]を[決/き]めます。
-pub fn read <(StreamScanner)*>str> (sc):
+pub fn read <(&StreamScanner)*>str> (sc):
     scan_token_impl sc
 
-pub fn read <(StreamScanner)*>i32> (sc):
+pub fn read <(&StreamScanner)*>i32> (sc):
     scan_i32_impl sc
 
-pub fn read <(StreamScanner)*>i64> (sc):
+pub fn read <(&StreamScanner)*>i64> (sc):
     scan_i64_impl sc
 
-pub fn read <(StreamScanner)*>u32> (sc):
+pub fn read <(&StreamScanner)*>u32> (sc):
     scan_u32_impl sc
 
-pub fn read <(StreamScanner)*>u64> (sc):
+pub fn read <(&StreamScanner)*>u64> (sc):
     scan_u64_impl sc
 
-pub fn read <(StreamScanner)*>f64> (sc):
+pub fn read <(&StreamScanner)*>f64> (sc):
     scan_f64_impl sc
 
-pub fn read <(StreamScanner)*>f32> (sc):
+pub fn read <(&StreamScanner)*>f32> (sc):
     scan_f32_impl sc
 
 //: ## close

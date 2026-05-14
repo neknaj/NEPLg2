@@ -13,12 +13,13 @@ stdout: "10\n20\n30\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 #import "std/stdio" as *
+#import "core/result" as *
 
 fn main <()*>()> ():
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i32> read sc;
-    let b <i32> read sc;
-    let c <i32> read sc;
+    let a <i32> read &sc;
+    let b <i32> read &sc;
+    let c <i32> read &sc;
     println_i32 a;
     println_i32 b;
     println_i32 c;
@@ -37,6 +38,7 @@ stdout: "hello world"
 #import "std/stdio" as *
 #import "std/streamio" as *
 #import "std/iotarget" as *
+#import "core/result" as *
 
 fn main <()*>()> ():
     let line <str> read_line;
@@ -65,8 +67,8 @@ stdout: "6\n14\n15\n"
 
 fn main <()*>()> ():
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let n <i32> read sc;
-    let q <i32> read sc;
+    let n <i32> read &sc;
+    let q <i32> read &sc;
 
     let pref_len <i32> add n 1;
     let pref <i32> unwrap_ok alloc mul pref_len 4;
@@ -75,7 +77,7 @@ fn main <()*>()> ():
     let mut i <i32> 1;
     while le i n:
         do:
-            let a <i32> read sc;
+            let a <i32> read &sc;
             let im1 <i32> sub i 1;
             let prev_off <i32> mul im1 4;
             let prev_ptr <i32> add pref prev_off;
@@ -98,8 +100,8 @@ fn main <()*>()> ():
     let mut k <i32> 0;
     while lt k q:
         do:
-            let l1 <i32> read sc;
-            let r1 <i32> read sc;
+            let l1 <i32> read &sc;
+            let r1 <i32> read &sc;
             let l <i32> sub l1 1;
             let left_off <i32> mul l 4;
             let right_off <i32> mul r1 4;
@@ -154,7 +156,7 @@ fn ways <(i32)*>i64> (n):
 
 fn main <()*>()> ():
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let n <i32> read sc;
+    let n <i32> read &sc;
     let ans <i64> ways n;
     close sc;
     unwrap_ok open WriteStream::Stdio
@@ -175,12 +177,13 @@ stdout: "3.500000\n-2.250000\n100.000000\n"
 
 #import "std/streamio" as *
 #import "std/iotarget" as *
+#import "core/result" as *
 
 fn main <()*>()> ():
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <f64> read sc;
-    let b <f64> read sc;
-    let c <f64> read sc;
+    let a <f64> read &sc;
+    let b <f64> read &sc;
+    let c <f64> read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln a
@@ -202,10 +205,11 @@ stdout: "1.250000\n"
 
 #import "std/streamio" as *
 #import "std/iotarget" as *
+#import "core/result" as *
 
 fn main <()*>()> ():
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let v <f32> read sc;
+    let v <f32> read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln v
