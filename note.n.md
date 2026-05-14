@@ -38419,3 +38419,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass
   - `node nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js`: pass
   - `node nodesrc/tests.js -i stdlib/kp/kpprefix.nepl --no-tree -o tmp/agent1-kpprefix-vec-owner-boundary-module.json -j 1 --dist web/dist --assert-io`: 1/1 pass
+## 2026-05-15 Agent 1 kpfenwick/kpdsu owner boundary
+
+- `ISS-20260514T200755109Z-KPFENWICK-AND-KPDSU-EXPOSE-RAW-I32-O-953345F8` を追加して fixed にした。
+- `stdlib/kp/kpfenwick.nepl` は raw `i32` handle API と raw memory helper import を削除し、`Fenwick` owner / `FenwickAddError` / `Result<_, Diag>` の API に変更した。
+- `kpfenwick` は `alloc/collections/fenwick` root facade を丸ごと import しない。既存 Fenwick の `add` API 名が `core/math.add` と干渉するため、typed storage helper / mutation helper / query helper / diagnostic helper を直接利用する構成にした。
+- `stdlib/kp/kpdsu.nepl` は raw parent/size storage handle を廃止し、`DisjointSet` owner と `DisjointSetUpdateError` を使う `alloc/collections/disjoint_set` facade へ委譲した。
+- `nodesrc/test_stdlib_kp_structures_owner_boundary.js` を追加し、KP Fenwick/DSU が raw memory boundary module や raw `i32` owner signature に戻らないことを検査する。
+- focused verification:
+  - `node nodesrc/test_stdlib_kp_structures_owner_boundary.js`
+  - `node nodesrc/tests.js -i stdlib/kp/kpfenwick.nepl --no-tree -o tmp/agent1-kpfenwick-owner-boundary-module.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i stdlib/kp/kpdsu.nepl --no-tree -o tmp/agent1-kpdsu-owner-boundary-module.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/issues.js check --dir issues`
