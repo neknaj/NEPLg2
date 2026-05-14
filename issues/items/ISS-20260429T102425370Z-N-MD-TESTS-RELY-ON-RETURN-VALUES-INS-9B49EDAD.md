@@ -458,3 +458,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\stack.n.md --no-tree -o tmp\agent1-stack-stdlib-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
 
 この issue はまだ open のまま継続する。Stack 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Stack collections stdout report migration
+
+`tests/stdlib/stack_collections.n.md` の Stack collections focused doctest 9 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `new` / `push` / `len` / `peek` / `pop` / empty pop / `get` keeps stack / `pop_top` keeps stack / grow-clear-free reallocation の観測結果を assertion label として stdout に残すようにした。
+- `stdlib/tests/stack.n.md` と同じ canonical report 方針へ揃え、collections regression 側でも report format を固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\stack_collections.n.md --no-tree -o tmp\agent1-stack-collections-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
+
+この issue はまだ open のまま継続する。Stack collections 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

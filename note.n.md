@@ -37701,3 +37701,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `new` / `push` / `len` / `peek` / `pop` / empty pop / alias pipe API / `get` keeps stack / `pop_top` keeps stack の観測結果を assertion label として stdout に固定した。
 - 旧 fixture の「成功なら戻り値 1」をやめ、report の failed count から `exit_code: 0` を返す形へ統一した。
 - `node nodesrc/tests.js -i stdlib/tests/stack.n.md --no-tree -o tmp/agent1-stack-stdlib-report-tests.json -j 1 --assert-io --dist web/dist` は total=9, passed=9。
+
+## 2026-05-14 Agent 1 Stack collections stdout report doctest migration
+
+- `work/stack-collections-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/stdlib/stack_collections.n.md` を更新した。
+- Stack collections の 9 doctest を `ret: 1` による合否だけの表現から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `new` / `push` / `len` / `peek` / `pop` / empty pop / `get` keeps stack / `pop_top` keeps stack / grow-clear-free reallocation の観測結果を assertion label として stdout に固定した。
+- `node nodesrc/tests.js -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/agent1-stack-collections-report-tests.json -j 1 --assert-io --dist web/dist` は total=9, passed=9。
