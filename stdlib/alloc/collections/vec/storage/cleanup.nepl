@@ -19,14 +19,19 @@
 //: storage state に[応/おう]じて backing buffer を[解放/かいほう]する
 //:
 //: ### [目的/もくてき]
-//: - `RegionToken` を必ず `dealloc_region` へ[渡/わた]し、Resource IR が free obligation owner の消費を直接[追跡/ついせき]できる形にします。
+//: - `VecStorageState` を match し、allocation を[持/も]つ `Owned` のときだけ `RegionToken` を `dealloc_region` へ[渡/わた]します。
+//: - `Empty` は allocation を[持/も]たない state なので、zero-size sentinel を owner-consuming cleanup へ[流/なが]しません。
 //:
 //: ### [注意/ちゅうい]
 //: - この helper は storage-only dealloc であり、要素ごとの Drop は[実行/じっこう]しません。そのため `OwnedBuffer<T>` と initialized prefix traversal が[入/はい]るまでは `.T: Copy` に[限定/げんてい]します。
 //: - non-Copy 要素の drop traversal は collection cleanup issue の対象として分けます。
-pub fn vec_free_storage <.T: Copy> <(RegionToken<.T>)->()> (region):
-    match dealloc_region<.T> region:
-        Result::Ok _:
+pub fn vec_free_storage <.T: Copy> <(VecStorageState,RegionToken<.T>)->()> (storage, region):
+    match storage:
+        VecStorageState::Empty:
             ()
-        Result::Err _:
-            ()
+        VecStorageState::Owned:
+            match dealloc_region<.T> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()

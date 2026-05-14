@@ -60,7 +60,8 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //: - `Vec<.T>` が[所有/しょゆう]する `region` [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - `region` owner は `vec/storage` の cleanup helper へ[移動/いどう]します。
+//: - `storage` と `region` owner は `vec/storage` の cleanup helper へ[移動/いどう]します。
+//: - `VecStorageState::Empty` は allocation を[持/も]たないため、cleanup helper 側で `dealloc_region` へ[渡/わた]しません。
 //:
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
@@ -84,4 +85,5 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //:     0
 //: ```
 pub fn free <.T: Copy> <(Vec<.T>)->()> (v):
-    vec_storage::vec_free_storage<.T> field::get v "region"
+    let v_storage <VecStorageState> *field::get_ref &v "storage"
+    vec_storage::vec_free_storage<.T> v_storage field::get v "region"

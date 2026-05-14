@@ -247,3 +247,11 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `region_new` の正常例は `alloc_ptr<u8>` 由来の allocator-issued pointer から `RegionToken<u8>` を作り、最後に `dealloc_region<u8>` で free obligation を閉じる形へ変更した。あわせて source policy regression を追加し、canonical internal doctest が `region_new mem_ptr_wrap` や non-zero fixed raw address wrapping を正常例として再導入しないようにした。
 
 これは `RegionToken<T>` の forgeability 本体を閉じる修正ではないため、この親 issue は open のまま継続する。Stage 6 の残件は引き続き compiler-issued owner token / `OwnedBuffer<T>` / initialized prefix / collection drop traversal である。
+
+## 2026-05-15 Agent 1 Vec empty cleanup storage-state 追記
+
+`ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF` で、`Vec` の empty storage cleanup を storage state の match に戻した。
+
+`VecStorageState::Empty` は allocation を持たない状態であり、zero-size `RegionToken<T>` sentinel を owner-consuming `dealloc_region` へ渡すべきではない。修正後の `vec_free_storage<T>` は `Empty` を no-op、`Owned` を `dealloc_region` として分岐するため、raw-memory-backed public API の過渡設計でも owner obligation の有無が `VecStorageState` の enum に現れる。
+
+これは `RegionToken<T>` を compiler-issued token へ置き換える最終修正ではないため、この親 issue は open のまま継続する。次の主対象は `OwnedBuffer<T>` / initialized prefix / forged token API 廃止である。

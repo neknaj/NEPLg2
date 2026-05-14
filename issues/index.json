@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T15:43:46.694Z",
+  "generated_at": "2026-05-14T15:52:47.689Z",
   "counts": {
-    "total": 771,
+    "total": 772,
     "open": 7,
-    "resolved": 764,
+    "resolved": 765,
     "by_area": {
       "stdlib": {
-        "total": 204,
+        "total": 205,
         "open": 5,
-        "resolved": 199
+        "resolved": 200
       },
       "TEST": {
         "total": 21,
@@ -9013,6 +9013,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T153830277Z-STRING-APPEND-BOUNDARY-POLICY-STILL--F431B18E.md"
+    },
+    {
+      "id": "ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF",
+      "title": "Vec empty cleanup treats zero-capacity sentinel as owned storage",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "stdlib/alloc/collections/vec/storage/cleanup.nepl, stdlib/alloc/collections/vec/mutation/cleanup.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
