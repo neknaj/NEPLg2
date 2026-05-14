@@ -590,3 +590,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\drop_overwrite.n.md --no-tree -o tmp\agent1-drop-overwrite-report-tests.json -j 1 --assert-io --dist web/dist`: total=1, passed=1
 
 この issue はまだ open のまま継続する。Drop overwrite 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Char cast stdout report migration
+
+`tests/compiler/char_cast.n.md` の char / code point 明示 cast 回帰 doctest 2 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `char` 変数から code point への明示 `cast` と、checked code point から `char` への明示 `cast` を assertion label として stdout に残すようにした。
+- 暗黙変換を許さない char 型境界を、成功時にも runner output から確認できる形にした。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\char_cast.n.md --no-tree -o tmp\agent1-char-cast-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+
+この issue はまだ open のまま継続する。Char cast 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
