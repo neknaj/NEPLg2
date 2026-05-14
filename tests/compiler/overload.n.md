@@ -232,16 +232,17 @@ fn main <()->i32> ():
 
 ## overload_len_for_string_and_vec
 
-neplg2:test
-ret: 8
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_len_for_string_and_vec\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"Vec len overload selected\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"str len overload selected\" expected=\"1001\" actual=\"1001\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/string" as *
 #import "alloc/collections/vec" as v
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as test
 
 fn size <(str)->i32> (s):
     add 1000 1
@@ -251,7 +252,7 @@ fn size <(Vec<i32>)->i32> (vec):
     v::free<i32> vec;
     n
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <Vec<i32>>:
         v::new<i32>
         |> uwok
@@ -259,22 +260,25 @@ fn main <()->i32> ():
         |> v::push<i32> 5 |> uwok
     let a <i32> size v;
     let b <i32> size "x";
-    let ok_a <bool> eq a 2;
-    let ok_b <bool> eq b 1001;
-    let ok <bool> and ok_a ok_b;
-    if ok 8 0
+    let report:
+        test::test_report_new "overload_len_for_string_and_vec"
+        |> test::test_report_push test::assert_eq_i32 "Vec len overload selected" 2 a
+        |> test::test_report_push test::assert_eq_i32 "str len overload selected" 1001 b
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_new_with_pipe_vec
 
-neplg2:test
-ret: 2
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_new_with_pipe_vec\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"pipe keeps Vec constructor overload\" expected=\"2\" actual=\"2\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/collections/vec" as v
 #import "core/result" as *
+#import "std/test" as test
 
 fn new <()*>Vec<i32>> ():
     unwrap_ok v::new<i32>
@@ -289,21 +293,26 @@ fn main <()*>i32> ():
         |> v::push 2 |> uwok
     let n <i32> v::len<i32> &v;
     v::free<i32> v;
-    n
+    let report:
+        test::test_report_new "overload_new_with_pipe_vec"
+        |> test::test_report_push test::assert_eq_i32 "pipe keeps Vec constructor overload" 2 n
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_pair_field_from_generic_result_keeps_tuple_type
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"overload_pair_field_from_generic_result_keeps_tuple_type\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"generic Result tuple field keeps Vec type\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 #import "alloc/collections/vec" as v
 #import "core/field" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as test
 
 fn pair_with_empty <.T: Copy> <(Vec<.T>)->Result<.Pair, StdErrorKind>> (left):
     let right <Vec<.T>> uwok v::new<.T>;
@@ -322,7 +331,11 @@ fn main <()*>i32> ():
     let n <i32> v::len<i32> &evens;
     v::free<i32> evens;
     v::free<i32> rest;
-    if eq n 1 1 0
+    let report:
+        test::test_report_new "overload_pair_field_from_generic_result_keeps_tuple_type"
+        |> test::test_report_push test::assert_eq_i32 "generic Result tuple field keeps Vec type" 1 n
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## overload_result_inferred_from_outer_arg_context

@@ -921,3 +921,22 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\overload.n.md --no-tree -o tmp\agent1-overload-initial-report-tests.json -j 1 --assert-io --dist web/dist`: total=45, passed=44, failed=1。失敗は未変更の doctest#10 で、上記の新規 issue に分離した。
 
 この issue はまだ open のまま継続する。Overload の残り `ret:` 依存 fixture、未変更 fixture drift、report 省略検出 policy が残っている。
+
+## 2026-05-14 Overload Vec/field stdout report migration
+
+`tests/compiler/overload.n.md` の Vec / tuple field 関連の成功系 doctest 3 件を canonical `std/test` report へ移行した。
+
+移行内容:
+
+- `overload_len_for_string_and_vec`、`overload_new_with_pipe_vec`、`overload_pair_field_from_generic_result_keeps_tuple_type` に `neplg2:test[stdio, normalize_newlines]` と deterministic `stdout:` を追加した。
+- Vec overload、zero-arg constructor overload、generic `Result` から取り出した tuple field の `Vec<T>` 型保持を assertion label として stdout に固定した。
+- Vec owner は report 構築前に `free` し、Resource IR の owner obligation を閉じた後に観測値だけを report へ渡す形にした。
+
+検証:
+
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 8 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 9 --assert-io --dist web/dist`: pass
+- `node nodesrc\run_doctest.js -i tests\compiler\overload.n.md -n 10 --assert-io --dist web/dist`: pass
+- `node nodesrc\tests.js -i tests\compiler\overload.n.md --no-tree -o tmp\agent1-overload-vec-field-report-tests.json -j 1 --assert-io --dist web/dist`: total=45, passed=45
+
+この issue はまだ open のまま継続する。Overload の残り `ret:` 依存 fixture と、report 省略検出 policy が残っている。
