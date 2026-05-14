@@ -353,3 +353,13 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 `kpdsu` も raw parent/size storage handle を public `i32` として扱う構成を削除し、`DisjointSet` owner と `DisjointSetUpdateError` を使う `alloc/collections/disjoint_set` facade へ委譲した。query は `&DisjointSet` を読み取り、update は owner を消費して返すため、public API 上で owner/free obligation が型に残る。
 
 この修正は `kpgraph` など残る KP raw-memory-backed module の最終移行ではない。親 issue は引き続き open とし、ordinary stdlib/KP API が raw storage identity を公開しない状態まで Stage 6 を継続する。
+
+## 2026-05-15 Agent 1 kpgraph dense matrix owner boundary 追記
+
+`ISS-20260514T202200590Z-KPGRAPH-EXPOSES-DENSE-MATRIX-RAW-I32-F15E55CB` として、`kp/kpgraph` が dense matrix allocation を public raw `i32` handle として公開していた問題を分離して修正した。
+
+`DenseGraph` は `mat <i32>` ではなく `matrix <AdjacencyMatrix>` を保持する owner wrapper になった。構築は `Result<DenseGraph, Diag>`、更新は `Result<DenseGraph, DenseGraphUpdateError>`、BFS は `&DenseGraph` から `Result<Vec<i32>, Diag>` を返す。旧 `dense_graph_bfs_dist_raw(n, mat, start)` は互換 alias を残さず削除した。
+
+BFS の距離配列と queue は `Vec<i32>` で初期化し、`v::get` / `v::replace` / `v::free` を使う。doctest も returned `Vec<i32>` の raw storage を `mem_ptr_addr` / `load_i32` で読む例をやめ、`v::get<i32>` で結果を表示する。
+
+これにより KP graph helper の public surface から raw matrix pointer と raw Vec storage read の入口を閉じた。残る KP raw-memory-backed module では `kpsearch` の internal raw helper / public Vec wrapper 境界が次の確認対象である。

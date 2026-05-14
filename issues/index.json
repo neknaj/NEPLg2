@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T20:16:49.777Z",
+  "generated_at": "2026-05-14T20:28:20.882Z",
   "counts": {
-    "total": 791,
+    "total": 792,
     "open": 8,
-    "resolved": 783,
+    "resolved": 784,
     "by_area": {
       "stdlib": {
-        "total": 221,
+        "total": 222,
         "open": 5,
-        "resolved": 216
+        "resolved": 217
       },
       "TEST": {
         "total": 21,
@@ -9313,6 +9313,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T200755109Z-KPFENWICK-AND-KPDSU-EXPOSE-RAW-I32-O-953345F8.md"
+    },
+    {
+      "id": "ISS-20260514T202200590Z-KPGRAPH-EXPOSES-DENSE-MATRIX-RAW-I32-F15E55CB",
+      "title": "kpgraph exposes dense matrix raw i32 storage handles",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/kp/kpgraph.nepl, nodesrc/test_stdlib_kpgraph_owner_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T202200590Z-KPGRAPH-EXPOSES-DENSE-MATRIX-RAW-I32-F15E55CB.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
