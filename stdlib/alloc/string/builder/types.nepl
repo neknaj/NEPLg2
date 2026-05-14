@@ -54,6 +54,68 @@ pub fn string_builder_empty <()->StringBuilder> ():
 pub fn string_builder_from_byte_builder <(ByteBuilder)->StringBuilder> (bytes):
     StringBuilder bytes
 
+//: string_builder_len_ref: builder の現在の byte 長を参照から読む
+//:
+//: [目的/もくてき]:
+//: - `StringBuilder` owner を消費せず、syscall や serializer が必要とする byte 長だけを読みます。
+//:
+//: [注意/ちゅうい]:
+//: - 返すのは UTF-8 文字数ではなく、内部 buffer の有効 byte 数です。
+pub fn string_builder_len_ref <(&StringBuilder)->i32> (sb):
+    let bytes_ref <&ByteBuilder> get_ref sb "bytes"
+    *get_ref bytes_ref "len"
+
+//: string_builder_data_ptr_ref: builder の byte buffer 先頭を非所有 pointer view として借りる
+//:
+//: [目的/もくてき]:
+//: - WASI syscall など、`str` owner へ確定せず byte buffer を読む境界へ渡すための pointer view を作ります。
+//:
+//: [注意/ちゅうい]:
+//: - 返る `MemPtr<u8>` は non-owning view です。free obligation は引き続き `StringBuilder` 内の `ByteBuilder` が持ちます。
+//: - 呼び出し側は元の builder を解放または build するまで有効な一時 view としてだけ扱ってください。
+pub fn string_builder_data_ptr_ref <(&StringBuilder)->MemPtr<u8>> (sb):
+    let bytes_ref <&ByteBuilder> get_ref sb "bytes"
+    byte_builder_data_ptr_ref bytes_ref
+
+//: string_builder_ptr_ref: 空でない builder の byte buffer pointer view を返す
+//:
+//: [目的/もくてき]:
+//: - empty builder では syscall に渡せる pointer がないため `None` として扱います。
+//:
+//: [注意/ちゅうい]:
+//: - `Some` の中身は non-owning view であり、owner ではありません。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match string_builder_new_result ():
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok b0:
+//:             match sb_append_result b0 "abc":
+//:                 Result::Err _e:
+//:                     2
+//:                 Result::Ok b1:
+//:                     let len0 <i32> string_builder_len_ref &b1
+//:                     let has_ptr <bool> match string_builder_ptr_ref &b1:
+//:                         Option::Some _ptr:
+//:                             true
+//:                         Option::None:
+//:                             false
+//:                     string_builder_free b1
+//:                     if and eq len0 3 has_ptr 0 3
+//: ```
+pub fn string_builder_ptr_ref <(&StringBuilder)->Option<MemPtr<u8>>> (sb):
+    let bytes_ref <&ByteBuilder> get_ref sb "bytes"
+    byte_builder_ptr_ref bytes_ref
+
 //: string_builder_into_byte_builder: text builder から byte owner を取り出す
 //:
 //: [目的/もくてき]:

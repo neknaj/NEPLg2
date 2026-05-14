@@ -38167,3 +38167,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `module_parser.nepl` の doctest は parser logic ではなく、snippet 側が `eq` を提供する `core/math` を import していないため compile phase で止まっていた。
 - doctest snippet に `#import "core/math" as *` を追加し、module 本体と同じ比較 API を使う形に揃えた。
 - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/agent1_module_parser_eq_import_after.json -j 1 --assert-io`: 1/1 pass、`compile_ms=24435`。
+
+# 2026-05-14 Agent 1 メモ (ISS-20260505T021408593Z fs_path_filetype owner flow)
+
+- `fs_path_filetype` は normalized path を `StringBuilder` owner として保持していたが、`get normalized "len"` で owner を消費した後に `&normalized` を borrow しており、ResourceIR の strict cell check では `Moved` 後の borrow として正しく拒否されていた。
+- `StringBuilder` に参照ベースの `string_builder_len_ref` / `string_builder_data_ptr_ref` / `string_builder_ptr_ref` を追加し、`fs_path_filetype` は builder owner を消費せず syscall 用の length / pointer view を作るようにした。
+- `tests/stdlib/fs.n.md` の binary write fixture は ordinary doctest で raw `store_u8` を呼んでいたため、`io_bytebuf_from_str_result "A\x00B"` で public `ByteBuf` API 経由の入力を作る形へ更新した。
+- `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-path-filetype-after.json -j 1 --dist web/dist --assert-io`: 7/7 pass。
+- `stdlib/std/fs.nepl`、`stdlib/std/fs/stat.nepl`、`stdlib/alloc/string/builder/types.nepl` の focused doctest も pass。

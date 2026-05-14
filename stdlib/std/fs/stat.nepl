@@ -55,8 +55,8 @@ pub fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
                     string_builder_free normalized
                     Result<i32,i32>::Err 12
                 Result::Ok stat_buf:
-                    let path_len <i32> get normalized "len"
-                    let path_ptr <i32> match *get_ref &normalized "data":
+                    let path_len <i32> string_builder_len_ref &normalized
+                    let path_ptr <i32> match string_builder_ptr_ref &normalized:
                         Option::None:
                             0
                         Option::Some data:

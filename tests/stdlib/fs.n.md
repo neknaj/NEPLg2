@@ -103,9 +103,6 @@ ret: 0
 #import "std/fs" as *
 #import "std/test" as *
 #import "alloc/io" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/math" as *
@@ -113,15 +110,11 @@ ret: 0
 fn main <()*>i32> ():
     let path <str> "tmp/fs_write_to_bytes_case.bin"
     let mut checks checks_new;
-    match alloc_ptr<u8> 3:
+    match io_bytebuf_from_str_result "A\x00B":
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data
-            store_u8 raw 65;
-            store_u8 add raw 1 0;
-            store_u8 add raw 2 66;
-            match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 3:
+            match fs_write_to_bytes path data:
                 Result::Err _e:
                     set checks checks_push checks Result<(),str>::Err "binary write failed"
                 Result::Ok _:
