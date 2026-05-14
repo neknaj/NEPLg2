@@ -2589,36 +2589,45 @@ fn main <()->i32> ():
 
 ## ローカル変数の set は pure のまま使える
 
-neplg2:test
-ret: 42
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_local_set_pure\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"pure local set result\" expected=\"42\" actual=\"42\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/math" as *
+#import "std/test" as test
 
 fn bump_local <(i32)->i32> (n):
     let mut x <i32> n
     set x add x 2
     x
 
-fn main <()->i32> ():
-    bump_local 40
+fn main <()*>i32> ():
+    let actual <i32> bump_local 40
+    let report:
+        test::test_report_new "move_effect_local_set_pure"
+        |> test::test_report_push test::assert_eq_i32 "pure local set result" 42 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## Copy impl がある struct は再利用できる
 
-neplg2:test
-ret: 60
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_copy_struct_reuse\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy struct reuse\" expected=\"60\" actual=\"60\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/math" as *
 #import "core/traits/copy" as *
 #import "core/field" as *
+#import "std/test" as test
 
 struct Point:
     x <i32>
@@ -2635,24 +2644,31 @@ impl Copy for Point:
 fn sum_point <(Point)->i32> (p):
     add get p "x" get p "y"
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p1 <Point> Point 10 20
     let p2 <Point> p1
-    add sum_point p1 sum_point p2
+    let actual <i32> add sum_point p1 sum_point p2
+    let report:
+        test::test_report_new "move_effect_copy_struct_reuse"
+        |> test::test_report_push test::assert_eq_i32 "copy struct reuse" 60 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## Copy impl がある具体化済み generic struct は再利用できる
 
-neplg2:test
-ret: 6
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_copy_generic_concrete_reuse\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy concrete generic struct reuse\" expected=\"6\" actual=\"6\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/math" as *
 #import "core/traits/copy" as *
 #import "core/field" as *
+#import "std/test" as test
 
 struct Pair<.T>:
     a <.T>
@@ -2669,24 +2685,31 @@ impl Copy for Pair<i32>:
 fn sum_pair <(Pair<i32>)->i32> (p):
     add get p "a" get p "b"
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let q1 <Pair<i32>> Pair 1 2
     let q2 <Pair<i32>> q1
-    add sum_pair q1 sum_pair q2
+    let actual <i32> add sum_pair q1 sum_pair q2
+    let report:
+        test::test_report_new "move_effect_copy_generic_concrete_reuse"
+        |> test::test_report_push test::assert_eq_i32 "copy concrete generic struct reuse" 6 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## Copy bound つき generic Copy impl は具体化後に再利用できる
 
-neplg2:test
-ret: 6
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_copy_generic_bound_reuse\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy generic bound reuse\" expected=\"6\" actual=\"6\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/math" as *
 #import "core/traits/copy" as *
 #import "core/field" as *
+#import "std/test" as test
 
 struct Pair<.T>:
     a <.T>
@@ -2703,10 +2726,15 @@ impl<.T: Copy> Copy for Pair<.T>:
 fn sum_pair <(Pair<i32>)->i32> (p):
     add get p "a" get p "b"
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let q1 <Pair<i32>> Pair 1 2
     let q2 <Pair<i32>> q1
-    add sum_pair q1 sum_pair q2
+    let actual <i32> add sum_pair q1 sum_pair q2
+    let report:
+        test::test_report_new "move_effect_copy_generic_bound_reuse"
+        |> test::test_report_push test::assert_eq_i32 "copy generic bound reuse" 6 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## Copy bound つき generic Copy impl は非 Copy の具体型へ適用しない
@@ -2736,33 +2764,42 @@ fn main <()->i32> ():
 
 ## Copy bound つき generic Copy impl は Copy の具体型へ適用する
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_copy_bound_applies_to_copy_type\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy bound applies to copy type\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/option" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let opt <Option<i32>> Option::Some 1
     let first <Option<i32>> opt
     let second <Option<i32>> opt
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_effect_copy_bound_applies_to_copy_type"
+        |> test::test_report_push test::assert_eq_i32 "copy bound applies to copy type" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## Copy impl がある enum は再利用できる
 
-neplg2:test
-ret: 14
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_copy_enum_reuse\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy enum reuse\" expected=\"14\" actual=\"14\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/math" as *
 #import "core/traits/copy" as *
+#import "std/test" as test
 
 enum Score:
     Single <i32>
@@ -2783,10 +2820,15 @@ fn as_i32 <(Score)->i32> (s):
         Score::Zero:
             0
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let s1 <Score> Score::Single 7
     let s2 <Score> s1
-    add as_i32 s1 as_i32 s2
+    let actual <i32> add as_i32 s1 as_i32 s2
+    let report:
+        test::test_report_new "move_effect_copy_enum_reuse"
+        |> test::test_report_push test::assert_eq_i32 "copy enum reuse" 14 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## 関数内で未定義変数を set すると拒否
@@ -2833,19 +2875,26 @@ fn main <()->i32> ():
 
 ## Copy値への borrow は move を阻害しない
 
-neplg2:test
-ret: 11
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_copy_borrow_allows_reuse\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy borrow allows reuse\" expected=\"11\" actual=\"11\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/math" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let x <i32> 10
     let r &x
-    add x 1
+    let actual <i32> add x 1
+    let report:
+        test::test_report_new "move_effect_copy_borrow_allows_reuse"
+        |> test::test_report_push test::assert_eq_i32 "copy borrow allows reuse" 11 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## Copy impl の対象が非Copy型なら拒否
@@ -3031,12 +3080,14 @@ impl Mark for i32:
 
 ## marker trait は #capability copy 未指定なら Copy 扱いしない
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_marker_trait_not_copy\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"marker trait without capability is not copy\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 trait Marker:
     fn tag <(Self)->Self> (x):
@@ -3049,18 +3100,25 @@ impl Marker for LocalToken:
     fn tag <(LocalToken)->LocalToken> (x):
         x
 
-fn main <()->i32> ():
-    0
+fn main <()*>i32> ():
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_effect_marker_trait_not_copy"
+        |> test::test_report_push test::assert_eq_i32 "marker trait without capability is not copy" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## clone 形状の trait も #capability clone 未指定なら Clone 扱いしない
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_clone_shape_not_clone\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"clone shape without capability is not clone\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
+#import "std/test" as test
 
 trait Dup:
     fn dup <(Self)->Self> (x):
@@ -3070,8 +3128,13 @@ impl Dup for i32:
     fn dup <(i32)->i32> (x):
         x
 
-fn main <()->i32> ():
-    0
+fn main <()*>i32> ():
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_effect_clone_shape_not_clone"
+        |> test::test_report_push test::assert_eq_i32 "clone shape without capability is not clone" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## 不明 capability 名は診断ID付きで拒否
@@ -3206,36 +3269,52 @@ fn main <()*>i32> ():
 
 このケースは、`str` が compiler 固定表ではなく `core/traits/copy` の impl によって Copy として扱われることを確かめます。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_str_copy_trait_impl\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"str reuse through copy trait impl\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/traits/copy" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let s <str> "abc"
     let t <str> s
     let u <str> s
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_effect_str_copy_trait_impl"
+        |> test::test_report_push test::assert_eq_i32 "str reuse through copy trait impl" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## core/traits/copy 導入後は unit の再利用が trait impl で成立する
 
 このケースは、`()` が compiler 固定表ではなく `core/traits/copy` の impl によって Copy として扱われることを確かめます。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"move_effect_unit_copy_trait_impl\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"unit reuse through copy trait impl\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/traits/copy" as *
+#import "std/test" as test
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let u <()> ()
     let a <()> u
     let b <()> u
-    0
+    let actual <i32> 0
+    let report:
+        test::test_report_new "move_effect_unit_copy_trait_impl"
+        |> test::test_report_push test::assert_eq_i32 "unit reuse through copy trait impl" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```

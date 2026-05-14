@@ -850,3 +850,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - 実行時間は約162秒。timeout ではなく 24 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
 
 この issue はまだ open のまま継続する。Generics 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Move/effect stdout report migration
+
+`tests/compiler/move_effect.n.md` の pure/effect / Copy capability 正常系 doctest 11 件を canonical `std/test` report へ移行した。大量の compile_fail fixture は effect / Resource IR / raw memory の拒否境界を固定するため変更していない。
+
+移行内容:
+
+- local `set` が pure のまま扱えること、Copy impl がある struct / generic struct / enum の再利用、Copy 値 borrow 中の再利用、capability を持たない marker/clone-shaped trait が Copy/Clone 扱いされないこと、`str` / unit の Copy trait impl による再利用を stdout report に固定した。
+- `std/test` 導入で `#no_prelude` の local `Clone` / `Copy` capability trait test 2 件は stdlib 側の canonical trait universe が混入し、元の検査対象を壊すことを確認した。そのためこの 2 件は `core` / `#no_prelude` / `ret: 0` のまま維持した。stdout report 化よりも isolated capability semantics の保持を優先した判断である。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-move-effect-report-tests.json -j 1 --assert-io --dist web/dist`: total=113, passed=113
+- 実行時間は約354秒。timeout ではなく 113 doctest の個別 compile が主因であり、今回の変更による runtime hang ではない。
+
+この issue はまだ open のまま継続する。Move/effect の孤立 `core` / `#no_prelude` capability test 2 件は意図的に ret 形式で残し、それ以外の `ret:` 依存 fixture と report 省略検出 policy が残っている。

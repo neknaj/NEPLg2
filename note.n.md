@@ -37905,3 +37905,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - identity multi-instantiation、generic enum match、generic struct construction、multi type parameter function、context inference、nested generic payload、pipe into generic などの観測値を assertion label として stdout に固定した。
 - `std/test` 導入で std 側の `Option` と衝突した正常系 local enum は `LocalOption` に改名した。compile_fail 側は `core` / `#no_prelude` の拒否境界を維持するため既存名のまま残している。
 - `node nodesrc/tests.js -i tests/compiler/generics.n.md --no-tree -o tmp/agent1-generics-report-tests.json -j 1 --assert-io --dist web/dist` は total=24, passed=24。約162秒だが timeout ではなく個別 compile 数が主因。
+
+## 2026-05-14 Agent 1 Move/effect stdout report doctest migration
+
+- `work/move-effect-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/move_effect.n.md` を更新した。
+- pure/effect / Copy capability 正常系 doctest 11 件を canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- local `set` が pure のまま扱えること、Copy impl がある struct / generic struct / enum の再利用、Copy 値 borrow 中の再利用、capability を持たない marker/clone-shaped trait が Copy/Clone 扱いされないこと、`str` / unit の Copy trait impl による再利用を assertion label として stdout に固定した。
+- `#no_prelude` の local `Clone` / `Copy` capability trait test 2 件は、`std/test` を入れると stdlib 側の canonical trait universe が混入して元の検査対象を壊すため、`core` / `#no_prelude` / `ret: 0` のまま維持した。
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-move-effect-report-tests.json -j 1 --assert-io --dist web/dist` は total=113, passed=113。約354秒だが timeout ではなく個別 compile 数が主因。
