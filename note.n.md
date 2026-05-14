@@ -38527,3 +38527,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `stdlib/tests/string.n.md` の `string_find_byte_index` doctest は `Result<(),str>` を使うため `core/result` を明示 import した。
 - `string_to_f64_parser` doctest は `cast` を使うため `core/cast` を明示 import した。
 - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/agent1-string-doctest-import-drift.json -j 1 --dist web/dist --assert-io`: 9/9 pass。
+
+## 2026-05-15 Agent 1 std/text raw UTF-8 facade boundary
+
+- `ISS-20260514T223113919Z-STD-TEXT-ROOT-RE-EXPORTS-RAW-UTF-8-M-7F3A2723` を追加して fixed にした。
+- `stdlib/std/text.nepl` は checked `ByteBuf -> str` conversion だけを root から再公開し、`text/validate` / `text/decode` の raw `MemPtr<u8>` helper は explicit submodule import 境界へ閉じた。
+- `tests/stdlib/text_utf8.n.md` の raw decode / encode case は `std/text/decode` を明示 import し、ordinary conversion case は root `std/text` だけを使う形に分けた。
+- invalid UTF-8 fixture は `mem_ptr_addr` と raw address `store_u8` を使わず、checked `MemPtr` `store_u8` と `dealloc_ptr` cleanup で構成するようにした。
+- `nodesrc/test_stdlib_text_boundary.js` は root facade が raw validation / decode helper を再公開しないことと、checked conversion を維持することを監視する。
+- focused consumer verification で `stdlib/std/io.nepl::doctest#1` の `WriteStream` import drift を確認したため、`ISS-20260514T223843320Z-STD-IO-DOCTEST-OMITS-EXPLICIT-IOTARG-12D221C3` として別 issue にした。
+- focused verification:
+  - `node nodesrc/test_stdlib_text_boundary.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-std-text-root-raw-facade.json -j 1 --dist web/dist --assert-io`: 9/9 pass
+  - `node nodesrc/tests.js -i stdlib/std/io.nepl -i stdlib/std/streamio/input.nepl -i stdlib/std/stdio/read/text.nepl -i stdlib/std/fs/bytes.nepl --no-tree -o tmp/agent1-std-text-root-consumers.json -j 1 --dist web/dist --assert-io`: 4/5 pass。失敗は新規別 issue の `std/io` doctest import drift。

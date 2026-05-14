@@ -1,17 +1,14 @@
 //: # text
-//: UTF-8 text [境界/きょうかい]で[使/つか]う byte [列/れつ]の[検証/けんしょう]と checked [変換/へんかん]を[集/あつ]める facade
+//: UTF-8 text [境界/きょうかい]で[使/つか]う checked [変換/へんかん]を[集/あつ]める facade
 //:
 //: ### [目的/もくてき]
-//: - filesystem や stdin から[入/はい]る raw `ByteBuf` を、`str` として[扱/あつか]う[前/まえ]に UTF-8 として[妥当/だとう]か[検査/けんさ]します。
-//: - UTF-8 の byte-level validation、char decode/encode、`ByteBuf -> str` conversion を責務別 submodule に分けます。
+//: - filesystem や stdin から[入/はい]る `ByteBuf` を、UTF-8 として[検証/けんしょう]してから `str` へ[変換/へんかん]します。
+//: - root は通常利用者向けの checked conversion だけを再公開し、raw `MemPtr` helper は明示 submodule import に閉じます。
 //:
 //: ### [構成/こうせい]
-//: - `text/validate` は leading byte [分類/ぶんるい]と UTF-8 sequence validation を[担当/たんとう]します。
-//: - `text/decode` は raw byte [列/れつ]から `char` を decode し、`char` を UTF-8 `ByteBuf` へ encode します。
 //: - `text/convert` は validated `ByteBuf` を checked `str` へ[変換/へんかん]します。
+//: - `text/validate` / `text/decode` は raw byte [列/れつ]を扱う boundary module なので、必要な実装だけが明示 import します。
 
 #indent 4
 
-pub #import "./text/validate" as @merge
-pub #import "./text/decode" as @merge
 pub #import "./text/convert" as @merge

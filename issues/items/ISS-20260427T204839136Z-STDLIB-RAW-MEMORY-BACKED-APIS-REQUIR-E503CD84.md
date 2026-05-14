@@ -415,3 +415,13 @@ owner aggregate constructor capability は owner-backed aggregate constructor �
 Empty state は runtime allocation を持たないが、public API としては `VecStorageState::Empty` と private `RegionToken<T>` sentinel を持つ `Vec<T>` owner aggregate を生成する。`Vec.free` / `clear` / `push` / `pop` / raw element helper は現行 `OwnedBuffer<T>` 未完成のため Copy-only に閉じているので、`vec_empty<T>` だけを generic に残すと raw-memory-backed collection migration の safe surface が unsupported `Vec<NonCopyPayload>` を作れてしまう。
 
 今回の修正では `vec_empty<T: Copy>` とし、collection cleanup contract の compile-fail regression と source policy で固定した。これは Stage 6 の中間安全境界であり、親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 std/text raw UTF-8 facade boundary 追記
+
+`ISS-20260514T223113919Z-STD-TEXT-ROOT-RE-EXPORTS-RAW-UTF-8-M-7F3A2723` として、`std/text` root が raw UTF-8 validation / decode helper を public `@merge` していた問題を分離して修正した。
+
+今回の修正では、root `std/text` を checked `ByteBuf -> str` conversion facade に戻し、`text/validate` / `text/decode` は explicit submodule import 境界へ閉じた。raw decode / encode を本当に検証する doctest は `std/text/decode` を明示 import し、ordinary conversion doctest は root facade だけを使う。
+
+invalid UTF-8 fixture も raw `i32` address store から checked `MemPtr` `store_u8` / `dealloc_ptr` cleanup へ移した。これは UTF-8 converter が invalid byte を拒否する性質を維持しつつ、通常 doctest が raw memory authority を要求しないようにする Stage 6 の public/raw boundary split である。
+
+focused consumer verification 中に `std/io` doctest が `WriteStream` の定義元を import していない既存 drift を確認したため、`ISS-20260514T223843320Z-STD-IO-DOCTEST-OMITS-EXPLICIT-IOTARG-12D221C3` として分離した。この親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。

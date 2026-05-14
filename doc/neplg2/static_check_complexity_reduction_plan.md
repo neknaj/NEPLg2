@@ -400,6 +400,7 @@ commit 単位:
 - 2026-05-15: `ISS-20260514T211956079Z-OWNER-AGGREGATE-BOUNDARY-TREATS-QUAL-8D858CD3` を解決した。compiler の `OwnerAggregateBoundary` source capability 判定は、`Result::Ok` / `Option::Some` のような qualified enum variant を owner aggregate constructor evidence として扱わないようにした。constructor evidence は unqualified constructor-like symbol に限定し、field accessor evidence は explicit helper として維持する。これにより、ordinary enum construction が owner-backed aggregate constructor / owner-token field projection の capability を過大付与する経路を閉じた。
 - 2026-05-15: `ISS-20260514T212804383Z-OWNER-AGGREGATE-CONSTRUCTOR-AND-OWNE-58143AB3` を解決した。`OwnerAggregateBoundary` を `OwnerAggregateConstructorBoundary` と `OwnerAggregateFieldBoundary` に分離し、source evidence と許可操作の対応を細かくした。constructor evidence だけでは owner token field projection を許可せず、field accessor evidence だけでは owner-backed aggregate direct constructor を許可しない。
 - 2026-05-15: `ISS-20260514T215003679Z-VEC-EMPTY-CONSTRUCTOR-ACCEPTS-NON-CO-258C7574` を解決した。`vec_empty<T>` は allocation を行わなくても public `Vec<T>` owner aggregate を構築するため、現行の Copy-only collection cleanup contract では例外にせず `.T: Copy` に限定した。`Vec<NonCopyPayload>` の empty construction は `type.trait_bound.unsatisfied` で拒否される。
+- 2026-05-15: `ISS-20260514T223113919Z-STD-TEXT-ROOT-RE-EXPORTS-RAW-UTF-8-M-7F3A2723` を解決した。`std/text` root は checked `ByteBuf -> str` conversion だけを再公開し、raw `MemPtr<u8>` based validation / decode helper は `std/text/validate` / `std/text/decode` の explicit import 境界へ閉じた。invalid UTF-8 doctest fixture も raw address store をやめ、checked `MemPtr` store と owner cleanup で構成する。
 
 ### Stage 7: 旧 summary の削除
 
@@ -457,6 +458,8 @@ commit 単位:
 | `DIAG-RENDERER-READS-DIAGS-VEC-STORAG` | Stage 6 の diagnostic renderer / Diags storage boundary issue。 | 2026-05-15 に fixed。`alloc/diag/diag.nepl` の `diags_to_string` を raw `Vec` storage scan から `v::len` / `v::get` の Copy-safe borrowed observer へ移し、renderer file から raw memory import を削除した。 |
 | `DIAGS-ERROR-OBSERVER-SCANS-VEC-STORA` | Stage 6 の Diags read-only observer / storage boundary issue。 | 2026-05-15 に fixed。`alloc/diag/error/diags.nepl` の `diags_has_errors` を raw `Vec` storage scan から `v::len` / `v::get` の Copy-safe borrowed observer へ移し、Diags owner helper から raw memory import を削除した。 |
 | `ALLOC-STRING-ROOT-RE-EXPORTS-RAW-STR` | Stage 6 の string public/raw facade split issue。 | 2026-05-15 に fixed。root `alloc/string` から raw storage / UTF-8 memory helper re-export を外し、raw helper 利用は explicit `alloc/string/storage` / `alloc/string/utf8` import 境界へ閉じた。 |
+| `STD-TEXT-ROOT-RE-EXPORTS-RAW-UTF-8-M` | Stage 6 の text public/raw facade split issue。 | 2026-05-15 に fixed。root `std/text` から raw UTF-8 validation / decode helper re-export を外し、checked conversion と raw `MemPtr` helper 境界を分離した。 |
+| `STD-IO-DOCTEST-OMITS-EXPLICIT-IOTARG` | stdlib doctest import drift issue。 | open。`std/io` doctest が `WriteStream` の定義元を明示 import していないため、focused verification で compile fail する。 |
 
 新しい個別 bug は、次の基準で追加する。
 

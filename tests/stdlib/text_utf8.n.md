@@ -40,6 +40,7 @@ ret: 0
 #target std
 
 #import "std/text" as *
+#import "std/text/decode" as *
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/char" as *
@@ -88,6 +89,7 @@ ret: 0
 #target std
 
 #import "std/text" as *
+#import "std/text/decode" as *
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/result" as *
@@ -122,8 +124,6 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -132,13 +132,20 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data
-            store_u8 raw 128;
-            match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 1:
-                Result::Ok text:
-                    set checks checks_push checks Result<(),str>::Err text
+            match store_u8 data 128:
                 Result::Err e:
-                    set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
+                    match dealloc_ptr<u8> data 1:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ();
+                    set checks checks_push checks Result<(),str>::Err e
+                Result::Ok _:
+                    match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 1:
+                        Result::Ok text:
+                            set checks checks_push checks Result<(),str>::Err text
+                        Result::Err e:
+                            set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -158,8 +165,6 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -168,13 +173,20 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data
-            store_u8 raw 128;
-            match io_bytebuf_to_str_result io_bytebuf_from_owned_ptr data 1:
-                Result::Ok text:
-                    set checks checks_push checks Result<(),str>::Err text
+            match store_u8 data 128:
                 Result::Err e:
-                    set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
+                    match dealloc_ptr<u8> data 1:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ();
+                    set checks checks_push checks Result<(),str>::Err e
+                Result::Ok _:
+                    match io_bytebuf_to_str_result io_bytebuf_from_owned_ptr data 1:
+                        Result::Ok text:
+                            set checks checks_push checks Result<(),str>::Err text
+                        Result::Err e:
+                            set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -195,10 +207,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
-#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -206,15 +215,34 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data
-            store_u8 raw 224;
-            store_u8 add raw 1 128;
-            store_u8 add raw 2 128;
-            match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 3:
-                Result::Ok text:
-                    set checks checks_push checks Result<(),str>::Err text
+            let mut ok <Result<(),str>> Result<(),str>::Ok ()
+            match store_u8 data 224:
                 Result::Err e:
-                    set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
+                    set ok Result<(),str>::Err e
+                Result::Ok _:
+                    match store_u8 mem_ptr_add data 1 128:
+                        Result::Err e:
+                            set ok Result<(),str>::Err e
+                        Result::Ok _:
+                            match store_u8 mem_ptr_add data 2 128:
+                                Result::Err e:
+                                    set ok Result<(),str>::Err e
+                                Result::Ok _:
+                                    ()
+            match ok:
+                Result::Err e:
+                    match dealloc_ptr<u8> data 3:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ();
+                    set checks checks_push checks Result<(),str>::Err e
+                Result::Ok _:
+                    match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 3:
+                        Result::Ok text:
+                            set checks checks_push checks Result<(),str>::Err text
+                        Result::Err e:
+                            set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -235,8 +263,6 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -246,17 +272,24 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data
-            store_u8 raw 128;
-            match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
-                Result::Err _e:
-                    set checks checks_push checks Result<(),str>::Err "write failed"
+            match store_u8 data 128:
+                Result::Err e:
+                    match dealloc_ptr<u8> data 1:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ();
+                    set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    match fs_read_to_string_checked path:
-                        Result::Ok text:
-                            set checks checks_push checks Result<(),str>::Err text
-                        Result::Err e:
-                            set checks checks_push checks check_eq_i32 84 e;
+                    match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
+                        Result::Err _e:
+                            set checks checks_push checks Result<(),str>::Err "write failed"
+                        Result::Ok _:
+                            match fs_read_to_string_checked path:
+                                Result::Ok text:
+                                    set checks checks_push checks Result<(),str>::Err text
+                                Result::Err e:
+                                    set checks checks_push checks check_eq_i32 84 e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -277,8 +310,6 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -288,17 +319,24 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data
-            store_u8 raw 128;
-            match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
-                Result::Err _e:
-                    set checks checks_push checks Result<(),str>::Err "write failed"
+            match store_u8 data 128:
+                Result::Err e:
+                    match dealloc_ptr<u8> data 1:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ();
+                    set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    match fs_read_to_string path:
-                        Result::Ok text:
-                            set checks checks_push checks Result<(),str>::Err text
-                        Result::Err e:
-                            set checks checks_push checks check_eq_i32 84 e;
+                    match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
+                        Result::Err _e:
+                            set checks checks_push checks Result<(),str>::Err "write failed"
+                        Result::Ok _:
+                            match fs_read_to_string path:
+                                Result::Ok text:
+                                    set checks checks_push checks Result<(),str>::Err text
+                                Result::Err e:
+                                    set checks checks_push checks check_eq_i32 84 e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -320,8 +358,6 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -330,15 +366,22 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok data:
-            let raw <i32> mem_ptr_addr data
-            store_u8 raw 128;
-            let target <ReadStream> ReadStream::Bytes io_bytebuf_from_owned_ptr data 1
-            let text_result <Result<str, StdErrorKind>> read target;
-            match text_result:
-                Result::Ok text:
-                    set checks checks_push checks Result<(),str>::Err text
+            match store_u8 data 128:
                 Result::Err e:
-                    set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
+                    match dealloc_ptr<u8> data 1:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ();
+                    set checks checks_push checks Result<(),str>::Err e
+                Result::Ok _:
+                    let target <ReadStream> ReadStream::Bytes io_bytebuf_from_owned_ptr data 1
+                    let text_result <Result<str, StdErrorKind>> read target;
+                    match text_result:
+                        Result::Ok text:
+                            set checks checks_push checks Result<(),str>::Err text
+                        Result::Err e:
+                            set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

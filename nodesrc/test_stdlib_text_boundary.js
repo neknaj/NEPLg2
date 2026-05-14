@@ -27,17 +27,10 @@ const validateCode = codeOnly(read(validateRelPath));
 const decodeCode = codeOnly(read(decodeRelPath));
 const convertCode = codeOnly(read(convertRelPath));
 
-for (const [submodule, name] of [
-    ['./text/validate', 'validate'],
-    ['./text/decode', 'decode'],
-    ['./text/convert', 'convert'],
-]) {
-    assert.match(
-        rootCode,
-        new RegExp(`pub\\s+#import\\s+"${submodule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s+as\\s+@merge`),
-        `std/text facade must re-export text/${name}`,
-    );
-}
+assert.doesNotMatch(rootCode, /pub\s+#import\s+"\.\/text\/validate"\s+as\s+@merge/, 'std/text facade must not re-export raw validation helpers');
+assert.doesNotMatch(rootCode, /pub\s+#import\s+"\.\/text\/decode"\s+as\s+@merge/, 'std/text facade must not re-export raw decode helpers');
+assert.match(rootCode, /pub\s+#import\s+"\.\/text\/convert"\s+as\s+@merge/, 'std/text facade must re-export checked ByteBuf-to-str conversion');
+assert.match(read(rootRelPath), /raw `MemPtr` helper/, 'std/text root must document explicit raw helper imports');
 
 assert.doesNotMatch(rootCode, /\bfn\s+/, 'std/text facade must not keep implementation functions');
 assert.doesNotMatch(rootCode, /\benum\s+/, 'std/text facade must not keep UTF-8 classifier enums');
