@@ -38366,3 +38366,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
   - `node nodesrc/tests.js -i stdlib/tests/diag.n.md --no-tree -o tmp/agent1-diag-renderer-vec-boundary-diag-tests.json -j 1 --dist web/dist --assert-io`: 2/2 pass
   - `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md --no-tree -o tmp/agent1-diag-renderer-vec-boundary-diag-error-tests.json -j 1 --dist web/dist --assert-io`: 5/5 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T190018299Z Diags error observer Vec boundary)
+
+- `alloc/diag/error/diags.nepl` の `diags_has_errors` が `Vec<Diag>` storage を raw address と `load<Diag>` で直接走査していた問題を修正した。
+- 根本原因は、`Diag` が Copy であるにもかかわらず、read-only observer が `v::data_mem_ptr<Diag>` / `mem_ptr_addr` / `load<Diag>` に降りており、Vec の bounds / storage-state observer 境界を迂回していたこと。
+- `diags_has_errors` は borrowed `Vec<Diag>` を `v::len<Diag>` と `v::get<Diag>` で走査し、`Option<Diag>` と `DiagLevel` を match する形に変更した。
+- by-value `diags_has_errors(Diags)` は従来通り観測後に `diags_free ds` で owner を閉じる。
+- `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` は、Diags read-only observer が raw memory import / raw Vec storage scan を再導入しない方針へ更新した。
+- 検証:
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/error.n.md --no-tree -o tmp/agent1-diags-error-observer-vec-boundary-error-tests.json -j 1 --dist web/dist --assert-io`: 3/3 pass
+  - `node nodesrc/tests.js -i stdlib/alloc/diag/error/diags.nepl --no-tree -o tmp/agent1-diags-error-observer-vec-boundary-module.json -j 1 --dist web/dist --assert-io`: 1/1 pass

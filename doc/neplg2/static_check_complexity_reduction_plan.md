@@ -430,6 +430,7 @@ commit 単位:
 | `STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP` | Stage 6 の std fs/stdio public/raw facade split issue。 | 2026-05-15 に fixed。root `std/fs` と `std/stdio` から raw ABI submodule re-export を外し、WASI / LLVM syscall helper は explicit raw submodule import 境界へ閉じた。 |
 | `STD-ENV-CLIARG-ROOT-MIXES-RAW-ARGV-B` | Stage 6 の std env cliarg public/raw facade split issue。 | 2026-05-15 に fixed。root `std/env/cliarg` から raw argv scratch / out pointer 実装を外し、explicit `std/env/cliarg/raw` と `std/env/cliarg/cstr` 境界へ分離した。 |
 | `DIAG-RENDERER-READS-DIAGS-VEC-STORAG` | Stage 6 の diagnostic renderer / Diags storage boundary issue。 | 2026-05-15 に fixed。`alloc/diag/diag.nepl` の `diags_to_string` を raw `Vec` storage scan から `v::len` / `v::get` の Copy-safe borrowed observer へ移し、renderer file から raw memory import を削除した。 |
+| `DIAGS-ERROR-OBSERVER-SCANS-VEC-STORA` | Stage 6 の Diags read-only observer / storage boundary issue。 | 2026-05-15 に fixed。`alloc/diag/error/diags.nepl` の `diags_has_errors` を raw `Vec` storage scan から `v::len` / `v::get` の Copy-safe borrowed observer へ移し、Diags owner helper から raw memory import を削除した。 |
 
 新しい個別 bug は、次の基準で追加する。
 

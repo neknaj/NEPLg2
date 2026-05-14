@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T18:55:51.342Z",
+  "generated_at": "2026-05-14T19:03:20.492Z",
   "counts": {
-    "total": 785,
+    "total": 786,
     "open": 7,
-    "resolved": 778,
+    "resolved": 779,
     "by_area": {
       "stdlib": {
-        "total": 217,
+        "total": 218,
         "open": 5,
-        "resolved": 212
+        "resolved": 213
       },
       "TEST": {
         "total": 21,
@@ -9223,6 +9223,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T185052018Z-DIAG-RENDERER-READS-DIAGS-VEC-STORAG-D85114C9.md"
+    },
+    {
+      "id": "ISS-20260514T190018299Z-DIAGS-ERROR-OBSERVER-SCANS-VEC-STORA-5ABF687A",
+      "title": "Diags error observer scans Vec storage through raw memory",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/diag/error/diags.nepl, nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T190018299Z-DIAGS-ERROR-OBSERVER-SCANS-VEC-STORA-5ABF687A.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
