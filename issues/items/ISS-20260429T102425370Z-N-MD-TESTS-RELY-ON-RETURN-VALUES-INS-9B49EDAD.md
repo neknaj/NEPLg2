@@ -525,3 +525,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\capacity_stack.n.md --no-tree -o tmp\agent1-capacity-stack-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
 
 この issue はまだ open のまま継続する。CapacityStack 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Math overload stdout report migration
+
+`tests/stdlib/math.n.md` の math / cast overload focused doctest 5 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。既存の `cast_ambiguous_without_expected_type` skip 診断ケースは変更していない。
+
+移行内容:
+
+- 実行される各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- i32 / i64 / i128 arithmetic overload、qualified math facade re-export、numeric cast roundtrip を assertion label として stdout に残すようにした。
+- 期待値は旧 `ret:` の値と同じ数値を `assert_eq_i32` で固定し、成功時にも何を検証したかが runner output に残る形にした。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\math.n.md --no-tree -o tmp\agent1-math-overload-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
+
+この issue はまだ open のまま継続する。Math overload 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

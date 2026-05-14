@@ -37733,3 +37733,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - direct raw address 操作や helper 関数越しの initialized cell proof に依存せず、Resource IR が検査できる形で large allocation / stack / collection growth を確認する fixture へ整理した。
 - `node nodesrc/tests.js -i tests/stdlib/capacity_stack.n.md --no-tree -o tmp/agent1-capacity-stack-before.json -j 1 --assert-io --dist web/dist` は修正前 total=6, passed=3, failed=3。
 - `node nodesrc/tests.js -i tests/stdlib/capacity_stack.n.md --no-tree -o tmp/agent1-capacity-stack-report-tests.json -j 1 --assert-io --dist web/dist` は修正後 total=6, passed=6。
+
+## 2026-05-14 Agent 1 Math overload stdout report doctest migration
+
+- `work/math-overload-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/stdlib/math.n.md` を更新した。
+- 実行される math / cast overload doctest 5 件を戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- i32 / i64 / i128 arithmetic overload、qualified math facade re-export、numeric cast roundtrip を assertion label として stdout に固定した。
+- 既存の `cast_ambiguous_without_expected_type` skip 診断ケースは変更せず、旧 `ret:` 正常系だけを report 化した。
+- `node nodesrc/tests.js -i tests/stdlib/math.n.md --no-tree -o tmp/agent1-math-overload-report-tests.json -j 1 --assert-io --dist web/dist` は total=6, passed=6。
