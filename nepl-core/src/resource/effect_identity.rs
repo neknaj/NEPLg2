@@ -1,8 +1,10 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use crate::types::TypeId;
+
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
-use super::model::{AggregateKind, Place, RawMemoryOp};
+use super::model::{AggregateKind, Place, PlaceProjection, RawMemoryOp};
 use super::place_utils::construct_aggregate_field_place;
 
 pub(super) fn construct_raw_identity_fields(
@@ -60,10 +62,25 @@ impl RawPointerAliasTable {
         out
     }
 
-    pub(super) fn aliases(&self, left: &Place, right: &Place) -> bool {
-        let left_group = self.group_for_or_singleton(left);
-        let right_group = self.group_for_or_singleton(right);
-        groups_overlap(&left_group, &right_group)
+    pub(super) fn projection_aliases_under(
+        &self,
+        place: &Place,
+        seed: &Place,
+    ) -> Vec<(Vec<PlaceProjection>, TypeId)> {
+        let mut out = Vec::new();
+        for group in &self.groups {
+            if !group.iter().any(|existing| existing == seed) {
+                continue;
+            }
+            for existing in group {
+                let Some(suffix) = place_suffix_after_prefix(existing, place) else {
+                    continue;
+                };
+                push_unique_projection_alias(&mut out, suffix, existing.ty);
+            }
+        }
+        out.sort();
+        out
     }
 
     fn copy_alias(&mut self, source: &Place, target: &Place) {
@@ -156,6 +173,19 @@ impl RawPointerAliasTable {
     }
 }
 
+fn push_unique_projection_alias(
+    target: &mut Vec<(Vec<PlaceProjection>, TypeId)>,
+    suffix: Vec<PlaceProjection>,
+    ty: TypeId,
+) {
+    if !target
+        .iter()
+        .any(|(existing_suffix, existing_ty)| existing_suffix == &suffix && *existing_ty == ty)
+    {
+        target.push((suffix, ty));
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct RawIdentityTable {
     groups: Vec<RawIdentityGroup>,
@@ -168,12 +198,6 @@ struct RawIdentityGroup {
 }
 
 impl RawIdentityTable {
-    pub(super) fn contains(&self, place: &Place) -> bool {
-        self.groups
-            .iter()
-            .any(|group| group.places.iter().any(|existing| existing == place))
-    }
-
     pub(super) fn operations(&self, place: &Place) -> Vec<RawMemoryOp> {
         let mut operations = Vec::new();
         for group in &self.groups {
@@ -182,6 +206,36 @@ impl RawIdentityTable {
             }
         }
         operations
+    }
+
+    pub(super) fn projection_operations_under(
+        &self,
+        place: &Place,
+    ) -> Vec<(Vec<PlaceProjection>, TypeId, Vec<RawMemoryOp>)> {
+        let mut out: Vec<(Vec<PlaceProjection>, TypeId, Vec<RawMemoryOp>)> = Vec::new();
+        for group in &self.groups {
+            for existing in &group.places {
+                let Some(suffix) = place_suffix_after_prefix(existing, place) else {
+                    continue;
+                };
+                if let Some((_, _, operations)) = out.iter_mut().find(|(existing_suffix, ty, _)| {
+                    existing_suffix == &suffix && *ty == existing.ty
+                }) {
+                    push_unique_operations(operations, &group.operations);
+                } else {
+                    let mut operations = Vec::new();
+                    push_unique_operations(&mut operations, &group.operations);
+                    out.push((suffix, existing.ty, operations));
+                }
+            }
+        }
+        out.sort_by(|left, right| {
+            left.0
+                .cmp(&right.0)
+                .then_with(|| left.1.cmp(&right.1))
+                .then_with(|| left.2.cmp(&right.2))
+        });
+        out
     }
 
     pub(super) fn mark(&mut self, place: &Place, operation: RawMemoryOp) {
@@ -310,6 +364,13 @@ fn replace_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> O
         out.ty = place.ty;
     }
     Some(out)
+}
+
+fn place_suffix_after_prefix(place: &Place, prefix: &Place) -> Option<Vec<PlaceProjection>> {
+    if !place_has_prefix(place, prefix) {
+        return None;
+    }
+    Some(place.projections[prefix.projections.len()..].to_vec())
 }
 
 fn place_has_prefix(place: &Place, prefix: &Place) -> bool {

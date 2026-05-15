@@ -462,6 +462,28 @@ fn main <()*>i32> ():
     load_i32 16
 ```
 
+## internal MemPtr wrapper で forged pointer を checked store に渡せない
+
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let p <MemPtr<i32>> mem_ptr_wrap<i32> 16
+    match store_i32 p 7:
+        Result::Ok _:
+            1
+        Result::Err _:
+            0
+```
+
 ## load_i32 は MemPtr<i32> だけを受け付ける
 
 neplg2:test[compile_fail]

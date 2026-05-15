@@ -2997,6 +2997,203 @@ fn resource_ir_effect_check_rejects_raw_memory_outside_boundary_in_impure_functi
 }
 
 #[test]
+fn compile_rejects_checked_mem_ptr_wrapper_with_forged_positive_address() {
+    let source = r#"
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let p <MemPtr<i32>> mem_ptr_wrap<i32> 16
+    match store_i32 p 7:
+        Result::Ok _:
+            1
+        Result::Err _:
+            0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.raw.memory_outside_boundary",
+    );
+}
+
+#[test]
+fn compile_accepts_checked_mem_ptr_wrapper_with_null_sentinel() {
+    let source = r#"
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/option" as *
+
+fn main <()*>i32> ():
+    let p <MemPtr<i32>> mem_ptr_wrap<i32> 0
+    match load_i32 p:
+        Option::None:
+            1
+        Option::Some _:
+            0
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("null MemPtr sentinel must be allowed to reach checked load guard");
+}
+
+#[test]
+fn compile_accepts_checked_mem_ptr_wrapper_from_allocator_provenance() {
+    let source = r#"
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_ptr<i32> 4:
+        Result::Ok p:
+            match store_i32 p 7:
+                Result::Ok _:
+                    match dealloc_ptr<i32> p 4:
+                        Result::Ok _:
+                            1
+                        Result::Err _:
+                            0
+                Result::Err _:
+                    0
+        Result::Err _:
+            0
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("allocator-derived MemPtr must prove checked store provenance");
+}
+
+#[test]
+fn compile_accepts_checked_region_pointer_from_region_provenance() {
+    let source = r#"
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Ok token:
+            let p <MemPtr<u8>> region_ptr &token
+            match store_u8 p 7:
+                Result::Ok _:
+                    match dealloc_region<u8> token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                Result::Err _:
+                    match dealloc_region<u8> token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+        Result::Err _:
+            ()
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("region-derived MemPtr must prove checked store provenance");
+}
+
+#[test]
+fn compile_accepts_checked_region_ptr_at_from_region_provenance() {
+    let source = r#"
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_region<i32> 1:
+        Result::Ok token:
+            match region_ptr_at<i32,i32> &token 0:
+                Result::Ok p:
+                    match store_i32 p 9:
+                        Result::Ok _:
+                            match dealloc_region<i32> token:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                        Result::Err _:
+                            match dealloc_region<i32> token:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                Result::Err _:
+                    match dealloc_region<i32> token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+        Result::Err _:
+            ()
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("region_ptr_at Ok payload must prove checked store provenance");
+}
+
+#[test]
+fn compile_accepts_checked_region_pointer_through_callback_parameter() {
+    let source = r#"
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+    p
+
+fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+    f p
+
+fn borrowed_region_ptr_via_callback_param <(&RegionToken<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (token, f):
+    let p <MemPtr<u8>> region_ptr token
+    apply_ptr p f
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Ok token:
+            let p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
+            match store_u8 p 7:
+                Result::Ok _:
+                    match dealloc_region<u8> token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                Result::Err _:
+                    match dealloc_region<u8> token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+        Result::Err _:
+            ()
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("callback-returned region pointer must keep checked store provenance");
+}
+
+#[test]
 fn resource_ir_lowering_does_not_treat_mem_ptr_store_wrapper_as_direct_raw_memory() {
     let source = r#"
 #entry main

@@ -1,3 +1,23 @@
+# 2026-05-15 Agent 1 checked MemPtr provenance proof 修正
+
+- `ISS-20260515T044945141Z-INTERNAL-MEMPTR-WRAPPER-CALLS-BYPASS-49539013` を解決した。
+- safe source が `core/mem/internal` の `mem_ptr_wrap` で正の固定 raw address から `MemPtr` を作り、checked `store_i32` / `load_i32` などへ渡せる問題を、名前ベースの許可ではなく Resource IR の provenance proof として修正した。
+- checked `MemPtr` raw-memory wrapper call は、`MemPtr.raw` が allocator / region allocation identity に由来するか、checked wrapper 内で guard される null sentinel (`i32 <= 0`) に alias している場合だけ通す。
+- raw identity は direct call、indirect callback return、`Result` payload match bind、borrow、field / deref / offset projection の `RawAddressView` を通して伝播する。これにより `alloc_ptr` / `region_ptr` / `region_ptr_at` / callback-returned region pointer は通り、`mem_ptr_wrap 16` は拒否される。
+- pointer return summary は whole return alias bool ではなく、parameter projection と return projection の対応を持つ形に再設計した。`mem_ptr_wrap` の `return.field0` が literal 引数と alias する事実を、stdlib 関数名の allowlist ではなく Resource IR から証明するためである。
+- `RawAddressView` は storage offset だけでなく projection prefix 全体を provenance candidate として扱い、`&RegionToken` 経由の `*.field0.field0` などで owner aggregate identity が途切れないようにした。
+- 回帰テスト:
+  - Rust integration に forged positive `MemPtr` 拒否、null sentinel 受理、allocator / region / `region_ptr_at` / callback 経由の受理を追加した。
+  - `tests/stdlib/memory_safety.n.md` に forged positive `MemPtr` compile-fail doctest を追加した。
+- 検証:
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --test resource_ir compile_ -- --nocapture`
+  - `cargo test -p nepl-core --lib resource_effect_gate -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-internal-memptr-call-boundary-after.json -j 1 --dist web/dist --assert-io`: total=37, passed=37
+- plan.md は変更していない。今回の変更は静的検査大規模修正 Stage 5/6 の Resource IR effect/provenance proof と `MemPtr = non-owning pointer` 方針を強化する compiler-core 修正である。
+
 # 2026-05-15 Agent 1 raw memory operation capability / owner aggregate evidence 修正
 
 - `ISS-20260515T024851827Z-RAW-MEMORY-OPERATIONS-SHARE-A-FILE-W-2A06192D` の対応として、raw memory source authority を file-wide bool から `RawMemoryStructuralBoundary`、`RawMemoryOperationBoundary(RawMemoryOp)`、`RawBodyMemoryOperationBoundary(RawBodyMemoryOp)` に分けた。

@@ -6,7 +6,8 @@ use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_t
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{
-    AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchArm, ResourceMatchPattern,
+    AggregateKind, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceMatchArm,
+    ResourceMatchPattern,
 };
 use super::variant_name::{
     match_pattern_variant_name, normalize_variant_name, variant_names_match,
@@ -169,7 +170,31 @@ pub(super) fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place])
         .unwrap_or(false)
 }
 
-fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
+pub(super) fn checked_mem_ptr_wrapper_arg_indices(
+    types: &TypeCtx,
+    operation: RawMemoryOp,
+    args: &[Place],
+) -> Vec<usize> {
+    let indices: &[usize] = match operation {
+        RawMemoryOp::Load | RawMemoryOp::Store | RawMemoryOp::FillBytes | RawMemoryOp::Fill => &[0],
+        RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => &[0, 1],
+        RawMemoryOp::Alloc
+        | RawMemoryOp::Dealloc
+        | RawMemoryOp::Realloc
+        | RawMemoryOp::MemorySize
+        | RawMemoryOp::MemoryGrow => &[],
+    };
+    indices
+        .iter()
+        .copied()
+        .filter(|index| {
+            args.get(*index)
+                .is_some_and(|arg| is_mem_ptr_type(types, arg.ty))
+        })
+        .collect()
+}
+
+pub(super) fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
     match types.get_ref(resolved) {
         TypeKind::Struct { name, .. } => name == "MemPtr",
@@ -179,6 +204,16 @@ fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
         }
         _ => false,
     }
+}
+
+pub(super) fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
+    ptr.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        raw_ty,
+    )
 }
 
 pub(super) fn construct_aggregate_field_place(
@@ -241,9 +276,6 @@ pub(super) fn raw_address_view_candidate_bases(place: &Place) -> Vec<Place> {
     let mut out = Vec::new();
     push_unique_place(&mut out, place);
     for index in 0..place.projections.len() {
-        if !matches!(place.projections[index], PlaceProjection::StorageOffset(_)) {
-            continue;
-        }
         let mut prefix = place.clone();
         prefix.projections.truncate(index);
         push_unique_place(&mut out, &prefix);

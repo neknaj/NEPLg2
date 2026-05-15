@@ -8,13 +8,13 @@ use crate::diagnostic_codes::{
     ResourceRawDiagnosticCode,
 };
 use crate::span::Span;
+use crate::types::TypeCtx;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_counts::ResourceEffectCounts;
-use super::effect_summary::{
-    compute_raw_identity_return_summaries, compute_raw_pointer_return_summaries,
-    RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex,
-};
+use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
+use super::effect_summary_identity::compute_raw_identity_return_summaries;
+use super::effect_summary_pointer::compute_raw_pointer_return_summaries;
 use super::model::{
     ExternalIoOp, NondetOp, Place, RawMemoryOp, ResourceModule, UnknownEffectReason,
 };
@@ -46,6 +46,12 @@ pub enum ResourceEffectBoundaryDiagnostic {
     RawMemoryOutsideBoundary {
         function: String,
         operation: RawMemoryOp,
+        span: Span,
+    },
+    CheckedMemPtrOutsideBoundary {
+        function: String,
+        operation: RawMemoryOp,
+        place: Place,
         span: Span,
     },
     RawAddressEscapeFromInternalAlloc {
@@ -81,6 +87,11 @@ impl ResourceEffectBoundaryDiagnostic {
                     ResourceRawDiagnosticCode::MemoryOutsideBoundary,
                 ))
             }
+            ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary { .. } => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+                    ResourceRawDiagnosticCode::MemoryOutsideBoundary,
+                ))
+            }
             ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc { .. } => {
                 DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
                     ResourceRawDiagnosticCode::IdentityEscape,
@@ -94,6 +105,20 @@ impl ResourceEffectBoundaryDiagnostic {
 }
 
 pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffectBoundaryReport {
+    check_resource_effect_boundaries_with_types(module, None)
+}
+
+pub fn check_resource_effect_boundaries_typed(
+    module: &ResourceModule,
+    types: &TypeCtx,
+) -> ResourceEffectBoundaryReport {
+    check_resource_effect_boundaries_with_types(module, Some(types))
+}
+
+fn check_resource_effect_boundaries_with_types(
+    module: &ResourceModule,
+    types: Option<&TypeCtx>,
+) -> ResourceEffectBoundaryReport {
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let pointer_summaries = compute_raw_pointer_return_summaries(module);
@@ -107,6 +132,7 @@ pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffe
             effect: function.effect,
             summaries: &summary_index,
             pointer_summaries: &pointer_summary_index,
+            types,
             track_alloc_identities: true,
             diagnostics: Vec::new(),
             counts: ResourceEffectCounts::default(),

@@ -48,12 +48,18 @@ mod drop_requirement;
 mod dump;
 mod effect;
 mod effect_check;
+mod effect_checked_memptr;
 mod effect_counts;
 mod effect_counts_host;
 mod effect_counts_raw;
 mod effect_identity;
+mod effect_match;
 mod effect_raw_memory_identity;
+mod effect_return_identity;
 mod effect_summary;
+mod effect_summary_identity;
+mod effect_summary_pointer;
+mod effect_summary_seed;
 mod function_alias;
 mod i32_call_facts;
 mod initialized;
@@ -250,8 +256,9 @@ pub use drop_requirement::{
     ResourceDropRequirement,
 };
 pub use effect::{
-    check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
-    ResourceEffectBoundaryReport, ResourceEffectCallKind, ResourceEffectFunctionCheck,
+    check_resource_effect_boundaries, check_resource_effect_boundaries_typed,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectBoundaryReport, ResourceEffectCallKind,
+    ResourceEffectFunctionCheck,
 };
 pub use effect_counts::ResourceEffectCounts;
 pub use effect_counts_host::{ExternalIoEffectCounts, NondetEffectCounts};

@@ -177,13 +177,19 @@ for (const moduleName of [
     'summary_worklist_tests.rs',
     'timing.rs',
     'effect.rs',
+    'effect_checked_memptr.rs',
     'effect_check.rs',
     'effect_counts.rs',
     'effect_counts_host.rs',
     'effect_counts_raw.rs',
     'effect_summary.rs',
+    'effect_summary_identity.rs',
+    'effect_summary_pointer.rs',
+    'effect_summary_seed.rs',
     'effect_identity.rs',
+    'effect_match.rs',
     'effect_raw_memory_identity.rs',
+    'effect_return_identity.rs',
     'coverage.rs',
     'coverage_hir.rs',
     'coverage_hir_projection.rs',
@@ -359,13 +365,19 @@ for (const moduleDecl of [
     'mod variant_name;',
     'mod summary;',
     'mod effect;',
+    'mod effect_checked_memptr;',
     'mod effect_check;',
     'mod effect_counts;',
     'mod effect_counts_host;',
     'mod effect_counts_raw;',
     'mod effect_summary;',
+    'mod effect_summary_identity;',
+    'mod effect_summary_pointer;',
+    'mod effect_summary_seed;',
     'mod effect_identity;',
+    'mod effect_match;',
     'mod effect_raw_memory_identity;',
+    'mod effect_return_identity;',
     'mod coverage;',
     'mod coverage_hir;',
     'mod coverage_hir_projection;',
@@ -501,6 +513,7 @@ const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
 const effectSummary = readResource('effect_summary.rs');
+const effectSummaryIdentity = readResource('effect_summary_identity.rs');
 const resourceDump = readResource('dump.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
@@ -941,10 +954,10 @@ assertNotContains(
     'owner_return.rs',
 );
 assertUsesResourceModuleSymbol(
-    effectSummary,
+    effectSummaryIdentity,
     'effect_check',
     'ResourceEffectBoundaryEngine',
-    'effect_summary.rs',
+    'effect_summary_identity.rs',
 );
 assertUsesResourceModuleSymbol(
     placeUtils,
@@ -987,6 +1000,7 @@ for (const resourceFileName of fs.readdirSync(RESOURCE_DIR)) {
 
 const maxLines = new Map([
     ['effect.rs', 160],
+    ['effect_checked_memptr.rs', 120],
     ['effect_counts.rs', 80],
     ['effect_counts_host.rs', 220],
     ['effect_counts_raw.rs', 80],
@@ -1083,6 +1097,11 @@ const maxLines = new Map([
     ['effect_check.rs', 700],
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
+    ['effect_summary_identity.rs', 380],
+    ['effect_summary_pointer.rs', 220],
+    ['effect_summary_seed.rs', 180],
+    ['effect_match.rs', 80],
+    ['effect_return_identity.rs', 140],
     ['function_alias.rs', 140],
     ['coverage.rs', 280],
     ['coverage_hir.rs', 240],

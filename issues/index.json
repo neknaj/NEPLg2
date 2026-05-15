@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T04:24:47.166Z",
+  "generated_at": "2026-05-15T06:20:50.686Z",
   "counts": {
-    "total": 813,
+    "total": 814,
     "open": 7,
-    "resolved": 806,
+    "resolved": 807,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 404,
+        "total": 405,
         "open": 0,
-        "resolved": 404
+        "resolved": 405
       },
       "CORE": {
         "total": 1,
@@ -6148,6 +6148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T031921532Z-OWNER-AGGREGATE-FIELD-EVIDENCE-IGNOR-943C9579.md"
+    },
+    {
+      "id": "ISS-20260515T044945141Z-INTERNAL-MEMPTR-WRAPPER-CALLS-BYPASS-49539013",
+      "title": "internal MemPtr wrapper calls bypass raw memory caller boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/effect*.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T044945141Z-INTERNAL-MEMPTR-WRAPPER-CALLS-BYPASS-49539013.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

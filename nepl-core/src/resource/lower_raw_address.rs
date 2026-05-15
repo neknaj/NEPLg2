@@ -10,15 +10,15 @@ use crate::types::TypeId;
 use super::lower::LoweringEnvironment;
 use super::lower_call::func_ref_base_name;
 use super::lower_raw_address_place::{
-    mem_ptr_raw_field_place, raw_address_alias_target, raw_address_place_from_actual_argument,
-    reference_target_type, region_token_place_from_actual_arg, region_token_raw_field_place,
+    raw_address_alias_target, raw_address_place_from_actual_argument, reference_target_type,
+    region_token_place_from_actual_arg, region_token_raw_field_place,
 };
 pub(super) use super::lower_raw_address_return::push_transparent_raw_address_return_projection;
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
 use super::model::{
     Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp, StorageOrigin,
 };
-use super::place_utils::{enum_payload_type, reference_target_place};
+use super::place_utils::{enum_payload_type, mem_ptr_raw_field_place, reference_target_place};
 
 pub(super) fn push_core_mem_wrapper_semantics(
     callee: &FuncRef,

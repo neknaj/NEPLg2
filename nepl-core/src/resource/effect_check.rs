@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::span::Span;
+use crate::types::TypeCtx;
 
 use super::effect::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 use super::effect_counts::ResourceEffectCounts;
@@ -12,12 +13,16 @@ use super::effect_identity::{
     construct_pointer_alias_fields, construct_raw_identity_fields, copy_pointer_alias,
     raw_memory_op_produces_identity, RawIdentityTable, RawPointerAliasTable,
 };
+use super::effect_match::copy_match_payload_bind_identity;
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceCallTarget, ResourceFunction, ResourceOp,
-    ResourceTerminator,
+    EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceCallTarget, ResourceExprKind,
+    ResourceFunction, ResourceOp, ResourceTerminator,
+};
+use super::place_utils::{
+    place_with_suffix, raw_address_view_candidate_bases, reference_target_place,
 };
 
 pub(super) struct ResourceEffectBoundaryEngine<'a> {
@@ -25,6 +30,7 @@ pub(super) struct ResourceEffectBoundaryEngine<'a> {
     pub(super) effect: Effect,
     pub(super) summaries: &'a RawIdentityReturnSummaryIndex<'a>,
     pub(super) pointer_summaries: &'a RawPointerReturnSummaryIndex<'a>,
+    pub(super) types: Option<&'a TypeCtx>,
     pub(super) track_alloc_identities: bool,
     pub(super) diagnostics: Vec<ResourceEffectBoundaryDiagnostic>,
     pub(super) counts: ResourceEffectCounts,
@@ -148,9 +154,21 @@ impl ResourceEffectBoundaryEngine<'_> {
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
                 function_aliases.copy_alias(source, output);
             }
-            ResourceOp::RawAddressAlias { source, target, .. }
-            | ResourceOp::RawAddressView { source, target, .. } => {
+            ResourceOp::Borrow { source, output, .. } => {
+                let target = reference_target_place(output, source.ty);
+                identities.copy_identity(source, &target);
+                copy_pointer_alias(pointer_aliases, raw_memory_identities, source, &target);
+                function_aliases.copy_alias(source, &target);
+            }
+            ResourceOp::RawAddressAlias { source, target, .. } => {
                 identities.copy_identity(source, target);
+                copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
+            }
+            ResourceOp::RawAddressView { source, target, .. } => {
+                identities.clear(target);
+                for candidate in raw_address_view_candidate_bases(source) {
+                    identities.merge_identity(&candidate, target);
+                }
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
             }
             ResourceOp::StorageOrigin { .. } => {}
@@ -183,8 +201,17 @@ impl ResourceEffectBoundaryEngine<'_> {
                 output,
                 target,
                 args,
+                effect,
+                span,
                 ..
             } => {
+                self.report_unproven_checked_mem_ptr_access(
+                    identities,
+                    pointer_aliases,
+                    effect,
+                    args,
+                    *span,
+                );
                 self.copy_call_return_identity(identities, output, target, args);
                 self.copy_call_return_pointer_alias(
                     pointer_aliases,
@@ -318,7 +345,12 @@ impl ResourceEffectBoundaryEngine<'_> {
                     body_raw_memory_identities,
                 ]);
             }
-            ResourceOp::Match { output, arms, .. } => {
+            ResourceOp::Match {
+                output,
+                scrutinee,
+                arms,
+                ..
+            } => {
                 let mut arm_paths = Vec::new();
                 let mut pointer_alias_paths = Vec::new();
                 let mut function_alias_paths = Vec::new();
@@ -328,6 +360,14 @@ impl ResourceEffectBoundaryEngine<'_> {
                     let mut arm_pointer_aliases = pointer_aliases.clone();
                     let mut arm_function_aliases = function_aliases.clone();
                     let mut arm_raw_memory_identities = raw_memory_identities.clone();
+                    copy_match_payload_bind_identity(
+                        &mut arm_identities,
+                        &mut arm_pointer_aliases,
+                        &mut arm_function_aliases,
+                        &mut arm_raw_memory_identities,
+                        scrutinee,
+                        arm,
+                    );
                     self.check_ops(
                         &mut arm_identities,
                         &mut arm_pointer_aliases,
@@ -359,71 +399,16 @@ impl ResourceEffectBoundaryEngine<'_> {
             ResourceOp::FunctionValue { output, name, .. } => {
                 function_aliases.set_alias(output, name.clone());
             }
-            ResourceOp::Expr { .. }
-            | ResourceOp::Borrow { .. }
-            | ResourceOp::Drop { .. }
-            | ResourceOp::EndScope { .. } => {}
-        }
-    }
-
-    fn copy_call_return_identity(
-        &self,
-        identities: &mut RawIdentityTable,
-        output: &Place,
-        target: &ResourceCallTarget,
-        args: &[Place],
-    ) {
-        let ResourceCallTarget::User { name, .. } = target else {
-            return;
-        };
-        let Some(summary) = self.summaries.get(name) else {
-            return;
-        };
-        identities.mark_many(output, &summary.internal_alloc_operations);
-        if summary
-            .parameter_indices
-            .iter()
-            .filter_map(|index| args.get(*index))
-            .any(|arg| identities.contains(arg))
-        {
-            for arg in summary
-                .parameter_indices
-                .iter()
-                .filter_map(|index| args.get(*index))
-            {
-                identities.merge_identity(arg, output);
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(value),
+                output,
+                ty,
+                ..
+            } => {
+                let literal = Place::i32_constant(*value, *ty);
+                copy_pointer_alias(pointer_aliases, raw_memory_identities, &literal, output);
             }
-        }
-    }
-
-    fn copy_indirect_call_return_identity(
-        &self,
-        identities: &mut RawIdentityTable,
-        function_aliases: &FunctionAliasTable,
-        output: &Place,
-        callee: &Place,
-        args: &[Place],
-    ) {
-        let functions = function_aliases.functions(callee);
-        if functions.is_empty() {
-            for arg in args {
-                if identities.contains(arg) {
-                    identities.merge_identity(arg, output);
-                }
-            }
-            return;
-        }
-        for function in functions {
-            if let Some(summary) = self.summaries.get(function) {
-                identities.mark_many(output, &summary.internal_alloc_operations);
-                for arg in summary
-                    .parameter_indices
-                    .iter()
-                    .filter_map(|index| args.get(*index))
-                {
-                    identities.merge_identity(arg, output);
-                }
-            }
+            ResourceOp::Expr { .. } | ResourceOp::Drop { .. } | ResourceOp::EndScope { .. } => {}
         }
     }
 
@@ -441,12 +426,21 @@ impl ResourceEffectBoundaryEngine<'_> {
         let Some(summary) = self.pointer_summaries.get(name) else {
             return;
         };
-        for arg in summary
-            .parameter_indices
-            .iter()
-            .filter_map(|index| args.get(*index))
-        {
-            copy_pointer_alias(pointer_aliases, raw_memory_identities, arg, output);
+        for parameter_return in &summary.parameter_returns {
+            let Some(arg) = args.get(parameter_return.parameter_index) else {
+                continue;
+            };
+            let source = place_with_suffix(
+                arg,
+                &parameter_return.source_projections,
+                parameter_return.source_ty,
+            );
+            let target = place_with_suffix(
+                output,
+                &parameter_return.return_projections,
+                parameter_return.return_ty,
+            );
+            copy_pointer_alias(pointer_aliases, raw_memory_identities, &source, &target);
         }
     }
 
@@ -468,12 +462,21 @@ impl ResourceEffectBoundaryEngine<'_> {
         }
         for function in functions {
             if let Some(summary) = self.pointer_summaries.get(function) {
-                for arg in summary
-                    .parameter_indices
-                    .iter()
-                    .filter_map(|index| args.get(*index))
-                {
-                    copy_pointer_alias(pointer_aliases, raw_memory_identities, arg, output);
+                for parameter_return in &summary.parameter_returns {
+                    let Some(arg) = args.get(parameter_return.parameter_index) else {
+                        continue;
+                    };
+                    let source = place_with_suffix(
+                        arg,
+                        &parameter_return.source_projections,
+                        parameter_return.source_ty,
+                    );
+                    let target = place_with_suffix(
+                        output,
+                        &parameter_return.return_projections,
+                        parameter_return.return_ty,
+                    );
+                    copy_pointer_alias(pointer_aliases, raw_memory_identities, &source, &target);
                 }
             }
         }

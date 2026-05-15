@@ -341,7 +341,8 @@ fn run_resource_static_check(
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
+    let effect_boundaries =
+        crate::resource::check_resource_effect_boundaries_typed(&resource, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_effect_boundaries", stage_start);
     run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)?;
@@ -1201,6 +1202,10 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             span,
             ..
@@ -1228,6 +1233,17 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            operation,
+            ..
+        } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.raw_memory_operation_boundary_allowed(span.file_id, *operation))
+                .unwrap_or(false)
+        }
+        crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
             operation,
             ..
         } => {
@@ -1313,6 +1329,19 @@ fn resource_effect_boundary_diagnostic_to_error(
             format!(
                 "function '{}' uses raw memory operation '{}' outside raw-memory boundary",
                 function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
+            function,
+            operation,
+            place,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "function '{}' uses checked MemPtr raw memory operation '{}' without proven pointer provenance: {:?}",
+                function, operation, place
             ),
             *span,
         ),

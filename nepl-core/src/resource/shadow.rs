@@ -3,7 +3,7 @@ use crate::types::TypeCtx;
 
 use super::borrow_check::check_resource_borrow_lifetimes;
 use super::coverage::compare_hir_resource_lowering_typed;
-use super::effect::check_resource_effect_boundaries;
+use super::effect::check_resource_effect_boundaries_typed;
 use super::initialized::check_resource_initialized_moves;
 use super::lower::lower_hir_module;
 use super::owner_entry::check_resource_owner_obligations;
@@ -19,6 +19,6 @@ pub fn check_hir_resource_safety_shadow(
         initialized_moves: check_resource_initialized_moves(&resource, types),
         owner_obligations: check_resource_owner_obligations(&resource, types),
         borrow_lifetimes: check_resource_borrow_lifetimes(&resource, types),
-        effect_boundaries: check_resource_effect_boundaries(&resource),
+        effect_boundaries: check_resource_effect_boundaries_typed(&resource, types),
     }
 }

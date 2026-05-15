@@ -3,6 +3,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::lower::LoweringEnvironment;
 use super::model::{Place, PlaceProjection};
+use super::place_utils::mem_ptr_raw_field_place;
 
 pub(super) fn raw_address_place_from_actual_argument(
     expr: &HirExpr,
@@ -62,16 +63,6 @@ pub(super) fn is_named_struct_type(types: &TypeCtx, ty: TypeId, expected: &str) 
         }
         _ => false,
     }
-}
-
-pub(super) fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
-    ptr.clone().with_projection(
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        },
-        raw_ty,
-    )
 }
 
 pub(super) fn region_token_raw_field_place(token: &Place, raw_ty: TypeId) -> Place {
