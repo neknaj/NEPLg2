@@ -38752,3 +38752,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`: 8 passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`
   - `node nodesrc/issues.js check --dir issues`
+
+## 2026-05-15 Agent 1 owner-protected raw identity return 判定
+
+- `ISS-20260515T065425800Z-RESOURCE-EFFECT-IDENTITY-ESCAPE-TREA-9460C7FB` を追加して fixed にした。
+- 直近 CI run `25903807106` で `byte_builder_finish` / `sb_build_result` / `ansi_text_style_code` が `resource.raw.identity_escape` になっていた原因を調査し、`ResourceOp::Construct` が aggregate 全体へ raw identity を粗く merge していたことと、`str` 内部表現の raw projection を public raw address と同一視していたことを確認した。
+- construct 時の identity propagation を field / enum payload projection に限定し、返却時の escape 判定を `effect_return_escape.rs` へ分離した。
+- `i32` / `MemPtr` として返る internal allocation identity は引き続き拒否し、`RegionToken` 配下と `str` 配下の identity は owner / language value の内部表現として扱う。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check -- --nocapture`: 29 passed
+  - `cargo test -p nepl-core --lib resource_effect_gate -- --nocapture`: 9 passed
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i examples/counter.nepl -i examples/counter2.nepl -i examples/fib.nepl -i examples/stdio.nepl --no-tree -o tmp/agent1-protected-owner-identity-examples.json -j 1 --dist web/dist`: 5 passed
+  - `node nodesrc/issues.js check`

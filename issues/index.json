@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T06:20:50.686Z",
+  "generated_at": "2026-05-15T07:20:00.469Z",
   "counts": {
-    "total": 814,
+    "total": 815,
     "open": 7,
-    "resolved": 807,
+    "resolved": 808,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 405,
+        "total": 406,
         "open": 0,
-        "resolved": 405
+        "resolved": 406
       },
       "CORE": {
         "total": 1,
@@ -523,6 +523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T033438215Z-UNUSED-LET-INITIALIZER-CAN-HIDE-AMBI-612FD419.md"
+    },
+    {
+      "id": "ISS-20260515T065425800Z-RESOURCE-EFFECT-IDENTITY-ESCAPE-TREA-9460C7FB",
+      "title": "Resource effect identity escape treats owner-protected returns as raw pointer leaks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/effect_check.rs, nepl-core/src/resource/effect_return_escape.rs, nepl-core/src/resource/place_utils.rs, nepl-core/src/resource/mod.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T065425800Z-RESOURCE-EFFECT-IDENTITY-ESCAPE-TREA-9460C7FB.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

@@ -322,7 +322,7 @@ pub(super) fn projected_place_with_concrete_type(
     out
 }
 
-fn projection_result_type(
+pub(super) fn projection_result_type(
     types: &TypeCtx,
     base_ty: TypeId,
     projection: &PlaceProjection,

@@ -15,6 +15,7 @@ use super::effect_identity::{
 };
 use super::effect_match::copy_match_payload_bind_identity;
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
+use super::effect_return_escape::raw_identity_return_projection_is_escape;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
@@ -22,7 +23,8 @@ use super::model::{
     ResourceFunction, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
-    place_with_suffix, raw_address_view_candidate_bases, reference_target_place,
+    place_suffix_after_prefix, place_with_suffix, raw_address_view_candidate_bases,
+    reference_target_place,
 };
 
 pub(super) struct ResourceEffectBoundaryEngine<'a> {
@@ -72,20 +74,43 @@ impl ResourceEffectBoundaryEngine<'_> {
             ResourceTerminator::Return { value, span } => {
                 if matches!(self.effect, Effect::Pure) {
                     if let Some(place) = value {
-                        for operation in identities.operations(place) {
-                            self.diagnostics.push(
-                                ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
-                                    function: String::from(self.function),
-                                    operation,
-                                    place: place.clone(),
-                                    span: *span,
-                                },
-                            );
-                        }
+                        self.report_internal_alloc_identity_return(identities, place, *span);
                     }
                 }
             }
             ResourceTerminator::Unreachable { .. } | ResourceTerminator::RawBody { .. } => {}
+        }
+    }
+
+    fn report_internal_alloc_identity_return(
+        &mut self,
+        identities: &RawIdentityTable,
+        place: &Place,
+        span: Span,
+    ) {
+        let mut reported = Vec::new();
+        for (suffix, ty, operations) in identities.projection_operations_under(place) {
+            if !raw_identity_return_projection_is_escape(self.types, place, &suffix, ty) {
+                continue;
+            }
+            let escaped_place = place_with_suffix(place, &suffix, ty);
+            if reported
+                .iter()
+                .any(|prefix| place_suffix_after_prefix(&escaped_place, prefix).is_some())
+            {
+                continue;
+            }
+            for operation in operations {
+                self.diagnostics.push(
+                    ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+                        function: String::from(self.function),
+                        operation,
+                        place: escaped_place.clone(),
+                        span,
+                    },
+                );
+            }
+            reported.push(escaped_place);
         }
     }
 
@@ -184,9 +209,6 @@ impl ResourceEffectBoundaryEngine<'_> {
                 ..
             } => {
                 identities.clear(output);
-                for input in inputs {
-                    identities.merge_identity(input, output);
-                }
                 construct_raw_identity_fields(identities, output, kind, inputs);
                 construct_pointer_alias_fields(
                     pointer_aliases,

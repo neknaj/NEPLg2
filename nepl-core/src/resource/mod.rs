@@ -55,6 +55,7 @@ mod effect_counts_raw;
 mod effect_identity;
 mod effect_match;
 mod effect_raw_memory_identity;
+mod effect_return_escape;
 mod effect_return_identity;
 mod effect_summary;
 mod effect_summary_identity;

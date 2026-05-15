@@ -8,23 +8,23 @@ use nepl_core::hir::{
 use nepl_core::loader::Loader;
 use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
-    check_resource_effect_boundaries, check_resource_initialized_moves,
-    check_resource_owner_obligations, compare_hir_resource_lowering,
-    compute_resource_drop_elaboration_plan, compute_resource_drop_plan, lower_hir_module,
-    lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
-    resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
-    BorrowKind, BorrowState, CellState, EffectOp, ExternalIoOp, NondetOp, OwnerState, Place,
-    PlaceProjection, PlaceRoot, RawAddressViewKind, RawMemoryOp, ResourceAutoDrop,
-    ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
-    ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred, ResourceCheckDiagnostic,
-    ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact, ResourceCoverageDiagnostic,
-    ResourceCoverageKind, ResourceCoveragePlaceOperation, ResourceDropElaborationHirBridgeError,
-    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
-    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceFunctionCheck, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule,
-    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
-    ResourceTerminator, StorageOrigin, UnknownEffectReason,
+    check_resource_effect_boundaries, check_resource_effect_boundaries_typed,
+    check_resource_initialized_moves, check_resource_owner_obligations,
+    compare_hir_resource_lowering, compute_resource_drop_elaboration_plan,
+    compute_resource_drop_plan, lower_hir_module, lower_hir_module_skeleton,
+    resolve_resource_drop_point_assignment, resolve_resource_drop_point_end_scope,
+    resolve_resource_drop_point_path, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
+    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawAddressViewKind,
+    RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
+    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
+    ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError, ResourceDropPoint,
+    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
+    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceI32RelationOp, ResourceId,
+    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
 use nepl_core::source_map::SourceCapabilities;
 use nepl_core::span::{FileId, Span};
@@ -3072,6 +3072,80 @@ fn main <()*>i32> ():
 
     compile_resource_source_with_target(source, CompileTarget::Wasm)
         .expect("allocator-derived MemPtr must prove checked store provenance");
+}
+
+#[test]
+fn resource_ir_effect_check_rejects_mem_ptr_return_identity_escape() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let mem_ptr_ty = types.register_named(
+        "MemPtr".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "MemPtr".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["raw".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let size = Place::temporary(ResourceId(0), i32_ty);
+    let raw = Place::temporary(ResourceId(1), i32_ty);
+    let ptr = Place::temporary(ResourceId(2), mem_ptr_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "leak_ptr".to_string(),
+            origin_name: "leak_ptr".to_string(),
+            params: vec![],
+            result: mem_ptr_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::LiteralI32(1),
+                        output: size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![size],
+                        span,
+                    },
+                    ResourceOp::Construct {
+                        output: ptr.clone(),
+                        kind: AggregateKind::Struct {
+                            name: "MemPtr".to_string(),
+                            field_offsets: vec![0],
+                        },
+                        inputs: vec![raw],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(ptr),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries_typed(&module, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            place,
+            ..
+        } if function == "leak_ptr" && place.ty == i32_ty
+    )));
 }
 
 #[test]
@@ -12718,6 +12792,30 @@ fn main <()* >str> ():
 }
 
 #[test]
+fn resource_ir_effect_check_accepts_owned_str_return_identity() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn make_text <()* >str> ():
+    match concat_result "a" "b":
+        Result::Ok text:
+            text
+        Result::Err e:
+            e
+
+fn main <()* >i32> ():
+    len make_text
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("owned str return must not be reported as raw address identity escape");
+}
+
+#[test]
 fn resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer() {
     let source = r#"
 #entry main
@@ -12978,6 +13076,68 @@ fn main <()* >()> ():
         "nested Result<ByteBuilder, _> forwarding must transfer the returned builder owner into the Ok payload: {:#?}",
         diagnostics
     );
+}
+
+#[test]
+fn resource_ir_effect_check_accepts_byte_builder_finish_owner_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/io" as *
+#import "core/result" as *
+
+fn make_bytes <()* >Result<ByteBuf, StdErrorKind>> ():
+    match byte_builder_new:
+        Result::Err e:
+            Result<ByteBuf, StdErrorKind>::Err e
+        Result::Ok b0:
+            match byte_builder_push_u8 b0 65:
+                Result::Err e:
+                    Result<ByteBuf, StdErrorKind>::Err e
+                Result::Ok b1:
+                    byte_builder_finish b1
+
+fn main <()* >()> ():
+    match make_bytes:
+        Result::Ok bytes:
+            io_bytebuf_free bytes
+        Result::Err _e:
+            ()
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("owner-protected ByteBuf return must not be treated as raw MemPtr escape");
+}
+
+#[test]
+fn resource_ir_effect_check_accepts_string_builder_build_str_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "alloc/string/builder" as *
+#import "core/result" as *
+
+fn main <()* >i32> ():
+    match string_builder_new_result:
+        Result::Err _e:
+            0
+        Result::Ok b0:
+            match sb_append_result b0 "A":
+                Result::Err _e:
+                    0
+                Result::Ok b1:
+                    match sb_build_result b1:
+                        Result::Err _e:
+                            0
+                        Result::Ok out:
+                            len out
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("StringBuilder build must return owned str without raw identity escape");
 }
 
 #[test]
