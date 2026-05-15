@@ -1,3 +1,20 @@
+# 2026-05-16 Agent 1 std/fs LLVM C string RegionToken owner 境界修正
+
+- `ISS-20260515T202108805Z-STD-FS-LLVM-CSTR-SCRATCH-STILL-RETUR-69733E05` を追加して解決した。
+- `std/fs/raw/llvm.nepl` の `__fs_copy_to_cstr` が `alloc_ptr<u8>` で C string scratch を確保し、`Result<MemPtr<u8>, i32>` として free obligation owner を返していた。
+- `__fs_copy_to_cstr` は `Result<RegionToken<u8>, i32>` を返すようにし、byte copy と syscall address 取得は `region_ptr` 由来の non-owning `MemPtr<u8>` view だけで行う。
+- `wasi_path_open` は syscall 後に `cpath_region` を `dealloc_region<u8>` で閉じるため、LLVM fallback でも `MemPtr<u8>` を owner carrier として扱わない。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` に `std/fs/raw/llvm` が `core/mem/pointer/alloc` と `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を再導入しない policy を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と親 issue に Stage 6 の進捗を追記した。`plan.md` は変更していない。
+- 検証:
+  - `node --check nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl --no-tree -o tmp/agent1-fs-llvm-cstr-fd-consumer.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/issues.js index`: total=849, open=6, resolved=843
+  - `node nodesrc/issues.js check`
+  - `git diff --check`
+  - 参考: `node nodesrc/tests.js -i tests/stdlib/fs.n.md --runner llvm --llvm-all --llvm-compile-only ...` は `clang` が PATH に無く `failed to execute clang --version` で失敗。NEPL 側 failure ではなくローカル LLVM toolchain 環境制約として扱う。
+
 # 2026-05-16 Agent 1 std/fs dir read RegionToken owner 境界修正
 
 - `ISS-20260515T201227745Z-STD-FS-DIR-READ-SCRATCH-STILL-USES-M-92BCD4BA` を追加して解決した。

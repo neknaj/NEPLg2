@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T20:18:38.145Z",
+  "generated_at": "2026-05-15T20:26:02.419Z",
   "counts": {
-    "total": 848,
+    "total": 849,
     "open": 6,
-    "resolved": 842,
+    "resolved": 843,
     "by_area": {
       "stdlib": {
-        "total": 249,
+        "total": 250,
         "open": 4,
-        "resolved": 245
+        "resolved": 246
       },
       "TEST": {
         "total": 24,
@@ -10033,6 +10033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T201227745Z-STD-FS-DIR-READ-SCRATCH-STILL-USES-M-92BCD4BA.md"
+    },
+    {
+      "id": "ISS-20260515T202108805Z-STD-FS-LLVM-CSTR-SCRATCH-STILL-RETUR-69733E05",
+      "title": "std/fs llvm cstr scratch still returns MemPtr owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/fs/raw/llvm.nepl; nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T202108805Z-STD-FS-LLVM-CSTR-SCRATCH-STILL-RETUR-69733E05.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

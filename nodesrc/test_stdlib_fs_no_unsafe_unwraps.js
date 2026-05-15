@@ -201,5 +201,8 @@ assert.match(rawFdIoCode, /\bfn\s+fs_discard_read_buffer\s+<\(RegionToken<u8>,i3
 assert.match(rawFdIoCode, /\bfn\s+fs_finish_read_buffer\s+<\(RegionToken<u8>,i32\)\*>[\s\S]*\brealloc_region_bytes_keep<u8>[\s\S]*\bio_bytebuf_finish_region\b/, 'ByteBuf finish ownership normalization must stay on the RegionToken owner boundary in std/fs/raw/fd_io');
 assert.doesNotMatch(rawFdIoCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/raw/fd_io must not keep read buffer ownership in low-level MemPtr allocation wrappers');
 assert.match(rawLlvmCode, /\bfn\s+__fs_copy_to_cstr\b[\s\S]*\bfn\s+wasi_path_open\b/, 'LLVM filesystem fallback must stay in std/fs/raw/llvm');
+assert.match(rawLlvmCode, /\bfn\s+__fs_copy_to_cstr\s+<\(i32,i32\)\*>Result<RegionToken<u8>,i32>>[\s\S]*\balloc_region<u8>\s+size[\s\S]*\blet\s+dst\s+<MemPtr<u8>>\s+region_ptr\s+&dst_region[\s\S]*Result<RegionToken<u8>,i32>::Ok\s+dst_region[\s\S]*\blet\s+cpath\s+<MemPtr<u8>>\s+region_ptr\s+&cpath_region[\s\S]*\b__linux_syscall_openat_path\s+mem_ptr_addr\s+cpath[\s\S]*\bdealloc_region<u8>\s+cpath_region/, 'LLVM path_open fallback must own temporary C strings through RegionToken and pass only non-owning views to syscalls');
+assert.doesNotMatch(rawLlvmCode, /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/, 'std/fs/raw/llvm must not import low-level MemPtr owner allocation wrappers');
+assert.doesNotMatch(rawLlvmCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/raw/llvm must not use MemPtr as a temporary C string free-obligation owner');
 
 console.log('stdlib fs unsafe unwrap regression passed');

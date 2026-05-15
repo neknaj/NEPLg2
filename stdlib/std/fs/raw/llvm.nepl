@@ -8,6 +8,7 @@
 //: ### 注意
 //: - 権限/パス解決はホスト環境に依存します。
 //: - この fallback は stdlib API の互換実装であり、WASI preopen model の完全再現ではありません。
+//: - Linux syscall に渡す一時 C string は `RegionToken<u8>` が所有し、`MemPtr<u8>` は syscall address を得るための non-owning view としてだけ使います。
 
 #indent 4
 
@@ -17,18 +18,18 @@
 #import "core/cast" as *
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/result" as *
 
 #if[target=llvm]
-pub fn __fs_copy_to_cstr <(i32,i32)*>Result<MemPtr<u8>,i32>> (src_ptr, src_len):
+pub fn __fs_copy_to_cstr <(i32,i32)*>Result<RegionToken<u8>,i32>> (src_ptr, src_len):
     let size <i32> add src_len 1;
-    match alloc_ptr<u8> size:
+    match alloc_region<u8> size:
         Result::Err e:
-            Result<MemPtr<u8>,i32>::Err e
-        Result::Ok dst:
+            Result<RegionToken<u8>,i32>::Err e
+        Result::Ok dst_region:
+            let dst <MemPtr<u8>> region_ptr &dst_region
             let mut i <i32> 0;
             while lt i src_len:
                 do:
@@ -43,7 +44,7 @@ pub fn __fs_copy_to_cstr <(i32,i32)*>Result<MemPtr<u8>,i32>> (src_ptr, src_len):
                     ()
                 Result::Err _:
                     ()
-            Result<MemPtr<u8>,i32>::Ok dst
+            Result<RegionToken<u8>,i32>::Ok dst_region
 
 #if[target=llvm]
 pub fn __linux_syscall_openat_path <(i32,i32,i32)*>i64> (path_ptr, flags, mode):
@@ -79,7 +80,8 @@ pub fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirf
     match __fs_copy_to_cstr path_ptr path_len:
         Result::Err e:
             e
-        Result::Ok cpath:
+        Result::Ok cpath_region:
+            let cpath <MemPtr<u8>> region_ptr &cpath_region
             let linux_flags <i32> if:
                 eq _oflags 0
                 then:
@@ -94,7 +96,7 @@ pub fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirf
                     438
             // Linux x86_64: openat(AT_FDCWD=-100, path, flags, mode)
             let fd64 <i64> __linux_syscall_openat_path mem_ptr_addr cpath linux_flags linux_mode;
-            match dealloc_ptr<u8> cpath add path_len 1:
+            match dealloc_region<u8> cpath_region:
                 Result::Ok _:
                     ()
                 Result::Err _:

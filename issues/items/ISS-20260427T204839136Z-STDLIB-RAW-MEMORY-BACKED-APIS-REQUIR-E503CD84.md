@@ -555,3 +555,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 この修正は `MemPtr = non-owning pointer` / `RegionToken = free obligation owner` の分離を directory listing の raw ABI path にも適用するもの。`wasi_fd_readdir` に渡す raw address は `region_ptr` 由来の view からだけ得て、entry name の所有と cleanup は既存の `Vec<str>` public boundary で閉じる。
 
 この親 issue は引き続き open とする。`std/fs/raw/llvm.nepl` / `std/env/cliarg/raw.nepl` など raw-backed boundary の direct allocation owner と、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-16 Agent 1 fs llvm cstr RegionToken owner 境界追記
+
+`ISS-20260515T202108805Z-STD-FS-LLVM-CSTR-SCRATCH-STILL-RETUR-69733E05` で、`std/fs/raw/llvm.nepl` の LLVM `path_open` fallback 用 C string scratch を `RegionToken<u8>` owner 境界へ移した。
+
+この修正により、Linux syscall に渡す NUL-terminated path buffer の free obligation は `RegionToken<u8>` に残り、`MemPtr<u8>` は byte copy と `mem_ptr_addr` のための non-owning view に限定される。LLVM fallback も WASI/raw helper 境界と同じ責務分割になり、`std/fs` module 群から direct low-level allocation owner API を取り除いた。
+
+この親 issue は引き続き open とする。`std/env/cliarg/raw.nepl` の argv scratch と、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
