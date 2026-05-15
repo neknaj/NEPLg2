@@ -976,11 +976,25 @@ assertContains(
     'pub(super) fn raw_identity_return_projection_requires_summary',
     'effect_return_summary_filter.rs',
 );
-assertUsesResourceModuleSymbol(
+assertContains(
     effectReturnSummaryFilter,
-    'effect_return_escape',
+    'fn raw_identity_projection_has_summary_opaque_owner_protection',
+    'effect_return_summary_filter.rs must keep internal provenance summary filtering separate from public escape filtering',
+);
+assertNotContains(
+    effectReturnSummaryFilter,
     'raw_identity_projection_has_owner_protection',
-    'effect_return_summary_filter.rs',
+    'effect_return_summary_filter.rs must not re-couple internal provenance summaries to public escape filtering',
+);
+assertContains(
+    effectReturnSummaryFilter,
+    'types.resolve_named_type_id(types.resolve_id(ty)) == types.str()',
+    'effect_return_summary_filter.rs must suppress opaque str raw identities from summaries',
+);
+assertContains(
+    effectReturnSummaryFilter,
+    'summary_filter_keeps_region_token_owner_provenance',
+    'effect_return_summary_filter.rs must keep RegionToken provenance summaries for checked MemPtr proof',
 );
 assertContains(
     effectSummaryIdentity,

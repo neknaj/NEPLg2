@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T12:52:57.037Z",
+  "generated_at": "2026-05-15T13:00:01.426Z",
   "counts": {
-    "total": 825,
-    "open": 5,
-    "resolved": 820,
+    "total": 827,
+    "open": 6,
+    "resolved": 821,
     "by_area": {
+      "core": {
+        "total": 411,
+        "open": 1,
+        "resolved": 410
+      },
       "stdlib": {
         "total": 234,
         "open": 3,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 409,
-        "open": 0,
-        "resolved": 409
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97",
+      "title": "Resource owner_return_apply exceeds responsibility split limit after owner summary growth",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/owner_return_apply.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6178,6 +6193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8.md"
+    },
+    {
+      "id": "ISS-20260515T125800876Z-RESOURCE-CHECKER-POLICY-STILL-REQUIR-768A3E31",
+      "title": "Resource checker policy still requires public escape owner filter in summary filter",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/effect_return_summary_filter.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T125800876Z-RESOURCE-CHECKER-POLICY-STILL-REQUIR-768A3E31.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -38999,3 +38999,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node --check nodesrc/test_string_trim_doc_report_contract.js`
   - `node --check nodesrc/run_source_policy_regressions.js`
   - `node nodesrc/run_doctest.js -i stdlib/alloc/string/slice/trim.nepl -n 1 --assert-io --dist web/dist`
+
+## 2026-05-15 Agent 1 Resource summary filter source policy 更新
+
+- `ISS-20260515T125800876Z-RESOURCE-CHECKER-POLICY-STILL-REQUIR-768A3E31` を追加して fixed にした。
+- `nodesrc/test_resource_checker_responsibility.js` は、`ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C` で分離した public raw escape filter と internal raw identity summary filter を再結合する古い policy を要求していた。
+- policy を、`effect_return_summary_filter.rs` が内部 provenance 用の opaque-owner filter を持ち、`str` summary を抑止し、`RegionToken` provenance summary を保持することを監視する形へ更新した。
+- 更新後の `node nodesrc/test_resource_checker_responsibility.js` は stale filter policy を通過し、次の別 blocker `owner_return_apply.rs has 434 lines; responsibility split limit is 410` を露出したため、`ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97` として分離した。
+- focused verification:
+  - `cargo test -p nepl-core --lib effect_return_summary_filter -- --nocapture`: 4 passed
+  - `node --check nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`: stale filter policy は解消し、次 blocker に到達
