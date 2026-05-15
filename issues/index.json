@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T18:28:17.206Z",
+  "generated_at": "2026-05-15T19:06:20.760Z",
   "counts": {
-    "total": 845,
+    "total": 846,
     "open": 7,
-    "resolved": 838,
+    "resolved": 839,
     "by_area": {
       "core": {
-        "total": 414,
+        "total": 415,
         "open": 1,
-        "resolved": 413
+        "resolved": 414
       },
       "stdlib": {
         "total": 247,
@@ -120,19 +120,19 @@
   },
   "issues": [
     {
-      "id": "ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD",
-      "title": "Vec owner Result return trips raw identity escape in fs normalize range push",
+      "id": "ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4",
+      "title": "FS normalize owner summaries leak Vec and StringBuilder owner payloads",
       "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P1",
       "type": "bug",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "nepl-core/src/resource/effect_summary_identity.rs; nepl-core/src/resource/effect_return_escape.rs; stdlib/std/fs/path/normalize/range_stack.nepl",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource; stdlib/std/fs/path/normalize/*.nepl; stdlib/std/fs/stat.nepl",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD.md"
+      "file": "items/ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -6283,6 +6283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535.md"
+    },
+    {
+      "id": "ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD",
+      "title": "Vec owner Result return trips raw identity escape in fs normalize range push",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource/effect_identity.rs; nepl-core/src/resource/effect_return_escape.rs; nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

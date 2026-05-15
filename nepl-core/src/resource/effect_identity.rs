@@ -291,12 +291,8 @@ impl RawIdentityTable {
         let mut out = Vec::new();
         for group in &self.groups {
             let mut mapped = Vec::new();
-            let mut mapped_descendant = false;
             for place in &group.places {
                 if let Some(replacement) = replace_place_prefix(place, source, target) {
-                    if place.projections.len() > source.projections.len() {
-                        mapped_descendant = true;
-                    }
                     push_unique_place(&mut mapped, replacement);
                 }
             }
@@ -315,9 +311,6 @@ impl RawIdentityTable {
                 group.places.clone()
             };
             push_unique_places(&mut merged, &mapped);
-            if mapped_descendant {
-                push_unique_place(&mut merged, target.clone());
-            }
             out.push(RawIdentityGroup {
                 places: merged,
                 operations: group.operations.clone(),

@@ -13215,6 +13215,53 @@ fn main <()* >()> ():
 }
 
 #[test]
+fn resource_ir_effect_check_accepts_vec_owner_result_return_identity() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "std/fs/path/normalize/range_stack" as range_stack
+
+fn main <()* >()> ():
+    match v::new<i32>:
+        Result::Err _e:
+            ()
+        Result::Ok stack:
+            match range_stack::fs_normalize_range_push stack 0 1:
+                Result::Err _e:
+                    ()
+                Result::Ok next:
+                    v::free<i32> next
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_effect_boundaries_typed(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+                    function,
+                    ..
+                } if function.starts_with("fs_normalize_range_push__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Result<Vec<_>, _> owner return must not be treated as raw identity escape: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_effect_check_accepts_string_builder_build_str_return() {
     let source = r#"
 #entry main

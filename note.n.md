@@ -39287,3 +39287,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
   - `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/agent1-fs-stat-region.json -j 1 --dist web/dist --assert-io`: `fs_normalize_range_push` の `resource.raw.identity_escape` で compile fail。stat buffer owner API の再導入ではなく、`Result<Vec<i32>, i32>` owner return を raw identity escape と誤診断する core issue として `ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD` に分離した。
+
+## 2026-05-16 Agent 1 Vec owner Result raw identity false positive 修正
+
+- `ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR effect checker の `RawIdentityTable::groups_with_replaced_prefix` が descendant projection を写した時に aggregate root も raw identity group へ追加していたことだった。これにより `RegionToken.raw` や owner descendant の raw identity が `Vec` aggregate root へ粗く持ち上がり、`Result::Ok(Vec).field0` の `len: i32` まで内部 Alloc/Realloc raw identity と誤診断されていた。
+- 修正では raw identity transfer を projection 精度へ戻し、whole aggregate transfer は descendant projection の対応先だけへ写すようにした。`i32` / `MemPtr` の public raw address leaf は引き続き拒否し、owner carrier struct 自体が返る場合だけ protected owner return として扱う回帰を追加した。
+- `std/fs/stat.nepl` focused doctest は `resource.raw.identity_escape` では止まらなくなったが、次の blocker として `std/fs/path/normalize` の `Vec` / `StringBuilder` owner return が `resource.owner.maybe_leak` になる。これは owner summary / return boundary の別問題なので `ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4` に分離した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`
+  - `cargo test -p nepl-core effect_return_escape -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_rejects_mem_ptr_return_identity_escape -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_region_pointer_from_region_provenance -- --nocapture`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/agent1-fs-stat-after-raw-identity-rerun.json -j 1 --dist web/dist --assert-io`: raw identity は解消、owner maybe_leak は新規 issue として継続。
