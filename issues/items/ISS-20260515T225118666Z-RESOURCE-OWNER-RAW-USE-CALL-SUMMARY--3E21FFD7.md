@@ -2,13 +2,13 @@
 id: ISS-20260515T225118666Z-RESOURCE-OWNER-RAW-USE-CALL-SUMMARY--3E21FFD7
 title: "resource owner raw use call summary helpers exceed responsibility split limit"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-15
-updated: 2026-05-15
-target: "nepl-core/src/resource/owner_summary_raw_use_call.rs, nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-05-16
+target: "nepl-core/src/resource/owner_summary_raw_use_call.rs, nepl-core/src/resource/owner_summary_raw_use_return.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260515T225118666Z-RESOURCE-OWNER-RAW-USE-CALL-SUMMARY--3E21FFD7: resource owner raw use call summary helpers exceed responsibility split limit
@@ -42,3 +42,18 @@ Split direct-call raw owner consumption detection from returned raw owner alias 
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js, focused nepl-core raw owner summary tests, node nodesrc/issues.js check --dir issues, and git diff --check.
+
+## 2026-05-16 修正
+
+direct call raw owner summary helper を consumption detection と returned alias materialization に分割した。
+
+- `owner_summary_raw_use_call.rs` は direct call が raw owner alias を消費するかの検査だけを担当する。
+- summary から returned raw owner alias を materialize する処理は `owner_summary_raw_use_return.rs` へ分離した。
+- `owner_summary_raw_alias_walk.rs` と `owner_summary_raw_use_walk.rs` は returned alias propagation を新 module から import する。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`mod` 宣言、100 行上限を追加した。
+
+検証:
+
+- `cargo test -p nepl-core owner_summary_raw_transfer -- --nocapture`: 4 passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `owner_summary_raw_use_call.rs` blocker は解消。次の別 issue として `owner_variant_utils.rs has 223 lines; responsibility split limit is 220` を検出したため `ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15` に分離した。

@@ -39475,3 +39475,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core owner_summary_raw_transfer -- --nocapture`: 4 passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed
+
+## 2026-05-16 Agent 1 Resource IR raw owner use call 分割
+
+- `ISS-20260515T225118666Z-RESOURCE-OWNER-RAW-USE-CALL-SUMMARY--3E21FFD7` を fixed にした。`plan.md` は変更していない。
+- `owner_summary_raw_use_call.rs` は direct call が raw owner alias を消費するかの判定と、summary returned raw owner alias materialization を同居させていたため、136 lines / limit 90 で source policy に失敗していた。
+- consumption detection は `owner_summary_raw_use_call.rs` に残し、returned alias propagation を `owner_summary_raw_use_return.rs` へ分離した。
+- `owner_summary_raw_alias_walk.rs` と `owner_summary_raw_use_walk.rs` は returned alias propagation を新 module から import するようにした。
+- `nodesrc/test_resource_checker_responsibility.js` に `owner_summary_raw_use_return.rs` の existence / `mod` declaration / 100 line budget を追加した。
+- `node nodesrc/test_resource_checker_responsibility.js` は raw use call blocker を通過し、次の別件 `owner_variant_utils.rs has 223 lines; responsibility split limit is 220` に到達した。これは `ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15` に分離した。
+- focused verification:
+  - `cargo test -p nepl-core owner_summary_raw_transfer -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed

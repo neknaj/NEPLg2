@@ -189,6 +189,7 @@ mod owner_summary_raw_consumption;
 mod owner_summary_raw_transfer;
 mod owner_summary_raw_use;
 mod owner_summary_raw_use_call;
+mod owner_summary_raw_use_return;
 mod owner_summary_raw_use_walk;
 mod owner_summary_raw_view_return;
 mod owner_summary_record;

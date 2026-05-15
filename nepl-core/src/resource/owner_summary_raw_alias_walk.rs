@@ -7,7 +7,7 @@ use super::owner_summary_raw_transfer::{
     push_transferred_raw_owner_view_aliases, push_transferred_value_aliases,
     push_transferred_value_aliases_from,
 };
-use super::owner_summary_raw_use_call::push_direct_call_returned_raw_owner_aliases;
+use super::owner_summary_raw_use_return::push_direct_call_returned_raw_owner_aliases;
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
 use super::summary::OwnerReturnSummaryIndex;
 
