@@ -98,3 +98,11 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 子 issue [ISS-20260515T182041827Z-STD-FS-OPEN-FD-OUT-SCRATCH-STILL-USE-7C3B2667](./ISS-20260515T182041827Z-STD-FS-OPEN-FD-OUT-SCRATCH-STILL-USE-7C3B2667.md) で、`stdlib/std/fs/fd.nepl` の `path_open` fd_out scratch を `RegionToken<u8>` owner 境界へ移した。
 
 `fs_open_with_flags` は direct `alloc_ptr` / `dealloc_ptr` を持たず、`fd_out_region` owner と `region_ptr` から得た non-owning view だけを扱う。`path_open` の raw fd_out address、`store_i32`、`load_i32` は fd lifecycle 境界内に残るが、free obligation は `RegionToken` 側で閉じる。親 issue の残件は `std/fs/read/fd.nepl`、`std/fs/stat.nepl`、`std/fs/dir/read_fd.nepl`、`std/env/cliarg/raw.nepl` などである。
+
+## 2026-05-16 Agent 1 部分対応メモ 7
+
+子 issue [ISS-20260515T182445783Z-STD-FS-STAT-BUFFER-STILL-USES-MEMPTR-DF3210E8](./ISS-20260515T182445783Z-STD-FS-STAT-BUFFER-STILL-USES-MEMPTR-DF3210E8.md) で、`stdlib/std/fs/stat.nepl` の `path_filestat_get` out-buffer scratch を `RegionToken<u8>` owner 境界へ移した。
+
+`fs_path_filetype` は direct `alloc_ptr` / `dealloc_ptr` を持たず、`stat_region` owner と `region_ptr` から得た non-owning view だけを扱う。`path_filestat_get` の raw filestat address、filetype byte の `store_u8` / `load_u8` は stat boundary 内に残るが、free obligation は `RegionToken` 側で閉じる。
+
+この focused doctest で依存先 `fs_normalize_range_push` の `Result<Vec<i32>, i32>` owner return が `resource.raw.identity_escape` になる core false positive を発見したため、[ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD](./ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD.md) として分離した。親 issue の remaining direct allocation owner は `std/fs/read/fd.nepl`、`std/fs/dir/read_fd.nepl`、`std/env/cliarg/raw.nepl` などである。

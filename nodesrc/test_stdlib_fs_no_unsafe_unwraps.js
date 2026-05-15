@@ -134,6 +134,8 @@ for (const [relPath, code] of [
 
 assert.match(fdCode, /\bfn\s+fs_open_with_flags\b[\s\S]*\balloc_region<u8>\s+4[\s\S]*\blet\s+fd_out_buf\s+<MemPtr<u8>>\s+region_ptr\s+&fd_out_region[\s\S]*\bwasi_path_open\b[\s\S]*\bdealloc_region<u8>\s+fd_out_region/, 'fs open fd_out scratch must be owned by RegionToken and keep path_open raw out pointer local');
 assert.doesNotMatch(fdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/fd must not use MemPtr as a scratch free-obligation owner');
+assert.match(statCode, /\bfn\s+fs_path_filetype\b[\s\S]*\balloc_region<u8>\s+64[\s\S]*\blet\s+stat_buf\s+<MemPtr<u8>>\s+region_ptr\s+&stat_region[\s\S]*\bwasi_path_filestat_get\b[\s\S]*\bdealloc_region<u8>\s+stat_region/, 'fs stat out buffer must be owned by RegionToken and keep filestat raw layout local');
+assert.doesNotMatch(statCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/stat must not use MemPtr as a scratch free-obligation owner');
 
 assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/fd"\s+as\s+\*/, 'std/fs/read facade must re-export fd read helper submodule');
 assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/path"\s+as\s+\*/, 'std/fs/read facade must re-export path read helper submodule');

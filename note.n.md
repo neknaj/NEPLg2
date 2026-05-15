@@ -39277,3 +39277,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
   - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl -i stdlib/std/fs/dir/open.nepl --no-tree -o tmp/agent1-fs-open-fdout-region.json -j 1 --dist web/dist --assert-io`: 2 passed
+
+## 2026-05-16 Agent 1 std/fs stat scratch RegionToken 移行
+
+- `ISS-20260515T182445783Z-STD-FS-STAT-BUFFER-STILL-USES-MEMPTR-DF3210E8` を追加して fixed にした。親 issue は `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` のまま open で継続する。`plan.md` は変更していない。
+- 根本原因は、`std/fs/stat.nepl` の `fs_path_filetype` が `path_filestat_get` 用 64 byte out-buffer を `alloc_ptr<u8>` / `dealloc_ptr<u8>` で扱い、`MemPtr<u8>` を一時 free-obligation owner として使い続けていたことだった。
+- `fs_path_filetype` は `alloc_region<u8>` で `stat_region` を確保し、`region_ptr` から得た non-owning view の raw address だけを `path_filestat_get` / `store_u8` / `load_u8` に使うようにした。cleanup は `dealloc_region` で行い、`std/fs/stat.nepl` から direct `alloc_ptr` / `dealloc_ptr` import を削除した。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は、`std/fs/stat.nepl` が direct allocation owner API を再導入しないことと、filestat out-buffer が `RegionToken` owner 境界で閉じることを検査するように更新した。
+- focused verification:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/agent1-fs-stat-region.json -j 1 --dist web/dist --assert-io`: `fs_normalize_range_push` の `resource.raw.identity_escape` で compile fail。stat buffer owner API の再導入ではなく、`Result<Vec<i32>, i32>` owner return を raw identity escape と誤診断する core issue として `ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD` に分離した。

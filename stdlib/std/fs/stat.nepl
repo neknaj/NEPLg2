@@ -22,7 +22,6 @@
 #import "alloc/string" as *
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/option" as *
@@ -40,6 +39,7 @@
 //: - path を `fs_normalize_relative_builder` で正規化し、WASI `path_filestat_get` の filestat.filetype byte を読みます。
 //: - 正規化後 path は `StringBuilder` owner のまま syscall へ渡し、呼び出し後に `string_builder_free` で閉じます。
 //: - syscall 成功時に読む filetype byte は呼び出し前に初期化し、外部 out-buffer 境界を Resource IR が追跡できる形にします。
+//: - filestat scratch の free obligation は `RegionToken<u8>` が持ち、raw address view には移しません。
 //:
 //: 注意(重要):
 //: - 戻り値は WASI filetype の整数値です。regular file は 4、directory は 3 です。
@@ -51,11 +51,12 @@ pub fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
         Result::Err e:
             Result<i32,i32>::Err e
         Result::Ok normalized:
-            match alloc_ptr<u8> 64:
+            match alloc_region<u8> 64:
                 Result::Err _e:
                     string_builder_free normalized
                     Result<i32,i32>::Err 12
-                Result::Ok stat_buf:
+                Result::Ok stat_region:
+                    let stat_buf <MemPtr<u8>> region_ptr &stat_region
                     let path_len <i32> string_builder_len_ref &normalized
                     let path_ptr <i32> match string_builder_ptr_ref &normalized:
                         Option::None:
@@ -77,7 +78,7 @@ pub fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
                         else:
                             Result<i32,i32>::Err errno
                     string_builder_free normalized
-                    match dealloc_ptr<u8> stat_buf 64:
+                    match dealloc_region<u8> stat_region:
                         Result::Ok _:
                             ()
                         Result::Err _:
