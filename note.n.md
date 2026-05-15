@@ -39192,3 +39192,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-core-mem-safe-root-memory-safety.json -j 1 --dist web/dist --assert-io`: 39 passed
   - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/core/mem/pointer.nepl -i stdlib/core/mem/pointer/alloc.nepl -i stdlib/core/mem/pointer/view.nepl -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/core/mem/internal.nepl --no-tree -o tmp/agent1-core-mem-safe-root-doctests.json -j 1 --dist web/dist --assert-io`: 15 passed
+
+## 2026-05-16 Agent 1 stdio print_byte scratch RegionToken 移行
+
+- `ISS-20260515T171022724Z-STDIO-PRINT-BYTE-SCRATCH-STILL-USES--2C662B42` を追加して fixed にした。
+- `stdlib/std/stdio/write/byte.nepl` の `print_byte` は direct `alloc_ptr` / raw `store_u8` / `dealloc_ptr` を使わず、`alloc_region<u8>` で owner token を得て、`region_ptr &region` の non-owning view へ checked `store_u8` で書くようにした。
+- 成功時も書き込み失敗時も `dealloc_region<u8> region` で free obligation を閉じるため、`MemPtr<u8>` は `stdio_write_mem` に渡す view としてだけ残る。
+- cleanup Err branch は unit 互換 API 内で unsafe helper に落とさず no-op とした。source policy は stdlib implementation の `unreachable` 使用を許可しないため、allowlist ではなく実装側から削除した。
+- これは Stage 6 の `PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F` 親 issue の部分対応であり、残る direct alloc scratch は `std/stdio/write/fd.nepl` など raw ABI 境界ごとに owner token と ABI view を分離していく。
+- focused verification:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write/byte.nepl -i stdlib/std/stdio/write.nepl --no-tree -o tmp/agent1-stdio-byte-region-scratch-doctests.json -j 1 --dist web/dist --assert-io`: 1 passed

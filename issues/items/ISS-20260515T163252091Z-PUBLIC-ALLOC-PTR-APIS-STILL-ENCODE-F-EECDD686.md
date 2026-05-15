@@ -64,3 +64,11 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 これで `#import "core/mem" as *` だけでは `MemPtr<T>` owner API へ到達できない。`mem_ptr_add` は low-level alloc file から `pointer/view` へ分離し、owner API と non-owning view helper の責務を分けた。
 
 ただし `#import "core/mem/pointer/alloc" as *` による direct import はまだ残っており、stdlib scratch 実装もこの低レベル境界に依存している。したがって親 issue は open のまま維持し、次段階では direct low-level alloc API を token / storage owner API へ置き換える。
+
+## 2026-05-16 Agent 1 部分対応メモ 2
+
+子 issue [ISS-20260515T171022724Z-STDIO-PRINT-BYTE-SCRATCH-STILL-USES--2C662B42](./ISS-20260515T171022724Z-STDIO-PRINT-BYTE-SCRATCH-STILL-USES--2C662B42.md) で、`stdlib/std/stdio/write/byte.nepl` の 1 byte stdout scratch buffer を `RegionToken<u8>` owner 境界へ移した。
+
+`print_byte` は direct `alloc_ptr` / `dealloc_ptr` / raw `store_u8` を使わず、`alloc_region`、`region_ptr`、checked `store_u8`、`dealloc_region` だけで一時 buffer を扱う。これにより public stdio helper の小さな scratch 境界から `MemPtr<u8>` free obligation carrier を削除した。
+
+親 issue の残件は `std/stdio/write/fd.nepl`、`std/fs`、`std/env/cliarg/raw` などの syscall / ABI scratch 実装であり、raw syscall に iovec や C buffer を渡す箇所は個別に owner token と raw ABI view を分離していく。

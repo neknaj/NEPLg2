@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T17:03:30.545Z",
+  "generated_at": "2026-05-15T17:13:10.714Z",
   "counts": {
-    "total": 837,
+    "total": 838,
     "open": 6,
-    "resolved": 831,
+    "resolved": 832,
     "by_area": {
       "stdlib": {
-        "total": 241,
+        "total": 242,
         "open": 4,
-        "resolved": 237
+        "resolved": 238
       },
       "TEST": {
         "total": 24,
@@ -9868,6 +9868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44.md"
+    },
+    {
+      "id": "ISS-20260515T171022724Z-STDIO-PRINT-BYTE-SCRATCH-STILL-USES--2C662B42",
+      "title": "stdio print_byte scratch still uses MemPtr alloc owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/std/stdio/write/byte.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T171022724Z-STDIO-PRINT-BYTE-SCRATCH-STILL-USES--2C662B42.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

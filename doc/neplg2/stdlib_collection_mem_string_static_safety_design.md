@@ -317,6 +317,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist は 0 件になった。今後 stdlib の struct field に `MemPtr` / `Option<MemPtr>` を owner-like field として戻すことは禁止する。
 - ただし `RegionToken<T>` はまだ compiler-issued `OwnedRegion<T>` ではない。Stage B/D/F の最終目標は、`RegionToken` を過渡 owner token として閉じ、`OwnedBuffer<T>` / `StorageState<T>` / initialized prefix / compiler-issued free obligation owner へ進めることである。
 - 追加調査で、struct field としての `MemPtr` owner は 0 件になった一方、`alloc_ptr<T> -> Result<MemPtr<T>, str>` / `realloc_ptr<T> -> Result<MemPtr<T>, str>` / `dealloc_ptr<T>(MemPtr<T>, i32)` が public API として free obligation を `MemPtr<T>` に残していることを確認した。これは [ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686](../../issues/items/ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686.md) として分離し、Stage B/F の実装対象にする。
+- `std/stdio/write/byte.nepl` の `print_byte` は 1 byte scratch buffer を `RegionToken<u8>` owner と non-owning `MemPtr<u8>` view に分けた。これは direct `alloc_ptr` 利用を syscall ABI boundary ではない stdio adapter から取り除く最初の子対応であり、残る fd write / fs / env raw scratch は同じ方針で owner token と ABI view を分離する。
 
 ### Stage B: `core/mem` の internal/public 分離
 
