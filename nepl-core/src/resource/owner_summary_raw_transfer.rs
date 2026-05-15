@@ -112,13 +112,19 @@ fn raw_owner_alias_transfer_kind(
 ) -> RawOwnerAliasTransferKind {
     match kind {
         RawAddressViewKind::NonOwningProjection => RawOwnerAliasTransferKind::NonOwningProjection,
-        RawAddressViewKind::Offset if raw_views.contains_non_owning_projection(source) => {
+        RawAddressViewKind::Offset | RawAddressViewKind::MemPtrOffset
+            if raw_views.contains_non_owning_projection(source) =>
+        {
             RawOwnerAliasTransferKind::NonOwningProjection
         }
-        RawAddressViewKind::Offset if raw_views.contains_non_owning(source) => {
+        RawAddressViewKind::Offset | RawAddressViewKind::MemPtrOffset
+            if raw_views.contains_non_owning(source) =>
+        {
             RawOwnerAliasTransferKind::NonOwning
         }
-        RawAddressViewKind::Offset => RawOwnerAliasTransferKind::OwnerAlias,
+        RawAddressViewKind::Offset | RawAddressViewKind::MemPtrOffset => {
+            RawOwnerAliasTransferKind::OwnerAlias
+        }
     }
 }
 

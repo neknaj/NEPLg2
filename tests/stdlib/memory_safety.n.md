@@ -223,6 +223,37 @@ fn main <()*>i32> ():
                     ok
 ```
 
+## mem_ptr_add は region_ptr_at の境界証明を迂回できない
+
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<i32> 1:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let p <MemPtr<i32>> region_ptr &token
+            let q <MemPtr<i32>> mem_ptr_add<i32> p 4
+            let ok <i32> match store_i32 q 99:
+                Result::Err _e:
+                    1
+                Result::Ok _:
+                    2
+            match dealloc_region<i32> token:
+                Result::Err _e:
+                    0
+                Result::Ok _:
+                    ok
+```
+
 ## region_ptr_at は型付き projection の alignment を検査する
 
 neplg2:test

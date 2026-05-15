@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T15:19:55.803Z",
+  "generated_at": "2026-05-15T15:49:52.718Z",
   "counts": {
-    "total": 833,
+    "total": 834,
     "open": 5,
-    "resolved": 828,
+    "resolved": 829,
     "by_area": {
       "stdlib": {
         "total": 238,
@@ -52,9 +52,9 @@
         "resolved": 4
       },
       "compiler": {
-        "total": 4,
+        "total": 5,
         "open": 0,
-        "resolved": 4
+        "resolved": 5
       },
       "core/resource": {
         "total": 1,
@@ -928,6 +928,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T044352695Z-RESOURCE-IR-RAW-REGRESSIONS-ARE-STAL-9CFFDA5D.md"
+    },
+    {
+      "id": "ISS-20260515T153348188Z-PUBLIC-MEM-PTR-ADD-BYPASSES-REGION-B-F82F9BBB",
+      "title": "public mem_ptr_add bypasses region bounds proof",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/effect_check.rs; nepl-core/src/resource/effect_diagnostic.rs; nepl-core/src/resource/effect.rs; nepl-core/src/compiler.rs; tests/stdlib/memory_safety.n.md; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T153348188Z-PUBLIC-MEM-PTR-ADD-BYPASSES-REGION-B-F82F9BBB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

@@ -52,6 +52,7 @@ mod effect_checked_memptr;
 mod effect_counts;
 mod effect_counts_host;
 mod effect_counts_raw;
+mod effect_diagnostic;
 mod effect_identity;
 mod effect_match;
 mod effect_raw_memory_identity;
@@ -261,12 +262,12 @@ pub use drop_requirement::{
 };
 pub use effect::{
     check_resource_effect_boundaries, check_resource_effect_boundaries_typed,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectBoundaryReport, ResourceEffectCallKind,
-    ResourceEffectFunctionCheck,
+    ResourceEffectBoundaryReport, ResourceEffectFunctionCheck,
 };
 pub use effect_counts::ResourceEffectCounts;
 pub use effect_counts_host::{ExternalIoEffectCounts, NondetEffectCounts};
 pub use effect_counts_raw::RawMemoryEffectCounts;
+pub use effect_diagnostic::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 pub use initialized::check_resource_initialized_moves;
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{

@@ -3,8 +3,8 @@ use alloc::vec::Vec;
 
 use crate::span::Span;
 
-use super::effect::ResourceEffectBoundaryDiagnostic;
 use super::effect_check::ResourceEffectBoundaryEngine;
+use super::effect_diagnostic::ResourceEffectBoundaryDiagnostic;
 use super::effect_identity::{
     raw_memory_op_produces_identity, RawIdentityTable, RawPointerAliasTable,
 };

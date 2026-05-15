@@ -184,6 +184,7 @@ for (const moduleName of [
     'effect_counts.rs',
     'effect_counts_host.rs',
     'effect_counts_raw.rs',
+    'effect_diagnostic.rs',
     'effect_summary.rs',
     'effect_summary_identity.rs',
     'effect_summary_pointer.rs',
@@ -374,6 +375,7 @@ for (const moduleDecl of [
     'mod effect_counts;',
     'mod effect_counts_host;',
     'mod effect_counts_raw;',
+    'mod effect_diagnostic;',
     'mod effect_summary;',
     'mod effect_summary_identity;',
     'mod effect_summary_pointer;',
@@ -708,6 +710,11 @@ assertMatches(
     /Some\("mem_ptr_addr"\)\s*=>\s*\{[\s\S]*push_raw_address_op\([\s\S]*Some\(RawAddressViewKind::NonOwningProjection\)[\s\S]*\}\s*Some\("mem_ptr_add"\)/,
     'lower_raw_address.rs mem_ptr_addr non-owning projection policy',
 );
+assertMatches(
+    lowerRawAddress,
+    /Some\("mem_ptr_add"\)\s*=>\s*\{[\s\S]*RawAddressViewKind::MemPtrOffset[\s\S]*push_raw_address_op/,
+    'lower_raw_address.rs mem_ptr_add offset boundary policy',
+);
 assertContains(
     lowerRawAddressPlace,
     'pub(super) fn raw_address_place_from_actual_argument',
@@ -906,19 +913,19 @@ assertContains(
     'RawAddressViewKind::NonOwningProjection => RawOwnerAliasTransferKind::NonOwningProjection',
     'owner_summary_raw_transfer.rs raw owner alias policy',
 );
-assertContains(
+assertMatches(
     rawOwnerAliasPolicy,
-    'RawAddressViewKind::Offset if raw_views.contains_non_owning_projection(source) =>',
+    /RawAddressViewKind::Offset\s*\|\s*RawAddressViewKind::MemPtrOffset\s+if raw_views\.contains_non_owning_projection\(source\) =>/,
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertMatches(
+    rawOwnerAliasPolicy,
+    /RawAddressViewKind::Offset\s*\|\s*RawAddressViewKind::MemPtrOffset\s+if raw_views\.contains_non_owning\(source\) =>/,
     'owner_summary_raw_transfer.rs raw owner alias policy',
 );
 assertContains(
     rawOwnerAliasPolicy,
-    'RawAddressViewKind::Offset if raw_views.contains_non_owning(source) =>',
-    'owner_summary_raw_transfer.rs raw owner alias policy',
-);
-assertContains(
-    rawOwnerAliasPolicy,
-    'RawAddressViewKind::Offset => RawOwnerAliasTransferKind::OwnerAlias',
+    'RawAddressViewKind::Offset | RawAddressViewKind::MemPtrOffset => {',
     'owner_summary_raw_transfer.rs raw owner alias policy',
 );
 assertNotContains(
@@ -1075,6 +1082,7 @@ const maxLines = new Map([
     ['effect_counts.rs', 80],
     ['effect_counts_host.rs', 220],
     ['effect_counts_raw.rs', 80],
+    ['effect_diagnostic.rs', 110],
     ['effect_identity.rs', 420],
     ['effect_raw_memory_identity.rs', 140],
     ['initialized.rs', 750],

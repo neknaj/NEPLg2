@@ -725,10 +725,10 @@ mod tests {
     use super::*;
     use crate::diagnostic_codes::EffectDiagnosticCode;
     use crate::resource::{
-        BorrowState, CellState, OwnerState, Place, RawMemoryOp, ResourceBorrowDiagnostic,
-        ResourceBorrowOperation, ResourceCheckDiagnostic, ResourceCheckOperation,
-        ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceId,
-        ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
+        BorrowState, CellState, OwnerState, Place, RawAddressViewKind, RawMemoryOp,
+        ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCheckDiagnostic,
+        ResourceCheckOperation, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+        ResourceId, ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
     };
     use crate::source_map::{SourceCapabilities, SourceCapability, SourceMap};
     use alloc::boxed::Box;
@@ -1097,6 +1097,26 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_maps_raw_address_view_outside_boundary_to_resource_raw_code() {
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
+            function: String::from("offset_ptr"),
+            kind: RawAddressViewKind::MemPtrOffset,
+            span: Span::dummy(),
+        };
+
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
+
+        assert_eq!(
+            error.code,
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                crate::diagnostic_codes::ResourceRawDiagnosticCode::MemoryOutsideBoundary,
+            ))
+        );
+        assert!(error.message.contains("raw address view 'mem_ptr_offset'"));
+        assert!(error.message.contains("outside raw-memory boundary"));
+    }
+
+    #[test]
     fn resource_effect_gate_allows_raw_memory_inside_raw_boundary() {
         let mut source_map = SourceMap::new();
         let raw_file = source_map.add_with_capabilities(
@@ -1107,6 +1127,26 @@ mod tests {
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
             function: String::from("store_raw"),
             operation: RawMemoryOp::Store,
+            span: Span::new(raw_file, 0, 1),
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &diagnostic,
+            Some(&source_map),
+        ));
+    }
+
+    #[test]
+    fn resource_effect_gate_allows_raw_address_view_inside_raw_boundary() {
+        let mut source_map = SourceMap::new();
+        let raw_file = source_map.add_with_capabilities(
+            "stdlib/core/mem/pointer/alloc.nepl",
+            String::new(),
+            SourceCapabilities::with(SourceCapability::RawMemoryStructuralBoundary),
+        );
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
+            function: String::from("mem_ptr_add"),
+            kind: RawAddressViewKind::MemPtrOffset,
             span: Span::new(raw_file, 0, 1),
         };
 
@@ -1202,6 +1242,10 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
             span,
             ..
@@ -1241,6 +1285,16 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
             };
             source_map
                 .map(|map| map.raw_memory_operation_boundary_allowed(span.file_id, *operation))
+                .unwrap_or(false)
+        }
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
+            ..
+        } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.raw_memory_structural_boundary_allowed(span.file_id))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
@@ -1329,6 +1383,18 @@ fn resource_effect_boundary_diagnostic_to_error(
             format!(
                 "function '{}' uses raw memory operation '{}' outside raw-memory boundary",
                 function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
+            function,
+            kind,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "function '{}' creates raw address view '{}' outside raw-memory boundary",
+                function, kind
             ),
             *span,
         ),

@@ -196,7 +196,19 @@ pub enum ResourceOp {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RawAddressViewKind {
     Offset,
+    MemPtrOffset,
     NonOwningProjection,
+}
+
+impl fmt::Display for RawAddressViewKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            RawAddressViewKind::Offset => "offset",
+            RawAddressViewKind::MemPtrOffset => "mem_ptr_offset",
+            RawAddressViewKind::NonOwningProjection => "non_owning_projection",
+        };
+        f.write_str(name)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -39128,3 +39128,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`
   - `node nodesrc/tests.js -i stdlib/core/mem/pointer/region.nepl -i stdlib/alloc/io/bytebuilder/storage.nepl -i stdlib/alloc/collections/vec/mutation/push.nepl --no-tree -o tmp/agent1-region-realloc-vec-grow.json -j 1 --dist web/dist --assert-io`: 15 passed
   - `node nodesrc/test_stdlib_documentation_contract.js`: `declarationNoDoctest=1032`
+
+## 2026-05-16 Agent 1 mem_ptr_add offset view 境界診断
+
+- `ISS-20260515T153348188Z-PUBLIC-MEM-PTR-ADD-BYPASSES-REGION-B-F82F9BBB` を追加して fixed にした。
+- 調査では、user source が `alloc_region -> region_ptr -> mem_ptr_add -> store_i32` と呼ぶことで `region_ptr_at` の bounds / alignment proof を迂回し、allocator-derived `RegionToken` の範囲外 `MemPtr` を checked store に渡せることを確認した。
+- 根本原因は `mem_ptr_add` が Resource IR では一般的な raw address arithmetic と同じ `RawAddressViewKind::Offset` として lower され、effect boundary が public `MemPtr` offset view を raw structural boundary operation として区別できなかったことだった。
+- `ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary` と `RawAddressViewKind::MemPtrOffset` を追加し、`mem_ptr_add` 由来の pointer arithmetic は compiler-owned raw-memory-boundary source 以外で `resource.raw.memory_outside_boundary` にする。`RawAddressViewKind::Offset` は内部 raw address arithmetic、`NonOwningProjection` は検査済み projection として分け、`region_ptr_at` の Ok payload と任意 pointer arithmetic を混同しない。
+- 診断 variant 追加で `effect.rs` の責務が膨らんだため、effect boundary diagnostic model を `effect_diagnostic.rs` へ分離し、source policy で分離を固定した。
+- `tests/stdlib/memory_safety.n.md` に user-level `mem_ptr_add` bounds bypass の compile_fail 回帰を追加した。

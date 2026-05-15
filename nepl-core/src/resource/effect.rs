@@ -3,21 +3,15 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::diagnostic_codes::{
-    DiagnosticCode, EffectDiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
-    ResourceRawDiagnosticCode,
-};
-use crate::span::Span;
 use crate::types::TypeCtx;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_counts::ResourceEffectCounts;
+use super::effect_diagnostic::ResourceEffectBoundaryDiagnostic;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::effect_summary_identity::compute_raw_identity_return_summaries;
 use super::effect_summary_pointer::compute_raw_pointer_return_summaries;
-use super::model::{
-    ExternalIoOp, NondetOp, Place, RawMemoryOp, ResourceModule, UnknownEffectReason,
-};
+use super::model::ResourceModule;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceEffectBoundaryReport {
@@ -29,79 +23,6 @@ pub struct ResourceEffectBoundaryReport {
 pub struct ResourceEffectFunctionCheck {
     pub name: String,
     pub counts: ResourceEffectCounts,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ResourceEffectBoundaryDiagnostic {
-    ImpureCallInPureFunction {
-        function: String,
-        call: ResourceEffectCallKind,
-        span: Span,
-    },
-    UnsafeMemoryInPureFunction {
-        function: String,
-        operation: RawMemoryOp,
-        span: Span,
-    },
-    RawMemoryOutsideBoundary {
-        function: String,
-        operation: RawMemoryOp,
-        span: Span,
-    },
-    CheckedMemPtrOutsideBoundary {
-        function: String,
-        operation: RawMemoryOp,
-        place: Place,
-        span: Span,
-    },
-    RawAddressEscapeFromInternalAlloc {
-        function: String,
-        operation: RawMemoryOp,
-        place: Place,
-        span: Span,
-    },
-    UnknownEffect {
-        function: String,
-        reason: UnknownEffectReason,
-        span: Span,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ResourceEffectCallKind {
-    Direct { name: String },
-    ExternalIo { operation: ExternalIoOp },
-    Nondet { operation: NondetOp },
-    Indirect,
-}
-
-impl ResourceEffectBoundaryDiagnostic {
-    pub fn diagnostic_code(&self) -> DiagnosticCode {
-        match self {
-            ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. }
-            | ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction { .. } => {
-                DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
-            }
-            ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. } => {
-                DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-                    ResourceRawDiagnosticCode::MemoryOutsideBoundary,
-                ))
-            }
-            ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary { .. } => {
-                DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-                    ResourceRawDiagnosticCode::MemoryOutsideBoundary,
-                ))
-            }
-            ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc { .. } => {
-                DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-                    ResourceRawDiagnosticCode::IdentityEscape,
-                ))
-            }
-            ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Lower(ResourceLowerDiagnosticCode::Incomplete),
-            ),
-        }
-    }
 }
 
 pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffectBoundaryReport {

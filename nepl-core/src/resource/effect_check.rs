@@ -7,8 +7,8 @@ use crate::ast::Effect;
 use crate::span::Span;
 use crate::types::TypeCtx;
 
-use super::effect::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 use super::effect_counts::ResourceEffectCounts;
+use super::effect_diagnostic::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 use super::effect_identity::{
     construct_pointer_alias_fields, construct_raw_identity_fields, copy_pointer_alias,
     raw_memory_op_produces_identity, RawIdentityTable, RawPointerAliasTable,
@@ -19,8 +19,8 @@ use super::effect_return_escape::raw_identity_return_projection_is_escape;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceCallTarget, ResourceExprKind,
-    ResourceFunction, ResourceOp, ResourceTerminator,
+    EffectOp, Place, RawAddressViewKind, RawMemoryOp, ResourceBlock, ResourceCallTarget,
+    ResourceExprKind, ResourceFunction, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, raw_address_view_candidate_bases,
@@ -189,7 +189,13 @@ impl ResourceEffectBoundaryEngine<'_> {
                 identities.copy_identity(source, target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
             }
-            ResourceOp::RawAddressView { source, target, .. } => {
+            ResourceOp::RawAddressView {
+                source,
+                target,
+                kind,
+                span,
+            } => {
+                self.report_raw_address_view_boundary_use(*kind, *span);
                 identities.clear(target);
                 for candidate in raw_address_view_candidate_bases(source) {
                     identities.merge_identity(&candidate, target);
@@ -647,6 +653,21 @@ impl ResourceEffectBoundaryEngine<'_> {
                 operation,
                 span,
             });
+    }
+
+    fn report_raw_address_view_boundary_use(&mut self, kind: RawAddressViewKind, span: Span) {
+        match kind {
+            RawAddressViewKind::MemPtrOffset => {
+                self.diagnostics.push(
+                    ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
+                        function: String::from(self.function),
+                        kind,
+                        span,
+                    },
+                );
+            }
+            RawAddressViewKind::Offset | RawAddressViewKind::NonOwningProjection => {}
+        }
     }
 
     fn check_call_effect(&mut self, effect: Effect, call: ResourceEffectCallKind, span: Span) {

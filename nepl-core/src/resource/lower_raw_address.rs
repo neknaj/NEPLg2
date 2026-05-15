@@ -57,7 +57,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 return;
             };
             let mut raw = mem_ptr_raw_field_place(ptr, env.types.i32());
-            let view_kind = Some(RawAddressViewKind::Offset);
+            let view_kind = Some(RawAddressViewKind::MemPtrOffset);
             raw = raw_address_place_with_offset(
                 raw,
                 raw_address_offset_from_actual_arg(1, hir_args, arg_places, env),

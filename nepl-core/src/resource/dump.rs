@@ -451,6 +451,7 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
 fn dump_raw_address_view_kind(kind: super::model::RawAddressViewKind) -> &'static str {
     match kind {
         super::model::RawAddressViewKind::Offset => "offset",
+        super::model::RawAddressViewKind::MemPtrOffset => "mem_ptr_offset",
         super::model::RawAddressViewKind::NonOwningProjection => "non_owning_projection",
     }
 }
