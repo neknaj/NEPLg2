@@ -1,3 +1,16 @@
+# 2026-05-15 Agent 1 core/option doc report doctest 修正
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`stdlib/core/option.nepl` の public doc-comment doctest 3 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+- `core_option_basic` / `core_option_map` / `core_option_and_then` で、Option の代表的な使い方と期待値が stdout の assertion label / expected / actual として残るようにした。
+- file-level doc の注意書きも旧 `ret:` 比較ではなく `std/test` report と `exit_code:` で確認する方針へ同期した。
+- `nodesrc/test_core_option_doc_report_contract.js` を追加し、core/option doc-comment doctest が `ret:` に戻らないことを監視する。
+- 検証:
+  - `node nodesrc/test_core_option_doc_report_contract.js`
+  - `node nodesrc/run_doctest.js -i stdlib/core/option.nepl -n 1 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/core/option.nepl -n 2 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/core/option.nepl -n 3 --assert-io --dist web/dist`
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 shadowing std/test report doctest 修正
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`tests/compiler/shadowing.n.md` の `std_test_noshadow_allows_overload_with_different_signature` を `ret: 0` だけの成功確認から canonical `std/test` stdout report + `exit_code: 0` へ移行した。

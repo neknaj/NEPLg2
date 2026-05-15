@@ -12,30 +12,33 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `unwrap` は[便宜上/べんぎじょう][残/のこ]している unsafe helper であり、[通常/つうじょう]は `match` や `unwrap_or` を[優先/ゆうせん]してください。
-//: - doctest では trap [依存/いぞん]の `should_panic` を[使/つか]わず、[安全/あんぜん]な[分岐/ぶんき]と `ret:` [比較/ひかく]で[確認/かくにん]します。
+//: - doctest では trap [依存/いぞん]の `should_panic` を[使/つか]わず、[安全/あんぜん]な[分岐/ぶんき]を `std/test` report と `exit_code:` で[確認/かくにん]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [基本操作/きほんそうさ]はすべて O(1) です。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"core_option_basic\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"some is present\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"none is absent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"unwrap some\" expected=\"123\" actual=\"123\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"unwrap_or none\" expected=\"7\" actual=\"7\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/option" as *
 //: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert is_some some 123
-//:         |> checks_push assert is_none none<i32>
-//:         |> checks_push assert_eq_i32 123 unwrap some 123
-//:         |> checks_push assert_eq_i32 7 unwrap_or none<i32> 7
-//:     checks_exit_code checks
+//:     let report:
+//:         test_report_new "core_option_basic"
+//:         |> test_report_push assert "some is present" is_some some 123
+//:         |> test_report_push assert "none is absent" is_none none<i32>
+//:         |> test_report_push assert_eq_i32 "unwrap some" 123 unwrap some 123
+//:         |> test_report_push assert_eq_i32 "unwrap_or none" 7 unwrap_or none<i32> 7
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"core_option_map\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"some map result\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"none map result\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"mapped value\" expected=\"10\" actual=\"10\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -49,16 +52,18 @@
 //:     let a0 map<i32,i32> some<i32> 9 inc;
 //:     let a1 map<i32,i32> some<i32> 9 inc;
 //:     let b map<i32,i32> none<i32> inc;
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert is_some a0
-//:         |> checks_push assert is_none b
-//:         |> checks_push assert_eq_i32 10 unwrap a1
-//:     checks_exit_code checks
+//:     let report:
+//:         test_report_new "core_option_map"
+//:         |> test_report_push assert "some map result" is_some a0
+//:         |> test_report_push assert "none map result" is_none b
+//:         |> test_report_push assert_eq_i32 "mapped value" 10 unwrap a1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"core_option_and_then\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"positive double\" expected=\"6\" actual=\"6\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative double none\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -73,11 +78,12 @@
 //: fn main <()*>i32> ():
 //:     let a and_then<i32,i32> some<i32> 3 positive_double;
 //:     let b and_then<i32,i32> some<i32> -1 positive_double;
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_eq_i32 6 unwrap a
-//:         |> checks_push assert is_none b
-//:     checks_exit_code checks
+//:     let report:
+//:         test_report_new "core_option_and_then"
+//:         |> test_report_push assert_eq_i32 "positive double" 6 unwrap a
+//:         |> test_report_push assert "negative double none" is_none b
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 

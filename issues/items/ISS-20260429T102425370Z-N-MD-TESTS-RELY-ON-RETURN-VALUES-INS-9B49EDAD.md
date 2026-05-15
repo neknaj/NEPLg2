@@ -1005,3 +1005,23 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 23 --assert-io --dist web/dist`: pass
 
 この issue はまだ open のまま継続する。Shadowing の他の core-only `ret:` fixture は、stdout を持つ `std/test` assertion suite ではなく戻り値そのものを観測する言語 semantics test なので、今回の対象外とした。残件は、他ファイルの `std/test` assertion suite と report 省略検出 policy の拡充である。
+
+## 2026-05-15 core/option doc-comment stdout report migration
+
+`stdlib/core/option.nepl` の public doc-comment doctest 3 件を、`ret: 0` だけで成功を表す形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- `core_option_basic`、`core_option_map`、`core_option_and_then` に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- Option の `Some` / `None`、`unwrap` / `unwrap_or`、`map`、`and_then` の代表例を assertion label として stdout に残すようにした。
+- file-level doc の注意書きを、旧 `ret:` 比較ではなく `std/test` report と `exit_code:` で確認する方針へ同期した。
+- `nodesrc/test_core_option_doc_report_contract.js` を追加し、core/option の public doc-comment doctest が `ret:` へ戻らず canonical report を出すことを固定した。
+
+検証:
+
+- `node nodesrc/test_core_option_doc_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/option.nepl -n 1 --assert-io --dist web/dist`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/option.nepl -n 2 --assert-io --dist web/dist`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/option.nepl -n 3 --assert-io --dist web/dist`: pass
+
+この issue はまだ open のまま継続する。stdlib doc-comment doctest のうち `std/test` を使うものは、引き続き report 省略のない形へ段階的に移行する。
