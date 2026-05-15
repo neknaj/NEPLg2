@@ -23,21 +23,25 @@
 //: [注意/ちゅうい]:
 //: - 末尾が CR でない場合は元の `str` を返します。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_trim_doc\" count=6 failed=0\nassertion index=0 status=ok kind=str_eq label=\"suffix cr removed\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"suffix without cr kept\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"slice suffix cr removed\" expected=\"bcd\" actual=\"bcd\" message=\"\"\nassertion index=3 status=ok kind=str_eq label=\"slice clamps low start\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=4 status=ok kind=str_eq label=\"ascii whitespace trimmed\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=5 status=ok kind=str_eq label=\"interior space kept\" expected=\"a b\" actual=\"a b\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//:| #import "alloc/string/slice/trim" as *
 //: fn main <()*>i32> ():
-//:     if:
-//:         str_eq "abc" str_trim_suffix_cr "abc\r"
-//:         then:
-//:             if:
-//:                 str_eq "abc" str_trim_suffix_cr "abc"
-//:                 then 0
-//:                 else 1
-//:         else 1
+//:     let report:
+//:         test_report_new "string_trim_doc"
+//:         |> test_report_push assert_str_eq "suffix cr removed" "abc" str_trim_suffix_cr "abc\r"
+//:         |> test_report_push assert_str_eq "suffix without cr kept" "abc" str_trim_suffix_cr "abc"
+//:         |> test_report_push assert_str_eq "slice suffix cr removed" "bcd" str_slice_trim_suffix_cr "abcd\r" 1 5
+//:         |> test_report_push assert_str_eq "slice clamps low start" "abc" str_slice_trim_suffix_cr "abc\r" -3 4
+//:         |> test_report_push assert_str_eq "ascii whitespace trimmed" "abc" str_trim " \tabc\r\n"
+//:         |> test_report_push assert_str_eq "interior space kept" "a b" str_trim " a b "
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn str_trim_suffix_cr <(str)->str> (s):
     let n <i32> len s

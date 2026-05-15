@@ -38987,3 +38987,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cliarg_parser.n.md -n 1 --assert-io --dist web/dist`: pass, `compile_ms=18793`
   - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/agent1-selfhost-cliarg-parser-aggregated.json -j 1 --dist web/dist --assert-io`: 1 passed
   - `node nodesrc/test_selfhost_cliarg_parser_doctest_contract.js`
+
+## 2026-05-15 Agent 1 string trim doc-comment stdout report 化
+
+- `ISS-20260515T125018872Z-STRING-TRIM-DOC-COMMENT-DOCTEST-OMIT-E2099223` を追加して fixed にした。
+- `stdlib/alloc/string/slice/trim.nepl` の doc-comment doctest は `ret: 0` だけで合否を表し、`str_trim_suffix_cr` 以外の public trim API を documentation test として固定していなかった。
+- doctest を canonical `TestReport` stdout + `exit_code: 0` へ移行し、`str_trim_suffix_cr`、`str_slice_trim_suffix_cr`、`str_trim` の代表的な挙動を assertion label / expected / actual として固定した。
+- `nodesrc/test_string_trim_doc_report_contract.js` を追加し、`ret:` / `checks_exit_code` への退行と public trim API coverage 欠落を検出するようにした。
+- focused verification:
+  - `node nodesrc/test_string_trim_doc_report_contract.js`
+  - `node --check nodesrc/test_string_trim_doc_report_contract.js`
+  - `node --check nodesrc/run_source_policy_regressions.js`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string/slice/trim.nepl -n 1 --assert-io --dist web/dist`

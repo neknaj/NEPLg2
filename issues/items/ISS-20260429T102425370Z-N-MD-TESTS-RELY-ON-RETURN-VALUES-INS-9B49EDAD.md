@@ -1107,3 +1107,22 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 7 --assert-io --dist web/dist`: pass
 
 この issue はまだ open のまま継続する。`stdlib/core/result.nepl` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
+
+## 2026-05-15 string trim doc-comment stdout report migration
+
+`ISS-20260515T125018872Z-STRING-TRIM-DOC-COMMENT-DOCTEST-OMIT-E2099223` として、`stdlib/alloc/string/slice/trim.nepl` の public doc-comment doctest を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `str_trim_suffix_cr` の CR あり / CR なしを、戻り値 0 ではなく assertion label / expected / actual として stdout に固定した。
+- `str_slice_trim_suffix_cr` の範囲切り出し後 CR 除去と start clamp を同じ report に追加した。
+- `str_trim` の ASCII whitespace trimming と interior space preservation を同じ report に追加した。
+- `nodesrc/test_string_trim_doc_report_contract.js` を追加し、`ret:` / `checks_exit_code` へ戻る退行と public trim API coverage の欠落を検出する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を追加した。
+
+検証:
+
+- `node nodesrc/test_string_trim_doc_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i stdlib/alloc/string/slice/trim.nepl -n 1 --assert-io --dist web/dist`: pass
+
+この issue はまだ open のまま継続する。`stdlib/alloc/string/slice/trim.nepl` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
