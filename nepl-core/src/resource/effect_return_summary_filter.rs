@@ -6,9 +6,8 @@ use alloc::vec::Vec;
 use crate::layout::{extend_type_mapping, mapped_type_id};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-use super::effect_return_escape::raw_identity_projection_has_owner_protection;
 use super::model::{Place, PlaceProjection};
-use super::place_utils::is_mem_ptr_type;
+use super::place_utils::{is_mem_ptr_type, projection_result_type};
 
 pub(super) fn raw_identity_return_projection_requires_summary(
     types: Option<&TypeCtx>,
@@ -19,7 +18,7 @@ pub(super) fn raw_identity_return_projection_requires_summary(
     let Some(types) = types else {
         return true;
     };
-    if raw_identity_projection_has_owner_protection(types, returned.ty, suffix) {
+    if raw_identity_projection_has_summary_opaque_owner_protection(types, returned.ty, suffix) {
         return false;
     }
     raw_identity_type_can_propagate_public_escape(
@@ -28,6 +27,31 @@ pub(super) fn raw_identity_return_projection_requires_summary(
         &BTreeMap::new(),
         &mut Vec::new(),
     )
+}
+
+fn raw_identity_projection_has_summary_opaque_owner_protection(
+    types: &TypeCtx,
+    root_ty: TypeId,
+    suffix: &[PlaceProjection],
+) -> bool {
+    let mut current_ty = types.resolve_named_type_id(types.resolve_id(root_ty));
+    if raw_identity_type_suppresses_internal_summary(types, current_ty) {
+        return true;
+    }
+    for projection in suffix {
+        if raw_identity_type_suppresses_internal_summary(types, current_ty) {
+            return true;
+        }
+        current_ty = projection_result_type(types, current_ty, projection).unwrap_or(current_ty);
+        if raw_identity_type_suppresses_internal_summary(types, current_ty) {
+            return true;
+        }
+    }
+    false
+}
+
+fn raw_identity_type_suppresses_internal_summary(types: &TypeCtx, ty: TypeId) -> bool {
+    types.resolve_named_type_id(types.resolve_id(ty)) == types.str()
 }
 
 fn raw_identity_type_can_propagate_public_escape(
@@ -194,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn summary_filter_skips_region_token_owner_returns() {
+    fn summary_filter_keeps_region_token_owner_provenance() {
         let mut types = TypeCtx::new();
         let i32_ty = types.i32();
         let region_token_ty = types.register_named(
@@ -208,7 +232,7 @@ mod tests {
             },
         );
 
-        assert!(!raw_identity_return_projection_requires_summary(
+        assert!(raw_identity_return_projection_requires_summary(
             Some(&types),
             &returned_place(region_token_ty),
             &[],

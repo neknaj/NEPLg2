@@ -12509,12 +12509,19 @@ fn main <()*>()> ():
             ()
         Result::Ok token:
             let p <MemPtr<u8>> borrowed_region_ptr_via_callback &token
-            store_u8 mem_ptr_addr p 7
-            match dealloc_region token:
-                Result::Ok _:
-                    ()
+            match store_u8 p 7:
                 Result::Err _e:
-                    ()
+                    match dealloc_region token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            ()
+                Result::Ok _:
+                    match dealloc_region token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            ()
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -12573,12 +12580,19 @@ fn main <()*>()> ():
             ()
         Result::Ok token:
             let p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
-            store_u8 mem_ptr_addr p 7
-            match dealloc_region token:
-                Result::Ok _:
-                    ()
+            match store_u8 p 7:
                 Result::Err _e:
-                    ()
+                    match dealloc_region token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            ()
+                Result::Ok _:
+                    match dealloc_region token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            ()
 "#;
 
     let (module, types) = typecheck_resource_source(source);

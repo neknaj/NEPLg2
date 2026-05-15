@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T10:50:07.485Z",
+  "generated_at": "2026-05-15T11:06:47.056Z",
   "counts": {
-    "total": 819,
-    "open": 5,
+    "total": 820,
+    "open": 6,
     "resolved": 814,
     "by_area": {
+      "core": {
+        "total": 408,
+        "open": 1,
+        "resolved": 407
+      },
       "stdlib": {
         "total": 233,
         "open": 3,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 407,
-        "open": 0,
-        "resolved": 407
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C",
+      "title": "checked MemPtr proof drops RegionToken return provenance",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/effect_summary_identity.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",

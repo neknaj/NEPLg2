@@ -11,6 +11,24 @@
   - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
 - `plan.md` は変更していない。
 
+# 2026-05-15 Agent 1 checked MemPtr RegionToken provenance 修正
+
+- `ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C` を追加して解決した。
+- Resource IR の raw identity summary が public raw escape diagnostic と同じ owner-protection filter を使っており、`RegionToken` 返り値の allocator-derived owner provenance まで落としていた。これにより safe な `alloc_region -> region_ptr_at -> store/load` や callback-returned `MemPtr` が `resource.raw.memory_outside_boundary` で false positive になっていた。
+- public raw escape diagnostic は変更せず、internal summary filter だけを分離した。`str` は引き続き summary から隠し、`RegionToken` は checked `MemPtr` 証明に必要な owner provenance として保持する。
+- ResourceIR integration test の stale な direct raw `store_u8 mem_ptr_addr p` は checked `store_u8 p` に更新し、raw memory authority ではなく checked wrapper provenance を検査する回帰に戻した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と issue を同期した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core --lib effect_return_summary_filter -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir checked_region -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_region_ptr_through_known_identity_callback -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_region_ptr_through_callback_parameter -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged -- --nocapture`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-regiontoken-provenance-after.json -j 1 --dist web/dist --assert-io`: total=37, passed=37
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 JSON fragment documentation contract 修正
 
 - `ISS-20260515T104525432Z-JSON-FRAGMENT-REDESIGN-LEFT-STALE-DO-6F21A386` を追加し、JSON builder の `JsonArray` / `JsonObject` fragment 再設計後に doc/source-policy が旧 `Vec<JsonValue>` traversal と owner-transfer wording を要求していた問題を記録した。
