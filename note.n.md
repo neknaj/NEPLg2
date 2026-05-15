@@ -38672,3 +38672,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_documentation_contract.js`: `moduleNoDoctest=309`, `declarationNoDoctest=1032`
   - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/alloc/collections/hashmap/types.nepl -i stdlib/alloc/collections/hashmap/storage.nepl -i stdlib/alloc/collections/hashset/api.nepl -i stdlib/alloc/collections/hashset/types.nepl -i stdlib/alloc/collections/hashset/storage.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort/merge/api.nepl -i stdlib/alloc/collections/vec/sort/merge/buffer.nepl -i stdlib/alloc/collections/vec/sort/merge/range.nepl --no-tree -o tmp/agent1-stdlib-doc-contract-doctests.json -j 1 --dist web/dist --assert-io`: `total=37, passed=37`
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: all source policy regressions passed
+
+## 2026-05-15 Agent 1 owner aggregate constructor capability 名称化
+
+- `ISS-20260515T020307026Z-OWNER-AGGREGATE-CONSTRUCTOR-CAPABILI-91ECE78D` を追加して fixed にした。
+- `OwnerAggregateConstructorBoundary` を file-wide bool から `OwnerAggregateConstructorBoundary(String)` へ変更し、constructor evidence を名前ごとに保持するようにした。
+- loader は compiler-owned stdlib source の unqualified constructor-like symbol を `BTreeSet<String>` と enum evidence で収集し、`Diag` evidence が `Vec` / `VecBox` / `HashMap` の owner-backed constructor を許可しないようにした。
+- typecheck の owner-backed aggregate constructor gate は、実際に適用中の constructor 名を `SourceMap::owner_aggregate_constructor_boundary_allowed(file_id, name)` へ渡して照合する。
+- `resource_ir.rs` に、`SourceCapabilities::owner_aggregate_constructor_boundary("Diag")` があっても `VecBox` constructor は `type.owner_aggregate.constructor_restricted` で拒否される regression を追加した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`: 5 passed
+  - `cargo test -p nepl-core typecheck_rejects_owner_backed_constructor_with_unrelated_constructor_capability --test resource_ir -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`

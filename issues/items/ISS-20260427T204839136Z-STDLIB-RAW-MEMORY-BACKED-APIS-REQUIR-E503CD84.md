@@ -256,6 +256,14 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 
 これは `RegionToken<T>` の forgeability 本体を閉じる修正ではないため、この親 issue は open のまま継続する。Stage 6 の残件は引き続き compiler-issued owner token / `OwnedBuffer<T>` / initialized prefix / collection drop traversal である。
 
+## 2026-05-15 Agent 1 owner aggregate constructor capability 名称化追記
+
+`ISS-20260515T020307026Z-OWNER-AGGREGATE-CONSTRUCTOR-CAPABILI-91ECE78D` で、owner aggregate constructor capability が file-wide bool として過大付与されていた問題を修正した。
+
+修正前は compiler-owned stdlib source に unqualified constructor-like symbol が 1 つでもあると、その file 全体が owner-backed aggregate constructor boundary になった。これでは `Diag` など unrelated constructor の evidence だけで、同じ source 内の `Vec` / `HashMap` / owner wrapper direct constructor を許し得る。
+
+修正後は `OwnerAggregateConstructorBoundary(String)` を `SourceCapabilities` に保持し、loader は constructor 名ごとの evidence を記録する。typecheck も実際に適用している constructor 名を照合するため、source property proof と許可される owner-backed constructor が一致する。この親 issue は引き続き open とする。raw-memory-backed public API / `OwnedBuffer<T>` / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
 ## 2026-05-15 Agent 1 Vec empty cleanup storage-state 追記
 
 `ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF` で、`Vec` の empty storage cleanup を storage state の match に戻した。

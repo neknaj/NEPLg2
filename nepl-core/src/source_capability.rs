@@ -13,6 +13,6 @@ pub(crate) use memory_type_definition::{
     compiler_memory_type_from_constructor_name, module_compiler_memory_type_definitions,
 };
 pub(crate) use owner_aggregate::{
-    module_has_owner_aggregate_constructor_evidence, module_has_owner_aggregate_field_evidence,
+    module_has_owner_aggregate_field_evidence, module_owner_aggregate_constructor_evidence,
 };
 pub(crate) use raw_memory::module_has_raw_memory_boundary_evidence;

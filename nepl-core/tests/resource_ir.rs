@@ -11905,6 +11905,42 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_rejects_owner_backed_constructor_with_unrelated_constructor_capability() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+
+struct VecBox:
+    items <Vec<i32>>
+
+fn box_vec <(Vec<i32>)->VecBox> (items):
+    VecBox items
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let err = compile_resource_source_with_target_and_capabilities(
+        source,
+        CompileTarget::Wasm,
+        SourceCapabilities::owner_aggregate_constructor_boundary("Diag"),
+    )
+    .expect_err("unrelated constructor capability must not authorize VecBox");
+    let nepl_core::CoreError::Diagnostics(diagnostics) = err else {
+        panic!("expected diagnostics error");
+    };
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str()
+                == "type.owner_aggregate.constructor_restricted"),
+        "expected constructor restriction diagnostic, diagnostics: {diagnostics:#?}"
+    );
+}
+
+#[test]
 fn typecheck_rejects_generic_owner_backed_aggregate_constructor_after_application() {
     let source = r#"
 #entry main

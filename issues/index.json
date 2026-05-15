@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T01:41:28.069Z",
+  "generated_at": "2026-05-15T02:25:44.043Z",
   "counts": {
-    "total": 809,
+    "total": 810,
     "open": 7,
-    "resolved": 802,
+    "resolved": 803,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 400,
+        "total": 401,
         "open": 0,
-        "resolved": 400
+        "resolved": 401
       },
       "CORE": {
         "total": 1,
@@ -6088,6 +6088,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T233136936Z-GENERIC-OWNER-BACKED-AGGREGATE-CONST-6E024598.md"
+    },
+    {
+      "id": "ISS-20260515T020307026Z-OWNER-AGGREGATE-CONSTRUCTOR-CAPABILI-91ECE78D",
+      "title": "Owner aggregate constructor capability is file-wide instead of constructor-specific",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/source_map.rs, nepl-core/src/source_capability/owner_aggregate.rs, nepl-core/src/loader.rs, nepl-core/src/typecheck/constructor_apply.rs, nepl-core/src/typecheck/effect_check.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T020307026Z-OWNER-AGGREGATE-CONSTRUCTOR-CAPABILI-91ECE78D.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -185,7 +185,7 @@ impl<'a> BlockChecker<'a> {
                 }
             }
             StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly => {
-                if !self.owner_aggregate_constructor_boundary_allowed(span) {
+                if !self.owner_aggregate_constructor_boundary_allowed(span, name) {
                     self.diagnostics.push(type_error(
                         TypeDiagnosticCode::OwnerAggregateConstructorRestricted,
                         "owner-backed aggregate constructor is restricted to compiler memory boundary",
@@ -203,7 +203,7 @@ impl<'a> BlockChecker<'a> {
         };
         if constructor_policy == StructConstructorPolicy::Public
             && target_contains_owner_backed_aggregate(self.ctx, self.structs, applied_ty)
-            && !self.owner_aggregate_constructor_boundary_allowed(span)
+            && !self.owner_aggregate_constructor_boundary_allowed(span, name)
         {
             self.diagnostics.push(type_error(
                 TypeDiagnosticCode::OwnerAggregateConstructorRestricted,

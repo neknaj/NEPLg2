@@ -1,148 +1,181 @@
+use alloc::collections::BTreeSet;
+use alloc::string::String;
+use alloc::vec::Vec;
+
 use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, Symbol};
 use crate::runtime_helpers::helper_base_name;
 use crate::source_capability::scope::SourceCapabilityScope;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default)]
+struct OwnerAggregateEvidence {
+    constructors: BTreeSet<String>,
+    field_accessor: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum OwnerAggregateCapabilityEvidence {
-    AggregateConstructor,
+    Constructor(String),
     FieldAccessor,
 }
 
-impl OwnerAggregateCapabilityEvidence {
-    fn from_symbol(name: &str) -> Option<Self> {
-        let base = helper_base_name(name);
-        match base {
-            "get" | "get_ref" | "put" | "get_field" | "get_field_ref" => Some(Self::FieldAccessor),
-            _ if constructor_like_symbol(name, base) => Some(Self::AggregateConstructor),
-            _ => None,
-        }
-    }
-}
-
-pub(crate) fn module_has_owner_aggregate_constructor_evidence(module: &Module) -> bool {
-    module_has_owner_aggregate_evidence(
-        module,
-        OwnerAggregateCapabilityEvidence::AggregateConstructor,
-    )
+pub(crate) fn module_owner_aggregate_constructor_evidence(module: &Module) -> Vec<String> {
+    collect_module_owner_aggregate_evidence(module)
+        .constructors
+        .into_iter()
+        .collect()
 }
 
 pub(crate) fn module_has_owner_aggregate_field_evidence(module: &Module) -> bool {
-    module_has_owner_aggregate_evidence(module, OwnerAggregateCapabilityEvidence::FieldAccessor)
+    collect_module_owner_aggregate_evidence(module).field_accessor
 }
 
-fn module_has_owner_aggregate_evidence(
-    module: &Module,
-    expected: OwnerAggregateCapabilityEvidence,
-) -> bool {
+fn collect_module_owner_aggregate_evidence(module: &Module) -> OwnerAggregateEvidence {
     let scope = SourceCapabilityScope::from_module(module);
-    block_owner_aggregate_evidence(&module.root, &scope, expected)
+    let mut evidence = OwnerAggregateEvidence::default();
+    collect_block_owner_aggregate_evidence(&module.root, &scope, &mut evidence);
+    evidence
 }
 
-fn block_owner_aggregate_evidence(
+fn collect_block_owner_aggregate_evidence(
     block: &Block,
     scope: &SourceCapabilityScope,
-    expected: OwnerAggregateCapabilityEvidence,
-) -> bool {
+    evidence: &mut OwnerAggregateEvidence,
+) {
     let mut block_scope = scope.clone();
     for stmt in &block.items {
-        if stmt_owner_aggregate_evidence(stmt, &block_scope, expected) {
-            return true;
-        }
+        collect_stmt_owner_aggregate_evidence(stmt, &block_scope, evidence);
         block_scope.bind_stmt_locals(stmt);
     }
-    false
 }
 
-fn stmt_owner_aggregate_evidence(
+fn collect_stmt_owner_aggregate_evidence(
     stmt: &Stmt,
     scope: &SourceCapabilityScope,
-    expected: OwnerAggregateCapabilityEvidence,
-) -> bool {
+    evidence: &mut OwnerAggregateEvidence,
+) {
     match stmt {
         Stmt::FnDef(def) => {
             let fn_scope = scope.with_params(&def.params);
-            fn_body_owner_aggregate_evidence(&def.body, &fn_scope, expected)
+            collect_fn_body_owner_aggregate_evidence(&def.body, &fn_scope, evidence);
         }
-        Stmt::Impl(def) => def.methods.iter().any(|method| {
-            let method_scope = scope.with_params(&method.params);
-            fn_body_owner_aggregate_evidence(&method.body, &method_scope, expected)
-        }),
+        Stmt::Impl(def) => {
+            for method in &def.methods {
+                let method_scope = scope.with_params(&method.params);
+                collect_fn_body_owner_aggregate_evidence(&method.body, &method_scope, evidence);
+            }
+        }
         Stmt::FnAlias(alias) => {
-            !scope.shadows(alias.target.name.as_str())
-                && OwnerAggregateCapabilityEvidence::from_symbol(alias.target.name.as_str())
-                    == Some(expected)
+            collect_symbol_owner_aggregate_evidence(alias.target.name.as_str(), scope, evidence);
         }
         Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
-            expr_owner_aggregate_evidence(expr, scope, expected)
+            collect_expr_owner_aggregate_evidence(expr, scope, evidence);
         }
         Stmt::Directive(_)
         | Stmt::StructDef(_)
         | Stmt::EnumDef(_)
         | Stmt::Trait(_)
         | Stmt::Wasm(_)
-        | Stmt::LlvmIr(_) => false,
+        | Stmt::LlvmIr(_) => {}
     }
 }
 
-fn fn_body_owner_aggregate_evidence(
+fn collect_fn_body_owner_aggregate_evidence(
     body: &FnBody,
     scope: &SourceCapabilityScope,
-    expected: OwnerAggregateCapabilityEvidence,
-) -> bool {
+    evidence: &mut OwnerAggregateEvidence,
+) {
     match body {
-        FnBody::Parsed(block) => block_owner_aggregate_evidence(block, scope, expected),
-        FnBody::Wasm(_) | FnBody::LlvmIr(_) => false,
+        FnBody::Parsed(block) => collect_block_owner_aggregate_evidence(block, scope, evidence),
+        FnBody::Wasm(_) | FnBody::LlvmIr(_) => {}
     }
 }
 
-fn expr_owner_aggregate_evidence(
+fn collect_expr_owner_aggregate_evidence(
     expr: &PrefixExpr,
     scope: &SourceCapabilityScope,
-    expected: OwnerAggregateCapabilityEvidence,
-) -> bool {
-    expr.items
-        .iter()
-        .any(|item| prefix_item_owner_aggregate_evidence(item, scope, expected))
+    evidence: &mut OwnerAggregateEvidence,
+) {
+    for item in &expr.items {
+        collect_prefix_item_owner_aggregate_evidence(item, scope, evidence);
+    }
 }
 
-fn prefix_item_owner_aggregate_evidence(
+fn collect_prefix_item_owner_aggregate_evidence(
     item: &PrefixItem,
     scope: &SourceCapabilityScope,
-    expected: OwnerAggregateCapabilityEvidence,
-) -> bool {
+    evidence: &mut OwnerAggregateEvidence,
+) {
     match item {
         PrefixItem::Symbol(Symbol::Ident(ident, _, _)) if !scope.shadows(&ident.name) => {
-            OwnerAggregateCapabilityEvidence::from_symbol(ident.name.as_str()) == Some(expected)
+            collect_symbol_owner_aggregate_evidence(ident.name.as_str(), scope, evidence);
         }
-        PrefixItem::Intrinsic(intrinsic, _) => intrinsic
-            .args
-            .iter()
-            .any(|expr| expr_owner_aggregate_evidence(expr, scope, expected)),
-        PrefixItem::Block(block, _) => block_owner_aggregate_evidence(block, scope, expected),
+        PrefixItem::Intrinsic(intrinsic, _) => {
+            for expr in &intrinsic.args {
+                collect_expr_owner_aggregate_evidence(expr, scope, evidence);
+            }
+        }
+        PrefixItem::Block(block, _) => {
+            collect_block_owner_aggregate_evidence(block, scope, evidence)
+        }
         PrefixItem::Match(m, _) => {
-            expr_owner_aggregate_evidence(&m.scrutinee, scope, expected)
-                || m.arms.iter().any(|arm| {
-                    let mut arm_scope = scope.clone();
-                    arm_scope.bind_match_pattern(&arm.pattern);
-                    block_owner_aggregate_evidence(&arm.body, &arm_scope, expected)
-                })
+            collect_expr_owner_aggregate_evidence(&m.scrutinee, scope, evidence);
+            for arm in &m.arms {
+                let mut arm_scope = scope.clone();
+                arm_scope.bind_match_pattern(&arm.pattern);
+                collect_block_owner_aggregate_evidence(&arm.body, &arm_scope, evidence);
+            }
         }
-        PrefixItem::Tuple(items, _) => items
-            .iter()
-            .any(|expr| expr_owner_aggregate_evidence(expr, scope, expected)),
-        PrefixItem::Group(inner, _) => expr_owner_aggregate_evidence(inner, scope, expected),
+        PrefixItem::Tuple(items, _) => {
+            for expr in items {
+                collect_expr_owner_aggregate_evidence(expr, scope, evidence);
+            }
+        }
+        PrefixItem::Group(inner, _) => {
+            collect_expr_owner_aggregate_evidence(inner, scope, evidence)
+        }
         PrefixItem::Literal(_, _)
         | PrefixItem::TypeAnnotation(_, _)
         | PrefixItem::Pipe(_)
-        | PrefixItem::Symbol(_) => false,
+        | PrefixItem::Symbol(_) => {}
     }
 }
 
-fn constructor_like_symbol(symbol: &str, base: &str) -> bool {
-    if crate::qualified_name::member_tail(symbol) != symbol {
-        return false;
+fn collect_symbol_owner_aggregate_evidence(
+    symbol: &str,
+    scope: &SourceCapabilityScope,
+    evidence: &mut OwnerAggregateEvidence,
+) {
+    if scope.shadows(symbol) {
+        return;
     }
+    match owner_aggregate_evidence_from_symbol(symbol) {
+        Some(OwnerAggregateCapabilityEvidence::FieldAccessor) => {
+            evidence.field_accessor = true;
+        }
+        Some(OwnerAggregateCapabilityEvidence::Constructor(name)) => {
+            evidence.constructors.insert(name);
+        }
+        None => {}
+    }
+}
+
+fn owner_aggregate_evidence_from_symbol(symbol: &str) -> Option<OwnerAggregateCapabilityEvidence> {
+    let base = helper_base_name(symbol);
+    match base {
+        "get" | "get_ref" | "put" | "get_field" | "get_field_ref" => {
+            Some(OwnerAggregateCapabilityEvidence::FieldAccessor)
+        }
+        _ => constructor_evidence_name(symbol).map(OwnerAggregateCapabilityEvidence::Constructor),
+    }
+}
+
+fn constructor_evidence_name(symbol: &str) -> Option<String> {
+    if crate::qualified_name::member_tail(symbol) != symbol {
+        return None;
+    }
+    let base = helper_base_name(symbol);
     base.as_bytes()
         .first()
         .is_some_and(|byte| byte.is_ascii_uppercase())
+        .then(|| String::from(base))
 }

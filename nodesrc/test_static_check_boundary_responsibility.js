@@ -356,12 +356,12 @@ assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs',
 assertLineLimit(
     SOURCE_CAPABILITY_OWNER_AGGREGATE,
     'source_capability/owner_aggregate.rs',
-    160,
+    190,
 );
 assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
 assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
-assertContains(sourceMap, 'OwnerAggregateConstructorBoundary', 'source_map.rs');
+assertContains(sourceMap, 'OwnerAggregateConstructorBoundary(String)', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateFieldBoundary', 'source_map.rs');
 assertContains(sourceMap, 'pub enum CompilerMemoryType', 'source_map.rs');
 assertContains(sourceMap, 'RawPointer', 'source_map.rs');
@@ -433,7 +433,7 @@ assertContains(
 );
 assertContains(
     sourceCapability,
-    'module_has_owner_aggregate_constructor_evidence',
+    'module_owner_aggregate_constructor_evidence',
     'source_capability.rs',
 );
 assertContains(
@@ -448,8 +448,13 @@ assertContains(
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
-    'pub(crate) fn module_has_owner_aggregate_constructor_evidence',
+    'pub(crate) fn module_owner_aggregate_constructor_evidence',
     'source_capability/owner_aggregate.rs',
+);
+assertContains(
+    sourceCapabilityOwnerAggregate,
+    'constructors: BTreeSet<String>',
+    'owner aggregate constructor evidence must be tracked by constructor name',
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
@@ -465,6 +470,11 @@ assertContains(
     loader,
     'fn owner_aggregate_boundary_ignores_qualified_enum_variant_constructors()',
     'loader.rs owner aggregate enum variant regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_does_not_share_unrelated_constructor_evidence()',
+    'loader.rs owner aggregate constructor-name regression',
 );
 assertContains(
     sourceCapabilityScope,
@@ -490,7 +500,7 @@ assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
 assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
 assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
 assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
-assertContains(loader, 'module_has_owner_aggregate_constructor_evidence', 'loader.rs');
+assertContains(loader, 'module_owner_aggregate_constructor_evidence', 'loader.rs');
 assertContains(loader, 'module_has_owner_aggregate_field_evidence', 'loader.rs');
 assertContains(loader, 'module_compiler_memory_type_definitions', 'loader.rs');
 assertContains(
