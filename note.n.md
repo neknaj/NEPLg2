@@ -1,3 +1,17 @@
+# 2026-05-15 Agent 1 stdlib/string stdout report doctest 修正
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`stdlib/tests/string.n.md` の doctest 9 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+- 旧 `ret:` だけで合否を表していた string len / trim / split / byte / find 系の検査は、assertion label、expected、actual が stdout に残る形へ変更した。
+- 既に `std/test` を使っていた Result / UTF-8 / float / slice 境界の検査も、`checks_exit_code` だけで終わらせず `test_report_print_stdout` と `test_report_exit_code` へ揃えた。
+- 非 ASCII 文字列そのものは report renderer の JSON quote 表示で空表示になるため、UTF-8 境界の stdout 固定では文字列本体ではなく `test_str_eq` による bool assertion を出す形にした。検査自体は Unicode 文字列の copy / slice 境界を維持している。
+- `nodesrc/test_stdlib_string_report_contract.js` を追加し、`stdlib/tests/string.n.md` が `ret:` に戻らず全 doctest で named `TestReport`、stdout report、`exit_code: 0` を固定することを監視する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_string_report_contract.js`
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/agent1-string-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 JSON builder fragment 表現修正
 
 - `ISS-20260514T150128082Z-JSON-BUILDERS-STILL-DEPEND-ON-NON-CO-493D5962` を解決した。

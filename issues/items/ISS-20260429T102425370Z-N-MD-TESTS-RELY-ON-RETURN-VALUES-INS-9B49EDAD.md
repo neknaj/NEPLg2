@@ -1025,3 +1025,23 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/run_doctest.js -i stdlib/core/option.nepl -n 3 --assert-io --dist web/dist`: pass
 
 この issue はまだ open のまま継続する。stdlib doc-comment doctest のうち `std/test` を使うものは、引き続き report 省略のない形へ段階的に移行する。
+
+## 2026-05-15 stdlib/string stdout report migration
+
+`stdlib/tests/string.n.md` の doctest 9 件を、canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `string_len_and_concat` / `string_trim_and_slice` / `string_split_and_builder` / `string_byte_at` / `string_find_byte_index` は、旧 `ret:` の 0/1 合否だけでなく、各観測値の assertion label / expected / actual を stdout に固定する形へ変更した。
+- `string_result_allocation_apis` / `string_utf8_mem_result` / `string_to_f64_parser` / `string_slice_utf8_boundary` は、既存の `std/test` quiet check + `checks_exit_code` だけで終わらせず、named `TestReport` を `test_report_print_stdout` で出力してから `test_report_exit_code` へ渡す形へ揃えた。
+- UTF-8 境界検査では、非 ASCII 文字列本体を report renderer の expected / actual に直接置くと現行 JSON quote 表示が空になるため、stdout には `test_str_eq` の bool assertion を固定した。検査対象の Unicode copy / slice / invalid boundary rejection は維持している。
+- `nodesrc/test_stdlib_string_report_contract.js` を追加し、同 file の doctest が `ret:` へ戻らず、全件で `exit_code: 0`、canonical stdout report、named `TestReport` を持つことを parser-level に固定した。
+- `nodesrc/run_source_policy_regressions.js` にこの contract を追加した。
+
+検証:
+
+- `node nodesrc/test_stdlib_string_report_contract.js`: pass
+- `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: pass
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/agent1-string-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
+
+この issue はまだ open のまま継続する。`stdlib/tests/string.n.md` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
