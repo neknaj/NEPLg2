@@ -1,3 +1,16 @@
+# 2026-05-15 Agent 1 stdlib/cliarg stdout report doctest 修正
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`stdlib/tests/cliarg.n.md` の `ret:` 依存 doctest 2 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+- `cliarg_basic` は `cliarg_count`、負 index、end index の3観測値を assertion label / expected / actual として stdout に固定した。
+- `cliarg_get_rejects_out_of_range` は out-of-range rejection を named `TestReport` で出力し、exit code を report から導出する形へ揃えた。
+- `nodesrc/test_stdlib_cliarg_report_contract.js` を追加し、同 file が `ret:` へ戻らず canonical report を持つことを監視する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_cliarg_report_contract.js`
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 JSON fragment documentation contract 修正
 
 - `ISS-20260515T104525432Z-JSON-FRAGMENT-REDESIGN-LEFT-STALE-DO-6F21A386` を追加し、JSON builder の `JsonArray` / `JsonObject` fragment 再設計後に doc/source-policy が旧 `Vec<JsonValue>` traversal と owner-transfer wording を要求していた問題を記録した。

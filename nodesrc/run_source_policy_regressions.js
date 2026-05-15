@@ -117,6 +117,7 @@ const checks = [
     "nodesrc/test_doctest_exit_code_metadata.js",
     "nodesrc/test_doctest_std_test_assertion_report_contract.js",
     "nodesrc/test_stdlib_string_report_contract.js",
+    "nodesrc/test_stdlib_cliarg_report_contract.js",
     "nodesrc/test_llvm_runner_return_value.js",
     "nodesrc/test_stdlib_builder_owner_boundary.js",
     "nodesrc/test_stdlib_io_bytebuf_owner_boundary.js",

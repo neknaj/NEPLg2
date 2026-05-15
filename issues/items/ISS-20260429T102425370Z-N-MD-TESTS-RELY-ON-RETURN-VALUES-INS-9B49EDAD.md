@@ -1045,3 +1045,23 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/agent1-string-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
 
 この issue はまだ open のまま継続する。`stdlib/tests/string.n.md` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
+
+## 2026-05-15 stdlib/cliarg stdout report migration
+
+`stdlib/tests/cliarg.n.md` の return-value only doctest 2 件を、canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `cliarg_basic` は、旧 `ret: 1` による合否だけでなく、`cliarg_count` が injected argv を含む 3 であること、負 index と end index が `None` になることを assertion label / expected / actual として stdout に固定した。
+- `cliarg_get_rejects_out_of_range` は、旧 `ret: 0` ではなく、負 index と end index の拒否を named `TestReport` で出力してから `test_report_exit_code` へ渡す形へ揃えた。
+- 既に stdout そのものを検査している `cliarg_argv_stdout_count` と `cliarg_get_reads_injected_argv_values` は IO behavior fixture として維持し、`ret:` へ戻らないことだけを contract で固定した。
+- `nodesrc/test_stdlib_cliarg_report_contract.js` を追加し、同 file の report 化対象が `ret:` へ戻らず、`exit_code: 0`、canonical stdout report、named `TestReport` を持つことを parser-level に固定した。
+- `nodesrc/run_source_policy_regressions.js` にこの contract を追加した。
+
+検証:
+
+- `node nodesrc/test_stdlib_cliarg_report_contract.js`: pass
+- `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: pass
+- `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
+
+この issue はまだ open のまま継続する。`stdlib/tests/cliarg.n.md` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
