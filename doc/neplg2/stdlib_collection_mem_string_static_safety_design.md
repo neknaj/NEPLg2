@@ -305,6 +305,8 @@ Resource IR / typecheck / match check は次を必須にする。
 - `Vec` の in-place sort family は storage を書き換える API なので、raw write helper、quick / heap / simple sort、raw slice sort adapter、owner-returning sort wrapper、default `sort` を impure `*>` signature へ揃えた。observer の `sort_is_sorted` と比較 helper は pure のまま残し、effect contract でも観察と破壊的更新を分離する。
 - `alloc/collections/vec/sort` root facade は raw `MemPtr` helper と raw slice adapter を再公開しない。raw traversal は `sort/raw/*` に閉じ、ordinary caller は `Vec` の sort API と `sort_is_sorted` observer だけを使う。
 - root `alloc/collections/vec` facade は `vec/raw` を再公開しない。unchecked `vec_read_at` / `vec_write_at` は `alloc/collections/vec/raw` を明示 import した実装境界だけに置き、通常の `Vec` import は safe public surface に限定する。
+- `RegionToken<T>` の realloc は `core/mem/pointer/region.nepl` の `realloc_region_bytes_keep<T>` へ集約した。`Vec` / `ByteBuilder` は token の `ptr` / `size` を直接分解して `realloc_ptr` を呼ばず、成功時は新 owner、失敗時は旧 owner を `RegionReallocError<T>` 経由で受け取る。Resource IR owner checker は `region_ptr(&region)` から得た非所有 `MemPtr` の raw-address alias を集約値コピー越しに保持するため、`realloc_region_bytes_keep` の Ok / Err 両 payload が free obligation owner を返すことを compiler 側で証明する。
+- `Vec.push` の grow capacity は `vec_next_capacity<T>` で `.T` の element size と allocator payload 上限から証明してから決定する。unchecked `cap * 2` は push hot path から外し、上限超過は `CapacityExceeded` として `VecPushError` に元 `Vec` owner を戻す。
 - root `std/fs` / `std/stdio` facade は raw ABI submodule を再公開しない。WASI / LLVM syscall helper と raw scratch helper は `std/fs/raw` / `std/stdio/raw` を明示 import した implementation boundary だけに置き、通常の filesystem / standard I/O import は safe public surface に限定する。
 
 ### Stage B: `core/mem` の internal/public 分離
@@ -373,6 +375,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F` | `StringBuilder` 固有 raw owner field を `ByteBuilder` owner boundary へ集約。 |
 | `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` | `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field を `RegionToken` owner boundary へ集約。 |
 | `ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A` | `Vec.data` raw `MemPtr` owner field を `Vec.region: RegionToken<T>` owner boundary へ集約。 |
+| `ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F` | `Vec` / `ByteBuilder` の `RegionToken` realloc を core/mem に集約し、Vec grow capacity overflow proof を追加。 |
 | `ISS-20260514T102108865Z-VEC-SORT-MERGE-RET-ERR-PATH-LOSES-CO-98B83660` | `sort_merge_ret<T>` の失敗 payload に `Vec<T>` owner を返し、merge sort scratch buffer を `RegionToken<T>` owner へ移行。 |
 | `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` | fallible collection update の owner loss。 |
 | `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` | ByteBuf の空/所有 storage 構造化。 |

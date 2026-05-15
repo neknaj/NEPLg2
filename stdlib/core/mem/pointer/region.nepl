@@ -167,6 +167,135 @@ pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
                 Result::Err _e:
                     Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes failed"
 
+//: RegionReallocError: `RegionToken` の[再確保/さいかくほ]に[失敗/しっぱい]したときの owner payload
+//:
+//: 目的:
+//: - `realloc_region_bytes_keep` が[失敗/しっぱい]したとき、旧 `RegionToken<T>` owner を caller に[返/かえ]します。
+//: - `Result<RegionToken<T>, str>` では、失敗時に旧 owner を[保持/ほじ]しているのか、内部で[解放/かいほう]したのかが型から[読/よ]めません。
+//:
+//: 注意(重要):
+//: - この struct は owner token を field に[持/も]つため、通常 source から直接[構築/こうちく]せず、accessor 経由で旧 token を[回収/かいしゅう]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region_bytes<i32> 4:
+//:         Result::Ok region:
+//:             match realloc_region_bytes_keep<i32> region sub 0 1:
+//:                 Result::Err e:
+//:                     let old <RegionToken<i32>> region_realloc_error_region<i32> e
+//:                     let ok <bool> eq region_size &old 4
+//:                     match dealloc_region<i32> old:
+//:                         Result::Ok _:
+//:                             if ok 1 0
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Ok grown:
+//:                     match dealloc_region<i32> grown:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub struct RegionReallocError<.T>:
+    region <RegionToken<.T>>
+
+//: region_realloc_error_region: [再確保/さいかくほ][失敗/しっぱい]時に[戻/もど]された旧 region owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region_bytes<i32> 4:
+//:         Result::Ok region:
+//:             match realloc_region_bytes_keep<i32> region sub 0 1:
+//:                 Result::Err e:
+//:                     let old <RegionToken<i32>> region_realloc_error_region<i32> e
+//:                     let ok <bool> eq region_size &old 4
+//:                     match dealloc_region<i32> old:
+//:                         Result::Ok _:
+//:                             if ok 1 0
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Ok grown:
+//:                     match dealloc_region<i32> grown:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn region_realloc_error_region <.T> <(RegionReallocError<.T>)->RegionToken<.T>> (e):
+    get e "region"
+
+//: realloc_region_bytes_keep: `RegionToken` owner を byte [数/すう]指定で[再確保/さいかくほ]する
+//:
+//: 目的:
+//: - `RegionToken<T>` の pointer/size field を caller に[分解/ぶんかい]させず、core/mem が[再確保/さいかくほ]境界を[所有/しょゆう]します。
+//: - [成功/せいこう]時は新しい `RegionToken<T>` owner、[失敗/しっぱい]時は旧 `RegionToken<T>` owner を `RegionReallocError` に[戻/もど]します。
+//:
+//: 実装(アルゴリズム):
+//: - 新 byte 数が allocator payload 上限に[収/おさ]まることを先に[確認/かくにん]します。
+//: - 旧 token から non-owning pointer view と extent を[借/か]りて `realloc_ptr` へ[渡/わた]し、成功時だけ新 token を[作/つく]ります。
+//:
+//: 注意(重要):
+//: - `MemPtr<T>` は owner ではありません。この関数の API は常に `RegionToken<T>` owner を[受/う]け[取/と]り、成功/失敗のどちらかで owner を[返/かえ]します。
+//: - element の initialized/drop state は別の Resource IR state が[検査/けんさ]します。この関数は storage owner の[再確保/さいかくほ]だけを[扱/あつか]います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region_bytes<i32> 4:
+//:         Result::Ok region:
+//:             match realloc_region_bytes_keep<i32> region 8:
+//:                 Result::Ok grown:
+//:                     let ok <bool> eq region_size &grown 8
+//:                     match dealloc_region<i32> grown:
+//:                         Result::Ok _:
+//:                             if ok 1 0
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err e:
+//:                     let old <RegionToken<i32>> region_realloc_error_region<i32> e
+//:                     match dealloc_region<i32> old:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, RegionReallocError<.T>>> (region, new_size):
+    if:
+        not alloc_payload_fits new_size
+        then:
+            Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
+        else:
+            let old_size <i32> region_size &region
+            let old_ptr <MemPtr<.T>> region_ptr &region
+            match realloc_ptr<.T> old_ptr old_size new_size:
+                Result::Ok next_ptr:
+                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok region_new next_ptr new_size
+                Result::Err _e:
+                    Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
+
 //: alloc_region: 要素数を指定して RegionToken を確保する
 //:
 //: 目的:

@@ -90,6 +90,9 @@ assertNoMatch(pointer, /^\s*#(?:wasm|llvmir|intrinsic)\b/m, "mem/pointer facade 
 assertMatch(pointerAlloc, /pub\s+fn\s+alloc_ptr\b/, "mem/pointer/alloc must own MemPtr allocation wrapper");
 assertMatch(pointerAlloc, /pub\s+fn\s+dealloc_ptr\b/, "mem/pointer/alloc must own MemPtr deallocation wrapper");
 assertMatch(pointerRegion, /pub\s+fn\s+region_ptr_at\b/, "mem/pointer/region must own checked region projection");
+assertMatch(pointerRegion, /pub\s+struct\s+RegionReallocError<\.T>:[\s\S]*region\s+<RegionToken<\.T>>/, "mem/pointer/region must own RegionToken realloc error payload");
+assertMatch(pointerRegion, /pub\s+fn\s+realloc_region_bytes_keep\s+<\.T>\s+<\(RegionToken<\.T>,i32\)->Result<RegionToken<\.T>,\s*RegionReallocError<\.T>>>/, "mem/pointer/region must own owner-preserving RegionToken realloc helper");
+assertMatch(pointerRegion, /\brealloc_region_bytes_keep[\s\S]*not\s+alloc_payload_fits\s+new_size[\s\S]*region_ptr\s+&region[\s\S]*realloc_ptr<\.T>\s+old_ptr\s+old_size\s+new_size[\s\S]*RegionReallocError<\.T>\s+region/, "RegionToken realloc must validate size and return the old owner on failure");
 assertMatch(pointerRegion, /\balign_of<\.U>/, "region_ptr_at must prove target type alignment");
 assertMatch(pointerRegion, /\brem_s\s+addr\s+align\s+0\b/, "region_ptr_at must reject unaligned typed addresses");
 assertNoMatch(pointerRegion, /alignment は現時点では検査しません/, "region_ptr_at must not delegate alignment proof to callers");
@@ -122,7 +125,7 @@ for (const [label, text, limit] of [
     ["stdlib/core/mem/allocator.nepl", allocator, 420],
     ["stdlib/core/mem/pointer.nepl", pointer, 120],
     ["stdlib/core/mem/pointer/alloc.nepl", pointerAlloc, 260],
-    ["stdlib/core/mem/pointer/region.nepl", pointerRegion, 300],
+    ["stdlib/core/mem/pointer/region.nepl", pointerRegion, 380],
     ["stdlib/core/mem/pointer/bulk.nepl", pointerBulk, 260],
     ["stdlib/core/mem/pointer/scalar.nepl", pointerScalar, 160],
 ]) {

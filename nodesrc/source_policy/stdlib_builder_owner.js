@@ -67,14 +67,26 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bget\s+region\s+"size"[\s\S]*\bget\s+region\s+"ptr"[\s\S]*\bmatch\s+dealloc_region<u8>\s+region:/,
-        'ByteBuilder grow failure cleanup must consume the RegionToken owner directly',
+        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bmatch\s+realloc_region_bytes_keep<u8>\s+region\s+new_cap:[\s\S]*\bResult::Err\s+e:[\s\S]*\bregion_realloc_error_region<u8>\s+e[\s\S]*\bmatch\s+dealloc_region<u8>\s+old_region:/,
+        'ByteBuilder grow must delegate RegionToken realloc to core/mem and consume the returned owner on failure',
     );
 
     assert.doesNotMatch(
         code,
         /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bdealloc_ptr<u8>\s+old_ptr\s+old_size/,
         'ByteBuilder grow failure cleanup must not split RegionToken into raw ptr/size owner cleanup',
+    );
+
+    assert.doesNotMatch(
+        code,
+        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bget\s+region\s+"(?:size|ptr)"/,
+        'ByteBuilder grow must not reimplement RegionToken realloc by reading RegionToken internals',
+    );
+
+    assert.doesNotMatch(
+        code,
+        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\brealloc_ptr<u8>\b/,
+        'ByteBuilder grow must not call raw MemPtr realloc directly; core/mem owns RegionToken realloc',
     );
 
     assert.match(

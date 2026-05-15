@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T14:07:19.223Z",
+  "generated_at": "2026-05-15T15:19:55.803Z",
   "counts": {
-    "total": 832,
+    "total": 833,
     "open": 5,
-    "resolved": 827,
+    "resolved": 828,
     "by_area": {
       "stdlib": {
-        "total": 237,
+        "total": 238,
         "open": 3,
-        "resolved": 234
+        "resolved": 235
       },
       "TEST": {
         "total": 24,
@@ -9793,6 +9793,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T133717458Z-ALLOC-STRING-DOC-COMMENT-DOCTESTS-ST-AE5C1FAA.md"
+    },
+    {
+      "id": "ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F",
+      "title": "Vec grow reimplements RegionToken realloc and unchecked capacity doubling",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/core/mem/pointer/region.nepl, stdlib/alloc/collections/vec/mutation/push.nepl, stdlib/alloc/io/bytebuilder/storage.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

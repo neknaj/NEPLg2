@@ -108,13 +108,12 @@ pub fn byte_builder_dealloc_owned_region <(RegionToken<u8>)->()> (region):
 //: - 成功時は返った `RegionToken<u8>` が storage owner です。
 //: - 失敗時は旧 token を `dealloc_region` へ渡し、caller へは `OutOfMemory` を返します。
 pub fn byte_builder_realloc_region_or_free <(RegionToken<u8>,i32)->Result<RegionToken<u8>, StdErrorKind>> (region, new_cap):
-    let old_size <i32> get region "size"
-    let old_ptr <MemPtr<u8>> get region "ptr"
-    match realloc_ptr<u8> old_ptr old_size new_cap:
-        Result::Ok next_ptr:
-            Result<RegionToken<u8>, StdErrorKind>::Ok region_new next_ptr new_cap
-        Result::Err _e:
-            match dealloc_region<u8> region:
+    match realloc_region_bytes_keep<u8> region new_cap:
+        Result::Ok next_region:
+            Result<RegionToken<u8>, StdErrorKind>::Ok next_region
+        Result::Err e:
+            let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+            match dealloc_region<u8> old_region:
                 Result::Ok _:
                     Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
                 Result::Err _free:

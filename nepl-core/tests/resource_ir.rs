@@ -8807,6 +8807,61 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_preserves_region_realloc_result_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_region_bytes<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok region:
+            match realloc_region_bytes_keep<i32> region 8:
+                Result::Ok grown:
+                    match dealloc_region<i32> grown:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
+                Result::Err e:
+                    let old <RegionToken<i32>> region_realloc_error_region<i32> e
+                    match dealloc_region<i32> old:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("realloc_region_bytes_keep__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "RegionToken realloc summary must return the owner through both Result variants: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_transfers_raw_pointer_read_before_dealloc() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();

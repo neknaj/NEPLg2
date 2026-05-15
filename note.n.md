@@ -39109,3 +39109,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/core/traits/stringify.nepl -i stdlib/core/traits/serialize.nepl -i stdlib/core/traits/hash.nepl -i stdlib/core/traits/debug.nepl -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/agent1-core-traits-doc-report.json -j 1 --dist web/dist --assert-io`: 5 passed
   - `node nodesrc/test_core_traits_doc_report_contract.js`: pass
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: source-policy warning なし
+
+## 2026-05-15 Agent 1 RegionToken realloc 境界集約
+
+- `ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F` を追加して fixed にした。
+- `core/mem/pointer/region.nepl` に `RegionReallocError<T>` と `realloc_region_bytes_keep<T>` を追加し、`RegionToken` owner の再確保を core/mem の typed owner-preserving API に集約した。
+- Resource IR owner checker では、非所有 raw address view を含む `MemPtr` / `RegionToken` 集約値の `let` / `read` / `assign` で raw-address alias を保持するようにした。これにより `region_ptr(&region)` 由来の non-owning pointer を `old_ptr` へ束縛しても、`realloc_ptr` の Ok variant owner return が `RegionToken` owner source へ戻る。
+- `Vec.push` は `vec_next_capacity<T>` で element size と allocator payload 上限から次 capacity を検査してから grow する。unchecked `cap * 2` は push hot path から外し、上限到達は `CapacityExceeded` として `VecPushError` に元 owner を戻す。
+- `Vec` / `ByteBuilder` の grow helper は `RegionToken` の `ptr` / `size` を直接分解して `realloc_ptr` を呼ばず、`realloc_region_bytes_keep` の成功/失敗 payload を使う。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_region_realloc_result_owner`
+  - `cargo test -p nepl-core --test resource_ir realloc -- --nocapture`: 11 passed
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/core/mem/pointer/region.nepl -i stdlib/alloc/io/bytebuilder/storage.nepl -i stdlib/alloc/collections/vec/mutation/push.nepl --no-tree -o tmp/agent1-region-realloc-vec-grow.json -j 1 --dist web/dist --assert-io`: 15 passed
+  - `node nodesrc/test_stdlib_documentation_contract.js`: `declarationNoDoctest=1032`

@@ -8,7 +8,7 @@ use super::function_alias::{construct_function_alias_fields, FunctionAliasTable}
 use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    BorrowKind, EffectOp, OwnerStateEntry, ResourceBlock, ResourceFunction, ResourceOp,
+    BorrowKind, EffectOp, OwnerStateEntry, Place, ResourceBlock, ResourceFunction, ResourceOp,
     ResourceTerminator,
 };
 use super::owner_check_utils::{direct_raw_memory_effect, raw_owner_alias_moves_into_wrapper};
@@ -18,7 +18,7 @@ use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{
     call_uses_checked_mem_ptr_wrapper, reference_target_place,
-    structural_i32_projection_preserves_raw_address,
+    structural_i32_projection_preserves_raw_address, type_can_seed_raw_address_alias,
 };
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{ResourceOwnerCheckDeferred, ResourceOwnerDiagnostic, ResourceOwnerOperation};
@@ -172,6 +172,13 @@ impl ResourceOwnerCheckEngine<'_> {
                         storage_origins.clear(place);
                     } else {
                         raw_aliases.copy_scalar_facts_if_tracked(initializer, place);
+                        self.copy_non_owning_raw_address_view_aliases(
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            initializer,
+                            place,
+                        );
                         if self.initializer_is_non_owning_raw_alias_view(
                             owners,
                             raw_aliases,
@@ -231,6 +238,13 @@ impl ResourceOwnerCheckEngine<'_> {
                     if structural_i32_projection_preserves_raw_address(self.types, source, output) {
                         raw_aliases.copy_explicit_raw_address_alias(source, output);
                     } else {
+                        self.copy_non_owning_raw_address_view_aliases(
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            source,
+                            output,
+                        );
                         raw_aliases.copy_alias_if_tracked(source, output);
                     }
                     storage_origins.copy_origin(source, output);
@@ -269,6 +283,13 @@ impl ResourceOwnerCheckEngine<'_> {
                     storage_origins.clear(target);
                 } else {
                     raw_aliases.copy_scalar_facts_if_tracked(value, target);
+                    self.copy_non_owning_raw_address_view_aliases(
+                        raw_aliases,
+                        raw_views,
+                        storage_origins,
+                        value,
+                        target,
+                    );
                     if self.initializer_is_non_owning_raw_alias_view(
                         owners,
                         raw_aliases,
@@ -622,5 +643,25 @@ impl ResourceOwnerCheckEngine<'_> {
             }
             ResourceOp::CallEffect { .. } => {}
         }
+    }
+
+    fn copy_non_owning_raw_address_view_aliases(
+        &self,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        source: &Place,
+        target: &Place,
+    ) {
+        if !type_can_seed_raw_address_alias(self.types, source.ty)
+            && !type_can_seed_raw_address_alias(self.types, target.ty)
+        {
+            return;
+        }
+        if !raw_views.contains_non_owning_under(source) {
+            return;
+        }
+        raw_aliases.copy_alias_if_tracked(source, target);
+        storage_origins.copy_origin(source, target);
     }
 }

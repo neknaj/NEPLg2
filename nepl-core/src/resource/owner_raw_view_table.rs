@@ -105,6 +105,13 @@ impl RawAddressViewTable {
         })
     }
 
+    pub(super) fn contains_non_owning_under(&self, prefix: &Place) -> bool {
+        self.entries.iter().any(|entry| {
+            entry.ownership.is_non_owning()
+                && place_suffix_after_prefix(&entry.place, prefix).is_some()
+        })
+    }
+
     pub(super) fn contains_under(&self, prefix: &Place) -> bool {
         self.entries
             .iter()

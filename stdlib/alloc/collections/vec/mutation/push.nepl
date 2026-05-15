@@ -27,7 +27,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `len` / `cap` は `&v` から Copy field として[読/よ]み、`region` owner は[戻/もど]り[値/ち]または grow cleanup へ[移動/いどう]します。
-//: - [容量/ようりょう][不足/ぶそく]なら 2 [倍/ばい]へ[拡張/かくちょう]し、typed `RegionToken<.T>` を新しい token へ[移/うつ]します。
+//: - [容量/ようりょう][不足/ぶそく]なら allocator payload 上限を[確認/かくにん]したうえで 2 [倍/ばい]を[基準/きじゅん]に[拡張/かくちょう]し、typed `RegionToken<.T>` を新しい token へ[移/うつ]します。
 //: - [空/から][容量/ようりょう] 0 の `Vec` に対しては 1 [要素分/ようそぶん]から[開始/かいし]します。
 //:
 //: ### [注意/ちゅうい]
@@ -96,6 +96,60 @@ pub fn vec_realloc_region_error_kind <.T> <(&VecReallocRegionError<.T>)->StdErro
 pub fn vec_realloc_region_error_region <.T> <(VecReallocRegionError<.T>)->RegionToken<.T>> (e):
     field::get e "region"
 
+//: ## vec_next_capacity
+//: `push` に[必要/ひつよう]な次 capacity を allocator payload 上限内で[計算/けいさん]する
+//:
+//: ### [目的/もくてき]
+//: - capacity grow の `cap * 2` が i32 overflow してから allocator に[渡/わた]される経路を[防/ふせ]ぎます。
+//: - `.T` の element size と allocator payload 上限から、`cap + 1` を[収/おさ]められる次 capacity を[選/えら]びます。
+//:
+//: ### [注意/ちゅうい]
+//: - `cap < 0` や element size が不正な場合は `InvalidOperation` を[返/かえ]します。
+//: - 現在 capacity がすでに最大 count 以上なら `CapacityExceeded` を[返/かえ]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok with_capacity<i32> 1;
+//:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 10;
+//:     let v2 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v1 20;
+//:     let ok_len <bool> eq len<i32> &v2 2
+//:     let ok_cap <bool> ge cap<i32> &v2 2
+//:     let ok <bool> and ok_len ok_cap
+//:     free<i32> v2;
+//:     if ok 0 1
+//: ```
+fn vec_next_capacity <.T> <(i32)->Result<i32, StdErrorKind>> (cap0):
+    let elem_size <i32> size_of<.T>
+    if:
+        or lt cap0 0 le elem_size 0
+        then:
+            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            let max_count <i32> div_s max_alloc_payload_bytes elem_size
+            if:
+                ge cap0 max_count
+                then:
+                    Result<i32, StdErrorKind>::Err StdErrorKind::CapacityExceeded
+                else:
+                    if:
+                        eq cap0 0
+                        then:
+                            Result<i32, StdErrorKind>::Ok 1
+                        else:
+                            let half_limit <i32> div_s max_count 2
+                            if:
+                                gt cap0 half_limit
+                                then:
+                                    Result<i32, StdErrorKind>::Ok max_count
+                                else:
+                                    Result<i32, StdErrorKind>::Ok mul cap0 2
+
 //: ## vec_realloc_region_or_keep
 //: 既存 storage owner token を grow し、失敗時は旧 token を error payload に戻す
 //:
@@ -105,14 +159,24 @@ pub fn vec_realloc_region_error_region <.T> <(VecReallocRegionError<.T>)->Region
 //: ### [注意/ちゅうい]
 //: - 成功時は返った token が storage owner です。失敗時は旧 token が `VecReallocRegionError.region` に[戻/もど]ります。
 pub fn vec_realloc_region_or_keep <.T: Copy> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, VecReallocRegionError<.T>>> (region, new_cap):
-    let old_bytes <i32> region_size &region
-    let old_ptr <MemPtr<.T>> region_ptr &region
-    let new_bytes <i32> mul new_cap size_of<.T>
-    match realloc_ptr<.T> old_ptr old_bytes new_bytes:
-        Result::Ok grown_ptr:
-            Result::Ok<RegionToken<.T>, VecReallocRegionError<.T>> region_new grown_ptr new_bytes
-        Result::Err _e:
-            Result::Err<RegionToken<.T>, VecReallocRegionError<.T>> VecReallocRegionError<.T> region StdErrorKind::OutOfMemory
+    let elem_size <i32> size_of<.T>
+    if:
+        or le new_cap 0 le elem_size 0
+        then:
+            Result::Err<RegionToken<.T>, VecReallocRegionError<.T>> VecReallocRegionError<.T> region StdErrorKind::InvalidOperation
+        else:
+            let max_count <i32> div_s max_alloc_payload_bytes elem_size
+            if:
+                gt new_cap max_count
+                then:
+                    Result::Err<RegionToken<.T>, VecReallocRegionError<.T>> VecReallocRegionError<.T> region StdErrorKind::CapacityExceeded
+                else:
+                    let new_bytes <i32> mul new_cap elem_size
+                    match realloc_region_bytes_keep<.T> region new_bytes:
+                        Result::Ok grown_region:
+                            Result::Ok<RegionToken<.T>, VecReallocRegionError<.T>> grown_region
+                        Result::Err e:
+                            Result::Err<RegionToken<.T>, VecReallocRegionError<.T>> VecReallocRegionError<.T> (region_realloc_error_region<.T> e) StdErrorKind::OutOfMemory
 
 pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, item):
     let v_len <i32> *field::get_ref &v "len"
@@ -122,33 +186,36 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
     if:
         eq v_len v_cap
         then:
-            let grown_cap <i32> if eq v_cap 0 1 mul v_cap 2
-            match v_storage:
-                VecStorageState::Empty:
-                    if:
-                        and eq v_len 0 eq v_cap 0
-                        then:
-                            match alloc_region<.T> grown_cap:
+            match vec_next_capacity<.T> v_cap:
+                Result::Err grow_error:
+                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> v_len v_cap v_storage v_region) grow_error
+                Result::Ok grown_cap:
+                    match v_storage:
+                        VecStorageState::Empty:
+                            if:
+                                and eq v_len 0 eq v_cap 0
+                                then:
+                                    match alloc_region<.T> grown_cap:
+                                        Result::Ok grown_region:
+                                            let next_len <i32> add v_len 1
+                                            let grown_data <MemPtr<.T>> region_ptr &grown_region
+                                            vec_raw::vec_write_at<.T> grown_data v_len item
+                                            Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> next_len grown_cap VecStorageState::Owned grown_region
+                                        Result::Err _e:
+                                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> v_len v_cap v_storage v_region) StdErrorKind::OutOfMemory
+                                else:
+                                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> v_len v_cap v_storage v_region) StdErrorKind::InvalidOperation
+                        VecStorageState::Owned:
+                            match vec_realloc_region_or_keep<.T> v_region grown_cap:
                                 Result::Ok grown_region:
                                     let next_len <i32> add v_len 1
                                     let grown_data <MemPtr<.T>> region_ptr &grown_region
                                     vec_raw::vec_write_at<.T> grown_data v_len item
                                     Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> next_len grown_cap VecStorageState::Owned grown_region
-                                Result::Err _e:
-                                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> v_len v_cap v_storage v_region) StdErrorKind::OutOfMemory
-                        else:
-                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> v_len v_cap v_storage v_region) StdErrorKind::InvalidOperation
-                VecStorageState::Owned:
-                    match vec_realloc_region_or_keep<.T> v_region grown_cap:
-                        Result::Ok grown_region:
-                            let next_len <i32> add v_len 1
-                            let grown_data <MemPtr<.T>> region_ptr &grown_region
-                            vec_raw::vec_write_at<.T> grown_data v_len item
-                            Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> next_len grown_cap VecStorageState::Owned grown_region
-                        Result::Err e:
-                            let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
-                            let old_region <RegionToken<.T>> vec_realloc_region_error_region<.T> e
-                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> v_len v_cap v_storage old_region) error
+                                Result::Err e:
+                                    let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
+                                    let old_region <RegionToken<.T>> vec_realloc_region_error_region<.T> e
+                                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> v_len v_cap v_storage old_region) error
         else:
             match v_storage:
                 VecStorageState::Empty:

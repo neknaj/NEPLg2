@@ -515,3 +515,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 同じ修正で、pure checked wrapper 名 `alloc` / `dealloc` / `realloc` を raw operation として扱う設計は採用しなかった。`alloc` は `Result<i32,str>` を返す checked API であり、名前だけで raw op にすると `Result` 全体へ free obligation を割り当てて `alloc_ptr` の owner transfer を壊すためである。`ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` は raw identity の発生元 `RawMemoryOp` を保持し、source capability とは `Alloc` / `Realloc` 由来 identity として照合する。
 
 `ISS-20260515T031921532Z-OWNER-AGGREGATE-FIELD-EVIDENCE-IGNOR-943C9579` として、owner aggregate field evidence walker が `#intrinsic "get_field_ref"` / `#intrinsic "get_field"` 自体を field accessor evidence として分類していなかった問題も分離して修正した。これにより `core/mem/types.nepl` の compiler-owned field projection は `OwnerAggregateFieldBoundary` capability として証明され、同時に top-level `struct` / `enum` / `trait` 定義を value shadow として扱わないことで same-module constructor evidence も失わない。
+
+## 2026-05-15 Agent 1 RegionToken realloc 境界追記
+
+`ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F` として、`Vec` / `ByteBuilder` が `RegionToken` の `ptr` / `size` を直接分解して `realloc_ptr` を呼ぶ設計を分離して修正した。
+
+今回の修正では、`core/mem/pointer/region.nepl` が `realloc_region_bytes_keep<T>` を所有し、stdlib collection / byte builder 側は `RegionToken` owner をそのまま渡す。realloc 失敗時に旧 owner を返す `RegionReallocError<T>` を型に出すことで、caller は cleanup するか owner-preserving error として返すかを明示できる。
+
+この親 issue は引き続き open とする。今回閉じたのは RegionToken realloc の重複実装であり、raw-memory-backed stdlib 全体を `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal に移す作業は継続する。
