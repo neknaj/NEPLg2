@@ -53,3 +53,9 @@ Qualify Vec operations through a vec alias, replace unwrap_ok with explicit Resu
 - result accumulation は `failed=true` で停止し、allocation failure 時は consumed owner を再利用しない空 Vec sentinel を返すようにした。
 - `kpgraph` 内部の Vec 操作を `v::new` / `v::push` / `v::Vec` に限定し、caller/import 側の overload と混ざらないようにした。
 - `nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+
+## 2026-05-15 Agent 1 Stage 6 後続整理
+
+`ISS-20260514T202200590Z-KPGRAPH-EXPOSES-DENSE-MATRIX-RAW-I32-F15E55CB` により、`kpgraph` は旧 `dense_graph_bfs_dist_raw` / `kp_push_i32` 経路を削除し、`DenseGraph` owner と `dense_graph_bfs_dist(&DenseGraph, i32) -> Result<Vec<i32>, Diag>` へ移行済みである。
+
+そのため、この issue で追加した `nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js` の役割も、旧 raw BFS helper の存在確認ではなく、unsafe unwrap を戻さず、typed owner API が allocation / storage invariant failure を `Result` と owner cleanup で扱うことの監視へ更新した。詳細は `ISS-20260515T004634650Z-KPGRAPH-UNSAFE-UNWRAP-POLICY-STILL-E-1F2C94F7` に分離した。

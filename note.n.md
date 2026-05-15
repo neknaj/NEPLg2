@@ -38648,3 +38648,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: sort/merge policy は pass。残警告は documentation contract と kpgraph policy。
   - `node nodesrc/issues.js check --dir issues`
   - `git diff --check`
+
+## 2026-05-15 Agent 1 kpgraph source policy owner API 整理
+
+- `ISS-20260515T004634650Z-KPGRAPH-UNSAFE-UNWRAP-POLICY-STILL-E-1F2C94F7` を追加して fixed にした。
+- `nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js` が旧 `dense_graph_bfs_dist_raw` / `kp_push_i32` / `kp_i32_empty_vec` の存在を要求しており、Stage 6 の `DenseGraph` typed owner API と矛盾していた。
+- テストを、旧 raw BFS helper が戻らないこと、`dense_graph_bfs_dist(&DenseGraph, i32) -> Result<Vec<i32>, Diag>` が `v::filled` allocation failure を `Diag` に変換し、queue allocation failure で `dist` を解放し、`v::get` / `v::replace` で typed storage access を行い、storage invariant failure では `dist` を閉じることを検査する形に更新した。
+- focused verification:
+  - `node nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_kpgraph_owner_boundary.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: kpgraph policy は pass。残警告は documentation contract の 1 件。
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`

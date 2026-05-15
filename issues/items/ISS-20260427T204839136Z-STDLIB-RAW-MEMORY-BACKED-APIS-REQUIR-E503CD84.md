@@ -372,6 +372,12 @@ BFS の距離配列と queue は `Vec<i32>` で初期化し、`v::get` / `v::rep
 
 これにより KP graph helper の public surface から raw matrix pointer と raw Vec storage read の入口を閉じた。残る KP raw-memory-backed module では `kpsearch` の internal raw helper / public Vec wrapper 境界が次の確認対象である。
 
+## 2026-05-15 Agent 1 kpgraph source policy 追記
+
+`ISS-20260515T004634650Z-KPGRAPH-UNSAFE-UNWRAP-POLICY-STILL-E-1F2C94F7` として、`nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js` が旧 raw BFS helper の存在を要求し続けていた問題を分離して修正した。
+
+現在の `kpgraph` では `dense_graph_bfs_dist_raw` / `kp_push_i32` / `kp_i32_empty_vec` を戻さず、`dense_graph_bfs_dist(&DenseGraph, i32) -> Result<Vec<i32>, Diag>` を検査する。source policy は距離配列と queue の `v::filled` allocation failure、queue allocation failure 時の `dist` owner cleanup、`v::get` / `v::replace` による typed access、storage invariant failure 時の `dist` free を監視する。
+
 ## 2026-05-15 Agent 1 kpsearch Vec API boundary 追記
 
 `ISS-20260514T203142216Z-KPSEARCH-STILL-IMPLEMENTS-PUBLIC-VEC-0D1AFA1D` として、`kp/kpsearch` が public Vec wrapper の内部実装で raw storage view に依存し続けていた問題を分離して修正した。

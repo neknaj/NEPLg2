@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T00:38:08.954Z",
+  "generated_at": "2026-05-15T00:50:16.597Z",
   "counts": {
-    "total": 808,
+    "total": 809,
     "open": 8,
-    "resolved": 800,
+    "resolved": 801,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -22,9 +22,9 @@
         "resolved": 66
       },
       "test": {
-        "total": 9,
+        "total": 10,
         "open": 1,
-        "resolved": 8
+        "resolved": 9
       },
       "cli": {
         "total": 19,
@@ -9913,6 +9913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T003514038Z-VEC-SORT-MERGE-SOURCE-POLICY-STILL-E-BD811427.md"
+    },
+    {
+      "id": "ISS-20260515T004634650Z-KPGRAPH-UNSAFE-UNWRAP-POLICY-STILL-E-1F2C94F7",
+      "title": "kpgraph unsafe-unwrap policy still expects removed raw BFS API",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js, stdlib/kp/kpgraph.nepl, nodesrc/test_stdlib_kpgraph_owner_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T004634650Z-KPGRAPH-UNSAFE-UNWRAP-POLICY-STILL-E-1F2C94F7.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",
