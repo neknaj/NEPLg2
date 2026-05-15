@@ -571,3 +571,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 argc metadata、argv pointer array、argv byte buffer、LLVM `/proc/self/cmdline` C string、cmdline temporary buffer は token owner と non-owning `MemPtr<u8>` view に分離した。これにより root facade だけでなく raw boundary implementation 内でも、free obligation を `MemPtr` に保持し続ける経路を閉じた。
 
 この親 issue は引き続き open とする。今回の focused verification で `cliarg_get_checked` の負 index 下限検査不足と、`cstr.nepl` doctest の ordinary raw memory fixture を分離した。Stage 6 全体では `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残件である。
+
+## 2026-05-16 Agent 1 cliarg raw negative index gate 追記
+
+`ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB` で、`std/env/cliarg/raw.nepl` の `cliarg_get_checked` が負 index を拒否せず `arg_slot_raw = argv_raw + idx * 4` へ進む問題を修正した。
+
+root facade の `cliarg_get` は既に負 index を拒否していたが、raw boundary helper は explicit import 可能なので、helper 自体も slot address 計算前に下限検査を持つ必要がある。修正後は `idx < 0`、`idx >= argc`、`buf_size <= 0` を同じ gate で拒否し、doctest は `cli_raw::cliarg_get_checked -1` が `None` になることを確認する。
+
+この親 issue は引き続き open とする。`cstr.nepl` doctest fixture と Stage 6 の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は残件である。

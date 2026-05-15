@@ -160,7 +160,7 @@ pub fn cliarg_get_checked <(i32)*>Option<str>> (idx):
                     let argc <i32> get sizes "argc"
                     let buf_size <i32> get sizes "buf_size"
                     if:
-                        or ge idx argc le buf_size 0
+                        or lt idx 0 or ge idx argc le buf_size 0
                         then:
                             none<str>
                         else:

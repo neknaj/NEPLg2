@@ -1,3 +1,20 @@
+# 2026-05-16 Agent 1 std/env cliarg raw negative index gate 修正
+
+- `ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB` を解決した。
+- `std/env/cliarg` root facade は `idx < 0` を拒否していたが、explicit import 可能な raw boundary helper `cliarg_get_checked` は `idx >= argc` だけを拒否し、負 index で `arg_slot_raw = argv_raw + idx * 4` へ進み得た。
+- `cliarg_get_checked` に `idx < 0` gate を追加し、argv scratch を確保する前に範囲外として `None` を返すようにした。
+- `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` に、下限検査が `arg_slot_raw` 計算より前に存在する source policy を追加した。
+- `stdlib/tests/cliarg.n.md` の out-of-range doctest に `cli_raw::cliarg_get_checked -1` の regression assertion を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と親 issue に Stage 6 の進捗を追記した。`plan.md` は変更していない。
+- 検証:
+  - `node --check nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_cliarg_report_contract.js`
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-negative-index-gate.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
+  - `node nodesrc/issues.js index`: total=852, open=7, resolved=845
+  - `node nodesrc/issues.js check`
+  - `git diff --check`
+
 # 2026-05-16 Agent 1 std/env cliarg raw RegionToken owner 境界修正
 
 - `ISS-20260515T202737251Z-STD-ENV-CLIARG-RAW-SCRATCH-STILL-USE-D6D56ABD` を追加して解決した。

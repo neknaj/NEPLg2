@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T20:33:40.470Z",
+  "generated_at": "2026-05-15T20:39:46.692Z",
   "counts": {
     "total": 852,
-    "open": 8,
-    "resolved": 844,
+    "open": 7,
+    "resolved": 845,
     "by_area": {
       "stdlib": {
         "total": 253,
-        "open": 6,
-        "resolved": 247
+        "open": 5,
+        "resolved": 248
       },
       "TEST": {
         "total": 24,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB",
-      "title": "std/env cliarg_get_checked accepts negative index before argv slot access",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "stdlib/std/env/cliarg/raw.nepl; stdlib/tests/cliarg.n.md; nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -733,6 +718,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T101054155Z-CORE-MEM-ALLOCATION-BYTE-COUNTS-CAN--9B7BDEA4.md"
+    },
+    {
+      "id": "ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB",
+      "title": "std/env cliarg_get_checked accepts negative index before argv slot access",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/env/cliarg/raw.nepl; stdlib/tests/cliarg.n.md; nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB.md"
     },
     {
       "id": "ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524",
