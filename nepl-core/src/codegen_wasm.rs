@@ -2072,7 +2072,8 @@ fn gen_expr(
             Some(ValType::I32)
         }
         HirExprKind::Match { scrutinee, arms } => {
-            let is_enum_match = is_enum_type(ctx, scrutinee.ty)
+            let enum_match_ty = enum_match_type(ctx, scrutinee.ty);
+            let is_enum_match = enum_match_ty.is_some()
                 && arms.iter().all(|arm| {
                     matches!(
                         arm.pattern,
@@ -2107,7 +2108,7 @@ fn gen_expr(
                 let mut saw_wildcard = false;
                 for arm in arms {
                     let variant = if let HirMatchPattern::Variant(v) = &arm.pattern {
-                        let tag = enum_variant_tag(ctx, scrutinee.ty, v.as_str());
+                        let tag = enum_variant_tag(ctx, enum_match_ty.unwrap(), v.as_str());
                         insts.push(Instruction::LocalGet(tag_local));
                         insts.push(Instruction::I32Const(tag as i32));
                         insts.push(Instruction::I32Eq);
@@ -2123,10 +2124,16 @@ fn gen_expr(
                     };
                     locals.begin_scope();
                     if let (Some(variant), Some(bind)) = (variant, &arm.bind_local) {
-                        if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, variant) {
-                            let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
+                        if let Some(payload_ty) =
+                            enum_variant_payload(ctx, enum_match_ty.unwrap(), variant)
+                        {
+                            let bind_ty = arm.bind_ty.unwrap_or(payload_ty);
+                            let lidx = locals.ensure_local(bind.clone(), bind_ty, ctx);
                             let payload_offset = enum_payload_offset_bytes() as i32;
-                            if is_aggregate_storage_type(ctx, payload_ty) {
+                            if type_is_reference(ctx, bind_ty) {
+                                emit_linear_addr_from_local(scrut_local, payload_offset, insts);
+                                insts.push(Instruction::LocalSet(lidx));
+                            } else if is_aggregate_storage_type(ctx, payload_ty) {
                                 let payload_size = storage_size_bytes(ctx, payload_ty) as i32;
                                 insts.push(Instruction::I32Const(payload_size));
                                 emit_alloc_call(locals, insts);
@@ -2516,18 +2523,28 @@ fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> u32 {
     }
 }
 
-fn is_enum_type(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let ty = ctx.resolve_named_type_id(ty);
+fn enum_match_type(ctx: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let ty = ctx.resolve_named_type_id(ctx.resolve_id(ty));
     match ctx.get(ty) {
-        TypeKind::Enum { .. } => true,
+        TypeKind::Enum { .. } => Some(ty),
         TypeKind::Apply { base, .. } => {
-            matches!(
+            if matches!(
                 ctx.get(ctx.resolve_named_type_id(base)),
                 TypeKind::Enum { .. }
-            )
+            ) {
+                Some(ty)
+            } else {
+                None
+            }
         }
-        _ => false,
+        TypeKind::Reference(target, _) => enum_match_type(ctx, target),
+        _ => None,
     }
+}
+
+fn type_is_reference(ctx: &TypeCtx, ty: TypeId) -> bool {
+    let ty = ctx.resolve_named_type_id(ctx.resolve_id(ty));
+    matches!(ctx.get(ty), TypeKind::Reference(_, _))
 }
 
 fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option<TypeId> {

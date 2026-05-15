@@ -2504,7 +2504,8 @@ fn lower_hir_expr(
                 );
             }
 
-            let is_enum_match = is_enum_type(types, scrutinee.ty)
+            let enum_match_ty = enum_match_type(types, scrutinee.ty);
+            let is_enum_match = enum_match_ty.is_some()
                 && arms.iter().all(|arm| {
                     matches!(
                         arm.pattern,
@@ -2549,7 +2550,8 @@ fn lower_hir_expr(
             for (idx, arm) in arms.iter().enumerate() {
                 match &arm.pattern {
                     HirMatchPattern::Variant(variant) if is_enum_match => {
-                        let arm_tag = enum_variant_tag(types, scrutinee.ty, variant.as_str());
+                        let arm_tag =
+                            enum_variant_tag(types, enum_match_ty.unwrap(), variant.as_str());
                         ctx.push_line(&format!("    i32 {}, label %{}", arm_tag, arm_labels[idx]));
                     }
                     HirMatchPattern::IntLiteral(value) => {
@@ -2572,10 +2574,31 @@ fn lower_hir_expr(
                     if let (HirMatchPattern::Variant(variant), Some(bind)) =
                         (&arm.pattern, &arm.bind_local)
                     {
-                        if let Some(payload_ty) = enum_variant_payload(types, scrutinee.ty, variant)
+                        if let Some(payload_ty) =
+                            enum_variant_payload(types, enum_match_ty.unwrap(), variant)
                         {
+                            let bind_ty = arm.bind_ty.unwrap_or(payload_ty);
                             let payload_ll = llty_for_type(types, payload_ty);
-                            if payload_ll == LlTy::Void {
+                            if type_is_reference(types, bind_ty) {
+                                let payload_offset = enum_payload_offset_bytes() as i64;
+                                let payload_addr = if payload_offset == 0 {
+                                    scr_v.repr.clone()
+                                } else {
+                                    let out = ctx.next_tmp();
+                                    ctx.push_line(&format!(
+                                        "  {} = add i32 {}, {}",
+                                        out, scr_v.repr, payload_offset
+                                    ));
+                                    out
+                                };
+                                let local_ptr = ctx.next_tmp();
+                                ctx.push_line(&format!("  {} = alloca i32", local_ptr));
+                                ctx.push_line(&format!(
+                                    "  store i32 {}, i32* {}, align 1",
+                                    payload_addr, local_ptr
+                                ));
+                                ctx.bind_local(bind.as_str(), local_ptr, LlTy::I32);
+                            } else if payload_ll == LlTy::Void {
                                 ctx.bind_zero_sized_local(bind.as_str());
                             } else {
                                 let payload_offset = enum_payload_offset_bytes() as i64;
@@ -3797,18 +3820,28 @@ fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> i32 {
     }
 }
 
-fn is_enum_type(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let ty = ctx.resolve_named_type_id(ty);
+fn enum_match_type(ctx: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let ty = ctx.resolve_named_type_id(ctx.resolve_id(ty));
     match ctx.get(ty) {
-        TypeKind::Enum { .. } => true,
+        TypeKind::Enum { .. } => Some(ty),
         TypeKind::Apply { base, .. } => {
-            matches!(
+            if matches!(
                 ctx.get(ctx.resolve_named_type_id(base)),
                 TypeKind::Enum { .. }
-            )
+            ) {
+                Some(ty)
+            } else {
+                None
+            }
         }
-        _ => false,
+        TypeKind::Reference(target, _) => enum_match_type(ctx, target),
+        _ => None,
     }
+}
+
+fn type_is_reference(ctx: &TypeCtx, ty: TypeId) -> bool {
+    let ty = ctx.resolve_named_type_id(ctx.resolve_id(ty));
+    matches!(ctx.get(ty), TypeKind::Reference(_, _))
 }
 
 fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option<TypeId> {

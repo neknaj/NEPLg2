@@ -74,3 +74,92 @@ fn main <()*>i32> ():
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```
+
+## borrowed enum match binds scalar payload by reference
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"borrowed_enum_match_binds_scalar_payload_by_reference\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"borrowed enum scalar payload\" expected=\"42\" actual=\"42\" message=\"\"\n"
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "std/test" as *
+
+enum LocalBox:
+    Empty
+    Full <i32>
+
+fn read_box <(&LocalBox)->i32> (box):
+    match box:
+        Empty:
+            0
+        Full value:
+            *value
+
+fn main <()*>i32> ():
+    let box <LocalBox> LocalBox::Full 42
+    let actual <i32> read_box &box
+    let report:
+        test_report_new "borrowed_enum_match_binds_scalar_payload_by_reference"
+        |> test_report_push assert_eq_i32 "borrowed enum scalar payload" 42 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
+```
+
+## borrowed enum match does not move owner payload
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"borrowed_enum_match_does_not_move_owner_payload\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"borrowed enum owner payload remains consumable\" expected=\"0\" actual=\"0\" message=\"\"\n"
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/result" as *
+#import "std/test" as *
+
+struct LocalToken:
+    value <i32>
+
+enum TokenBox:
+    Empty
+    Owned <RegionToken<LocalToken>>
+
+fn token_box_addr <(&TokenBox)->i32> (box):
+    match box:
+        Empty:
+            0
+        Owned token:
+            mem_ptr_addr region_ptr token
+
+fn run_case <()->i32> ():
+    match alloc_region<LocalToken> 1:
+        Result::Err _:
+            1
+        Result::Ok token:
+            let box <TokenBox> TokenBox::Owned token
+            let addr <i32> token_box_addr &box
+            match box:
+                Empty:
+                    1
+                Owned owned_token:
+                    match dealloc_region<LocalToken> owned_token:
+                        Result::Err _:
+                            1
+                        Result::Ok _:
+                            if gt addr 0 0 1
+
+fn main <()*>i32> ():
+    let actual <i32> run_case
+    let report:
+        test_report_new "borrowed_enum_match_does_not_move_owner_payload"
+        |> test_report_push assert_eq_i32 "borrowed enum owner payload remains consumable" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
+```

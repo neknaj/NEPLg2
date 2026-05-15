@@ -248,6 +248,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 output,
                 kind,
                 span,
+                ..
             } => self.start_borrow(borrows, source, output, *kind, *span),
             ResourceOp::Move {
                 source,
@@ -331,12 +332,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 for arm in arms {
                     let mut arm_borrows = borrows.clone();
                     let mut arm_function_aliases = function_aliases.clone();
-                    propagate_match_bind_borrow_token(
-                        &mut arm_borrows,
-                        op,
-                        &arm.pattern,
-                        arm.bind_local.as_ref(),
-                    );
+                    propagate_match_bind_borrow_token(&mut arm_borrows, op, arm);
                     self.check_ops_with_continuation(
                         &mut arm_borrows,
                         &mut arm_function_aliases,

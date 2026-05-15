@@ -39510,3 +39510,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core effect_return_escape -- --nocapture`: 4 passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_rejects_mem_ptr_return_identity_escape -- --nocapture`: 1 passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed
+
+## 2026-05-16 Agent 1 borrowed enum match owner payload 実装
+
+- `ISS-20260515T232029920Z-BORROWED-ENUM-MATCH-CANNOT-BIND-OWNE-FD64ED88` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、typecheck / Resource IR / wasm・LLVM codegen が enum match を owned enum value 前提で扱い、`&Enum` の payload を `&Payload` として束縛する経路を持っていなかったことだった。これにより `VecStorage<T>::Owned(RegionToken<T>)` のような owner payload を持つ enum を borrowed observer から安全に参照できず、Vec storage tag と owner token の結合設計が blocked になっていた。
+- typechecker は `&Enum` / `&mut Enum` scrutinee を enum match として扱い、payload binding を scrutinee mutability に応じて `&Payload` / `&mut Payload` にした。owned enum match の binding は従来どおり payload value として扱う。
+- Resource IR lowering は borrowed enum match の scrutinee を deref 済み enum place として扱い、borrowed payload binding には arm 冒頭で synthetic `Borrow` を seed する。initialized check / coverage / borrow propagation は、borrowed payload binding を owner transfer と見なさないように分岐した。
+- wasm と LLVM backend は borrowed payload binding で payload address を local に束縛し、owned payload binding の copy/load 経路と分離した。
+- `ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134` には prerequisite update を追記した。Vec 側の `VecStorage<T>::Owned(RegionToken<T>)` 統合は、この compiler feature を前提に次段階で継続する。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/agent1-borrowed-enum-match-reference-codegen.json -j 1 --dist web/dist --assert-io`: 5/5 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

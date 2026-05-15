@@ -139,6 +139,7 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
             output,
             kind,
             span,
+            ..
         } => {
             let _ = writeln!(
                 out,
@@ -405,6 +406,7 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
             scrutinee,
             arms,
             span,
+            ..
         } => {
             let _ = writeln!(
                 out,

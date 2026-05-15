@@ -208,6 +208,7 @@ fn resource_ops_coverage(
             ResourceOp::Match {
                 output,
                 scrutinee,
+                scrutinee_is_borrow_target,
                 arms,
                 span,
             } => {
@@ -219,14 +220,16 @@ fn resource_ops_coverage(
                     counts,
                     diagnostics,
                 );
-                resource_place_coverage(
-                    function,
-                    CoveragePlaceOp::MatchScrutinee,
-                    scrutinee,
-                    *span,
-                    counts,
-                    diagnostics,
-                );
+                if !*scrutinee_is_borrow_target {
+                    resource_place_coverage(
+                        function,
+                        CoveragePlaceOp::MatchScrutinee,
+                        scrutinee,
+                        *span,
+                        counts,
+                        diagnostics,
+                    );
+                }
                 for arm in arms {
                     if let Some(bind_local) = &arm.bind_local {
                         resource_place_coverage(
@@ -357,26 +360,29 @@ fn resource_ops_coverage(
             ResourceOp::Borrow {
                 source,
                 output,
+                synthetic,
                 span,
                 ..
             } => {
-                counts.borrows += 1;
-                resource_place_coverage(
-                    function,
-                    CoveragePlaceOp::BorrowSource,
-                    source,
-                    *span,
-                    counts,
-                    diagnostics,
-                );
-                resource_place_coverage(
-                    function,
-                    CoveragePlaceOp::BorrowOutput,
-                    output,
-                    *span,
-                    counts,
-                    diagnostics,
-                );
+                if !*synthetic {
+                    counts.borrows += 1;
+                    resource_place_coverage(
+                        function,
+                        CoveragePlaceOp::BorrowSource,
+                        source,
+                        *span,
+                        counts,
+                        diagnostics,
+                    );
+                    resource_place_coverage(
+                        function,
+                        CoveragePlaceOp::BorrowOutput,
+                        output,
+                        *span,
+                        counts,
+                        diagnostics,
+                    );
+                }
             }
             ResourceOp::Drop { place, span } => {
                 counts.drops += 1;

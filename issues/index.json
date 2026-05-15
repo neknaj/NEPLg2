@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T23:09:33.186Z",
+  "generated_at": "2026-05-15T23:52:20.939Z",
   "counts": {
-    "total": 857,
+    "total": 858,
     "open": 7,
-    "resolved": 850,
+    "resolved": 851,
     "by_area": {
       "stdlib": {
         "total": 254,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 419,
+        "total": 420,
         "open": 0,
-        "resolved": 419
+        "resolved": 420
       },
       "CORE": {
         "total": 1,
@@ -6388,6 +6388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T230145475Z-RESOURCE-EFFECT-RETURN-ESCAPE-MODULE-2ED8211B.md"
+    },
+    {
+      "id": "ISS-20260515T232029920Z-BORROWED-ENUM-MATCH-CANNOT-BIND-OWNE-FD64ED88",
+      "title": "Borrowed enum match cannot bind owner payloads without moving them",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/typecheck/match_check.rs, nepl-core/src/resource/lower.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T232029920Z-BORROWED-ENUM-MATCH-CANNOT-BIND-OWNE-FD64ED88.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

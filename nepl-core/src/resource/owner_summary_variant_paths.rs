@@ -151,6 +151,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 scrutinee,
                 arms,
                 span,
+                ..
             } if output == return_value => {
                 for arm in arms {
                     if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {

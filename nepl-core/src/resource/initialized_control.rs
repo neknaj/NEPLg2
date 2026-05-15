@@ -268,16 +268,26 @@ impl ResourceCheckEngine<'_> {
         variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         scrutinee: &Place,
+        scrutinee_is_borrow_target: bool,
         arms: &[ResourceMatchArm],
         span: Span,
         path: ResourceDropPointPath,
     ) {
-        let scrutinee_available = self.consume_by_value(
-            cells,
-            scrutinee,
-            ResourceCheckOperation::MatchScrutinee,
-            span,
-        );
+        let scrutinee_available = if scrutinee_is_borrow_target {
+            self.ensure_available(
+                cells,
+                scrutinee,
+                ResourceCheckOperation::MatchScrutinee,
+                span,
+            )
+        } else {
+            self.consume_by_value(
+                cells,
+                scrutinee,
+                ResourceCheckOperation::MatchScrutinee,
+                span,
+            )
+        };
         let mut arms_available = true;
         let mut arm_paths = Vec::new();
         let mut alias_paths = Vec::new();

@@ -98,6 +98,7 @@ pub enum ResourceOp {
         source: Place,
         output: Place,
         kind: BorrowKind,
+        synthetic: bool,
         span: Span,
     },
     Move {
@@ -188,6 +189,7 @@ pub enum ResourceOp {
     Match {
         output: Place,
         scrutinee: Place,
+        scrutinee_is_borrow_target: bool,
         arms: Vec<ResourceMatchArm>,
         span: Span,
     },
@@ -268,6 +270,7 @@ pub struct ResourceMatchArm {
     pub pattern: ResourceMatchPattern,
     pub bind_local: Option<Place>,
     pub bind_source_name: Option<String>,
+    pub bind_is_borrow: bool,
     pub ops: Vec<ResourceOp>,
     pub value: Place,
     pub span: Span,

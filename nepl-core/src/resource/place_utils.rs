@@ -419,6 +419,9 @@ pub(super) fn match_bind_payload_place(
     arm: &ResourceMatchArm,
     bind_local: &Place,
 ) -> Option<Place> {
+    if arm.bind_is_borrow {
+        return None;
+    }
     let variant = match_arm_variant_payload_name(arm)?;
     Some(
         scrutinee

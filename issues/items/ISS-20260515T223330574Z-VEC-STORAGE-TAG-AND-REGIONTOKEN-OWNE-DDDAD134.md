@@ -39,6 +39,12 @@ The current representation cannot prove the intended Empty/Owned storage invaria
 
 Redesign Vec storage so the allocation owner is structurally tied to the owned state, e.g. VecStorage<T>::Empty | VecStorage<T>::Owned(RegionToken<T>), and update observers/mutations with compiler-supported borrowed enum payload access or an equivalent checked invariant representation. Until that lands, cleanup must consume the RegionToken through the existing owner destructor to avoid leaks.
 
+## 2026-05-16 Agent 1 prerequisite update
+
+調査の結果、`VecStorage<T>::Owned(RegionToken<T>)` へ移行するには、`&Vec` observer が `&VecStorage<T>` を match し、`Owned` payload の `RegionToken<T>` を移動せず `&RegionToken<T>` として束縛できる必要があることを確認した。これがないと `data_mem_ptr`、`get`、`replace`、sort などの borrowed API が owner payload を move/copy する設計になり、storage tag と owner token を結合しても実用的な source proof にならない。
+
+この compiler prerequisite は `ISS-20260515T232029920Z-BORROWED-ENUM-MATCH-CANNOT-BIND-OWNE-FD64ED88` として分離し、`&Enum` match / borrowed payload binding / Resource IR Borrow seeding / wasm・LLVM codegen の実装対象にした。Vec 側の根本修正は、この機能を前提として `VecStorage<T>` への field 統合を行う次段階で継続する。
+
 ## 検証
 
 Add Resource IR tests that reject an independent Empty + owned RegionToken helper, accept valid Vec free paths, and source policy tests that forbid reintroducing an Empty no-op unless the owner is structurally carried by the Owned variant.

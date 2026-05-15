@@ -6,6 +6,7 @@ use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule
 use crate::types::TypeCtx;
 
 use super::coverage::ResourceCoverageCounts;
+use super::coverage_hir_match::hir_match_scrutinee_coverage;
 use super::coverage_hir_place::{
     hir_field_projection_source_coverage, hir_place_expr_coverage,
     hir_reference_owner_source_coverage,
@@ -59,7 +60,7 @@ fn hir_block_coverage(
 }
 
 impl HirCoverageContext {
-    fn hir_expr_coverage(
+    pub(super) fn hir_expr_coverage(
         &mut self,
         expr: &HirExpr,
         counts: &mut ResourceCoverageCounts,
@@ -131,7 +132,7 @@ impl HirCoverageContext {
                 self.hir_expr_coverage(body, counts, types, string_literals);
             }
             HirExprKind::Match { scrutinee, arms } => {
-                self.hir_expr_coverage(scrutinee, counts, types, string_literals);
+                hir_match_scrutinee_coverage(self, scrutinee, counts, types, string_literals);
                 for arm in arms {
                     self.push_scope();
                     if let Some(bind_local) = &arm.bind_local {

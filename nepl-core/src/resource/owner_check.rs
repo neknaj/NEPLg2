@@ -417,6 +417,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 scrutinee,
                 arms,
                 span,
+                ..
             } => {
                 self.check_match(
                     owners,

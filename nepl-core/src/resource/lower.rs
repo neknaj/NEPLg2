@@ -27,6 +27,10 @@ use super::lower_condition::resource_condition_fact;
 use super::lower_layout_intrinsic::{
     layout_intrinsic_i32_value, layout_intrinsic_i32_value_from_callee,
 };
+use super::lower_match::{
+    borrowed_match_payload_source, place_is_reference, resource_match_scrutinee_place,
+    type_is_reference_to_enum,
+};
 use super::lower_raw_address::{
     push_core_mem_owner_storage_origin, push_core_mem_wrapper_semantics,
     push_named_raw_address_semantics, push_transparent_raw_address_return_projection,
@@ -425,6 +429,7 @@ pub(super) fn lower_expr_skeleton(
                     source,
                     output: output.clone(),
                     kind: borrow_kind_for_reference_type(env.types, expr.ty),
+                    synthetic: false,
                     span: expr.span,
                 });
                 ops.push(ResourceOp::Expr {
@@ -532,7 +537,18 @@ pub(super) fn lower_expr_skeleton(
             push_expr(ops, ResourceExprKind::Loop, expr, ctx)
         }
         HirExprKind::Match { scrutinee, arms } => {
-            let scrutinee = lower_expr_skeleton(scrutinee, ops, ctx, env);
+            let scrutinee = if type_is_reference_to_enum(env.types, scrutinee.ty) {
+                let place = place_from_expr_skeleton(scrutinee, ctx);
+                if matches!(&place.root, super::model::PlaceRoot::Unknown) {
+                    lower_expr_skeleton(scrutinee, ops, ctx, env)
+                } else {
+                    place
+                }
+            } else {
+                lower_expr_skeleton(scrutinee, ops, ctx, env)
+            };
+            let (scrutinee, scrutinee_is_borrow_target) =
+                resource_match_scrutinee_place(env.types, &scrutinee);
             let mut resource_arms = Vec::new();
             let match_locals = ctx.snapshot_locals();
             for arm in arms {
@@ -544,6 +560,26 @@ pub(super) fn lower_expr_skeleton(
                     .as_ref()
                     .zip(arm.bind_ty)
                     .map(|(name, ty)| ctx.declare_local(name.clone(), ty));
+                let bind_is_borrow = bind_local
+                    .as_ref()
+                    .is_some_and(|place| place_is_reference(env.types, place));
+                if bind_is_borrow {
+                    if let Some(bind_source) = borrowed_match_payload_source(
+                        env.types,
+                        &scrutinee,
+                        arm,
+                        bind_local.as_ref(),
+                    ) {
+                        let bind_local = bind_local.as_ref().expect("borrowed bind local exists");
+                        arm_ops.push(ResourceOp::Borrow {
+                            source: bind_source,
+                            output: bind_local.clone(),
+                            kind: borrow_kind_for_reference_type(env.types, bind_local.ty),
+                            synthetic: true,
+                            span: arm.body.span,
+                        });
+                    }
+                }
                 let value = lower_expr_skeleton(&arm.body, &mut arm_ops, ctx, env);
                 if let Some(place) = &bind_local {
                     arm_ops.push(ResourceOp::EndScope {
@@ -556,6 +592,7 @@ pub(super) fn lower_expr_skeleton(
                     pattern: lower_match_pattern(&arm.pattern),
                     bind_local,
                     bind_source_name,
+                    bind_is_borrow,
                     ops: arm_ops,
                     value,
                     span: arm.body.span,
@@ -566,6 +603,7 @@ pub(super) fn lower_expr_skeleton(
             ops.push(ResourceOp::Match {
                 output: output.clone(),
                 scrutinee,
+                scrutinee_is_borrow_target,
                 arms: resource_arms,
                 span: expr.span,
             });
@@ -677,6 +715,7 @@ pub(super) fn lower_expr_skeleton(
                     source,
                     output: output.clone(),
                     kind: borrow_kind_for_reference_type(env.types, expr.ty),
+                    synthetic: false,
                     span: expr.span,
                 });
                 ops.push(ResourceOp::Expr {
@@ -712,6 +751,7 @@ pub(super) fn lower_expr_skeleton(
                     source,
                     output: output.clone(),
                     kind: borrow_kind_for_reference_type(env.types, expr.ty),
+                    synthetic: false,
                     span: expr.span,
                 });
                 ops.push(ResourceOp::Expr {
@@ -789,6 +829,7 @@ pub(super) fn lower_expr_skeleton(
                 source,
                 output: output.clone(),
                 kind: borrow_kind_for_reference_type(env.types, expr.ty),
+                synthetic: false,
                 span: expr.span,
             });
             ops.push(ResourceOp::Expr {

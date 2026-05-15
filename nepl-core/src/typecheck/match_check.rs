@@ -14,6 +14,12 @@ use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, variant_member_tail};
 use super::{BlockChecker, ScalarMatchKind};
 
+#[derive(Clone, Copy)]
+pub(super) enum EnumMatchBindMode {
+    Owned,
+    Borrowed { is_mut: bool },
+}
+
 impl<'a> BlockChecker<'a> {
     pub(super) fn check_match_expr(&mut self, m: &MatchExpr) -> Option<(HirExpr, TypeId)> {
         // Infer the expected scrutinee type from the arm variant names.
@@ -28,8 +34,8 @@ impl<'a> BlockChecker<'a> {
         {
             let scrut_ty = scrut_expr.ty;
             let resolved_ty = self.ctx.resolve(scrut_ty);
-            if let Some(variants) = self.match_enum_variants_for_type(resolved_ty) {
-                return self.check_enum_match_expr(m, scrut_expr, variants);
+            if let Some((variants, bind_mode)) = self.match_enum_subject_for_type(resolved_ty) {
+                return self.check_enum_match_expr(m, scrut_expr, variants, bind_mode);
             }
             let scalar = match self.ctx.get(resolved_ty) {
                 TypeKind::I32 => Some(ScalarMatchKind::I32),
@@ -48,6 +54,24 @@ impl<'a> BlockChecker<'a> {
             ));
         }
         None
+    }
+
+    fn match_enum_subject_for_type(
+        &mut self,
+        resolved_ty: TypeId,
+    ) -> Option<(Vec<EnumVariantInfo>, EnumMatchBindMode)> {
+        let reference_target = match self.ctx.get(resolved_ty) {
+            TypeKind::Reference(target, is_mut) => Some((target, is_mut)),
+            _ => None,
+        };
+        if let Some((target, is_mut)) = reference_target {
+            let target = self.ctx.resolve(target);
+            return self
+                .match_enum_variants_for_type(target)
+                .map(|variants| (variants, EnumMatchBindMode::Borrowed { is_mut }));
+        }
+        self.match_enum_variants_for_type(resolved_ty)
+            .map(|variants| (variants, EnumMatchBindMode::Owned))
     }
 
     pub(super) fn match_enum_variants_for_type(
@@ -95,6 +119,7 @@ impl<'a> BlockChecker<'a> {
         m: &MatchExpr,
         scrut_expr: HirExpr,
         variants: Vec<EnumVariantInfo>,
+        bind_mode: EnumMatchBindMode,
     ) -> Option<(HirExpr, TypeId)> {
         let mut seen = alloc::collections::BTreeSet::new();
         let mut saw_wildcard = false;
@@ -165,10 +190,15 @@ impl<'a> BlockChecker<'a> {
                 continue;
             }
             let var_info = var_info.unwrap();
-            let bind_ty = bind.as_ref().and_then(|_| var_info.payload);
+            let bind_ty = bind.as_ref().and_then(|_| {
+                var_info.payload.map(|payload| match bind_mode {
+                    EnumMatchBindMode::Owned => payload,
+                    EnumMatchBindMode::Borrowed { is_mut } => self.ctx.reference(payload, is_mut),
+                })
+            });
             self.env.push_scope();
             if let Some(bind) = bind {
-                if let Some(pty) = var_info.payload {
+                if let Some(pty) = bind_ty {
                     emit_shadow_warning(
                         &mut self.diagnostics,
                         self.env,

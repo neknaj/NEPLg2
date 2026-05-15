@@ -584,8 +584,10 @@ impl ResourceCheckEngine<'_> {
             ResourceOp::Match {
                 output,
                 scrutinee,
+                scrutinee_is_borrow_target,
                 arms,
                 span,
+                ..
             } => {
                 self.check_match(
                     cells,
@@ -595,6 +597,7 @@ impl ResourceCheckEngine<'_> {
                     variant_initializations,
                     output,
                     scrutinee,
+                    *scrutinee_is_borrow_target,
                     arms,
                     *span,
                     path,

@@ -4,7 +4,7 @@ use crate::types::TypeId;
 
 use super::borrow_state::{BorrowBinding, BorrowTable};
 use super::model::{
-    AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchPattern, ResourceOp,
+    AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchArm, ResourceOp,
     ResourceTerminator,
 };
 use super::place_utils::places_overlap;
@@ -90,16 +90,18 @@ pub(super) fn propagate_construct_borrow_tokens(
 pub(super) fn propagate_match_bind_borrow_token(
     borrows: &mut BorrowTable,
     op: &ResourceOp,
-    pattern: &ResourceMatchPattern,
-    bind_local: Option<&Place>,
+    arm: &ResourceMatchArm,
 ) {
-    let Some(bind_local) = bind_local else {
+    if arm.bind_is_borrow {
+        return;
+    }
+    let Some(bind_local) = arm.bind_local.as_ref() else {
         return;
     };
     let ResourceOp::Match { scrutinee, .. } = op else {
         return;
     };
-    let Some(payload_variant) = match_pattern_variant_name(pattern) else {
+    let Some(payload_variant) = match_pattern_variant_name(&arm.pattern) else {
         return;
     };
     let payload = scrutinee.clone().with_projection(
