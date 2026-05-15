@@ -19,8 +19,9 @@
 //: storage state に[応/おう]じて backing buffer を[解放/かいほう]する
 //:
 //: ### [目的/もくてき]
-//: - `RegionToken` を必ず `dealloc_region` へ[渡/わた]し、compiler が token owner の[消費/しょうひ]を[直接/ちょくせつ][証明/しょうめい]できる形で[閉/と]じます。
-//: - `Empty` の zero-size sentinel は `dealloc_region` / allocator 側で no-op になるため、source 上の owner 消費経路を分岐させません。
+//: - 現行の `Vec` は `VecStorageState` と `RegionToken` を[別々/べつべつ]の field に[持/も]つため、cleanup helper の型だけでは `Empty` と zero-size token の[相関/そうかん]を[証明/しょうめい]できません。
+//: - そのため、この helper は token を必ず owner-consuming `dealloc_region` へ[渡/わた]し、Resource IR 上の free obligation を[漏/も]らさず[閉/と]じます。
+//: - `VecStorageState::Empty` の zero-size sentinel は `dealloc_raw` の `ptr <= 0` no-op により runtime allocation を[返/かえ]しません。
 //:
 //: ### [注意/ちゅうい]
 //: - この helper は storage-only dealloc であり、要素ごとの Drop は[実行/じっこう]しません。そのため `OwnedBuffer<T>` と initialized prefix traversal が[入/はい]るまでは `.T: Copy` に[限定/げんてい]します。

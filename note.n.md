@@ -39445,3 +39445,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_region_pointer_from_region_provenance -- --nocapture`
   - `trunk build`
   - `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/agent1-fs-stat-after-raw-identity-rerun.json -j 1 --dist web/dist --assert-io`: raw identity は解消、owner maybe_leak は新規 issue として継続。
+
+## 2026-05-16 Agent 1 Vec empty cleanup regression 再修正
+
+- `ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF` を再監査した。`plan.md` は変更していない。
+- 調査の結果、`VecStorageState` と `RegionToken<T>` を独立 field / helper 引数として持つ現行表現では、`Empty` と owned token の不正な組み合わせを型が排除できないことが根本原因だった。Empty branch を no-op にすると Resource IR が owner leak を報告するのは正しい。
+- 短期的には `vec_free_storage<T>` を unconditional owner-consuming destructor に戻し、free obligation を漏らさないことを優先した。`VecStorageState::Empty` の zero-size sentinel は `dealloc_raw` の `ptr <= 0` no-op で runtime allocation を返さない。
+- 根本修正として `ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134` を追加した。`VecStorage<T>::Owned(RegionToken<T>)` のように state と owner を構造的に束ねる再設計が必要。

@@ -61,7 +61,7 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //:
 //: ### [実装/じっそう]
 //: - `storage` と `region` owner は `vec/storage` の cleanup helper へ[移動/いどう]します。
-//: - cleanup helper は `region` token を必ず owner-consuming destructor へ[渡/わた]します。`VecStorageState::Empty` の zero-size sentinel は allocator 側で no-op です。
+//: - 現行 `Vec` は state と owner token を別 field に[持/も]つため、cleanup helper は `region` token を必ず owner-consuming destructor へ[渡/わた]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。

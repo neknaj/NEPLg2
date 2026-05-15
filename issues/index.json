@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T21:48:21.409Z",
+  "generated_at": "2026-05-15T22:33:30.718Z",
   "counts": {
-    "total": 852,
-    "open": 5,
+    "total": 853,
+    "open": 6,
     "resolved": 847,
     "by_area": {
       "stdlib": {
-        "total": 253,
-        "open": 3,
+        "total": 254,
+        "open": 4,
         "resolved": 250
       },
       "TEST": {
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134",
+      "title": "Vec storage tag and RegionToken owner are split, so Empty cleanup cannot be proven by type",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/vec/storage/cleanup.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -9398,7 +9413,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-05-14",
-      "updated": "2026-05-14",
+      "updated": "2026-05-16",
       "target": "stdlib/alloc/collections/vec/storage/cleanup.nepl, stdlib/alloc/collections/vec/mutation/cleanup.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
       "legacy_id": "",
       "source": "",

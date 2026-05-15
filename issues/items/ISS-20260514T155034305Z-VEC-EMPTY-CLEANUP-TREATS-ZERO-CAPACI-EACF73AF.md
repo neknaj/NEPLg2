@@ -2,12 +2,12 @@
 id: ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF
 title: "Vec empty cleanup treats zero-capacity sentinel as owned storage"
 area: stdlib
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-05-14
-updated: 2026-05-14
+updated: 2026-05-16
 target: "stdlib/alloc/collections/vec/storage/cleanup.nepl, stdlib/alloc/collections/vec/mutation/cleanup.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js"
 ---
 
@@ -51,3 +51,13 @@ Fixed.
 - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
 - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/agent1-vec-empty-cleanup.json -j 1 --dist web/dist --assert-io`: 3/3 passed
 - `node nodesrc/issues.js check`: passed
+
+## 2026-05-16 Agent 1 regression 再修正
+
+`RegionToken<T>` の direct raw owner field 化と public `alloc_ptr` API 撤去後の main で再確認したところ、`vec_free_storage<T>` が再び `storage` 引数を無視し、`VecStorageState::Empty` の zero-size sentinel を常時 `dealloc_region` へ渡す形に戻っていた。
+
+この調査で、上記の「`Empty` は no-op、`Owned` だけ `dealloc_region`」という修正方針は現行型では静的に正しくないことが分かった。`VecStorageState` と `RegionToken<T>` が独立した field / 引数であるため、`vec_free_storage<T>(VecStorageState::Empty, owned_region)` が型上成立する。この場合に Empty branch が no-op だと Resource IR が `RegionToken.raw` owner leak を報告するのは正しい。
+
+そのため、この issue は再オープンする。短期的には `vec_free_storage<T>` を unconditional owner-consuming destructor に戻し、free obligation leak を避ける。`Empty` sentinel の runtime allocation は `dealloc_raw` の `ptr <= 0` no-op で返されない。
+
+根本修正は `ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134` として分離した。`VecStorage<T>::Empty | VecStorage<T>::Owned(RegionToken<T>)` のように owner token を Owned variant に構造的に束ね、borrowed observer / mutation もその型で表せるようにするまでは、source policy が Empty no-op を要求してはいけない。
