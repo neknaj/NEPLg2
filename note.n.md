@@ -38803,3 +38803,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - native stack_pop_top_keeps_stack `nepl-cli --check`: `resource_effect_boundaries=726ms`, `resource_static_check=5795ms`, exit 0
   - `node nodesrc/run_doctest.js -i stdlib/tests/stack.n.md -n 9 --assert-io --dist web/dist`: pass, `compile_ms=12721`
   - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/agent1-stack-doctests-filtered-rerun.json -j 1 --dist web/dist --assert-io`: 18 passed
+
+## 2026-05-15 Agent 1 selfhost CLI arg parser doctest compile 繰り返し解消
+
+- `ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8` を fixed にした。
+- 調査では、この suite の runtime は各 case 数 ms 程度で、遅さは同じ `neplg2/cli/args` 依存グラフを 10 doctest が個別 compile していることに集中していた。
+- `tests/stdlib/selfhost_cliarg_parser.n.md` を 1 つの aggregated doctest に再構成し、10 個の parser behavior は helper function と `TestReport` assertion line として stdout に固定した。
+- 旧 `ret: 0` だけの合否ではなく、`neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` の canonical report に移行した。
+- `nodesrc/test_selfhost_cliarg_parser_doctest_contract.js` を追加し、1 doctest への集約、stdout report、exit_code metadata、`ret:` 退行禁止を監視する。
+- focused verification:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cliarg_parser.n.md -n 1 --assert-io --dist web/dist`: pass, `compile_ms=18793`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/agent1-selfhost-cliarg-parser-aggregated.json -j 1 --dist web/dist --assert-io`: 1 passed
+  - `node nodesrc/test_selfhost_cliarg_parser_doctest_contract.js`

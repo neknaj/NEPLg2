@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T09:31:17.686Z",
+  "generated_at": "2026-05-15T09:47:33.262Z",
   "counts": {
     "total": 817,
-    "open": 7,
-    "resolved": 810,
+    "open": 6,
+    "resolved": 811,
     "by_area": {
       "stdlib": {
         "total": 232,
@@ -20,11 +20,6 @@
         "total": 67,
         "open": 1,
         "resolved": 66
-      },
-      "test": {
-        "total": 10,
-        "open": 1,
-        "resolved": 9
       },
       "cli": {
         "total": 19,
@@ -100,6 +95,11 @@
         "total": 1,
         "open": 0,
         "resolved": 1
+      },
+      "test": {
+        "total": 10,
+        "open": 0,
+        "resolved": 10
       },
       "tools": {
         "total": 2,
@@ -208,21 +208,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8",
-      "title": "selfhost CLI arg parser doctest suite repeats expensive compile work",
-      "area": "test",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-05-14",
-      "updated": "2026-05-14",
-      "target": "tests/stdlib/selfhost_cliarg_parser.n.md, nodesrc/tests.js, nepl-core",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -12208,6 +12193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T070310096Z-VEC-SOURCE-POLICY-REJECTS-RUSTFMT-RA-74A5475B.md"
+    },
+    {
+      "id": "ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8",
+      "title": "selfhost CLI arg parser doctest suite repeats expensive compile work",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "tests/stdlib/selfhost_cliarg_parser.n.md, nodesrc/test_selfhost_cliarg_parser_doctest_contract.js, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8.md"
     },
     {
       "id": "ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1",

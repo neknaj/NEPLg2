@@ -1,9 +1,10 @@
 # selfhost_cliarg_parser.n.md
 
-## selfhost_cliarg_parser_accepts_check_emit_output_and_input
+## selfhost_cliarg_parser_contract
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"selfhost_cliarg_parser\" count=10 failed=0\nassertion index=0 status=ok kind=bool label=\"accepts check emit output and input\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"rejects unknown option\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"rejects missing value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"rejects multiple input\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"skips program name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"records run args start\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"accepts aliases and profile\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"accepts emit list and deduplicates\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"accepts emit all\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"rejects invalid emit member\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -13,11 +14,12 @@ ret: 0
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
 #import "core/field" as *
+#import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_accepts_check_emit_output_and_input <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--check" |> uwok
@@ -29,7 +31,7 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
-            1
+            false
         Result::Ok opts:
             let output_ref <&Option<str>> get_ref &opts "output"
             let input_ref <&Option<str>> get_ref &opts "input"
@@ -47,85 +49,37 @@ fn main <()*>i32> ():
                     false
             let check_ok <bool> *check_ref
             let emit_ok <bool> selfhost_cli_emit_is_wasm *emit_ref
-            let checks:
-                checks_new
-                |> checks_push assert check_ok
-                |> checks_push assert emit_ok
-                |> checks_push assert output_ok
-                |> checks_push assert input_ok
-            let exit_code <i32> checks_exit_code checks
+            let ok <bool> and check_ok and emit_ok and output_ok input_ok
             v::free<str> args;
-            exit_code
-```
+            ok
 
-## selfhost_cliarg_parser_rejects_unknown_option
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "core/result" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_rejects_unknown_option <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--unknown" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;
-            1
+            false
         Result::Err e:
             let ok <bool> selfhost_cli_error_is_unknown_option e
             v::free<str> args;
-            if ok 0 1
-```
+            ok
 
-## selfhost_cliarg_parser_rejects_missing_value
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "core/result" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_rejects_missing_value <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;
-            1
+            false
         Result::Err e:
             let ok <bool> selfhost_cli_error_is_missing_value e
             v::free<str> args;
-            if ok 0 1
-```
+            ok
 
-## selfhost_cliarg_parser_rejects_multiple_input
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "core/result" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_rejects_multiple_input <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "a.nepl" |> uwok
@@ -133,31 +87,13 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;
-            1
+            false
         Result::Err e:
             let ok <bool> selfhost_cli_error_is_multiple_input e
             v::free<str> args;
-            if ok 0 1
-```
+            ok
 
-## selfhost_cliarg_parser_skips_program_name
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "alloc/string" as *
-#import "core/field" as *
-#import "core/option" as *
-#import "core/result" as *
-#import "std/test" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_skips_program_name <()*>bool> ():
     let argv <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "neplg2" |> uwok
@@ -168,7 +104,7 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_argv &argv:
         Result::Err _e:
             v::free<str> argv;
-            1
+            false
         Result::Ok opts:
             let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
             let input_ref <&Option<str>> get_ref &opts "input"
@@ -182,32 +118,11 @@ fn main <()*>i32> ():
                     str_eq input "main.nepl"
                 Option::None:
                     false
-            let checks:
-                checks_new
-                |> checks_push assert target_ok
-                |> checks_push assert input_ok
-            let exit_code <i32> checks_exit_code checks
+            let ok <bool> and target_ok input_ok
             v::free<str> argv;
-            exit_code
-```
+            ok
 
-## selfhost_cliarg_parser_records_run_args_start
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "core/field" as *
-#import "core/option" as *
-#import "core/result" as *
-#import "core/math" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_records_run_args_start <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--run" |> uwok
@@ -217,39 +132,19 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
-            1
+            false
         Result::Ok opts:
             let start_ref <&Option<i32>> get_ref &opts "run_args_start"
             let start <Option<i32>> *start_ref
-            match start:
+            let ok <bool> match start:
                 Option::Some idx:
-                    let ok <bool> eq idx 3
-                    v::free<str> args;
-                    if ok 0 1
+                    eq idx 3
                 Option::None:
-                    v::free<str> args;
-                    1
-```
+                    false
+            v::free<str> args;
+            ok
 
-## selfhost_cliarg_parser_accepts_aliases_and_profile
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "alloc/string" as *
-#import "core/field" as *
-#import "core/option" as *
-#import "core/result" as *
-#import "std/test" as *
-#import "core/math" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_accepts_aliases_and_profile <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--attach-source" |> uwok
@@ -270,7 +165,7 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
-            1
+            false
         Result::Ok opts:
             let attach_ref <&bool> get_ref &opts "attach_source"
             let lib_ref <&bool> get_ref &opts "lib"
@@ -314,39 +209,19 @@ fn main <()*>i32> ():
                     eq idx 14
                 Option::None:
                     false
-            let checks:
-                checks_new
-                |> checks_push assert attach_ok
-                |> checks_push assert lib_ok
-                |> checks_push assert verbose_ok
-                |> checks_push assert target_ok
-                |> checks_push assert emit_ok
-                |> checks_push assert profile_ok
-                |> checks_push assert stdlib_root_ok
-                |> checks_push assert input_ok
-                |> checks_push assert run_args_start_ok
-            let exit_code <i32> checks_exit_code checks
+            let ok <bool>:
+                and attach_ok:
+                    and lib_ok:
+                        and verbose_ok:
+                            and target_ok:
+                                and emit_ok:
+                                    and profile_ok:
+                                        and stdlib_root_ok:
+                                            and input_ok run_args_start_ok
             v::free<str> args;
-            exit_code
-```
+            ok
 
-## selfhost_cliarg_parser_accepts_emit_list_and_deduplicates
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "core/field" as *
-#import "core/math" as *
-#import "core/result" as *
-#import "std/test" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
@@ -355,38 +230,20 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
-            1
+            false
         Result::Ok opts:
             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
             let emit <SelfhostCliEmitSet> *emit_ref
-            let checks:
-                checks_new
-                |> checks_push assert selfhost_cli_emit_is_wasm emit
-                |> checks_push assert selfhost_cli_emit_set_has_wat emit
-                |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
-                |> checks_push assert not selfhost_cli_emit_set_has_wat_min emit
-                |> checks_push assert not selfhost_cli_emit_set_has_llvm emit
-            let exit_code <i32> checks_exit_code checks
+            let ok <bool>:
+                and selfhost_cli_emit_is_wasm emit:
+                    and selfhost_cli_emit_set_has_wat emit:
+                        and selfhost_cli_emit_set_has_llvm_min emit:
+                            and not selfhost_cli_emit_set_has_wat_min emit:
+                                not selfhost_cli_emit_set_has_llvm emit
             v::free<str> args;
-            exit_code
-```
+            ok
 
-## selfhost_cliarg_parser_accepts_emit_all
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "core/field" as *
-#import "core/result" as *
-#import "std/test" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_accepts_emit_all <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
@@ -395,36 +252,20 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
-            1
+            false
         Result::Ok opts:
             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
             let emit <SelfhostCliEmitSet> *emit_ref
-            let checks:
-                checks_new
-                |> checks_push assert selfhost_cli_emit_is_wasm emit
-                |> checks_push assert selfhost_cli_emit_set_has_wat emit
-                |> checks_push assert selfhost_cli_emit_set_has_wat_min emit
-                |> checks_push assert selfhost_cli_emit_set_has_llvm emit
-                |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
-            let exit_code <i32> checks_exit_code checks
+            let ok <bool>:
+                and selfhost_cli_emit_is_wasm emit:
+                    and selfhost_cli_emit_set_has_wat emit:
+                        and selfhost_cli_emit_set_has_wat_min emit:
+                            and selfhost_cli_emit_set_has_llvm emit:
+                                selfhost_cli_emit_set_has_llvm_min emit
             v::free<str> args;
-            exit_code
-```
+            ok
 
-## selfhost_cliarg_parser_rejects_invalid_emit_member
-
-neplg2:test
-ret: 0
-```neplg2
-#entry main
-#indent 4
-#target std
-
-#import "neplg2/cli/args" as *
-#import "alloc/collections/vec" as v
-#import "core/result" as *
-
-fn main <()*>i32> ():
+fn selfhost_cliarg_parser_rejects_invalid_emit_member <()*>bool> ():
     let args <Vec<str>>:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
@@ -432,9 +273,25 @@ fn main <()*>i32> ():
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;
-            1
+            false
         Result::Err e:
             let ok <bool> selfhost_cli_error_is_invalid_emit e
             v::free<str> args;
-            if ok 0 1
+            ok
+
+fn main <()*>i32> ():
+    let report <TestReport>:
+        test_report_new "selfhost_cliarg_parser"
+        |> test_report_push assert "accepts check emit output and input" selfhost_cliarg_parser_accepts_check_emit_output_and_input
+        |> test_report_push assert "rejects unknown option" selfhost_cliarg_parser_rejects_unknown_option
+        |> test_report_push assert "rejects missing value" selfhost_cliarg_parser_rejects_missing_value
+        |> test_report_push assert "rejects multiple input" selfhost_cliarg_parser_rejects_multiple_input
+        |> test_report_push assert "skips program name" selfhost_cliarg_parser_skips_program_name
+        |> test_report_push assert "records run args start" selfhost_cliarg_parser_records_run_args_start
+        |> test_report_push assert "accepts aliases and profile" selfhost_cliarg_parser_accepts_aliases_and_profile
+        |> test_report_push assert "accepts emit list and deduplicates" selfhost_cliarg_parser_accepts_emit_list_and_deduplicates
+        |> test_report_push assert "accepts emit all" selfhost_cliarg_parser_accepts_emit_all
+        |> test_report_push assert "rejects invalid emit member" selfhost_cliarg_parser_rejects_invalid_emit_member
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
