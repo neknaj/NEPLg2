@@ -1065,3 +1065,22 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
 
 この issue はまだ open のまま継続する。`stdlib/tests/cliarg.n.md` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
+
+## 2026-05-15 core/char doc-comment stdout report migration
+
+`ISS-20260515T123719311Z-CORE-CHAR-DOC-COMMENT-DOCTEST-RELIES-6E7A0615` として、`stdlib/core/char.nepl` の file-level doc-comment doctest を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `char_to_i32`、ASCII alpha / digit / whitespace、ASCII とひらがなの UTF-8 byte length、valid scalar / surrogate / upper-bound rejection を assertion label として stdout に固定した。
+- `checks_exit_code` だけで終わらせず、named `TestReport` を `test_report_print_stdout` で出力してから `test_report_exit_code` へ渡す形へ揃えた。
+- `nodesrc/test_core_char_doc_report_contract.js` を追加し、`ret:` / `checks_exit_code` へ戻る退行を検出する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を追加した。
+
+検証:
+
+- `node nodesrc/test_core_char_doc_report_contract.js`: pass
+- `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/char.nepl -n 1 --assert-io --dist web/dist`: pass
+
+この issue はまだ open のまま継続する。`stdlib/core/char.nepl` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。

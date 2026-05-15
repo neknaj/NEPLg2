@@ -1,3 +1,16 @@
+# 2026-05-15 Agent 1 core/char doc report doctest 修正
+
+- `ISS-20260515T123719311Z-CORE-CHAR-DOC-COMMENT-DOCTEST-RELIES-6E7A0615` を追加して解決した。
+- `stdlib/core/char.nepl` の file-level doctest は `std/test` を import し、char の分類と変換を `Checks` へ集約していたが、manifest は `ret: 0` だけで stdout に assertion detail を固定していなかった。
+- doctest を canonical `TestReport` 形式へ移行し、`char_to_i32`、ASCII alpha / digit / whitespace、UTF-8 byte length、valid scalar / surrogate / upper-bound rejection の9観測値を label / expected / actual として stdout に残した。
+- `nodesrc/test_core_char_doc_report_contract.js` を追加し、同 doctest が `ret:` や `checks_exit_code` へ戻る退行を検出するようにした。`nodesrc/run_source_policy_regressions.js` にも同 contract を追加した。
+- 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core/char 移行分の進捗を追記した。
+- 検証:
+  - `node nodesrc/test_core_char_doc_report_contract.js`
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`
+  - `node nodesrc/run_doctest.js -i stdlib/core/char.nepl -n 1 --assert-io --dist web/dist`
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 ResourceIR nested variant owner summary 修正
 
 - `ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8` を解決した。

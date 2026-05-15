@@ -8,8 +8,9 @@
 //: - `char` は Unicode scalar value です。surrogate range と `0x10FFFF` 超過は scalar value ではありません。
 //: - `char_from_i32_result` は検証済み code point だけを `char` に戻します。検証なしの変換には `core/cast` を直接使わないでください。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"core_char_basic\" count=9 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"ascii codepoint\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"ascii alpha\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"ascii digit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"ascii whitespace\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"ascii utf8 len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"hiragana utf8 len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"valid scalar accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"surrogate rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"too large rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -19,18 +20,22 @@
 //: fn main <()*>i32> ():
 //:     let a <char> 'A'
 //:     let hira <char> '\u{3042}'
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_eq_i32 65 char_to_i32 a
-//:         |> checks_push assert char_is_ascii_alpha a
-//:         |> checks_push assert char_is_ascii_digit '7'
-//:         |> checks_push assert char_is_ascii_whitespace '\n'
-//:         |> checks_push assert_eq_i32 1 char_utf8_len a
-//:         |> checks_push assert_eq_i32 3 char_utf8_len hira
-//:         |> checks_push assert is_ok char_from_i32_result 0x3042
-//:         |> checks_push assert is_err char_from_i32_result 0xD800
-//:         |> checks_push assert is_err char_from_i32_result 0x110000
-//:     checks_exit_code checks
+//:     let valid <Result<char,str>> char_from_i32_result 0x3042
+//:     let surrogate <Result<char,str>> char_from_i32_result 0xD800
+//:     let too_large <Result<char,str>> char_from_i32_result 0x110000
+//:     let report:
+//:         test_report_new "core_char_basic"
+//:         |> test_report_push assert_eq_i32 "ascii codepoint" 65 char_to_i32 a
+//:         |> test_report_push assert "ascii alpha" char_is_ascii_alpha a
+//:         |> test_report_push assert "ascii digit" char_is_ascii_digit '7'
+//:         |> test_report_push assert "ascii whitespace" char_is_ascii_whitespace '\n'
+//:         |> test_report_push assert_eq_i32 "ascii utf8 len" 1 char_utf8_len a
+//:         |> test_report_push assert_eq_i32 "hiragana utf8 len" 3 char_utf8_len hira
+//:         |> test_report_push assert "valid scalar accepted" is_ok valid
+//:         |> test_report_push assert "surrogate rejected" is_err surrogate
+//:         |> test_report_push assert "too large rejected" is_err too_large
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

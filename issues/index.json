@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T12:28:36.035Z",
+  "generated_at": "2026-05-15T12:40:13.084Z",
   "counts": {
-    "total": 822,
+    "total": 823,
     "open": 5,
-    "resolved": 817,
+    "resolved": 818,
     "by_area": {
       "stdlib": {
         "total": 234,
@@ -12,9 +12,9 @@
         "resolved": 231
       },
       "TEST": {
-        "total": 21,
+        "total": 22,
         "open": 1,
-        "resolved": 20
+        "resolved": 21
       },
       "selfhost": {
         "total": 67,
@@ -10093,6 +10093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T004634650Z-KPGRAPH-UNSAFE-UNWRAP-POLICY-STILL-E-1F2C94F7.md"
+    },
+    {
+      "id": "ISS-20260515T123719311Z-CORE-CHAR-DOC-COMMENT-DOCTEST-RELIES-6E7A0615",
+      "title": "core char doc-comment doctest relies on ret-only assertion report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/core/char.nepl, nodesrc/test_core_char_doc_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T123719311Z-CORE-CHAR-DOC-COMMENT-DOCTEST-RELIES-6E7A0615.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",
