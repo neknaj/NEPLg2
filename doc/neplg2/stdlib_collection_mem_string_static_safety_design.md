@@ -316,6 +316,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - Resource IR owner summary は direct raw memory op だけでなく、callee summary が消費する raw owner alias も seed する。これにより `dealloc_region<T>` が `RegionToken.raw` から一時 `MemPtr.raw` を作り `dealloc_ptr<T>` へ渡す場合も、caller では `RegionToken<T>` owner が消費されたことが証明される。
 - `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist は 0 件になった。今後 stdlib の struct field に `MemPtr` / `Option<MemPtr>` を owner-like field として戻すことは禁止する。
 - ただし `RegionToken<T>` はまだ compiler-issued `OwnedRegion<T>` ではない。Stage B/D/F の最終目標は、`RegionToken` を過渡 owner token として閉じ、`OwnedBuffer<T>` / `StorageState<T>` / initialized prefix / compiler-issued free obligation owner へ進めることである。
+- 追加調査で、struct field としての `MemPtr` owner は 0 件になった一方、`alloc_ptr<T> -> Result<MemPtr<T>, str>` / `realloc_ptr<T> -> Result<MemPtr<T>, str>` / `dealloc_ptr<T>(MemPtr<T>, i32)` が public API として free obligation を `MemPtr<T>` に残していることを確認した。これは [ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686](../../issues/items/ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686.md) として分離し、Stage B/F の実装対象にする。
 
 ### Stage B: `core/mem` の internal/public 分離
 
@@ -385,6 +386,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A` | `Vec.data` raw `MemPtr` owner field を `Vec.region: RegionToken<T>` owner boundary へ集約。 |
 | `ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F` | `Vec` / `ByteBuilder` の `RegionToken` realloc を core/mem に集約し、Vec grow capacity overflow proof を追加。 |
 | `ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1` | `RegionToken<T>` の `MemPtr<T>` owner-like field を direct raw owner identity へ置き換え、MemPtr owner-field transitional baseline を 0 件にする。 |
+| `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` | public `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` が `MemPtr<T>` を free obligation carrier として公開している残件。 |
 | `ISS-20260514T102108865Z-VEC-SORT-MERGE-RET-ERR-PATH-LOSES-CO-98B83660` | `sort_merge_ret<T>` の失敗 payload に `Vec<T>` owner を返し、merge sort scratch buffer を `RegionToken<T>` owner へ移行。 |
 | `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` | fallible collection update の owner loss。 |
 | `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` | ByteBuf の空/所有 storage 構造化。 |

@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T16:25:44.908Z",
+  "generated_at": "2026-05-15T16:35:05.378Z",
   "counts": {
-    "total": 835,
-    "open": 5,
+    "total": 836,
+    "open": 6,
     "resolved": 830,
     "by_area": {
       "stdlib": {
-        "total": 239,
-        "open": 3,
+        "total": 240,
+        "open": 4,
         "resolved": 236
       },
       "TEST": {
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686",
+      "title": "public alloc_ptr APIs still encode free obligation in MemPtr",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/core/mem/pointer/alloc.nepl; stdlib/core/mem.nepl; stdlib/std/fs/**/*.nepl; stdlib/std/stdio/**/*.nepl; nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",

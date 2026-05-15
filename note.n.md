@@ -39170,3 +39170,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i stdlib/core/mem/types.nepl --assert-io --dist web/dist`
   - `node nodesrc/run_doctest.js -i stdlib/core/mem/internal.nepl --assert-io --dist web/dist`
   - `node nodesrc/run_doctest.js -i stdlib/core/mem/pointer/region.nepl --assert-io --dist web/dist`
+
+## 2026-05-16 Agent 1 public alloc_ptr owner carrier issue 分離
+
+- `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` を追加した。
+- `RegionToken<T>` の `MemPtr` owner-like field は 0 件になったが、`alloc_ptr<T> -> Result<MemPtr<T>, str>` / `realloc_ptr<T> -> Result<MemPtr<T>, str>` / `dealloc_ptr<T>(MemPtr<T>, i32)` が public API として free obligation を `MemPtr<T>` に残している。
+- これは struct field policy では検出できない Stage 6 残件であり、`MemPtr<T>` の surface contract と Resource IR owner summary の食い違いを閉じる必要がある。
+- 次の実装候補は、stdlib scratch buffer を `RegionToken` / `OwnedBytes` / `OwnedBuffer` へ移し、ordinary safe source が allocation owner を `MemPtr<T>` として得られない API 境界へ変更すること。

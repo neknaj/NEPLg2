@@ -533,3 +533,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 同時に Resource IR owner summary は、直接 raw memory op だけでなく callee summary が消費する raw owner alias も raw owner seed に反映するようにした。これにより `dealloc_region<T>` が `RegionToken.raw -> MemPtr.raw -> dealloc_ptr<T>` と helper 経由で owner を閉じる場合も、caller 側では `RegionToken<T>` 引数の消費として証明される。
 
 この親 issue は引き続き open とする。今回の修正で `MemPtr` owner field の transitional debt は 0 件になったが、`RegionToken<T>` 自体はまだ stdlib raw boundary 内で構築できる過渡 owner token であり、最終的な `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-16 Agent 1 public alloc_ptr owner carrier 追記
+
+`ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` として、`alloc_ptr` / `realloc_ptr` / `dealloc_ptr` が public API の形で `MemPtr<T>` に free obligation を残している問題を分離した。
+
+`RegionToken<T>` の struct field から `MemPtr<T>` は消えたが、`alloc_ptr<T> -> Result<MemPtr<T>, str>` は ordinary safe source から allocation owner を `MemPtr<T>` として取得できる入口である。これは Stage 6 の「`MemPtr<T>` は non-owning pointer projection」という表面 contract と、Resource IR が `alloc_ptr` / `dealloc_ptr` に owner summary を付けている内部 contract の食い違いである。
+
+この親 issue は引き続き open とする。次段階では stdlib scratch buffer を token boundary へ移し、public example / root facade / Resource IR summary から `MemPtr<T>` owner carrier を取り除く。即時に削除すると `std/fs` / `std/stdio` / `std/env/cliarg/raw` の scratch cleanup まで広く崩れるため、`OwnedRegion` / `OwnedBytes` / `OwnedBuffer` への段階移行 issue として扱う。
