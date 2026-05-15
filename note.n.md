@@ -38636,3 +38636,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: string facade policy は pass。残警告は sort/merge policy、documentation contract、kpgraph policy の 3 件。
   - `node nodesrc/issues.js check --dir issues`
   - `git diff --check`
+
+## 2026-05-15 Agent 1 Vec sort/merge facade source policy
+
+- `ISS-20260515T003514038Z-VEC-SORT-MERGE-SOURCE-POLICY-STILL-E-BD811427` を追加して fixed にした。
+- `nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js` が古い merge facade 分割直後の期待を残し、`merge/buffer` / `merge/range` の public re-export を要求していた問題を修正した。
+- `sort/merge.nepl` は実装 body を持たず `merge/api` だけを再公開し、raw scratch buffer と raw traversal helper は explicit `merge/buffer` / `merge/range` import 境界に閉じる方針として固定した。
+- `merge/buffer` の `sort_buf_get` / `sort_buf_set`、`merge/range` の `sort_merge_range_data<T: Ord&Copy>`、`merge/api` の explicit range import を同じ source policy で検査する。
+- focused verification:
+  - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: sort/merge policy は pass。残警告は documentation contract と kpgraph policy。
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`

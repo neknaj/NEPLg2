@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T00:29:29.404Z",
+  "generated_at": "2026-05-15T00:38:08.954Z",
   "counts": {
-    "total": 807,
+    "total": 808,
     "open": 8,
-    "resolved": 799,
+    "resolved": 800,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -22,9 +22,9 @@
         "resolved": 66
       },
       "test": {
-        "total": 8,
+        "total": 9,
         "open": 1,
-        "resolved": 7
+        "resolved": 8
       },
       "cli": {
         "total": 19,
@@ -9898,6 +9898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T002636772Z-ALLOC-STRING-FACADE-SOURCE-POLICY-ST-1530FB1C.md"
+    },
+    {
+      "id": "ISS-20260515T003514038Z-VEC-SORT-MERGE-SOURCE-POLICY-STILL-E-BD811427",
+      "title": "Vec sort/merge source policy still expects raw merge helper re-exports",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js, stdlib/alloc/collections/vec/sort/merge.nepl, stdlib/alloc/collections/vec/sort/merge/api.nepl, stdlib/alloc/collections/vec/sort/merge/buffer.nepl, stdlib/alloc/collections/vec/sort/merge/range.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T003514038Z-VEC-SORT-MERGE-SOURCE-POLICY-STILL-E-BD811427.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

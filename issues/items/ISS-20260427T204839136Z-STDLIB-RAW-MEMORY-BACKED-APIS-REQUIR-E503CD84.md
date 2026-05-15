@@ -473,3 +473,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 今回の修正では、root safe facade が再公開する module を `access` / `builder` / `search` / `slice` / `split` / `integer` / `float` / `concat` / `builder_ext` / `find` に限定し、`storage` / `utf8` は root から再公開されないことを policy で固定した。一方で `storage` / `utf8` 自体は explicit raw-boundary import 用 module として存在し、raw memory boundary evidence を持つことも検査する。
 
 この親 issue は引き続き open とする。今回閉じたのは policy 側の古い期待であり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は継続する。
+
+## 2026-05-15 Agent 1 Vec sort/merge source policy 追記
+
+`ISS-20260515T003514038Z-VEC-SORT-MERGE-SOURCE-POLICY-STILL-E-BD811427` として、`Vec` merge sort の unsafe unwrap policy が `sort/merge` facade から `merge/buffer` / `merge/range` の raw helper を再公開することを要求していた問題を分離して修正した。
+
+今回の修正では、`sort/merge.nepl` は `merge/api` だけを再公開し、`merge/buffer` / `merge/range` は explicit raw-boundary implementation module として残ることを policy にした。`merge/buffer` の Copy-only scratch buffer helper、`merge/range` の Copy-only traversal、`merge/api` の explicit `./range` import も同じ policy で監視する。
+
+この親 issue は引き続き open とする。今回閉じたのは policy 側の古い re-export 期待であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / non-Copy payload sort の最終移行は継続する。

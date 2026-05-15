@@ -7,8 +7,12 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const facadePath = 'stdlib/alloc/collections/vec/sort/merge.nepl';
 const apiPath = 'stdlib/alloc/collections/vec/sort/merge/api.nepl';
+const bufferPath = 'stdlib/alloc/collections/vec/sort/merge/buffer.nepl';
+const rangePath = 'stdlib/alloc/collections/vec/sort/merge/range.nepl';
 const facadeSrc = sourceWithoutComments(facadePath);
 const apiSrc = sourceWithoutComments(apiPath);
+const bufferSrc = sourceWithoutComments(bufferPath);
+const rangeSrc = sourceWithoutComments(rangePath);
 const lines = apiSrc.split(/\r?\n/);
 
 function extractFunction(name) {
@@ -47,13 +51,21 @@ for (const name of ['sort_merge', 'sort_merge_ret']) {
 }
 
 assert.doesNotMatch(facadeSrc, /\bfn\s+/, 'sort/merge facade must not keep implementation bodies');
-for (const submodule of ['buffer', 'range', 'api']) {
-    assert.match(
-        facadeSrc,
-        new RegExp(`pub\\s+#import\\s+"\\.\\/merge\\/${submodule}"\\s+as\\s+\\*`),
-        `sort/merge facade must re-export merge/${submodule}`,
-    );
-}
+assert.match(
+    facadeSrc,
+    /pub\s+#import\s+"\.\/merge\/api"\s+as\s+\*/,
+    'sort/merge facade must re-export only merge/api',
+);
+assert.doesNotMatch(
+    facadeSrc,
+    /pub\s+#import\s+"\.\/merge\/(?:buffer|range)"\s+as\s+\*/,
+    'sort/merge facade must not re-export raw merge buffer/range helpers',
+);
+
+assert.match(bufferSrc, /fn\s+sort_buf_get\s+<\.T:\s*Copy>/, 'merge/buffer must own Copy-only scratch buffer reads');
+assert.match(bufferSrc, /fn\s+sort_buf_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'merge/buffer must own Copy-only scratch buffer writes');
+assert.match(rangeSrc, /fn\s+sort_merge_range_data\s+<\.T:\s*Ord&Copy>/, 'merge/range must own Copy-only merge range traversal');
+assert.match(apiSrc, /#import\s+"\.\/range"\s+as\s+\*/, 'merge/api must import raw range traversal explicitly');
 
 console.log('sort merge unsafe unwrap regression passed');
 
