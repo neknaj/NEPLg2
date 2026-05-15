@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T11:06:47.056Z",
+  "generated_at": "2026-05-15T11:15:41.677Z",
   "counts": {
     "total": 820,
-    "open": 6,
-    "resolved": 814,
+    "open": 5,
+    "resolved": 815,
     "by_area": {
-      "core": {
-        "total": 408,
-        "open": 1,
-        "resolved": 407
-      },
       "stdlib": {
         "total": 233,
         "open": 3,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 408,
+        "open": 0,
+        "resolved": 408
       },
       "CORE": {
         "total": 1,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C",
-      "title": "checked MemPtr proof drops RegionToken return provenance",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "nepl-core/src/resource/effect_summary_identity.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -523,6 +508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T065425800Z-RESOURCE-EFFECT-IDENTITY-ESCAPE-TREA-9460C7FB.md"
+    },
+    {
+      "id": "ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C",
+      "title": "checked MemPtr proof drops RegionToken return provenance",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/effect_return_summary_filter.rs, nepl-core/src/resource/effect_summary_identity.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",
