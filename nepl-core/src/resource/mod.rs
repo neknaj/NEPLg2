@@ -183,6 +183,7 @@ mod owner_summary_i32_leaf;
 mod owner_summary_leaf;
 mod owner_summary_parameters;
 mod owner_summary_raw_alias;
+mod owner_summary_raw_alias_branch;
 mod owner_summary_raw_alias_walk;
 mod owner_summary_raw_consumption;
 mod owner_summary_raw_transfer;

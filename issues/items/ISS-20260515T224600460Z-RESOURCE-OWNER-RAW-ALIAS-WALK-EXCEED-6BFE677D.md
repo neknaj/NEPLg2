@@ -2,13 +2,13 @@
 id: ISS-20260515T224600460Z-RESOURCE-OWNER-RAW-ALIAS-WALK-EXCEED-6BFE677D
 title: "resource owner raw alias walk exceeds responsibility split limit"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-15
-updated: 2026-05-15
-target: "nepl-core/src/resource/owner_summary_raw_alias_walk.rs, nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-05-16
+target: "nepl-core/src/resource/owner_summary_raw_alias_walk.rs, nepl-core/src/resource/owner_summary_raw_alias_branch.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260515T224600460Z-RESOURCE-OWNER-RAW-ALIAS-WALK-EXCEED-6BFE677D: resource owner raw alias walk exceeds responsibility split limit
@@ -42,3 +42,17 @@ Split branch or match raw owner alias path propagation into a dedicated module w
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js, focused nepl-core resource_ir raw owner alias tests, node nodesrc/issues.js check --dir issues, and git diff --check.
+
+## 2026-05-16 修正
+
+raw owner alias walker から branch path merge を分離した。
+
+- `owner_summary_raw_alias_walk.rs` は `ResourceOp` dispatch、linear transfer、loop/match/direct call の alias propagation に戻した。
+- branch の then/else path clone、path-local alias collection、output raw view merge は `owner_summary_raw_alias_branch.rs` へ移した。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`mod` 宣言、80 行上限を追加し、branch merge 責務が walker へ戻った場合に検出できるようにした。
+
+検証:
+
+- `cargo test -p nepl-core owner_summary_raw_transfer -- --nocapture`: 4 passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `owner_summary_raw_alias_walk.rs` blocker は解消。次の別 issue として `owner_summary_raw_use_call.rs has 136 lines; responsibility split limit is 90` を検出したため `ISS-20260515T225118666Z-RESOURCE-OWNER-RAW-USE-CALL-SUMMARY--3E21FFD7` に分離した。

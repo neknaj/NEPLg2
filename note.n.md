@@ -39464,3 +39464,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir raw_dealloc_extent -- --nocapture`: 2 passed
   - `cargo test -p nepl-core --test resource_ir raw_realloc_old_extent -- --nocapture`: 1 passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-16 Agent 1 Resource IR raw owner alias branch 分割
+
+- `ISS-20260515T224600460Z-RESOURCE-OWNER-RAW-ALIAS-WALK-EXCEED-6BFE677D` を fixed にした。`plan.md` は変更していない。
+- `owner_summary_raw_alias_walk.rs` は raw owner alias collection の dispatch に加え、branch の then/else path clone、path-local alias collection、output raw view merge まで同居していたため、187 lines / limit 180 で source policy に失敗していた。
+- branch path merge を `owner_summary_raw_alias_branch.rs` に分離し、walker 本体は linear transfer、loop/match/direct call の dispatch に戻した。
+- `nodesrc/test_resource_checker_responsibility.js` に `owner_summary_raw_alias_branch.rs` の existence / `mod` declaration / 80 line budget を追加した。
+- `node nodesrc/test_resource_checker_responsibility.js` は raw alias walk blocker を通過し、次の別件 `owner_summary_raw_use_call.rs has 136 lines; responsibility split limit is 90` に到達した。これは `ISS-20260515T225118666Z-RESOURCE-OWNER-RAW-USE-CALL-SUMMARY--3E21FFD7` に分離した。
+- focused verification:
+  - `cargo test -p nepl-core owner_summary_raw_transfer -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed
