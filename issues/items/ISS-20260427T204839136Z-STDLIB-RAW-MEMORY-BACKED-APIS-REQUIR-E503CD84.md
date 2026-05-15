@@ -465,3 +465,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 今回の修正では、public allocation constructor を `vec/storage/api.nepl` へ分け、`vec/storage.nepl` から `storage/alloc` / `storage/cleanup` の public re-export を削除した。root facade は `new` / `with_capacity` / `filled` / `vec_empty` などの public API を維持するが、allocation helper と storage-only cleanup helper は explicit implementation module import に限定される。
 
 この親 issue は引き続き open とする。今回閉じたのは root public surface の漏れであり、`OwnedBuffer<T>`、initialized cell、compiler-issued owner token、non-Copy payload drop traversal の最終移行は継続する。
+
+## 2026-05-15 Agent 1 alloc/string facade source policy 追記
+
+`ISS-20260515T002636772Z-ALLOC-STRING-FACADE-SOURCE-POLICY-ST-1530FB1C` として、`alloc/string` root の source policy が Stage 6 の修正後も `string/storage` / `string/utf8` の public re-export を要求していた問題を分離して修正した。
+
+今回の修正では、root safe facade が再公開する module を `access` / `builder` / `search` / `slice` / `split` / `integer` / `float` / `concat` / `builder_ext` / `find` に限定し、`storage` / `utf8` は root から再公開されないことを policy で固定した。一方で `storage` / `utf8` 自体は explicit raw-boundary import 用 module として存在し、raw memory boundary evidence を持つことも検査する。
+
+この親 issue は引き続き open とする。今回閉じたのは policy 側の古い期待であり、raw-memory-backed stdlib 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix migration は継続する。

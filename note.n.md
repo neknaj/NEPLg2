@@ -38624,3 +38624,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -i stdlib/alloc/collections/vec/storage.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/storage/alloc.nepl --no-tree -o tmp/agent1-vec-storage-facade-modules.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-vec-storage-facade-cleanup.json -j 1 --dist web/dist --assert-io`
+
+## 2026-05-15 Agent 1 alloc/string facade source policy
+
+- `ISS-20260515T002636772Z-ALLOC-STRING-FACADE-SOURCE-POLICY-ST-1530FB1C` を追加して fixed にした。
+- `nodesrc/test_stdlib_string_facade_boundary.js` が古い `alloc/string` root re-export 方針を前提にし、`string/storage` / `string/utf8` の public re-export を要求していた問題を修正した。
+- root safe facade は `access` / `builder` / `search` / `slice` / `split` / `integer` / `float` / `concat` / `builder_ext` / `find` だけを再公開する方針として固定した。
+- `storage` / `utf8` は root から再公開されないこと、かつ explicit raw-boundary import 用 module として存在し raw memory boundary evidence を持つことを source policy で検査する。
+- focused verification:
+  - `node nodesrc/test_stdlib_string_facade_boundary.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: string facade policy は pass。残警告は sort/merge policy、documentation contract、kpgraph policy の 3 件。
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`

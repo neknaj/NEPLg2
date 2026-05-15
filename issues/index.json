@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T00:16:21.733Z",
+  "generated_at": "2026-05-15T00:29:29.404Z",
   "counts": {
-    "total": 806,
+    "total": 807,
     "open": 8,
-    "resolved": 798,
+    "resolved": 799,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -22,9 +22,9 @@
         "resolved": 66
       },
       "test": {
-        "total": 7,
+        "total": 8,
         "open": 1,
-        "resolved": 6
+        "resolved": 7
       },
       "cli": {
         "total": 19,
@@ -9883,6 +9883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T042244722Z-KP-FOCUSED-DOCTESTS-ARE-STALE-AFTER--DAB8C87D.md"
+    },
+    {
+      "id": "ISS-20260515T002636772Z-ALLOC-STRING-FACADE-SOURCE-POLICY-ST-1530FB1C",
+      "title": "alloc/string facade source policy still expects raw helper re-exports",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nodesrc/test_stdlib_string_facade_boundary.js, stdlib/alloc/string.nepl, stdlib/alloc/string/storage.nepl, stdlib/alloc/string/utf8.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T002636772Z-ALLOC-STRING-FACADE-SOURCE-POLICY-ST-1530FB1C.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

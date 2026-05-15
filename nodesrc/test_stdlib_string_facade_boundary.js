@@ -22,9 +22,7 @@ const selfhostStringQualifiedFiles = [
     'stdlib/neplg2/core/module/graph.nepl',
 ];
 
-for (const moduleName of [
-    'utf8',
-    'storage',
+const safeRootReexports = [
     'access',
     'builder',
     'search',
@@ -35,11 +33,30 @@ for (const moduleName of [
     'concat',
     'builder_ext',
     'find',
-]) {
+];
+
+const hiddenRawModules = [
+    'utf8',
+    'storage',
+];
+
+for (const moduleName of safeRootReexports) {
     assert.match(
         rootSrc,
         new RegExp(`pub #import "\\./string/${moduleName}" as \\*`),
         `alloc/string facade must re-export ${moduleName}`,
+    );
+}
+
+for (const moduleName of hiddenRawModules) {
+    assert.doesNotMatch(
+        rootSrc,
+        new RegExp(`pub #import "\\./string/${moduleName}" as \\*`),
+        `alloc/string facade must not re-export raw ${moduleName} helpers`,
+    );
+    assert.ok(
+        fs.existsSync(path.join(repoRoot, `stdlib/alloc/string/${moduleName}.nepl`)),
+        `alloc/string/${moduleName}.nepl must remain available for explicit raw-boundary imports`,
     );
 }
 
@@ -59,6 +76,8 @@ assert.doesNotMatch(
 );
 
 for (const relPath of [
+    'stdlib/alloc/string/storage.nepl',
+    'stdlib/alloc/string/utf8.nepl',
     'stdlib/alloc/string/concat.nepl',
     'stdlib/alloc/string/builder_ext.nepl',
     'stdlib/alloc/string/integer/format.nepl',
