@@ -338,11 +338,11 @@ fn main <()*>i32> ():
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
     let p0 <StackPop<i32>> pop_top<i32> s;
-    let a <Option<i32>> *field::get_ref &p0 "item";
-    let s1 <Stack<i32>> field::get p0 "stack";
+    let a <Option<i32>> stack_pop_item<i32> &p0;
+    let s1 <Stack<i32>> stack_pop_stack<i32> p0;
     let p1 <StackPop<i32>> pop_top<i32> s1;
-    let b <Option<i32>> *field::get_ref &p1 "item";
-    let s2 <Stack<i32>> field::get p1 "stack";
+    let b <Option<i32>> stack_pop_item<i32> &p1;
+    let s2 <Stack<i32>> stack_pop_stack<i32> p1;
     let empty_len <i32> len<i32> &s2;
     let s3 <Stack<i32>> unwrap_ok<Stack<i32>, Diag> push<i32> s2 30;
     let repush_len <i32> len<i32> &s3;

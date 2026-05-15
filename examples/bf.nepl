@@ -130,8 +130,8 @@ fn compile_jumps <(str)*>Result<Vec<i32>,str>> (code):
                                                 eq ch 93 // ']'
                                                 then:
                                                     let popped <StackPop<i32>> stk::pop_top<i32> stk
-                                                    let start_opt <Option<i32>> *field::get_ref &popped "item"
-                                                    let next_stack <Stack<i32>> field::get popped "stack"
+                                                    let start_opt <Option<i32>> stk::stack_pop_item<i32> &popped
+                                                    let next_stack <Stack<i32>> stk::stack_pop_stack<i32> popped
                                                     match start_opt:
                                                         Option::Some start_pc:
                                                             v::replace<i32> &jump_table start_pc pc;

@@ -1,20 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T07:20:00.469Z",
+  "generated_at": "2026-05-15T08:03:22.876Z",
   "counts": {
-    "total": 815,
-    "open": 7,
-    "resolved": 808,
+    "total": 817,
+    "open": 8,
+    "resolved": 809,
     "by_area": {
       "stdlib": {
-        "total": 231,
+        "total": 232,
         "open": 4,
-        "resolved": 227
+        "resolved": 228
       },
       "TEST": {
         "total": 21,
         "open": 1,
         "resolved": 20
+      },
+      "core": {
+        "total": 407,
+        "open": 1,
+        "resolved": 406
       },
       "selfhost": {
         "total": 67,
@@ -30,11 +35,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 406,
-        "open": 0,
-        "resolved": 406
       },
       "CORE": {
         "total": 1,
@@ -178,6 +178,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145",
+      "title": "Stack std/test doctests exceed wasm compiler timeout after static-check expansion",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource, nodesrc/tests.js, stdlib/tests/stack.n.md, tests/stdlib/stack_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -9613,6 +9628,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T000336641Z-VEC-STORAGE-FACADE-RE-EXPORTS-ALLOCA-4F004371.md"
+    },
+    {
+      "id": "ISS-20260515T073602740Z-STACKPOP-OWNER-RESULT-LACKS-PUBLIC-A-58C543F4",
+      "title": "StackPop owner result lacks public accessors after owner aggregate field gate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/stack/api.nepl, examples/bf.nepl, examples/rpn.nepl, examples/rpn_legacy.nepl, stdlib/tests/stack.n.md, tests/stdlib/stack_collections.n.md, nodesrc/test_stdlib_stack_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T073602740Z-STACKPOP-OWNER-RESULT-LACKS-PUBLIC-A-58C543F4.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

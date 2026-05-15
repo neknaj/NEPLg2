@@ -2,7 +2,7 @@
 //: LIFO stack の public 操作
 //:
 //: ### [目的/もくてき]
-//: - `new` / `with_capacity` / `push` / `pop_top` / `pop` / `peek` / `get` / `len` / `is_empty` / `clear` / `free` を[提供/ていきょう]します。
+//: - `new` / `with_capacity` / `push` / `pop_top` / `stack_pop_item` / `stack_pop_stack` / `pop` / `peek` / `get` / `len` / `is_empty` / `clear` / `free` を[提供/ていきょう]します。
 //: - owner を[更新/こうしん]する API と、owner を[借用/しゃくよう]して[観測/かんそく]する API を[分/わ]けます。
 //:
 //: ### [計算量/けいさんりょう]
@@ -78,12 +78,36 @@ pub fn pop_top <.T: Copy> <(Stack<.T>)*>StackPop<.T>> (stk):
             let next_st <Stack<.T>> Stack<.T> next_len cap0 items
             StackPop<.T> next_st item
 
+//: ## stack_pop_item
+//: `StackPop` を[借用/しゃくよう]し、[取/と]り[出/だ]した[値/あたい]を[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - `pop_top` の[結果/けっか]から `item` を[取得/しゅとく]します。
+//: - `StackPop` は[更新後/こうしんご]の stack owner を[含/ふく]むため、利用側が struct field を直接 projection せず、この API を[通/とお]して[読/よ]みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+pub fn stack_pop_item <.T: Copy> <(&StackPop<.T>)->Option<.T>> (p):
+    *field::get_ref p "item"
+
+//: ## stack_pop_stack
+//: `StackPop` を[消費/しょうひ]し、[更新後/こうしんご]の stack owner を[取/と]り[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - `pop_top` の[結果/けっか]から、[次/つぎ]に[使/つか]う `Stack` owner を[移動/いどう]します。
+//: - owner を[含/ふく]む field projection は stack 実装境界の責務に[閉/と]じ、caller はこの関数で owner flow を[継続/けいぞく]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+pub fn stack_pop_stack <.T: Copy> <(StackPop<.T>)->Stack<.T>> (p):
+    field::get p "stack"
+
 //: ## pop
 //: stack を[消費/しょうひ]して[末尾/まつび]の[値/あたい]だけを[返/かえ]す
 pub fn pop <.T: Copy> <(Stack<.T>)*>Option<.T>> (stk):
     let p <StackPop<.T>> pop_top<.T> stk
-    let item <Option<.T>> *field::get_ref &p "item"
-    free<.T> field::get p "stack"
+    let item <Option<.T>> stack_pop_item<.T> &p
+    free<.T> stack_pop_stack<.T> p
     item
 
 //: ## peek

@@ -170,13 +170,13 @@ fn apply_op <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
             ok<Stack<i32>,str> stack
         else:
             let popped_b <StackPop<i32>> stk::pop_top<i32> stack
-            let b_opt <Option<i32>> *field::get_ref &popped_b "item"
-            let stack_b <Stack<i32>> field::get popped_b "stack"
+            let b_opt <Option<i32>> stk::stack_pop_item<i32> &popped_b
+            let stack_b <Stack<i32>> stk::stack_pop_stack<i32> popped_b
             match b_opt:
                 Option::Some b:
                     let popped_a <StackPop<i32>> stk::pop_top<i32> stack_b
-                    let a_opt <Option<i32>> *field::get_ref &popped_a "item"
-                    let stack_a <Stack<i32>> field::get popped_a "stack"
+                    let a_opt <Option<i32>> stk::stack_pop_item<i32> &popped_a
+                    let stack_a <Stack<i32>> stk::stack_pop_stack<i32> popped_a
                     match a_opt:
                         Option::Some a:
                             let res <i32>:
@@ -292,8 +292,8 @@ fn eval_line <(str)*>()> (line):
                         eq sp 1
                         then:
                             let popped <StackPop<i32>> stk::pop_top<i32> stack
-                            let val_opt <Option<i32>> *field::get_ref &popped "item"
-                            let next_stack <Stack<i32>> field::get popped "stack"
+                            let val_opt <Option<i32>> stk::stack_pop_item<i32> &popped
+                            let next_stack <Stack<i32>> stk::stack_pop_stack<i32> popped
                             match val_opt:
                                 Option::Some val:
                                     print_result val

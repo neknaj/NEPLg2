@@ -45,6 +45,8 @@ assert.match(code, /fn\s+stack_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i3
 assert.match(code, /fn\s+stack_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'Stack must update slot state through Vec<Option<T>> replacement');
 assert.match(code, /fn\s+stack_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'Stack allocation must initialize every slot as None');
 assert.match(code, /fn\s+pop_top\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)\*>StackPop<\.T>>[\s\S]*stack_store_slot<\.T>\s+&items\s+next_len\s+none<\.T>[\s\S]*StackPop<\.T>/, 'Stack pop_top must clear the consumed slot and return the updated owner');
+assert.match(code, /fn\s+stack_pop_item\s+<\.T:\s*Copy>\s+<\(&StackPop<\.T>\)->Option<\.T>>[\s\S]*field::get_ref\s+p\s+"item"/, 'StackPop item access must be a public borrowed accessor');
+assert.match(code, /fn\s+stack_pop_stack\s+<\.T:\s*Copy>\s+<\(StackPop<\.T>\)->Stack<\.T>>[\s\S]*field::get\s+p\s+"stack"/, 'StackPop stack extraction must be a public consuming accessor');
 assert.match(code, /fn\s+len\s+<\.T>\s+<\(&Stack<\.T>\)->i32>\s+\(stk\):/, 'Stack.len must borrow the owner');
 assert.match(code, /fn\s+is_empty\s+<\.T>\s+<\(&Stack<\.T>\)->bool>\s+\(stk\):/, 'Stack.is_empty must borrow the owner');
 assert.match(code, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>\)->Option<\.T>>\s+\(stk\):/, 'Stack.peek must borrow the owner');
@@ -63,6 +65,9 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /\b(?:len|is_empty|peek|get)(?:<i32>)?\s+s[0-9]?\b/, `${testPath} must not call Stack observers by value`);
     assert.doesNotMatch(testSrc, /\bs[0-9]?\s+\|>\s+(?:len|is_empty|peek|get)(?:<i32>)?\b/, `${testPath} must not pipe Stack owners into observers`);
     assert.match(testSrc, /\b(?:len|peek|get)(?:<i32>)?\s+&s[0-9]?\b/, `${testPath} must exercise borrowed Stack observers through primary names`);
+    assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?p[0-9]?\s+"(?:item|stack)"/, `${testPath} must not project StackPop fields directly`);
+    assert.match(testSrc, /\bstack_pop_item<i32>\s+&p[0-9]?\b/, `${testPath} must exercise StackPop item accessor`);
+    assert.match(testSrc, /\bstack_pop_stack<i32>\s+p[0-9]?\b/, `${testPath} must exercise StackPop stack accessor`);
 }
 
 for (const rel of [
@@ -72,6 +77,9 @@ for (const rel of [
 ]) {
     const exampleSrc = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
     assert.doesNotMatch(exampleSrc, /\bstk::(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, `${rel} must use primary borrowed Stack observer names`);
+    assert.doesNotMatch(exampleSrc, /field::get(?:_ref)?\s+&?popped(?:_[ab])?\s+"(?:item|stack)"/, `${rel} must not project StackPop fields directly`);
+    assert.match(exampleSrc, /\bstk::stack_pop_item<i32>\s+&popped(?:_[ab])?\b/, `${rel} must use StackPop item accessor`);
+    assert.match(exampleSrc, /\bstk::stack_pop_stack<i32>\s+popped(?:_[ab])?\b/, `${rel} must use StackPop stack accessor`);
 }
 
 const pipeCollections = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8');

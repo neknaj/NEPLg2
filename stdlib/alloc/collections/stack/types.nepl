@@ -23,6 +23,10 @@ pub struct Stack<.T>:
 
 //: ## StackPop
 //: `pop_top` の[結果/けっか]
+//:
+//: ### [注意/ちゅうい]
+//: - `StackPop` は stack owner を[含/ふく]む owner-preserving result です。
+//: - 利用側は field projection ではなく、`stack_pop_item` / `stack_pop_stack` で[分解/ぶんかい]します。
 pub struct StackPop<.T>:
     stack <Stack<.T>>
     item <Option<.T>>

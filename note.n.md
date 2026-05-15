@@ -1,3 +1,19 @@
+# 2026-05-15 Agent 1 StackPop owner aggregate accessor 修正
+
+- `ISS-20260515T073602740Z-STACKPOP-OWNER-RESULT-LACKS-PUBLIC-A-58C543F4` を解決した。
+- owner aggregate field gate 強化後、`examples/bf.nepl` / `examples/rpn.nepl` / `examples/rpn_legacy.nepl` が `StackPop<i32>` の `item` / `stack` field を直接 projection し、`type.owner_aggregate.field_access_restricted` で失敗していた。
+- compiler gate は正しいため緩めず、`stdlib/alloc/collections/stack/api.nepl` に `stack_pop_item(&StackPop<T>) -> Option<T>` と `stack_pop_stack(StackPop<T>) -> Stack<T>` を追加し、Stack 実装境界でだけ owner-preserving result を分解する形にした。
+- `pop` 本体、affected examples、Stack doctest fixture は公開 accessor を使う形へ同期した。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` に accessor の存在と、examples/doctests からの `StackPop` direct field projection 禁止を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i examples/bf.nepl -i examples/rpn.nepl -i examples/rpn_legacy.nepl --no-tree -o tmp/agent1-stack-pop-accessors-examples.json -j 1 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/run_test.js` へ渡した最小 StackPop accessor smoke: passed
+  - `node nodesrc/issues.js check`
+- `stdlib/tests/stack.n.md` / `tests/stdlib/stack_collections.n.md` の `std/test` doctest は compile phase timeout で完走しなかった。これは `ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145` として分離した。
+- plan.md は変更していない。今回の変更は静的検査大規模修正 Stage 6 の owner-backed aggregate public API 境界を、stdlib 利用側へ反映するもの。
+
 # 2026-05-15 Agent 1 checked MemPtr provenance proof 修正
 
 - `ISS-20260515T044945141Z-INTERNAL-MEMPTR-WRAPPER-CALLS-BYPASS-49539013` を解決した。
