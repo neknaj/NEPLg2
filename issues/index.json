@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T17:44:54.637Z",
+  "generated_at": "2026-05-15T18:08:54.404Z",
   "counts": {
     "total": 841,
-    "open": 7,
-    "resolved": 834,
+    "open": 6,
+    "resolved": 835,
     "by_area": {
-      "core": {
-        "total": 413,
-        "open": 1,
-        "resolved": 412
-      },
       "stdlib": {
         "total": 244,
         "open": 4,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 413,
+        "open": 0,
+        "resolved": 413
       },
       "CORE": {
         "total": 1,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535",
-      "title": "read text doctests expose string_from_mem_unchecked_result owner leak",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "nepl-core/src/resource; stdlib/alloc/io/bytebuf.nepl; stdlib/alloc/string/storage.nepl; stdlib/std/stdio/read/text.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6268,6 +6253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F.md"
+    },
+    {
+      "id": "ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535",
+      "title": "read text doctests expose string_from_mem_unchecked_result owner leak",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource; stdlib/alloc/io/bytebuf.nepl; stdlib/alloc/string/storage.nepl; stdlib/std/stdio/read/text.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

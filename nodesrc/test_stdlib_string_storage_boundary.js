@@ -41,8 +41,8 @@ assert.match(
 );
 assert.match(
     storageCode,
-    /fn\s+string_finish[\s\S]*MemPtr\s+get\s+region\s+"raw"[\s\S]*string_finish_base\s+base\s+byte_len/,
-    'string_finish must be the final RegionToken-to-str ownership boundary',
+    /fn\s+string_finish[\s\S]*let\s+base_raw\s+<i32>\s+get\s+region\s+"raw"[\s\S]*store_i32\s+base_raw\s+byte_len[\s\S]*string_from_addr_unchecked\s+base_raw/,
+    'string_finish must directly consume the RegionToken raw owner at the final RegionToken-to-str ownership boundary',
 );
 assert.match(
     storageCode,

@@ -26,7 +26,7 @@ use nepl_core::resource::{
     ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
     ResourceOwnerOperation, ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
-use nepl_core::source_map::SourceCapabilities;
+use nepl_core::source_map::{SourceCapabilities, SourceCapability};
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
 use nepl_core::{BuildProfile, CompileOptions, CompileTarget};
@@ -11826,8 +11826,11 @@ fn resource_ir_owner_check_transfers_raw_owner_through_str_from_addr() {
 #import "core/result" as *
 
 fn finish_region <(RegionToken<u8>)->str> (region):
-    let base <MemPtr<u8>> get region "ptr"
-    #intrinsic "str_from_addr_unchecked" <> (mem_ptr_addr base)
+    let base_raw <i32> get region "raw"
+    string_from_addr_unchecked base_raw
+
+fn string_from_addr_unchecked <(i32)->str> (addr):
+    #intrinsic "str_from_addr_unchecked" <> (addr)
 
 fn main <()* >str> ():
     match alloc_region_bytes<u8> 4:
@@ -11837,27 +11840,10 @@ fn main <()* >str> ():
             e
 "#;
 
-    let (module, types) = typecheck_resource_source(source);
-    let resource = lower_hir_module(&module, &types);
-    let report = check_resource_owner_obligations(&resource, &types);
-    let diagnostics = report
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| {
-            let function = match diagnostic {
-                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
-                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
-                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
-            };
-            function.starts_with("finish_region__") || function.starts_with("main__")
-        })
-        .collect::<Vec<_>>();
-    assert!(
-        diagnostics.is_empty(),
-        "str_from_addr_unchecked must transfer the raw allocation owner into returned str: {:#?}\nresource:\n{}",
-        diagnostics,
-        resource.dump_text()
-    );
+    let mut capabilities = SourceCapabilities::raw_memory_boundary();
+    capabilities.insert(SourceCapability::OwnerAggregateFieldBoundary);
+    compile_resource_source_with_target_and_capabilities(source, CompileTarget::Wasm, capabilities)
+        .expect("str_from_addr_unchecked must transfer the raw allocation owner into returned str");
 }
 
 #[test]
@@ -12937,7 +12923,8 @@ fn resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer() {
 #entry main
 #indent 4
 #target std
-#import "alloc/string" as *
+#import "alloc/string/storage" as *
+#import "alloc/string/access" as *
 #import "core/result" as *
 
 fn main <()* >str> ():
@@ -12979,7 +12966,8 @@ fn resource_ir_owner_check_keeps_source_after_string_from_mem_copy() {
 #entry main
 #indent 4
 #target std
-#import "alloc/string" as *
+#import "alloc/string/storage" as *
+#import "alloc/string/access" as *
 #import "core/result" as *
 
 fn main <()* >i32> ():

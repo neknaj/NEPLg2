@@ -39238,3 +39238,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl -i stdlib/std/stdio/read/bytes.nepl -i stdlib/std/stdio/read/text.nepl --no-tree -o tmp/agent1-stdio-read-region-owner-doctests.json -j 1 --dist web/dist --assert-io`: buffer doctest passed, text doctests 2 件は新規 string owner issue で compile fail
   - `node nodesrc/issues.js check`
   - `git diff --check`
+
+## 2026-05-16 Agent 1 read/text string owner transfer 境界修正
+
+- `ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`RegionToken<T>` が `raw: i32, size: i32` layout へ移行済みなのに、`stdlib/alloc/string/storage.nepl` の `string_finish` が最後の所有権確定境界で `RegionToken.raw` を `MemPtr<u8>` wrapper に戻していたことだった。これにより Resource IR では `RegionToken.raw` の free obligation が `str` に直接移ったことを追跡しづらく、`read/text` の `string_from_mem_unchecked_result` が `resource.owner.maybe_leak` になっていた。
+- `string_finish` は `base_raw <i32> get region "raw"` を直接消費し、`store_i32 base_raw byte_len` 後に `string_from_addr_unchecked base_raw` へ渡すようにした。これは Resource IR を弱める修正ではなく、stdlib の stale constructor boundary を Stage 6 の責務分割に合わせる修正である。
+- `nodesrc/test_stdlib_string_storage_boundary.js` と `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` は、`string_finish` が `RegionToken.raw` を直接 `str` owner に移すことを確認するように更新した。
+- `nepl-core/tests/resource_ir.rs` の該当 regression は現行 `RegionToken.raw` layout と `alloc/string/storage` / `alloc/string/access` の explicit import に更新した。旧 `RegionToken.ptr` field や root `alloc/string` raw helper re-export を前提にした stale test は残さない。
+- focused verification:
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read/text.nepl --no-tree -o tmp/agent1-read-text-string-owner-after-storage-boundary.json -j 1 --dist web/dist --assert-io`: 2 passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl -i stdlib/std/stdio/read/bytes.nepl -i stdlib/std/stdio/read/text.nepl --no-tree -o tmp/agent1-stdio-read-string-owner-final.json -j 1 --dist web/dist --assert-io`: 3 passed
+  - `node nodesrc/test_stdlib_string_storage_boundary.js`
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_owner_through_str_from_addr -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_source_after_string_from_mem_copy -- --nocapture`
+- 広めに `stdlib/alloc/io/bytebuf.nepl` を含めると、既存の `from_i128_radix` / JSON quote 系 builder owner leak が残る。これは ByteBuilder/StringBuilder result owner issue と stdio write 側で記録済みの別 issue として分離し、今回の read/text owner transfer 修正の完了条件には含めない。

@@ -110,17 +110,18 @@ pub fn string_data_ptr <(str)->MemPtr<u8>> (s):
 //: - 文字列領域へ長さを書き込み、公開型 `str` に変換します。
 //:
 //: [実装/じっそう]:
-//: - ヘッダへ長さを書き込み、領域先頭アドレスを返します。
+//: - `RegionToken` の raw 所有者を直接取り出し、ヘッダへ長さを書き込んだ後に `str` として返します。
 //:
 //: [注意/ちゅうい]:
 //: - 確定後は領域の所有権を `str` 側へ移します。
-//: - 書き込み不能な領域は内部不整合として `unreachable` 扱いです。
+//: - この関数は所有領域を `str` に確定する唯一の境界です。呼び出し後の `region` は再利用できません。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 pub fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
-    let base <MemPtr<u8>> MemPtr get region "raw"
-    string_finish_base base byte_len
+    let base_raw <i32> get region "raw"
+    store_i32 base_raw byte_len
+    string_from_addr_unchecked base_raw
 
 //: string_from_addr_unchecked: 文字列レイアウト済み領域を `str` として扱う
 //:
