@@ -150,7 +150,9 @@ pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //: [計算量/けいさんりょう]:
 //: - O(len(prefix))
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"str_starts_with_at_doc\" count=6 failed=0\nassertion index=0 status=ok kind=bool label=\"prefix at 0\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"prefix at 1\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"empty at end\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"negative start rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"overrun rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"beyond end rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -158,15 +160,16 @@ pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert str_starts_with_at "abc" 0 "ab"
-//:         |> checks_push assert str_starts_with_at "abc" 1 "bc"
-//:         |> checks_push assert str_starts_with_at "abc" 3 ""
-//:         |> checks_push assert not str_starts_with_at "abc" -1 "a"
-//:         |> checks_push assert not str_starts_with_at "abc" 2 "bc"
-//:         |> checks_push assert not str_starts_with_at "abc" 4 ""
-//:     checks_exit_code checks
+//:     let report:
+//:         test_report_new "str_starts_with_at_doc"
+//:         |> test_report_push assert "prefix at 0" str_starts_with_at "abc" 0 "ab"
+//:         |> test_report_push assert "prefix at 1" str_starts_with_at "abc" 1 "bc"
+//:         |> test_report_push assert "empty at end" str_starts_with_at "abc" 3 ""
+//:         |> test_report_push assert "negative start rejected" not str_starts_with_at "abc" -1 "a"
+//:         |> test_report_push assert "overrun rejected" not str_starts_with_at "abc" 2 "bc"
+//:         |> test_report_push assert "beyond end rejected" not str_starts_with_at "abc" 4 ""
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
     let ls <i32> len s;

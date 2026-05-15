@@ -25,17 +25,22 @@
 //: [計算量/けいさんりょう]:
 //: - O(1)
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_from_bool_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"format true\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"format false\" expected=\"false\" actual=\"false\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
-//:     let ok0 <bool> str_eq from_bool true "true";
-//:     let ok1 <bool> str_eq from_bool false "false";
-//:     let ok <bool> and ok0 ok1;
-//:     if ok 1 0
+//:     let report:
+//:         test_report_new "string_from_bool_doc"
+//:         |> test_report_push assert_str_eq "format true" "true" from_bool true
+//:         |> test_report_push assert_str_eq "format false" "false" from_bool false
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn from_bool <(bool)->str> (b):
     if:
@@ -62,7 +67,9 @@ pub fn from_bool <(bool)->str> (b):
 //: [計算量/けいさんりょう]:
 //: - O(n)
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_to_bool_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"parse true\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"parse false\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"reject invalid bool\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -71,19 +78,33 @@ pub fn from_bool <(bool)->str> (b):
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
+//: fn assert_bool_ok <(str,Result<bool,i32>,bool)->TestAssertion> (label, got, expected):
+//:     match got:
+//:         Result::Ok actual:
+//:             if:
+//:                 actual
+//:                 then:
+//:                     assert label expected
+//:                 else:
+//:                     assert label not expected
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "bool parse failed unexpectedly"
+//:
+//: fn assert_bool_err <(str,Result<bool,i32>)->TestAssertion> (label, got):
+//:     match got:
+//:         Result::Ok _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "invalid bool accepted unexpectedly"
+//:         Result::Err _:
+//:             assert label true
+//:
 //: fn main <()*>i32> ():
-//:     let checks0 checks_new
-//:     let checks1 match to_bool "true":
-//:         Result::Ok v:
-//:             checks_push checks0 assert_eq_i32 1 cast v
-//:         Result::Err _:
-//:             checks_push checks0 assert_eq_i32 1 0
-//:     let checks2 match to_bool "false":
-//:         Result::Ok v:
-//:             checks_push checks1 assert_eq_i32 0 cast v
-//:         Result::Err _:
-//:             checks_push checks1 assert_eq_i32 1 0
-//:     checks_exit_code checks2
+//:     let report:
+//:         test_report_new "string_to_bool_doc"
+//:         |> test_report_push assert_bool_ok "parse true" (to_bool "true") true
+//:         |> test_report_push assert_bool_ok "parse false" (to_bool "false") false
+//:         |> test_report_push assert_bool_err "reject invalid bool" (to_bool "yes")
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn to_bool <(str)->Result<bool,i32>> (s):
     if:

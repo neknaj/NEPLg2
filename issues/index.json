@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T13:33:13.210Z",
+  "generated_at": "2026-05-15T13:50:57.905Z",
   "counts": {
-    "total": 830,
+    "total": 831,
     "open": 5,
-    "resolved": 825,
+    "resolved": 826,
     "by_area": {
       "stdlib": {
-        "total": 236,
+        "total": 237,
         "open": 3,
-        "resolved": 233
+        "resolved": 234
       },
       "TEST": {
         "total": 24,
@@ -9763,6 +9763,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T132628228Z-CORE-TRAITS-DOC-COMMENT-DOCTESTS-STI-69D31B25.md"
+    },
+    {
+      "id": "ISS-20260515T133717458Z-ALLOC-STRING-DOC-COMMENT-DOCTESTS-ST-AE5C1FAA",
+      "title": "alloc string doc-comment doctests still use legacy checks_exit_code reports",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/string/{find,integer,float}.nepl, stdlib/alloc/string/{search,integer,float}/**/*.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T133717458Z-ALLOC-STRING-DOC-COMMENT-DOCTESTS-ST-AE5C1FAA.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

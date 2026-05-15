@@ -14,20 +14,27 @@ pub #import "./integer/common" as *
 pub #import "./integer/format" as *
 pub #import "./integer/parse" as *
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_integer_facade_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"format i32\" expected=\"-42\" actual=\"-42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"parse i32\" expected=\"42\" actual=\"42\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/string" as *
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let checks0 checks_new
-//:     let checks1 checks_push checks0 assert_str_eq "-42" from_i32 -42
-//:     let checks2 match to_i32 "42":
-//:         Result::Ok v:
-//:             checks_push checks1 assert_eq_i32 42 v
+//: fn assert_i32_ok <(str,Result<i32,i32>,i32)->TestAssertion> (label, got, expected):
+//:     match got:
+//:         Result::Ok actual:
+//:             assert_eq_i32 label expected actual
 //:         Result::Err _:
-//:             checks_push checks1 assert_eq_i32 1 0
-//:     checks_exit_code checks2
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "integer parse failed unexpectedly"
+//:
+//: fn main <()*>i32> ():
+//:     let report:
+//:         test_report_new "string_integer_facade_doc"
+//:         |> test_report_push assert_str_eq "format i32" "-42" from_i32 -42
+//:         |> test_report_push assert_i32_ok "parse i32" (to_i32 "42") 42
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```

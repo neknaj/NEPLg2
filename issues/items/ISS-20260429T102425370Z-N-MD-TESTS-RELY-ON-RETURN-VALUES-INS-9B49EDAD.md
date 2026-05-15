@@ -219,6 +219,21 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 
 この issue はまだ open のまま継続する。Queue 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
 
+## 2026-05-15 alloc/string doc-comment stdout report migration
+
+`ISS-20260515T133717458Z-ALLOC-STRING-DOC-COMMENT-DOCTESTS-ST-AE5C1FAA` で、`alloc/string` の doc-comment doctest 9 件を canonical `TestReport` stdout + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `find`、`integer` facade、`float` facade、`str_find`、`str_starts_with_at`、`integer/parse`、`float/parse`、`from_bool`、`to_bool` の public example を stdout report 付きにした。
+- `checks_exit_code` や戻り値だけに依存せず、成功時も assertion label / kind / expected / actual が fixture に残るようにした。
+- `nodesrc/test_alloc_string_doc_report_contract.js` を追加し、対象 doctest が `ret:` / `checks_exit_code` / `result_exit_code` へ戻らないことを source policy に固定した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/string/find.nepl -i stdlib/alloc/string/integer.nepl -i stdlib/alloc/string/float.nepl -i stdlib/alloc/string/search/byte_find.nepl -i stdlib/alloc/string/search/compare.nepl -i stdlib/alloc/string/integer/parse.nepl -i stdlib/alloc/string/float/parse.nepl -i stdlib/alloc/string/integer/common/bool.nepl --no-tree -o tmp/agent1-alloc-string-doc-report.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+- `node nodesrc/test_alloc_string_doc_report_contract.js`: pass
+
 ## 2026-05-13 Deque stdout report migration
 
 `stdlib/tests/deque.n.md` と `tests/stdlib/deque_collections.n.md` の Deque focused doctest 4 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。

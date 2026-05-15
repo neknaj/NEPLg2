@@ -59,20 +59,23 @@ pub fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //: [計算量/けいさんりょう]:
 //: - n を `s` の byte 長、m を `pat` の byte 長として O(n * m) です。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"str_find_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"middle\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"empty pattern\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"missing pattern\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"longer pattern\" expected=\"-1\" actual=\"-1\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/string" as *
 //: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push check_eq_i32 2 str_find "abcabc" "ca"
-//:         |> checks_push check_eq_i32 0 str_find "abc" ""
-//:         |> checks_push check_eq_i32 -1 str_find "abc" "z"
-//:         |> checks_push check_eq_i32 -1 str_find "ab" "abc"
-//:     checks_exit_code checks
+//:     let report:
+//:         test_report_new "str_find_doc"
+//:         |> test_report_push assert_eq_i32 "middle" 2 str_find "abcabc" "ca"
+//:         |> test_report_push assert_eq_i32 "empty pattern" 0 str_find "abc" ""
+//:         |> test_report_push assert_eq_i32 "missing pattern" -1 str_find "abc" "z"
+//:         |> test_report_push assert_eq_i32 "longer pattern" -1 str_find "ab" "abc"
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn str_find <(str,str)->i32> (s, pat):
     let s_len <i32> len s

@@ -20,28 +20,39 @@
 #import "alloc/string/slice" as *
 #import "./common" as *
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_integer_parse_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parse hex i32\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"parse negative hex i128\" expected=\"-42\" actual=\"-42\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/string/integer/parse" as *
+//:| #import "alloc/string/integer/format" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
+//: fn assert_i32_ok <(str,Result<i32,i32>,i32)->TestAssertion> (label, got, expected):
+//:     match got:
+//:         Result::Ok actual:
+//:             assert_eq_i32 label expected actual
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "integer parse failed unexpectedly"
+//:
+//: fn assert_i128_ok_i32 <(str,Result<i128,i32>,i32)->TestAssertion> (label, got, expected):
+//:     match got:
+//:         Result::Ok actual:
+//:             assert_eq_i32 label expected <i32> cast actual
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "i128 parse failed unexpectedly"
+//:
 //: fn main <()*>i32> ():
-//:     let checks0 checks_new
-//:     let checks1 match to_i32_radix "2a" 16:
-//:         Result::Ok v:
-//:             checks_push checks0 assert_eq_i32 42 v
-//:         Result::Err _:
-//:             checks_push checks0 assert_eq_i32 1 0
-//:     let checks2 match to_i128_radix "-2a" 16:
-//:         Result::Ok v:
-//:             checks_push checks1 assert_eq_i32 -42 <i32> cast v
-//:         Result::Err _:
-//:             checks_push checks1 assert_eq_i32 1 0
-//:     checks_exit_code checks2
+//:     let report:
+//:         test_report_new "string_integer_parse_doc"
+//:         |> test_report_push assert_i32_ok "parse hex i32" (to_i32_radix "2a" 16) 42
+//:         |> test_report_push assert_i128_ok_i32 "parse negative hex i128" (to_i128_radix "-2a" 16) -42
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 //: to_i32: 10 進文字列を i32 として解析する

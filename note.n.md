@@ -1,3 +1,21 @@
+# 2026-05-15 Agent 1 alloc/string doc report doctest 修正
+
+- `ISS-20260515T133717458Z-ALLOC-STRING-DOC-COMMENT-DOCTESTS-ST-AE5C1FAA` を追加して解決した。
+- `stdlib/alloc/string/find.nepl`、`integer.nepl`、`float.nepl`、`search/byte_find.nepl`、`search/compare.nepl`、`integer/parse.nepl`、`float/parse.nepl`、`integer/common/bool.nepl` の doc-comment doctest は `checks_exit_code` や戻り値だけで成功を表しており、stdout に assertion detail が固定されていなかった。
+- 対象 9 doctest を `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、canonical `TestReport` stdout へ移行した。`find` / `str_find` / `str_starts_with_at` / bool / integer / float parse の観測値が label / expected / actual として残る。
+- `integer/parse` の単体 doctest では、failure branch の `from_i32` が parse module import だけでは解決されないため、`alloc/string/integer/format` を明示 import する形にした。
+- `nodesrc/test_alloc_string_doc_report_contract.js` を追加し、同 doctest 群が `ret:` / `checks_exit_code` / `result_exit_code` へ戻る退行を検出するようにした。`nodesrc/run_source_policy_regressions.js` にも同 contract を追加した。
+- `nodesrc/test_stdlib_string_integer_boundary.js` は doc-comment を含む物理行数で境界を判定しており、丁寧な stdlib documentation 方針と衝突したため、comment stripping 後の実装行数で監視するようにした。これにより doc-comment を削らず、実装の肥大化だけを検出する。
+- 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に alloc/string 移行分の進捗を追記した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/string/find.nepl -i stdlib/alloc/string/integer.nepl -i stdlib/alloc/string/float.nepl -i stdlib/alloc/string/search/byte_find.nepl -i stdlib/alloc/string/search/compare.nepl -i stdlib/alloc/string/integer/parse.nepl -i stdlib/alloc/string/float/parse.nepl -i stdlib/alloc/string/integer/common/bool.nepl --no-tree -o tmp/agent1-alloc-string-doc-report.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+  - `node --check nodesrc/test_alloc_string_doc_report_contract.js`
+  - `node nodesrc/test_alloc_string_doc_report_contract.js`
+  - `node nodesrc/test_stdlib_string_integer_boundary.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - `node --check nodesrc/run_source_policy_regressions.js`
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 core/result doc report doctest 修正
 
 - `ISS-20260515T124222896Z-CORE-RESULT-DOC-COMMENT-DOCTESTS-OMI-DFC0D817` を追加して解決した。

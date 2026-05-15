@@ -17,7 +17,9 @@
 #import "core/char" as *
 #import "alloc/string/access" as *
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_float_parse_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"parse scientific\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"reject dot only\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -26,20 +28,28 @@
 //:| #import "alloc/string/float/parse" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
+//: fn assert_f64_ok <(str,Result<f64,i32>,f64)->TestAssertion> (label, got, expected):
+//:     match got:
+//:         Result::Ok actual:
+//:             assert label eq actual expected
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "float parse failed unexpectedly"
+//:
+//: fn assert_f64_err <(str,Result<f64,i32>)->TestAssertion> (label, got):
+//:     match got:
+//:         Result::Ok _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "invalid float accepted unexpectedly"
+//:         Result::Err _:
+//:             assert label true
+//:
 //: fn main <()*>i32> ():
 //:     let expected <f64> <f64> cast 125
-//:     let checks0 checks_new
-//:     let checks1 match to_f64 "1.25e2":
-//:         Result::Ok v:
-//:             checks_push checks0 assert_eq_i32 1 cast eq v expected
-//:         Result::Err _:
-//:             checks_push checks0 assert_eq_i32 1 0
-//:     let checks2 match to_f64 ".":
-//:         Result::Ok _:
-//:             checks_push checks1 assert_eq_i32 1 0
-//:         Result::Err _:
-//:             checks_push checks1 assert_eq_i32 1 1
-//:     checks_exit_code checks2
+//:     let report:
+//:         test_report_new "string_float_parse_doc"
+//:         |> test_report_push assert_f64_ok "parse scientific" (to_f64 "1.25e2") expected
+//:         |> test_report_push assert_f64_err "reject dot only" (to_f64 ".")
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 //: to_f64: 10 進浮動小数文字列を f64 として解析する
