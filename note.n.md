@@ -1,3 +1,16 @@
+# 2026-05-16 Agent 1 std/env cliarg cstr doctest raw boundary 修正
+
+- `ISS-20260515T203123090Z-STD-ENV-CLIARG-CSTR-DOCTESTS-USE-MEM-B6DEAC7B` を解決した。
+- `std/env/cliarg/cstr.nepl` の doctest は ordinary source から `alloc_region` / `mem_ptr_add` / `store_u8` で C string bytes を作っており、Stage 6 の `resource.raw.memory_outside_boundary` で正しく拒否されていた。
+- 静的検査を緩めず、NUL を含む string literal `"nep\0"` の `string_data_ptr` を渡す fixture に変更した。
+- `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` に、cstr doctest が `string_data_ptr "nep\0"` を使い、`alloc_region` / `dealloc_region` / `store_u8` / `mem_ptr_add` / `unwrap_ok` を再導入しない policy を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と親 issue に Stage 6 の進捗を追記した。`plan.md` は変更していない。
+- 検証:
+  - `node --check nodesrc\test_stdlib_cliarg_no_unsafe_unwraps.js`
+  - `node nodesrc\test_stdlib_cliarg_no_unsafe_unwraps.js`
+  - `node nodesrc\tests.js -i stdlib\std\env\cliarg\cstr.nepl --no-tree -o tmp\agent1-cliarg-cstr-doctest-raw-boundary.json -j 1 --dist web/dist --assert-io` (`total=2, passed=2`)
+  - `node nodesrc\tests.js -i stdlib\std\env\cliarg.nepl -i stdlib\tests\cliarg.n.md --no-tree -o tmp\agent1-cliarg-after-cstr-fixture.json -j 1 --dist web/dist --assert-io` (`total=9, passed=9`)
+
 # 2026-05-16 Agent 1 std/env cliarg raw negative index gate 修正
 
 - `ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB` を解決した。

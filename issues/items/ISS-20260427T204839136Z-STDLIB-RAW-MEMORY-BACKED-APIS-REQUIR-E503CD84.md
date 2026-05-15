@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-15
+updated: 2026-05-16
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -579,3 +579,11 @@ argc metadata、argv pointer array、argv byte buffer、LLVM `/proc/self/cmdline
 root facade の `cliarg_get` は既に負 index を拒否していたが、raw boundary helper は explicit import 可能なので、helper 自体も slot address 計算前に下限検査を持つ必要がある。修正後は `idx < 0`、`idx >= argc`、`buf_size <= 0` を同じ gate で拒否し、doctest は `cli_raw::cliarg_get_checked -1` が `None` になることを確認する。
 
 この親 issue は引き続き open とする。`cstr.nepl` doctest fixture と Stage 6 の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は残件である。
+
+## 2026-05-16 Agent 1 cliarg cstr doctest raw boundary 追記
+
+`ISS-20260515T203123090Z-STD-ENV-CLIARG-CSTR-DOCTESTS-USE-MEM-B6DEAC7B` で、`std/env/cliarg/cstr.nepl` の doctest が ordinary source から `mem_ptr_add` / `store_u8` を呼んでいた stale fixture を修正した。
+
+修正後の doctest は NUL を含む string literal `"nep\0"` の `string_data_ptr` を `cstr_len` / `cstr_to_str` に渡す。これにより C string helper の典型例を維持しながら、ordinary doctest に raw memory write authority を要求しない。Resource IR の `resource.raw.memory_outside_boundary` は緩めない。
+
+この親 issue は引き続き open とする。Stage 6 の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は残件である。

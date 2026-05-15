@@ -24,6 +24,10 @@ const cstrCode = cstrSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const cstrDoc = cstrSrc
+    .split(/\r?\n/)
+    .filter((line) => /^\s*\/\/:/.test(line))
+    .join('\n');
 const allCode = `${code}\n${rawCode}\n${cstrCode}`;
 
 const forbidden = [
@@ -75,6 +79,8 @@ for (const pattern of [
 assert.match(rawCode, /fn\s+cli_load_u8_result\s+<\(MemPtr<u8>,i32\)->Result<i32,i32>>\s+\(base,\s*off\):[\s\S]*Option::None:[\s\S]*Result<i32,i32>::Err\s+1/, 'cliarg must map invalid byte loads to shim errno 1');
 assert.match(cstrCode, /fn\s+cstr_len_result\s+<\(MemPtr<u8>\)\*>Result<i32,str>>\s+\(p\):[\s\S]*Option::None:[\s\S]*set\s+ok\s+0[\s\S]*Result<i32,str>::Err\s+"cliarg\.cstr_len invalid pointer"/, 'cstr_len_result must return Err on invalid C string pointer');
 assert.match(cstrCode, /fn\s+cstr_to_str\s+<\(MemPtr<u8>\)\*>str>\s+\(p\):[\s\S]*string_from_mem_unchecked_result\s+p\s+len/, 'cstr_to_str must delegate string allocation and owner transfer to alloc/string');
+assert.match(cstrDoc, /string_data_ptr\s+"nep\\0"/, 'cstr doctests must use safe string literal data pointers for NUL-terminated examples');
+assert.doesNotMatch(cstrDoc, /\b(?:alloc_region|dealloc_region|store_u8|mem_ptr_add|unwrap_ok)\b/, 'cstr doctests must not write raw memory from ordinary doctest source');
 assert.doesNotMatch(allCode, /\bfn\s+cli_i32_ptr\b/, 'cliarg must not reintroduce MemPtr<i32> out-pointer projections across WASI boundaries');
 assert.match(rawCode, /\b(?:store_i32|load_i32|store_u8|load_u8|mem_ptr_addr)\b/, 'cliarg raw argv implementation must carry source-level raw memory evidence');
 assert.match(cstrCode, /\bload_u8\b/, 'cliarg cstr conversion must carry source-level checked byte-load evidence');

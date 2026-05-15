@@ -70,7 +70,7 @@ pub fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
 //:
 //: [目的/もくてき]:
 //: - `cstr_len` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//: - NUL を含む文字列 literal の data pointer を渡し、ordinary doctest から raw memory write を行わずに確認します。
 //:
 //: [注意/ちゅうい]:
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
@@ -83,23 +83,11 @@ pub fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
 //:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg/cstr" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/raw" as *
-//:| #import "core/result" as *
+//:| #import "alloc/string/storage" as *
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let region <RegionToken<u8>> unwrap_ok alloc_region<u8> 4;
-//:     let p <MemPtr<u8>> region_ptr &region;
-//:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
-//:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
-//:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
-//:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
+//:     let p <MemPtr<u8>> string_data_ptr "nep\0";
 //:     let n <i32> cstr_len p;
-//:     match dealloc_region<u8> region:
-//:         Result::Ok _:
-//:             ()
-//:         Result::Err _:
-//:             ()
 //:     if eq n 3 0 1
 //: ```
 pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
@@ -128,7 +116,7 @@ pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:
 //: [目的/もくてき]:
 //: - `cstr_to_str` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//: - NUL を含む文字列 literal の data pointer を渡し、ordinary doctest から raw memory write を行わずに確認します。
 //:
 //: [注意/ちゅうい]:
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
@@ -141,23 +129,11 @@ pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg/cstr" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/raw" as *
+//:| #import "alloc/string/storage" as *
 //:| #import "alloc/string" as *
-//:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     let region <RegionToken<u8>> unwrap_ok alloc_region<u8> 4;
-//:     let p <MemPtr<u8>> region_ptr &region;
-//:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
-//:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
-//:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
-//:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
+//:     let p <MemPtr<u8>> string_data_ptr "nep\0";
 //:     let s <str> cstr_to_str p;
-//:     match dealloc_region<u8> region:
-//:         Result::Ok _:
-//:             ()
-//:         Result::Err _:
-//:             ()
 //:     if str_eq s "nep" 0 1
 //: ```
 pub fn cstr_to_str <(MemPtr<u8>)*>str> (p):
