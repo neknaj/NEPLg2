@@ -10,7 +10,6 @@
 #import "alloc/io" as *
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/result" as *
@@ -110,27 +109,25 @@ pub fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Resu
 //: fs_discard_read_buffer: owner 付き読み込み buffer を破棄して Err を返す
 //:
 //: 目的:
-//: - read loop 側の error path で、buffer owner の破棄と `Result::Err` の構築を同じ所有権境界に閉じ込めます。
+//: - read loop 側の error path で、`RegionToken<u8>` owner の破棄と `Result::Err` の構築を同じ所有権境界に閉じ込めます。
 //:
 //: 注意(重要):
-//: - `buf` はこの関数が必ず消費します。
-//: - cleanup failure は内部 invariant 違反として unreachable にします。
+//: - `region` はこの関数が必ず消費します。
+//: - cleanup failure でも owner を caller へ戻さず、元の errno を返します。
 //:
 //: neplg2:test
 //: ret: 0
 //: ```neplg2
 //:| #entry main
 //:| #target core
+//:| #import "core/math" as *
 //:| #import "core/mem" as *
-//:| #import "core/mem/pointer/alloc" as *
-//:| #import "core/mem/internal" as *
-//:| #import "core/mem/raw" as *
 //:| #import "core/result" as *
 //:| #import "std/fs/raw/fd_io" as *
 //: fn main <()*>i32> ():
-//:     match alloc_ptr<u8> 4:
-//:         Result::Ok buf:
-//:             match fs_discard_read_buffer buf 4 12:
+//:     match alloc_region<u8> 4:
+//:         Result::Ok region:
+//:             match fs_discard_read_buffer region 12:
 //:                 Result::Err errno:
 //:                     if eq errno 12 0 1
 //:                 Result::Ok _:
@@ -138,63 +135,65 @@ pub fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Resu
 //:         Result::Err _:
 //:             1
 //: ```
-pub fn fs_discard_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, cap, errno):
-    match dealloc_ptr<u8> buf cap:
+pub fn fs_discard_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf,i32>> (region, errno):
+    match dealloc_region<u8> region:
         Result::Ok _:
             ()
         Result::Err _:
-            #intrinsic "unreachable" <> ()
+            ()
     Result<ByteBuf,i32>::Err errno
 
 //: fs_finish_read_buffer: capacity 付き読み込み buffer を ByteBuf の所有権 invariant へ詰め直す
 //:
 //: 目的:
-//: - `alloc_ptr` / `realloc_ptr` で確保した一時読み込み buffer を、`ByteBuf.region` が `ByteBuf.len` byte の所有領域を持つ形へ戻します。
+//: - `RegionToken<u8>` で所有している一時読み込み buffer を、`ByteBuf.region` が `ByteBuf.len` byte の所有領域を持つ形へ戻します。
 //:
 //: 実装(アルゴリズム):
 //: - 読み込み長が 0 の場合は元 buffer を解放し、空 `ByteBuf` を返します。
-//: - 読み込み長が capacity 未満の場合は exact-size に shrink してから `ByteBuf` にします。
-//: - `mem_ptr_addr` は非所有 raw view なので、失敗 path の cleanup は所有 `MemPtr` を `dealloc_ptr` へ渡します。
+//: - 読み込み長が capacity 未満の場合は owner-preserving `realloc_region_bytes_keep` で exact-size に shrink してから `ByteBuf` にします。
+//: - `MemPtr` は non-owning view なので、この helper は `RegionToken<u8>` owner だけを受け取り、成功/失敗のどちらでも owner の行方を閉じます。
 //:
 //: 注意(重要):
 //: - 成功時は返った `ByteBuf` が buffer を所有します。
-//: - 失敗時はこの関数が元 buffer を解放します。owner 付き buffer を受け取るため、invalid path でも buffer を放置しません。
+//: - 失敗時はこの関数が元 region を解放します。owner token を受け取るため、invalid path でも buffer を放置しません。
 //:
 //: 計算量:
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
-pub fn fs_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, cap, data_len):
+pub fn fs_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf,i32>> (region, data_len):
+    let cap <i32> region_size &region
     if:
         or or lt cap 0 lt data_len 0 gt data_len cap
         then:
-            match dealloc_ptr<u8> buf cap:
+            match dealloc_region<u8> region:
                 Result::Ok _:
                     ()
                 Result::Err _:
-                    #intrinsic "unreachable" <> ()
+                    ()
             Result<ByteBuf,i32>::Err fs_errno_inval
         else:
             if:
                 eq data_len 0
                 then:
-                    match dealloc_ptr<u8> buf cap:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             ()
                         Result::Err _:
-                            #intrinsic "unreachable" <> ()
+                            ()
                     Result<ByteBuf,i32>::Ok io_bytebuf_empty
                 else:
                     if:
                         eq data_len cap
                         then:
-                            Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr buf data_len
+                            Result<ByteBuf,i32>::Ok io_bytebuf_finish_region region data_len
                         else:
-                            match realloc_ptr<u8> buf cap data_len:
-                                Result::Ok exact:
-                                    Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr exact data_len
+                            match realloc_region_bytes_keep<u8> region data_len:
+                                Result::Ok exact_region:
+                                    Result<ByteBuf,i32>::Ok io_bytebuf_finish_region exact_region data_len
                                 Result::Err _e:
-                                    match dealloc_ptr<u8> buf cap:
+                                    let old_region <RegionToken<u8>> region_realloc_error_region<u8> _e
+                                    match dealloc_region<u8> old_region:
                                         Result::Ok _:
                                             ()
                                         Result::Err _:
-                                            #intrinsic "unreachable" <> ()
+                                            ()
                                     Result<ByteBuf,i32>::Err 12

@@ -106,3 +106,11 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 `fs_path_filetype` は direct `alloc_ptr` / `dealloc_ptr` を持たず、`stat_region` owner と `region_ptr` から得た non-owning view だけを扱う。`path_filestat_get` の raw filestat address、filetype byte の `store_u8` / `load_u8` は stat boundary 内に残るが、free obligation は `RegionToken` 側で閉じる。
 
 この focused doctest で依存先 `fs_normalize_range_push` の `Result<Vec<i32>, i32>` owner return が `resource.raw.identity_escape` になる core false positive を発見したため、[ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD](./ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD.md) として分離した。親 issue の remaining direct allocation owner は `std/fs/read/fd.nepl`、`std/fs/dir/read_fd.nepl`、`std/env/cliarg/raw.nepl` などである。
+
+## 2026-05-16 Agent 1 部分対応メモ 8
+
+子 issue [ISS-20260515T200013147Z-STD-FS-FD-READ-SCRATCH-STILL-USES-ME-7F2B4F1E](./ISS-20260515T200013147Z-STD-FS-FD-READ-SCRATCH-STILL-USES-ME-7F2B4F1E.md) で、`stdlib/std/fs/read/fd.nepl` の fd_read growable buffer / iovec / nread scratch を `RegionToken<u8>` owner 境界へ移した。
+
+`fs_read_fd_bytes` は direct `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を持たず、`buf_region` / `iov_region` / `nread_region` owner と `region_ptr` 由来の non-owning view だけを扱う。`fs_finish_read_buffer` / `fs_discard_read_buffer` も `RegionToken<u8>` owner を消費する signature に揃え、shrink は `realloc_region_bytes_keep<u8>`、ByteBuf 確定は `io_bytebuf_finish_region` へ集約した。
+
+これで `std/fs/read` の fd read path は `MemPtr<u8>` を free obligation carrier として扱わない。親 issue の remaining direct allocation owner は主に `std/fs/dir/read_fd.nepl`、`std/fs/raw/llvm.nepl`、`std/env/cliarg/raw.nepl` などの raw-backed boundary に絞られる。

@@ -193,20 +193,20 @@ const fsFinish = fsFinishMatch[1];
 
 assert.match(
     fsRead,
-    /\bfs_finish_read_buffer\s+buf\s+cap\s+read_len\b/,
+    /\balloc_region<u8>\s+cap[\s\S]*\brealloc_region_bytes_keep<u8>\s+buf_region\s+new_cap[\s\S]*\bfs_finish_read_buffer\s+buf_region\s+read_len\b/,
     'fs_read_fd_bytes must finish through the ByteBuf ownership-normalizing helper',
 );
 
 assert.match(
     fsFinish,
-    /\beq\s+data_len\s+0[\s\S]*?\bmatch\s+dealloc_ptr<u8>\s+buf\s+cap:[\s\S]*?\bResult::Ok\s+_:[\s\S]*?\bResult::Err\s+_:[\s\S]*?#intrinsic\s+"unreachable"[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b/,
-    'fs_finish_read_buffer must consume private scratch storage through typed owner cleanup before returning an empty ByteBuf',
+    /<\(RegionToken<u8>,i32\)\*>[\s\S]*\beq\s+data_len\s+0[\s\S]*?\bmatch\s+dealloc_region<u8>\s+region:[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b[\s\S]*\brealloc_region_bytes_keep<u8>\s+region\s+data_len[\s\S]*\bio_bytebuf_finish_region\b/,
+    'fs_finish_read_buffer must consume private scratch storage through RegionToken cleanup before returning an empty ByteBuf',
 );
 
 assert.doesNotMatch(
     fsFinish,
-    /\bdealloc_raw\s+mem_ptr_addr\s+buf\s+cap\b/,
-    'fs_finish_read_buffer private scratch cleanup must not recover ownership from a non-owning raw address view',
+    /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr|dealloc_raw\s+mem_ptr_addr)\b/,
+    'fs_finish_read_buffer private scratch cleanup must not recover ownership from low-level MemPtr or raw address views',
 );
 
 console.log('alloc/io ByteBuf owner boundary regression passed');

@@ -541,3 +541,9 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 `RegionToken<T>` の struct field から `MemPtr<T>` は消えたが、`alloc_ptr<T> -> Result<MemPtr<T>, str>` は ordinary safe source から allocation owner を `MemPtr<T>` として取得できる入口である。これは Stage 6 の「`MemPtr<T>` は non-owning pointer projection」という表面 contract と、Resource IR が `alloc_ptr` / `dealloc_ptr` に owner summary を付けている内部 contract の食い違いである。
 
 この親 issue は引き続き open とする。次段階では stdlib scratch buffer を token boundary へ移し、public example / root facade / Resource IR summary から `MemPtr<T>` owner carrier を取り除く。即時に削除すると `std/fs` / `std/stdio` / `std/env/cliarg/raw` の scratch cleanup まで広く崩れるため、`OwnedRegion` / `OwnedBytes` / `OwnedBuffer` への段階移行 issue として扱う。
+
+## 2026-05-16 Agent 1 std/fs fd read RegionToken 境界追記
+
+`ISS-20260515T200013147Z-STD-FS-FD-READ-SCRATCH-STILL-USES-ME-7F2B4F1E` で、`std/fs/read/fd.nepl` の fd_read growable buffer / iovec / nread scratch を `RegionToken<u8>` owner に移した。
+
+この対応により `std/fs/read` の public read path は `MemPtr<u8>` を free obligation carrier とせず、raw ABI へは `region_ptr` 由来の non-owning view だけを渡す。`std/fs/raw/fd_io.nepl` の finish/discard helper も `RegionToken<u8>` owner を消費するため、read buffer の shrink / ByteBuf 確定 / cleanup が `RegionToken` 境界に揃った。親 issue の残件は `std/fs/dir/read_fd.nepl`、`std/fs/raw/llvm.nepl`、`std/env/cliarg/raw.nepl` などの raw-backed boundary と、最終的な `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal である。

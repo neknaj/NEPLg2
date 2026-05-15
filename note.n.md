@@ -1,3 +1,20 @@
+# 2026-05-16 Agent 1 std/fs fd read RegionToken owner 境界修正
+
+- `ISS-20260515T200013147Z-STD-FS-FD-READ-SCRATCH-STILL-USES-ME-7F2B4F1E` を追加して解決した。
+- `std/fs/read/fd.nepl` の fd read growable buffer、iovec scratch、nread scratch が `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を使い、`MemPtr<u8>` を free obligation carrier として残していた。
+- `fs_read_fd_bytes` は `RegionToken<u8>` owner を持つ `buf_region` / `iov_region` / `nread_region` へ移行し、raw ABI helper へ渡す値は `region_ptr` / `mem_ptr_add` 由来の non-owning `MemPtr<u8>` view に限定した。
+- grow path は `realloc_region_bytes_keep<u8>` を使い、失敗時は `RegionReallocError` から旧 owner を回収して cleanup する。capacity overflow / payload size overflow も allocation failure として閉じる。
+- `std/fs/raw/fd_io.nepl` の `fs_discard_read_buffer` / `fs_finish_read_buffer` は `RegionToken<u8>` owner を消費する signature に変更し、shrink は owner-preserving region realloc、ByteBuf 確定は `io_bytebuf_finish_region` に統一した。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` に `std/fs/read/fd` と `std/fs/raw/fd_io` が低レベル `MemPtr` allocation wrapper を再導入しない policy を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と親 issue に Stage 6 の進捗を追記した。`plan.md` は変更していない。
+- 検証:
+  - `trunk build`
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`
+  - `node nodesrc/tests.js -i stdlib/std/fs/read/fd.nepl --no-tree -o tmp/agent1-fs-read-fd-region-token.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/std/fs/raw/fd_io.nepl --no-tree -o tmp/agent1-fs-raw-fd-io-region-token.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/std/fs/read.nepl -i stdlib/std/fs/read/path.nepl --no-tree -o tmp/agent1-fs-read-region-token-consumers.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+
 # 2026-05-16 Agent 1 FS normalize owner summary leak 修正
 
 - `ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4` を解決した。

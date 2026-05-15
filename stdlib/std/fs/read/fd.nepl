@@ -13,8 +13,6 @@
 #import "alloc/io" as *
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
-#import "core/mem/internal" as *
 #import "core/result" as *
 #import "std/fs/bytes" as *
 #import "std/fs/raw" as *
@@ -26,7 +24,7 @@
 //:
 //: 実装(アルゴリズム):
 //: - 64KiB から開始する連続 buffer を必要に応じて再確保し、EOF まで `fd_read` を繰り返します。
-//: - `mem_ptr_addr` は非所有 raw view なので、scratch buffer の解放は所有 `MemPtr` を `dealloc_ptr` へ渡して行います。
+//: - 読み込み buffer と iovec / nread scratch は `RegionToken<u8>` が所有し、raw ABI へ渡す `MemPtr<u8>` は `region_ptr` から得る非所有 view に限定します。
 //:
 //: 注意(重要):
 //: - 途中でエラーが出た場合は Err(errno) を返します。
@@ -64,24 +62,26 @@
 //: ```
 pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
     let mut cap <i32> 65536;
-    match alloc_ptr<u8> cap:
+    match alloc_region<u8> cap:
         Result::Err _e:
             Result<ByteBuf,i32>::Err 12
-        Result::Ok buf0:
-            let mut buf <MemPtr<u8>> buf0;
-            match alloc_ptr<u8> 8:
+        Result::Ok buf0_region:
+            let mut buf_region <RegionToken<u8>> buf0_region;
+            match alloc_region<u8> 8:
                 Result::Err _e:
-                    fs_discard_read_buffer buf cap 12
-                Result::Ok iov_buf:
-                    match alloc_ptr<u8> 4:
+                    fs_discard_read_buffer buf_region 12
+                Result::Ok iov_region:
+                    let iov_buf <MemPtr<u8>> region_ptr &iov_region
+                    match alloc_region<u8> 4:
                         Result::Err _e:
-                            match dealloc_ptr<u8> iov_buf 8:
+                            match dealloc_region<u8> iov_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    #intrinsic "unreachable" <> ();
-                            fs_discard_read_buffer buf cap 12
-                        Result::Ok nread_buf:
+                                    ();
+                            fs_discard_read_buffer buf_region 12
+                        Result::Ok nread_region:
+                            let nread_buf <MemPtr<u8>> region_ptr &nread_region
                             let mut read_len <i32> 0;
                             let mut done <i32> 0;
                             let mut err <i32> 0;
@@ -93,19 +93,29 @@ pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                         eq read_len cap
                                         then:
                                             let new_cap <i32> mul cap 2;
-                                            match realloc_ptr<u8> buf cap new_cap:
-                                                Result::Ok new_buf:
-                                                    set buf new_buf;
-                                                    set cap new_cap;
-                                                Result::Err _e:
+                                            if:
+                                                or le new_cap cap not alloc_payload_fits new_cap
+                                                then:
                                                     set alloc_failed 1;
                                                     set done 1;
+                                                else:
+                                                    match realloc_region_bytes_keep<u8> buf_region new_cap:
+                                                        Result::Ok new_region:
+                                                            set buf_region new_region;
+                                                            set cap new_cap;
+                                                        Result::Err e:
+                                                            let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+                                                            set buf_region old_region;
+                                                            set alloc_failed 1;
+                                                            set done 1;
                                         else:
                                             ();
                                     if:
                                         eq done 0
                                         then:
-                                            match fs_fd_read_into_result fd iov_buf nread_buf mem_ptr_add buf read_len sub cap read_len:
+                                            let data_base <MemPtr<u8>> region_ptr &buf_region
+                                            let data_ptr <MemPtr<u8>> mem_ptr_add data_base read_len
+                                            match fs_fd_read_into_result fd iov_buf nread_buf data_ptr sub cap read_len:
                                                 Result::Ok n:
                                                     if:
                                                         eq n 0
@@ -119,25 +129,24 @@ pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                         else:
                                             ()
 
-                            let res <Result<ByteBuf,i32>> if:
+                            match dealloc_region<u8> nread_region:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            match dealloc_region<u8> iov_region:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            if:
                                 eq alloc_failed 1
                                 then:
-                                    fs_discard_read_buffer buf cap 12
+                                    fs_discard_read_buffer buf_region 12
                                 else:
                                     if:
                                         eq err 0
                                         then:
-                                            fs_finish_read_buffer buf cap read_len
+                                            fs_finish_read_buffer buf_region read_len
                                         else:
-                                            fs_discard_read_buffer buf cap err
-                            match dealloc_ptr<u8> nread_buf 4:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    #intrinsic "unreachable" <> ();
-                            match dealloc_ptr<u8> iov_buf 8:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    #intrinsic "unreachable" <> ();
-                            res
+                                            fs_discard_read_buffer buf_region err
