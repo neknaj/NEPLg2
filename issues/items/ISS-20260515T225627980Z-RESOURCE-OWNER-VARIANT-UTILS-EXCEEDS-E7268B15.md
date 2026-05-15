@@ -2,13 +2,13 @@
 id: ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15
 title: "resource owner variant utils exceeds responsibility split limit"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-15
-updated: 2026-05-15
-target: "nepl-core/src/resource/owner_variant_utils.rs, nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-05-16
+target: "nepl-core/src/resource/owner_variant_utils.rs, nepl-core/src/resource/owner_variant_source_list.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15: resource owner variant utils exceeds responsibility split limit
@@ -42,3 +42,18 @@ Inspect owner_variant_utils.rs and split the next coherent helper responsibility
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js, focused nepl-core owner variant ResourceIR tests, node nodesrc/issues.js check --dir issues, and git diff --check.
+
+## 2026-05-16 修正
+
+variant owner utility から source-list dedup helper を分離した。
+
+- `(Place, suffix, TypeId)` の dedup / containment helper を `owner_variant_source_list.rs` へ移した。
+- `owner_variant.rs` と `owner_variant_lifecycle.rs` は source-list helper を新 module から import する。
+- `owner_variant_utils.rs` は owner projection source、variant consumed source、variant projection return、condition、payload bind suffix の utility に戻した。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`mod` 宣言、80 行上限を追加した。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result_variant_owner_return -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument -- --nocapture`: 1 passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `owner_variant_utils.rs` blocker は解消。次の別 issue として `effect_return_escape.rs has 363 lines; responsibility split limit is 120` を検出したため `ISS-20260515T230145475Z-RESOURCE-EFFECT-RETURN-ESCAPE-MODULE-2ED8211B` に分離した。

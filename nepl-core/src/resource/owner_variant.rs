@@ -19,10 +19,10 @@ use super::owner_variant_apply::{
     apply_pending_variant_owner_return, consume_pending_variant_owner, pending_consumption_source,
     pending_return_source, push_or_merge_variant_extent_requirement, reserved_owner_state,
 };
+use super::owner_variant_source_list::{push_unique_source, source_list_contains};
 use super::owner_variant_utils::{
     owner_projection_sources_for_place, payload_bind_suffix, push_unique_owner_variant_condition,
-    push_unique_source, push_unique_variant_consumed_source, push_unique_variant_projection_return,
-    source_list_contains,
+    push_unique_variant_consumed_source, push_unique_variant_projection_return,
 };
 use super::owner_variant_value_condition::PendingVariantValueCondition;
 use super::place_utils::{place_with_suffix, places_overlap};

@@ -215,6 +215,7 @@ mod owner_variant_apply;
 mod owner_variant_condition_truth;
 mod owner_variant_lifecycle;
 mod owner_variant_record;
+mod owner_variant_source_list;
 mod owner_variant_utils;
 mod owner_variant_value_condition;
 mod place_utils;

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T22:56:28.130Z",
+  "generated_at": "2026-05-15T23:01:45.641Z",
   "counts": {
-    "total": 856,
+    "total": 857,
     "open": 8,
-    "resolved": 848,
+    "resolved": 849,
     "by_area": {
       "core": {
-        "total": 418,
+        "total": 419,
         "open": 1,
-        "resolved": 417
+        "resolved": 418
       },
       "stdlib": {
         "total": 254,
@@ -120,8 +120,8 @@
   },
   "issues": [
     {
-      "id": "ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15",
-      "title": "resource owner variant utils exceeds responsibility split limit",
+      "id": "ISS-20260515T230145475Z-RESOURCE-EFFECT-RETURN-ESCAPE-MODULE-2ED8211B",
+      "title": "resource effect return escape module exceeds responsibility split limit",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -129,10 +129,10 @@
       "type": "bug",
       "created": "2026-05-15",
       "updated": "2026-05-15",
-      "target": "nepl-core/src/resource/owner_variant_utils.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/effect_return_escape.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15.md"
+      "file": "items/ISS-20260515T230145475Z-RESOURCE-EFFECT-RETURN-ESCAPE-MODULE-2ED8211B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -6373,6 +6373,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T225118666Z-RESOURCE-OWNER-RAW-USE-CALL-SUMMARY--3E21FFD7.md"
+    },
+    {
+      "id": "ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15",
+      "title": "resource owner variant utils exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource/owner_variant_utils.rs, nepl-core/src/resource/owner_variant_source_list.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

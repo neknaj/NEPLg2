@@ -9,7 +9,7 @@ use super::owner_variant::{
     PendingVariantOwnerReturn, PendingVariantOwnerReturnSource,
     PendingVariantPayloadValueCondition,
 };
-use super::owner_variant_utils::{push_unique_source, source_list_contains};
+use super::owner_variant_source_list::{push_unique_source, source_list_contains};
 use super::owner_variant_value_condition::PendingVariantValueCondition;
 
 impl PendingVariantOwnerEffects {

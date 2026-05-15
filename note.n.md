@@ -39487,3 +39487,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core owner_summary_raw_transfer -- --nocapture`: 4 passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed
+
+## 2026-05-16 Agent 1 Resource IR owner variant source-list 分割
+
+- `ISS-20260515T225627980Z-RESOURCE-OWNER-VARIANT-UTILS-EXCEEDS-E7268B15` を fixed にした。`plan.md` は変更していない。
+- `owner_variant_utils.rs` は variant owner utility 本体に加え、`(Place, suffix, TypeId)` source-list dedup / containment helper を同居させていたため、223 lines / limit 220 で source policy に失敗していた。
+- source-list helper を `owner_variant_source_list.rs` に分離し、`owner_variant.rs` と `owner_variant_lifecycle.rs` は新 module から import するようにした。
+- `nodesrc/test_resource_checker_responsibility.js` に `owner_variant_source_list.rs` の existence / `mod` declaration / 80 line budget を追加した。
+- `node nodesrc/test_resource_checker_responsibility.js` は owner variant utils blocker を通過し、次の別件 `effect_return_escape.rs has 363 lines; responsibility split limit is 120` に到達した。これは `ISS-20260515T230145475Z-RESOURCE-EFFECT-RETURN-ESCAPE-MODULE-2ED8211B` に分離した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result_variant_owner_return -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument -- --nocapture`: 1 passed
