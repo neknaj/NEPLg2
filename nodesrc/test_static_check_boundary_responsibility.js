@@ -494,7 +494,16 @@ assertContains(
 assertContains(sourceCapabilityRawMemory, 'raw_memory_op_from_name', 'source_capability/raw_memory.rs');
 assertContains(sourceCapabilityRawMemory, 'PrefixItem::Intrinsic', 'source_capability/raw_memory.rs');
 assertContains(sourceCapabilityRawMemory, 'enum RawAddressBoundaryHelper', 'source_capability/raw_memory.rs');
-assertContains(sourceCapabilityRawMemory, 'enum RawOwnerBoundaryHelper', 'source_capability/raw_memory.rs');
+assertNotContains(
+    sourceCapabilityRawMemory,
+    'enum RawOwnerBoundaryHelper',
+    'checked owner wrappers must not be raw boundary evidence',
+);
+assertNotContains(
+    sourceCapabilityRawMemory,
+    '"alloc_region"',
+    'safe alloc_region wrapper must not be raw boundary evidence',
+);
 assertContains(sourceCapabilityRawMemory, 'RestrictedConstructor', 'source_capability/raw_memory.rs');
 assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
 assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');

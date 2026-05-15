@@ -11,7 +11,6 @@ enum RawMemoryBoundaryEvidence {
     RawBodyInstruction,
     RawAddressBoundaryHelper,
     RawHelperCall,
-    RawOwnerBoundaryHelper,
     RawIntrinsic,
     RestrictedConstructor,
 }
@@ -47,31 +46,6 @@ impl RawAddressBoundaryHelper {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RawOwnerBoundaryHelper {
-    AllocPtr,
-    ReallocPtr,
-    DeallocPtr,
-    AllocRegion,
-    AllocRegionBytes,
-    DeallocRegion,
-}
-
-impl RawOwnerBoundaryHelper {
-    fn from_symbol(name: &str) -> Option<Self> {
-        let helper = match helper_base_name(name) {
-            "alloc_ptr" => Self::AllocPtr,
-            "realloc_ptr" => Self::ReallocPtr,
-            "dealloc_ptr" => Self::DeallocPtr,
-            "alloc_region" => Self::AllocRegion,
-            "alloc_region_bytes" => Self::AllocRegionBytes,
-            "dealloc_region" => Self::DeallocRegion,
-            _ => return None,
-        };
-        Some(helper)
-    }
-}
-
 impl RawMemoryBoundaryEvidence {
     fn from_symbol(name: &str) -> Option<Self> {
         if matches!(name, "MemPtr" | "RegionToken") {
@@ -79,9 +53,6 @@ impl RawMemoryBoundaryEvidence {
         }
         if RawAddressBoundaryHelper::from_symbol(name).is_some() {
             return Some(Self::RawAddressBoundaryHelper);
-        }
-        if RawOwnerBoundaryHelper::from_symbol(name).is_some() {
-            return Some(Self::RawOwnerBoundaryHelper);
         }
         raw_memory_op_from_name(name).map(|_| Self::RawHelperCall)
     }

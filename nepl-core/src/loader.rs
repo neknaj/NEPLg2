@@ -1163,7 +1163,7 @@ mod tests {
     }
 
     #[test]
-    fn raw_memory_boundary_accepts_checked_owner_helper_evidence() {
+    fn raw_memory_boundary_rejects_checked_owner_helper_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(
             &loader.stdlib_root,
@@ -1175,8 +1175,8 @@ mod tests {
             "fn helper <(i32)->Result<MemPtr<u8>,str>> (n):\n    alloc_ptr<u8> n\n",
         );
         assert!(
-            capabilities.allows_raw_memory_boundary(),
-            "compiler-owned checked owner helpers are raw boundary evidence"
+            !capabilities.allows_raw_memory_boundary(),
+            "checked owner helper calls are safe API usage, not raw boundary evidence"
         );
     }
 

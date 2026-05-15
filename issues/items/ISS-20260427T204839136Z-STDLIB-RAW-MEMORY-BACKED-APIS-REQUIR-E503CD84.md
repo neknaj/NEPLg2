@@ -264,6 +264,14 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 
 修正後は `OwnerAggregateConstructorBoundary(String)` を `SourceCapabilities` に保持し、loader は constructor 名ごとの evidence を記録する。typecheck も実際に適用している constructor 名を照合するため、source property proof と許可される owner-backed constructor が一致する。この親 issue は引き続き open とする。raw-memory-backed public API / `OwnedBuffer<T>` / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
 
+## 2026-05-15 Agent 1 checked owner helper evidence 除外追記
+
+`ISS-20260515T023829013Z-CHECKED-OWNER-HELPERS-GRANT-RAW-MEMO-EC25363F` で、`alloc_ptr` / `alloc_region` / `dealloc_region` などの checked owner wrapper 呼び出しを raw memory boundary evidence として扱っていた問題を修正した。
+
+これらの wrapper は safe public API であり、stdlib implementation が allocation API を使うだけで raw intrinsic / raw body memory operation / restricted constructor authority を得るべきではない。修正後は actual raw operation、raw address identity helper、restricted compiler memory constructor、raw address intrinsic のみを raw boundary evidence とする。
+
+この親 issue は引き続き open とする。今回閉じたのは source capability の過大付与であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
 ## 2026-05-15 Agent 1 Vec empty cleanup storage-state 追記
 
 `ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF` で、`Vec` の empty storage cleanup を storage state の match に戻した。

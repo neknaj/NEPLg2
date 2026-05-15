@@ -38685,3 +38685,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`: 5 passed
   - `cargo test -p nepl-core typecheck_rejects_owner_backed_constructor_with_unrelated_constructor_capability --test resource_ir -- --nocapture`: 1 passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`
+
+## 2026-05-15 Agent 1 checked owner helper evidence 除外
+
+- `ISS-20260515T023829013Z-CHECKED-OWNER-HELPERS-GRANT-RAW-MEMO-EC25363F` を追加して fixed にした。
+- `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` / `alloc_region` / `alloc_region_bytes` / `dealloc_region` は checked public owner wrapper であり、これを呼ぶだけでは raw-memory-boundary source evidence として扱わないようにした。
+- raw boundary evidence は actual raw operation、raw address identity helper、restricted compiler memory constructor、raw address intrinsic に限定する。
+- loader regression を `raw_memory_boundary_rejects_checked_owner_helper_evidence` に更新し、`alloc_ptr<u8> n` だけでは `allows_raw_memory_boundary()` にならないことを確認した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core raw_memory_boundary --lib -- --nocapture`: 12 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/core/mem/types.nepl -i stdlib/core/mem/internal.nepl -i stdlib/core/mem/pointer/alloc.nepl -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/storage/view.nepl -i stdlib/alloc/collections/vec/storage/cleanup.nepl --no-tree -o tmp/agent1-raw-boundary-safe-owner-helper-doctests.json -j 1 --dist web/dist --assert-io`: 26 passed

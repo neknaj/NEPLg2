@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T02:25:44.043Z",
+  "generated_at": "2026-05-15T02:44:13.940Z",
   "counts": {
-    "total": 810,
+    "total": 811,
     "open": 7,
-    "resolved": 803,
+    "resolved": 804,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 401,
+        "total": 402,
         "open": 0,
-        "resolved": 401
+        "resolved": 402
       },
       "CORE": {
         "total": 1,
@@ -6103,6 +6103,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T020307026Z-OWNER-AGGREGATE-CONSTRUCTOR-CAPABILI-91ECE78D.md"
+    },
+    {
+      "id": "ISS-20260515T023829013Z-CHECKED-OWNER-HELPERS-GRANT-RAW-MEMO-EC25363F",
+      "title": "Checked owner helpers grant raw memory boundary authority",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/source_capability/raw_memory.rs, nepl-core/src/loader.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T023829013Z-CHECKED-OWNER-HELPERS-GRANT-RAW-MEMO-EC25363F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
