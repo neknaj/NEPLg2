@@ -71,6 +71,36 @@ fn main <()->i32> ():
     0
 ```
 
+## vec_root_facade_hides_alloc_empty_helper
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+fn main <()->i32> ():
+    vec_alloc_empty 4
+```
+
+## vec_root_facade_hides_storage_cleanup_helper
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+fn main <()->i32> ():
+    vec_free_storage VecStorageState::Empty
+```
+
 ## stack_free_rejects_non_copy_payload
 
 neplg2:test[compile_fail]

@@ -38610,3 +38610,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_hashset_storage_contract.js`
   - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-hash-root-facade-cleanup.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/alloc/collections/hashset.nepl --no-tree -o tmp/agent1-hash-root-facade-modules.json -j 1 --dist web/dist --assert-io`
+
+## 2026-05-15 Agent 1 Vec storage facade boundary
+
+- `ISS-20260515T000336641Z-VEC-STORAGE-FACADE-RE-EXPORTS-ALLOCA-4F004371` を追加して fixed にした。
+- `alloc/collections/vec/storage` から `storage/alloc` / `storage/cleanup` の public `@merge` re-export を削除した。
+- `new` / `with_capacity` は新設した `vec/storage/api.nepl` に移し、public constructor は維持しつつ、internal allocation helper の `vec_alloc_empty` は explicit implementation module import 境界へ閉じた。
+- `Vec.free` の実装は storage-only cleanup helper が必要なため、`vec/mutation/cleanup.nepl` から `vec/storage/cleanup` を明示 import する形にした。
+- `alloc/collections/vec.nepl` の doctest は `core/result` / `core/math` / `core/option` を明示 import し、root facade からの偶発的な private import visibility に依存しないようにした。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は `vec/storage` が `api` を公開し、`alloc` / `cleanup` を公開しないことを監視する。
+- `tests/stdlib/collection_cleanup_contract.n.md` に root import だけでは `vec_alloc_empty` / `vec_free_storage` が `resolve.identifier.undefined` になる compile-fail regression を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -i stdlib/alloc/collections/vec/storage.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/storage/alloc.nepl --no-tree -o tmp/agent1-vec-storage-facade-modules.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-vec-storage-facade-cleanup.json -j 1 --dist web/dist --assert-io`

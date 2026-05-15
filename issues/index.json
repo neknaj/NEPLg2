@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T23:56:54.870Z",
+  "generated_at": "2026-05-15T00:16:21.733Z",
   "counts": {
-    "total": 805,
+    "total": 806,
     "open": 8,
-    "resolved": 797,
+    "resolved": 798,
     "by_area": {
       "stdlib": {
-        "total": 230,
+        "total": 231,
         "open": 5,
-        "resolved": 225
+        "resolved": 226
       },
       "TEST": {
         "total": 21,
@@ -9508,6 +9508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T234418963Z-HASHMAP-AND-HASHSET-ROOT-FACADES-RE--68724B49.md"
+    },
+    {
+      "id": "ISS-20260515T000336641Z-VEC-STORAGE-FACADE-RE-EXPORTS-ALLOCA-4F004371",
+      "title": "Vec storage facade re-exports allocation and cleanup internals",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/collections/vec.nepl, stdlib/alloc/collections/vec/storage.nepl, stdlib/alloc/collections/vec/storage/alloc.nepl, stdlib/alloc/collections/vec/storage/api.nepl, stdlib/alloc/collections/vec/mutation/cleanup.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, tests/stdlib/collection_cleanup_contract.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T000336641Z-VEC-STORAGE-FACADE-RE-EXPORTS-ALLOCA-4F004371.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

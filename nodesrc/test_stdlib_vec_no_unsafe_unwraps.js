@@ -10,6 +10,7 @@ const relPaths = [
     'stdlib/alloc/collections/vec/types.nepl',
     'stdlib/alloc/collections/vec/storage.nepl',
     'stdlib/alloc/collections/vec/storage/view.nepl',
+    'stdlib/alloc/collections/vec/storage/api.nepl',
     'stdlib/alloc/collections/vec/storage/alloc.nepl',
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
@@ -99,10 +100,11 @@ const vecRootCode = codeByPath.get('stdlib/alloc/collections/vec.nepl');
 const vecTypesCode = codeByPath.get('stdlib/alloc/collections/vec/types.nepl');
 const vecStorageRootCode = codeByPath.get('stdlib/alloc/collections/vec/storage.nepl');
 const vecStorageViewCode = codeByPath.get('stdlib/alloc/collections/vec/storage/view.nepl');
+const vecStorageApiCode = codeByPath.get('stdlib/alloc/collections/vec/storage/api.nepl');
 const vecStorageAllocCode = codeByPath.get('stdlib/alloc/collections/vec/storage/alloc.nepl');
 const vecStorageCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/storage/cleanup.nepl');
 const vecStorageFillCode = codeByPath.get('stdlib/alloc/collections/vec/storage/fill.nepl');
-const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageAllocCode, vecStorageCleanupCode, vecStorageFillCode].join('\n');
+const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageApiCode, vecStorageFillCode, vecStorageAllocCode, vecStorageCleanupCode].join('\n');
 const vecAccessRootCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
 const vecAccessHeaderCode = codeByPath.get('stdlib/alloc/collections/vec/access/header.nepl');
 const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/data.nepl');
@@ -151,7 +153,7 @@ function between(code, start, end) {
 const pushSection = between(vecCode, 'fn push ', 'fn replace ');
 const withCapacitySection = between(vecCode, 'fn with_capacity ', 'fn filled ');
 const vecStorageViewSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/view.nepl'), 'utf8');
-const vecStorageAllocSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/alloc.nepl'), 'utf8');
+const vecStorageApiSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/api.nepl'), 'utf8');
 const popSection = between(vecCode, 'fn pop ', 'fn clear ');
 const popSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/mutation/pop.nepl'), 'utf8');
 const vecRawElementSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.nepl'), 'utf8');
@@ -167,7 +169,7 @@ const allSection = between(vecCode, 'fn all ', 'fn free ');
 const freeSection = vecCode.slice(vecCode.indexOf('fn free '));
 
 assert.doesNotMatch(vecCode, /\bfield::get\s+\w+\s+"(?:len|cap)"/, 'Vec implementation must read Copy len/cap header fields through field::get_ref so owner-consuming helpers do not move them');
-assert.match(withCapacitySection, /fn\s+with_capacity\s+<\.T:\s*Copy>[\s\S]*if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*else:\s+vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must reject negative capacity before allocating owned storage and remain Copy-only');
+assert.match(withCapacitySection, /fn\s+with_capacity\s+<\.T:\s*Copy>[\s\S]*if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*else:\s+alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must reject negative capacity before allocating owned storage and remain Copy-only');
 for (const name of ['types', 'storage', 'access', 'mutation', 'query', 'transform', 'sort']) {
     assert.match(vecRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/vec\\/${name}"\\s+as\\s+@merge`), `Vec root must merge re-export vec/${name}.nepl`);
 }
@@ -181,8 +183,11 @@ for (const name of ['VecStorageState', 'Vec', 'VecPushError', 'VecTransformError
 for (const name of ['vec_empty', 'vec_alloc_empty', 'vec_free_storage', 'new', 'with_capacity', 'filled']) {
     assert.match(vecStorageCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage.nepl must own ${name}`);
 }
-for (const name of ['view', 'alloc', 'cleanup', 'fill']) {
+for (const name of ['view', 'api', 'fill']) {
     assert.match(vecStorageRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/storage\\/${name}"\\s+as\\s+@merge`), `vec/storage.nepl must merge re-export storage/${name}.nepl`);
+}
+for (const name of ['alloc', 'cleanup']) {
+    assert.doesNotMatch(vecStorageRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/storage\\/${name}"\\s+as\\s+@merge`), `vec/storage.nepl must not re-export internal storage/${name}.nepl`);
 }
 assert.doesNotMatch(vecStorageRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/storage.nepl must be a pure facade without implementation bodies');
 for (const name of ['vec_empty']) {
@@ -191,9 +196,13 @@ for (const name of ['vec_empty']) {
 assert.match(vecStorageViewCode, /pub\s+fn\s+vec_empty\s+<\.T:\s*Copy>\s+<\(\)->Vec<\.T>>/, 'Vec.empty typed constructor must remain public and Copy-only until OwnedBuffer initialized drop traversal exists');
 assert.doesNotMatch(vecStorageViewCode, /pub\s+fn\s+vec_empty_region\b/, 'Vec empty RegionToken sentinel helper must remain private to storage/view.nepl');
 assert.doesNotMatch(vecStorageViewCode, /\bfn\s+vec_storage_mem_ptr\b/, 'Vec storage MemPtr projection must not be exposed as a lower-level storage-state helper');
-for (const name of ['vec_alloc_empty', 'new', 'with_capacity']) {
-    assert.match(vecStorageAllocCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/alloc.nepl must own ${name}`);
+assert.match(vecStorageAllocCode, /\bfn\s+vec_alloc_empty\b/, 'vec/storage/alloc.nepl must own vec_alloc_empty');
+for (const name of ['new', 'with_capacity']) {
+    assert.doesNotMatch(vecStorageAllocCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/alloc.nepl must not own public ${name}`);
+    assert.match(vecStorageApiCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/api.nepl must own public ${name}`);
 }
+assert.match(vecStorageApiCode, /alloc::vec_alloc_empty<\.T>\s+8/, 'Vec.new must delegate allocation through the explicit storage/alloc helper');
+assert.match(vecStorageApiCode, /alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must delegate allocation through the explicit storage/alloc helper');
 assert.match(vecStorageCleanupCode, /\bfn\s+vec_free_storage\b/, 'vec/storage/cleanup.nepl must own vec_free_storage');
 assert.match(vecStorageCleanupCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>\s+<\(VecStorageState,RegionToken<\.T>\)->\(\)>/, 'vec/storage/cleanup.nepl storage-only cleanup must take storage state and RegionToken and remain Copy-only until element drop traversal exists');
 assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must own filled');
@@ -280,6 +289,7 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/access/header.nepl',
     'stdlib/alloc/collections/vec/storage.nepl',
+    'stdlib/alloc/collections/vec/storage/api.nepl',
     'stdlib/alloc/collections/vec/mutation.nepl',
     'stdlib/alloc/collections/vec/mutation/cleanup.nepl',
     'stdlib/alloc/collections/vec/mutation/pop.nepl',
@@ -321,9 +331,9 @@ assert.match(vecCode, /fn\s+vec_empty_region\s+<\.T>\s+<\(\)->RegionToken<\.T>>[
 assert.match(vecStorageViewSource, /OwnedBuffer<T>[\s\S]*vec_empty\s+<\.T:\s*Copy>/, 'Vec.empty documentation must explain the temporary Copy-only contract until OwnedBuffer initialized drop traversal exists');
 assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T:\s*Copy>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*alloc_region<\.T>\s+requested_cap[\s\S]*VecStorageState::Owned\s+region/, 'Vec empty construction must use Empty for zero capacity, Owned for allocated RegionToken storage, and remain Copy-only');
 assert.match(vecCode, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*vec_alloc_empty<\.T>\s+8/, 'Vec.new must remain Copy-only until non-Copy cleanup exists');
-assert.match(vecStorageAllocSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*new<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*with_capacity<NonCopyPayload>/, 'Vec allocation constructors must reject non-Copy payloads in doctests');
+assert.match(vecStorageApiSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*new<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*with_capacity<NonCopyPayload>/, 'Vec allocation constructors must reject non-Copy payloads in doctests');
 assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>[\s\S]*match\s+storage:[\s\S]*VecStorageState::Empty:[\s\S]*\(\)[\s\S]*VecStorageState::Owned:[\s\S]*match\s+dealloc_region<\.T>\s+region:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*\(\)/, 'Vec.free must deallocate only Owned storage and must not send the Empty zero-size sentinel through dealloc_region');
-assert.match(withCapacitySection, /vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must delegate empty storage allocation to vec_alloc_empty');
+assert.match(withCapacitySection, /alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must delegate empty storage allocation to vec_alloc_empty');
 assert.doesNotMatch(vecCode, /(?:->|Result<)\.Pair\b|Tuple:/, 'Vec must not return owner-carrying Vec pairs through anonymous .Pair/Tuple values');
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Vec.pop result must be a named struct with an owned Vec field');
 assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s\S]*rest\s+<Vec<\.T>>/, 'Vec.partition result must be a named struct with both owned Vec fields');

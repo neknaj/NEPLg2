@@ -457,3 +457,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 今回の修正では、root facade を public type/API の再公開に限定し、storage allocation や probing helper は implementation module の明示 import 境界だけで見えるようにした。これは compiler の owner-backed aggregate 構造判定を stdlib public surface 側から補強するものであり、safe root import から storage owner helper を直接呼べる経路を閉じる。
 
 この親 issue は raw-memory-backed stdlib API 全体の migration issue として open のまま継続する。残件は `OwnedBuffer<T>`、initialized cell、compiler-issued owner token、non-Copy payload drop traversal を含む最終 collection memory model である。
+
+## 2026-05-15 Agent 1 Vec storage facade 追記
+
+`ISS-20260515T000336641Z-VEC-STORAGE-FACADE-RE-EXPORTS-ALLOCA-4F004371` として、`alloc/collections/vec` root から `vec/storage` 経由で `vec_alloc_empty` / `vec_free_storage` が見えていた問題を分離して修正した。
+
+今回の修正では、public allocation constructor を `vec/storage/api.nepl` へ分け、`vec/storage.nepl` から `storage/alloc` / `storage/cleanup` の public re-export を削除した。root facade は `new` / `with_capacity` / `filled` / `vec_empty` などの public API を維持するが、allocation helper と storage-only cleanup helper は explicit implementation module import に限定される。
+
+この親 issue は引き続き open とする。今回閉じたのは root public surface の漏れであり、`OwnedBuffer<T>`、initialized cell、compiler-issued owner token、non-Copy payload drop traversal の最終移行は継続する。

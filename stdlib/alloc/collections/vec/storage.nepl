@@ -2,14 +2,14 @@
 //: `Vec` storage helper facade
 //:
 //: ### [目的/もくてき]
-//: - backing storage の view、allocation、cleanup、filled construction を[責務/せきむ]別 submodule へ[分離/ぶんり]します。
+//: - backing storage の view、public constructor、filled construction を[責務/せきむ]別 submodule へ[分離/ぶんり]します。
 //: - この file は public re-export だけを[持/も]ち、direct raw memory operation は用途別 submodule に[閉/と]じます。
 //:
 //: ### [実装/じっそう]
 //: - `storage/view` は empty storage constructor を[所有/しょゆう]します。
-//: - `storage/alloc` は `vec_alloc_empty` / `new` / `with_capacity` を[所有/しょゆう]します。
-//: - `storage/cleanup` は storage-only dealloc helper を[所有/しょゆう]します。
+//: - `storage/api` は `new` / `with_capacity` を[所有/しょゆう]し、internal allocation helper へ[委譲/いじょう]します。
 //: - `storage/fill` は同一 Copy 値で[初期化/しょきか]する constructor を[所有/しょゆう]します。
+//: - `storage/alloc` / `storage/cleanup` は implementation module が明示 import する internal helper であり、この public facade からは再公開しません。
 //:
 //: ### [注意/ちゅうい]
 //: - `as @merge` により `#import "alloc/collections/vec/storage" as s` の qualified API も[維持/いじ]します。
@@ -17,6 +17,5 @@
 #indent 4
 
 pub #import "./storage/view" as @merge
-pub #import "./storage/alloc" as @merge
-pub #import "./storage/cleanup" as @merge
+pub #import "./storage/api" as @merge
 pub #import "./storage/fill" as @merge

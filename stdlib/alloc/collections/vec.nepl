@@ -29,6 +29,8 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let empty <Vec<i32>> unwrap_ok new<i32>
 //:     let checks0 checks_push checks_new assert_eq_i32 0 len<i32> &empty
@@ -58,6 +60,9 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let v2 <Vec<i32>>:
 //:         unwrap_ok with_capacity<i32> 2
@@ -84,6 +89,8 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let cleared <Vec<i32>>:
 //:         unwrap_ok new<i32>
