@@ -7,8 +7,8 @@ resolved: true
 priority: P1
 type: bug
 created: 2026-05-13
-updated: 2026-05-13
-target: "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/owner_extent.rs, nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_consumption_extent.rs, nepl-core/src/resource/owner_extent_check.rs"
+updated: 2026-05-16
+target: "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/owner_extent.rs, nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_consumption_extent.rs, nepl-core/src/resource/owner_extent_check.rs, nepl-core/src/resource/owner_extent_compare.rs"
 ---
 
 # ISS-20260513T121745489Z-RESOURCE-OWNER-EXTENT-MODULE-IS-MISS-EC5F756B: resource owner extent module is missing responsibility policy coverage
@@ -61,3 +61,18 @@ Resource IR owner extent proof 周辺の責務境界を source policy に戻し�
 - `cargo test -p nepl-core --test resource_ir raw_dealloc_extent -- --nocapture`: 2 passed
 - `cargo test -p nepl-core --test resource_ir raw_realloc_old_extent -- --nocapture`: 1 passed
 - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-16 追加修正
+
+`OwnerStorageExtent::RegionTokenSize` の比較可能化が `owner_extent_check.rs` に戻り、`node nodesrc/test_resource_checker_responsibility.js` が `owner_extent_check.rs has 105 lines; responsibility split limit is 100` で失敗していた。
+
+- `owner_extent_check.rs` は owner state 解決、extent proof 呼び出し、未証明要件の登録、診断 bridge に絞った。
+- `RegionTokenSize` を実比較可能な payload-size place へ変換する責務を `owner_extent_compare.rs` へ分離した。
+- `nodesrc/test_resource_checker_responsibility.js` に `owner_extent_compare.rs` の存在、`mod` 宣言、80 行上限を追加し、再び `owner_extent_check.rs` へ比較正規化が戻った場合に検出できるようにした。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir raw_dealloc_extent -- --nocapture`: 2 passed
+- `cargo test -p nepl-core --test resource_ir raw_realloc_old_extent -- --nocapture`: 1 passed
+- `node nodesrc/issues.js check --dir issues`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `owner_extent_check.rs` blocker は解消。次の別 issue として `owner_summary_raw_alias_walk.rs has 187 lines; responsibility split limit is 180` を検出したため `ISS-20260515T224600460Z-RESOURCE-OWNER-RAW-ALIAS-WALK-EXCEED-6BFE677D` に分離した。

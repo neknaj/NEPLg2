@@ -161,6 +161,7 @@ mod owner_entry;
 mod owner_expr;
 mod owner_extent;
 mod owner_extent_check;
+mod owner_extent_compare;
 mod owner_flow;
 mod owner_match_payload;
 mod owner_raw_address;

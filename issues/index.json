@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T22:33:30.718Z",
+  "generated_at": "2026-05-15T22:46:00.605Z",
   "counts": {
-    "total": 853,
-    "open": 6,
-    "resolved": 847,
+    "total": 854,
+    "open": 8,
+    "resolved": 846,
     "by_area": {
+      "core": {
+        "total": 416,
+        "open": 1,
+        "resolved": 415
+      },
       "stdlib": {
         "total": 254,
-        "open": 4,
-        "resolved": 250
+        "open": 5,
+        "resolved": 249
       },
       "TEST": {
         "total": 24,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 415,
-        "open": 0,
-        "resolved": 415
       },
       "CORE": {
         "total": 1,
@@ -120,6 +120,21 @@
   },
   "issues": [
     {
+      "id": "ISS-20260515T224600460Z-RESOURCE-OWNER-RAW-ALIAS-WALK-EXCEED-6BFE677D",
+      "title": "resource owner raw alias walk exceeds responsibility split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/owner_summary_raw_alias_walk.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T224600460Z-RESOURCE-OWNER-RAW-ALIAS-WALK-EXCEED-6BFE677D.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -150,6 +165,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF",
+      "title": "Vec empty cleanup treats zero-capacity sentinel as owned storage",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-16",
+      "target": "stdlib/alloc/collections/vec/storage/cleanup.nepl, stdlib/alloc/collections/vec/mutation/cleanup.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF.md"
+    },
+    {
       "id": "ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134",
       "title": "Vec storage tag and RegionToken owner are split, so Empty cleanup cannot be proven by type",
       "area": "stdlib",
@@ -158,7 +188,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-15",
-      "updated": "2026-05-15",
+      "updated": "2026-05-16",
       "target": "stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/vec/storage/cleanup.nepl, nepl-core/src/resource",
       "legacy_id": "",
       "source": "",
@@ -5858,8 +5888,8 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-05-13",
-      "updated": "2026-05-13",
-      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/owner_extent.rs, nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_consumption_extent.rs, nepl-core/src/resource/owner_extent_check.rs",
+      "updated": "2026-05-16",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/owner_extent.rs, nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_consumption_extent.rs, nepl-core/src/resource/owner_extent_check.rs, nepl-core/src/resource/owner_extent_compare.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T121745489Z-RESOURCE-OWNER-EXTENT-MODULE-IS-MISS-EC5F756B.md"
@@ -9403,21 +9433,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T154316014Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-5F916C0F.md"
-    },
-    {
-      "id": "ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF",
-      "title": "Vec empty cleanup treats zero-capacity sentinel as owned storage",
-      "area": "stdlib",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-14",
-      "updated": "2026-05-16",
-      "target": "stdlib/alloc/collections/vec/storage/cleanup.nepl, stdlib/alloc/collections/vec/mutation/cleanup.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF.md"
     },
     {
       "id": "ISS-20260514T155620178Z-VEC-EMPTY-REGIONTOKEN-SENTINEL-HELPE-B3CF72E9",

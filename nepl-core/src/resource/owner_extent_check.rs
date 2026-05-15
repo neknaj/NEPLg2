@@ -7,8 +7,8 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::{
     prove_owner_extent_matches_argument, OwnerExtentProof, PendingOwnerExtentRequirement,
 };
+use super::owner_extent_compare::{comparable_owner_extent, region_token_size_for_raw_owner};
 use super::owner_state::OwnerTable;
-use super::place_utils::region_token_size_field_for_raw_owner;
 use super::report::ResourceOwnerOperation;
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -54,7 +54,7 @@ impl ResourceOwnerCheckEngine<'_> {
             OwnerStorageExtent::Unknown => true,
             OwnerStorageExtent::RegionTokenSize => {
                 let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
-                let Some(size) = region_token_size_field_for_raw_owner(&resolved_place) else {
+                let Some(size) = region_token_size_for_raw_owner(&resolved_place) else {
                     return true;
                 };
                 self.ensure_owner_extent_matches_argument(
@@ -91,14 +91,5 @@ impl ResourceOwnerCheckEngine<'_> {
             .state(&resolved_place)
             .unwrap_or(OwnerState::NoFreeObligation);
         self.push_unavailable(operation, &resolved_place, state, span);
-    }
-}
-
-fn comparable_owner_extent(owner: &Place, extent: OwnerStorageExtent) -> OwnerStorageExtent {
-    match extent {
-        OwnerStorageExtent::RegionTokenSize => region_token_size_field_for_raw_owner(owner)
-            .map(|size| OwnerStorageExtent::payload_bytes(&size))
-            .unwrap_or(OwnerStorageExtent::Unknown),
-        other => other,
     }
 }

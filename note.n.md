@@ -39452,3 +39452,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 調査の結果、`VecStorageState` と `RegionToken<T>` を独立 field / helper 引数として持つ現行表現では、`Empty` と owned token の不正な組み合わせを型が排除できないことが根本原因だった。Empty branch を no-op にすると Resource IR が owner leak を報告するのは正しい。
 - 短期的には `vec_free_storage<T>` を unconditional owner-consuming destructor に戻し、free obligation を漏らさないことを優先した。`VecStorageState::Empty` の zero-size sentinel は `dealloc_raw` の `ptr <= 0` no-op で runtime allocation を返さない。
 - 根本修正として `ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134` を追加した。`VecStorage<T>::Owned(RegionToken<T>)` のように state と owner を構造的に束ねる再設計が必要。
+
+## 2026-05-16 Agent 1 Resource IR owner extent responsibility 再分割
+
+- `ISS-20260513T121745489Z-RESOURCE-OWNER-EXTENT-MODULE-IS-MISS-EC5F756B` の追加修正を行った。`plan.md` は変更していない。
+- `OwnerStorageExtent::RegionTokenSize` を実比較可能な payload-size place へ写す helper が `owner_extent_check.rs` に戻っており、`node nodesrc/test_resource_checker_responsibility.js` が `owner_extent_check.rs has 105 lines; responsibility split limit is 100` で失敗していた。
+- `owner_extent_check.rs` は owner state 解決、proof 呼び出し、pending requirement 登録、diagnostic bridge に戻し、`RegionTokenSize` の比較正規化を `owner_extent_compare.rs` へ分離した。
+- `nodesrc/test_resource_checker_responsibility.js` に `owner_extent_compare.rs` の existence / `mod` declaration / 80 line budget を追加し、同じ責務が checker bridge に戻った場合に検出できるようにした。
+- `node nodesrc/test_resource_checker_responsibility.js` は owner extent blocker を通過し、次の別件 `owner_summary_raw_alias_walk.rs has 187 lines; responsibility split limit is 180` に到達した。これは `ISS-20260515T224600460Z-RESOURCE-OWNER-RAW-ALIAS-WALK-EXCEED-6BFE677D` に分離した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir raw_dealloc_extent -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir raw_realloc_old_extent -- --nocapture`: 1 passed
+  - `node nodesrc/issues.js check --dir issues`: passed
