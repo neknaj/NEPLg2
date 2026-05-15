@@ -413,8 +413,9 @@ fn main <()*>()> ():
 
 ## std_test_noshadow_allows_overload_with_different_signature
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"std_test_noshadow_allows_overload_with_different_signature\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"std overload remains available\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -424,8 +425,12 @@ ret: 0
 fn assert_eq_i32 <(str,str)*>()> (_a, _b):
     ()
 
-fn main <()->i32> ():
-    0
+fn main <()*>i32> ():
+    let report:
+        test_report_new "std_test_noshadow_allows_overload_with_different_signature"
+        |> test_report_push assert_eq_i32 "std overload remains available" 0 0
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## std_stdio_noshadow_same_signature_redefinition_is_error

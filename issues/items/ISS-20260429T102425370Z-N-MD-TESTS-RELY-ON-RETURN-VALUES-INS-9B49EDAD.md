@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-14
+updated: 2026-05-15
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -986,3 +986,22 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - full file focused run は約236秒。timeout や runtime hang ではなく、45 doctest の個別 compile が主因。
 
 この issue はまだ open のまま継続する。Overload の残り `ret:` 依存 fixture と、report 省略検出 policy が残っている。
+
+## 2026-05-15 Shadowing std/test noshadow stdout report migration
+
+`tests/compiler/shadowing.n.md` の `std_test_noshadow_allows_overload_with_different_signature` を、`ret: 0` だけで成功を表す形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- local overload `assert_eq_i32 <(str,str)*>()>` を残したまま、stdlib 側の `assert_eq_i32 <(str,i32,i32)->TestAssertion>` が overload 解決で使えることを stdout assertion label として固定した。
+- `test_report_print_stdout` と `test_report_exit_code` を使い、report 表示と終了 code の責務を分離した。
+- `nodesrc/test_shadowing_std_test_report_contract.js` を追加し、この fixture が `ret:` へ戻らず canonical report を出すことを固定した。
+
+検証:
+
+- `node nodesrc/test_shadowing_std_test_report_contract.js`: pass
+- `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 23 --assert-io --dist web/dist`: pass
+
+この issue はまだ open のまま継続する。Shadowing の他の core-only `ret:` fixture は、stdout を持つ `std/test` assertion suite ではなく戻り値そのものを観測する言語 semantics test なので、今回の対象外とした。残件は、他ファイルの `std/test` assertion suite と report 省略検出 policy の拡充である。

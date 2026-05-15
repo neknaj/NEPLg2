@@ -1,3 +1,15 @@
+# 2026-05-15 Agent 1 shadowing std/test report doctest 修正
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`tests/compiler/shadowing.n.md` の `std_test_noshadow_allows_overload_with_different_signature` を `ret: 0` だけの成功確認から canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+- local overload `assert_eq_i32 <(str,str)*>()>` は維持し、同名別 signature の定義があっても stdlib の `assert_eq_i32 <(str,i32,i32)->TestAssertion>` が overload 解決で使えることを assertion label と stdout に固定した。
+- `nodesrc/test_shadowing_std_test_report_contract.js` を追加し、この fixture が `ret:` へ戻らず stdout report を固定することを parser-level contract として監視する。
+- 検証:
+  - `node nodesrc/test_shadowing_std_test_report_contract.js`
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`
+  - `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 23 --assert-io --dist web/dist`
+- `tests/stdlib/selfhost_cli_driver.n.md` も同 issue の候補として確認したが、現時点では別 issue の JSON builder / serializer 型検査エラーで compile 前に止まるため、JSON 側対応後に移行する。
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 StackPop owner aggregate accessor 修正
 
 - `ISS-20260515T073602740Z-STACKPOP-OWNER-RESULT-LACKS-PUBLIC-A-58C543F4` を解決した。
