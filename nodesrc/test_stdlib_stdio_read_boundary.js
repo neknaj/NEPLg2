@@ -245,6 +245,26 @@ assert.match(
     /#import\s+"std\/stdio\/raw"\s+as\s+\*/,
     'std/stdio/read/buffer must import std/stdio/raw explicitly when crossing the raw ABI boundary',
 );
+assert.doesNotMatch(
+    readBufferCode,
+    /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/,
+    'std/stdio/read/buffer must not import low-level MemPtr owner allocation wrappers',
+);
+assert.match(
+    readBufferCode,
+    /\bfn\s+stdio_discard_read_buffer\s+<\(RegionToken<u8>,StdErrorKind\)\*>/,
+    'stdio read discard helper must consume a RegionToken owner, not a MemPtr owner',
+);
+assert.match(
+    readBufferCode,
+    /\bfn\s+stdio_finish_read_buffer\s+<\(RegionToken<u8>,i32\)\*>/,
+    'stdio read finish helper must consume a RegionToken owner, not a MemPtr owner',
+);
+assert.match(
+    readBufferCode,
+    /\brealloc_region_bytes_keep<u8>/,
+    'stdio read finish helper must shrink through owner-preserving RegionToken realloc',
+);
 assert.match(
     readTextCode,
     /#import\s+"\.\/buffer"\s+as\s+\*/,
@@ -292,6 +312,36 @@ assert.match(
     /\bstdio_finish_read_buffer\b/,
     'read_all must return an exact-size ByteBuf through stdio_finish_read_buffer',
 );
+assert.match(
+    readAllMatch[1],
+    /\balloc_region<u8>/,
+    'read_all buffer and scratch allocation must use RegionToken owners',
+);
+assert.match(
+    readAllMatch[1],
+    /\brealloc_region_bytes_keep<u8>/,
+    'read_all grow path must keep buffer ownership in RegionToken',
+);
+assert.match(
+    readAllMatch[1],
+    /\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region\b/,
+    'read_all private fd_read scratch owners must be explicitly consumed through typed owner cleanup',
+);
+assert.doesNotMatch(
+    readAllMatch[1],
+    /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr|mem_ptr_addr|store_i32|load_i32)\b/,
+    'read_all must not directly own low-level MemPtr allocation or raw layout operations',
+);
+assert.doesNotMatch(
+    readTextCode,
+    /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/,
+    'std/stdio/read/text must not import low-level MemPtr owner allocation wrappers',
+);
+assert.doesNotMatch(
+    readTextCode,
+    /#import\s+"core\/mem\/raw"\s+as\s+\*/,
+    'std/stdio/read/text must not import raw memory after read_line moves to RegionToken and checked scalar access',
+);
 
 assert.match(
     readTextCode,
@@ -311,6 +361,8 @@ assert.match(
 );
 
 for (const pattern of [
+    /\balloc_ptr\b/,
+    /\bdealloc_ptr\b/,
     /\bstd_alloc\b/,
     /\bstd_free\b/,
     /\bstring_from_addr_unchecked\b/,

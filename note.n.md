@@ -39218,3 +39218,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_documentation_contract.js`
   - `node nodesrc/tests.js -i stdlib/std/stdio/raw.nepl -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/write/byte.nepl --no-tree -o tmp/agent1-stdio-fd-region-scratch-min.json -j 1 --dist web/dist --assert-io`: 2 passed
   - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/agent1-stdio-fd-region-scratch-stderr.json -j 1 --dist web/dist --assert-io`: 3 passed
+
+## 2026-05-16 Agent 1 stdio read scratch / buffer RegionToken 移行
+
+- `ISS-20260515T173402735Z-STDIO-READ-BYTES-STILL-USES-MEMPTR-O-571DB719` を追加して fixed にした。
+- `stdlib/std/stdio/read/bytes.nepl` の `stdio_read_all_bytes_result` は direct `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を使わず、main buffer、iovec scratch、nread scratch を `RegionToken<u8>` owner として扱うようにした。
+- read_all の grow は `realloc_region_bytes_keep<u8>` へ寄せ、成功時は新 token、失敗時は `RegionReallocError` から旧 token を戻して cleanup できるようにした。容量 overflow と allocator payload 超過は `CapacityExceeded` として扱う。
+- `stdlib/std/stdio/read/buffer.nepl` の finish/discard helper は `MemPtr<u8>` owner + cap ではなく `RegionToken<u8>` owner を消費する API に変更した。exact-size `ByteBuf` 化は `io_bytebuf_finish_region` に委譲する。
+- `stdlib/std/stdio/read/text.nepl` の `stdio_read_line_result` も固定長 buffer / fd_read scratch を `RegionToken<u8>` owner に移し、1 byte 読込後の byte access は checked `store_u8` / `load_u8` を使うようにした。
+- read 側の cleanup branch から `#intrinsic "unreachable"` を削除し、unsafe helper を error path の穴埋めに使わない方針を固定した。
+- `nodesrc/test_stdlib_stdio_read_boundary.js` に、read helper が `RegionToken<u8>` owner を消費すること、read_all/read_line が low-level `alloc_ptr` / raw layout 操作を再導入しないことを追加した。
+- `stdlib/std/stdio/read/text.nepl` の doctest は `string_from_mem_unchecked_result` の `resource.owner.maybe_leak` で失敗する。read/buffer + read/bytes focused run は通るため、ByteBuf-to-str / string constructor owner transfer 残件として `ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535` を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+  - `node nodesrc/test_stdlib_documentation_contract.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl -i stdlib/std/stdio/read/bytes.nepl --no-tree -o tmp/agent1-stdio-read-region-owner-buffer-bytes.json -j 1 --dist web/dist --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl -i stdlib/std/stdio/read/bytes.nepl -i stdlib/std/stdio/read/text.nepl --no-tree -o tmp/agent1-stdio-read-region-owner-doctests.json -j 1 --dist web/dist --assert-io`: buffer doctest passed, text doctests 2 件は新規 string owner issue で compile fail
+  - `node nodesrc/issues.js check`
+  - `git diff --check`

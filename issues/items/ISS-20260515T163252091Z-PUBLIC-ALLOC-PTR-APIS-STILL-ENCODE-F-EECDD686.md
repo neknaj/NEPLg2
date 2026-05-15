@@ -80,3 +80,9 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 `stdio_write_fd_mem_result` は direct `alloc_ptr` / `dealloc_ptr` / `mem_ptr_addr` / raw `store_i32` / raw `load_i32` を持たず、`iov_region` / `nwritten_region` owner と non-owning view だけを扱う。iovec layout の raw address 操作は `std/stdio/raw.nepl` の `stdio_fd_write_from_result` へ閉じた。
 
 これで `std/stdio/write` の stdout/stderr write 経路では `MemPtr<u8>` を free obligation carrier として扱わない。親 issue の残件は `std/fs` / `std/env/cliarg/raw` / `std/stdio/read` など、まだ direct low-level allocation owner を必要としている raw-backed boundary に絞られる。
+
+## 2026-05-16 Agent 1 部分対応メモ 4
+
+子 issue [ISS-20260515T173402735Z-STDIO-READ-BYTES-STILL-USES-MEMPTR-O-571DB719](./ISS-20260515T173402735Z-STDIO-READ-BYTES-STILL-USES-MEMPTR-O-571DB719.md) で、`stdlib/std/stdio/read` の `read_all` / `read_line` 経路を `RegionToken<u8>` owner 境界へ移す。
+
+この対応では `stdio_read_all_bytes_result` の growable buffer、`stdio_read_line_result` の固定長 buffer、fd_read 用 iovec/nread scratch を direct `alloc_ptr` / `dealloc_ptr` / `realloc_ptr` から外し、`RegionToken<u8>` と non-owning `MemPtr<u8>` view に分離する。read 側の移行が完了すれば、`std/stdio` の主要 read/write 経路では `MemPtr<u8>` を free obligation carrier として扱わない。

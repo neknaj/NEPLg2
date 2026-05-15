@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T17:26:52.875Z",
+  "generated_at": "2026-05-15T17:44:54.637Z",
   "counts": {
-    "total": 839,
-    "open": 6,
-    "resolved": 833,
+    "total": 841,
+    "open": 7,
+    "resolved": 834,
     "by_area": {
+      "core": {
+        "total": 413,
+        "open": 1,
+        "resolved": 412
+      },
       "stdlib": {
-        "total": 243,
+        "total": 244,
         "open": 4,
-        "resolved": 239
+        "resolved": 240
       },
       "TEST": {
         "total": 24,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 412,
-        "open": 0,
-        "resolved": 412
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535",
+      "title": "read text doctests expose string_from_mem_unchecked_result owner leak",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource; stdlib/alloc/io/bytebuf.nepl; stdlib/alloc/string/storage.nepl; stdlib/std/stdio/read/text.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T174246376Z-READ-TEXT-DOCTESTS-EXPOSE-STRING-FRO-F2CEA535.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -9898,6 +9913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T172241987Z-STDIO-FD-WRITE-SCRATCH-STILL-USES-ME-5A8C9CCA.md"
+    },
+    {
+      "id": "ISS-20260515T173402735Z-STDIO-READ-BYTES-STILL-USES-MEMPTR-O-571DB719",
+      "title": "stdio read paths still use MemPtr owner buffers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/stdio/read",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T173402735Z-STDIO-READ-BYTES-STILL-USES-MEMPTR-O-571DB719.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

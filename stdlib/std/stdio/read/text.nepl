@@ -12,9 +12,7 @@
 
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "std/text" as *
 #import "./buffer" as *
@@ -92,7 +90,7 @@ pub fn read_all <()*>str> ():
 //: 実装(アルゴリズム):
 //: - 1 バイトずつ `fd_read` し、改行または EOF で停止します。
 //: - 読み込んだ byte 列は exact-size の `ByteBuf` に詰め直してから `text_bytebuf_to_utf8_str_result` へ渡します。
-//: - raw address は読み書き用の非所有 view に限定し、scratch の解放は所有 `MemPtr` を `dealloc_ptr` に渡して行います。
+//: - 読込 buffer と scratch は `RegionToken<u8>` が所有し、`MemPtr` は `region_ptr` / `mem_ptr_add` で得る non-owning view としてだけ使います。
 //:
 //: 注意(重要):
 //: - 最大 1024 バイトまでです。
@@ -102,33 +100,35 @@ pub fn read_all <()*>str> ():
 //: - O(n)
 pub fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
     let cap <i32> 1024;
-    match alloc_ptr<u8> cap:
+    match alloc_region<u8> cap:
         Result::Err _e:
             Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-        Result::Ok buf:
-            match alloc_ptr<u8> 8:
+        Result::Ok buf_region:
+            match alloc_region<u8> 8:
                 Result::Err _e:
-                    match dealloc_ptr<u8> buf cap:
+                    match dealloc_region<u8> buf_region:
                         Result::Ok _:
                             ()
                         Result::Err _:
-                            #intrinsic "unreachable" <> ();
+                            ()
                     Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                Result::Ok iov:
-                    match alloc_ptr<u8> 4:
+                Result::Ok iov_region:
+                    let iov <MemPtr<u8>> region_ptr &iov_region
+                    match alloc_region<u8> 4:
                         Result::Err _e:
-                            match dealloc_ptr<u8> iov 8:
+                            match dealloc_region<u8> iov_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    #intrinsic "unreachable" <> ();
-                            match dealloc_ptr<u8> buf cap:
+                                    ()
+                            match dealloc_region<u8> buf_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    #intrinsic "unreachable" <> ();
+                                    ()
                             Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                        Result::Ok nread:
+                        Result::Ok nread_region:
+                            let nread <MemPtr<u8>> region_ptr &nread_region
                             let mut line_len <i32> 0;
                             let mut done <i32> 0;
                             let mut failed <i32> 0;
@@ -141,16 +141,14 @@ pub fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
                                         then:
                                             set done 1;
                                         else:
-                                            let write_ptr <MemPtr<u8>> mem_ptr_add buf line_len;
-                                            let write_raw <i32> mem_ptr_addr write_ptr;
-                                            if:
-                                                le write_raw 0
-                                                then:
+                                            let write_base <MemPtr<u8>> region_ptr &buf_region
+                                            let write_ptr <MemPtr<u8>> mem_ptr_add write_base line_len
+                                            match store_u8 write_ptr 0:
+                                                Result::Err _:
                                                     set failed 1;
                                                     set failure StdErrorKind::InvalidOperation;
                                                     set done 1;
-                                                else:
-                                                    store_u8 write_raw 0;
+                                                Result::Ok _:
                                                     match stdio_fd_read_into_result 0 iov nread write_ptr 1:
                                                         Result::Err e:
                                                             set failed 1;
@@ -169,36 +167,41 @@ pub fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
                                                                         then:
                                                                             set done 1;
                                                                         else:
-                                                                            let b <i32> load_u8 write_raw;
-                                                                            if:
-                                                                                eq b '\n'
-                                                                                then:
+                                                                            match load_u8 write_ptr:
+                                                                                Option::Some b:
+                                                                                    if:
+                                                                                        eq b '\n'
+                                                                                        then:
+                                                                                            set done 1;
+                                                                                        else:
+                                                                                            set line_len add line_len 1;
+                                                                                Option::None:
+                                                                                    set failed 1;
+                                                                                    set failure StdErrorKind::InvalidOperation;
                                                                                     set done 1;
-                                                                                else:
-                                                                                    set line_len add line_len 1;
 
-                            match dealloc_ptr<u8> iov 8:
+                            match dealloc_region<u8> nread_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    #intrinsic "unreachable" <> ();
-                            match dealloc_ptr<u8> nread 4:
+                                    ()
+                            match dealloc_region<u8> iov_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    #intrinsic "unreachable" <> ();
+                                    ()
 
                             if:
                                 eq failed 1
                                 then:
-                                    match dealloc_ptr<u8> buf cap:
+                                    match dealloc_region<u8> buf_region:
                                         Result::Ok _:
                                             ()
                                         Result::Err _:
-                                            #intrinsic "unreachable" <> ();
+                                            ()
                                     Result<str, StdErrorKind>::Err failure
                                 else:
-                                    match stdio_finish_read_buffer buf cap line_len:
+                                    match stdio_finish_read_buffer buf_region line_len:
                                         Result::Err e:
                                             Result<str, StdErrorKind>::Err e
                                         Result::Ok bytes:
