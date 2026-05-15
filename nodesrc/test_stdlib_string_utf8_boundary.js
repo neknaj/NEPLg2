@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -16,10 +17,6 @@ function implementation(src) {
         .split(/\r?\n/)
         .filter((line) => !/^\s*\/\//.test(line))
         .join("\n");
-}
-
-function lineCount(src) {
-    return src.trimEnd().split(/\r?\n/).length;
 }
 
 const rootRelPath = "stdlib/alloc/string.nepl";
@@ -44,6 +41,6 @@ assert.match(storageCode, /fn\s+string_from_utf8_mem_result\b[\s\S]*string_utf8_
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:[\s\S]*Ascii[\s\S]*Two[\s\S]*Three[\s\S]*Four[\s\S]*Invalid/, "alloc/string/utf8 must model leading byte categories as an enum");
 assert.match(utf8Code, /fn\s+string_utf8_validate_mem\b[\s\S]*match\s+string_utf8_lead_kind\s+b0:[\s\S]*StringUtf8LeadKind::Ascii:[\s\S]*StringUtf8LeadKind::Two:[\s\S]*StringUtf8LeadKind::Three:[\s\S]*StringUtf8LeadKind::Four:[\s\S]*StringUtf8LeadKind::Invalid:/, "alloc/string/utf8 validation must branch with exhaustive enum match");
 
-assert.ok(lineCount(utf8) <= 260, `${utf8RelPath} must stay below 260 lines`);
+assert.ok(implementationLineCount(utf8) <= 260, `${utf8RelPath} must stay below 260 implementation lines`);
 
 console.log("alloc/string utf8 boundary regression passed");

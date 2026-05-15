@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments } = require('./source_policy/stdlib_builder_owner');
+const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -62,7 +62,7 @@ for (const moduleName of hiddenRawModules) {
 
 assert.doesNotMatch(rootCode, /\bfn\s+/, 'alloc/string facade must not own function bodies');
 assert.doesNotMatch(rootCode, /\b(?:struct|enum)\s+/, 'alloc/string facade must not own data definitions');
-assert.ok(rootSrc.split(/\r?\n/).length <= 60, `${rootRelPath} should stay as a small facade`);
+assert.ok(implementationLineCount(rootSrc) <= 60, `${rootRelPath} should stay as a small facade`);
 
 assert.match(
     stdlibMapSrc,

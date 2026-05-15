@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments } = require('./source_policy/stdlib_builder_owner');
+const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -49,6 +49,6 @@ assert.match(
     /fn\s+string_region_data_ptr\s+<\(&RegionToken<u8>\)->MemPtr<u8>>/,
     'string_region_data_ptr must project from a RegionToken reference',
 );
-assert.ok(storageSrc.split(/\r?\n/).length <= 230, `${storageRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(storageSrc) <= 230, `${storageRelPath} should stay narrowly scoped`);
 
 console.log('alloc/string storage boundary regression passed');

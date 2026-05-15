@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments } = require('./source_policy/stdlib_builder_owner');
+const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -96,10 +96,10 @@ assert.match(
     /fn\s+str_utf8_step_width_at[\s\S]*match\s+string_utf8_lead_kind\s+b0:[\s\S]*StringUtf8LeadKind::Ascii:[\s\S]*StringUtf8LeadKind::Two:[\s\S]*StringUtf8LeadKind::Three:[\s\S]*StringUtf8LeadKind::Four:[\s\S]*StringUtf8LeadKind::Invalid:/,
     'str_utf8_step_width_at must calculate byte width through exhaustive leading-byte enum match',
 );
-assert.ok(sliceSrc.split(/\r?\n/).length <= 35, `${sliceRelPath} should stay as a small facade`);
-assert.ok(sliceByteSrc.split(/\r?\n/).length <= 90, `${sliceByteRelPath} should stay narrowly scoped`);
-assert.ok(sliceCharSrc.split(/\r?\n/).length <= 290, `${sliceCharRelPath} should stay narrowly scoped`);
-assert.ok(sliceTrimSrc.split(/\r?\n/).length <= 150, `${sliceTrimRelPath} should stay narrowly scoped`);
-assert.ok(charOffsetsSrc.split(/\r?\n/).length <= 220, `${charOffsetsRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(sliceSrc) <= 35, `${sliceRelPath} should stay as a small facade`);
+assert.ok(implementationLineCount(sliceByteSrc) <= 90, `${sliceByteRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(sliceCharSrc) <= 290, `${sliceCharRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(sliceTrimSrc) <= 150, `${sliceTrimRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(charOffsetsSrc) <= 220, `${charOffsetsRelPath} should stay narrowly scoped`);
 
 console.log('alloc/string slice boundary regression passed');

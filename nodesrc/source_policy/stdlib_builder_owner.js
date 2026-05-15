@@ -9,6 +9,13 @@ function stripNeplComments(src) {
         .join('\n');
 }
 
+function implementationLineCount(src) {
+    return stripNeplComments(src)
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0)
+        .length;
+}
+
 function assertByteBuilderOwnerBoundary(code) {
     assert.match(
         code,
@@ -173,6 +180,7 @@ function assertStringBuilderOwnerBoundary(code) {
 
 module.exports = {
     stripNeplComments,
+    implementationLineCount,
     assertByteBuilderOwnerBoundary,
     assertStringBuilderOwnerBoundary,
 };

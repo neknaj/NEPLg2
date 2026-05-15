@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const facadeRelPath = 'stdlib/std/streamio.nepl';
@@ -51,7 +52,7 @@ for (const [relPath, src, maxLines] of [
     [appendIntegerRelPath, appendIntegerSrc, 180],
     [appendFloatRelPath, appendFloatSrc, 130],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 

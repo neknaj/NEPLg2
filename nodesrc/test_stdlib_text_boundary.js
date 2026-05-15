@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -96,7 +97,7 @@ for (const [relPath, src, limit] of [
     [decodeRelPath, read(decodeRelPath), 200],
     [convertRelPath, read(convertRelPath), 100],
 ]) {
-    const lines = src.split(/\r?\n/).length;
+    const lines = implementationLineCount(src);
     assert(lines <= limit, `${relPath} has ${lines} lines; split limit is ${limit}`);
 }
 

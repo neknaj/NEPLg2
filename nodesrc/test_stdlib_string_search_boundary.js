@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments } = require('./source_policy/stdlib_builder_owner');
+const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -74,9 +74,9 @@ assert.match(
     /fn\s+str_utf8_is_boundary[\s\S]*string_utf8_is_continuation\s+string_byte_at_unchecked\s+s\s+idx/,
     'str_utf8_is_boundary must classify continuation bytes through UTF-8 helpers',
 );
-assert.ok(searchSrc.split(/\r?\n/).length <= 35, `${searchRelPath} should stay as a small facade`);
-assert.ok(compareSrc.split(/\r?\n/).length <= 270, `${compareRelPath} should stay narrowly scoped`);
-assert.ok(boundarySrc.split(/\r?\n/).length <= 75, `${boundaryRelPath} should stay narrowly scoped`);
-assert.ok(byteFindSrc.split(/\r?\n/).length <= 125, `${byteFindRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(searchSrc) <= 35, `${searchRelPath} should stay as a small facade`);
+assert.ok(implementationLineCount(compareSrc) <= 270, `${compareRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(boundarySrc) <= 75, `${boundaryRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(byteFindSrc) <= 125, `${byteFindRelPath} should stay narrowly scoped`);
 
 console.log('alloc/string search boundary regression passed');

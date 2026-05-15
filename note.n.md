@@ -1,3 +1,32 @@
+# 2026-05-15 Agent 1 stdlib source policy 実装行数境界修正
+
+- `ISS-20260515T135819737Z-STDLIB-SOURCE-POLICY-LINE-LIMITS-C-4D318A9B` を追加して解決した。
+- stdlib source-policy の responsibility line limit が一部で `.nepl` の物理行数を数えており、丁寧な日本語 doc-comment / doctest を増やす方針と衝突していた。
+- `nodesrc/source_policy/stdlib_builder_owner.js` に `implementationLineCount` を追加し、`//` コメント行と空行を除いた実装行数を共通の判定単位にした。
+- core/mem、core/math、std/text、std/test、stdio/debug、streamio、diag/error、json、nm parser document、alloc/string 系、Vec sort 系の stdlib source-policy line limit を共通 helper へ移行した。
+- `doc/stdlib_doc_comment_policy.md` に、source policy の file-size / responsibility 境界は doc-comment を含む物理行数ではなく実装行数で監視し、説明を削って境界を満たしてはならないことを明記した。
+- 検証:
+  - `node --check nodesrc/source_policy/stdlib_builder_owner.js`
+  - `node --check nodesrc/test_stdlib_core_mem_boundary.js`
+  - `node --check nodesrc/test_stdlib_math_module_split.js`
+  - `node --check nodesrc/test_stdlib_text_boundary.js`
+  - `node --check nodesrc/test_stdlib_string_integer_boundary.js`
+  - `node --check nodesrc/test_stdlib_vec_sort_module_split.js`
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`
+  - `node nodesrc/test_stdlib_math_module_split.js`
+  - `node nodesrc/test_stdlib_text_boundary.js`
+  - `node nodesrc/test_stdlib_string_integer_boundary.js`
+  - `node nodesrc/test_stdlib_string_search_boundary.js`
+  - `node nodesrc/test_stdlib_string_slice_boundary.js`
+  - `node nodesrc/test_stdlib_vec_sort_module_split.js`
+  - `node nodesrc/test_stdlib_json_doc_no_boilerplate.js`
+  - `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_stdio_debug_boundary.js`
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 alloc/string doc report doctest 修正
 
 - `ISS-20260515T133717458Z-ALLOC-STRING-DOC-COMMENT-DOCTESTS-ST-AE5C1FAA` を追加して解決した。

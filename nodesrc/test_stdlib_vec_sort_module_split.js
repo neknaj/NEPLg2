@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -16,10 +17,6 @@ function implementation(src) {
         .split(/\r?\n/)
         .filter((line) => !/^\s*\/\//.test(line))
         .join("\n");
-}
-
-function lineCount(src) {
-    return src.trimEnd().split(/\r?\n/).length;
 }
 
 function assertOwns(moduleSource, name, relPath) {
@@ -94,7 +91,7 @@ for (const [key, limit] of [
     ["mergeRange", 140],
     ["mergeApi", 140],
 ]) {
-    assert.ok(lineCount(sources[key]) <= limit, `${files[key]} must stay below ${limit} lines`);
+    assert.ok(implementationLineCount(sources[key]) <= limit, `${files[key]} must stay below ${limit} implementation lines`);
 }
 
 for (const name of [

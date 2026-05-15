@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/std/stdio.nepl';
@@ -74,8 +75,8 @@ assert.match(
     'release profile debug must stay no-op',
 );
 
-assert.ok(debugSrc.split(/\r?\n/).length <= 60, `${debugRelPath} must stay within the facade boundary`);
-assert.ok(enabledSrc.split(/\r?\n/).length <= 190, `${enabledRelPath} must stay within the debug profile boundary`);
-assert.ok(disabledSrc.split(/\r?\n/).length <= 210, `${disabledRelPath} must stay within the release profile boundary`);
+assert.ok(implementationLineCount(debugSrc) <= 60, `${debugRelPath} must stay within the facade boundary`);
+assert.ok(implementationLineCount(enabledSrc) <= 190, `${enabledRelPath} must stay within the debug profile boundary`);
+assert.ok(implementationLineCount(disabledSrc) <= 210, `${disabledRelPath} must stay within the release profile boundary`);
 
 console.log('stdlib stdio debug boundary regression passed');

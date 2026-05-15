@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPaths = {
@@ -72,7 +73,7 @@ const lineLimits = {
 };
 
 for (const [name, limit] of Object.entries(lineLimits)) {
-    const lines = src[name].trimEnd().split(/\r?\n/).length;
+    const lines = implementationLineCount(src[name]);
     assert.ok(lines <= limit, `${relPaths[name]} has ${lines} lines; split modules must stay below ${limit}`);
 }
 

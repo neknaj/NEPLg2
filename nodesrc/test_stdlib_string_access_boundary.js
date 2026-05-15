@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments } = require('./source_policy/stdlib_builder_owner');
+const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -36,6 +36,6 @@ assert.match(
     /fn\s+string_byte_at_unchecked[\s\S]*load_u8\s+<i32>\s+add\s+string_addr\s+s\s+<i32>\s+add\s+4\s+idx/,
     'string_byte_at_unchecked must keep raw layout access isolated in string/access',
 );
-assert.ok(accessSrc.split(/\r?\n/).length <= 130, `${accessRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(accessSrc) <= 130, `${accessRelPath} should stay narrowly scoped`);
 
 console.log('alloc/string access boundary regression passed');

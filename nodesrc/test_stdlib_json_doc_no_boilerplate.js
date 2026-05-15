@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const files = {
@@ -58,7 +59,7 @@ assert.doesNotMatch(srcByFile.facade, /^(?:fn|enum|struct)\s/m, `${files.facade}
 
 for (const [key, src] of Object.entries(srcByFile)) {
     const relPath = files[key];
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     if (key === 'facade') {
         assert.ok(lineCount <= 80, `${relPath} facade must stay small`);
     } else {

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T13:50:57.905Z",
+  "generated_at": "2026-05-15T14:07:19.223Z",
   "counts": {
-    "total": 831,
+    "total": 832,
     "open": 5,
-    "resolved": 826,
+    "resolved": 827,
     "by_area": {
       "stdlib": {
         "total": 237,
@@ -77,9 +77,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 11,
+        "total": 12,
         "open": 0,
-        "resolved": 11
+        "resolved": 12
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -6583,6 +6583,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T104059906Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-EX-78F016BC.md"
+    },
+    {
+      "id": "ISS-20260515T135819737Z-STDLIB-SOURCE-POLICY-LINE-LIMITS-C-4D318A9B",
+      "title": "stdlib source policy line limits count documentation comments",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nodesrc/source_policy/stdlib_builder_owner.js, nodesrc/test_stdlib_*boundary.js, nodesrc/test_stdlib_*no_unsafe_unwraps.js, doc/stdlib_doc_comment_policy.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T135819737Z-STDLIB-SOURCE-POLICY-LINE-LIMITS-C-4D318A9B.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",

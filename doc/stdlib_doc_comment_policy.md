@@ -349,6 +349,7 @@ stdlib reboot 中は、次の順でコメントを整備する。
 - 安全性の前提が変わっていないか
 - `Option` / `Result` / `Outcome` の使い分け説明が古くなっていないか
 - doctest がまだ有効か
+- source policy の file-size / responsibility 境界は、ドキュメントコメントを含む物理行数ではなく、コメントを除いた実装行数で監視する。説明を削って境界を満たしてはならない。
 
 コメントが古い場合は、コードと同じ commit で更新する。
 

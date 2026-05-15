@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -114,7 +115,7 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/convert/float/float_to_i64.nepl", convertFloatToI64Module, 260],
     ["stdlib/core/math/convert/float/float_width.nepl", convertFloatWidthModule, 120],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
@@ -143,7 +144,7 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/int128/u128.nepl", int128U128Module, 180],
     ["stdlib/core/math/int128/i128.nepl", int128I128Module, 180],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 
@@ -164,7 +165,7 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/i32/bitwise/count.nepl", i32BitwiseCountModule, 160],
     ["stdlib/core/math/i32/compare.nepl", i32CompareModule, 360],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
@@ -192,7 +193,7 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/i64/bitwise/count.nepl", i64BitwiseCountModule, 160],
     ["stdlib/core/math/i64/compare.nepl", i64CompareModule, 360],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
@@ -217,7 +218,7 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/f32/unary.nepl", f32UnaryModule, 260],
     ["stdlib/core/math/f32/compare.nepl", f32CompareModule, 240],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
@@ -234,7 +235,7 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/f64/unary.nepl", f64UnaryModule, 260],
     ["stdlib/core/math/f64/compare.nepl", f64CompareModule, 240],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 
@@ -250,7 +251,7 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/u8/arith.nepl", u8ArithModule, 240],
     ["stdlib/core/math/u8/compare.nepl", u8CompareModule, 260],
 ]) {
-    const lineCount = src.split(/\r?\n/).length;
+    const lineCount = implementationLineCount(src);
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 

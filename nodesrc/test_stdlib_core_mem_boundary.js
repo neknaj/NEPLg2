@@ -3,6 +3,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -125,7 +126,7 @@ for (const [label, text, limit] of [
     ["stdlib/core/mem/pointer/bulk.nepl", pointerBulk, 260],
     ["stdlib/core/mem/pointer/scalar.nepl", pointerScalar, 160],
 ]) {
-    const lines = text.split("\n").length;
+    const lines = implementationLineCount(text);
     assert(lines <= limit, `${label} has ${lines} lines; split boundary limit is ${limit}`);
 }
 
