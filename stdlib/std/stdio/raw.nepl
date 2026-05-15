@@ -31,6 +31,135 @@ pub fn stdio_fd_read_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt
 pub fn stdio_fd_write_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nwritten):
     fd_write fd mem_ptr_addr iov iovcnt mem_ptr_addr nwritten
 
+//: stdio_fd_write_from_result: fd_write の iovec/nwritten raw layout を stdio raw 境界へ閉じ込める
+//:
+//: [目的/もくてき]:
+//: - caller が所有する `iov` 8 byte と `nwritten` 4 byte を初期化し、`fd_write` の結果として書けた byte 数を返します。
+//:
+//: [実装/じっそう]:
+//: - `data` の raw address と `data_len` を iovec に store し、`nwritten` を 0 に初期化してから `fd_write` を呼びます。
+//: - raw address の取り出し、ABI layout store、`nwritten` の raw load はこの関数内だけに閉じます。
+//:
+//: [注意/ちゅうい]:
+//: - `iov` は 8 byte、`nwritten` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[normalize_newlines]
+//: stdout: "R"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "std/stdio/raw" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<u8> 1:
+//:         Result::Err _:
+//:             1
+//:         Result::Ok data_region:
+//:             let data <MemPtr<u8>> region_ptr &data_region
+//:             match store_u8 data 'R':
+//:                 Result::Err _:
+//:                     match dealloc_region<u8> data_region:
+//:                         Result::Ok _:
+//:                             1
+//:                         Result::Err _:
+//:                             1
+//:                 Result::Ok _:
+//:                     match alloc_region<u8> 8:
+//:                         Result::Err _:
+//:                             match dealloc_region<u8> data_region:
+//:                                 Result::Ok _:
+//:                                     1
+//:                                 Result::Err _:
+//:                                     1
+//:                         Result::Ok iov_region:
+//:                             let iov <MemPtr<u8>> region_ptr &iov_region
+//:                             match alloc_region<u8> 4:
+//:                                 Result::Err _:
+//:                                     match dealloc_region<u8> iov_region:
+//:                                         Result::Ok _:
+//:                                             match dealloc_region<u8> data_region:
+//:                                                 Result::Ok _:
+//:                                                     1
+//:                                                 Result::Err _:
+//:                                                     1
+//:                                         Result::Err _:
+//:                                             match dealloc_region<u8> data_region:
+//:                                                 Result::Ok _:
+//:                                                     1
+//:                                                 Result::Err _:
+//:                                                     1
+//:                                 Result::Ok nwritten_region:
+//:                                     let nwritten <MemPtr<u8>> region_ptr &nwritten_region
+//:                                     let result <Result<i32, StdErrorKind>> stdio_fd_write_from_result 1 iov nwritten data 1
+//:                                     match dealloc_region<u8> nwritten_region:
+//:                                         Result::Ok _:
+//:                                             match dealloc_region<u8> iov_region:
+//:                                                 Result::Ok _:
+//:                                                     match dealloc_region<u8> data_region:
+//:                                                         Result::Ok _:
+//:                                                             match result:
+//:                                                                 Result::Ok n:
+//:                                                                     if eq n 1 0 1
+//:                                                                 Result::Err _:
+//:                                                                     1
+//:                                                         Result::Err _:
+//:                                                             1
+//:                                                 Result::Err _:
+//:                                                     match dealloc_region<u8> data_region:
+//:                                                         Result::Ok _:
+//:                                                             1
+//:                                                         Result::Err _:
+//:                                                             1
+//:                                         Result::Err _:
+//:                                             match dealloc_region<u8> iov_region:
+//:                                                 Result::Ok _:
+//:                                                     match dealloc_region<u8> data_region:
+//:                                                         Result::Ok _:
+//:                                                             1
+//:                                                         Result::Err _:
+//:                                                             1
+//:                                                 Result::Err _:
+//:                                                     match dealloc_region<u8> data_region:
+//:                                                         Result::Ok _:
+//:                                                             1
+//:                                                         Result::Err _:
+//:                                                             1
+//: ```
+pub fn stdio_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32, StdErrorKind>> (fd, iov, nwritten, data, data_len):
+    if:
+        lt data_len 0
+        then:
+            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq data_len 0
+                then:
+                    Result<i32, StdErrorKind>::Ok 0
+                else:
+                    let iov_raw <i32> mem_ptr_addr iov
+                    let nwritten_raw <i32> mem_ptr_addr nwritten
+                    let data_raw <i32> mem_ptr_addr data
+                    if:
+                        or or le iov_raw 0 le nwritten_raw 0 le data_raw 0
+                        then:
+                            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                        else:
+                            store_i32 iov_raw data_raw
+                            store_i32 add iov_raw 4 data_len
+                            store_i32 nwritten_raw 0
+                            let errno <i32> stdio_fd_write_mem fd iov 1 nwritten
+                            if:
+                                ne errno 0
+                                then:
+                                    Result<i32, StdErrorKind>::Err StdErrorKind::IoError
+                                else:
+                                    Result<i32, StdErrorKind>::Ok load_i32 nwritten_raw
+
 #if[target=llvm]
 pub fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
     #llvmir:

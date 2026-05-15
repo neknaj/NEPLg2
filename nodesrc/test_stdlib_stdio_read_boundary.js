@@ -100,6 +100,7 @@ for (const helper of [
     'std_free',
     'stdio_fd_read_mem',
     'stdio_fd_write_mem',
+    'stdio_fd_write_from_result',
     '__linux_syscall_rw',
     'fd_read',
     'fd_write',
@@ -111,6 +112,7 @@ for (const helper of [
 for (const helper of [
     'stdio_fd_read_mem',
     'stdio_fd_write_mem',
+    'stdio_fd_write_from_result',
 ]) {
     assert.match(rawCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/raw`);
 }
@@ -177,18 +179,23 @@ assert.match(
 );
 assert.match(
     writeFdMatch[1],
-    /\balloc_ptr<u8>/,
-    'stdio fd_write scratch allocation must use MemPtr owners',
+    /\balloc_region<u8>/,
+    'stdio fd_write scratch allocation must use RegionToken owners',
 );
 assert.match(
     writeFdMatch[1],
-    /\bstdio_fd_write_mem\b/,
-    'stdio fd_write helper must use the MemPtr ABI wrapper',
+    /\bstdio_fd_write_from_result\b/,
+    'stdio fd_write helper must delegate raw ABI layout to stdio/raw',
 );
 assert.match(
     writeFdMatch[1],
-    /\bdealloc_ptr<u8>\s+nwritten\s+4[\s\S]*\bdealloc_ptr<u8>\s+iov\s+8\b/,
+    /\bdealloc_region<u8>\s+nwritten_region[\s\S]*\bdealloc_region<u8>\s+iov_region\b/,
     'stdio fd_write private scratch owners must be explicitly consumed through typed owner cleanup',
+);
+assert.doesNotMatch(
+    writeFdMatch[1],
+    /\b(?:alloc_ptr|dealloc_ptr|mem_ptr_addr|store_i32|load_i32)\b/,
+    'stdio fd_write loop must not directly own low-level MemPtr allocation or raw layout operations',
 );
 assert.doesNotMatch(
     writeFdMatch[1],

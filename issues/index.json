@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T17:13:10.714Z",
+  "generated_at": "2026-05-15T17:26:52.875Z",
   "counts": {
-    "total": 838,
+    "total": 839,
     "open": 6,
-    "resolved": 832,
+    "resolved": 833,
     "by_area": {
       "stdlib": {
-        "total": 242,
+        "total": 243,
         "open": 4,
-        "resolved": 238
+        "resolved": 239
       },
       "TEST": {
         "total": 24,
@@ -9883,6 +9883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T171022724Z-STDIO-PRINT-BYTE-SCRATCH-STILL-USES--2C662B42.md"
+    },
+    {
+      "id": "ISS-20260515T172241987Z-STDIO-FD-WRITE-SCRATCH-STILL-USES-ME-5A8C9CCA",
+      "title": "stdio fd_write scratch still uses MemPtr alloc owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/std/stdio/raw.nepl; stdlib/std/stdio/write/fd.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T172241987Z-STDIO-FD-WRITE-SCRATCH-STILL-USES-ME-5A8C9CCA.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

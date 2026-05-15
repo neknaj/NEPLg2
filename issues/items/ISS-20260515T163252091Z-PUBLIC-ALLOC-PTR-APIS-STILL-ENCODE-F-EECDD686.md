@@ -72,3 +72,11 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 `print_byte` は direct `alloc_ptr` / `dealloc_ptr` / raw `store_u8` を使わず、`alloc_region`、`region_ptr`、checked `store_u8`、`dealloc_region` だけで一時 buffer を扱う。これにより public stdio helper の小さな scratch 境界から `MemPtr<u8>` free obligation carrier を削除した。
 
 親 issue の残件は `std/stdio/write/fd.nepl`、`std/fs`、`std/env/cliarg/raw` などの syscall / ABI scratch 実装であり、raw syscall に iovec や C buffer を渡す箇所は個別に owner token と raw ABI view を分離していく。
+
+## 2026-05-16 Agent 1 部分対応メモ 3
+
+子 issue [ISS-20260515T172241987Z-STDIO-FD-WRITE-SCRATCH-STILL-USES-ME-5A8C9CCA](./ISS-20260515T172241987Z-STDIO-FD-WRITE-SCRATCH-STILL-USES-ME-5A8C9CCA.md) で、`stdlib/std/stdio/write/fd.nepl` の WASI fd_write scratch を `RegionToken<u8>` owner 境界へ移した。
+
+`stdio_write_fd_mem_result` は direct `alloc_ptr` / `dealloc_ptr` / `mem_ptr_addr` / raw `store_i32` / raw `load_i32` を持たず、`iov_region` / `nwritten_region` owner と non-owning view だけを扱う。iovec layout の raw address 操作は `std/stdio/raw.nepl` の `stdio_fd_write_from_result` へ閉じた。
+
+これで `std/stdio/write` の stdout/stderr write 経路では `MemPtr<u8>` を free obligation carrier として扱わない。親 issue の残件は `std/fs` / `std/env/cliarg/raw` / `std/stdio/read` など、まだ direct low-level allocation owner を必要としている raw-backed boundary に絞られる。

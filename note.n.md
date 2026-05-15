@@ -39204,3 +39204,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_stdio_read_boundary.js`
   - `node nodesrc/test_stdlib_no_unsafe_helpers.js`
   - `node nodesrc/tests.js -i stdlib/std/stdio/write/byte.nepl -i stdlib/std/stdio/write.nepl --no-tree -o tmp/agent1-stdio-byte-region-scratch-doctests.json -j 1 --dist web/dist --assert-io`: 1 passed
+
+## 2026-05-16 Agent 1 stdio fd_write scratch RegionToken 移行
+
+- `ISS-20260515T172241987Z-STDIO-FD-WRITE-SCRATCH-STILL-USES-ME-5A8C9CCA` を追加して fixed にした。
+- `stdlib/std/stdio/write/fd.nepl` の `stdio_write_fd_mem_result` は direct `alloc_ptr` / `dealloc_ptr` / `mem_ptr_addr` / raw `store_i32` / raw `load_i32` を持たず、`alloc_region<u8>` で確保した `iov_region` / `nwritten_region` owner token と `region_ptr` から得た non-owning view だけを扱うようにした。
+- `stdlib/std/stdio/raw.nepl` に `stdio_fd_write_from_result` を追加し、fd_write ABI の iovec layout 初期化、`nwritten` 初期化、raw load を raw boundary に閉じた。partial-write loop は owner cleanup と progress 判定だけに責務を絞った。
+- 新規 helper には stdout と戻り byte 数を確認する doctest を追加した。最初の doctest で `unwrap_ok alloc_region` を使うと provenance が落ちて `resource.raw.memory_outside_boundary` になったため、`match alloc_region` に直し、検査に見える形の fixture にした。
+- `tests/stdlib/stdout.n.md` を同時に含めた広めの確認では `from_i128_radix` / `from_u128_radix` / `concat_result` / `string_from_mem_unchecked_result` の既存 `resource.owner.maybe_leak` が 3 件出る。stdio fd scratch 変更ではなく Stage 6 string owner summary 残件として扱う。
+- focused verification:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+  - `node nodesrc/test_stdlib_documentation_contract.js`
+  - `node nodesrc/tests.js -i stdlib/std/stdio/raw.nepl -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/write/byte.nepl --no-tree -o tmp/agent1-stdio-fd-region-scratch-min.json -j 1 --dist web/dist --assert-io`: 2 passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/agent1-stdio-fd-region-scratch-stderr.json -j 1 --dist web/dist --assert-io`: 3 passed
