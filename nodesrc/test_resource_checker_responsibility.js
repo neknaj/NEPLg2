@@ -191,6 +191,7 @@ for (const moduleName of [
     'effect_raw_memory_identity.rs',
     'effect_return_escape.rs',
     'effect_return_identity.rs',
+    'effect_return_summary_filter.rs',
     'coverage.rs',
     'coverage_hir.rs',
     'coverage_hir_projection.rs',
@@ -378,7 +379,9 @@ for (const moduleDecl of [
     'mod effect_identity;',
     'mod effect_match;',
     'mod effect_raw_memory_identity;',
+    'mod effect_return_escape;',
     'mod effect_return_identity;',
+    'mod effect_return_summary_filter;',
     'mod coverage;',
     'mod coverage_hir;',
     'mod coverage_hir_projection;',
@@ -513,6 +516,8 @@ const placeUtils = readResource('place_utils.rs');
 const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
+const effectReturnEscape = readResource('effect_return_escape.rs');
+const effectReturnSummaryFilter = readResource('effect_return_summary_filter.rs');
 const effectSummary = readResource('effect_summary.rs');
 const effectSummaryIdentity = readResource('effect_summary_identity.rs');
 const resourceDump = readResource('dump.rs');
@@ -961,6 +966,55 @@ assertUsesResourceModuleSymbol(
     'effect_summary_identity.rs',
 );
 assertUsesResourceModuleSymbol(
+    effectSummaryIdentity,
+    'effect_return_summary_filter',
+    'raw_identity_return_projection_requires_summary',
+    'effect_summary_identity.rs',
+);
+assertContains(
+    effectReturnSummaryFilter,
+    'pub(super) fn raw_identity_return_projection_requires_summary',
+    'effect_return_summary_filter.rs',
+);
+assertUsesResourceModuleSymbol(
+    effectReturnSummaryFilter,
+    'effect_return_escape',
+    'raw_identity_projection_has_owner_protection',
+    'effect_return_summary_filter.rs',
+);
+assertContains(
+    effectSummaryIdentity,
+    'raw_identity_return_projection_requires_summary(types, place, &suffix, ty)',
+    'effect_summary_identity.rs must filter protected raw identities before recording summaries',
+);
+assertContains(
+    effect,
+    'compute_raw_identity_return_summaries(module, &pointer_summaries, types)',
+    'effect.rs must pass TypeCtx into raw identity summary construction',
+);
+assertUsesResourceModuleSymbol(
+    effectSummaryIdentity,
+    'summary_worklist',
+    'SummaryWorklist',
+    'effect_summary_identity.rs',
+);
+assertUsesResourceModuleSymbol(
+    readResource('effect_summary_pointer.rs'),
+    'summary_worklist',
+    'SummaryWorklist',
+    'effect_summary_pointer.rs',
+);
+assertNotContains(
+    effectSummaryIdentity,
+    'for _ in 0..=module.functions.len()',
+    'effect_summary_identity.rs must not reintroduce full-module fixed-point sweeps',
+);
+assertNotContains(
+    readResource('effect_summary_pointer.rs'),
+    'for _ in 0..=module.functions.len()',
+    'effect_summary_pointer.rs must not reintroduce full-module fixed-point sweeps',
+);
+assertUsesResourceModuleSymbol(
     placeUtils,
     'variant_name',
     'normalize_variant_name',
@@ -1104,6 +1158,7 @@ const maxLines = new Map([
     ['effect_match.rs', 80],
     ['effect_return_escape.rs', 120],
     ['effect_return_identity.rs', 140],
+    ['effect_return_summary_filter.rs', 260],
     ['function_alias.rs', 140],
     ['coverage.rs', 280],
     ['coverage_hir.rs', 240],

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T08:03:22.876Z",
+  "generated_at": "2026-05-15T09:31:17.686Z",
   "counts": {
     "total": 817,
-    "open": 8,
-    "resolved": 809,
+    "open": 7,
+    "resolved": 810,
     "by_area": {
       "stdlib": {
         "total": 232,
@@ -15,11 +15,6 @@
         "total": 21,
         "open": 1,
         "resolved": 20
-      },
-      "core": {
-        "total": 407,
-        "open": 1,
-        "resolved": 406
       },
       "selfhost": {
         "total": 67,
@@ -35,6 +30,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 407,
+        "open": 0,
+        "resolved": 407
       },
       "CORE": {
         "total": 1,
@@ -178,21 +178,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145",
-      "title": "Stack std/test doctests exceed wasm compiler timeout after static-check expansion",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "nepl-core/src/resource, nodesrc/tests.js, stdlib/tests/stack.n.md, tests/stdlib/stack_collections.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -10798,6 +10783,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T162705742Z-TRAITSEMANTICS-STORES-CAPABILITY-TRA-C51DB134.md"
+    },
+    {
+      "id": "ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145",
+      "title": "Stack std/test doctests exceed wasm compiler timeout after static-check expansion",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource, nodesrc/test_resource_checker_responsibility.js, stdlib/tests/stack.n.md, tests/stdlib/stack_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

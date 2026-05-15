@@ -1,5 +1,3 @@
-extern crate alloc;
-
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection};
@@ -20,7 +18,7 @@ pub(super) fn raw_identity_return_projection_is_escape(
     raw_identity_leaf_type_is_public_escape(types, projection_ty)
 }
 
-fn raw_identity_projection_has_owner_protection(
+pub(super) fn raw_identity_projection_has_owner_protection(
     types: &TypeCtx,
     root_ty: TypeId,
     suffix: &[PlaceProjection],

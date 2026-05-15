@@ -38784,3 +38784,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`
   - `node nodesrc/tests.js -i examples/counter.nepl -i examples/counter2.nepl -i examples/fib.nepl -i examples/stdio.nepl --no-tree -o tmp/agent1-protected-owner-identity-examples.json -j 1 --dist web/dist`: 5 passed
   - `node nodesrc/issues.js check`
+
+## 2026-05-15 Agent 1 Stack std/test doctest 静的検査 timeout 解消
+
+- `ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145` を fixed にした。
+- `StackPop` public accessor 修正後に `stdlib/tests/stack.n.md` / `tests/stdlib/stack_collections.n.md` の std/test doctest が compile phase timeout していた原因を、native `NEPL_COMPILE_STAGE_TIMING=1` で調査した。
+- 原因は wasm runtime ではなく Resource effect boundary の raw identity summary 生成で、`test_report_render(&TestReport)->str` のように owner-protected `str` へ戻る内部 raw identity まで跨関数 summary fact に載せていたことだった。
+- raw pointer / raw identity return summary の全 module 固定点 sweep を `SummaryWorklist` へ移行し、依存関数だけを再計算するようにした。
+- `effect_return_summary_filter.rs` を追加し、`TypeCtx` と projection path から `str` / `RegionToken` 配下の owner-protected raw identity は summary に記録しない。一方で `i32` / `MemPtr` / aggregate 内の public raw identity は引き続き記録し、検査の正確性を弱めない。
+- `nodesrc/test_resource_checker_responsibility.js` で、effect summary の worklist 化、固定点 sweep の再導入禁止、owner-protected return filter の使用を監視する。
+- focused verification:
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --lib resource::effect_return_summary_filter::tests -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check -- --nocapture`: 29 passed
+  - `cargo test -p nepl-core --lib resource_effect_gate -- --nocapture`: 9 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `trunk build`
+  - native stack_pop_top_keeps_stack `nepl-cli --check`: `resource_effect_boundaries=726ms`, `resource_static_check=5795ms`, exit 0
+  - `node nodesrc/run_doctest.js -i stdlib/tests/stack.n.md -n 9 --assert-io --dist web/dist`: pass, `compile_ms=12721`
+  - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/agent1-stack-doctests-filtered-rerun.json -j 1 --dist web/dist --assert-io`: 18 passed

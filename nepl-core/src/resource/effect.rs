@@ -123,7 +123,7 @@ fn check_resource_effect_boundaries_with_types(
     let mut diagnostics = Vec::new();
     let pointer_summaries = compute_raw_pointer_return_summaries(module);
     let pointer_summary_index = RawPointerReturnSummaryIndex::new(&pointer_summaries);
-    let summaries = compute_raw_identity_return_summaries(module, &pointer_summaries);
+    let summaries = compute_raw_identity_return_summaries(module, &pointer_summaries, types);
     let summary_index = RawIdentityReturnSummaryIndex::new(&summaries);
 
     for function in &module.functions {

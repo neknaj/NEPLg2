@@ -57,6 +57,7 @@ mod effect_match;
 mod effect_raw_memory_identity;
 mod effect_return_escape;
 mod effect_return_identity;
+mod effect_return_summary_filter;
 mod effect_summary;
 mod effect_summary_identity;
 mod effect_summary_pointer;

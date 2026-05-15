@@ -12,38 +12,76 @@ use super::effect_summary_seed::parameter_summary_seed_places;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
+use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_raw_pointer_return_summaries(
     module: &ResourceModule,
 ) -> Vec<RawPointerReturnSummary> {
+    let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
-    for _ in 0..=module.functions.len() {
-        let mut next = Vec::new();
+    while let Some(function_index) = worklist.pop() {
         let summary_index = RawPointerReturnSummaryIndex::new(&summaries);
-        for function in &module.functions {
-            let mut parameter_returns = Vec::new();
-            for (index, param) in function.params.iter().enumerate() {
-                push_parameter_pointer_returns(
-                    &mut parameter_returns,
-                    index,
-                    function,
-                    &param.place,
-                    &summary_index,
-                );
-            }
-            if !parameter_returns.is_empty() {
-                next.push(RawPointerReturnSummary {
-                    function: function.name.clone(),
-                    parameter_returns,
-                });
-            }
+        let summary =
+            function_raw_pointer_return_summary(&module.functions[function_index], &summary_index);
+        if update_raw_pointer_return_summary(&mut summaries, summary) {
+            worklist.notify_changed(function_index);
         }
-        if next == summaries {
-            return summaries;
-        }
-        summaries = next;
+    }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+        std::eprintln!(
+            "[compile-stage] resource_raw_pointer_summary_recomputations={} summaries={}",
+            worklist.recomputations(),
+            summaries.len()
+        );
     }
     summaries
+}
+
+fn function_raw_pointer_return_summary(
+    function: &ResourceFunction,
+    summary_index: &RawPointerReturnSummaryIndex<'_>,
+) -> RawPointerReturnSummary {
+    let mut parameter_returns = Vec::new();
+    for (index, param) in function.params.iter().enumerate() {
+        push_parameter_pointer_returns(
+            &mut parameter_returns,
+            index,
+            function,
+            &param.place,
+            summary_index,
+        );
+    }
+    RawPointerReturnSummary {
+        function: function.name.clone(),
+        parameter_returns,
+    }
+}
+
+fn update_raw_pointer_return_summary(
+    summaries: &mut Vec<RawPointerReturnSummary>,
+    summary: RawPointerReturnSummary,
+) -> bool {
+    let has_facts = !summary.parameter_returns.is_empty();
+    let position = summaries
+        .iter()
+        .position(|existing| existing.function == summary.function);
+    match (has_facts, position) {
+        (true, Some(index)) if summaries[index] == summary => false,
+        (true, Some(index)) => {
+            summaries[index] = summary;
+            true
+        }
+        (true, None) => {
+            summaries.push(summary);
+            true
+        }
+        (false, Some(index)) => {
+            summaries.remove(index);
+            true
+        }
+        (false, None) => false,
+    }
 }
 
 fn push_parameter_pointer_returns(

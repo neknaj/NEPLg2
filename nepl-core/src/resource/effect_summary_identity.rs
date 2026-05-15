@@ -4,6 +4,7 @@ use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_counts::ResourceEffectCounts;
 use super::effect_identity::{RawIdentityTable, RawPointerAliasTable};
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
+use super::effect_return_summary_filter::raw_identity_return_projection_requires_summary;
 use super::effect_summary::{
     RawIdentityParameterReturn, RawIdentityReturnProjection, RawIdentityReturnSummary,
     RawIdentityReturnSummaryIndex, RawPointerReturnSummary, RawPointerReturnSummaryIndex,
@@ -12,47 +13,96 @@ use super::effect_summary_seed::parameter_summary_seed_places;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, RawMemoryOp, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
+use super::summary_worklist::SummaryWorklist;
+use crate::types::TypeCtx;
 
 pub(super) fn compute_raw_identity_return_summaries(
     module: &ResourceModule,
     pointer_summaries: &[RawPointerReturnSummary],
+    types: Option<&TypeCtx>,
 ) -> Vec<RawIdentityReturnSummary> {
+    let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
-    for _ in 0..=module.functions.len() {
-        let mut next = Vec::new();
+    let pointer_summary_index = RawPointerReturnSummaryIndex::new(pointer_summaries);
+    while let Some(function_index) = worklist.pop() {
         let summary_index = RawIdentityReturnSummaryIndex::new(&summaries);
-        let pointer_summary_index = RawPointerReturnSummaryIndex::new(pointer_summaries);
-        for function in &module.functions {
-            let mut parameter_returns = Vec::new();
-            for (index, param) in function.params.iter().enumerate() {
-                push_parameter_identity_returns(
-                    &mut parameter_returns,
-                    index,
-                    function,
-                    &param.place,
-                    &summary_index,
-                    &pointer_summary_index,
-                );
-            }
-            let internal_alloc_returns = function_returns_internal_alloc_identity_projections(
-                function,
-                &summary_index,
-                &pointer_summary_index,
-            );
-            if !parameter_returns.is_empty() || !internal_alloc_returns.is_empty() {
-                next.push(RawIdentityReturnSummary {
-                    function: function.name.clone(),
-                    parameter_returns,
-                    internal_alloc_returns,
-                });
-            }
+        let summary = function_raw_identity_return_summary(
+            &module.functions[function_index],
+            &summary_index,
+            &pointer_summary_index,
+            types,
+        );
+        if update_raw_identity_return_summary(&mut summaries, summary) {
+            worklist.notify_changed(function_index);
         }
-        if next == summaries {
-            return summaries;
-        }
-        summaries = next;
+    }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+        std::eprintln!(
+            "[compile-stage] resource_raw_identity_summary_recomputations={} summaries={}",
+            worklist.recomputations(),
+            summaries.len()
+        );
     }
     summaries
+}
+
+fn function_raw_identity_return_summary(
+    function: &ResourceFunction,
+    summary_index: &RawIdentityReturnSummaryIndex<'_>,
+    pointer_summary_index: &RawPointerReturnSummaryIndex<'_>,
+    types: Option<&TypeCtx>,
+) -> RawIdentityReturnSummary {
+    let mut parameter_returns = Vec::new();
+    for (index, param) in function.params.iter().enumerate() {
+        push_parameter_identity_returns(
+            &mut parameter_returns,
+            index,
+            function,
+            &param.place,
+            summary_index,
+            pointer_summary_index,
+            types,
+        );
+    }
+    let internal_alloc_returns = function_returns_internal_alloc_identity_projections(
+        function,
+        summary_index,
+        pointer_summary_index,
+        types,
+    );
+    RawIdentityReturnSummary {
+        function: function.name.clone(),
+        parameter_returns,
+        internal_alloc_returns,
+    }
+}
+
+fn update_raw_identity_return_summary(
+    summaries: &mut Vec<RawIdentityReturnSummary>,
+    summary: RawIdentityReturnSummary,
+) -> bool {
+    let has_facts =
+        !summary.parameter_returns.is_empty() || !summary.internal_alloc_returns.is_empty();
+    let position = summaries
+        .iter()
+        .position(|existing| existing.function == summary.function);
+    match (has_facts, position) {
+        (true, Some(index)) if summaries[index] == summary => false,
+        (true, Some(index)) => {
+            summaries[index] = summary;
+            true
+        }
+        (true, None) => {
+            summaries.push(summary);
+            true
+        }
+        (false, Some(index)) => {
+            summaries.remove(index);
+            true
+        }
+        (false, None) => false,
+    }
 }
 
 fn push_parameter_identity_returns(
@@ -62,6 +112,7 @@ fn push_parameter_identity_returns(
     parameter: &Place,
     summaries: &RawIdentityReturnSummaryIndex<'_>,
     pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
+    types: Option<&TypeCtx>,
 ) {
     for seed in parameter_summary_seed_places(function, parameter) {
         let mut identities = RawIdentityTable::default();
@@ -72,6 +123,7 @@ fn push_parameter_identity_returns(
             summaries,
             pointer_summaries,
             false,
+            types,
         ) {
             let source_projections =
                 place_suffix_after_prefix(&seed, parameter).unwrap_or_default();
@@ -93,6 +145,7 @@ fn function_returns_internal_alloc_identity_projections(
     function: &ResourceFunction,
     summaries: &RawIdentityReturnSummaryIndex<'_>,
     pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
+    types: Option<&TypeCtx>,
 ) -> Vec<RawIdentityReturnProjection> {
     let identities = RawIdentityTable::default();
     function_returned_identity_projections_with_engine(
@@ -101,6 +154,7 @@ fn function_returns_internal_alloc_identity_projections(
         summaries,
         pointer_summaries,
         true,
+        types,
     )
 }
 
@@ -110,6 +164,7 @@ fn function_returned_identity_projections_with_engine(
     summaries: &RawIdentityReturnSummaryIndex<'_>,
     pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
     track_alloc_identities: bool,
+    types: Option<&TypeCtx>,
 ) -> Vec<RawIdentityReturnProjection> {
     let mut engine = ResourceEffectBoundaryEngine {
         function: function.name.as_str(),
@@ -138,6 +193,9 @@ fn function_returned_identity_projections_with_engine(
         } = &block.terminator
         {
             for (suffix, ty, operations) in identities.projection_operations_under(place) {
+                if !raw_identity_return_projection_requires_summary(types, place, &suffix, ty) {
+                    continue;
+                }
                 push_unique_return_projection(
                     &mut projections,
                     RawIdentityReturnProjection {
