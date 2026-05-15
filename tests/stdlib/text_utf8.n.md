@@ -124,6 +124,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -165,6 +166,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -207,6 +209,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -263,6 +266,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -310,6 +314,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -358,6 +363,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():

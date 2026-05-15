@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T16:35:05.378Z",
+  "generated_at": "2026-05-15T17:03:30.545Z",
   "counts": {
-    "total": 836,
+    "total": 837,
     "open": 6,
-    "resolved": 830,
+    "resolved": 831,
     "by_area": {
       "stdlib": {
-        "total": 240,
+        "total": 241,
         "open": 4,
-        "resolved": 236
+        "resolved": 237
       },
       "TEST": {
         "total": 24,
@@ -9853,6 +9853,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1.md"
+    },
+    {
+      "id": "ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44",
+      "title": "core/mem pointer facade re-exports low-level alloc_ptr owner wrappers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/core/mem.nepl; stdlib/core/mem/pointer.nepl; stdlib/core/mem/pointer/view.nepl; nodesrc/test_stdlib_core_mem_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

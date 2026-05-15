@@ -14,8 +14,9 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     match alloc_ptr<i32> 4:
-//:         Result::Ok p:
+//:     match alloc_region<i32> 1:
+//:         Result::Ok region:
+//:             let p <MemPtr<i32>> region_ptr &region
 //:             match store_i32 p 12:
 //:                 Result::Ok _:
 //:                     let v <i32> match load_i32 p:
@@ -23,13 +24,17 @@
 //:                             n
 //:                         Option::None:
 //:                             0
-//:                     match dealloc_ptr<i32> p 4:
+//:                     match dealloc_region<i32> region:
 //:                         Result::Ok _:
 //:                             v
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Err _:
-//:                     0
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
 //:         Result::Err _:
 //:             0
 //: ```

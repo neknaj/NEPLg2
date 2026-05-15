@@ -56,3 +56,11 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 現状の `MemPtr<T>` struct field baseline は 0 件だが、`alloc_ptr<T>` が public `MemPtr<T>` を返すため、struct layout ではなく関数 return API の形で free obligation owner が `MemPtr<T>` に残っている。これは `RegionToken<T>` field 修正とは別の根本問題である。
 
 次の実装では、`alloc_ptr` 系を単に隠すのではなく、stdlib scratch buffer が必要とする「一時 owner」「raw syscall に渡す non-owning view」「cleanup failure の扱い」を typed token API に分ける。最終的には ordinary safe source が allocation owner を `MemPtr<T>` として取得できず、compiler が free obligation を owner token / initialized cell state として証明できる状態にする。
+
+## 2026-05-16 Agent 1 部分対応メモ
+
+子 issue [ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44](./ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44.md) で、`core/mem` / `mem/pointer` safe facade から `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` の re-export を外した。
+
+これで `#import "core/mem" as *` だけでは `MemPtr<T>` owner API へ到達できない。`mem_ptr_add` は low-level alloc file から `pointer/view` へ分離し、owner API と non-owning view helper の責務を分けた。
+
+ただし `#import "core/mem/pointer/alloc" as *` による direct import はまだ残っており、stdlib scratch 実装もこの低レベル境界に依存している。したがって親 issue は open のまま維持し、次段階では direct low-level alloc API を token / storage owner API へ置き換える。

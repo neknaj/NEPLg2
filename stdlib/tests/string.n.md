@@ -226,6 +226,7 @@ stdout: "test_report name=\"string_utf8_mem_result\" count=3 failed=0\nassertion
 #import "alloc/string" as *
 #import "alloc/string/storage" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 #import "std/test" as *
 

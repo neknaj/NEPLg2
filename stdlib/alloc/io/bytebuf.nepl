@@ -154,7 +154,7 @@ pub fn io_bytebuf_alloc_region <(i32)->Result<RegionToken<u8>, StdErrorKind>> (b
 //: - `RegionToken` の所有権を動かさず、copy 先として使う `MemPtr<u8>` だけを得ます。
 //:
 //: [実装/じっそう]:
-//: - token の `ptr` field を `get_ref` 経由で読み、`MemPtr` の copy 値を返します。
+//: - `RegionToken` から `region_ptr` で non-owning pointer view を借ります。
 //:
 //: [注意/ちゅうい]:
 //: - 返った pointer は領域を所有しません。確定または解放は元の token に対して一度だけ行ってください。
@@ -162,7 +162,7 @@ pub fn io_bytebuf_alloc_region <(i32)->Result<RegionToken<u8>, StdErrorKind>> (b
 //: [計算量/けいさんりょう]:
 //: - O(1)
 pub fn io_bytebuf_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
-    *get_ref region "ptr"
+    region_ptr region
 
 //: io_bytebuf_finish_region: 確保済み領域を `ByteBuf` として確定する
 //:

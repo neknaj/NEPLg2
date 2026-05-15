@@ -131,6 +131,7 @@ ret: 0
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/result" as *

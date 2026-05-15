@@ -3,14 +3,16 @@
 //: mem/pointer/alloc: MemPtr allocation wrapper
 //:
 //: 目的:
-//: - raw allocator の戻り値を `MemPtr<T>` に包む checked API を提供します。
+//: - raw allocator の戻り値を `MemPtr<T>` に包む low-level allocation boundary API を提供します。
 //: - `MemPtr<T>` は non-owning pointer view であり、free obligation owner そのものではありません。
+//: - public safe facade は owner token を返す `alloc_region` を使うため、この module は `core/mem` から再公開しません。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
+//:| #import "core/mem/pointer/alloc" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     match alloc_ptr<i32> 4:
@@ -50,6 +52,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
+//:| #import "core/mem/pointer/alloc" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     match alloc_ptr<i32> 4:
@@ -89,6 +92,7 @@ pub fn alloc_ptr <.T> <(i32)->Result<MemPtr<.T>,str>> (size):
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
+//:| #import "core/mem/pointer/alloc" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     match alloc_ptr<i32> 4:
@@ -137,6 +141,7 @@ pub fn realloc_ptr <.T> <(MemPtr<.T>,i32,i32)->Result<MemPtr<.T>,str>> (ptr, old
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
+//:| #import "core/mem/pointer/alloc" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     match alloc_ptr<u8> 1:
@@ -156,55 +161,3 @@ pub fn dealloc_ptr <.T> <(MemPtr<.T>,i32)->Result<(),str>> (ptr, size):
             Result<(),str>::Ok ()
         Result::Err _e:
             Result<(),str>::Err "mem.dealloc_ptr invalid pointer"
-
-//: mem_ptr_add: MemPtr の byte offset view を作る
-//:
-//: 目的:
-//: - `MemPtr<T>` の raw address view に byte offset を加えた別の non-owning pointer view を返します。
-//:
-//: 実装(アルゴリズム):
-//: - internal boundary で raw view を取り出し、`add` 後に `MemPtr<T>` として包みます。
-//:
-//: 注意(重要):
-//: - 範囲検査は行いません。RegionToken に紐づく bounds が必要な場合は `region_ptr_at` を使います。
-//: - 返り値は owner ではありません。
-//:
-//: 計算量:
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "core/mem" as *
-//:| #import "core/math" as *
-//:| #import "core/option" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     match alloc_region<i32> 2:
-//:         Result::Ok region:
-//:             let second <MemPtr<i32>> mem_ptr_add<i32> region_ptr &region 4
-//:             match store_i32 second 9:
-//:                 Result::Ok _:
-//:                     let ok <bool> match load_i32 second:
-//:                         Option::Some v:
-//:                             eq v 9
-//:                         Option::None:
-//:                             false
-//:                     match dealloc_region<i32> region:
-//:                         Result::Ok _:
-//:                             if ok 1 0
-//:                         Result::Err _:
-//:                             0
-//:                 Result::Err _:
-//:                     match dealloc_region<i32> region:
-//:                         Result::Ok _:
-//:                             0
-//:                         Result::Err _:
-//:                             0
-//:         Result::Err _:
-//:             0
-//: ```
-pub fn mem_ptr_add <.T> <(MemPtr<.T>,i32)->MemPtr<.T>> (ptr, off):
-    let raw <i32> mem_ptr_addr ptr;
-    mem_ptr_wrap add raw off

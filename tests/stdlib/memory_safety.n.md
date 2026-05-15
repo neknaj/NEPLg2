@@ -10,6 +10,7 @@ ret: 123
 #target std
 
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -38,6 +39,22 @@ fn main <()*>i32> ():
                             0
                         Result::Ok _:
                             v
+```
+
+## core/mem facade は alloc_ptr を再公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+
+fn main <()*>i32> ():
+    alloc_ptr<i32> 4
+    0
 ```
 
 ## 無効ポインタ load は Option::None

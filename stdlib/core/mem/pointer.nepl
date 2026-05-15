@@ -4,10 +4,11 @@
 //:
 //: 目的:
 //: - raw address を public caller に押し出さず、Result / Option で失敗を返す wrapper を公開します。
-//: - 実装は alloc / region / bulk / scalar の submodule に分け、ここは再公開だけを担当します。
+//: - 実装は view / region / bulk / scalar の submodule に分け、ここは再公開だけを担当します。
 //:
 //: 注意(重要):
-//: - raw load/store と allocator の実装は `mem/raw` / `mem/allocator` / `mem/internal` 側に閉じます。
+//: - raw load/store と allocator の実装は `mem/raw` / `mem/allocator` / `mem/internal` / `mem/pointer/alloc` 側に閉じます。
+//: - `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` は free obligation を `MemPtr` call contract で扱う低レベル境界なので、この facade からは再公開しません。
 //: - この facade は raw-memory-boundary capability を持たず、関数本体も所有しません。
 //:
 //: neplg2:test
@@ -17,9 +18,9 @@
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     match alloc_ptr<i32> 4:
-//:         Result::Ok p:
-//:             match dealloc_ptr<i32> p 4:
+//:     match alloc_region<i32> 1:
+//:         Result::Ok region:
+//:             match dealloc_region<i32> region:
 //:                 Result::Ok _:
 //:                     1
 //:                 Result::Err _:
@@ -28,7 +29,7 @@
 //:             0
 //: ```
 
-pub #import "./pointer/alloc" as *
+pub #import "./pointer/view" as *
 pub #import "./pointer/region" as *
 pub #import "./pointer/bulk" as *
 pub #import "./pointer/scalar" as *

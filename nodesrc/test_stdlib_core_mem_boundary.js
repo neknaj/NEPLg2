@@ -33,6 +33,7 @@ const raw = read("stdlib/core/mem/raw.nepl");
 const allocator = read("stdlib/core/mem/allocator.nepl");
 const pointer = read("stdlib/core/mem/pointer.nepl");
 const pointerAlloc = read("stdlib/core/mem/pointer/alloc.nepl");
+const pointerView = read("stdlib/core/mem/pointer/view.nepl");
 const pointerRegion = read("stdlib/core/mem/pointer/region.nepl");
 const pointerBulk = read("stdlib/core/mem/pointer/bulk.nepl");
 const pointerScalar = read("stdlib/core/mem/pointer/scalar.nepl");
@@ -79,18 +80,25 @@ assertNoMatch(raw, /pub\s+fn\s+align_of\b/, "mem/raw must not own public layout 
 assertMatch(allocator, /pub\s+fn\s+alloc_raw\b/, "mem/allocator must own raw allocator");
 assertMatch(allocator, /pub\s+fn\s+__nepl_rt_alloc\b/, "mem/allocator must own runtime allocator ABI");
 assertMatch(allocator, /not\s+alloc_payload_fits\s+size/, "raw allocator must reject oversized payload before align8");
-for (const moduleName of ["alloc", "region", "bulk", "scalar"]) {
+for (const moduleName of ["view", "region", "bulk", "scalar"]) {
     assertMatch(
         pointer,
         new RegExp(`pub\\s+#import\\s+"\\./pointer/${moduleName}"\\s+as\\s+\\*`),
         `mem/pointer facade must re-export pointer/${moduleName}`,
     );
 }
+assertNoMatch(
+    pointer,
+    /pub\s+#import\s+"\.\/pointer\/alloc"\s+as\s+\*/,
+    "mem/pointer facade must not re-export low-level allocation wrappers",
+);
 assertNoMatch(pointer, /^\s*(?:pub\s+)?fn\s+/m, "mem/pointer facade must not own function bodies");
 assertNoMatch(pointer, /^\s*(?:pub\s+)?struct\s+/m, "mem/pointer facade must not own data layout");
 assertNoMatch(pointer, /^\s*#(?:wasm|llvmir|intrinsic)\b/m, "mem/pointer facade must not own raw bodies");
 assertMatch(pointerAlloc, /pub\s+fn\s+alloc_ptr\b/, "mem/pointer/alloc must own MemPtr allocation wrapper");
 assertMatch(pointerAlloc, /pub\s+fn\s+dealloc_ptr\b/, "mem/pointer/alloc must own MemPtr deallocation wrapper");
+assertMatch(pointerView, /pub\s+fn\s+mem_ptr_add\b/, "mem/pointer/view must own non-owning MemPtr offset view helper");
+assertNoMatch(pointerAlloc, /pub\s+fn\s+mem_ptr_add\b/, "mem/pointer/alloc must not own public non-owning pointer view helper");
 assertMatch(pointerRegion, /pub\s+fn\s+region_ptr_at\b/, "mem/pointer/region must own checked region projection");
 assertMatch(pointerRegion, /pub\s+struct\s+RegionReallocError<\.T>:[\s\S]*region\s+<RegionToken<\.T>>/, "mem/pointer/region must own RegionToken realloc error payload");
 assertMatch(pointerRegion, /pub\s+fn\s+realloc_region_bytes_keep\s+<\.T>\s+<\(RegionToken<\.T>,i32\)->Result<RegionToken<\.T>,\s*RegionReallocError<\.T>>>/, "mem/pointer/region must own owner-preserving RegionToken realloc helper");
@@ -107,6 +115,7 @@ for (const [label, text] of [
     ["mem/raw", raw],
     ["mem/allocator", allocator],
     ["mem/pointer/alloc", pointerAlloc],
+    ["mem/pointer/view", pointerView],
     ["mem/pointer/region", pointerRegion],
     ["mem/pointer/bulk", pointerBulk],
     ["mem/pointer/scalar", pointerScalar],
@@ -127,6 +136,7 @@ for (const [label, text, limit] of [
     ["stdlib/core/mem/allocator.nepl", allocator, 420],
     ["stdlib/core/mem/pointer.nepl", pointer, 120],
     ["stdlib/core/mem/pointer/alloc.nepl", pointerAlloc, 260],
+    ["stdlib/core/mem/pointer/view.nepl", pointerView, 120],
     ["stdlib/core/mem/pointer/region.nepl", pointerRegion, 400],
     ["stdlib/core/mem/pointer/bulk.nepl", pointerBulk, 260],
     ["stdlib/core/mem/pointer/scalar.nepl", pointerScalar, 160],

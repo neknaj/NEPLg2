@@ -81,6 +81,7 @@ pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
+//:| #import "core/mem/pointer/alloc" as *
 //:| #import "core/mem/internal" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *

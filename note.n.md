@@ -39177,3 +39177,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `RegionToken<T>` の `MemPtr` owner-like field は 0 件になったが、`alloc_ptr<T> -> Result<MemPtr<T>, str>` / `realloc_ptr<T> -> Result<MemPtr<T>, str>` / `dealloc_ptr<T>(MemPtr<T>, i32)` が public API として free obligation を `MemPtr<T>` に残している。
 - これは struct field policy では検出できない Stage 6 残件であり、`MemPtr<T>` の surface contract と Resource IR owner summary の食い違いを閉じる必要がある。
 - 次の実装候補は、stdlib scratch buffer を `RegionToken` / `OwnedBytes` / `OwnedBuffer` へ移し、ordinary safe source が allocation owner を `MemPtr<T>` として得られない API 境界へ変更すること。
+
+## 2026-05-16 Agent 1 core/mem safe facade alloc owner wrapper 分離
+
+- `ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44` を追加して fixed にした。
+- `stdlib/core/mem/pointer.nepl` から `./pointer/alloc` の public re-export を削除し、`#import "core/mem" as *` だけでは `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` へ到達できない形にした。
+- `mem_ptr_add<T>` は storage owner API ではなく non-owning pointer view helper なので、新規 `stdlib/core/mem/pointer/view.nepl` へ移した。ordinary source からの offset view 利用は `resource.raw.memory_outside_boundary` compile_fail doctest で固定した。
+- `core/mem` / `pointer` / `scalar` の doctest は `alloc_region` / `region_ptr` / `dealloc_region` に更新し、失敗 branch でも `RegionToken` を解放するようにした。
+- 低レベル scratch 実装と fixture は `core/mem/pointer/alloc` を明示 import するようにした。direct import を許している点は過渡であり、親 issue `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` は open のまま継続する。
+- `stdlib/alloc/io/bytebuf.nepl` の `io_bytebuf_region_ptr` が旧 `RegionToken.ptr` field を読んでいた stale 実装も、`region_ptr` projection へ修正した。
+- focused verification:
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`
+  - `node nodesrc/test_stdlib_documentation_contract.js`
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-core-mem-safe-root-memory-safety.json -j 1 --dist web/dist --assert-io`: 39 passed
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/core/mem/pointer.nepl -i stdlib/core/mem/pointer/alloc.nepl -i stdlib/core/mem/pointer/view.nepl -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/core/mem/internal.nepl --no-tree -o tmp/agent1-core-mem-safe-root-doctests.json -j 1 --dist web/dist --assert-io`: 15 passed

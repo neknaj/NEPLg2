@@ -595,6 +595,7 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -748,6 +749,7 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -1013,6 +1015,7 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -1136,6 +1139,7 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -1679,6 +1683,7 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *

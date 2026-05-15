@@ -387,6 +387,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F` | `Vec` / `ByteBuilder` の `RegionToken` realloc を core/mem に集約し、Vec grow capacity overflow proof を追加。 |
 | `ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1` | `RegionToken<T>` の `MemPtr<T>` owner-like field を direct raw owner identity へ置き換え、MemPtr owner-field transitional baseline を 0 件にする。 |
 | `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` | public `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` が `MemPtr<T>` を free obligation carrier として公開している残件。 |
+| `ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44` | `core/mem` / `mem/pointer` safe facade から低レベル `alloc_ptr` owner wrapper の re-export を削除し、`mem_ptr_add` を non-owning view helper へ分離。 |
 | `ISS-20260514T102108865Z-VEC-SORT-MERGE-RET-ERR-PATH-LOSES-CO-98B83660` | `sort_merge_ret<T>` の失敗 payload に `Vec<T>` owner を返し、merge sort scratch buffer を `RegionToken<T>` owner へ移行。 |
 | `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` | fallible collection update の owner loss。 |
 | `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` | ByteBuf の空/所有 storage 構造化。 |
@@ -401,5 +402,7 @@ Resource IR / typecheck / match check は次を必須にする。
 現状の方向性は「過渡期としては正しいが、最終設計としては未完」である。
 
 `ByteBuf` / `ByteBuilder` / `StringBuilder` / `Vec` は、空/所有 storage を型に出す方向へ進んだため短期利用に耐える。`StringBuilder` 固有の raw owner field と `Vec.data` raw owner field は削除済みである。一方で `core/mem` と collections は、forgeable `RegionToken` と Copy-only raw element helper にまだ依存しており、Resource IR が後追いで alias と initialized cell を復元する構造が残っている。この複雑さは設計上の警告であり、さらに特例を足して維持すべきではない。
+
+2026-05-16 時点で、`core/mem` root と `mem/pointer` facade は低レベル `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を再公開しない。safe caller の標準経路は `alloc_region` / `region_ptr` / `dealloc_region` であり、低レベル scratch 実装は `core/mem/pointer/alloc` を明示 import する。これは最終設計ではなく、direct low-level import を `OwnedBytes` / `OwnedBuffer` / compiler-issued owner token へ置き換える前段である。
 
 理想は、stdlib が owner state を型で表し、Resource IR がその型構造をそのまま検査できる状態である。self-host の型検査・メモリ検査を妥協しないためには、collection 再設計を避けず、`OwnedBuffer` / owner token / initialized prefix / enum state / match exhaustiveness を中核に置く。

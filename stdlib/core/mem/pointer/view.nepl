@@ -1,0 +1,83 @@
+#indent 4
+
+//: mem/pointer/view: MemPtr の non-owning pointer view helper
+//:
+//: 目的:
+//: - `MemPtr<T>` から別の `MemPtr<T>` view を作る helper をまとめます。
+//: - storage の確保・再確保・解放を行う owner boundary API とは分離し、public safe facade から使えるのは non-owning view 操作だけにします。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<u8> 1:
+//:         Result::Ok region:
+//:             let _p <MemPtr<u8>> region_ptr &region
+//:             match dealloc_region<u8> region:
+//:                 Result::Ok _:
+//:                     1
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+//:
+#import "core/math" as *
+#import "../types" as *
+#import "../internal" as *
+
+//: mem_ptr_add: MemPtr の byte offset view を作る
+//:
+//: 目的:
+//: - `MemPtr<T>` の raw address view に byte offset を加えた別の non-owning pointer view を返します。
+//:
+//: 実装(アルゴリズム):
+//: - internal boundary で raw view を取り出し、`add` 後に `MemPtr<T>` として包みます。
+//:
+//: 注意(重要):
+//: - 範囲検査は行いません。RegionToken に紐づく bounds が必要な場合は `region_ptr_at` を使います。
+//: - 返り値は owner ではありません。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 2:
+//:         Result::Ok region:
+//:             let second <MemPtr<i32>> mem_ptr_add<i32> region_ptr &region 4
+//:             match store_i32 second 9:
+//:                 Result::Ok _:
+//:                     let ok <bool> match load_i32 second:
+//:                         Option::Some v:
+//:                             eq v 9
+//:                         Option::None:
+//:                             false
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             if ok 1 0
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn mem_ptr_add <.T> <(MemPtr<.T>,i32)->MemPtr<.T>> (ptr, off):
+    let raw <i32> mem_ptr_addr ptr;
+    mem_ptr_wrap add raw off
