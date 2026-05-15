@@ -169,6 +169,7 @@ mod owner_raw_view_model;
 mod owner_raw_view_table;
 mod owner_return;
 mod owner_return_apply;
+mod owner_return_apply_extent;
 mod owner_return_apply_source;
 mod owner_return_unknown;
 mod owner_return_view;

@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T13:00:01.426Z",
+  "generated_at": "2026-05-15T13:06:50.042Z",
   "counts": {
-    "total": 827,
-    "open": 6,
-    "resolved": 821,
+    "total": 829,
+    "open": 7,
+    "resolved": 822,
     "by_area": {
       "core": {
-        "total": 411,
+        "total": 412,
         "open": 1,
-        "resolved": 410
+        "resolved": 411
       },
       "stdlib": {
-        "total": 234,
-        "open": 3,
+        "total": 235,
+        "open": 4,
         "resolved": 231
       },
       "TEST": {
@@ -120,8 +120,8 @@
   },
   "issues": [
     {
-      "id": "ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97",
-      "title": "Resource owner_return_apply exceeds responsibility split limit after owner summary growth",
+      "id": "ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F",
+      "title": "Resource owner_variant module exceeds responsibility split limit again",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -129,10 +129,10 @@
       "type": "architecture",
       "created": "2026-05-15",
       "updated": "2026-05-15",
-      "target": "nepl-core/src/resource/owner_return_apply.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/owner_variant.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97.md"
+      "file": "items/ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -163,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A",
+      "title": "Stdlib documentation contract declaration doctest baseline regressed to 1038",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/**/*.nepl, nodesrc/test_stdlib_documentation_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -6208,6 +6223,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T125800876Z-RESOURCE-CHECKER-POLICY-STILL-REQUIR-768A3E31.md"
+    },
+    {
+      "id": "ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97",
+      "title": "Resource owner_return_apply exceeds responsibility split limit after owner summary growth",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/owner_return_apply.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

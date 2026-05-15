@@ -39010,3 +39010,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --lib effect_return_summary_filter -- --nocapture`: 4 passed
   - `node --check nodesrc/test_resource_checker_responsibility.js`
   - `node nodesrc/test_resource_checker_responsibility.js`: stale filter policy は解消し、次 blocker に到達
+
+## 2026-05-15 Agent 1 owner_return_apply extent 責務分割
+
+- `ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97` を fixed にした。
+- `owner_return_apply.rs` は owner return transfer orchestration と、返却 extent の requirement 照合 / live extent 反映 helper を同じ module に持ち、434 行で policy limit 410 を超えていた。
+- `owner_return_apply_extent.rs` を追加し、`summary_return_extent_requirement_holds` と `apply_returned_owner_extent` を移した。`owner_return_apply.rs` は owner return / projection return の transfer selection に集中する。
+- Resource responsibility policy に新 module の mandatory check と line limit を追加した。分割後は `owner_return_apply.rs=382`、`owner_return_apply_extent.rs=68`。
+- 更新後の resource policy は次の別 blocker `owner_variant.rs has 871 lines; responsibility split limit is 840` を露出したため、`ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F` として分離した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` では別系統の documentation contract warning `declarationNoDoctest=1038 > 1032` も継続していたため、`ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A` として分離した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: 9 passed
+  - `node --check nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`: owner_return_apply blocker は解消し、次 blocker に到達
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: owner_return_apply は解消。残 warning は owner_variant と documentation contract
