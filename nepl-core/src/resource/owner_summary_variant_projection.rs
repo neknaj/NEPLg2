@@ -57,6 +57,15 @@ pub(super) fn remove_variant_projection_return_sources(
                     projection.returns_fresh_owner_extent =
                         super::summary::OwnerExtentSummary::Unknown;
                 }
+                OwnerProjectionReturnOwner::UnknownSource { .. } => {
+                    projection.parameter_indices.clear();
+                    projection.parameter_sources.clear();
+                    projection.parameter_return_extents.clear();
+                    projection.returns_fresh_owner = false;
+                    projection.returns_fresh_owner_extent =
+                        super::summary::OwnerExtentSummary::Unknown;
+                    projection.returns_maybe_owner = false;
+                }
                 OwnerProjectionReturnOwner::Maybe => {
                     projection.returns_maybe_owner = false;
                 }

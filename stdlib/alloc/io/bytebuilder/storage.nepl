@@ -74,7 +74,7 @@ pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
 //:
 //: [注意/ちゅうい]:
 //: - token は必ず `dealloc_region` へ渡し、compiler が token owner の消費を直接追跡できる形にします。
-//: - zero-size sentinel は allocator 側では解放対象でないため、`dealloc_region` が Err を返した場合も no-op として閉じます。
+//: - zero-size sentinel は allocator 側では解放対象でないため、owner-consuming destructor に渡して no-op として閉じます。
 //: neplg2:test
 //: ```neplg2
 //:| #entry main

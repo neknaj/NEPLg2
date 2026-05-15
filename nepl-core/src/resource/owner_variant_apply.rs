@@ -160,6 +160,15 @@ pub(super) fn apply_pending_variant_owner_return(
             storage_origins.mark_owned(&target);
             None
         }
+        PendingVariantOwnerReturnSource::UnknownSource { extent } => {
+            if owners.has_transferable_owner(&target) {
+                return None;
+            }
+            owners.allocate_with_extent(&target, extent.clone());
+            raw_aliases.mark(&target);
+            storage_origins.mark_owned(&target);
+            None
+        }
         PendingVariantOwnerReturnSource::Maybe => {
             if owners.has_transferable_owner(&target) {
                 return None;

@@ -6,12 +6,15 @@ use super::owner_summary_raw_transfer::{
     push_transferred_raw_owner_view_aliases, push_transferred_value_aliases,
     push_transferred_value_aliases_from,
 };
+use super::owner_summary_raw_use_call::push_direct_call_returned_raw_owner_aliases;
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
+use super::summary::OwnerReturnSummaryIndex;
 
 pub(super) fn collect_raw_owner_aliases_with_views(
     ops: &[ResourceOp],
     aliases: &mut Vec<Place>,
     raw_views: &mut RawAddressViewTable,
+    summaries: &OwnerReturnSummaryIndex<'_>,
 ) {
     for op in ops {
         match op {
@@ -61,15 +64,15 @@ pub(super) fn collect_raw_owner_aliases_with_views(
                 else_value,
                 ..
             } => collect_branch_raw_owner_aliases(
-                aliases, raw_views, output, then_ops, then_value, else_ops, else_value,
+                aliases, raw_views, output, then_ops, then_value, else_ops, else_value, summaries,
             ),
             ResourceOp::Loop {
                 condition_ops,
                 body_ops,
                 ..
             } => {
-                collect_raw_owner_aliases_with_views(condition_ops, aliases, raw_views);
-                collect_raw_owner_aliases_with_views(body_ops, aliases, raw_views);
+                collect_raw_owner_aliases_with_views(condition_ops, aliases, raw_views, summaries);
+                collect_raw_owner_aliases_with_views(body_ops, aliases, raw_views, summaries);
             }
             ResourceOp::Match {
                 output,
@@ -95,6 +98,7 @@ pub(super) fn collect_raw_owner_aliases_with_views(
                         &arm.ops,
                         &mut arm_aliases,
                         &mut arm_raw_views,
+                        summaries,
                     );
                     let mut output_raw_views = raw_views.clone();
                     push_transferred_value_aliases_from(
@@ -120,10 +124,17 @@ pub(super) fn collect_raw_owner_aliases_with_views(
             | ResourceOp::EndScope { .. }
             | ResourceOp::CallEffect { .. }
             | ResourceOp::FunctionValue { .. }
-            | ResourceOp::Call { .. }
             | ResourceOp::IndirectCall { .. }
             | ResourceOp::RawMemory { .. }
             | ResourceOp::StorageOrigin { .. } => {}
+            ResourceOp::Call {
+                output,
+                target,
+                args,
+                ..
+            } => push_direct_call_returned_raw_owner_aliases(
+                output, target, args, aliases, raw_views, summaries,
+            ),
         }
     }
 }
@@ -136,13 +147,24 @@ fn collect_branch_raw_owner_aliases(
     then_value: &Place,
     else_ops: &[ResourceOp],
     else_value: &Place,
+    summaries: &OwnerReturnSummaryIndex<'_>,
 ) {
     let mut then_aliases = aliases.clone();
     let mut then_raw_views = raw_views.clone();
-    collect_raw_owner_aliases_with_views(then_ops, &mut then_aliases, &mut then_raw_views);
+    collect_raw_owner_aliases_with_views(
+        then_ops,
+        &mut then_aliases,
+        &mut then_raw_views,
+        summaries,
+    );
     let mut else_aliases = aliases.clone();
     let mut else_raw_views = raw_views.clone();
-    collect_raw_owner_aliases_with_views(else_ops, &mut else_aliases, &mut else_raw_views);
+    collect_raw_owner_aliases_with_views(
+        else_ops,
+        &mut else_aliases,
+        &mut else_raw_views,
+        summaries,
+    );
     push_transferred_value_aliases_from(
         aliases,
         raw_views,

@@ -31,6 +31,7 @@
 #import "../types" as *
 #import "../layout" as *
 #import "../internal" as *
+#import "../allocator" as allocator
 #import "./alloc" as *
 #import "core/field" as *
 
@@ -420,11 +421,13 @@ pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
 //: - `RegionToken<T>` の free obligation を消費して allocator へ返します。
 //:
 //: 実装(アルゴリズム):
-//: - token 内の pointer と size を取り出し、`dealloc_ptr` に委譲します。
+//: - token 内の raw owner identity と size を取り出し、owner-consuming raw dealloc 境界へ直接渡します。
+//: - zero-size sentinel も token としては消費し、allocator 側の `dealloc_raw` が no-op として閉じます。
 //:
 //: 注意(重要):
 //: - initialized non-Copy value が残る storage-only free は compiler の Resource IR gate が拒否します。
 //: - `MemPtr` だけから `RegionToken` は作れないため、通常 source は owner token を forge できません。
+//: - この関数は cleanup destructor 境界です。無効な token を caller へ戻す API ではなく、渡された token の所有権を必ず閉じます。
 //:
 //: 計算量:
 //: - allocator の free list 挿入 / coalesce に依存し、最悪 O(n) です。
@@ -447,6 +450,7 @@ pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
 //:             0
 //: ```
 pub fn dealloc_region <.T> <(RegionToken<.T>)->Result<(),str>> (token):
-    let ptr <MemPtr<.T>> MemPtr get token "raw"
+    let raw <i32> get token "raw"
     let size <i32> get token "size"
-    dealloc_ptr<.T> ptr size
+    allocator::dealloc_raw raw size
+    Result<(),str>::Ok ()

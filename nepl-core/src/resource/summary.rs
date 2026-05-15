@@ -120,6 +120,9 @@ pub(super) enum OwnerProjectionReturnOwner {
     Fresh {
         extent: OwnerExtentSummary,
     },
+    UnknownSource {
+        extent: OwnerExtentSummary,
+    },
     Maybe,
 }
 

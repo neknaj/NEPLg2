@@ -2,8 +2,8 @@
 id: ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4
 title: "FS normalize owner summaries leak Vec and StringBuilder owner payloads"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-16
@@ -41,6 +41,23 @@ Filesystem path normalization remains blocked after the raw identity fix. Weaken
 
 Review Resource IR owner summary generation and return-boundary owner transfer for enum payloads carrying structural owners. Preserve exact projections for RegionToken/raw owner fields through Vec/StringBuilder construction, push/build helper calls, and Result::Ok wrapping, while keeping public raw i32 and MemPtr owner leaks rejected.
 
+## 解決内容
+
+2026-05-16 Agent 1:
+
+- Resource IR owner summary の raw owner alias walk が、callee の owner return summary を呼び出し戻り値へ反映していなかったため、`string_builder_into_byte_builder` が返す `ByteBuilder.region.raw` と、その後の `byte_builder_free` の consumed source が接続されていなかった。
+- `owner_summary_raw_use_call` に direct call return alias propagation を追加し、root owner return、projection owner return、variant payload owner return のうち parameter-derived な戻り値を `ResourceOp::Call.output` の対応 projection へ伝播するようにした。
+- `function_returns_raw_owner_from` 側の alias collection も summary-aware にし、wrapper 関数が helper call 経由で raw owner projection を返す場合も seed 判定へ反映する。
+- `Result::Ok` payload が parameter owner と fresh owner の両方を取り得る場合は `Maybe` へ落として leak 扱いにせず、`UnknownSource { extent }` として「出所は分岐依存だが所有者は必ず戻り値 payload にある」ことを表すようにした。
+- stdlib 側は `RegionToken` / `Vec` cleanup source を、token を必ず owner-consuming destructor へ渡す形に揃えた。これは stdlib 関数名 whitelist ではなく、source-level dealloc path を Resource IR が要約できるようにする修正である。
+
 ## 検証
 
-Run focused Resource IR owner regression for fs_normalize_range_push and std/fs/stat.nepl doctest after fixing. Current evidence file: tmp/agent1-fs-stat-after-raw-identity-rerun.json.
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_builder_free_cleanup -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_normalize_build_ranges_builder_cleanup -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_normalize_range_push_result_owner_cleanup -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_byte_builder_free_closes_region_by_token_size -- --nocapture`
+- `node nodesrc/test_stdlib_core_mem_boundary.js`
+- `trunk build`
+- `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/agent1-fs-stat-owner-summary-fixed.json -j 1 --dist web/dist --assert-io`: total=1, passed=1

@@ -129,6 +129,11 @@ impl PendingVariantOwnerEffects {
                         extent: instantiate_owner_extent_summary(args, extent),
                     }
                 }
+                OwnerProjectionReturnOwner::UnknownSource { extent } => {
+                    PendingVariantOwnerReturnSource::UnknownSource {
+                        extent: instantiate_owner_extent_summary(args, extent),
+                    }
+                }
                 OwnerProjectionReturnOwner::Maybe => PendingVariantOwnerReturnSource::Maybe,
             };
             self.push_unique_return(PendingVariantOwnerReturn {

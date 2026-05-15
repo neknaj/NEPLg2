@@ -66,6 +66,9 @@ pub(super) enum PendingVariantOwnerReturnSource {
     Fresh {
         extent: super::model::OwnerStorageExtent,
     },
+    UnknownSource {
+        extent: super::model::OwnerStorageExtent,
+    },
     Maybe,
 }
 
@@ -485,6 +488,9 @@ impl PendingVariantOwnerEffects {
                                             returned_extent,
                                         ),
                                         PendingVariantOwnerReturnSource::Fresh { .. }
+                                        | PendingVariantOwnerReturnSource::UnknownSource {
+                                            ..
+                                        }
                                         | PendingVariantOwnerReturnSource::Maybe => {
                                             OwnerExtentSummary::Unknown
                                         }
@@ -503,6 +509,23 @@ impl PendingVariantOwnerEffects {
                             suffix: entry.target_suffix.clone(),
                             ty: entry.target_ty,
                             owner: OwnerProjectionReturnOwner::Fresh {
+                                extent: summarize_owner_storage_extent(
+                                    raw_aliases,
+                                    parameter_condition_sources,
+                                    extent,
+                                ),
+                            },
+                        },
+                    );
+                }
+                PendingVariantOwnerReturnSource::UnknownSource { extent } => {
+                    push_unique_variant_projection_return(
+                        return_out,
+                        OwnerVariantProjectionReturn {
+                            variant: normalize_variant_name(&entry.variant),
+                            suffix: entry.target_suffix.clone(),
+                            ty: entry.target_ty,
+                            owner: OwnerProjectionReturnOwner::UnknownSource {
                                 extent: summarize_owner_storage_extent(
                                     raw_aliases,
                                     parameter_condition_sources,

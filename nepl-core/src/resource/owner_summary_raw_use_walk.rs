@@ -6,7 +6,9 @@ use super::owner_summary_raw_transfer::{
     place_matches_any_alias, push_transferred_raw_owner_view_aliases,
     push_transferred_value_aliases, push_transferred_value_aliases_from,
 };
-use super::owner_summary_raw_use_call::direct_call_consumes_raw_owner_alias;
+use super::owner_summary_raw_use_call::{
+    direct_call_consumes_raw_owner_alias, push_direct_call_returned_raw_owner_aliases,
+};
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
 use super::summary::OwnerReturnSummaryIndex;
 
@@ -63,10 +65,18 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
                     return true;
                 }
             }
-            ResourceOp::Call { target, args, .. } => {
+            ResourceOp::Call {
+                output,
+                target,
+                args,
+                ..
+            } => {
                 if direct_call_consumes_raw_owner_alias(target, args, aliases, summaries) {
                     return true;
                 }
+                push_direct_call_returned_raw_owner_aliases(
+                    output, target, args, aliases, raw_views, summaries,
+                );
             }
             ResourceOp::Branch {
                 output,

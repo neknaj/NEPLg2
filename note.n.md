@@ -1,3 +1,21 @@
+# 2026-05-16 Agent 1 FS normalize owner summary leak 修正
+
+- `ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4` を解決した。
+- 根本原因は、Resource IR owner summary の raw owner alias walk が callee の owner return summary を call output に反映していなかったことだった。`string_builder_into_byte_builder` の `StringBuilder.bytes.region.raw` projection return は summary に存在していたが、その戻り値を受けた `byte_builder_free` の consumed projection へ raw owner alias が届かず、`string_builder_free` の消費要約が空になっていた。
+- `owner_summary_raw_use_call` に direct call returned raw-owner alias propagation を追加し、root / projection / variant payload の parameter-derived owner return を call output の対応 projection へ伝播するようにした。`function_returns_raw_owner_from` 側の alias collection も summary-aware にし、wrapper call 経由で raw owner projection を返す関数を seed 判定へ含めた。
+- `Result::Ok` payload が parameter owner と fresh owner の両方を取り得る場合は `Maybe` へ落として leak 扱いにせず、`UnknownSource { extent }` として「出所は分岐依存だが戻り値 payload は owner を保持する」ことを表すようにした。
+- `dealloc_region` / `vec_free_storage` は source-level に token owner を必ず owner-consuming destructor へ渡す形へ揃えた。これは stdlib 関数名 whitelist ではなく、source に現れる owner transfer を Resource IR が証明できるようにする変更。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 6 Resource IR owner summary 進捗と対象 issue を更新した。`plan.md` は変更していない。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_builder_free_cleanup -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_normalize_build_ranges_builder_cleanup -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_normalize_range_push_result_owner_cleanup -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_byte_builder_free_closes_region_by_token_size -- --nocapture`
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/agent1-fs-stat-owner-summary-fixed.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+
 # 2026-05-15 Agent 1 stdlib source policy 実装行数境界修正
 
 - `ISS-20260515T135819737Z-STDLIB-SOURCE-POLICY-LINE-LIMITS-C-4D318A9B` を追加して解決した。

@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T19:06:20.760Z",
+  "generated_at": "2026-05-15T19:53:31.226Z",
   "counts": {
     "total": 846,
-    "open": 7,
-    "resolved": 839,
+    "open": 6,
+    "resolved": 840,
     "by_area": {
-      "core": {
-        "total": 415,
-        "open": 1,
-        "resolved": 414
-      },
       "stdlib": {
         "total": 247,
         "open": 4,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 415,
+        "open": 0,
+        "resolved": 415
       },
       "CORE": {
         "total": 1,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4",
-      "title": "FS normalize owner summaries leak Vec and StringBuilder owner payloads",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "nepl-core/src/resource; stdlib/std/fs/path/normalize/*.nepl; stdlib/std/fs/stat.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6298,6 +6283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T182630578Z-VEC-OWNER-RESULT-RETURN-TRIPS-RAW-ID-421E44DD.md"
+    },
+    {
+      "id": "ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4",
+      "title": "FS normalize owner summaries leak Vec and StringBuilder owner payloads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource; stdlib/std/fs/path/normalize/*.nepl; stdlib/std/fs/stat.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T190417577Z-FS-NORMALIZE-OWNER-SUMMARIES-LEAK-VE-510B86A4.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

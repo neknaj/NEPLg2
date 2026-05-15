@@ -13262,6 +13262,188 @@ fn main <()* >()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_accepts_vec_free_region_token_cleanup() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+
+fn main <()* >()> ():
+    match v::new<i32>:
+        Result::Err _e:
+            ()
+        Result::Ok stack:
+            v::free<i32> stack
+"#;
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("free__Vec_T") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Vec::free must close the RegionToken owner obligation through source-level dealloc_region: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_fs_normalize_range_push_result_owner_cleanup() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "std/fs/path/normalize/range_stack" as range_stack
+
+fn main <()* >()> ():
+    match v::new<i32>:
+        Result::Err _e:
+            ()
+        Result::Ok stack:
+            match range_stack::fs_normalize_range_push stack 0 1:
+                Result::Err _e:
+                    ()
+                Result::Ok next:
+                    v::free<i32> next
+"#;
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("fs_normalize_range_push__")
+                || function.starts_with("free__Vec_T")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "fs_normalize_range_push must return Vec owner payloads that remain freeable by source-level Vec::free cleanup: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_fs_normalize_build_ranges_builder_cleanup() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as v
+#import "alloc/string/builder" as *
+#import "core/result" as *
+#import "std/fs/path/normalize/build" as normalize_build
+#import "std/fs/path/normalize/range_stack" as range_stack
+
+fn main <()* >()> ():
+    match v::new<i32>:
+        Result::Err _e:
+            ()
+        Result::Ok stack0:
+            match range_stack::fs_normalize_range_push stack0 0 1:
+                Result::Err _e:
+                    ()
+                Result::Ok stack:
+                    let result <Result<StringBuilder,i32>> normalize_build::fs_normalize_build_ranges_builder "a" &stack
+                    v::free<i32> stack
+                    match result:
+                        Result::Err _e:
+                            ()
+                        Result::Ok sb:
+                            string_builder_free sb
+"#;
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("fs_normalize_build_ranges_builder__")
+                || function.starts_with("string_builder_free__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "fs_normalize_build_ranges_builder must return a StringBuilder owner payload that remains freeable by source-level cleanup: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_string_builder_free_cleanup() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string/builder" as *
+#import "core/result" as *
+
+fn main <()* >()> ():
+    match string_builder_new_result:
+        Result::Err _e:
+            ()
+        Result::Ok sb:
+            string_builder_free sb
+"#;
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("string_builder_free__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "StringBuilder::free must consume the nested ByteBuilder RegionToken owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_effect_check_accepts_string_builder_build_str_return() {
     let source = r#"
 #entry main

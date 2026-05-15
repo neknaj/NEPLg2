@@ -128,6 +128,9 @@ fn canonicalize_projection_return_owner(owner: &mut OwnerProjectionReturnOwner) 
         OwnerProjectionReturnOwner::Fresh { extent } => {
             canonicalize_owner_extent_summary(extent);
         }
+        OwnerProjectionReturnOwner::UnknownSource { extent } => {
+            canonicalize_owner_extent_summary(extent);
+        }
         OwnerProjectionReturnOwner::Maybe => {}
     }
 }

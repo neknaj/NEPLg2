@@ -17,10 +17,14 @@ pub(super) fn function_consumes_raw_owner_from(
     })
 }
 
-pub(super) fn function_returns_raw_owner_from(function: &ResourceFunction, place: &Place) -> bool {
+pub(super) fn function_returns_raw_owner_from(
+    function: &ResourceFunction,
+    place: &Place,
+    summaries: &OwnerReturnSummaryIndex<'_>,
+) -> bool {
     function.blocks.iter().any(|block| {
         let mut aliases = vec![place.clone()];
-        collect_raw_owner_aliases(&block.ops, &mut aliases);
+        collect_raw_owner_aliases(&block.ops, &mut aliases, summaries);
         matches!(
             &block.terminator,
             ResourceTerminator::Return {

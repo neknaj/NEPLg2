@@ -97,6 +97,7 @@ pub(super) fn push_unique_variant_projection_return(
     if existing.owner == entry.owner {
         return;
     }
+    let entry_owner_extent = projection_return_owner_extent(&entry.owner);
     match (&mut existing.owner, entry.owner) {
         (
             super::summary::OwnerProjectionReturnOwner::Parameter {
@@ -122,12 +123,41 @@ pub(super) fn push_unique_variant_projection_return(
             *extent =
                 super::owner_extent::merge_owner_extent_summaries(extent.clone(), next_extent);
         }
+        (
+            super::summary::OwnerProjectionReturnOwner::UnknownSource { extent },
+            super::summary::OwnerProjectionReturnOwner::UnknownSource {
+                extent: next_extent,
+            },
+        ) => {
+            *extent =
+                super::owner_extent::merge_owner_extent_summaries(extent.clone(), next_extent);
+        }
         (super::summary::OwnerProjectionReturnOwner::Maybe, _) => {}
         (_, super::summary::OwnerProjectionReturnOwner::Maybe) => {
             existing.owner = super::summary::OwnerProjectionReturnOwner::Maybe;
         }
         _ => {
-            existing.owner = super::summary::OwnerProjectionReturnOwner::Maybe;
+            existing.owner = super::summary::OwnerProjectionReturnOwner::UnknownSource {
+                extent: super::owner_extent::merge_owner_extent_summaries(
+                    projection_return_owner_extent(&existing.owner),
+                    entry_owner_extent,
+                ),
+            };
+        }
+    }
+}
+
+fn projection_return_owner_extent(
+    owner: &super::summary::OwnerProjectionReturnOwner,
+) -> super::summary::OwnerExtentSummary {
+    match owner {
+        super::summary::OwnerProjectionReturnOwner::Parameter {
+            returned_extent, ..
+        } => returned_extent.clone(),
+        super::summary::OwnerProjectionReturnOwner::Fresh { extent }
+        | super::summary::OwnerProjectionReturnOwner::UnknownSource { extent } => extent.clone(),
+        super::summary::OwnerProjectionReturnOwner::Maybe => {
+            super::summary::OwnerExtentSummary::Unknown
         }
     }
 }

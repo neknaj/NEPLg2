@@ -127,6 +127,7 @@ fn push_unique_variant_projection_return(
     if existing.owner == entry.owner {
         return;
     }
+    let entry_owner_extent = projection_return_owner_extent(&entry.owner);
     match (&mut existing.owner, entry.owner) {
         (
             OwnerProjectionReturnOwner::Parameter {
@@ -152,12 +153,37 @@ fn push_unique_variant_projection_return(
             *extent =
                 super::owner_extent::merge_owner_extent_summaries(extent.clone(), next_extent);
         }
+        (
+            OwnerProjectionReturnOwner::UnknownSource { extent },
+            OwnerProjectionReturnOwner::UnknownSource {
+                extent: next_extent,
+            },
+        ) => {
+            *extent =
+                super::owner_extent::merge_owner_extent_summaries(extent.clone(), next_extent);
+        }
         (OwnerProjectionReturnOwner::Maybe, _) => {}
         (_, OwnerProjectionReturnOwner::Maybe) => {
             existing.owner = OwnerProjectionReturnOwner::Maybe;
         }
         _ => {
-            existing.owner = OwnerProjectionReturnOwner::Maybe;
+            existing.owner = OwnerProjectionReturnOwner::UnknownSource {
+                extent: super::owner_extent::merge_owner_extent_summaries(
+                    projection_return_owner_extent(&existing.owner),
+                    entry_owner_extent,
+                ),
+            };
         }
+    }
+}
+
+fn projection_return_owner_extent(owner: &OwnerProjectionReturnOwner) -> OwnerExtentSummary {
+    match owner {
+        OwnerProjectionReturnOwner::Parameter {
+            returned_extent, ..
+        } => returned_extent.clone(),
+        OwnerProjectionReturnOwner::Fresh { extent }
+        | OwnerProjectionReturnOwner::UnknownSource { extent } => extent.clone(),
+        OwnerProjectionReturnOwner::Maybe => OwnerExtentSummary::Unknown,
     }
 }
