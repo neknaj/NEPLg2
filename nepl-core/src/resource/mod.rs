@@ -52,6 +52,7 @@ mod effect_counts;
 mod effect_counts_host;
 mod effect_counts_raw;
 mod effect_identity;
+mod effect_raw_memory_identity;
 mod effect_summary;
 mod function_alias;
 mod i32_call_facts;

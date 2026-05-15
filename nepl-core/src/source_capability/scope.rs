@@ -52,10 +52,10 @@ impl SourceCapabilityScope {
         match stmt {
             Stmt::FnDef(def) => self.bind(&def.name.name),
             Stmt::FnAlias(alias) => self.bind(&alias.name.name),
-            Stmt::StructDef(def) => self.bind(&def.name.name),
-            Stmt::EnumDef(def) => self.bind(&def.name.name),
-            Stmt::Trait(def) => self.bind(&def.name.name),
             Stmt::Directive(_)
+            | Stmt::StructDef(_)
+            | Stmt::EnumDef(_)
+            | Stmt::Trait(_)
             | Stmt::Wasm(_)
             | Stmt::LlvmIr(_)
             | Stmt::Impl(_)

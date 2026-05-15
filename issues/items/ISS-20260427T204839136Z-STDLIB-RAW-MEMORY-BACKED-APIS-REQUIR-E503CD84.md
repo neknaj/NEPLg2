@@ -503,3 +503,15 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 今回の修正では、`sort/merge.nepl` は `merge/api` だけを再公開し、`merge/buffer` / `merge/range` は explicit raw-boundary implementation module として残ることを policy にした。`merge/buffer` の Copy-only scratch buffer helper、`merge/range` の Copy-only traversal、`merge/api` の explicit `./range` import も同じ policy で監視する。
 
 この親 issue は引き続き open とする。今回閉じたのは policy 側の古い re-export 期待であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / non-Copy payload sort の最終移行は継続する。
+
+## 2026-05-15 Agent 1 raw memory operation capability 分離追記
+
+`ISS-20260515T024851827Z-RAW-MEMORY-OPERATIONS-SHARE-A-FILE-W-2A06192D` として、compiler の raw memory source capability が file-wide raw boundary へ潰れていた問題を分離して修正した。
+
+今回の修正では、raw source authority を `RawMemoryStructuralBoundary`、`RawMemoryOperationBoundary(RawMemoryOp)`、`RawBodyMemoryOperationBoundary(RawBodyMemoryOp)` に分けた。raw address identity helper や `MemPtr` / `RegionToken` constructor は structural capability だけを付与し、`load` / `store` / `alloc` などの actual raw helper と intrinsic は operation enum として記録する。`#wasm` / `#llvm` body の memory instruction も backend operation enum として記録し、typecheck と ResourceEffectBoundary diagnostic suppression は使用中の operation と file capability を照合する。
+
+これにより、compiler-owned stdlib source で raw `load` evidence があるだけでは raw `store` を許可できず、structural raw address helper だけでは unsafe memory operation diagnostic を抑制できない。親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行が残るため open のまま継続する。
+
+同じ修正で、pure checked wrapper 名 `alloc` / `dealloc` / `realloc` を raw operation として扱う設計は採用しなかった。`alloc` は `Result<i32,str>` を返す checked API であり、名前だけで raw op にすると `Result` 全体へ free obligation を割り当てて `alloc_ptr` の owner transfer を壊すためである。`ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` は raw identity の発生元 `RawMemoryOp` を保持し、source capability とは `Alloc` / `Realloc` 由来 identity として照合する。
+
+`ISS-20260515T031921532Z-OWNER-AGGREGATE-FIELD-EVIDENCE-IGNOR-943C9579` として、owner aggregate field evidence walker が `#intrinsic "get_field_ref"` / `#intrinsic "get_field"` 自体を field accessor evidence として分類していなかった問題も分離して修正した。これにより `core/mem/types.nepl` の compiler-owned field projection は `OwnerAggregateFieldBoundary` capability として証明され、同時に top-level `struct` / `enum` / `trait` 定義を value shadow として扱わないことで same-module constructor evidence も失わない。

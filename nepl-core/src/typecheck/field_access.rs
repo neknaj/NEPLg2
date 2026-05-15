@@ -59,7 +59,7 @@ impl<'a> BlockChecker<'a> {
         restricted: RestrictedStructConstructor,
         span: Span,
     ) -> bool {
-        if self.raw_memory_boundary_allowed(span) {
+        if self.raw_memory_structural_boundary_allowed(span) {
             return true;
         }
         let Some(source_map) = self.source_map else {

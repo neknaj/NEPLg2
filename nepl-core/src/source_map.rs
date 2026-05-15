@@ -9,6 +9,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
+use crate::effects::{LlvmRawBodyMemoryOp, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
 use crate::span::FileId;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -63,7 +64,9 @@ impl fmt::Display for SourcePathDisplay<'_> {
 /// Compiler-owned privilege attached to a source file.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SourceCapability {
-    RawMemoryBoundary,
+    RawMemoryStructuralBoundary,
+    RawMemoryOperationBoundary(RawMemoryOp),
+    RawBodyMemoryOperationBoundary(RawBodyMemoryOp),
     OwnerAggregateConstructorBoundary(String),
     OwnerAggregateFieldBoundary,
     CompilerMemoryTypeDefinition(CompilerMemoryType),
@@ -74,6 +77,41 @@ pub enum CompilerMemoryType {
     RawPointer,
     OwnerToken,
 }
+
+const ALL_RAW_MEMORY_OPS: &[RawMemoryOp] = &[
+    RawMemoryOp::Alloc,
+    RawMemoryOp::Dealloc,
+    RawMemoryOp::Realloc,
+    RawMemoryOp::Load,
+    RawMemoryOp::Store,
+    RawMemoryOp::BulkCopy,
+    RawMemoryOp::BulkMove,
+    RawMemoryOp::MemorySize,
+    RawMemoryOp::MemoryGrow,
+    RawMemoryOp::FillBytes,
+    RawMemoryOp::Fill,
+];
+
+const ALL_RAW_BODY_MEMORY_OPS: &[RawBodyMemoryOp] = &[
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::Load),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::Store),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::MemorySize),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::MemoryGrow),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::MemoryCopy),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::MemoryFill),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::MemoryInit),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::DataDrop),
+    RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::Memory),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Alloca),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Load),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Store),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::AtomicRmw),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Cmpxchg),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Fence),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Memcpy),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Memmove),
+    RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Memset),
+];
 
 /// Compiler-owned privileges attached to a source file.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -89,7 +127,15 @@ impl SourceCapabilities {
     }
 
     pub fn raw_memory_boundary() -> Self {
-        Self::with(SourceCapability::RawMemoryBoundary)
+        let mut capabilities = Self::none();
+        capabilities.insert(SourceCapability::RawMemoryStructuralBoundary);
+        for operation in ALL_RAW_MEMORY_OPS {
+            capabilities.insert(SourceCapability::RawMemoryOperationBoundary(*operation));
+        }
+        for operation in ALL_RAW_BODY_MEMORY_OPS {
+            capabilities.insert(SourceCapability::RawBodyMemoryOperationBoundary(*operation));
+        }
+        capabilities
     }
 
     pub fn owner_aggregate_constructor_boundary(name: impl Into<String>) -> Self {
@@ -120,8 +166,16 @@ impl SourceCapabilities {
         self.capabilities.contains(&capability)
     }
 
-    pub fn allows_raw_memory_boundary(&self) -> bool {
-        self.allows(SourceCapability::RawMemoryBoundary)
+    pub fn allows_raw_memory_structural_boundary(&self) -> bool {
+        self.allows(SourceCapability::RawMemoryStructuralBoundary)
+    }
+
+    pub fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool {
+        self.allows(SourceCapability::RawMemoryOperationBoundary(operation))
+    }
+
+    pub fn allows_raw_body_memory_operation_boundary(&self, operation: RawBodyMemoryOp) -> bool {
+        self.allows(SourceCapability::RawBodyMemoryOperationBoundary(operation))
     }
 
     pub fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool {
@@ -174,8 +228,27 @@ impl SourceMap {
         }
     }
 
-    pub fn raw_memory_boundary_allowed(&self, id: FileId) -> bool {
-        self.capabilities(id).allows_raw_memory_boundary()
+    pub fn raw_memory_structural_boundary_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id)
+            .allows_raw_memory_structural_boundary()
+    }
+
+    pub fn raw_memory_operation_boundary_allowed(
+        &self,
+        id: FileId,
+        operation: RawMemoryOp,
+    ) -> bool {
+        self.capabilities(id)
+            .allows_raw_memory_operation_boundary(operation)
+    }
+
+    pub fn raw_body_memory_operation_boundary_allowed(
+        &self,
+        id: FileId,
+        operation: RawBodyMemoryOp,
+    ) -> bool {
+        self.capabilities(id)
+            .allows_raw_body_memory_operation_boundary(operation)
     }
 
     pub fn owner_aggregate_constructor_boundary_allowed(&self, id: FileId, name: &str) -> bool {
@@ -262,30 +335,42 @@ impl SourceMap {
 mod tests {
     use alloc::string::String;
 
+    use crate::effects::RawMemoryOp;
+
     use super::{CompilerMemoryType, SourceCapabilities, SourceCapability, SourceMap};
 
     #[test]
     fn source_capabilities_are_enum_keyed() {
         let none = SourceCapabilities::none();
-        assert!(!none.allows(SourceCapability::RawMemoryBoundary));
+        assert!(!none.allows(SourceCapability::RawMemoryStructuralBoundary));
+        assert!(!none.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
         assert!(!none.allows(SourceCapability::CompilerMemoryTypeDefinition(
             CompilerMemoryType::RawPointer,
         )));
 
-        let raw_boundary = SourceCapabilities::with(SourceCapability::RawMemoryBoundary);
-        assert!(raw_boundary.allows(SourceCapability::RawMemoryBoundary));
-        assert!(raw_boundary.allows_raw_memory_boundary());
+        let raw_boundary = SourceCapabilities::raw_memory_boundary();
+        assert!(raw_boundary.allows(SourceCapability::RawMemoryStructuralBoundary));
+        assert!(raw_boundary.allows_raw_memory_structural_boundary());
+        assert!(raw_boundary.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
+        assert!(raw_boundary.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
+
+        let raw_load = SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
+            RawMemoryOp::Load,
+        ));
+        assert!(raw_load.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
+        assert!(!raw_load.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
+        assert!(!raw_load.allows_raw_memory_structural_boundary());
 
         let owner_constructor = SourceCapabilities::owner_aggregate_constructor_boundary("Vec");
         assert!(owner_constructor.allows_owner_aggregate_constructor_boundary("Vec"));
         assert!(!owner_constructor.allows_owner_aggregate_constructor_boundary("Diag"));
         assert!(!owner_constructor.allows_owner_aggregate_field_boundary());
-        assert!(!owner_constructor.allows_raw_memory_boundary());
+        assert!(!owner_constructor.allows_raw_memory_structural_boundary());
 
         let owner_field = SourceCapabilities::owner_aggregate_field_boundary();
         assert!(owner_field.allows_owner_aggregate_field_boundary());
         assert!(!owner_field.allows_owner_aggregate_constructor_boundary("Vec"));
-        assert!(!owner_field.allows_raw_memory_boundary());
+        assert!(!owner_field.allows_raw_memory_structural_boundary());
 
         let memory_type =
             SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::OwnerToken);
@@ -300,11 +385,12 @@ mod tests {
         let raw = source_map.add_with_capabilities(
             "core/mem.nepl",
             String::from(""),
-            SourceCapabilities::with(SourceCapability::RawMemoryBoundary),
+            SourceCapabilities::with(SourceCapability::RawMemoryStructuralBoundary),
         );
 
-        assert!(!source_map.raw_memory_boundary_allowed(plain));
-        assert!(source_map.raw_memory_boundary_allowed(raw));
+        assert!(!source_map.raw_memory_structural_boundary_allowed(plain));
+        assert!(source_map.raw_memory_structural_boundary_allowed(raw));
+        assert!(!source_map.raw_memory_operation_boundary_allowed(raw, RawMemoryOp::Load));
         assert!(!source_map.owner_aggregate_constructor_boundary_allowed(raw, "Vec"));
         assert!(!source_map.owner_aggregate_field_boundary_allowed(raw));
 

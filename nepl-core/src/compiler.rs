@@ -11,6 +11,7 @@ use crate::diagnostic_codes::{
     BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
     WasmDiagnosticCode,
 };
+use crate::effects::RawMemoryOp;
 use crate::error::CoreError;
 use crate::lexer;
 use crate::monomorphize;
@@ -728,7 +729,7 @@ mod tests {
         ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceId,
         ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
     };
-    use crate::source_map::{SourceCapabilities, SourceMap};
+    use crate::source_map::{SourceCapabilities, SourceCapability, SourceMap};
     use alloc::boxed::Box;
 
     #[test]
@@ -958,6 +959,7 @@ mod tests {
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function: String::from("leak_raw"),
+            operation: RawMemoryOp::Alloc,
             place,
             span: Span::dummy(),
         };
@@ -984,6 +986,7 @@ mod tests {
         );
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function: String::from("alloc_raw"),
+            operation: RawMemoryOp::Alloc,
             place: Place::temporary(ResourceId(0), types.i32()),
             span: Span::new(raw_file, 0, 1),
         };
@@ -992,6 +995,50 @@ mod tests {
             &diagnostic,
             Some(&source_map),
         ));
+    }
+
+    #[test]
+    fn resource_effect_gate_allows_raw_alloc_identity_with_alloc_capability() {
+        let types = crate::types::TypeCtx::new();
+        let mut source_map = SourceMap::new();
+        let alloc_file = source_map.add_with_capabilities(
+            "stdlib/core/mem/allocator.nepl",
+            String::new(),
+            SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
+                RawMemoryOp::Alloc,
+            )),
+        );
+        let store_file = source_map.add_with_capabilities(
+            "stdlib/core/mem/store.nepl",
+            String::new(),
+            SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
+                RawMemoryOp::Store,
+            )),
+        );
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let alloc_escape = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function: String::from("alloc_raw"),
+            operation: RawMemoryOp::Alloc,
+            place: place.clone(),
+            span: Span::new(alloc_file, 0, 1),
+        };
+        let store_escape = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function: String::from("alloc_raw"),
+            operation: RawMemoryOp::Alloc,
+            place,
+            span: Span::new(store_file, 0, 1),
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &alloc_escape,
+            Some(&source_map),
+        ));
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &store_escape,
+                Some(&source_map),
+            )
+        );
     }
 
     #[test]
@@ -1069,6 +1116,36 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_requires_matching_raw_operation_capability() {
+        let mut source_map = SourceMap::new();
+        let raw_file = source_map.add_with_capabilities(
+            "stdlib/core/mem/raw_store.nepl",
+            String::new(),
+            SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
+                RawMemoryOp::Store,
+            )),
+        );
+        let store = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            function: String::from("store_raw"),
+            operation: RawMemoryOp::Store,
+            span: Span::new(raw_file, 0, 1),
+        };
+        let load = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            function: String::from("load_raw"),
+            operation: RawMemoryOp::Load,
+            span: Span::new(raw_file, 0, 1),
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &store,
+            Some(&source_map),
+        ));
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(&load, Some(&source_map),)
+        );
+    }
+
+    #[test]
     fn resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code() {
         let diagnostic = ResourceEffectBoundaryDiagnostic::UnknownEffect {
             function: String::from("main"),
@@ -1140,36 +1217,49 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
 ) -> bool {
     match diagnostic {
         crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+            operation,
             ..
         } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .map(|map| map.raw_memory_operation_boundary_allowed(span.file_id, *operation))
                 .unwrap_or(false)
         }
-        crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. } => {
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            operation,
+            ..
+        } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .map(|map| map.raw_memory_operation_boundary_allowed(span.file_id, *operation))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            operation,
             ..
         } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .map(|map| raw_identity_escape_allowed(*operation, span, map))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => false,
     }
+}
+
+fn raw_identity_escape_allowed(operation: RawMemoryOp, span: Span, source_map: &SourceMap) -> bool {
+    if source_map.raw_memory_structural_boundary_allowed(span.file_id) {
+        return true;
+    }
+    matches!(operation, RawMemoryOp::Alloc | RawMemoryOp::Realloc)
+        && source_map.raw_memory_operation_boundary_allowed(span.file_id, operation)
 }
 
 fn resource_effect_boundary_diagnostic_to_error(
@@ -1228,13 +1318,14 @@ fn resource_effect_boundary_diagnostic_to_error(
         ),
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function,
+            operation,
             span,
             ..
         } => Diagnostic::error_with_code(
             code,
             format!(
-                "pure function '{}' returns raw address identity from internal allocation",
-                function
+                "pure function '{}' returns raw address identity from internal {:?}",
+                function, operation
             ),
             *span,
         ),

@@ -1,3 +1,21 @@
+# 2026-05-15 Agent 1 raw memory operation capability / owner aggregate evidence 修正
+
+- `ISS-20260515T024851827Z-RAW-MEMORY-OPERATIONS-SHARE-A-FILE-W-2A06192D` の対応として、raw memory source authority を file-wide bool から `RawMemoryStructuralBoundary`、`RawMemoryOperationBoundary(RawMemoryOp)`、`RawBodyMemoryOperationBoundary(RawBodyMemoryOp)` に分けた。
+- checked wrapper 名 `alloc` / `dealloc` / `realloc` は raw operation として扱わない。`alloc` は `Result<i32,str>` を返す safe wrapper なので、名前で raw op 化すると `Result` 全体へ free obligation を割り当てて `alloc_ptr` の owner transfer を壊すためである。
+- `ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` は raw identity の発生元 `RawMemoryOp` を保持し、source capability と `Alloc` / `Realloc` 由来 identity を照合する。
+- `ISS-20260515T031921532Z-OWNER-AGGREGATE-FIELD-EVIDENCE-IGNOR-943C9579` の対応として、`#intrinsic "get_field_ref"` / `#intrinsic "get_field"` を owner aggregate field evidence として収集し、top-level `struct` / `enum` / `trait` 定義を value shadow として扱わないようにした。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core raw_memory_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`
+  - `cargo test -p nepl-core raw_memory --test effects -- --nocapture`
+  - `cargo test -p nepl-core resource_ir_effect_check --test resource_ir -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/core/mem/types.nepl -i stdlib/core/mem/internal.nepl -i stdlib/core/mem/pointer/alloc.nepl -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/storage/view.nepl -i stdlib/alloc/collections/vec/storage/cleanup.nepl --no-tree -o tmp/agent1-raw-operation-specific-capability-doctests-after-identity-origin.json -j 1 --dist web/dist --assert-io`
+- `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の source capability proof 精度を上げる compiler-core 修正である。
+
 # 2026-05-15 Agent 1 std fs/stdio raw facade boundary 修正
 
 - `ISS-20260514T182018325Z-STD-FS-AND-STDIO-ROOT-FACADES-RE-EXP-9492D2E7` を追加して解決した。
@@ -38697,3 +38715,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core raw_memory_boundary --lib -- --nocapture`: 12 passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`
   - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/core/mem/types.nepl -i stdlib/core/mem/internal.nepl -i stdlib/core/mem/pointer/alloc.nepl -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/storage/view.nepl -i stdlib/alloc/collections/vec/storage/cleanup.nepl --no-tree -o tmp/agent1-raw-boundary-safe-owner-helper-doctests.json -j 1 --dist web/dist --assert-io`: 26 passed
+
+## 2026-05-15 Agent 1 raw memory operation capability 分離
+
+- `ISS-20260515T024851827Z-RAW-MEMORY-OPERATIONS-SHARE-A-FILE-W-2A06192D` を追加して fixed にした。
+- raw source authority を file-wide bool ではなく、`RawMemoryStructuralBoundary`、`RawMemoryOperationBoundary(RawMemoryOp)`、`RawBodyMemoryOperationBoundary(RawBodyMemoryOp)` に分割した。
+- loader は raw address identity helper / restricted compiler-memory constructor を structural evidence、actual raw helper / intrinsic を `RawMemoryOp` evidence、`#wasm` / `#llvm` memory instruction を `RawBodyMemoryOp` evidence として収集する。
+- typecheck の raw intrinsic / raw body gate と ResourceEffectBoundary diagnostic suppression は、実際に使用中の operation と file capability を照合する。
+- source policy は raw operation capability の enum 化、compiler diagnostic suppression の operation-specific gate、cell / owner gate が SourceMap capability に依存しないことを監査する。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core raw_memory_boundary --lib -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core source_capabilities --lib -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core source_map_keeps_capabilities_per_file --lib -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core raw_body_memory --test effects -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`: 8 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`

@@ -414,6 +414,22 @@ fn raw_memory_intrinsic_in_core_mem_source_is_allowed_during_migration() {
 #indent 4
 #target wasm
 
+trait Copy:
+    #capability clone
+    #capability copy
+    fn clone <(Self)->Self> (x):
+        x
+
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+impl Copy for i32:
+    fn clone <(i32)->i32> (x):
+        x
+
+    fn copy_mark <(i32)->i32> (x):
+        x
+
 fn load_i32 <(i32)->i32> (p):
     #intrinsic "load" <i32> (p)
 "#;
@@ -668,7 +684,8 @@ fn main <()->i32> ():
     let loaded = loader.load(&entry).expect("load");
     let capabilities = source_capabilities_for_suffix(&loaded.source_map, "stdlib/core/mem.nepl");
     assert!(
-        !capabilities.allows_raw_memory_boundary(),
+        !capabilities.allows_raw_memory_structural_boundary()
+            && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
         "core/mem facade without raw source evidence must not receive raw memory capability"
     );
     check_module_with_source_map(
@@ -717,7 +734,8 @@ fn main <()->i32> ():
     let capabilities =
         source_capabilities_for_suffix(&loaded.source_map, "stdlib/alloc/string.nepl");
     assert!(
-        !capabilities.allows_raw_memory_boundary(),
+        !capabilities.allows_raw_memory_structural_boundary()
+            && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
         "alloc/string facade without raw source evidence must not receive raw memory capability"
     );
     check_module_with_source_map(
@@ -1160,7 +1178,8 @@ fn main <()->i32> ():
         let capabilities =
             source_capabilities_for_suffix(&loaded.source_map, expected_suffix.as_str());
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
             "{import_spec} without raw source evidence must not receive raw memory capability"
         );
         check_module_with_source_map(

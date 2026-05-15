@@ -4,7 +4,7 @@ use crate::ast::{Block, Effect, Stmt};
 use crate::diagnostic_codes::EffectDiagnosticCode;
 use crate::effects::{
     intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callees,
-    raw_body_memory_operations, raw_callee_is_raw_memory_effect,
+    raw_body_memory_operations, raw_memory_op_from_name, RawBodyMemoryOp, RawMemoryOp,
 };
 use crate::hir::HirBody;
 use crate::span::Span;
@@ -18,24 +18,24 @@ impl<'a> BlockChecker<'a> {
     pub(super) fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {
         if matches!(self.current_effect, Effect::Pure) {
             let memory_ops = raw_body_memory_operations(body);
-            if !memory_ops.is_empty() && !self.raw_body_memory_operations_allowed(span) {
-                let op = memory_ops
-                    .first()
-                    .map(|operation| operation.as_str())
-                    .unwrap_or("raw memory operation");
+            if let Some(operation) = memory_ops
+                .iter()
+                .copied()
+                .find(|operation| !self.raw_body_memory_operation_allowed(*operation, span))
+            {
                 self.diagnostics.push(effect_error(
                     EffectDiagnosticCode::PureCallsImpure,
                     format!(
                         "pure raw body cannot access raw memory instruction '{}'",
-                        op
+                        operation.as_str()
                     ),
                     span,
                 ));
                 return false;
             }
             for callee in raw_body_direct_callees(body) {
-                if raw_callee_is_raw_memory_effect(&callee) {
-                    if !self.raw_body_memory_operations_allowed(span) {
+                if let Some(operation) = raw_memory_op_from_name(&callee) {
+                    if !self.raw_memory_operation_allowed(operation, span) {
                         self.diagnostics.push(effect_error(
                             EffectDiagnosticCode::PureCallsImpure,
                             format!("pure raw body cannot call raw memory helper '{}'", callee),
@@ -58,11 +58,29 @@ impl<'a> BlockChecker<'a> {
         true
     }
 
-    pub(super) fn raw_memory_boundary_allowed(&self, span: Span) -> bool {
+    pub(super) fn raw_memory_structural_boundary_allowed(&self, span: Span) -> bool {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        source_map.raw_memory_boundary_allowed(span.file_id)
+        source_map.raw_memory_structural_boundary_allowed(span.file_id)
+    }
+
+    pub(super) fn raw_memory_operation_allowed(&self, operation: RawMemoryOp, span: Span) -> bool {
+        let Some(source_map) = self.source_map else {
+            return false;
+        };
+        source_map.raw_memory_operation_boundary_allowed(span.file_id, operation)
+    }
+
+    pub(super) fn raw_body_memory_operation_allowed(
+        &self,
+        operation: RawBodyMemoryOp,
+        span: Span,
+    ) -> bool {
+        let Some(source_map) = self.source_map else {
+            return false;
+        };
+        source_map.raw_body_memory_operation_boundary_allowed(span.file_id, operation)
     }
 
     pub(super) fn owner_aggregate_constructor_boundary_allowed(
@@ -83,12 +101,10 @@ impl<'a> BlockChecker<'a> {
         source_map.owner_aggregate_field_boundary_allowed(span.file_id)
     }
 
-    pub(super) fn raw_body_memory_operations_allowed(&self, span: Span) -> bool {
-        self.raw_memory_boundary_allowed(span)
-    }
-
     pub(super) fn raw_memory_intrinsic_allowed(&self, name: &str, span: Span) -> bool {
-        intrinsic_is_raw_memory_effect(name) && self.raw_body_memory_operations_allowed(span)
+        intrinsic_is_raw_memory_effect(name)
+            && raw_memory_op_from_name(name)
+                .is_some_and(|operation| self.raw_memory_operation_allowed(operation, span))
     }
 
     pub(super) fn raw_callee_is_impure(&self, callee: &str) -> bool {

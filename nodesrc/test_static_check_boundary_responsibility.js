@@ -19,6 +19,12 @@ const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     'memory_type_definition.rs',
 );
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
+const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
+    CORE_SRC,
+    'source_capability',
+    'raw_memory',
+    'evidence.rs',
+);
 const SOURCE_CAPABILITY_OWNER_AGGREGATE = path.join(
     CORE_SRC,
     'source_capability',
@@ -108,6 +114,10 @@ const sourceCapabilityMemoryTypeDefinition = assertFile(
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
     'source_capability/raw_memory.rs',
+);
+const sourceCapabilityRawMemoryEvidence = assertFile(
+    SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE,
+    'source_capability/raw_memory/evidence.rs',
 );
 const sourceCapabilityOwnerAggregate = assertFile(
     SOURCE_CAPABILITY_OWNER_AGGREGATE,
@@ -253,7 +263,7 @@ assertContains(
 );
 assertMatches(
     typecheckConstructorApply,
-    /StructConstructorPolicy::RawMemoryBoundaryOnly\(restricted\)\s*=>\s*\{\s*if\s+!self\.raw_memory_boundary_allowed\(span\)/,
+    /StructConstructorPolicy::RawMemoryBoundaryOnly\(restricted\)\s*=>\s*\{\s*if\s+!self\.raw_memory_structural_boundary_allowed\(span\)/,
     'typecheck/constructor_apply.rs constructor capability gate',
 );
 assertMatches(
@@ -352,7 +362,12 @@ assertLineLimit(
     'source_capability/memory_type_definition.rs',
     100,
 );
-assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 220);
+assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 240);
+assertLineLimit(
+    SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE,
+    'source_capability/raw_memory/evidence.rs',
+    120,
+);
 assertLineLimit(
     SOURCE_CAPABILITY_OWNER_AGGREGATE,
     'source_capability/owner_aggregate.rs',
@@ -360,6 +375,9 @@ assertLineLimit(
 );
 assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
+assertContains(sourceMap, 'RawMemoryStructuralBoundary', 'source_map.rs');
+assertContains(sourceMap, 'RawMemoryOperationBoundary(RawMemoryOp)', 'source_map.rs');
+assertContains(sourceMap, 'RawBodyMemoryOperationBoundary(RawBodyMemoryOp)', 'source_map.rs');
 assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateConstructorBoundary(String)', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateFieldBoundary', 'source_map.rs');
@@ -372,13 +390,23 @@ assertContains(
     'source_map.rs',
 );
 assertContains(
-    sourceCapabilityRawMemory,
+    sourceCapabilityRawMemoryEvidence,
     'enum RawMemoryBoundaryEvidence',
-    'source_capability/raw_memory.rs',
+    'source_capability/raw_memory/evidence.rs',
 );
 assertContains(
     sourceCapabilityRawMemory,
     'pub(crate) fn module_has_raw_memory_boundary_evidence',
+    'source_capability/raw_memory.rs',
+);
+assertContains(
+    sourceCapabilityRawMemory,
+    'pub(crate) fn module_raw_memory_operation_evidence',
+    'source_capability/raw_memory.rs',
+);
+assertContains(
+    sourceCapabilityRawMemory,
+    'pub(crate) fn module_raw_body_memory_operation_evidence',
     'source_capability/raw_memory.rs',
 );
 assertContains(
@@ -463,6 +491,11 @@ assertContains(
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
+    'PrefixItem::Intrinsic',
+    'owner aggregate source capability must inspect intrinsic field access evidence',
+);
+assertContains(
+    sourceCapabilityOwnerAggregate,
     'crate::qualified_name::member_tail(symbol) != symbol',
     'owner aggregate constructor evidence must ignore qualified enum variants',
 );
@@ -475,6 +508,16 @@ assertContains(
     loader,
     'fn owner_aggregate_boundary_does_not_share_unrelated_constructor_evidence()',
     'loader.rs owner aggregate constructor-name regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_accepts_intrinsic_field_evidence()',
+    'loader.rs owner aggregate intrinsic field evidence regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_accepts_same_module_struct_constructor_evidence()',
+    'loader.rs owner aggregate same-module constructor regression',
 );
 assertContains(
     sourceCapabilityScope,
@@ -491,9 +534,23 @@ assertContains(
     'bind_match_pattern',
     'source_capability/scope.rs',
 );
+assertNotContains(
+    sourceCapabilityScope,
+    'Stmt::StructDef(def) => self.bind(&def.name.name)',
+    'source capability scope must not treat type definitions as value-level shadows',
+);
 assertContains(sourceCapabilityRawMemory, 'raw_memory_op_from_name', 'source_capability/raw_memory.rs');
 assertContains(sourceCapabilityRawMemory, 'PrefixItem::Intrinsic', 'source_capability/raw_memory.rs');
-assertContains(sourceCapabilityRawMemory, 'enum RawAddressBoundaryHelper', 'source_capability/raw_memory.rs');
+assertContains(
+    sourceCapabilityRawMemory,
+    'evidence.has_any_evidence()',
+    'raw helper definitions must grant their operation only when the body has raw evidence',
+);
+assertContains(
+    sourceCapabilityRawMemoryEvidence,
+    'enum RawAddressBoundaryHelper',
+    'source_capability/raw_memory/evidence.rs',
+);
 assertNotContains(
     sourceCapabilityRawMemory,
     'enum RawOwnerBoundaryHelper',
@@ -504,14 +561,21 @@ assertNotContains(
     '"alloc_region"',
     'safe alloc_region wrapper must not be raw boundary evidence',
 );
-assertContains(sourceCapabilityRawMemory, 'RestrictedConstructor', 'source_capability/raw_memory.rs');
+assertContains(sourceCapabilityRawMemoryEvidence, 'RestrictedConstructor', 'source_capability/raw_memory/evidence.rs');
 assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
 assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
 assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
 assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
+assertContains(loader, 'module_raw_memory_operation_evidence', 'loader.rs');
+assertContains(loader, 'module_raw_body_memory_operation_evidence', 'loader.rs');
 assertContains(loader, 'module_owner_aggregate_constructor_evidence', 'loader.rs');
 assertContains(loader, 'module_has_owner_aggregate_field_evidence', 'loader.rs');
 assertContains(loader, 'module_compiler_memory_type_definitions', 'loader.rs');
+assertContains(
+    loader,
+    'fn raw_memory_boundary_accepts_raw_helper_definition_evidence()',
+    'loader.rs raw helper definition operation evidence regression',
+);
 assertContains(
     testHarness,
     'pub fn compile_src_with_options_and_entry_capabilities',
@@ -565,6 +629,16 @@ assertNotContains(
     'raw_memory_boundary_allowed',
     'compiler.rs Resource cell gate',
 );
+assertNotContains(
+    cellGateBody[0],
+    'raw_memory_operation_boundary_allowed',
+    'compiler.rs Resource cell gate',
+);
+assertNotContains(
+    cellGateBody[0],
+    'raw_memory_structural_boundary_allowed',
+    'compiler.rs Resource cell gate',
+);
 const ownerGateBody = compiler.match(/fn run_resource_owner_obligation_gate\([\s\S]*?\n}\n\nfn resource_owner_diagnostic_to_error/);
 assert(ownerGateBody, 'compiler.rs must expose Resource owner gate body');
 assertNotContains(
@@ -572,10 +646,40 @@ assertNotContains(
     'raw_memory_boundary_allowed',
     'compiler.rs Resource owner gate',
 );
+assertNotContains(
+    ownerGateBody[0],
+    'raw_memory_operation_boundary_allowed',
+    'compiler.rs Resource owner gate',
+);
+assertNotContains(
+    ownerGateBody[0],
+    'raw_memory_structural_boundary_allowed',
+    'compiler.rs Resource owner gate',
+);
 assertMatches(
     compiler,
-    /ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc\s*\{\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_boundary_allowed\(span\.file_id\)\)\s*\.unwrap_or\(false\)\s*\}/,
-    'compiler.rs raw identity escape must require an explicit raw-memory-boundary source capability',
+    /ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_operation_boundary_allowed\(span\.file_id, \*operation\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    'compiler.rs unsafe memory suppression must require the exact raw-memory operation capability',
+);
+assertMatches(
+    compiler,
+    /ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_operation_boundary_allowed\(span\.file_id, \*operation\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    'compiler.rs raw memory outside-boundary suppression must require the exact raw-memory operation capability',
+);
+assertMatches(
+    compiler,
+    /ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| raw_identity_escape_allowed\(\*operation, span, map\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    'compiler.rs raw identity escape must require structural or alloc/realloc operation source capability',
+);
+assertContains(
+    compiler,
+    'fn raw_identity_escape_allowed(operation: RawMemoryOp, span: Span, source_map: &SourceMap) -> bool',
+    'compiler.rs raw identity escape helper',
+);
+assertContains(
+    compiler,
+    'matches!(operation, RawMemoryOp::Alloc | RawMemoryOp::Realloc)',
+    'compiler.rs raw identity escape operation-specific suppression',
 );
 assertNotContains(
     compiler,
@@ -586,6 +690,16 @@ assertContains(
     compiler,
     'fn resource_effect_gate_allows_raw_identity_escape_inside_raw_boundary()',
     'compiler.rs raw-boundary raw identity unit regression',
+);
+assertContains(
+    compiler,
+    'fn resource_effect_gate_requires_matching_raw_operation_capability()',
+    'compiler.rs raw-boundary operation-specific unit regression',
+);
+assertContains(
+    compiler,
+    'fn resource_effect_gate_allows_raw_alloc_identity_with_alloc_capability()',
+    'compiler.rs raw identity alloc operation unit regression',
 );
 assertContains(
     resourceIrTests,

@@ -6,6 +6,7 @@ use crate::parser;
 use crate::source_capability::{
     module_compiler_memory_type_definitions, module_has_owner_aggregate_field_evidence,
     module_has_raw_memory_boundary_evidence, module_owner_aggregate_constructor_evidence,
+    module_raw_body_memory_operation_evidence, module_raw_memory_operation_evidence,
 };
 use crate::source_map::SourceCapability;
 use crate::span::FileId;
@@ -703,7 +704,13 @@ impl Loader {
                 capabilities.insert(SourceCapability::OwnerAggregateFieldBoundary);
             }
             if module_has_raw_memory_boundary_evidence(module) {
-                capabilities.insert(SourceCapability::RawMemoryBoundary);
+                capabilities.insert(SourceCapability::RawMemoryStructuralBoundary);
+            }
+            for operation in module_raw_memory_operation_evidence(module) {
+                capabilities.insert(SourceCapability::RawMemoryOperationBoundary(operation));
+            }
+            for operation in module_raw_body_memory_operation_evidence(module) {
+                capabilities.insert(SourceCapability::RawBodyMemoryOperationBoundary(operation));
             }
             for memory_type in module_compiler_memory_type_definitions(module) {
                 capabilities.insert(SourceCapability::CompilerMemoryTypeDefinition(memory_type));
@@ -778,6 +785,8 @@ fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> b
 mod tests {
     use super::*;
 
+    use crate::effects::RawMemoryOp;
+
     fn test_loader() -> Loader {
         Loader::new(PathBuf::from("C:/nepl-test/stdlib"))
     }
@@ -833,8 +842,16 @@ mod tests {
             "fn helper <(i32)->i32> (ptr):\n    load_i32 ptr\n",
         );
         assert!(
-            capabilities.allows_raw_memory_boundary(),
-            "compiler-owned stdlib source with raw evidence must receive capability without a module allowlist"
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "compiler-owned stdlib source with raw operation evidence must receive operation capability without a module allowlist"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
+            "raw operation evidence for load must not authorize store"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_structural_boundary(),
+            "raw operation evidence must not authorize restricted raw structure manipulation"
         );
     }
 
@@ -849,7 +866,8 @@ mod tests {
         let safe =
             load_source_capabilities(&loader, path.clone(), "fn helper <()->i32> ():\n    1\n");
         assert!(
-            !safe.allows_raw_memory_boundary(),
+            !safe.allows_raw_memory_structural_boundary()
+                && !safe.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "configured raw boundary candidate without raw evidence must not receive capability"
         );
 
@@ -859,9 +877,10 @@ mod tests {
             "fn helper <(i32)->i32> (ptr):\n    load_i32 ptr\n",
         );
         assert!(
-            raw.allows_raw_memory_boundary(),
-            "configured raw boundary candidate with raw helper evidence must receive capability"
+            raw.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "configured raw boundary candidate with raw helper evidence must receive matching operation capability"
         );
+        assert!(!raw.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
     }
 
     #[test]
@@ -897,8 +916,34 @@ mod tests {
             "configured stdlib source with field accessor evidence must receive owner aggregate field capability"
         );
         assert!(
-            !aggregate.allows_raw_memory_boundary(),
+            !aggregate.allows_raw_memory_structural_boundary()
+                && !aggregate.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "owner aggregate manipulation is not raw memory operation authority"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_accepts_intrinsic_field_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "types.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <.T> <(&RegionToken<.T>)->&MemPtr<.T>> (token):\n",
+                "    #intrinsic \"get_field_ref\" <> (token,\"ptr\")\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_field_boundary(),
+            "compiler-owned intrinsic field reference must be owner aggregate field evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("RegionToken"),
+            "intrinsic field evidence must not grant owner aggregate constructor capability"
         );
     }
 
@@ -930,8 +975,37 @@ mod tests {
             "constructor evidence must not grant owner token field projection capability"
         );
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "aggregate constructor syntax does not grant raw memory boundary capability"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_accepts_same_module_struct_constructor_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "mutation", "push.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "pub struct VecReallocRegionError<.T>:\n",
+                "    region <RegionToken<.T>>\n",
+                "    kind <StdErrorKind>\n\n",
+                "fn helper <.T> <(RegionToken<.T>)->VecReallocRegionError<.T>> (region):\n",
+                "    VecReallocRegionError<.T> region StdErrorKind::OutOfMemory\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_constructor_boundary("VecReallocRegionError"),
+            "same-module struct definitions must not shadow their constructor evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("RegionToken"),
+            "owner aggregate constructor evidence remains tied to the constructed aggregate name"
         );
     }
 
@@ -1034,7 +1108,8 @@ mod tests {
         );
 
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "compiler-owned memory type definitions are not raw operation authority"
         );
         assert!(capabilities.allows_compiler_memory_type_definition(
@@ -1085,7 +1160,8 @@ mod tests {
             "fn helper <(i32)->i32> (mem_ptr_addr):\n    mem_ptr_addr\n",
         );
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "parameter names that match raw helpers are not source evidence"
         );
     }
@@ -1103,7 +1179,8 @@ mod tests {
             "fn helper <()->i32> ():\n    let alloc_ptr <i32> 1;\n    alloc_ptr\n",
         );
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Alloc),
             "local names that match raw owner helpers are not source evidence"
         );
     }
@@ -1121,9 +1198,37 @@ mod tests {
             "fn load_i32 <()->i32> ():\n    1\n\nfn helper <()->i32> ():\n    load_i32\n",
         );
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "same-module safe definitions with raw helper names are not source evidence"
         );
+    }
+
+    #[test]
+    fn raw_memory_boundary_accepts_raw_helper_definition_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "allocator.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "pub fn alloc_raw <(i32)->i32> (size):\n",
+                "    let cur <i32> load_i32 0\n",
+                "    add cur size\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Alloc),
+            "raw helper implementation with raw body evidence must grant its operation capability"
+        );
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "raw helper implementation keeps exact operation evidence from its body"
+        );
+        assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
     }
 
     #[test]
@@ -1139,9 +1244,10 @@ mod tests {
             "fn helper <(i32)->MemPtr<i32>> (raw):\n    MemPtr raw\n",
         );
         assert!(
-            capabilities.allows_raw_memory_boundary(),
+            capabilities.allows_raw_memory_structural_boundary(),
             "compiler-owned restricted constructors are raw boundary evidence"
         );
+        assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
     }
 
     #[test]
@@ -1157,9 +1263,10 @@ mod tests {
             "fn helper <(MemPtr<i32>)->i32> (ptr):\n    mem_ptr_addr ptr\n",
         );
         assert!(
-            capabilities.allows_raw_memory_boundary(),
+            capabilities.allows_raw_memory_structural_boundary(),
             "compiler-owned raw address identity helpers are raw boundary evidence"
         );
+        assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
     }
 
     #[test]
@@ -1175,7 +1282,8 @@ mod tests {
             "fn helper <(i32)->Result<MemPtr<u8>,str>> (n):\n    alloc_ptr<u8> n\n",
         );
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Alloc),
             "checked owner helper calls are safe API usage, not raw boundary evidence"
         );
     }
@@ -1193,7 +1301,7 @@ mod tests {
             "fn helper <(i32)->str> (raw):\n    #intrinsic \"str_from_addr_unchecked\" <> (raw)\n",
         );
         assert!(
-            capabilities.allows_raw_memory_boundary(),
+            capabilities.allows_raw_memory_structural_boundary(),
             "compiler-owned raw address intrinsics are raw boundary evidence"
         );
     }
@@ -1211,7 +1319,8 @@ mod tests {
             "fn helper <(i32)->i32> (ptr):\n    load_i32 ptr\n",
         );
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "raw helper evidence outside configured stdlib must not grant capability"
         );
     }
@@ -1226,7 +1335,8 @@ mod tests {
         let capabilities =
             load_source_capabilities(&loader, path, "fn helper <()->i32> ():\n    1\n");
         assert!(
-            !capabilities.allows_raw_memory_boundary(),
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "configured stdlib source without source evidence must not receive capability"
         );
     }

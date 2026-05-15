@@ -50,6 +50,7 @@ pub enum ResourceEffectBoundaryDiagnostic {
     },
     RawAddressEscapeFromInternalAlloc {
         function: String,
+        operation: RawMemoryOp,
         place: Place,
         span: Span,
     },

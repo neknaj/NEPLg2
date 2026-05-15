@@ -10,9 +10,9 @@ use super::effect::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 use super::effect_counts::ResourceEffectCounts;
 use super::effect_identity::{
     construct_pointer_alias_fields, construct_raw_identity_fields, copy_pointer_alias,
-    raw_memory_op_produces_identity, RawIdentityTable, RawMemoryIdentityTable,
-    RawPointerAliasTable,
+    raw_memory_op_produces_identity, RawIdentityTable, RawPointerAliasTable,
 };
+use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
@@ -66,10 +66,11 @@ impl ResourceEffectBoundaryEngine<'_> {
             ResourceTerminator::Return { value, span } => {
                 if matches!(self.effect, Effect::Pure) {
                     if let Some(place) = value {
-                        if identities.contains(place) {
+                        for operation in identities.operations(place) {
                             self.diagnostics.push(
                                 ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
                                     function: String::from(self.function),
+                                    operation,
                                     place: place.clone(),
                                     span: *span,
                                 },
@@ -119,7 +120,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             } => {
                 self.report_raw_memory_boundary_use(*operation, *span);
                 if self.track_alloc_identities && raw_memory_op_produces_identity(operation) {
-                    identities.mark(output);
+                    identities.mark(output, *operation);
                 }
                 if raw_memory_op_produces_identity(operation) {
                     pointer_aliases.mark(output);
@@ -378,16 +379,20 @@ impl ResourceEffectBoundaryEngine<'_> {
         let Some(summary) = self.summaries.get(name) else {
             return;
         };
-        if summary.returns_internal_alloc {
-            identities.mark(output);
-        }
+        identities.mark_many(output, &summary.internal_alloc_operations);
         if summary
             .parameter_indices
             .iter()
             .filter_map(|index| args.get(*index))
             .any(|arg| identities.contains(arg))
         {
-            identities.mark(output);
+            for arg in summary
+                .parameter_indices
+                .iter()
+                .filter_map(|index| args.get(*index))
+            {
+                identities.merge_identity(arg, output);
+            }
         }
     }
 
@@ -401,22 +406,23 @@ impl ResourceEffectBoundaryEngine<'_> {
     ) {
         let functions = function_aliases.functions(callee);
         if functions.is_empty() {
-            if args.iter().any(|arg| identities.contains(arg)) {
-                identities.mark(output);
+            for arg in args {
+                if identities.contains(arg) {
+                    identities.merge_identity(arg, output);
+                }
             }
             return;
         }
         for function in functions {
-            if self.summaries.get(function).is_some_and(|summary| {
-                summary.returns_internal_alloc
-                    || summary
-                        .parameter_indices
-                        .iter()
-                        .filter_map(|index| args.get(*index))
-                        .any(|arg| identities.contains(arg))
-            }) {
-                identities.mark(output);
-                return;
+            if let Some(summary) = self.summaries.get(function) {
+                identities.mark_many(output, &summary.internal_alloc_operations);
+                for arg in summary
+                    .parameter_indices
+                    .iter()
+                    .filter_map(|index| args.get(*index))
+                {
+                    identities.merge_identity(arg, output);
+                }
             }
         }
     }
@@ -484,31 +490,34 @@ impl ResourceEffectBoundaryEngine<'_> {
     ) {
         match operation {
             RawMemoryOp::Load => {
-                if args
-                    .first()
-                    .is_some_and(|ptr| raw_memory_identities.contains(pointer_aliases, ptr))
-                {
-                    identities.mark(output);
+                if let Some(ptr) = args.first() {
+                    let operations = raw_memory_identities.operations(pointer_aliases, ptr);
+                    identities.mark_many(output, &operations);
                 }
             }
             RawMemoryOp::Store => {
                 if let Some(ptr) = args.first() {
-                    if args.get(1).is_some_and(|value| identities.contains(value)) {
-                        raw_memory_identities.mark(pointer_aliases, ptr);
+                    let operations = args
+                        .get(1)
+                        .map(|value| identities.operations(value))
+                        .unwrap_or_default();
+                    if !operations.is_empty() {
+                        raw_memory_identities.mark_many(pointer_aliases, ptr, &operations);
                     } else {
                         raw_memory_identities.clear(pointer_aliases, ptr);
                     }
                 }
             }
             RawMemoryOp::Realloc => {
-                let carries_payload = args
+                let carried_operations = args
                     .first()
-                    .is_some_and(|ptr| raw_memory_identities.contains(pointer_aliases, ptr));
+                    .map(|ptr| raw_memory_identities.operations(pointer_aliases, ptr))
+                    .unwrap_or_default();
                 if let Some(ptr) = args.first() {
                     raw_memory_identities.clear(pointer_aliases, ptr);
                 }
-                if carries_payload {
-                    raw_memory_identities.mark(pointer_aliases, output);
+                if !carried_operations.is_empty() {
+                    raw_memory_identities.mark_many(pointer_aliases, output, &carried_operations);
                 }
             }
             RawMemoryOp::Dealloc => {
@@ -518,8 +527,9 @@ impl ResourceEffectBoundaryEngine<'_> {
             }
             RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
                 if let (Some(dst), Some(src)) = (args.first(), args.get(1)) {
-                    if raw_memory_identities.contains(pointer_aliases, src) {
-                        raw_memory_identities.mark(pointer_aliases, dst);
+                    let operations = raw_memory_identities.operations(pointer_aliases, src);
+                    if !operations.is_empty() {
+                        raw_memory_identities.mark_many(pointer_aliases, dst, &operations);
                     } else {
                         raw_memory_identities.clear(pointer_aliases, dst);
                     }

@@ -110,6 +110,7 @@ fn collect_prefix_item_owner_aggregate_evidence(
             collect_symbol_owner_aggregate_evidence(ident.name.as_str(), scope, evidence);
         }
         PrefixItem::Intrinsic(intrinsic, _) => {
+            collect_builtin_owner_aggregate_evidence(intrinsic.name.as_str(), evidence);
             for expr in &intrinsic.args {
                 collect_expr_owner_aggregate_evidence(expr, scope, evidence);
             }
@@ -148,6 +149,10 @@ fn collect_symbol_owner_aggregate_evidence(
     if scope.shadows(symbol) {
         return;
     }
+    collect_builtin_owner_aggregate_evidence(symbol, evidence);
+}
+
+fn collect_builtin_owner_aggregate_evidence(symbol: &str, evidence: &mut OwnerAggregateEvidence) {
     match owner_aggregate_evidence_from_symbol(symbol) {
         Some(OwnerAggregateCapabilityEvidence::FieldAccessor) => {
             evidence.field_accessor = true;

@@ -15,4 +15,7 @@ pub(crate) use memory_type_definition::{
 pub(crate) use owner_aggregate::{
     module_has_owner_aggregate_field_evidence, module_owner_aggregate_constructor_evidence,
 };
-pub(crate) use raw_memory::module_has_raw_memory_boundary_evidence;
+pub(crate) use raw_memory::{
+    module_has_raw_memory_boundary_evidence, module_raw_body_memory_operation_evidence,
+    module_raw_memory_operation_evidence,
+};

@@ -1,6 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::model::{AggregateKind, Place, RawMemoryOp};
 use super::place_utils::construct_aggregate_field_place;
 
@@ -40,63 +41,6 @@ pub(super) fn copy_pointer_alias(
 }
 
 #[derive(Debug, Clone, Default)]
-pub(super) struct RawMemoryIdentityTable {
-    pointer_groups: Vec<Vec<Place>>,
-}
-
-impl RawMemoryIdentityTable {
-    pub(super) fn contains(&self, pointer_aliases: &RawPointerAliasTable, place: &Place) -> bool {
-        let group = pointer_aliases.group_for_or_singleton(place);
-        self.pointer_groups
-            .iter()
-            .any(|stored| groups_overlap(stored, &group))
-    }
-
-    pub(super) fn mark(&mut self, pointer_aliases: &RawPointerAliasTable, place: &Place) {
-        self.union_group(&pointer_aliases.group_for_or_singleton(place));
-    }
-
-    pub(super) fn clear(&mut self, pointer_aliases: &RawPointerAliasTable, place: &Place) {
-        let group = pointer_aliases.group_for_or_singleton(place);
-        self.pointer_groups
-            .retain(|stored| !groups_overlap(stored, &group));
-    }
-
-    pub(super) fn merge_paths(paths: &[RawMemoryIdentityTable]) -> Self {
-        let mut out = RawMemoryIdentityTable::default();
-        for path in paths {
-            for group in &path.pointer_groups {
-                out.union_group(group);
-            }
-        }
-        out
-    }
-
-    fn remove_place(&mut self, place: &Place) {
-        for group in &mut self.pointer_groups {
-            group.retain(|existing| !place_has_prefix(existing, place));
-        }
-        self.pointer_groups.retain(|group| !group.is_empty());
-    }
-
-    fn union_group(&mut self, group: &[Place]) {
-        let mut merged = group.to_vec();
-        let mut retained = Vec::new();
-        for existing in self.pointer_groups.drain(..) {
-            if groups_overlap(&existing, &merged) {
-                push_unique_places(&mut merged, &existing);
-            } else {
-                retained.push(existing);
-            }
-        }
-        if !merged.is_empty() {
-            retained.push(merged);
-        }
-        self.pointer_groups = retained;
-    }
-}
-
-#[derive(Debug, Clone, Default)]
 pub(super) struct RawPointerAliasTable {
     groups: Vec<Vec<Place>>,
 }
@@ -133,7 +77,7 @@ impl RawPointerAliasTable {
         }
     }
 
-    fn group_for_or_singleton(&self, place: &Place) -> Vec<Place> {
+    pub(super) fn group_for_or_singleton(&self, place: &Place) -> Vec<Place> {
         self.groups
             .iter()
             .find(|group| group.iter().any(|existing| existing == place))
@@ -214,18 +158,38 @@ impl RawPointerAliasTable {
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct RawIdentityTable {
-    groups: Vec<Vec<Place>>,
+    groups: Vec<RawIdentityGroup>,
+}
+
+#[derive(Debug, Clone)]
+struct RawIdentityGroup {
+    places: Vec<Place>,
+    operations: Vec<RawMemoryOp>,
 }
 
 impl RawIdentityTable {
     pub(super) fn contains(&self, place: &Place) -> bool {
         self.groups
             .iter()
-            .any(|group| group.iter().any(|existing| existing == place))
+            .any(|group| group.places.iter().any(|existing| existing == place))
     }
 
-    pub(super) fn mark(&mut self, place: &Place) {
-        self.union_group(core::slice::from_ref(place));
+    pub(super) fn operations(&self, place: &Place) -> Vec<RawMemoryOp> {
+        let mut operations = Vec::new();
+        for group in &self.groups {
+            if group.places.iter().any(|existing| existing == place) {
+                push_unique_operations(&mut operations, &group.operations);
+            }
+        }
+        operations
+    }
+
+    pub(super) fn mark(&mut self, place: &Place, operation: RawMemoryOp) {
+        self.mark_many(place, core::slice::from_ref(&operation));
+    }
+
+    pub(super) fn mark_many(&mut self, place: &Place, operations: &[RawMemoryOp]) {
+        self.union_group(core::slice::from_ref(place), operations);
     }
 
     pub(super) fn copy_identity(&mut self, source: &Place, target: &Place) {
@@ -235,28 +199,30 @@ impl RawIdentityTable {
         let groups = self.groups_with_replaced_prefix(source, target, true);
         self.clear(target);
         for group in groups {
-            self.union_group(&group);
+            self.union_group(&group.places, &group.operations);
         }
     }
 
     pub(super) fn merge_identity(&mut self, source: &Place, target: &Place) {
         for group in self.groups_with_replaced_prefix(source, target, false) {
-            self.union_group(&group);
+            self.union_group(&group.places, &group.operations);
         }
     }
 
     pub(super) fn clear(&mut self, place: &Place) {
         for group in &mut self.groups {
-            group.retain(|existing| !place_has_prefix(existing, place));
+            group
+                .places
+                .retain(|existing| !place_has_prefix(existing, place));
         }
-        self.groups.retain(|group| !group.is_empty());
+        self.groups.retain(|group| !group.places.is_empty());
     }
 
     pub(super) fn merge_paths(paths: &[RawIdentityTable]) -> Self {
         let mut out = RawIdentityTable::default();
         for path in paths {
             for group in &path.groups {
-                out.union_group(group);
+                out.union_group(&group.places, &group.operations);
             }
         }
         out
@@ -267,12 +233,12 @@ impl RawIdentityTable {
         source: &Place,
         target: &Place,
         drop_target_prefix: bool,
-    ) -> Vec<Vec<Place>> {
+    ) -> Vec<RawIdentityGroup> {
         let mut out = Vec::new();
         for group in &self.groups {
             let mut mapped = Vec::new();
             let mut mapped_descendant = false;
-            for place in group {
+            for place in &group.places {
                 if let Some(replacement) = replace_place_prefix(place, source, target) {
                     if place.projections.len() > source.projections.len() {
                         mapped_descendant = true;
@@ -286,34 +252,43 @@ impl RawIdentityTable {
 
             let mut merged = if drop_target_prefix {
                 group
+                    .places
                     .iter()
                     .filter(|place| !place_has_prefix(place, target))
                     .cloned()
                     .collect()
             } else {
-                group.clone()
+                group.places.clone()
             };
             push_unique_places(&mut merged, &mapped);
             if mapped_descendant {
                 push_unique_place(&mut merged, target.clone());
             }
-            out.push(merged);
+            out.push(RawIdentityGroup {
+                places: merged,
+                operations: group.operations.clone(),
+            });
         }
         out
     }
 
-    fn union_group(&mut self, group: &[Place]) {
-        let mut merged = group.to_vec();
+    fn union_group(&mut self, places: &[Place], operations: &[RawMemoryOp]) {
+        let mut merged_places = places.to_vec();
+        let mut merged_operations = operations.to_vec();
         let mut retained = Vec::new();
         for existing in self.groups.drain(..) {
-            if groups_overlap(&existing, &merged) {
-                push_unique_places(&mut merged, &existing);
+            if groups_overlap(&existing.places, &merged_places) {
+                push_unique_places(&mut merged_places, &existing.places);
+                push_unique_operations(&mut merged_operations, &existing.operations);
             } else {
                 retained.push(existing);
             }
         }
-        if !merged.is_empty() {
-            retained.push(merged);
+        if !merged_places.is_empty() && !merged_operations.is_empty() {
+            retained.push(RawIdentityGroup {
+                places: merged_places,
+                operations: merged_operations,
+            });
         }
         self.groups = retained;
     }
@@ -363,4 +338,13 @@ fn push_unique_places(target: &mut Vec<Place>, source: &[Place]) {
             target.push(place.clone());
         }
     }
+}
+
+fn push_unique_operations(target: &mut Vec<RawMemoryOp>, source: &[RawMemoryOp]) {
+    for operation in source {
+        if !target.contains(operation) {
+            target.push(*operation);
+        }
+    }
+    target.sort();
 }

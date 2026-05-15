@@ -169,7 +169,7 @@ impl<'a> BlockChecker<'a> {
         match constructor_policy {
             StructConstructorPolicy::Public => {}
             StructConstructorPolicy::RawMemoryBoundaryOnly(restricted) => {
-                if !self.raw_memory_boundary_allowed(span) {
+                if !self.raw_memory_structural_boundary_allowed(span) {
                     let (code, message) = match restricted {
                         RestrictedStructConstructor::OwnerToken => (
                             TypeDiagnosticCode::OwnerTokenConstructorRestricted,

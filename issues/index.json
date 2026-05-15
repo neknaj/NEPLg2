@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T02:44:13.940Z",
+  "generated_at": "2026-05-15T04:24:47.166Z",
   "counts": {
-    "total": 811,
+    "total": 813,
     "open": 7,
-    "resolved": 804,
+    "resolved": 806,
     "by_area": {
       "stdlib": {
         "total": 231,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 402,
+        "total": 404,
         "open": 0,
-        "resolved": 402
+        "resolved": 404
       },
       "CORE": {
         "total": 1,
@@ -6118,6 +6118,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T023829013Z-CHECKED-OWNER-HELPERS-GRANT-RAW-MEMO-EC25363F.md"
+    },
+    {
+      "id": "ISS-20260515T024851827Z-RAW-MEMORY-OPERATIONS-SHARE-A-FILE-W-2A06192D",
+      "title": "Raw memory operations share a file-wide boundary capability",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/source_map.rs, nepl-core/src/source_capability/raw_memory.rs, nepl-core/src/loader.rs, nepl-core/src/typecheck/effect_check.rs, nepl-core/src/compiler.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T024851827Z-RAW-MEMORY-OPERATIONS-SHARE-A-FILE-W-2A06192D.md"
+    },
+    {
+      "id": "ISS-20260515T031921532Z-OWNER-AGGREGATE-FIELD-EVIDENCE-IGNOR-943C9579",
+      "title": "Owner aggregate field evidence ignores get_field_ref intrinsics",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/source_capability/owner_aggregate.rs, nepl-core/src/loader.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T031921532Z-OWNER-AGGREGATE-FIELD-EVIDENCE-IGNOR-943C9579.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

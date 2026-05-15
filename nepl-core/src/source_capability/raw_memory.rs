@@ -1,176 +1,191 @@
+use alloc::vec::Vec;
+
 use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, Symbol};
 use crate::effects::{
-    raw_body_direct_callees, raw_body_memory_operations, raw_memory_op_from_name,
+    raw_body_direct_callees, raw_body_memory_operations, raw_memory_op_from_name, RawBodyMemoryOp,
+    RawMemoryOp,
 };
 use crate::hir::HirBody;
-use crate::runtime_helpers::helper_base_name;
 use crate::source_capability::scope::SourceCapabilityScope;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RawMemoryBoundaryEvidence {
-    RawBodyInstruction,
-    RawAddressBoundaryHelper,
-    RawHelperCall,
-    RawIntrinsic,
-    RestrictedConstructor,
-}
+mod evidence;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RawAddressBoundaryHelper {
-    MemPtrWrap,
-    MemPtrAddr,
-    MemPtrAdd,
-    RegionNew,
-    RegionPtr,
-    RegionPtrAt,
-    RegionTokenPtrRef,
-    StrAddr,
-    StrFromAddrUnchecked,
-}
-
-impl RawAddressBoundaryHelper {
-    fn from_symbol(name: &str) -> Option<Self> {
-        let helper = match helper_base_name(name) {
-            "mem_ptr_wrap" => Self::MemPtrWrap,
-            "mem_ptr_addr" => Self::MemPtrAddr,
-            "mem_ptr_add" => Self::MemPtrAdd,
-            "region_new" => Self::RegionNew,
-            "region_ptr" => Self::RegionPtr,
-            "region_ptr_at" => Self::RegionPtrAt,
-            "region_token_ptr_ref" => Self::RegionTokenPtrRef,
-            "str_addr" => Self::StrAddr,
-            "str_from_addr_unchecked" => Self::StrFromAddrUnchecked,
-            _ => return None,
-        };
-        Some(helper)
-    }
-}
-
-impl RawMemoryBoundaryEvidence {
-    fn from_symbol(name: &str) -> Option<Self> {
-        if matches!(name, "MemPtr" | "RegionToken") {
-            return Some(Self::RestrictedConstructor);
-        }
-        if RawAddressBoundaryHelper::from_symbol(name).is_some() {
-            return Some(Self::RawAddressBoundaryHelper);
-        }
-        raw_memory_op_from_name(name).map(|_| Self::RawHelperCall)
-    }
-}
+use evidence::{RawMemoryBoundaryEvidence, RawMemoryEvidence};
 
 pub(crate) fn module_has_raw_memory_boundary_evidence(module: &Module) -> bool {
-    let scope = SourceCapabilityScope::from_module(module);
-    block_raw_memory_boundary_evidence(&module.root, &scope).is_some()
+    collect_module_raw_memory_evidence(module).structural_boundary
 }
 
-fn block_raw_memory_boundary_evidence(
+pub(crate) fn module_raw_memory_operation_evidence(module: &Module) -> Vec<RawMemoryOp> {
+    collect_module_raw_memory_evidence(module)
+        .operations
+        .into_iter()
+        .collect()
+}
+
+pub(crate) fn module_raw_body_memory_operation_evidence(module: &Module) -> Vec<RawBodyMemoryOp> {
+    collect_module_raw_memory_evidence(module)
+        .raw_body_operations
+        .into_iter()
+        .collect()
+}
+
+fn collect_module_raw_memory_evidence(module: &Module) -> RawMemoryEvidence {
+    let scope = SourceCapabilityScope::from_module(module);
+    let mut evidence = RawMemoryEvidence::default();
+    collect_block_raw_memory_evidence(&module.root, &scope, &mut evidence);
+    evidence
+}
+
+fn collect_block_raw_memory_evidence(
     block: &Block,
     scope: &SourceCapabilityScope,
-) -> Option<RawMemoryBoundaryEvidence> {
+    evidence: &mut RawMemoryEvidence,
+) {
     let mut block_scope = scope.clone();
     for stmt in &block.items {
-        if let Some(evidence) = stmt_raw_memory_boundary_evidence(stmt, &block_scope) {
-            return Some(evidence);
-        }
+        collect_stmt_raw_memory_evidence(stmt, &block_scope, evidence);
         block_scope.bind_stmt_locals(stmt);
     }
-    None
 }
 
-fn stmt_raw_memory_boundary_evidence(
+fn collect_stmt_raw_memory_evidence(
     stmt: &Stmt,
     scope: &SourceCapabilityScope,
-) -> Option<RawMemoryBoundaryEvidence> {
+    evidence: &mut RawMemoryEvidence,
+) {
     match stmt {
         Stmt::FnDef(def) => {
             let fn_scope = scope.with_params(&def.params);
-            fn_body_raw_memory_boundary_evidence(&def.body, &fn_scope)
+            evidence.merge(collect_named_fn_raw_memory_evidence(
+                def.name.name.as_str(),
+                &def.body,
+                &fn_scope,
+            ));
         }
-        Stmt::Impl(def) => def.methods.iter().find_map(|method| {
-            let method_scope = scope.with_params(&method.params);
-            fn_body_raw_memory_boundary_evidence(&method.body, &method_scope)
-        }),
-        Stmt::FnAlias(alias) => (!scope.shadows(alias.target.name.as_str()))
-            .then(|| RawMemoryBoundaryEvidence::from_symbol(alias.target.name.as_str()))
-            .flatten(),
-        Stmt::Wasm(body) => raw_body_evidence(HirBody::Wasm(body.clone())),
-        Stmt::LlvmIr(body) => raw_body_evidence(HirBody::LlvmIr(body.clone())),
-        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
-            expr_raw_memory_boundary_evidence(expr, scope)
-        }
-        Stmt::Directive(_) | Stmt::StructDef(_) | Stmt::EnumDef(_) | Stmt::Trait(_) => None,
-    }
-}
-
-fn fn_body_raw_memory_boundary_evidence(
-    body: &FnBody,
-    scope: &SourceCapabilityScope,
-) -> Option<RawMemoryBoundaryEvidence> {
-    match body {
-        FnBody::Parsed(block) => block_raw_memory_boundary_evidence(block, scope),
-        FnBody::Wasm(body) => raw_body_evidence(HirBody::Wasm(body.clone())),
-        FnBody::LlvmIr(body) => raw_body_evidence(HirBody::LlvmIr(body.clone())),
-    }
-}
-
-fn raw_body_evidence(body: HirBody) -> Option<RawMemoryBoundaryEvidence> {
-    if raw_body_memory_operations(&body).is_empty()
-        && raw_body_direct_callees(&body)
-            .iter()
-            .all(|callee| raw_memory_op_from_name(callee).is_none())
-    {
-        None
-    } else {
-        Some(RawMemoryBoundaryEvidence::RawBodyInstruction)
-    }
-}
-
-fn expr_raw_memory_boundary_evidence(
-    expr: &PrefixExpr,
-    scope: &SourceCapabilityScope,
-) -> Option<RawMemoryBoundaryEvidence> {
-    expr.items
-        .iter()
-        .find_map(|item| prefix_item_raw_memory_boundary_evidence(item, scope))
-}
-
-fn prefix_item_raw_memory_boundary_evidence(
-    item: &PrefixItem,
-    scope: &SourceCapabilityScope,
-) -> Option<RawMemoryBoundaryEvidence> {
-    match item {
-        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) if !scope.shadows(&ident.name) => {
-            RawMemoryBoundaryEvidence::from_symbol(ident.name.as_str())
-        }
-        PrefixItem::Intrinsic(intrinsic, _) => {
-            if RawAddressBoundaryHelper::from_symbol(intrinsic.name.as_str()).is_some()
-                || raw_memory_op_from_name(intrinsic.name.as_str()).is_some()
-            {
-                Some(RawMemoryBoundaryEvidence::RawIntrinsic)
-            } else {
-                intrinsic
-                    .args
-                    .iter()
-                    .find_map(|expr| expr_raw_memory_boundary_evidence(expr, scope))
+        Stmt::Impl(def) => {
+            for method in &def.methods {
+                let method_scope = scope.with_params(&method.params);
+                evidence.merge(collect_named_fn_raw_memory_evidence(
+                    method.name.name.as_str(),
+                    &method.body,
+                    &method_scope,
+                ));
             }
         }
-        PrefixItem::Block(block, _) => block_raw_memory_boundary_evidence(block, scope),
-        PrefixItem::Match(m, _) => {
-            expr_raw_memory_boundary_evidence(&m.scrutinee, scope).or_else(|| {
-                m.arms.iter().find_map(|arm| {
-                    let mut arm_scope = scope.clone();
-                    arm_scope.bind_match_pattern(&arm.pattern);
-                    block_raw_memory_boundary_evidence(&arm.body, &arm_scope)
-                })
-            })
+        Stmt::FnAlias(alias) => {
+            collect_symbol_raw_memory_evidence(alias.target.name.as_str(), scope, evidence);
         }
-        PrefixItem::Tuple(items, _) => items
-            .iter()
-            .find_map(|expr| expr_raw_memory_boundary_evidence(expr, scope)),
-        PrefixItem::Group(inner, _) => expr_raw_memory_boundary_evidence(inner, scope),
+        Stmt::Wasm(body) => collect_raw_body_evidence(HirBody::Wasm(body.clone()), evidence),
+        Stmt::LlvmIr(body) => collect_raw_body_evidence(HirBody::LlvmIr(body.clone()), evidence),
+        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
+            collect_expr_raw_memory_evidence(expr, scope, evidence);
+        }
+        Stmt::Directive(_) | Stmt::StructDef(_) | Stmt::EnumDef(_) | Stmt::Trait(_) => {}
+    }
+}
+
+fn collect_named_fn_raw_memory_evidence(
+    name: &str,
+    body: &FnBody,
+    scope: &SourceCapabilityScope,
+) -> RawMemoryEvidence {
+    let mut evidence = RawMemoryEvidence::default();
+    collect_fn_body_raw_memory_evidence(body, scope, &mut evidence);
+    if evidence.has_any_evidence() {
+        if let Some(operation) = raw_memory_op_from_name(name) {
+            evidence.operations.insert(operation);
+        }
+    }
+    evidence
+}
+
+fn collect_fn_body_raw_memory_evidence(
+    body: &FnBody,
+    scope: &SourceCapabilityScope,
+    evidence: &mut RawMemoryEvidence,
+) {
+    match body {
+        FnBody::Parsed(block) => collect_block_raw_memory_evidence(block, scope, evidence),
+        FnBody::Wasm(body) => collect_raw_body_evidence(HirBody::Wasm(body.clone()), evidence),
+        FnBody::LlvmIr(body) => collect_raw_body_evidence(HirBody::LlvmIr(body.clone()), evidence),
+    }
+}
+
+fn collect_raw_body_evidence(body: HirBody, evidence: &mut RawMemoryEvidence) {
+    for operation in raw_body_memory_operations(&body) {
+        evidence.raw_body_operations.insert(operation);
+    }
+    for callee in raw_body_direct_callees(&body) {
+        if let Some(operation) = raw_memory_op_from_name(&callee) {
+            evidence.operations.insert(operation);
+        }
+    }
+}
+
+fn collect_expr_raw_memory_evidence(
+    expr: &PrefixExpr,
+    scope: &SourceCapabilityScope,
+    evidence: &mut RawMemoryEvidence,
+) {
+    for item in &expr.items {
+        collect_prefix_item_raw_memory_evidence(item, scope, evidence);
+    }
+}
+
+fn collect_prefix_item_raw_memory_evidence(
+    item: &PrefixItem,
+    scope: &SourceCapabilityScope,
+    evidence: &mut RawMemoryEvidence,
+) {
+    match item {
+        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) if !scope.shadows(&ident.name) => {
+            collect_symbol_raw_memory_evidence(ident.name.as_str(), scope, evidence);
+        }
+        PrefixItem::Intrinsic(intrinsic, _) => {
+            collect_builtin_raw_memory_evidence(intrinsic.name.as_str(), evidence);
+            for expr in &intrinsic.args {
+                collect_expr_raw_memory_evidence(expr, scope, evidence);
+            }
+        }
+        PrefixItem::Block(block, _) => collect_block_raw_memory_evidence(block, scope, evidence),
+        PrefixItem::Match(m, _) => {
+            collect_expr_raw_memory_evidence(&m.scrutinee, scope, evidence);
+            for arm in &m.arms {
+                let mut arm_scope = scope.clone();
+                arm_scope.bind_match_pattern(&arm.pattern);
+                collect_block_raw_memory_evidence(&arm.body, &arm_scope, evidence);
+            }
+        }
+        PrefixItem::Tuple(items, _) => {
+            for expr in items {
+                collect_expr_raw_memory_evidence(expr, scope, evidence);
+            }
+        }
+        PrefixItem::Group(inner, _) => collect_expr_raw_memory_evidence(inner, scope, evidence),
         PrefixItem::Literal(_, _)
         | PrefixItem::TypeAnnotation(_, _)
         | PrefixItem::Pipe(_)
-        | PrefixItem::Symbol(_) => None,
+        | PrefixItem::Symbol(_) => {}
+    }
+}
+
+fn collect_symbol_raw_memory_evidence(
+    symbol: &str,
+    scope: &SourceCapabilityScope,
+    evidence: &mut RawMemoryEvidence,
+) {
+    if scope.shadows(symbol) {
+        return;
+    }
+    collect_builtin_raw_memory_evidence(symbol, evidence);
+}
+
+fn collect_builtin_raw_memory_evidence(symbol: &str, evidence: &mut RawMemoryEvidence) {
+    if RawMemoryBoundaryEvidence::from_symbol(symbol).is_some() {
+        evidence.structural_boundary = true;
+    }
+    if let Some(operation) = raw_memory_op_from_name(symbol) {
+        evidence.operations.insert(operation);
     }
 }
