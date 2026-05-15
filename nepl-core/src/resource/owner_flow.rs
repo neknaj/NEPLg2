@@ -2,7 +2,7 @@ use crate::span::Span;
 use alloc::string::String;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{AggregateKind, OwnerState, Place};
+use super::model::{AggregateKind, OwnerState, OwnerStorageExtent, Place};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
@@ -27,6 +27,13 @@ impl ResourceOwnerCheckEngine<'_> {
         inputs: &[Place],
         span: Span,
     ) {
+        let region_token_extent_ok = self.region_token_construct_extent_requirement_holds(
+            owners,
+            raw_aliases,
+            kind,
+            inputs,
+            span,
+        );
         for (index, input) in inputs.iter().enumerate() {
             let field = construct_aggregate_field_place(output, kind, index, input);
             raw_aliases.copy_scalar_facts_if_tracked(input, &field);
@@ -44,6 +51,45 @@ impl ResourceOwnerCheckEngine<'_> {
             if matches!(kind, AggregateKind::Enum { .. }) && owners.state(&field).is_none() {
                 owners.set_state(&field, OwnerState::NoFreeObligation);
             }
+        }
+        if region_token_extent_ok && region_token_construct_kind(kind) && inputs.len() >= 2 {
+            let raw = construct_aggregate_field_place(output, kind, 0, &inputs[0]);
+            owners.set_live_extent(&raw, OwnerStorageExtent::RegionTokenSize);
+        }
+    }
+
+    fn region_token_construct_extent_requirement_holds(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        kind: &AggregateKind,
+        inputs: &[Place],
+        span: Span,
+    ) -> bool {
+        if !region_token_construct_kind(kind) {
+            return true;
+        }
+        let [raw, size, ..] = inputs else {
+            return true;
+        };
+        if self.ensure_owner_extent_matches_argument(
+            owners,
+            raw_aliases,
+            raw,
+            size,
+            ResourceOwnerOperation::ConstructInput,
+            span,
+        ) {
+            true
+        } else {
+            self.push_extent_unavailable(
+                owners,
+                raw_aliases,
+                raw,
+                ResourceOwnerOperation::ConstructInput,
+                span,
+            );
+            false
         }
     }
 
@@ -550,4 +596,8 @@ fn replacement_preserves_live_storage(
             }),
         ) if *overwritten_storage == replacement_storage
     )
+}
+
+fn region_token_construct_kind(kind: &AggregateKind) -> bool {
+    matches!(kind, AggregateKind::Struct { name, .. } if name == "RegionToken")
 }

@@ -155,6 +155,7 @@ fn canonicalize_projection_return_summaries(summaries: &mut Vec<OwnerProjectionR
 fn canonicalize_owner_extent_summary(extent: &mut OwnerExtentSummary) {
     match extent {
         OwnerExtentSummary::Unknown
+        | OwnerExtentSummary::RegionTokenSize
         | OwnerExtentSummary::PayloadBytesParameter(_)
         | OwnerExtentSummary::PayloadBytesI32Constant { .. } => {}
     }

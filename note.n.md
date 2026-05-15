@@ -1,3 +1,28 @@
+# 2026-05-16 Agent 1 public alloc_ptr owner API 撤去
+
+- `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` を fixed / resolved にした。
+- 根本原因は、Stage 6 で `MemPtr<T>` を non-owning pointer view に固定した後も、`alloc_ptr<T>` / `realloc_ptr<T>` / `dealloc_ptr<T>` が public / direct import 可能な API として残り、free obligation owner を `MemPtr<T>` として表現し続けていたことだった。
+- `stdlib/core/mem/pointer/alloc.nepl` を削除し、ordinary source が `core/mem` / `core/mem/pointer` / direct `core/mem/pointer/alloc` 経由で `MemPtr<T>` allocation owner を取得できない状態にした。
+- `RegionToken<T>` owner boundary は `allocator::alloc_raw` / `allocator::realloc_raw` を直接束ねる形へ揃え、`realloc_region_bytes_keep` は `RegionToken.raw` と `RegionToken.size` を直接消費して old-size proof を持つ raw realloc を行う。
+- compiler core では `OwnerStorageExtent::RegionTokenSize` を追加し、`RegionToken.raw` の live extent が同 token の `size` field であることを Resource IR に保持するようにした。
+- さらに owner return summary 適用時、projection owner return にも consumed extent requirement を適用するようにした。これにより `region_new (mem_ptr_wrap raw) fake_size` のような forged token が関数境界で requirement を落とさず、dealloc/realloc までに必ず size mismatch として検出される。
+- `tests/stdlib/memory_safety.n.md` の deleted module direct import fixture は、存在する `core/mem/pointer` facade から `alloc_ptr` が未定義であることを検査する形へ直した。欠落ファイル IO error を成功条件にしない。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と親 issue に Stage 6 の進捗を追記した。`plan.md` は変更していない。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_realloc_owner_replacement_assignment -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_region_realloc_result_owner -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_region_extent_mismatch_through_summary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_realloc_region_old_extent_mismatch_through_summary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_proves_checked_dealloc_err_unreachable_for_computed_alloc_size -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir compile_accepts_callback_returned_region_pointer_without_owner_transfer -- --nocapture`
+  - `node --check nodesrc/test_stdlib_core_mem_boundary.js`
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`
+  - `node --check nodesrc/test_stdlib_mem_internal_region_new_docs.js`
+  - `node nodesrc/test_stdlib_mem_internal_region_new_docs.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md -o .tmp/memory_safety.json --dist web/dist --assert-io`: total=60, passed=60
+- 参考: `cargo test -p nepl-core --test resource_ir` は 296 件の full suite で既存の複数 failure が残る。今回の対象回帰は focused tests で通っているため、この commit では full-suite 残件は別 issue 群の継続作業として扱う。
+
 # 2026-05-16 Agent 1 std/env cliarg cstr doctest raw boundary 修正
 
 - `ISS-20260515T203123090Z-STD-ENV-CLIARG-CSTR-DOCTESTS-USE-MEM-B6DEAC7B` を解決した。

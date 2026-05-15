@@ -586,7 +586,7 @@ fn main <()*>i32> ():
     0
 ```
 
-## dealloc_ptr は mem_ptr_add した same-place live non-Copy payload を捨てられない
+## dealloc_region は mem_ptr_add した same-place live non-Copy payload を捨てられない
 
 neplg2:test[compile_fail]
 diag_code: resource.cell.initialized_conflict
@@ -595,7 +595,6 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -611,7 +610,8 @@ fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
     let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 0
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+    let token <RegionToken<LocalToken>> region_new<LocalToken> q size_of<LocalToken>
+    let r <Result<(),str>> dealloc_region<LocalToken> token
     0
 ```
 
@@ -740,7 +740,7 @@ fn main <()*>i32> ():
     0
 ```
 
-## non-literal mem_ptr_add dealloc_ptr は same-base live non-Copy payload を捨てられない
+## non-literal mem_ptr_add dealloc_region は same-base live non-Copy payload を捨てられない
 
 neplg2:test[compile_fail]
 diag_code: resource.cell.initialized_conflict
@@ -749,7 +749,6 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -769,7 +768,8 @@ fn main <()*>i32> ():
     let off <i32> choose_offset true
     let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+    let token <RegionToken<LocalToken>> region_new<LocalToken> q size_of<LocalToken>
+    let r <Result<(),str>> dealloc_region<LocalToken> token
     0
 ```
 
@@ -1006,7 +1006,7 @@ fn main <()*>i32> ():
     0
 ```
 
-## dealloc_ptr は initialized non-Copy MemPtr place を捨てられない
+## dealloc_region は initialized non-Copy MemPtr place を捨てられない
 
 neplg2:test[compile_fail]
 diag_code: resource.cell.initialized_conflict
@@ -1015,7 +1015,6 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -1030,7 +1029,8 @@ fn token_id <(i32)->i32> (x):
 fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let r <Result<(),str>> dealloc_ptr<LocalToken> p size_of<LocalToken>
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let r <Result<(),str>> dealloc_region<LocalToken> token
     0
 ```
 
@@ -1139,7 +1139,6 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -1161,7 +1160,8 @@ fn main <()*>i32> ():
     match region_ptr_at<LocalToken,LocalToken> &token off:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+            let forged <RegionToken<LocalToken>> region_new<LocalToken> q size_of<LocalToken>
+            let r <Result<(),str>> dealloc_region<LocalToken> forged
             0
         Result::Err _e:
             0
@@ -1238,10 +1238,10 @@ fn main <()*>i32> ():
             0
 ```
 
-## aggregate field の MemPtr alias は field get 後も保持する
+## aggregate field の MemPtr read は user source では raw pointer field boundary が拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.cell.moved
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -1272,10 +1272,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## aggregate field alias は branch merge 後も一致する場合だけ保持する
+## branch merge 後の aggregate MemPtr field read は raw pointer field boundary が拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.cell.moved
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -1311,10 +1311,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## enum payload 内 aggregate field の MemPtr alias は match bind 後も保持する
+## enum payload 内 aggregate MemPtr field read は raw pointer field boundary が拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.cell.moved
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -1351,10 +1351,10 @@ fn main <()*>i32> ():
             0
 ```
 
-## enum payload 内 aggregate field alias は branch merge 後も一致する場合だけ保持する
+## branch merge 後の enum payload 内 aggregate MemPtr field read は raw pointer field boundary が拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.cell.moved
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -1427,10 +1427,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## 関数が返した aggregate field の MemPtr alias は保持する
+## 関数が返した aggregate field の MemPtr read は raw pointer field boundary が拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.cell.moved
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -1500,10 +1500,10 @@ fn main <()*>i32> ():
             0
 ```
 
-## 関数が返した Result payload 内 aggregate field alias は保持する
+## 関数が返した Result payload 内 aggregate MemPtr field read は raw pointer field boundary が拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.cell.moved
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -1674,7 +1674,7 @@ fn main <()*>i32> ():
             0
 ```
 
-## realloc_ptr は initialized non-Copy MemPtr place を byte move できない
+## realloc_region_bytes_keep は initialized non-Copy RegionToken place を byte move できない
 
 neplg2:test[compile_fail]
 diag_code: resource.cell.initialized_conflict
@@ -1683,7 +1683,6 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
@@ -1697,8 +1696,9 @@ fn token_id <(i32)->i32> (x):
 
 fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let r <Result<MemPtr<LocalToken>,str>> realloc_ptr<LocalToken> p size_of<LocalToken> 32
+    let r <Result<RegionToken<LocalToken>, RegionReallocError<LocalToken>>> realloc_region_bytes_keep<LocalToken> token 32
     0
 ```
 
@@ -2372,7 +2372,7 @@ fn main <()*>i32> ():
 ## generic Copy impl を持つ direct raw aggregate read は user source では拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.raw.memory_outside_boundary
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -2408,7 +2408,7 @@ fn main <()*>i32> ():
 ## generic aggregate の direct raw field read は user source では拒否する
 
 neplg2:test[compile_fail]
-diag_code: resource.raw.memory_outside_boundary
+diag_code: type.raw_pointer.field_access_restricted
 ```neplg2
 #entry main
 #indent 4

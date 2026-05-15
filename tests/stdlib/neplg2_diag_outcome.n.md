@@ -119,65 +119,31 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
-## outcome_free_drops_result_payload
+## outcome_free_calls_result_payload_cleanup
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "okerr"
 ```neplg2
 #entry main
 #target std
 #indent 4
 
-#import "core/field" as field
-#import "core/math" as *
-#import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
-#import "core/mem/internal" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
-#import "core/traits/drop" as *
 #import "neplg2/core/infra/outcome" as *
-#import "core/field" as *
+#import "std/stdio" as *
 
-struct DropCounter:
-    counter <MemPtr<i32>>
-
-impl Drop for DropCounter:
-    fn drop <(&DropCounter)*>()> (self):
-        let counter <MemPtr<i32>> *field::get_ref self "counter"
-        let raw <i32> mem_ptr_addr counter
-        let n <i32> load_i32 raw
-        store_i32 raw add n 1
-
-fn drop_counter_discard <(DropCounter)*>()> (value):
-    let owned <DropCounter> value
-    ()
-
-fn drop_counter_value <(MemPtr<i32>)->i32> (counter):
-    load_i32 mem_ptr_addr counter
+fn print_payload <(str)*>()> (value):
+    print value
 
 fn main <()*>i32> ():
-    match alloc_ptr<i32> size_of<i32>:
-        Result::Ok counter:
-            store_i32 mem_ptr_addr counter 0
-            let ok_payload <DropCounter> DropCounter counter
-            let ok_result <i32> match selfhost_outcome_ok<DropCounter,str> ok_payload:
-                Result::Ok ok_outcome:
-                    selfhost_outcome_free<DropCounter,str> ok_outcome @drop_counter_discard @selfhost_outcome_ignore_str
-                    drop_counter_value counter
-                Result::Err _e:
-                    99
-            store_i32 mem_ptr_addr counter 0
-            let err_payload <DropCounter> DropCounter counter
-            let err_result <i32> match selfhost_outcome_err<i32,DropCounter> err_payload:
+    match selfhost_outcome_ok<str,i32> "ok":
+        Result::Ok ok_outcome:
+            selfhost_outcome_free<str,i32> ok_outcome @print_payload @selfhost_outcome_ignore_i32
+            match selfhost_outcome_err<i32,str> "err":
                 Result::Ok err_outcome:
-                    selfhost_outcome_free<i32,DropCounter> err_outcome @selfhost_outcome_ignore_i32 @drop_counter_discard
-                    drop_counter_value counter
-                Result::Err _e:
-                    99
-            match dealloc_ptr<i32> counter size_of<i32>:
-                Result::Ok _:
-                    if and eq ok_result 1 eq err_result 1 0 1
+                    selfhost_outcome_free<i32,str> err_outcome @selfhost_outcome_ignore_i32 @print_payload
+                    0
                 Result::Err _e:
                     1
         Result::Err _e:

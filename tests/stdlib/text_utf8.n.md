@@ -124,25 +124,25 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
-    match alloc_ptr<u8> 1:
+    match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
-        Result::Ok data:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
-                    match dealloc_ptr<u8> data 1:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             ()
                         Result::Err _e:
                             ();
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 1:
+                    match text_bytebuf_to_utf8_str_result io_bytebuf_finish_region region 1:
                         Result::Ok text:
                             set checks checks_push checks Result<(),str>::Err text
                         Result::Err e:
@@ -166,25 +166,25 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
-    match alloc_ptr<u8> 1:
+    match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
-        Result::Ok data:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
-                    match dealloc_ptr<u8> data 1:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             ()
                         Result::Err _e:
                             ();
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    match io_bytebuf_to_str_result io_bytebuf_from_owned_ptr data 1:
+                    match io_bytebuf_to_str_result io_bytebuf_finish_region region 1:
                         Result::Ok text:
                             set checks checks_push checks Result<(),str>::Err text
                         Result::Err e:
@@ -209,39 +209,47 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
-    match alloc_ptr<u8> 3:
+    match io_bytebuf_alloc_region 3:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
-        Result::Ok data:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_ptr &region
             let mut ok <Result<(),str>> Result<(),str>::Ok ()
             match store_u8 data 224:
                 Result::Err e:
                     set ok Result<(),str>::Err e
                 Result::Ok _:
-                    match store_u8 mem_ptr_add data 1 128:
+                    match region_ptr_at<u8,u8> &region 1:
                         Result::Err e:
                             set ok Result<(),str>::Err e
-                        Result::Ok _:
-                            match store_u8 mem_ptr_add data 2 128:
+                        Result::Ok p1:
+                            match store_u8 p1 128:
                                 Result::Err e:
                                     set ok Result<(),str>::Err e
                                 Result::Ok _:
-                                    ()
+                                    match region_ptr_at<u8,u8> &region 2:
+                                        Result::Err e:
+                                            set ok Result<(),str>::Err e
+                                        Result::Ok p2:
+                                            match store_u8 p2 128:
+                                                Result::Err e:
+                                                    set ok Result<(),str>::Err e
+                                                Result::Ok _:
+                                                    ()
             match ok:
                 Result::Err e:
-                    match dealloc_ptr<u8> data 3:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             ()
                         Result::Err _e:
                             ();
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 3:
+                    match text_bytebuf_to_utf8_str_result io_bytebuf_finish_region region 3:
                         Result::Ok text:
                             set checks checks_push checks Result<(),str>::Err text
                         Result::Err e:
@@ -266,26 +274,26 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
     let path <str> "tmp/fs_invalid_utf8_checked_case.bin"
-    match alloc_ptr<u8> 1:
+    match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
-        Result::Ok data:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
-                    match dealloc_ptr<u8> data 1:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             ()
                         Result::Err _e:
                             ();
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
+                    match fs_write_to_bytes path io_bytebuf_finish_region region 1:
                         Result::Err _e:
                             set checks checks_push checks Result<(),str>::Err "write failed"
                         Result::Ok _:
@@ -314,26 +322,26 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
     let path <str> "tmp/fs_invalid_utf8_default_case.bin"
-    match alloc_ptr<u8> 1:
+    match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
-        Result::Ok data:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
-                    match dealloc_ptr<u8> data 1:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             ()
                         Result::Err _e:
                             ();
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
+                    match fs_write_to_bytes path io_bytebuf_finish_region region 1:
                         Result::Err _e:
                             set checks checks_push checks Result<(),str>::Err "write failed"
                         Result::Ok _:
@@ -363,25 +371,25 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
-    match alloc_ptr<u8> 1:
+    match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
-        Result::Ok data:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
-                    match dealloc_ptr<u8> data 1:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             ()
                         Result::Err _e:
                             ();
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    let target <ReadStream> ReadStream::Bytes io_bytebuf_from_owned_ptr data 1
+                    let target <ReadStream> ReadStream::Bytes io_bytebuf_finish_region region 1
                     let text_result <Result<str, StdErrorKind>> read target;
                     match text_result:
                         Result::Ok text:

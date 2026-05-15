@@ -32,7 +32,6 @@
 #import "../layout" as *
 #import "../internal" as *
 #import "../allocator" as allocator
-#import "./alloc" as *
 #import "core/field" as *
 
 //: region_ptr: RegionToken の基底を non-owning MemPtr view として得る
@@ -178,7 +177,7 @@ pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (
 //:
 //: 実装(アルゴリズム):
 //: - `bytes` が負、または allocator payload 上限を超える場合は `Err` を返します。
-//: - `alloc_ptr<T>` により storage を確保し、成功時だけ internal boundary の `region_new` で owner token を作ります。
+//: - allocator の raw allocation 結果をこの owner boundary 内で検査し、成功時だけ `region_new` で owner token に束ねます。
 //:
 //: 注意(重要):
 //: - `RegionToken<T>` は free obligation owner です。使用後は `dealloc_region` で閉じます。
@@ -212,10 +211,12 @@ pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
         then:
             Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes invalid size"
         else:
-            match alloc_ptr<.T> bytes:
-                Result::Ok ptr:
-                    Result<RegionToken<.T>,str>::Ok region_new ptr bytes
-                Result::Err _e:
+            let raw <i32> allocator::alloc_raw bytes
+            if:
+                lt 0 raw
+                then:
+                    Result<RegionToken<.T>,str>::Ok region_new mem_ptr_wrap<.T> raw bytes
+                else:
                     Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes failed"
 
 //: RegionReallocError: `RegionToken` の[再確保/さいかくほ]に[失敗/しっぱい]したときの owner payload
@@ -299,7 +300,7 @@ pub fn region_realloc_error_region <.T> <(RegionReallocError<.T>)->RegionToken<.
 //:
 //: 実装(アルゴリズム):
 //: - 新 byte 数が allocator payload 上限に[収/おさ]まることを先に[確認/かくにん]します。
-//: - 旧 token から non-owning pointer view と extent を[借/か]りて `realloc_ptr` へ[渡/わた]し、成功時だけ新 token を[作/つく]ります。
+//: - 旧 token から raw owner identity と extent を[借/か]りて raw realloc 境界へ[渡/わた]し、成功時だけ新 token を[作/つく]ります。
 //:
 //: 注意(重要):
 //: - `MemPtr<T>` は owner ではありません。この関数の API は常に `RegionToken<T>` owner を[受/う]け[取/と]り、成功/失敗のどちらかで owner を[返/かえ]します。
@@ -339,12 +340,14 @@ pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken
         then:
             Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
         else:
-            let old_size <i32> region_size &region
-            let old_ptr <MemPtr<.T>> region_ptr &region
-            match realloc_ptr<.T> old_ptr old_size new_size:
-                Result::Ok next_ptr:
-                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok region_new next_ptr new_size
-                Result::Err _e:
+            let old_size <i32> get region "size"
+            let old_raw <i32> get region "raw"
+            let next_raw <i32> allocator::realloc_raw old_raw old_size new_size
+            if:
+                lt 0 next_raw
+                then:
+                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok region_new mem_ptr_wrap<.T> next_raw new_size
+                else:
                     Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
 
 //: alloc_region: 要素数を指定して RegionToken を確保する

@@ -1140,7 +1140,7 @@ mod tests {
     fn resource_effect_gate_allows_raw_address_view_inside_raw_boundary() {
         let mut source_map = SourceMap::new();
         let raw_file = source_map.add_with_capabilities(
-            "stdlib/core/mem/pointer/alloc.nepl",
+            "stdlib/core/mem/pointer/view.nepl",
             String::new(),
             SourceCapabilities::with(SourceCapability::RawMemoryStructuralBoundary),
         );

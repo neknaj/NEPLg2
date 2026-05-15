@@ -7,8 +7,8 @@
 //: - 実装は view / region / bulk / scalar の submodule に分け、ここは再公開だけを担当します。
 //:
 //: 注意(重要):
-//: - raw load/store と allocator の実装は `mem/raw` / `mem/allocator` / `mem/internal` / `mem/pointer/alloc` 側に閉じます。
-//: - `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` は free obligation を `MemPtr` call contract で扱う低レベル境界なので、この facade からは再公開しません。
+//: - raw load/store と allocator の実装は `mem/raw` / `mem/allocator` / `mem/internal` 側に閉じます。
+//: - allocation owner は `RegionToken<T>` が保持し、`MemPtr<T>` は non-owning view としてだけ公開します。
 //: - この facade は raw-memory-boundary capability を持たず、関数本体も所有しません。
 //:
 //: neplg2:test

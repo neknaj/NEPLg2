@@ -226,7 +226,6 @@ stdout: "test_report name=\"string_utf8_mem_result\" count=3 failed=0\nassertion
 #import "alloc/string" as *
 #import "alloc/string/storage" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/result" as *
 #import "std/test" as *
 
@@ -238,10 +237,11 @@ fn main <()*>i32> ():
             set report test_report_push report assert "copy valid utf8" test_str_eq src copied
         Result::Err e:
             set report test_report_push report test_assertion_fail "copy valid utf8" e;
-    match alloc_ptr<u8> 1:
+    match alloc_region_bytes<u8> 1:
         Result::Err e:
             set report test_report_push report test_assertion_fail "invalid buffer alloc" e
-        Result::Ok data:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     set report test_report_push report test_assertion_fail "invalid leading byte store" e
@@ -251,7 +251,7 @@ fn main <()*>i32> ():
                             set report test_report_push report test_assertion_failed AssertionKind::Bool "invalid leading byte rejected" "true" "false" text
                         Result::Err _e:
                             set report test_report_push report assert "invalid leading byte rejected" true;
-            match dealloc_ptr<u8> data 1:
+            match dealloc_region<u8> region:
                 Result::Ok _:
                     set report test_report_push report assert "invalid buffer dealloc" true
                 Result::Err e:

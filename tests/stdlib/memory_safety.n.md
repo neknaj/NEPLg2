@@ -1,6 +1,6 @@
 # memory safety 回帰テスト
 
-## alloc_ptr/load_store/dealloc_ptr の基本動作
+## alloc_region/region_ptr/dealloc_region の基本動作
 
 neplg2:test
 ret: 123
@@ -10,20 +10,20 @@ ret: 123
 #target std
 
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region<i32> 1:
         Result::Err _e:
             0
-        Result::Ok p:
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
             match store_i32 p 123:
                 Result::Err _e:
-                    match dealloc_ptr p 4:
+                    match dealloc_region region:
                         Result::Err _cleanup:
                             0
                         Result::Ok _:
@@ -34,14 +34,14 @@ fn main <()*>i32> ():
                             0
                         Option::Some x:
                             x
-                    match dealloc_ptr p 4:
+                    match dealloc_region region:
                         Result::Err _e:
                             0
                         Result::Ok _:
                             v
 ```
 
-## core/mem facade は alloc_ptr を再公開しない
+## core/mem facade は MemPtr owner API を再公開しない
 
 neplg2:test[compile_fail]
 diag_code: resolve.identifier.undefined
@@ -51,6 +51,22 @@ diag_code: resolve.identifier.undefined
 #target std
 
 #import "core/mem" as *
+
+fn main <()*>i32> ():
+    alloc_ptr<i32> 4
+    0
+```
+
+## core/mem/pointer facade は MemPtr owner API を再公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem/pointer" as *
 
 fn main <()*>i32> ():
     alloc_ptr<i32> 4
@@ -341,12 +357,8 @@ fn main <()*>i32> ():
     match alloc_region_bytes<u8> 2147483633:
         Result::Err _e:
             1
-        Result::Ok token:
-            match dealloc_region token:
-                Result::Err _drop:
-                    0
-                Result::Ok _:
-                    0
+        Result::Ok _token:
+            #intrinsic "unreachable" <> ()
 ```
 
 ## MemPtr fill_i32/fill_u8 の安全オーバーロード
@@ -849,7 +861,7 @@ fn main <()*>()> ():
                     ()
 ```
 
-## callback parameter が返した region_ptr は元 token の dealloc を妨げない
+## callback parameter が返した region_ptr は owner token ではない
 
 neplg2:test
 ```neplg2
@@ -878,20 +890,12 @@ fn main <()*>()> ():
         Result::Err _e:
             ()
         Result::Ok token:
-            let p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
-            match store_u8 p 7:
-                Result::Err _e:
-                    match dealloc_region token:
-                        Result::Ok _:
-                            ()
-                        Result::Err _cleanup:
-                            ()
+            let _p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
+            match dealloc_region token:
                 Result::Ok _:
-                    match dealloc_region token:
-                        Result::Ok _:
-                            ()
-                        Result::Err _e:
-                            ()
+                    ()
+                Result::Err _e:
+                    ()
 ```
 
 ## region_ptr_at の Ok payload は owner token にできない

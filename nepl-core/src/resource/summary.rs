@@ -68,6 +68,7 @@ pub(super) enum OwnerExtentSummary {
     Unknown,
     PayloadBytesParameter(OwnerProjectionSource),
     PayloadBytesI32Constant { value: i32, ty: TypeId },
+    RegionTokenSize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

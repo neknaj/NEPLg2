@@ -1176,7 +1176,7 @@ mod tests {
         let capabilities = load_source_capabilities(
             &loader,
             path,
-            "fn helper <()->i32> ():\n    let alloc_ptr <i32> 1;\n    alloc_ptr\n",
+            "fn helper <()->i32> ():\n    let alloc_raw <i32> 1;\n    alloc_raw\n",
         );
         assert!(
             !capabilities.allows_raw_memory_structural_boundary()
@@ -1279,7 +1279,7 @@ mod tests {
         let capabilities = load_source_capabilities(
             &loader,
             path,
-            "fn helper <(i32)->Result<MemPtr<u8>,str>> (n):\n    alloc_ptr<u8> n\n",
+            "fn helper <(i32)->Result<RegionToken<u8>,str>> (n):\n    alloc_region<u8> n\n",
         );
         assert!(
             !capabilities.allows_raw_memory_structural_boundary()

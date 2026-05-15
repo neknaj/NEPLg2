@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T20:49:55.680Z",
+  "generated_at": "2026-05-15T21:48:21.409Z",
   "counts": {
     "total": 852,
-    "open": 6,
-    "resolved": 846,
+    "open": 5,
+    "resolved": 847,
     "by_area": {
       "stdlib": {
         "total": 253,
-        "open": 4,
-        "resolved": 249
+        "open": 3,
+        "resolved": 250
       },
       "TEST": {
         "total": 24,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686",
-      "title": "public alloc_ptr APIs still encode free obligation in MemPtr",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-15",
-      "updated": "2026-05-16",
-      "target": "stdlib/core/mem/pointer/alloc.nepl; stdlib/core/mem.nepl; stdlib/std/fs/**/*.nepl; stdlib/std/stdio/**/*.nepl; nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -9913,6 +9898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1.md"
+    },
+    {
+      "id": "ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686",
+      "title": "public alloc_ptr APIs still encode free obligation in MemPtr",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/core/mem/pointer/alloc.nepl; stdlib/core/mem.nepl; stdlib/std/fs/**/*.nepl; stdlib/std/stdio/**/*.nepl; nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686.md"
     },
     {
       "id": "ISS-20260515T170146857Z-CORE-MEM-POINTER-FACADE-RE-EXPORTS-L-4724AF44",

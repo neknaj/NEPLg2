@@ -32,7 +32,6 @@ const internal = read("stdlib/core/mem/internal.nepl");
 const raw = read("stdlib/core/mem/raw.nepl");
 const allocator = read("stdlib/core/mem/allocator.nepl");
 const pointer = read("stdlib/core/mem/pointer.nepl");
-const pointerAlloc = read("stdlib/core/mem/pointer/alloc.nepl");
 const pointerView = read("stdlib/core/mem/pointer/view.nepl");
 const pointerRegion = read("stdlib/core/mem/pointer/region.nepl");
 const pointerBulk = read("stdlib/core/mem/pointer/bulk.nepl");
@@ -95,14 +94,17 @@ assertNoMatch(
 assertNoMatch(pointer, /^\s*(?:pub\s+)?fn\s+/m, "mem/pointer facade must not own function bodies");
 assertNoMatch(pointer, /^\s*(?:pub\s+)?struct\s+/m, "mem/pointer facade must not own data layout");
 assertNoMatch(pointer, /^\s*#(?:wasm|llvmir|intrinsic)\b/m, "mem/pointer facade must not own raw bodies");
-assertMatch(pointerAlloc, /pub\s+fn\s+alloc_ptr\b/, "mem/pointer/alloc must own MemPtr allocation wrapper");
-assertMatch(pointerAlloc, /pub\s+fn\s+dealloc_ptr\b/, "mem/pointer/alloc must own MemPtr deallocation wrapper");
+assert(
+    !fs.existsSync(path.join(repoRoot, "stdlib/core/mem/pointer/alloc.nepl")),
+    "mem/pointer/alloc must not remain as a direct-import MemPtr owner API",
+);
 assertMatch(pointerView, /pub\s+fn\s+mem_ptr_add\b/, "mem/pointer/view must own non-owning MemPtr offset view helper");
-assertNoMatch(pointerAlloc, /pub\s+fn\s+mem_ptr_add\b/, "mem/pointer/alloc must not own public non-owning pointer view helper");
 assertMatch(pointerRegion, /pub\s+fn\s+region_ptr_at\b/, "mem/pointer/region must own checked region projection");
 assertMatch(pointerRegion, /pub\s+struct\s+RegionReallocError<\.T>:[\s\S]*region\s+<RegionToken<\.T>>/, "mem/pointer/region must own RegionToken realloc error payload");
 assertMatch(pointerRegion, /pub\s+fn\s+realloc_region_bytes_keep\s+<\.T>\s+<\(RegionToken<\.T>,i32\)->Result<RegionToken<\.T>,\s*RegionReallocError<\.T>>>/, "mem/pointer/region must own owner-preserving RegionToken realloc helper");
-assertMatch(pointerRegion, /\brealloc_region_bytes_keep[\s\S]*not\s+alloc_payload_fits\s+new_size[\s\S]*region_ptr\s+&region[\s\S]*realloc_ptr<\.T>\s+old_ptr\s+old_size\s+new_size[\s\S]*RegionReallocError<\.T>\s+region/, "RegionToken realloc must validate size and return the old owner on failure");
+assertMatch(pointerRegion, /\balloc_region_bytes[\s\S]*allocator::alloc_raw\s+bytes[\s\S]*region_new\s+mem_ptr_wrap<\.T>\s+raw\s+bytes/, "RegionToken allocation must validate raw allocator success inside the owner boundary");
+assertMatch(pointerRegion, /\brealloc_region_bytes_keep[\s\S]*not\s+alloc_payload_fits\s+new_size[\s\S]*let\s+old_size\s+<i32>\s+get\s+region\s+"size"[\s\S]*let\s+old_raw\s+<i32>\s+get\s+region\s+"raw"[\s\S]*allocator::realloc_raw\s+old_raw\s+old_size\s+new_size[\s\S]*RegionReallocError<\.T>\s+region/, "RegionToken realloc must validate size and consume the owner raw field directly");
+assertNoMatch(pointerRegion, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, "RegionToken owner API must not route allocation through MemPtr owner wrappers");
 assertMatch(pointerRegion, /\balign_of<\.U>/, "region_ptr_at must prove target type alignment");
 assertMatch(pointerRegion, /\brem_s\s+addr\s+align\s+0\b/, "region_ptr_at must reject unaligned typed addresses");
 assertNoMatch(pointerRegion, /alignment は現時点では検査しません/, "region_ptr_at must not delegate alignment proof to callers");
@@ -114,7 +116,6 @@ for (const [label, text] of [
     ["mem/internal", internal],
     ["mem/raw", raw],
     ["mem/allocator", allocator],
-    ["mem/pointer/alloc", pointerAlloc],
     ["mem/pointer/view", pointerView],
     ["mem/pointer/region", pointerRegion],
     ["mem/pointer/bulk", pointerBulk],
@@ -135,7 +136,6 @@ for (const [label, text, limit] of [
     ["stdlib/core/mem/raw.nepl", raw, 520],
     ["stdlib/core/mem/allocator.nepl", allocator, 420],
     ["stdlib/core/mem/pointer.nepl", pointer, 120],
-    ["stdlib/core/mem/pointer/alloc.nepl", pointerAlloc, 260],
     ["stdlib/core/mem/pointer/view.nepl", pointerView, 120],
     ["stdlib/core/mem/pointer/region.nepl", pointerRegion, 400],
     ["stdlib/core/mem/pointer/bulk.nepl", pointerBulk, 260],

@@ -12,7 +12,7 @@ const regionNewDoc = extractDocBlockBeforeFunction(source, "region_new");
 
 assertIncludes(
     regionNewDoc,
-    "match alloc_ptr<u8> 4:",
+    "match allocator::alloc 4:",
     "region_new doctest must derive its MemPtr from allocator-issued storage",
 );
 assertIncludes(

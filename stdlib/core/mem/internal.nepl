@@ -81,15 +81,16 @@ pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
-//:| #import "core/mem/pointer/alloc" as *
+//:| #import "core/mem/allocator" as allocator
 //:| #import "core/mem/internal" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     match alloc_ptr<u8> 4:
+//:     match allocator::alloc 4:
 //:         Result::Err _e:
 //:             0
-//:         Result::Ok ptr:
+//:         Result::Ok raw:
+//:             let ptr <MemPtr<u8>> mem_ptr_wrap<u8> raw
 //:             let token <RegionToken<u8>> region_new ptr 4
 //:             let ok <i32> if eq region_size &token 4 1 0
 //:             match dealloc_region<u8> token:

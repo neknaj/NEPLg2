@@ -500,6 +500,7 @@ pub enum OwnerState {
 pub enum OwnerStorageExtent {
     Unknown,
     PayloadBytes { bytes: Box<Place> },
+    RegionTokenSize,
 }
 
 impl OwnerStorageExtent {

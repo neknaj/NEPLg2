@@ -33,6 +33,7 @@ pub(super) fn prove_owner_extent_matches_argument(
         OwnerStorageExtent::PayloadBytes { bytes } => {
             prove_scalar_places_equal(raw_aliases, bytes, actual)
         }
+        OwnerStorageExtent::RegionTokenSize => OwnerExtentProof::Unknown,
     }
 }
 
@@ -77,6 +78,7 @@ pub(super) fn summarize_owner_storage_extent(
 ) -> OwnerExtentSummary {
     match extent {
         OwnerStorageExtent::Unknown => OwnerExtentSummary::Unknown,
+        OwnerStorageExtent::RegionTokenSize => OwnerExtentSummary::RegionTokenSize,
         OwnerStorageExtent::PayloadBytes { bytes } => {
             if let Some(value) = raw_aliases.i32_value(bytes) {
                 return OwnerExtentSummary::PayloadBytesI32Constant {
@@ -108,6 +110,7 @@ pub(super) fn instantiate_owner_extent_summary(
 ) -> OwnerStorageExtent {
     match summary {
         OwnerExtentSummary::Unknown => OwnerStorageExtent::Unknown,
+        OwnerExtentSummary::RegionTokenSize => OwnerStorageExtent::RegionTokenSize,
         OwnerExtentSummary::PayloadBytesParameter(source) => {
             owner_projection_source_place(args, source)
                 .map(|place| OwnerStorageExtent::payload_bytes(&place))

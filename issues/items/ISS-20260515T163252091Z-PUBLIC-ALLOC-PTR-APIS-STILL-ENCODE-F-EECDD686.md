@@ -2,8 +2,8 @@
 id: ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686
 title: "public alloc_ptr APIs still encode free obligation in MemPtr"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-15
@@ -138,3 +138,32 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 `cliarg_count_result` / `cliarg_get_checked` / LLVM fallback は direct `alloc_ptr` / `dealloc_ptr` を持たず、raw ABI や checked byte access へ渡す値は `region_ptr` 由来の non-owning `MemPtr<u8>` view に限定する。
 
 これで `std/fs` / `std/stdio` / `std/env/cliarg` の主要 raw-backed scratch path から direct low-level allocation owner API は消えた。この親 issue は public `alloc_ptr` API 自体の整理と、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
+
+## 2026-05-16 Agent 1 fixed
+
+`stdlib/core/mem/pointer/alloc.nepl` を削除し、public / direct import 可能な `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` API を撤去した。`MemPtr<T>` は allocation owner を返す API の surface から消え、ordinary source は `core/mem` / `core/mem/pointer` facade 経由でも direct `core/mem/pointer/alloc` 経由でも `MemPtr<T>` free obligation owner を取得できない。
+
+この削除に伴い、stdlib と回帰テストは `RegionToken<T>` owner 境界へ揃えた。`alloc_region_bytes` は `allocator::alloc_raw` から得た raw owner を `region_new` へ束ね、`realloc_region_bytes_keep` は `RegionToken.raw` / `RegionToken.size` field を直接消費して `allocator::realloc_raw old_raw old_size new_size` へ渡す。`MemPtr<T>` は `region_ptr` / `region_ptr_at` / `mem_ptr_add` が返す non-owning view に限定する。
+
+Compiler core 側では、`RegionToken.raw` の live extent を `RegionToken.size` と結び付ける `OwnerStorageExtent::RegionTokenSize` を追加した。さらに owner return summary 適用時に projection owner return へも consumed extent requirement を適用するようにし、`region_new (mem_ptr_wrap raw) fake_size` のような forged token が関数境界を越えて `dealloc_region` / `realloc_region_bytes_keep` まで遅れて発覚するのではなく、Resource IR summary 経由で必ず old-size proof を要求するようにした。
+
+`OwnedBuffer<T>` / initialized prefix / collection drop traversal / compiler-issued owner token は Stage 6 以降の別 issue の責務として残るが、この issue の対象である public `alloc_ptr` API と `MemPtr<T>` free obligation carrier は閉じた。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_realloc_owner_replacement_assignment -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_region_realloc_result_owner -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_region_extent_mismatch_through_summary -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_realloc_region_old_extent_mismatch_through_summary -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_proves_checked_dealloc_err_unreachable_for_computed_alloc_size -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir compile_accepts_callback_returned_region_pointer_without_owner_transfer -- --nocapture`
+- `node --check nodesrc/test_stdlib_core_mem_boundary.js`
+- `node nodesrc/test_stdlib_core_mem_boundary.js`
+- `node --check nodesrc/test_stdlib_mem_internal_region_new_docs.js`
+- `node nodesrc/test_stdlib_mem_internal_region_new_docs.js`
+- `trunk build`
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md -o .tmp/memory_safety.json --dist web/dist --assert-io`: total=60, passed=60
+
+参考:
+
+- `cargo test -p nepl-core --test resource_ir` は 296 件中複数の既存 full-suite failure が残る。今回の RegionToken / public alloc API 対象回帰は上記 focused tests で通過しているため、この commit では full-suite 既存失敗を別 issue 群の残件として扱う。

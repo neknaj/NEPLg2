@@ -3046,7 +3046,7 @@ fn main <()*>i32> ():
 }
 
 #[test]
-fn compile_accepts_checked_mem_ptr_wrapper_from_allocator_provenance() {
+fn compile_accepts_checked_mem_ptr_wrapper_from_region_provenance() {
     let source = r#"
 #entry main
 #target std
@@ -3055,23 +3055,28 @@ fn compile_accepts_checked_mem_ptr_wrapper_from_allocator_provenance() {
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    match alloc_ptr<i32> 4:
-        Result::Ok p:
+    match alloc_region<i32> 1:
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
             match store_i32 p 7:
                 Result::Ok _:
-                    match dealloc_ptr<i32> p 4:
+                    match dealloc_region<i32> region:
                         Result::Ok _:
                             1
                         Result::Err _:
                             0
                 Result::Err _:
-                    0
+                    match dealloc_region<i32> region:
+                        Result::Ok _:
+                            0
+                        Result::Err _:
+                            0
         Result::Err _:
             0
 "#;
 
     compile_resource_source_with_target(source, CompileTarget::Wasm)
-        .expect("allocator-derived MemPtr must prove checked store provenance");
+        .expect("RegionToken-derived MemPtr must prove checked store provenance");
 }
 
 #[test]
@@ -3224,7 +3229,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-fn compile_accepts_checked_region_pointer_through_callback_parameter() {
+fn compile_accepts_callback_returned_region_pointer_without_owner_transfer() {
     let source = r#"
 #entry main
 #target std
@@ -3245,26 +3250,19 @@ fn borrowed_region_ptr_via_callback_param <(&RegionToken<u8>, (MemPtr<u8>)->MemP
 fn main <()*>()> ():
     match alloc_region<u8> 1:
         Result::Ok token:
-            let p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
-            match store_u8 p 7:
+            let _p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
+            match dealloc_region<u8> token:
                 Result::Ok _:
-                    match dealloc_region<u8> token:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
+                    ()
                 Result::Err _:
-                    match dealloc_region<u8> token:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
+                    ()
         Result::Err _:
             ()
 "#;
 
-    compile_resource_source_with_target(source, CompileTarget::Wasm)
-        .expect("callback-returned region pointer must keep checked store provenance");
+    compile_resource_source_with_target(source, CompileTarget::Wasm).expect(
+        "callback-returned region pointer must not carry owner state or block token dealloc",
+    );
 }
 
 #[test]
@@ -3277,17 +3275,22 @@ fn resource_ir_lowering_does_not_treat_mem_ptr_store_wrapper_as_direct_raw_memor
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    match alloc_ptr<i32> 4:
-        Result::Ok p:
+    match alloc_region<i32> 1:
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
             match store_i32 p 1:
                 Result::Ok _:
-                    match dealloc_ptr p 4:
+                    match dealloc_region region:
                         Result::Ok _:
                             1
                         Result::Err _:
                             0
                 Result::Err _:
-                    0
+                    match dealloc_region region:
+                        Result::Ok _:
+                            0
+                        Result::Err _:
+                            0
         Result::Err _:
             0
 "#;
@@ -6557,10 +6560,11 @@ fn resource_ir_cell_check_applies_result_ok_param_raw_cell_initialization() {
 #import "core/result" as *
 
 fn main <()->i32> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region<i32> 1:
         Result::Err _e:
             0
-        Result::Ok p:
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
             match store_i32 p 123:
                 Result::Err _e:
                     0
@@ -6570,7 +6574,7 @@ fn main <()->i32> ():
                             0
                         Option::Some x:
                             x
-                    match dealloc_ptr p 4:
+                    match dealloc_region region:
                         Result::Err _e:
                             0
                         Result::Ok _:
@@ -6593,7 +6597,7 @@ fn main <()->i32> ():
         .collect::<Vec<_>>();
     assert!(
         main_diagnostics.is_empty(),
-        "Result::Ok-gated MemPtr store must initialize the caller raw cell before load: {:#?}\nresource:\n{}",
+        "Result::Ok-gated RegionToken MemPtr store must initialize the caller raw cell before load: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -6746,10 +6750,11 @@ fn maybe_store <(bool,MemPtr<i32>,i32)->Result<(),str>> (flag, p, v):
             Result<(),str>::Err "skip"
 
 fn main <()->i32> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region<i32> 1:
         Result::Err _e:
             0
-        Result::Ok p:
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
             match maybe_store false p 123:
                 Result::Err _e:
                     let v <i32> match load_i32 p:
@@ -6757,13 +6762,13 @@ fn main <()->i32> ():
                             0
                         Option::Some x:
                             x
-                    match dealloc_ptr p 4:
+                    match dealloc_region region:
                         Result::Err _drop:
                             0
                         Result::Ok _:
                             v
                 Result::Ok _:
-                    match dealloc_ptr p 4:
+                    match dealloc_region region:
                         Result::Err _drop:
                             0
                         Result::Ok _:
@@ -6860,18 +6865,18 @@ fn resource_ir_cell_check_keeps_reachable_mem_ptr_load_some_requirement() {
 #import "core/result" as *
 
 fn main <()->i32> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region<i32> 1:
         Result::Err _e:
             0
-        Result::Ok p:
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
             let v <i32> match load_i32 p:
                 Option::None:
                     0
                 Option::Some x:
                     x
-            match dealloc_ptr p 4:
+            match dealloc_region region:
                 Result::Err _drop:
-                    dealloc_raw mem_ptr_addr p 4
                     0
                 Result::Ok _:
                     v
@@ -6911,24 +6916,29 @@ fn resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption() {
 #import "core/result" as *
 
 fn main <()*>()> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region<i32> 1:
         Result::Err _e:
             ()
-        Result::Ok p:
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
             match store_i32 p 123:
                 Result::Err _store:
-                    dealloc_raw mem_ptr_addr p 4
+                    match dealloc_region region:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
                 Result::Ok _store:
                     let _v <i32> match load_i32 p:
                         Option::None:
                             0
                         Option::Some x:
                             x
-                    match dealloc_ptr p 4:
+                    match dealloc_region region:
                         Result::Ok _:
                             ()
                         Result::Err _drop:
-                            dealloc_raw mem_ptr_addr p 4
+                            ()
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -6948,7 +6958,7 @@ fn main <()*>()> ():
         .collect::<Vec<_>>();
     assert!(
         main_diagnostics.is_empty(),
-        "dealloc_ptr must consume the MemPtr owner only in Result::Ok and preserve it in Result::Err: {:#?}\nresource:\n{}",
+        "dealloc_region must consume the RegionToken owner only in Result::Ok and preserve it in Result::Err: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -6978,11 +6988,11 @@ fn release_arg_vector <(i32,i32)->i32> (idx, argc):
                     0
                 else:
                     let argv_size <i32> mul argc 4
-                    match alloc_ptr<u8> argv_size:
+                    match alloc_region_bytes<u8> argv_size:
                         Result::Err _e:
                             0
                         Result::Ok argv:
-                            match dealloc_ptr<u8> argv argv_size:
+                            match dealloc_region<u8> argv:
                                 Result::Ok _:
                                     1
                                 Result::Err _:
@@ -7016,7 +7026,7 @@ fn main <()->i32> ():
         .collect::<Vec<_>>();
     assert!(
         diagnostics.is_empty(),
-        "Result::Ok from alloc_ptr must carry enough scalar facts to prove checked dealloc_ptr Err unreachable for the same computed size: {:#?}\nresource:\n{}",
+        "Result::Ok from alloc_region_bytes must carry enough scalar facts to prove checked dealloc_region Err unreachable for the same computed size: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );
@@ -7324,12 +7334,13 @@ fn resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement(
 #import "core/result" as *
 
 fn main <()*>()> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region<i32> 1:
         Result::Err _e:
             ()
-        Result::Ok p:
-            let r <Result<(),str>> dealloc_ptr p 4
-            dealloc_raw mem_ptr_addr p 4
+        Result::Ok region:
+            let raw <i32> *region_token_raw_ref &region
+            let r <Result<(),str>> dealloc_region region
+            dealloc_raw raw 4
             match r:
                 Result::Ok _:
                     ()
@@ -7360,7 +7371,7 @@ fn main <()*>()> ():
                 ..
             }
         )),
-        "dealloc_ptr result must reserve p against use until Result is matched: {:#?}\nresource:\n{}",
+        "dealloc_region result must reserve the RegionToken raw owner until Result is matched: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -7381,21 +7392,27 @@ fn resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement(
 #import "core/result" as *
 
 fn main <()*>()> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region<i32> 1:
         Result::Err _e:
             ()
-        Result::Ok p:
-            let r <Result<MemPtr<i32>,str>> realloc_ptr<i32> p 4 8
-            dealloc_raw mem_ptr_addr p 4
+        Result::Ok region:
+            let old_raw <i32> *region_token_raw_ref &region
+            let r <Result<RegionToken<i32>,RegionReallocError<i32>>> realloc_region_bytes_keep<i32> region 8
+            dealloc_raw old_raw 4
             match r:
                 Result::Ok q:
-                    match dealloc_ptr q 8:
+                    match dealloc_region q:
                         Result::Ok _:
                             ()
                         Result::Err _drop:
-                            dealloc_raw mem_ptr_addr q 8
+                            ()
                 Result::Err _grow:
-                    ()
+                    let old <RegionToken<i32>> region_realloc_error_region<i32> _grow
+                    match dealloc_region old:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -7421,7 +7438,7 @@ fn main <()*>()> ():
                 ..
             }
         )),
-        "realloc_ptr result must reserve p against use until Result is matched: {:#?}\nresource:\n{}",
+        "realloc_region result must reserve the old RegionToken raw owner until Result is matched: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -8721,7 +8738,7 @@ fn main <(i32)*>()> (len):
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_dealloc_ptr_extent_mismatch_through_summary() {
+fn resource_ir_owner_check_rejects_dealloc_region_extent_mismatch_through_summary() {
     let source = r#"
 #entry main
 #indent 4
@@ -8732,15 +8749,13 @@ fn resource_ir_owner_check_rejects_dealloc_ptr_extent_mismatch_through_summary()
 #import "core/result" as *
 
 fn main <()*>()> ():
-    match alloc_ptr<i32> 4:
-        Result::Err _e:
+    let raw <i32> alloc_raw 4
+    let token <RegionToken<i32>> region_new<i32> mem_ptr_wrap<i32> raw 8
+    match dealloc_region<i32> token:
+        Result::Ok _:
             ()
-        Result::Ok p:
-            match dealloc_ptr<i32> p 8:
-                Result::Ok _:
-                    ()
-                Result::Err _drop:
-                    dealloc_raw mem_ptr_addr p 4
+        Result::Err _drop:
+            dealloc_raw raw 4
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -8755,14 +8770,14 @@ fn main <()*>()> ():
                 ..
             }
         )),
-        "dealloc_ptr summary must preserve the allocation extent requirement: {:#?}\nresource:\n{}",
+        "dealloc_region summary must preserve the allocation extent requirement: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_realloc_ptr_old_extent_mismatch_through_summary() {
+fn resource_ir_owner_check_rejects_realloc_region_old_extent_mismatch_through_summary() {
     let source = r#"
 #entry main
 #indent 4
@@ -8773,19 +8788,22 @@ fn resource_ir_owner_check_rejects_realloc_ptr_old_extent_mismatch_through_summa
 #import "core/result" as *
 
 fn main <()*>()> ():
-    match alloc_ptr<i32> 4:
-        Result::Err _e:
-            ()
-        Result::Ok p:
-            match realloc_ptr<i32> p 8 16:
-                Result::Ok q:
-                    match dealloc_ptr<i32> q 16:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            dealloc_raw mem_ptr_addr q 16
+    let raw <i32> alloc_raw 4
+    let token <RegionToken<i32>> region_new<i32> mem_ptr_wrap<i32> raw 8
+    match realloc_region_bytes_keep<i32> token 16:
+        Result::Ok q:
+            match dealloc_region<i32> q:
+                Result::Ok _:
+                    ()
                 Result::Err _:
-                    dealloc_raw mem_ptr_addr p 4
+                    ()
+        Result::Err e:
+            let old <RegionToken<i32>> region_realloc_error_region<i32> e
+            match dealloc_region old:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    dealloc_raw raw 4
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -8800,7 +8818,7 @@ fn main <()*>()> ():
                 ..
             }
         )),
-        "realloc_ptr summary must preserve the old-size extent requirement: {:#?}\nresource:\n{}",
+        "realloc_region summary must preserve the old-size extent requirement: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
@@ -11053,25 +11071,26 @@ fn resource_ir_owner_check_accepts_realloc_owner_replacement_assignment() {
 #import "core/result" as *
 
 fn grow_replace_and_free <()*>()> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region_bytes<i32> 4:
         Result::Err _e:
             ()
-        Result::Ok p0:
-            let mut p <MemPtr<i32>> p0
-            match realloc_ptr<i32> p 4 8:
+        Result::Ok region0:
+            let mut region <RegionToken<i32>> region0
+            match realloc_region_bytes_keep<i32> region 8:
                 Result::Ok grown:
-                    set p grown
-                    match dealloc_ptr<i32> p 8:
+                    set region grown
+                    match dealloc_region<i32> region:
                         Result::Ok _:
                             ()
                         Result::Err _drop:
-                            dealloc_raw mem_ptr_addr p 8
+                            ()
                 Result::Err _grow:
-                    match dealloc_ptr<i32> p 4:
+                    set region region_realloc_error_region<i32> _grow
+                    match dealloc_region<i32> region:
                         Result::Ok _:
                             ()
                         Result::Err _drop:
-                            dealloc_raw mem_ptr_addr p 4
+                            ()
 
 fn main <()*>()> ():
     grow_replace_and_free
@@ -11114,23 +11133,24 @@ fn resource_ir_owner_check_accepts_loop_realloc_owner_replacement() {
 #import "core/result" as *
 
 fn loop_grow_replace_and_free <()*>()> ():
-    match alloc_ptr<i32> 4:
+    match alloc_region_bytes<i32> 4:
         Result::Err _e:
             ()
-        Result::Ok p0:
-            let mut p <MemPtr<i32>> p0
+        Result::Ok region0:
+            let mut region <RegionToken<i32>> region0
             let mut cap <i32> 4
             let mut done <i32> 0
             while eq done 0:
                 do:
-                    match realloc_ptr<i32> p cap 8:
+                    match realloc_region_bytes_keep<i32> region 8:
                         Result::Ok grown:
-                            set p grown
+                            set region grown
                             set cap 8
                             set done 1
                         Result::Err _grow:
+                            set region region_realloc_error_region<i32> _grow
                             set done 1
-            match dealloc_ptr<i32> p cap:
+            match dealloc_region<i32> region:
                 Result::Ok _:
                     ()
                 Result::Err _drop:
@@ -11179,7 +11199,7 @@ fn resource_ir_owner_check_preserves_branch_result_variant_owner_return() {
 #import "core/result" as *
 
 fn make_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
-    match alloc_ptr<u8> 3:
+    match alloc_region_bytes<u8> 3:
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok out:
@@ -11187,9 +11207,9 @@ fn make_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
                 cond:
                     ok_flag
                 then:
-                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr out 3
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region out 3
                 else:
-                    match dealloc_ptr<u8> out 3:
+                    match dealloc_region<u8> out:
                         Result::Ok _:
                             ()
                         Result::Err _:
@@ -11245,11 +11265,11 @@ fn resource_ir_owner_check_preserves_branch_result_from_owner_returning_helper()
 #import "core/math" as *
 #import "core/result" as *
 
-fn finish_bytes <(MemPtr<u8>,i32)*>Result<ByteBuf, StdErrorKind>> (ptr, len):
-    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len
+fn finish_bytes <(RegionToken<u8>,i32)*>Result<ByteBuf, StdErrorKind>> (region, len):
+    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region len
 
 fn make_helper_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
-    match alloc_ptr<u8> 3:
+    match alloc_region_bytes<u8> 3:
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok out:
@@ -11259,7 +11279,7 @@ fn make_helper_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
                 then:
                     finish_bytes out 3
                 else:
-                    match dealloc_ptr<u8> out 3:
+                    match dealloc_region<u8> out:
                         Result::Ok _:
                             ()
                         Result::Err _:
@@ -11316,14 +11336,14 @@ fn resource_ir_owner_check_prefers_live_return_owner_over_moved_source_alias() {
 #import "core/math" as *
 #import "core/result" as *
 
-fn finish_or_error <(MemPtr<u8>,i32,bool)*>Result<ByteBuf, StdErrorKind>> (ptr, len, ok_flag):
+fn finish_or_error <(RegionToken<u8>,i32,bool)*>Result<ByteBuf, StdErrorKind>> (region, len, ok_flag):
     if:
         cond:
             ok_flag
         then:
-            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region len
         else:
-            match dealloc_ptr<u8> ptr len:
+            match dealloc_region<u8> region:
                 Result::Ok _:
                     ()
                 Result::Err _:
@@ -11331,7 +11351,7 @@ fn finish_or_error <(MemPtr<u8>,i32,bool)*>Result<ByteBuf, StdErrorKind>> (ptr, 
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 fn make_helper_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
-    match alloc_ptr<u8> 3:
+    match alloc_region_bytes<u8> 3:
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok out:
@@ -11389,13 +11409,14 @@ fn resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument() {
 #import "std/text" as *
 
 fn make_text_bytes <()* >Result<ByteBuf, StdErrorKind>> ():
-    match alloc_ptr<u8> 2:
+    match alloc_region_bytes<u8> 2:
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
-        Result::Ok out:
-            store_u8 mem_ptr_addr out 'o'
-            store_u8 add mem_ptr_addr out 1 'k'
-            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr out 2
+        Result::Ok region:
+            let out <MemPtr<u8>> region_ptr &region
+            store_u8 out 'o'
+            store_u8 mem_ptr_add out 1 'k'
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region 2
 
 fn main <()* >str> ():
     match make_text_bytes:
@@ -11741,7 +11762,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_alloc_ptr_raw_owner_return() {
+fn resource_ir_owner_check_rejects_region_ptr_raw_owner_return() {
     let source = r#"
 #entry main
 #indent 4
@@ -11754,10 +11775,11 @@ fn resource_ir_owner_check_rejects_alloc_ptr_raw_owner_return() {
 #import "core/result" as *
 
 fn alloc_addr <()*>Result<i32, str>> ():
-    match alloc_ptr<u8> 8:
+    match alloc_region_bytes<u8> 8:
         Result::Err _e:
             err<i32, str> "oom"
-        Result::Ok node_ptr:
+        Result::Ok region:
+            let node_ptr <MemPtr<u8>> region_ptr &region
             ok<i32, str> mem_ptr_addr node_ptr
 
 fn main <()*>()> ():
@@ -11791,7 +11813,7 @@ fn main <()*>()> ():
                 ..
             } if function.starts_with("alloc_addr__")
         )),
-        "mem_ptr_addr must not transfer an alloc_ptr owner into a raw Result::Ok address: {:#?}\nresource:\n{}",
+        "mem_ptr_addr must not transfer a RegionToken owner into a raw Result::Ok address: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );
@@ -13623,27 +13645,28 @@ fn resource_ir_owner_check_keeps_byte_builder_source_ref_deallocatable() {
 #import "core/math" as *
 #import "core/result" as *
 
-fn free_src <(MemPtr<u8>)* >()> (src):
-    match dealloc_ptr<u8> src 10:
+fn free_src <(RegionToken<u8>)* >()> (src):
+    match dealloc_region<u8> src:
         Result::Ok _:
             ()
         Result::Err _:
-            dealloc_raw mem_ptr_addr src 10
+            ()
 
 fn main <()* >()> ():
-    match alloc_ptr<u8> 10:
+    match alloc_region_bytes<u8> 10:
         Result::Err _e:
             ()
-        Result::Ok src:
+        Result::Ok src_region:
+            let src <MemPtr<u8>> region_ptr &src_region
             match byte_builder_with_capacity 2:
                 Result::Err _e:
-                    free_src src
+                    free_src src_region
                 Result::Ok b0:
                     match byte_builder_push_bytes_ref b0 &src 10:
                         Result::Err _e:
-                            free_src src
+                            free_src src_region
                         Result::Ok b1:
-                            free_src src
+                            free_src src_region
                             match byte_builder_finish b1:
                                 Result::Ok bytes:
                                     io_bytebuf_free bytes
@@ -13692,13 +13715,14 @@ fn resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view() {
 #import "core/result" as *
 
 fn make_nonempty <()* >Result<ByteBuf, StdErrorKind>> ():
-    match alloc_ptr<u8> 3:
-        Result::Ok out:
+    match alloc_region_bytes<u8> 3:
+        Result::Ok region:
+            let out <MemPtr<u8>> region_ptr &region
             let out_raw <i32> mem_ptr_addr out
             let data <MemPtr<u8>> string_data_ptr "abc"
             let data_raw <i32> mem_ptr_addr data
             mem_copy out_raw data_raw 3
-            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr out 3
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region 3
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
@@ -18276,7 +18300,7 @@ fn main <()->i32> ():
     match region_ptr_at<LocalToken,LocalToken> &token off:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+            let r <Result<(),str>> dealloc_region<LocalToken> token
             0
         Result::Err _e:
             0
@@ -18294,7 +18318,7 @@ fn main <()->i32> ():
                 ..
             }
         )),
-        "borrowed region_ptr_at unknown-offset payload must retain initialized cell conflict on dealloc_ptr: {:#?}\nresource:\n{}",
+        "borrowed region_ptr_at unknown-offset payload must retain initialized cell conflict on dealloc_region: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
@@ -19109,20 +19133,21 @@ fn resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup() {
 #import "std/stdio/write" as *
 
 fn main <()*>()> ():
-    match alloc_ptr<u8> 1:
+    match alloc_region_bytes<u8> 1:
         Result::Err _e:
             ()
-        Result::Ok data:
+        Result::Ok data_region:
+            let data <MemPtr<u8>> region_ptr &data_region
             match stdio_write_fd_mem_result 1 data 1:
                 Result::Ok _:
                     ()
                 Result::Err _:
                     ()
-            match dealloc_ptr<u8> data 1:
+            match dealloc_region<u8> data_region:
                 Result::Ok _:
                     ()
                 Result::Err _:
-                    dealloc_raw mem_ptr_addr data 1
+                    ()
 "#;
 
     let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
@@ -19195,20 +19220,21 @@ fn main <()*>()> ():
             ()
         Result::Err _e:
             ()
-    match alloc_ptr<u8> 1:
+    match alloc_region_bytes<u8> 1:
         Result::Err _e:
             ()
-        Result::Ok data:
+        Result::Ok data_region:
+            let data <MemPtr<u8>> region_ptr &data_region
             match stdio_write_fd_mem_result 1 data 1:
                 Result::Ok _:
                     ()
                 Result::Err _:
                     ()
-            match dealloc_ptr<u8> data 1:
+            match dealloc_region<u8> data_region:
                 Result::Ok _:
                     ()
                 Result::Err _:
-                    dealloc_raw mem_ptr_addr data 1
+                    ()
 "#;
 
     let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);

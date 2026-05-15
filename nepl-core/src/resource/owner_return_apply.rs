@@ -16,8 +16,8 @@ use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerNonOwningRawViewKind, OwnerProjectionReturnSummary, OwnerProjectionSource,
-    OwnerReturnSummary,
+    OwnerConsumedExtentRequirement, OwnerNonOwningRawViewKind, OwnerProjectionReturnSummary,
+    OwnerProjectionSource, OwnerReturnSummary,
 };
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -131,7 +131,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     &source_place,
                     args,
                     source,
-                    &[],
+                    &summary.consumed_extent_requirements,
                     span,
                 ) {
                     continue;
@@ -187,6 +187,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 &output_projection,
                 args,
                 projection,
+                &summary.consumed_extent_requirements,
                 variant_owner_effects,
                 span,
             );
@@ -232,6 +233,7 @@ impl ResourceOwnerCheckEngine<'_> {
         output: &Place,
         args: &[Place],
         summary: &OwnerProjectionReturnSummary,
+        consumed_extent_requirements: &[OwnerConsumedExtentRequirement],
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         span: Span,
     ) {
@@ -279,7 +281,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     arg,
                     args,
                     &source,
-                    &[],
+                    consumed_extent_requirements,
                     span,
                 ) {
                     continue;
@@ -339,7 +341,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     &source_place,
                     args,
                     source,
-                    &[],
+                    consumed_extent_requirements,
                     span,
                 ) {
                     continue;
