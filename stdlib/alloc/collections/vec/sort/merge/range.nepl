@@ -26,6 +26,50 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/sort/merge/range" as *
+//:| #import "alloc/collections/vec/sort/merge/buffer" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 3:
+//:         Result::Err _:
+//:             1
+//:         Result::Ok data_region:
+//:             match alloc_region<i32> 3:
+//:                 Result::Err _:
+//:                     match dealloc_region<i32> data_region:
+//:                         Result::Ok _:
+//:                             1
+//:                         Result::Err _:
+//:                             1
+//:                 Result::Ok buf_region:
+//:                     let data <MemPtr<i32>> region_ptr &data_region
+//:                     let buf <MemPtr<i32>> region_ptr &buf_region
+//:                     sort_buf_set<i32> data 0 3;
+//:                     sort_buf_set<i32> data 1 1;
+//:                     sort_buf_set<i32> data 2 2;
+//:                     sort_merge_range_data<i32> data buf 0 3;
+//:                     let ok <i32> if eq sort_buf_get<i32> data 0 1 0 1
+//:                     match dealloc_region<i32> buf_region:
+//:                         Result::Ok _:
+//:                             match dealloc_region<i32> data_region:
+//:                                 Result::Ok _:
+//:                                     ok
+//:                                 Result::Err _:
+//:                                     1
+//:                         Result::Err _:
+//:                             match dealloc_region<i32> data_region:
+//:                                 Result::Ok _:
+//:                                     1
+//:                                 Result::Err _:
+//:                                     1
+//: ```
 pub fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()> (data_ptr, buf, l, r):
     let width <i32> sub r l;
     if:

@@ -16,6 +16,21 @@
 //:
 //: ### [目的/もくてき]
 //: - empty / full / tombstone を enum として[表/あらわ]し、`match` で[分岐/ぶんき]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset/types" as *
+//: fn main <()*>i32> ():
+//:     match HashSetBucketState::Full:
+//:         HashSetBucketState::Empty:
+//:             1
+//:         HashSetBucketState::Full:
+//:             0
+//:         HashSetBucketState::Tombstone:
+//:             1
+//: ```
 pub enum HashSetBucketState:
     Empty
     Full
@@ -34,6 +49,19 @@ impl Copy for HashSetBucketState:
 //:
 //: ### [目的/もくてき]
 //: - tombstone を[再利用/さいりよう]した[場合/ばあい]だけ tombstone count を[減/へ]らせるようにします。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset/types" as *
+//: fn main <()*>i32> ():
+//:     match HashSetInsertSlotState::TombstoneSlot:
+//:         HashSetInsertSlotState::EmptySlot:
+//:             1
+//:         HashSetInsertSlotState::TombstoneSlot:
+//:             0
+//: ```
 pub enum HashSetInsertSlotState:
     EmptySlot
     TombstoneSlot
@@ -51,6 +79,18 @@ impl Copy for HashSetInsertSlotState:
 //:
 //: ### [目的/もくてき]
 //: - linear probing の[結果/けっか]を index と slot state の組として[返/かえ]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset/types" as *
+//:| #import "core/field" as field
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let slot <HashSetInsertSlot> HashSetInsertSlot 5 HashSetInsertSlotState::TombstoneSlot;
+//:     if eq field::get slot "index" 5 0 1
+//: ```
 pub struct HashSetInsertSlot:
     index <i32>
     state <HashSetInsertSlotState>

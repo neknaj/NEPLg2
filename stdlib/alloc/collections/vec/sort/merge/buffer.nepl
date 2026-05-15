@@ -23,6 +23,32 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: `sort_buf_set` と対にして使い、caller が確保した scratch buffer の 1 要素を確認します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/sort/merge/buffer" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 1:
+//:         Result::Err _:
+//:             1
+//:         Result::Ok region:
+//:             let buf <MemPtr<i32>> region_ptr &region
+//:             sort_buf_set<i32> buf 0 42;
+//:             let value <i32> sort_buf_get<i32> buf 0
+//:             let ok <i32> if eq value 42 0 1
+//:             match dealloc_region<i32> region:
+//:                 Result::Ok _:
+//:                     ok
+//:                 Result::Err _:
+//:                     1
+//: ```
 pub fn sort_buf_get <.T: Copy> <(MemPtr<.T>,i32)->.T> (buf, idx):
     let off <i32> mul idx size_of<.T>
     load<.T> add mem_ptr_addr buf off
@@ -35,6 +61,19 @@ pub fn sort_buf_get <.T: Copy> <(MemPtr<.T>,i32)->.T> (buf, idx):
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: public facade からは直接使わせず、`sort_merge` の内部境界に閉じます。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/sort/merge" as *
+//: fn main <()*>i32> ():
+//:     sort_buf_set<i32>
+//:     0
+//: ```
 pub fn sort_buf_set <.T: Copy> <(MemPtr<.T>,i32,.T)*>()> (buf, idx, val):
     let off <i32> mul idx size_of<.T>
     store<.T> add mem_ptr_addr buf off val;

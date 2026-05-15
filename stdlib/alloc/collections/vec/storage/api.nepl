@@ -4,6 +4,20 @@
 //: ### [目的/もくてき]
 //: - `new` / `with_capacity` を public API として[提供/ていきょう]します。
 //: - 実際の backing storage allocation は `storage/alloc` の internal helper に[委譲/いじょう]し、root facade から `vec_alloc_empty` を[直接/ちょくせつ]公開しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> with_capacity<i32> 2;
+//:     let ok <i32> if eq cap<i32> &v 2 0 1;
+//:     free<i32> v;
+//:     ok
+//: ```
 
 #indent 4
 

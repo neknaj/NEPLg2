@@ -2,8 +2,8 @@
 id: ISS-20260514T154316014Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-5F916C0F
 title: "Stdlib documentation contract declaration doctest baseline regressed"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: doc
 created: 2026-05-14
@@ -53,3 +53,25 @@ Run node nodesrc/test_stdlib_documentation_contract.js, node nodesrc/run_source_
 - まず直近のStage 6変更で増えた可能性が高い StringBuilder / ByteBuilder / collection owner boundary 周辺を確認する。
 - 次に `doc/neplg2/stdlib_documentation_contract_plan.md` の Stage 1/2 方針に沿い、core / alloc の利用頻度が高い宣言から baseline を下げる。
 - コンパイラ静的検査作業中にstdlib側の即時修正が必要でない場合、この issue はdocs整備フェーズへ回す。
+
+## 2026-05-15 Agent 1 resolution
+
+直近の owner boundary / facade 分割で増えた stdlib declaration doctest gap を、baseline を緩めずに executable documentation 側で解消した。
+
+対応内容:
+
+- `HashMap` / `HashSet` の public API に、`new` / `with_capacity` / `insert` / `get` / `contains` / `remove` / `len` / `free` の典型的な owner flow doctest を追加した。
+- `HashMapBucketState` / `HashSetBucketState` と insert slot 型に、numeric sentinel ではなく enum / struct を match・field access で使う例を追加した。
+- `hashmap_normalize_capacity` / `hashmap_load_limit` / `hashset_normalize_capacity` / `hashset_load_limit` に、容量下限と 75% load limit の executable example を追加した。
+- `vec/storage/api` と `vec/sort/merge` 周辺に、public facade から利用する例と、raw helper が public facade へ漏れない compile_fail doctest を追加した。
+- `merge/buffer` / `merge/api` は source-policy の module split 上限を維持し、重い重複 doctest を内部 raw helper に押し込まない形へ整理した。
+
+検証:
+
+- `node nodesrc/test_stdlib_documentation_contract.js`
+  - `moduleNoDoctest=309`
+  - `declarationNoDoctest=1032`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/alloc/collections/hashmap/types.nepl -i stdlib/alloc/collections/hashmap/storage.nepl -i stdlib/alloc/collections/hashset/api.nepl -i stdlib/alloc/collections/hashset/types.nepl -i stdlib/alloc/collections/hashset/storage.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort/merge/api.nepl -i stdlib/alloc/collections/vec/sort/merge/buffer.nepl -i stdlib/alloc/collections/vec/sort/merge/range.nepl --no-tree -o tmp/agent1-stdlib-doc-contract-doctests.json -j 1 --dist web/dist --assert-io`
+  - `total=37, passed=37`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - all source policy regressions passed

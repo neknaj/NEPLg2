@@ -38660,3 +38660,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: kpgraph policy は pass。残警告は documentation contract の 1 件。
   - `node nodesrc/issues.js check --dir issues`
   - `git diff --check`
+
+## 2026-05-15 Agent 1 stdlib documentation contract baseline 復旧
+
+- `ISS-20260514T154316014Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-5F916C0F` を fixed にした。
+- documentation contract の warning は baseline を `1052` へ緩めるのではなく、直近の owner boundary / facade 分割で増えた doctest gap を実例で埋めて解消した。
+- `HashMap` / `HashSet` public API、bucket enum / insert slot 型、capacity/load-limit helper、`Vec` storage API、`vec/sort/merge` facade / raw boundary に n.md style doctest を追加した。
+- `merge/buffer` は raw helper の典型例を残しつつ public facade から raw helper が見えないことを `resolve.identifier.undefined` の compile_fail doctest で固定した。
+- `merge/api` へ重い重複 doctest を置くと module split policy と衝突するため、公開ソート例は既存の `sort_merge` doctest に集約し、容量 helper の executable examples で declaration coverage を補った。
+- focused verification:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: `moduleNoDoctest=309`, `declarationNoDoctest=1032`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/alloc/collections/hashmap/types.nepl -i stdlib/alloc/collections/hashmap/storage.nepl -i stdlib/alloc/collections/hashset/api.nepl -i stdlib/alloc/collections/hashset/types.nepl -i stdlib/alloc/collections/hashset/storage.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort/merge/api.nepl -i stdlib/alloc/collections/vec/sort/merge/buffer.nepl -i stdlib/alloc/collections/vec/sort/merge/range.nepl --no-tree -o tmp/agent1-stdlib-doc-contract-doctests.json -j 1 --dist web/dist --assert-io`: `total=37, passed=37`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: all source policy regressions passed

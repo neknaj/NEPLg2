@@ -26,6 +26,16 @@ pub fn hashset_storage_keys <.T> <(&HashSetStorage<.T>)->&Vec<Option<.T>>> (stor
     field::get_ref storage "keys"
 
 //: hashset_normalize_capacity: hash set の[実容量/じつようりょう]を[下限/かげん]つきで[決/き]める
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset/storage" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if eq hashset_normalize_capacity 2 4 0 1
+//: ```
 pub fn hashset_normalize_capacity <(i32)->i32> (requested):
     if lt requested 4 4 requested
 
@@ -33,6 +43,16 @@ pub fn hashset_normalize_capacity <(i32)->i32> (requested):
 //:
 //: ### [実装/じっそう]
 //: - 75% を[超/こ]える[前/まえ]に rehash するため、`cap * 3 / 4` を[返/かえ]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset/storage" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if eq hashset_load_limit 8 6 0 1
+//: ```
 pub fn hashset_load_limit <(i32)->i32> (cap):
     div_u mul cap 3 4
 

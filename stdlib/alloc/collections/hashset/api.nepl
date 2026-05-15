@@ -4,6 +4,23 @@
 //: ### [目的/もくてき]
 //: - `new` / `with_capacity` / `insert` / `contains` / `remove` / `len` / `free` を集約します。
 //: - storage / probe / rehash helper を内部利用し、公開 API の owner 移動と borrow API の境界を明確にします。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 1;
+//:     let ok <i32> if contains &hs1 1 0 1;
+//:     free hs1;
+//:     ok
+//: ```
 
 #indent 4
 
@@ -38,9 +55,10 @@
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let ok <i32> if eq len &hs 0 1 0;
+//:     let ok <i32> if eq len &hs 0 0 1;
 //:     free hs;
 //:     ok
 //: ```
@@ -52,6 +70,22 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, 
 //:
 //: ### [目的/もくてき]
 //: - self-host compiler の visited set など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> with_capacity DefaultHash32 4;
+//:     let ok <i32> if eq len &hs 0 0 1;
+//:     free hs;
+//:     ok
+//: ```
 pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
     hashset_new_with_capacity<.T,.H> hasher requested
 
@@ -78,7 +112,7 @@ pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<Ha
 //: fn main <()*>i32> ():
 //:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 7;
-//:     let ok <i32> if contains &hs1 7 1 0;
+//:     let ok <i32> if contains &hs1 7 0 1;
 //:     free hs1;
 //:     ok
 //: ```
@@ -119,6 +153,22 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Resul
 //:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 2;
+//:     let ok <i32> if contains &hs1 2 0 1;
+//:     free hs1;
+//:     ok
+//: ```
 pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> (hs, key):
     let cap0 <i32> *field::get_ref hs "cap"
     let hasher <.H> *field::get_ref hs "hasher"
@@ -136,6 +186,23 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bo
 //:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 3;
+//:     let hs2 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> remove hs1 3;
+//:     let ok <i32> if contains &hs2 3 1 0;
+//:     free hs2;
+//:     ok
+//: ```
 pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     let count0 <i32> *field::get_ref &hs "count"
     let cap0 <i32> *field::get_ref &hs "cap"
@@ -160,6 +227,22 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Resul
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let ok <i32> if eq len &hs 0 0 1;
+//:     free hs;
+//:     ok
+//: ```
 pub fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
     *field::get_ref hs "count"
 
@@ -174,6 +257,20 @@ pub fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(cap)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     free hs;
+//:     0
+//: ```
 pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>)->()> (hs):
     let storage <HashSetStorage<.T>> field::get hs "storage"
     hashset_free_storage<.T> storage
