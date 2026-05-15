@@ -203,6 +203,7 @@ pub fn json_object_push <(JsonObject,str,JsonValue)->Result<JsonObject, StdError
 //:
 //: [注意/ちゅうい]:
 //: - key の重複検査は行いません。
+//: - `obj` は Copy な value fragment です。builder API では返った値を受け取り直す書き方を推奨します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。

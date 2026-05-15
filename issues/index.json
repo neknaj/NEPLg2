@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T10:41:47.211Z",
+  "generated_at": "2026-05-15T10:50:07.485Z",
   "counts": {
-    "total": 818,
+    "total": 819,
     "open": 5,
-    "resolved": 813,
+    "resolved": 814,
     "by_area": {
       "stdlib": {
-        "total": 232,
+        "total": 233,
         "open": 3,
-        "resolved": 229
+        "resolved": 230
       },
       "TEST": {
         "total": 21,
@@ -9628,6 +9628,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T073602740Z-STACKPOP-OWNER-RESULT-LACKS-PUBLIC-A-58C543F4.md"
+    },
+    {
+      "id": "ISS-20260515T104525432Z-JSON-FRAGMENT-REDESIGN-LEFT-STALE-DO-6F21A386",
+      "title": "JSON fragment redesign left stale documentation contracts",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/encoding/json/{types,builders,serialize}.nepl,nodesrc/test_stdlib_json_doc_no_boilerplate.js,nodesrc/test_stdlib_documentation_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T104525432Z-JSON-FRAGMENT-REDESIGN-LEFT-STALE-DO-6F21A386.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

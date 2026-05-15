@@ -1,3 +1,11 @@
+# 2026-05-15 Agent 1 JSON fragment documentation contract 修正
+
+- `ISS-20260515T104525432Z-JSON-FRAGMENT-REDESIGN-LEFT-STALE-DO-6F21A386` を追加し、JSON builder の `JsonArray` / `JsonObject` fragment 再設計後に doc/source-policy が旧 `Vec<JsonValue>` traversal と owner-transfer wording を要求していた問題を記録した。
+- `JsonArray` / `JsonObject` / `JsonValue` / `JsonMember` の doc comment に、現在の Copy fragment contract を示す doctest を追加した。
+- `nodesrc/test_stdlib_json_doc_no_boilerplate.js` は、旧 raw collection traversal を要求せず、serializer が typed fragment を括弧で包むことと raw traversal を再導入しないことを検査する形へ更新した。
+- `node nodesrc/test_stdlib_documentation_contract.js` は `declarationNoDoctest=1032` へ戻った。
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 Resource gate typed effect policy 修正
 
 - `ISS-20260515T104059906Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-EX-78F016BC` を追加し、`nodesrc/test_resource_gate_order.js` が古い untyped `check_resource_effect_boundaries(&resource)` を要求していた問題を記録した。

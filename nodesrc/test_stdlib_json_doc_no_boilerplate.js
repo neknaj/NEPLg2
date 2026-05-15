@@ -38,8 +38,8 @@ const requiredPhrases = [
     ['JsonValue variant contract', 'JsonValue: JSON \u306e\u5024\u8868\u73fe'],
     ['null constructor contract', 'json_null: JSON null \u5024\u3092\u4f5c\u308b'],
     ['bool constructor contract', 'json_bool: bool \u5024\u3092 JSON Bool \u306b\u5909\u63db\u3059\u308b'],
-    ['array owner transfer contract', '`arr` \u306e\u6240\u6709\u6a29\u306f\u8fd4\u308a\u5024\u306b\u79fb\u308a\u307e\u3059'],
-    ['object owner transfer contract', '`obj` \u306e\u6240\u6709\u6a29\u306f\u8fd4\u308a\u5024\u306b\u79fb\u308a\u307e\u3059'],
+    ['array fragment copy contract', '`arr` \u306f Copy \u306a value fragment \u3067\u3059'],
+    ['object fragment copy contract', '`obj` \u306f Copy \u306a value fragment \u3067\u3059'],
     ['bool accessor contract', 'json_as_bool: JSON Bool payload \u3092\u53d6\u308a\u51fa\u3059'],
     ['number accessor contract', 'json_as_number: JSON Number payload \u3092\u53d6\u308a\u51fa\u3059'],
     ['string accessor contract', 'json_as_string: JSON String payload \u3092\u53d6\u308a\u51fa\u3059'],
@@ -66,7 +66,7 @@ for (const [key, src] of Object.entries(srcByFile)) {
     }
 }
 
-for (const key of ['facade', 'types', 'builders', 'access', 'escape']) {
+for (const key of ['facade', 'types', 'builders', 'access', 'escape', 'serialize']) {
     assert.doesNotMatch(
         srcByFile[key],
         /\bmem_ptr_addr\b|\bload<[^>]+>/,
@@ -80,8 +80,16 @@ for (const key of ['escape', 'serialize']) {
         `${files[key]} must not leak string helper overloads through the json facade`
     );
 }
-assert.match(srcByFile.serialize, /\bmem_ptr_addr\b[\s\S]*\bload<JsonValue>/, `${files.serialize} must own array payload traversal`);
-assert.match(srcByFile.serialize, /\bmem_ptr_addr\b[\s\S]*\bload<JsonMember>/, `${files.serialize} must own object payload traversal`);
+assert.match(
+    srcByFile.serialize,
+    /json_serialize_array[\s\S]*concat3 "\[" get items "items" "\]"/,
+    `${files.serialize} must serialize arrays by wrapping the typed JsonArray fragment`,
+);
+assert.match(
+    srcByFile.serialize,
+    /json_serialize_object[\s\S]*concat3 "\{" get members "members" "\}"/,
+    `${files.serialize} must serialize objects by wrapping the typed JsonObject fragment`,
+);
 assert.match(
     stdTestReportSrc,
     /#import "alloc\/encoding\/json\/escape" as json/,

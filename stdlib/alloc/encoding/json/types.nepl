@@ -25,6 +25,19 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/field" as *
+//:| #import "alloc/encoding/json/types" as *
+//: fn main <()*>i32> ():
+//:     let arr <JsonArray> JsonArray "1,2"
+//:     let checks checks_push checks_new assert_str_eq "1,2" get arr "items"
+//:     checks_exit_code checks
+//: ```
 pub struct JsonArray:
     items <str>
 
@@ -41,6 +54,19 @@ pub struct JsonArray:
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/encoding/json/types" as *
+//:| #import "alloc/encoding/json/serialize" as *
+//: fn main <()*>i32> ():
+//:     let obj <JsonObject> JsonObject "\"a\":1"
+//:     let checks checks_push checks_new assert_str_eq "{\"a\":1}" json_serialize_object obj
+//:     checks_exit_code checks
+//: ```
 pub struct JsonObject:
     members <str>
 
@@ -57,6 +83,19 @@ pub struct JsonObject:
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/encoding/json/types" as *
+//:| #import "alloc/encoding/json/serialize" as *
+//: fn main <()*>i32> ():
+//:     let v <JsonValue> JsonValue::Number 42
+//:     let checks checks_push checks_new assert_str_eq "42" json_serialize v
+//:     checks_exit_code checks
+//: ```
 pub enum JsonValue:
     Null
     Bool <i32>
@@ -78,6 +117,19 @@ pub enum JsonValue:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/field" as *
+//:| #import "alloc/encoding/json/types" as *
+//: fn main <()*>i32> ():
+//:     let member <JsonMember> JsonMember "answer" JsonValue::Number 42
+//:     let checks checks_push checks_new assert_str_eq "answer" get member "key"
+//:     checks_exit_code checks
+//: ```
 pub struct JsonMember:
     key <str>
     value <JsonValue>

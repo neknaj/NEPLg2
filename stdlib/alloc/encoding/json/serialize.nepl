@@ -6,7 +6,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - Number は現行の `i32` 表現を `from_i32` で出力します。
-//: - Array/Object の要素順は Vec に push された順序を保ちます。
+//: - Array/Object の要素順は builder に push された順序を保ちます。
 
 #indent 4
 
