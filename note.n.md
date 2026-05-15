@@ -1,3 +1,22 @@
+# 2026-05-15 Agent 1 JSON builder fragment 表現修正
+
+- `ISS-20260514T150128082Z-JSON-BUILDERS-STILL-DEPEND-ON-NON-CO-493D5962` を解決した。
+- `JsonValue::Array` / `JsonValue::Object` が `Vec<JsonValue>` / `Vec<JsonMember>` を保持する設計を破棄し、Copy な typed fragment である `JsonArray { items: str }` / `JsonObject { members: str }` を保持する設計へ変更した。
+- `json_array_new` / `json_object_new` は空 fragment を返し、`json_array_push` / `json_object_push` は値を即時 `json_serialize` して fragment に追加する。現段階の JSON module は unsafe な non-Copy collection tree ではなく、安全な JSON document builder として責務を定義した。
+- serializer から `core/mem` / raw `load<JsonValue>` / `load<JsonMember>` / `mem_ptr_addr` 依存を削除し、typed fragment を括弧で包む実装にした。
+- `nodesrc/test_json_builder_fragment_contract.js` を追加し、JSON builder が `Vec<Json*>` や raw storage 読みに戻らないことを固定した。
+- 検証:
+  - `node nodesrc/test_json_builder_fragment_contract.js`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/encoding/json/builders.nepl -n 1 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/encoding/json/serialize.nepl -n 1 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/encoding/json.nepl -n 1 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/encoding/json/access.nepl -n 1 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/encoding/json/types.nepl -n 1 --assert-io --dist web/dist`
+  - `node nodesrc/tests.js -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/agent1-json-fragment-typed-values.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/agent1-json-fragment-stdlib-json.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/tests.js -i stdlib/alloc/encoding/json -i stdlib/alloc/encoding/json.nepl -i stdlib/tests/json.n.md -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/agent1-json-fragment-all.json -j 1 --dist web/dist --assert-io`
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 core/option doc report doctest 修正
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`stdlib/core/option.nepl` の public doc-comment doctest 3 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。

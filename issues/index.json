@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T10:09:02.798Z",
+  "generated_at": "2026-05-15T10:19:13.890Z",
   "counts": {
     "total": 817,
-    "open": 6,
-    "resolved": 811,
+    "open": 5,
+    "resolved": 812,
     "by_area": {
       "stdlib": {
         "total": 232,
-        "open": 4,
-        "resolved": 228
+        "open": 3,
+        "resolved": 229
       },
       "TEST": {
         "total": 21,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260514T150128082Z-JSON-BUILDERS-STILL-DEPEND-ON-NON-CO-493D5962",
-      "title": "JSON builders still depend on non-Copy Vec payloads",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-14",
-      "updated": "2026-05-14",
-      "target": "stdlib/alloc/encoding/json/builders.nepl, stdlib/alloc/encoding/json/types.nepl, stdlib/alloc/collections/vec/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260514T150128082Z-JSON-BUILDERS-STILL-DEPEND-ON-NON-CO-493D5962.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -9163,6 +9148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T144624264Z-VEC-TRANSFORM-ERR-PATHS-DESTROY-CONS-7BB8707C.md"
+    },
+    {
+      "id": "ISS-20260514T150128082Z-JSON-BUILDERS-STILL-DEPEND-ON-NON-CO-493D5962",
+      "title": "JSON builders still depend on non-Copy Vec payloads",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/alloc/encoding/json/builders.nepl, stdlib/alloc/encoding/json/types.nepl, stdlib/alloc/collections/vec/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T150128082Z-JSON-BUILDERS-STILL-DEPEND-ON-NON-CO-493D5962.md"
     },
     {
       "id": "ISS-20260514T152732869Z-CORE-MEM-INTERNAL-REGION-NEW-DOCTEST-F1D709F2",

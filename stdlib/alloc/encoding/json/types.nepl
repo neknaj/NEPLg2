@@ -6,11 +6,43 @@
 //:
 //: [注意/ちゅうい]:
 //: - Number は i32 として保持します（実数や大きな整数は未対応）。
-//: - Array/Object は Vec を所有する値です。値を渡した後は元の Vec を再利用しないでください。
+//: - Array/Object は typed JSON fragment を保持します。non-Copy payload collection が完成するまでは、`Vec<JsonValue>` へ JSON tree を載せません。
 
 #indent 4
 
-#import "alloc/collections/vec" as *
+#import "core/traits/copy" as *
+
+//: JsonArray: JSON array の compact body fragment
+//:
+//: [目的/もくてき]:
+//: - `[` と `]` の内側に入る comma-separated JSON fragment を保持します。
+//:
+//: [実装/じっそう]:
+//: - `items` は既に JSON escaped / serialized 済みの body です。
+//:
+//: [注意/ちゅうい]:
+//: - 現段階の JSON builder は安全な document builder であり、array 要素を再走査する typed tree ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 定義そのものは O(1) です。
+pub struct JsonArray:
+    items <str>
+
+//: JsonObject: JSON object の compact body fragment
+//:
+//: [目的/もくてき]:
+//: - `{` と `}` の内側に入る comma-separated member fragment を保持します。
+//:
+//: [実装/じっそう]:
+//: - `members` は key を quote 済み、value を serialize 済みの body です。
+//:
+//: [注意/ちゅうい]:
+//: - key の重複検査や member の再走査は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 定義そのものは O(1) です。
+pub struct JsonObject:
+    members <str>
 
 //: JsonValue: JSON の値表現
 //:
@@ -18,10 +50,10 @@
 //: - JSON の null / bool / number / string / array / object を型付き payload で表します。
 //:
 //: [実装/じっそう]:
-//: - `String` は `str`、`Array` は `Vec<JsonValue>`、`Object` は `Vec<JsonMember>` を保持します。
+//: - `String` は `str`、`Array` は `JsonArray`、`Object` は `JsonObject` を保持します。
 //:
 //: [注意/ちゅうい]:
-//: - Array/Object は所有する Vec を移動して保持します。
+//: - Array/Object は JSON fragment を値として保持します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
@@ -30,8 +62,8 @@ pub enum JsonValue:
     Bool <i32>
     Number <i32>
     String <str>
-    Array <Vec<JsonValue>>
-    Object <Vec<JsonMember>>
+    Array <JsonArray>
+    Object <JsonObject>
 
 //: JsonMember: JSON object の 1 member
 //:
@@ -49,6 +81,38 @@ pub enum JsonValue:
 pub struct JsonMember:
     key <str>
     value <JsonValue>
+
+impl Clone for JsonArray:
+    fn clone <(&JsonArray)->JsonArray> (x):
+        *x
+
+impl Copy for JsonArray:
+    fn copy_mark <(JsonArray)->JsonArray> (x):
+        x
+
+impl Clone for JsonObject:
+    fn clone <(&JsonObject)->JsonObject> (x):
+        *x
+
+impl Copy for JsonObject:
+    fn copy_mark <(JsonObject)->JsonObject> (x):
+        x
+
+impl Clone for JsonValue:
+    fn clone <(&JsonValue)->JsonValue> (x):
+        *x
+
+impl Copy for JsonValue:
+    fn copy_mark <(JsonValue)->JsonValue> (x):
+        x
+
+impl Clone for JsonMember:
+    fn clone <(&JsonMember)->JsonMember> (x):
+        *x
+
+impl Copy for JsonMember:
+    fn copy_mark <(JsonMember)->JsonMember> (x):
+        x
 
 //: JsonEscapeKind: JSON string escape の分類
 //:

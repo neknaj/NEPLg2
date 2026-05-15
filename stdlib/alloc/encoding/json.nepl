@@ -6,7 +6,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - ここは互換 import path のための facade です。新しい処理本体は submodule に置きます。
-//: - `JsonValue` の Array/Object は `Vec` owner を保持します。値を渡した後は元の Vec を再利用しないでください。
+//: - `JsonValue` の Array/Object は typed JSON fragment を保持します。現行の Copy-only collection 境界に non-Copy JSON tree を載せません。
 //:
 //: neplg2:test
 //: ```neplg2

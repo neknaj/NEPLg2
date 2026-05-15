@@ -5,12 +5,11 @@
 //: - JSON kind 判定を enum match に集約し、数値 tag や文字列 tag に依存しない形を保ちます。
 //:
 //: [注意/ちゅうい]:
-//: - Array/Object accessor は Vec owner を呼び出し側へ移します。
+//: - Array/Object accessor は typed JSON fragment を呼び出し側へ返します。
 
 #indent 4
 
 #import "core/option" as *
-#import "alloc/collections/vec" as *
 #import "./types" as *
 #import "core/math" as *
 
@@ -134,58 +133,58 @@ pub fn json_as_string <(JsonValue)->Option<str>> (v):
 //: json_as_array: Array を取り出す
 //:
 //: [目的/もくてき]:
-//: - Array のときのみ `Vec<JsonValue>` を返します。
+//: - Array のときのみ `JsonArray` fragment を返します。
 //:
 //: [実装/じっそう]:
-//: - match で分岐し、Array の payload を返します。
+//: - match で分岐し、Array の typed fragment を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 返った Vec の所有権は呼び出し側へ移ります。
+//: - 返った `JsonArray` は Copy な fragment value です。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_as_array <(JsonValue)->Option<Vec<JsonValue>>> (v):
+pub fn json_as_array <(JsonValue)->Option<JsonArray>> (v):
     match v:
         JsonValue::Array a:
-            some<Vec<JsonValue>> a
+            some<JsonArray> a
         JsonValue::Null:
-            none<Vec<JsonValue>>
+            none<JsonArray>
         JsonValue::Bool b:
-            none<Vec<JsonValue>>
+            none<JsonArray>
         JsonValue::Number n:
-            none<Vec<JsonValue>>
+            none<JsonArray>
         JsonValue::String s:
-            none<Vec<JsonValue>>
+            none<JsonArray>
         JsonValue::Object o:
-            none<Vec<JsonValue>>
+            none<JsonArray>
 
 //: json_as_object: Object を取り出す
 //:
 //: [目的/もくてき]:
-//: - Object のときのみ `Vec<JsonMember>` を返します。
+//: - Object のときのみ `JsonObject` fragment を返します。
 //:
 //: [実装/じっそう]:
-//: - match で分岐し、Object の payload を返します。
+//: - match で分岐し、Object の typed fragment を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 返った Vec の所有権は呼び出し側へ移ります。
+//: - 返った `JsonObject` は Copy な fragment value です。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_as_object <(JsonValue)->Option<Vec<JsonMember>>> (v):
+pub fn json_as_object <(JsonValue)->Option<JsonObject>> (v):
     match v:
         JsonValue::Object o:
-            some<Vec<JsonMember>> o
+            some<JsonObject> o
         JsonValue::Null:
-            none<Vec<JsonMember>>
+            none<JsonObject>
         JsonValue::Bool b:
-            none<Vec<JsonMember>>
+            none<JsonObject>
         JsonValue::Number n:
-            none<Vec<JsonMember>>
+            none<JsonObject>
         JsonValue::String s:
-            none<Vec<JsonMember>>
+            none<JsonObject>
         JsonValue::Array a:
-            none<Vec<JsonMember>>
+            none<JsonObject>
 
 //: neplg2:test
 //: ```neplg2

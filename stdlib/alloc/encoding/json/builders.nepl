@@ -2,16 +2,19 @@
 //:
 //: [目的/もくてき]:
 //: - JSON literal constructor と Array/Object builder を提供します。
-//: - `Vec` の確保失敗を `Result<Vec<...>, StdErrorKind>` として返し、呼び出し側が失敗を見落とさない API にします。
+//: - Array/Object builder は JSON fragment を型付き値として保持し、現行の Copy-only `Vec` に non-Copy JSON tree を載せません。
 //:
 //: [注意/ちゅうい]:
-//: - `json_array` / `json_object` は Vec owner を `JsonValue` に移します。呼び出し後の元 Vec は使い回さないでください。
+//: - `json_array_push` / `json_object_push` は値を即時 serialize して fragment に追加します。要素をあとから typed tree として走査する API ではありません。
 
 #indent 4
 
 #import "core/result" as *
-#import "alloc/collections/vec" as *
+#import "alloc/string" as *
 #import "./types" as *
+#import "./escape" as *
+#import "./serialize" as *
+#import "core/field" as *
 
 //: json_null: JSON null 値を作る
 //:
@@ -85,49 +88,53 @@ pub fn json_string <(str)->JsonValue> (s):
 //: json_array_new: 空の JSON array builder を作る
 //:
 //: [目的/もくてき]:
-//: - `JsonValue::Array` に渡す `Vec<JsonValue>` を作ります。
+//: - `JsonValue::Array` に渡す `JsonArray` builder を作ります。
 //:
 //: [実装/じっそう]:
-//: - `Vec<JsonValue>` の `new` に委譲します。
+//: - 空の body fragment を持つ `JsonArray` を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 返値は `Result` です。確保失敗は `StdErrorKind::OutOfMemory` になります。
+//: - API 形状は fallible builder として `Result` を保ちます。現行の空 builder 作成自体は allocation を行いません。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_array_new <()->Result<Vec<JsonValue>, StdErrorKind>> ():
-    new<JsonValue>
+pub fn json_array_new <()->Result<JsonArray, StdErrorKind>> ():
+    Result<JsonArray, StdErrorKind>::Ok JsonArray ""
 
 //: json_array_push: JSON array builder へ要素を追加する
 //:
 //: [目的/もくてき]:
-//: - `Vec<JsonValue>` の末尾に value を追加します。
+//: - array body fragment の末尾に value の JSON 表現を追加します。
 //:
 //: [実装/じっそう]:
-//: - `Vec<JsonValue>` の `push` に委譲します。
+//: - 既存 body が空でなければ `,` を挟み、`json_serialize value` を連結します。
 //:
 //: [注意/ちゅうい]:
-//: - 返った Vec を受け取り直してください。
+//: - 返った `JsonArray` を受け取り直してください。
 //:
 //: [計算量/けいさんりょう]:
 //: - ならし O(1)、再確保時 O(n)
-pub fn json_array_push <(Vec<JsonValue>,JsonValue)->Result<Vec<JsonValue>, StdErrorKind>> (arr, value):
-    push<JsonValue> arr value
+pub fn json_array_push <(JsonArray,JsonValue)->Result<JsonArray, StdErrorKind>> (arr, value):
+    let body <str> get arr "items"
+    let sep <str> if str_eq body "" "" ","
+    let body_sep <str> concat body sep
+    let value_text <str> json_serialize value
+    Result<JsonArray, StdErrorKind>::Ok JsonArray concat body_sep value_text
 
-//: json_array: Vec<JsonValue> を JSON Array として保持する
+//: json_array: JsonArray を JSON Array として保持する
 //:
 //: [目的/もくてき]:
-//: - `json_array_new` / `json_array_push` で作った Vec を `JsonValue::Array` に包みます。
+//: - `json_array_new` / `json_array_push` で作った `JsonArray` を `JsonValue::Array` に包みます。
 //:
 //: [実装/じっそう]:
-//: - enum constructor に Vec owner を渡します。
+//: - enum constructor に typed fragment を渡します。
 //:
 //: [注意/ちゅうい]:
-//: - `arr` の所有権は返り値に移ります。呼び出し後は元の Vec を使い回さないでください。
+//: - `arr` は Copy な value fragment です。builder API では返った値を受け取り直す書き方を推奨します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_array <(Vec<JsonValue>)->JsonValue> (arr):
+pub fn json_array <(JsonArray)->JsonValue> (arr):
     JsonValue::Array arr
 
 //: json_member: object member を作る
@@ -149,50 +156,57 @@ pub fn json_member <(str,JsonValue)->JsonMember> (key, value):
 //: json_object_new: 空の JSON object builder を作る
 //:
 //: [目的/もくてき]:
-//: - `JsonValue::Object` に渡す `Vec<JsonMember>` を作ります。
+//: - `JsonValue::Object` に渡す `JsonObject` builder を作ります。
 //:
 //: [実装/じっそう]:
-//: - `Vec<JsonMember>` の `new` に委譲します。
+//: - 空の member body fragment を持つ `JsonObject` を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 返値は `Result` です。確保失敗は `StdErrorKind::OutOfMemory` になります。
+//: - API 形状は fallible builder として `Result` を保ちます。現行の空 builder 作成自体は allocation を行いません。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_object_new <()->Result<Vec<JsonMember>, StdErrorKind>> ():
-    new<JsonMember>
+pub fn json_object_new <()->Result<JsonObject, StdErrorKind>> ():
+    Result<JsonObject, StdErrorKind>::Ok JsonObject ""
 
 //: json_object_push: JSON object builder へ member を追加する
 //:
 //: [目的/もくてき]:
-//: - key/value を `JsonMember` にして object builder の末尾へ追加します。
+//: - key/value を JSON member fragment にして object builder の末尾へ追加します。
 //:
 //: [実装/じっそう]:
-//: - `Vec<JsonMember>` の `push` に委譲します。
+//: - key は `json_quote_string`、value は `json_serialize` を通してから body に連結します。
 //:
 //: [注意/ちゅうい]:
 //: - 出力時の member 順序は push した順序です。
-//: - 返った Vec を受け取り直してください。
+//: - 返った `JsonObject` を受け取り直してください。
 //:
 //: [計算量/けいさんりょう]:
 //: - ならし O(1)、再確保時 O(n)
-pub fn json_object_push <(Vec<JsonMember>,str,JsonValue)->Result<Vec<JsonMember>, StdErrorKind>> (obj, key, value):
-    push<JsonMember> obj JsonMember key value
+pub fn json_object_push <(JsonObject,str,JsonValue)->Result<JsonObject, StdErrorKind>> (obj, key, value):
+    let body <str> get obj "members"
+    let sep <str> if str_eq body "" "" ","
+    let body_sep <str> concat body sep
+    let key_text <str> json_quote_string key
+    let key_colon <str> concat key_text ":"
+    let value_text <str> json_serialize value
+    let member_text <str> concat key_colon value_text
+    Result<JsonObject, StdErrorKind>::Ok JsonObject concat body_sep member_text
 
-//: json_object: Vec<JsonMember> を JSON Object として保持する
+//: json_object: JsonObject を JSON Object として保持する
 //:
 //: [目的/もくてき]:
-//: - `json_object_new` / `json_object_push` で作った member Vec を `JsonValue::Object` に包みます。
+//: - `json_object_new` / `json_object_push` で作った member fragment を `JsonValue::Object` に包みます。
 //:
 //: [実装/じっそう]:
-//: - enum constructor に Vec owner を渡します。
+//: - enum constructor に typed fragment を渡します。
 //:
 //: [注意/ちゅうい]:
-//: - `obj` の所有権は返り値に移ります。key の重複検査は行いません。
+//: - key の重複検査は行いません。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_object <(Vec<JsonMember>)->JsonValue> (obj):
+pub fn json_object <(JsonObject)->JsonValue> (obj):
     JsonValue::Object obj
 
 //: neplg2:test
@@ -204,8 +218,8 @@ pub fn json_object <(Vec<JsonMember>)->JsonValue> (obj):
 //:| #import "alloc/encoding/json/types" as *
 //:| #import "alloc/encoding/json/builders" as *
 //: fn main <()*>i32> ():
-//:     let a <Vec<JsonValue>> unwrap_ok json_array_new
-//:     let a2 <Vec<JsonValue>> unwrap_ok json_array_push a json_number 7
+//:     let a <JsonArray> unwrap_ok json_array_new
+//:     let a2 <JsonArray> unwrap_ok json_array_push a json_number 7
 //:     let _v <JsonValue> json_array a2
 //:     checks_exit_code checks_push checks_new assert true
 //: ```

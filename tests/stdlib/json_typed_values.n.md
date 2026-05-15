@@ -21,7 +21,7 @@ fn main <()*>i32> ():
             0
 ```
 
-## json_array_payload_is_typed_vec
+## json_array_payload_is_typed_fragment
 
 neplg2:test
 ret: 2
@@ -31,19 +31,17 @@ ret: 2
 #target std
 
 #import "alloc/encoding/json" as *
-#import "alloc/collections/vec" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "alloc/string" as *
 
 fn main <()*>i32> ():
-    let arr0 <Vec<JsonValue>> unwrap_ok json_array_new;
-    let arr1 <Vec<JsonValue>> unwrap_ok json_array_push arr0 json_number 1;
-    let arr2 <Vec<JsonValue>> unwrap_ok json_array_push arr1 json_bool true;
+    let arr0 <JsonArray> unwrap_ok json_array_new;
+    let arr1 <JsonArray> unwrap_ok json_array_push arr0 json_number 1;
+    let arr2 <JsonArray> unwrap_ok json_array_push arr1 json_bool true;
     match json_as_array json_array arr2:
         Option::Some xs:
-            let n <i32> len<JsonValue> &xs;
-            free<JsonValue> xs;
-            n
+            if str_eq json_serialize json_array xs "[1,true]" 2 0
         Option::None:
             0
 ```
@@ -58,17 +56,16 @@ ret: 1
 #target std
 
 #import "alloc/encoding/json" as *
-#import "alloc/collections/vec" as *
 #import "alloc/string" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let arr0 <Vec<JsonValue>> unwrap_ok json_array_new;
-    let arr1 <Vec<JsonValue>> unwrap_ok json_array_push arr0 json_number 1;
-    let arr2 <Vec<JsonValue>> unwrap_ok json_array_push arr1 json_bool true;
-    let obj0 <Vec<JsonMember>> unwrap_ok json_object_new;
-    let obj1 <Vec<JsonMember>> unwrap_ok json_object_push obj0 "name" json_string "nepl";
-    let obj2 <Vec<JsonMember>> unwrap_ok json_object_push obj1 "items" json_array arr2;
+    let arr0 <JsonArray> unwrap_ok json_array_new;
+    let arr1 <JsonArray> unwrap_ok json_array_push arr0 json_number 1;
+    let arr2 <JsonArray> unwrap_ok json_array_push arr1 json_bool true;
+    let obj0 <JsonObject> unwrap_ok json_object_new;
+    let obj1 <JsonObject> unwrap_ok json_object_push obj0 "name" json_string "nepl";
+    let obj2 <JsonObject> unwrap_ok json_object_push obj1 "items" json_array arr2;
     let out <str> json_serialize json_object obj2;
     if str_eq out "{\"name\":\"nepl\",\"items\":[1,true]}" 1 0
 ```
