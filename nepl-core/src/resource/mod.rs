@@ -206,6 +206,7 @@ mod owner_summary_variant_return;
 mod owner_summary_variant_return_sources;
 mod owner_transfer;
 mod owner_variant;
+mod owner_variant_apply;
 mod owner_variant_condition_truth;
 mod owner_variant_lifecycle;
 mod owner_variant_record;

@@ -39025,3 +39025,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node --check nodesrc/test_resource_checker_responsibility.js`
   - `node nodesrc/test_resource_checker_responsibility.js`: owner_return_apply blocker は解消し、次 blocker に到達
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: owner_return_apply は解消。残 warning は owner_variant と documentation contract
+
+## 2026-05-15 Agent 1 owner_variant pending application 責務分割
+
+- `ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F` を fixed にした。
+- `owner_variant.rs` は match/materialization orchestration と pending owner consumption / return の実適用 helper を同居させ、871 行で policy limit 840 を超えていた。
+- `owner_variant_apply.rs` を追加し、pending consumption / return source 解決、owner consumption / return 適用、reserved owner state、variant extent requirement merge を移した。
+- `owner_variant.rs` は pending effect model、match arm 適用、result materialization、summary collection orchestration に集中した。分割後は `owner_variant.rs=677`、`owner_variant_apply.rs=215`。
+- Resource checker responsibility policy は clean になり、`node nodesrc/run_source_policy_regressions.js --warn-only` の残 warning は documentation contract のみになった。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `cargo test -p nepl-core --test resource_ir owner_check_preserves_branch_result -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir owner_check_prefers_live_return_owner -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test resource_ir owner_check_reports_leaked_conditional_owner_return -- --nocapture`: 1 passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: Resource checker pass、documentation contract warning only

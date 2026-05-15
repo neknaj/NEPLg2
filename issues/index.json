@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T13:06:50.042Z",
+  "generated_at": "2026-05-15T13:13:48.824Z",
   "counts": {
     "total": 829,
-    "open": 7,
-    "resolved": 822,
+    "open": 6,
+    "resolved": 823,
     "by_area": {
-      "core": {
-        "total": 412,
-        "open": 1,
-        "resolved": 411
-      },
       "stdlib": {
         "total": 235,
         "open": 4,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 412,
+        "open": 0,
+        "resolved": 412
       },
       "CORE": {
         "total": 1,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F",
-      "title": "Resource owner_variant module exceeds responsibility split limit again",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "nepl-core/src/resource/owner_variant.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6238,6 +6223,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T125912798Z-RESOURCE-OWNER-RETURN-APPLY-EXCEEDS--5CCCCE97.md"
+    },
+    {
+      "id": "ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F",
+      "title": "Resource owner_variant module exceeds responsibility split limit again",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/owner_variant.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T130438617Z-RESOURCE-OWNER-VARIANT-MODULE-EXCEED-3B94063F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
