@@ -1084,3 +1084,26 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/run_doctest.js -i stdlib/core/char.nepl -n 1 --assert-io --dist web/dist`: pass
 
 この issue はまだ open のまま継続する。`stdlib/core/char.nepl` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
+
+## 2026-05-15 core/result doc-comment stdout report migration
+
+`ISS-20260515T124222896Z-CORE-RESULT-DOC-COMMENT-DOCTESTS-OMI-DFC0D817` として、`stdlib/core/result.nepl` の成功系 public doc-comment doctest 4 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `ok` / `err` / `unwrap_ok` / `unwrap_err` / `unwrap_or`、`map` / `map_err`、`and_then`、`uwok` alias の観測値を assertion label として stdout に固定した。
+- `checks_exit_code` だけで終わらせず、named `TestReport` を `test_report_print_stdout` で出力してから `test_report_exit_code` へ渡す形へ揃えた。
+- compile_fail doctest は型エラーと Resource IR move violation の拒否境界なので変更していない。
+- `nodesrc/test_core_result_doc_report_contract.js` を追加し、`ret:` / `checks_exit_code` へ戻る退行を検出する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を追加した。
+
+検証:
+
+- `node nodesrc/test_core_result_doc_report_contract.js`: pass
+- `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 1 --assert-io --dist web/dist`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 3 --assert-io --dist web/dist`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 4 --assert-io --dist web/dist`: pass
+- `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 7 --assert-io --dist web/dist`: pass
+
+この issue はまだ open のまま継続する。`stdlib/core/result.nepl` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。

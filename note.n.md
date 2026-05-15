@@ -1,3 +1,19 @@
+# 2026-05-15 Agent 1 core/result doc report doctest 修正
+
+- `ISS-20260515T124222896Z-CORE-RESULT-DOC-COMMENT-DOCTESTS-OMI-DFC0D817` を追加して解決した。
+- `stdlib/core/result.nepl` の成功系 doc-comment doctest は `std/test` assertion を使っていたが、`ret: 0` または stdout なし manifest のままで、Result helper の観測値が fixture に残っていなかった。
+- `ok` / `err` / `unwrap_ok` / `unwrap_err` / `unwrap_or`、`map` / `map_err`、`and_then`、`uwok` alias の4 doctestを canonical `TestReport` 形式へ移行した。compile_fail doctest は型エラーと Resource IR move violation の拒否境界なので変更していない。
+- `nodesrc/test_core_result_doc_report_contract.js` を追加し、同 doctest が `ret:` や `checks_exit_code` へ戻る退行を検出するようにした。`nodesrc/run_source_policy_regressions.js` にも同 contract を追加した。
+- 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core/result 移行分の進捗を追記した。
+- 検証:
+  - `node nodesrc/test_core_result_doc_report_contract.js`
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`
+  - `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 1 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 3 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 4 --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 7 --assert-io --dist web/dist`
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 core/char doc report doctest 修正
 
 - `ISS-20260515T123719311Z-CORE-CHAR-DOC-COMMENT-DOCTEST-RELIES-6E7A0615` を追加して解決した。
