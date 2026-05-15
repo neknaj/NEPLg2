@@ -52,7 +52,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     let pending_reallocs = PendingRawReallocs::default();
     let variant_owner_effects = PendingVariantOwnerEffects::default();
     for (index, param) in function.params.iter().enumerate() {
-        for leaf in owner_seed_leaf_places(types, function, index, &param.place) {
+        for leaf in owner_seed_leaf_places(types, function, summaries, index, &param.place) {
             owners.allocate(&leaf.place);
             raw_aliases.mark(&leaf.place);
             storage_origins.mark_owned(&leaf.place);

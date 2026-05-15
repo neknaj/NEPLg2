@@ -6,6 +6,8 @@
 //: - メモリ領域を参照する軽量な pointer view と、領域 owner token の形を定義します。
 //: - direct constructor は compiler の raw-memory-boundary capability 内に閉じ、通常利用者は checked wrapper を経由します。
 //: - raw address との相互変換は `mem/internal` に分離し、public facade からは再公開しません。
+//: - `MemPtr<T>` は non-owning view であり、`RegionToken<T>` は free obligation owner です。
+//:   token 内部では owner identity を raw address として保持し、`MemPtr<T>` field を owner state として持ちません。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -23,16 +25,16 @@ pub struct MemPtr<.T>:
     raw <i32>
 
 pub struct RegionToken<.T>:
-    ptr <MemPtr<.T>>
+    raw <i32>
     size <i32>
 
-//: region_token_ptr_ref: RegionToken の pointer field を所有権を移動せずに借用する
+//: region_token_raw_ref: RegionToken の raw owner identity を所有権を移動せずに借用する
 //:
 //: 目的:
-//: - `RegionToken` は領域の解放責務を持つため、観察用 API が token を move してはいけません。
-//: - compiler intrinsic で field reference を作り、`MemPtr` の copy 値だけを外側に返せるようにします。
-pub fn region_token_ptr_ref <.T> <(&RegionToken<.T>)->&MemPtr<.T>> (token):
-    #intrinsic "get_field_ref" <> (token,"ptr")
+//: - `RegionToken` は領域の解放責務を持つため、bounds check などの観察用 API が token を move してはいけません。
+//: - 返される参照は core/mem 内部の checked projection 用であり、public raw address API ではありません。
+pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
+    #intrinsic "get_field_ref" <> (token,"raw")
 
 //: region_token_size_ref: RegionToken の size field を所有権を移動せずに借用する
 //:
@@ -40,9 +42,6 @@ pub fn region_token_ptr_ref <.T> <(&RegionToken<.T>)->&MemPtr<.T>> (token):
 //: - bounds check と pointer projection が token owner を消費しないようにします。
 pub fn region_token_size_ref <.T> <(&RegionToken<.T>)->&i32> (token):
     #intrinsic "get_field_ref" <> (token,"size")
-
-pub fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
-    *region_token_ptr_ref token
 
 pub fn region_size <.T> <(&RegionToken<.T>)->i32> (token):
     *region_token_size_ref token

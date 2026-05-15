@@ -12,6 +12,7 @@ use super::owner_summary_raw_consumption::{
 };
 use super::owner_summary_variant_leaf::enum_owner_leaf_projections;
 use super::place_utils::place_with_suffix;
+use super::summary::OwnerReturnSummaryIndex;
 
 pub(super) struct OwnerLeafPlace {
     pub(super) place: Place,
@@ -31,12 +32,13 @@ pub(super) fn owner_leaf_places(types: &TypeCtx, base: &Place) -> Vec<OwnerLeafP
 pub(super) fn owner_seed_leaf_places(
     types: &TypeCtx,
     function: &ResourceFunction,
+    summaries: &OwnerReturnSummaryIndex<'_>,
     _parameter_index: usize,
     base: &Place,
 ) -> Vec<OwnerLeafPlace> {
     let mut leaves = owner_leaf_places(types, base);
     for leaf in raw_i32_owner_leaf_places(types, base) {
-        let consumes_raw_owner = function_consumes_raw_owner_from(function, &leaf.place);
+        let consumes_raw_owner = function_consumes_raw_owner_from(function, &leaf.place, summaries);
         let returns_aggregate_raw_owner =
             !leaf.suffix.is_empty() && function_returns_raw_owner_from(function, &leaf.place);
         if (consumes_raw_owner || returns_aggregate_raw_owner)

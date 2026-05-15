@@ -41,7 +41,7 @@ assert.match(
 );
 assert.match(
     storageCode,
-    /fn\s+string_finish[\s\S]*get\s+region\s+"ptr"[\s\S]*string_finish_base\s+base\s+byte_len/,
+    /fn\s+string_finish[\s\S]*MemPtr\s+get\s+region\s+"raw"[\s\S]*string_finish_base\s+base\s+byte_len/,
     'string_finish must be the final RegionToken-to-str ownership boundary',
 );
 assert.match(

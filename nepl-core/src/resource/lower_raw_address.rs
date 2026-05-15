@@ -126,7 +126,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 span,
             );
         }
-        Some("region_token_ptr_ref") => {
+        Some("region_token_raw_ref") => {
             let Some(source) =
                 region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
             else {
@@ -137,10 +137,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             };
             push_raw_address_op(
                 source.base,
-                mem_ptr_raw_field_place(
-                    &reference_target_place(output, target_ty),
-                    env.types.i32(),
-                ),
+                reference_target_place(output, target_ty),
                 Some(RawAddressViewKind::NonOwningProjection),
                 ops,
                 span,

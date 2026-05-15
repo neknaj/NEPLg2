@@ -523,3 +523,13 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 今回の修正では、`core/mem/pointer/region.nepl` が `realloc_region_bytes_keep<T>` を所有し、stdlib collection / byte builder 側は `RegionToken` owner をそのまま渡す。realloc 失敗時に旧 owner を返す `RegionReallocError<T>` を型に出すことで、caller は cleanup するか owner-preserving error として返すかを明示できる。
 
 この親 issue は引き続き open とする。今回閉じたのは RegionToken realloc の重複実装であり、raw-memory-backed stdlib 全体を `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal に移す作業は継続する。
+
+## 2026-05-16 Agent 1 RegionToken raw owner field 追記
+
+`ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1` として、最後に残っていた `RegionToken.ptr: MemPtr<T>` owner-like field を分離して修正した。
+
+今回の修正では、`RegionToken<T>` の layout を `raw: i32, size: i32` にし、`MemPtr<T>` は参照から得る non-owning projection としてだけ扱う。`region_ptr<T>(&RegionToken<T>)` は checked projection helper であり、free obligation owner は `RegionToken.raw` と Resource IR の owner summary が追跡する。`nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist は 0 件になった。
+
+同時に Resource IR owner summary は、直接 raw memory op だけでなく callee summary が消費する raw owner alias も raw owner seed に反映するようにした。これにより `dealloc_region<T>` が `RegionToken.raw -> MemPtr.raw -> dealloc_ptr<T>` と helper 経由で owner を閉じる場合も、caller 側では `RegionToken<T>` 引数の消費として証明される。
+
+この親 issue は引き続き open とする。今回の修正で `MemPtr` owner field の transitional debt は 0 件になったが、`RegionToken<T>` 自体はまだ stdlib raw boundary 内で構築できる過渡 owner token であり、最終的な `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。

@@ -9,11 +9,12 @@ use super::owner_summary_i32_leaf::i32_leaf_places;
 use super::owner_summary_leaf::owner_seed_leaf_places;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::storage_origin::StorageOriginTable;
-use super::summary::OwnerProjectionSource;
+use super::summary::{OwnerProjectionSource, OwnerReturnSummaryIndex};
 
 pub(super) fn seed_owner_summary_parameters(
     types: &TypeCtx,
     function: &ResourceFunction,
+    summaries: &OwnerReturnSummaryIndex<'_>,
     owners: &mut OwnerTable,
     raw_aliases: &mut RawCellAddressAliases,
     storage_origins: &mut StorageOriginTable,
@@ -34,7 +35,7 @@ pub(super) fn seed_owner_summary_parameters(
                 place: leaf.place,
             });
         }
-        for leaf in owner_seed_leaf_places(types, function, index, &param.place) {
+        for leaf in owner_seed_leaf_places(types, function, summaries, index, &param.place) {
             owners.allocate(&leaf.place);
             raw_aliases.mark(&leaf.place);
             storage_origins.mark_owned(&leaf.place);

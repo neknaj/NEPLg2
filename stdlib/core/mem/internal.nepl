@@ -70,6 +70,7 @@ pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
 //:
 //: 目的:
 //: - allocator wrapper が所有領域の pointer と size をまとめ、free obligation owner token を作ります。
+//: - token 内部には `MemPtr<T>` ではなく raw owner identity を保存し、`MemPtr<T>` は projection view としてだけ外へ作ります。
 //:
 //: 注意(重要):
 //: - 呼び出し側は ptr が allocator から得た owned storage であることを保証します。
@@ -97,4 +98,4 @@ pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
 //:                     ok
 //: ```
 pub fn region_new <.T> <(MemPtr<.T>,i32)->RegionToken<.T>> (ptr, size):
-    RegionToken ptr size
+    RegionToken get ptr "raw" size

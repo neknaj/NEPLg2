@@ -71,7 +71,13 @@ fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
 }
 
 fn region_token_raw_field_place(token: &Place, raw_ty: TypeId) -> Place {
-    mem_ptr_raw_field_place(&mem_ptr_raw_field_place(token, token.ty), raw_ty)
+    token.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        raw_ty,
+    )
 }
 
 fn is_named_struct_type(types: &TypeCtx, ty: TypeId, expected: &str) -> bool {

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T15:49:52.718Z",
+  "generated_at": "2026-05-15T16:25:44.908Z",
   "counts": {
-    "total": 834,
+    "total": 835,
     "open": 5,
-    "resolved": 829,
+    "resolved": 830,
     "by_area": {
       "stdlib": {
-        "total": 238,
+        "total": 239,
         "open": 3,
-        "resolved": 235
+        "resolved": 236
       },
       "TEST": {
         "total": 24,
@@ -9823,6 +9823,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F.md"
+    },
+    {
+      "id": "ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1",
+      "title": "RegionToken still stores MemPtr as owner-like field",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/core/mem/types.nepl; stdlib/core/mem/internal.nepl; stdlib/core/mem/pointer/region.nepl; nepl-core/src/resource/lower_raw_address*.rs; nodesrc/test_stdlib_memptr_owner_field_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

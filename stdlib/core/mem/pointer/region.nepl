@@ -34,6 +34,56 @@
 #import "./alloc" as *
 #import "core/field" as *
 
+//: region_ptr: RegionToken の基底を non-owning MemPtr view として得る
+//:
+//: 目的:
+//: - `RegionToken<T>` の free obligation owner を動かさず、領域先頭を `MemPtr<T>` として観察します。
+//:
+//: 注意(重要):
+//: - 返される `MemPtr<T>` は free obligation owner ではありません。
+//: - owner を消費する dealloc / realloc は `RegionToken<T>` を受け取る core/mem helper に集約します。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 1:
+//:         Result::Ok region:
+//:             let ptr <MemPtr<i32>> region_ptr &region
+//:             let stored <Result<(),str>> store_i32 ptr 42
+//:             match stored:
+//:                 Result::Ok _:
+//:                     let loaded <Option<i32>> load_i32 ptr
+//:                     let ok <bool> match loaded:
+//:                         Option::Some value:
+//:                             eq value 42
+//:                         Option::None:
+//:                             false
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             if ok 1 0
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
+    mem_ptr_wrap *region_token_raw_ref token
+
 //: region_ptr_at: RegionToken 内の byte offset から MemPtr を得る
 //:
 //: 目的:
@@ -103,7 +153,7 @@ pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (
     let bytes <i32> size_of<.U>
     let align <i32> align_of<.U>
     let total <i32> *region_token_size_ref token
-    let base_raw <i32> mem_ptr_addr *region_token_ptr_ref token
+    let base_raw <i32> *region_token_raw_ref token
     let addr <i32> add base_raw off
     if:
         if:
@@ -397,6 +447,6 @@ pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
 //:             0
 //: ```
 pub fn dealloc_region <.T> <(RegionToken<.T>)->Result<(),str>> (token):
-    let ptr <MemPtr<.T>> get token "ptr"
+    let ptr <MemPtr<.T>> MemPtr get token "raw"
     let size <i32> get token "size"
     dealloc_ptr<.T> ptr size

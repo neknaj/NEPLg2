@@ -39137,3 +39137,36 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary` と `RawAddressViewKind::MemPtrOffset` を追加し、`mem_ptr_add` 由来の pointer arithmetic は compiler-owned raw-memory-boundary source 以外で `resource.raw.memory_outside_boundary` にする。`RawAddressViewKind::Offset` は内部 raw address arithmetic、`NonOwningProjection` は検査済み projection として分け、`region_ptr_at` の Ok payload と任意 pointer arithmetic を混同しない。
 - 診断 variant 追加で `effect.rs` の責務が膨らんだため、effect boundary diagnostic model を `effect_diagnostic.rs` へ分離し、source policy で分離を固定した。
 - `tests/stdlib/memory_safety.n.md` に user-level `mem_ptr_add` bounds bypass の compile_fail 回帰を追加した。
+
+## 2026-05-16 Agent 1 RegionToken raw owner field 化
+
+- `ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1` を fixed にした。
+- 根本原因は、Stage 6 で `MemPtr<T>` を non-owning pointer に固定する方針に対して、`RegionToken<T>` だけが `ptr: MemPtr<T>` を free obligation owner field として残していたことだった。
+- `RegionToken<T>` の layout を `raw: i32, size: i32` に変更し、`region_ptr<T>(&RegionToken<T>)` / `region_ptr_at<T,U>` だけが checked non-owning `MemPtr<T>` projection を返す形にした。
+- Resource IR lowering、initialized summary、raw-address return summary、raw memory source evidence は `region_token_raw_ref` / direct `RegionToken.raw` を owner identity として扱うように更新した。
+- owner checker は `MemPtr.raw -> RegionToken.raw` のような wrapper raw field 間 owner move を transfer として扱う。さらに owner summary seed は callee summary が消費する raw owner alias も見るため、`dealloc_region<T>` の `RegionToken.raw -> MemPtr.raw -> dealloc_ptr<T>` が関数境界で `RegionToken<T>` owner consumption として残る。
+- callee summary 経由の raw owner consumption 判定は `owner_summary_raw_use_call.rs` に分離し、Resource checker の責務分割 policy で固定した。
+- `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist は 0 件になった。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に Stage 6 の進捗として反映した。`RegionToken<T>` はまだ compiler-issued `OwnedRegion<T>` ではないため、OwnedBuffer / initialized prefix / compiler-issued owner token は継続作業である。
+- focused verification:
+  - `cargo fmt -p nepl-core`
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --test resource_ir checked_region -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_region_ptr_through_known_identity_callback -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged -- --nocapture`: 5 passed
+  - `cargo test -p nepl-core loader::tests::owner_aggregate_boundary_accepts_intrinsic_field_evidence -- --exact`
+  - `cargo test -p nepl-core loader::tests::compiler_memory_type_definitions_use_source_shape_not_raw_boundary_evidence -- --exact`
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_string_storage_boundary.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_stdlib_documentation_contract.js`: `declarationNoDoctest=1032`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: source-policy warning なし
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-regiontoken-raw-memory-safety.json -j 1 --dist web/dist --assert-io`: 38 passed
+  - `node nodesrc/tests.js -i stdlib/core/mem/pointer/region.nepl --no-tree -o tmp/agent1-regiontoken-region-doctests.json -j 1 --dist web/dist --assert-io`: 11 passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem/types.nepl --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem/internal.nepl --assert-io --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem/pointer/region.nepl --assert-io --dist web/dist`

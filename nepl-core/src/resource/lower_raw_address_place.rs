@@ -66,7 +66,13 @@ pub(super) fn is_named_struct_type(types: &TypeCtx, ty: TypeId, expected: &str) 
 }
 
 pub(super) fn region_token_raw_field_place(token: &Place, raw_ty: TypeId) -> Place {
-    mem_ptr_raw_field_place(&region_token_ptr_field_place(token, token.ty), raw_ty)
+    token.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        raw_ty,
+    )
 }
 
 fn borrowed_source_place(expr: &HirExpr, reference_place: &Place, target_ty: TypeId) -> Place {
@@ -93,14 +99,4 @@ pub(super) fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeI
         TypeKind::Reference(target, _) => Some(*target),
         _ => None,
     }
-}
-
-fn region_token_ptr_field_place(token: &Place, ptr_ty: TypeId) -> Place {
-    token.clone().with_projection(
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        },
-        ptr_ty,
-    )
 }

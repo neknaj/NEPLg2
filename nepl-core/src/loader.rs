@@ -933,8 +933,8 @@ mod tests {
             &loader,
             path,
             concat!(
-                "fn helper <.T> <(&RegionToken<.T>)->&MemPtr<.T>> (token):\n",
-                "    #intrinsic \"get_field_ref\" <> (token,\"ptr\")\n",
+                "fn helper <.T> <(&RegionToken<.T>)->&i32> (token):\n",
+                "    #intrinsic \"get_field_ref\" <> (token,\"raw\")\n",
             ),
         );
         assert!(
@@ -1102,7 +1102,7 @@ mod tests {
                 "pub struct MemPtr<.T>:\n",
                 "    raw <i32>\n\n",
                 "pub struct RegionToken<.T>:\n",
-                "    ptr <MemPtr<.T>>\n",
+                "    raw <i32>\n",
                 "    size <i32>\n",
             ),
         );

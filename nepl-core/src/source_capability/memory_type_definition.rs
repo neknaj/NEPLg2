@@ -48,13 +48,13 @@ fn is_mem_ptr_definition(def: &StructDef) -> bool {
 }
 
 fn is_region_token_definition(def: &StructDef) -> bool {
-    let Some(type_param) = single_type_param_name(def) else {
+    if single_type_param_name(def).is_none() {
         return false;
-    };
+    }
     def.vis == Visibility::Pub
         && def.fields.len() == 2
-        && def.fields[0].0.name == "ptr"
-        && type_expr_is_mem_ptr_of_label(&def.fields[0].1, type_param)
+        && def.fields[0].0.name == "raw"
+        && type_expr_is_i32(&def.fields[0].1)
         && def.fields[1].0.name == "size"
         && type_expr_is_i32(&def.fields[1].1)
 }
@@ -68,12 +68,4 @@ fn single_type_param_name(def: &StructDef) -> Option<&str> {
 
 fn type_expr_is_i32(expr: &TypeExpr) -> bool {
     matches!(expr.as_unspanned(), TypeExpr::I32)
-}
-
-fn type_expr_is_mem_ptr_of_label(expr: &TypeExpr, label: &str) -> bool {
-    let TypeExpr::Apply(base, args) = expr.as_unspanned() else {
-        return false;
-    };
-    matches!(base.as_unspanned(), TypeExpr::Named(name) if name == "MemPtr")
-        && matches!(args.as_slice(), [arg] if matches!(arg.as_unspanned(), TypeExpr::Label(Some(name)) if name == label))
 }

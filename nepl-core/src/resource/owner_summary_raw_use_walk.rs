@@ -6,12 +6,15 @@ use super::owner_summary_raw_transfer::{
     place_matches_any_alias, push_transferred_raw_owner_view_aliases,
     push_transferred_value_aliases, push_transferred_value_aliases_from,
 };
+use super::owner_summary_raw_use_call::direct_call_consumes_raw_owner_alias;
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
+use super::summary::OwnerReturnSummaryIndex;
 
 pub(super) fn ops_use_raw_owner_alias_with_views(
     ops: &[ResourceOp],
     aliases: &mut Vec<Place>,
     raw_views: &mut RawAddressViewTable,
+    summaries: &OwnerReturnSummaryIndex<'_>,
 ) -> bool {
     for op in ops {
         match op {
@@ -60,6 +63,11 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
                     return true;
                 }
             }
+            ResourceOp::Call { target, args, .. } => {
+                if direct_call_consumes_raw_owner_alias(target, args, aliases, summaries) {
+                    return true;
+                }
+            }
             ResourceOp::Branch {
                 output,
                 then_ops,
@@ -70,6 +78,7 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
             } => {
                 if branch_uses_raw_owner_alias(
                     aliases, raw_views, output, then_ops, then_value, else_ops, else_value,
+                    summaries,
                 ) {
                     return true;
                 }
@@ -85,10 +94,12 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
                     condition_ops,
                     &mut loop_aliases,
                     &mut loop_raw_views,
+                    summaries,
                 ) || ops_use_raw_owner_alias_with_views(
                     body_ops,
                     &mut loop_aliases,
                     &mut loop_raw_views,
+                    summaries,
                 ) {
                     return true;
                 }
@@ -118,6 +129,7 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
                         &arm.ops,
                         &mut arm_aliases,
                         &mut arm_raw_views,
+                        summaries,
                     ) {
                         return true;
                     }
@@ -145,7 +157,6 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
             | ResourceOp::EndScope { .. }
             | ResourceOp::CallEffect { .. }
             | ResourceOp::FunctionValue { .. }
-            | ResourceOp::Call { .. }
             | ResourceOp::IndirectCall { .. }
             | ResourceOp::StorageOrigin { .. } => {}
         }
@@ -173,15 +184,26 @@ fn branch_uses_raw_owner_alias(
     then_value: &Place,
     else_ops: &[ResourceOp],
     else_value: &Place,
+    summaries: &OwnerReturnSummaryIndex<'_>,
 ) -> bool {
     let mut then_aliases = aliases.clone();
     let mut then_raw_views = raw_views.clone();
-    if ops_use_raw_owner_alias_with_views(then_ops, &mut then_aliases, &mut then_raw_views) {
+    if ops_use_raw_owner_alias_with_views(
+        then_ops,
+        &mut then_aliases,
+        &mut then_raw_views,
+        summaries,
+    ) {
         return true;
     }
     let mut else_aliases = aliases.clone();
     let mut else_raw_views = raw_views.clone();
-    if ops_use_raw_owner_alias_with_views(else_ops, &mut else_aliases, &mut else_raw_views) {
+    if ops_use_raw_owner_alias_with_views(
+        else_ops,
+        &mut else_aliases,
+        &mut else_raw_views,
+        summaries,
+    ) {
         return true;
     }
     push_transferred_value_aliases_from(

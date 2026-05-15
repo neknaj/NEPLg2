@@ -229,18 +229,24 @@ fn raw_address_source_from_return_named_call(
         "get" | "get_field"
             if args.len() >= 2
                 && is_named_struct_type(env.types, args[0].ty, "RegionToken")
-                && is_named_struct_type(env.types, return_ty, "MemPtr")
+                && matches!(
+                    env.types.get_ref(
+                        env.types
+                            .resolve_named_type_id(env.types.resolve_id(return_ty))
+                    ),
+                    TypeKind::I32
+                )
                 && literal_field_name(env, &args[1])
-                    .is_none_or(|field_name| field_name == "ptr") =>
+                    .is_none_or(|field_name| field_name == "raw") =>
         {
-            raw_address_source_from_region_token_ptr_expr(
+            raw_address_source_from_region_token_raw_expr(
                 &args[0], function, hir_args, arg_places, env,
             )
         }
         "region_new" if args.len() >= 2 => raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
         ),
-        "region_token_ptr_ref" if args.len() == 1 => raw_address_source_from_region_token_ptr_expr(
+        "region_token_raw_ref" if args.len() == 1 => raw_address_source_from_region_token_raw_expr(
             &args[0], function, hir_args, arg_places, env,
         ),
         _ => None,
@@ -312,7 +318,7 @@ fn i32_const_from_return_expr(
     }
 }
 
-fn raw_address_source_from_region_token_ptr_expr(
+fn raw_address_source_from_region_token_raw_expr(
     expr: &HirExpr,
     function: &HirFunction,
     hir_args: &[HirExpr],

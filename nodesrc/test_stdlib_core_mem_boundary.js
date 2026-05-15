@@ -59,6 +59,8 @@ assertNoMatch(root, /^\s*#(?:wasm|llvmir|intrinsic)\b/m, "core/mem facade must n
 
 assertMatch(types, /pub\s+struct\s+MemPtr<\.T>:/, "mem/types must own MemPtr");
 assertMatch(types, /pub\s+struct\s+RegionToken<\.T>:/, "mem/types must own RegionToken");
+assertMatch(types, /pub\s+struct\s+RegionToken<\.T>:\s+raw\s+<i32>\s+size\s+<i32>/, "RegionToken must store raw owner identity directly");
+assertNoMatch(types, /pub\s+struct\s+RegionToken<\.T>:[\s\S]*\bptr\s+<MemPtr<\.T>>/, "RegionToken must not store MemPtr as owner state");
 assertNoMatch(types, /pub\s+fn\s+mem_ptr_wrap\b/, "mem/types must not expose raw MemPtr construction helper");
 assertNoMatch(types, /pub\s+fn\s+mem_ptr_addr\b/, "mem/types must not expose raw MemPtr address helper");
 assertNoMatch(types, /pub\s+fn\s+region_new\b/, "mem/types must not expose owner token construction helper");
@@ -125,7 +127,7 @@ for (const [label, text, limit] of [
     ["stdlib/core/mem/allocator.nepl", allocator, 420],
     ["stdlib/core/mem/pointer.nepl", pointer, 120],
     ["stdlib/core/mem/pointer/alloc.nepl", pointerAlloc, 260],
-    ["stdlib/core/mem/pointer/region.nepl", pointerRegion, 380],
+    ["stdlib/core/mem/pointer/region.nepl", pointerRegion, 400],
     ["stdlib/core/mem/pointer/bulk.nepl", pointerBulk, 260],
     ["stdlib/core/mem/pointer/scalar.nepl", pointerScalar, 160],
 ]) {

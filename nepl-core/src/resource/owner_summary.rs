@@ -81,6 +81,7 @@ fn function_owner_return_summary(
     let (parameter_storage_sources, parameter_condition_sources) = seed_owner_summary_parameters(
         types,
         function,
+        summaries,
         &mut owners,
         &mut raw_aliases,
         &mut storage_origins,

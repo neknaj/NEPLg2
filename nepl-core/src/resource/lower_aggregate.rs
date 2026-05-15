@@ -13,11 +13,9 @@ use super::lower_aggregate_projection::{
     aggregate_field_projection, aggregate_field_projection_by_selector, reference_target_type,
 };
 use super::lower_aggregate_selector::{
-    aggregate_field_selector, compiler_field_address_base_and_offset, non_negative_i32_literal,
-    AggregateFieldSelector,
+    compiler_field_address_base_and_offset, non_negative_i32_literal,
 };
 use super::lower_call::func_ref_base_name;
-use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
@@ -106,25 +104,13 @@ pub(super) fn lower_get_field_intrinsic_source(
     }
     let owner = args.first()?;
     let selector = args.get(1)?;
-    let projection = if let Some(selector) = aggregate_field_projection_by_selector(
+    let Some(projection) = aggregate_field_projection_by_selector(
         env.types,
         owner.ty,
         selector,
         field_ty,
         env.string_literals,
-    ) {
-        selector
-    } else if matches!(
-        aggregate_field_selector(selector, env.string_literals),
-        AggregateFieldSelector::Unsupported
-    ) && is_named_struct_type(env.types, owner.ty, "RegionToken")
-        && is_named_struct_type(env.types, field_ty, "MemPtr")
-    {
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        }
-    } else {
+    ) else {
         return None;
     };
     if let Some(source) =
@@ -185,25 +171,13 @@ fn field_get_ref_source(
     let owner_ty = owner_ref_target.unwrap_or(owner.ty);
     let field_ty = reference_target_type(env.types, ref_ty)?;
     let selector = args.get(1)?;
-    let projection = if let Some(selector) = aggregate_field_projection_by_selector(
+    let Some(projection) = aggregate_field_projection_by_selector(
         env.types,
         owner_ty,
         selector,
         field_ty,
         env.string_literals,
-    ) {
-        selector
-    } else if matches!(
-        aggregate_field_selector(selector, env.string_literals),
-        AggregateFieldSelector::Unsupported
-    ) && is_named_struct_type(env.types, owner_ty, "RegionToken")
-        && is_named_struct_type(env.types, field_ty, "MemPtr")
-    {
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        }
-    } else {
+    ) else {
         return None;
     };
     let base = if owner_ref_target.is_some() {

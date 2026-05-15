@@ -38,7 +38,7 @@ enum RawAddressBoundaryHelper {
     RegionNew,
     RegionPtr,
     RegionPtrAt,
-    RegionTokenPtrRef,
+    RegionTokenRawRef,
     StrAddr,
     StrFromAddrUnchecked,
 }
@@ -52,7 +52,7 @@ impl RawAddressBoundaryHelper {
             "region_new" => Self::RegionNew,
             "region_ptr" => Self::RegionPtr,
             "region_ptr_at" => Self::RegionPtrAt,
-            "region_token_ptr_ref" => Self::RegionTokenPtrRef,
+            "region_token_raw_ref" => Self::RegionTokenRawRef,
             "str_addr" => Self::StrAddr,
             "str_from_addr_unchecked" => Self::StrFromAddrUnchecked,
             _ => return None,

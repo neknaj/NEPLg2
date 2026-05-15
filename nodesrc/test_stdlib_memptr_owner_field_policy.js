@@ -7,12 +7,7 @@ const path = require("path");
 const repoRoot = path.resolve(__dirname, "..");
 const stdlibRoot = path.join(repoRoot, "stdlib");
 
-const transitionalFields = new Map([
-    [
-        "stdlib/core/mem/types.nepl::RegionToken.ptr::MemPtr<.T>",
-        "core owner token before compiler-issued OwnedRegion replaces forgeable RegionToken construction",
-    ],
-]);
+const transitionalFields = new Map();
 
 const observedFields = collectMemPtrStructFields(stdlibRoot);
 const observedKeys = observedFields.map((field) => field.key);
@@ -35,7 +30,7 @@ if (stale.length > 0) {
     );
 }
 
-console.log(`stdlib MemPtr owner-field migration policy ok (${observedFields.length} transitional field(s))`);
+console.log("stdlib MemPtr owner-field migration policy ok (0 transitional fields)");
 
 function collectMemPtrStructFields(root) {
     const fields = [];
