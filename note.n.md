@@ -39498,3 +39498,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result_variant_owner_return -- --nocapture`: 1 passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument -- --nocapture`: 1 passed
+
+## 2026-05-16 Agent 1 Resource IR effect return escape 分割
+
+- `ISS-20260515T230145475Z-RESOURCE-EFFECT-RETURN-ESCAPE-MODULE-2ED8211B` を fixed にした。`plan.md` は変更していない。
+- `effect_return_escape.rs` は public raw identity escape entry point、owner protection projection traversal、owner carrier type traversal、unit tests を同居させていたため、363 lines / limit 120 で source policy に失敗していた。
+- `effect_return_escape.rs` は public escape entry point と public leaf 判定に縮小し、suffix traversal / owner protection を `effect_return_protection.rs`、`str` / `RegionToken` / structural owner carrier の型探索を `effect_return_owner_type.rs`、unit tests を `effect_return_escape_tests.rs` へ分離した。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の existence / `mod` declaration / line budget と、`effect_return_escape.rs` が `effect_return_protection::raw_identity_projection_has_owner_protection` を使う policy を追加した。
+- `node nodesrc/test_resource_checker_responsibility.js` は warning なしで通過した。
+- focused verification:
+  - `cargo test -p nepl-core effect_return_escape -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_rejects_mem_ptr_return_identity_escape -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_accepts_vec_owner_result_return_identity -- --nocapture`: 1 passed

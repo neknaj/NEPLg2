@@ -57,7 +57,11 @@ mod effect_identity;
 mod effect_match;
 mod effect_raw_memory_identity;
 mod effect_return_escape;
+#[cfg(test)]
+mod effect_return_escape_tests;
 mod effect_return_identity;
+mod effect_return_owner_type;
+mod effect_return_protection;
 mod effect_return_summary_filter;
 mod effect_summary;
 mod effect_summary_identity;
