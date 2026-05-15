@@ -8,6 +8,8 @@
 #indent 4
 
 #import "core/option" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 
 //: ## BTreeMapStorage
@@ -36,3 +38,25 @@ pub struct BTreeMap<.K,.V>:
     len <i32>
     cap <i32>
     storage <BTreeMapStorage<.K,.V>>
+
+//: ## BTreeMapInsertError
+//: `insert` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
+//:
+//: ### [目的/もくてき]
+//: - `insert` は map owner を[消費/しょうひ]する fallible update です。
+//: - grow [失敗/しっぱい]時も caller が map owner を[回収/かいしゅう]して cleanup / retry を[選/えら]べるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - `Result::Err` を[受/う]け[取/と]った caller は `btreemap_insert_error_owner` で owner を[取/と]り[出/だ]し、[不要/ふよう]なら `free` します。
+//: - `diag` は `Diag` の Copy [値/あたい]で、owner を[動/うご]かさず `btreemap_insert_error_diag` から[確認/かくにん]できます。
+pub struct BTreeMapInsertError<.K,.V>:
+    owner <BTreeMap<.K,.V>>
+    diag <Diag>
+
+//: btreemap_insert_error_diag: insert [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+pub fn btreemap_insert_error_diag <.K,.V> <(&BTreeMapInsertError<.K,.V>)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: btreemap_insert_error_owner: insert [失敗/しっぱい]で[戻/もど]された `BTreeMap` owner を[取/と]り[出/だ]す
+pub fn btreemap_insert_error_owner <.K: Copy,.V: Copy> <(BTreeMapInsertError<.K,.V>)->BTreeMap<.K,.V>> (e):
+    field::get e "owner"

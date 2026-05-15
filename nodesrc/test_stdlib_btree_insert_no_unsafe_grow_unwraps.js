@@ -83,8 +83,9 @@ for (const submodule of ['create', 'observer', 'insert', 'remove', 'cleanup']) {
 
 const btreeMapInsert = functionBlock(btreeMapInsertFile, 'insert');
 assert.match(btreeMapInsert, /match\s+btreemap_grow<\.K,\.V>\s+hm:/, 'BTreeMap.insert must match grow result');
-assert.match(btreeMapInsert, /Result::Err\s+d:/, 'BTreeMap.insert must keep an Err arm');
-assert.match(btreeMapInsert, /err<BTreeMap<\.K,\.V>,\s*Diag>\s+d/, 'BTreeMap.insert must return grow Err');
+assert.match(btreeMapInsert, /Result::Err\s+e:/, 'BTreeMap.insert must keep an owner-preserving Err arm');
+assert.match(btreeMapInsert, /Result<BTreeMap<\.K,\.V>,\s*BTreeMapInsertError<\.K,\.V>>::Err\s+e/, 'BTreeMap.insert must return grow Err with the recovered owner through the typed Result variant');
+assert.match(btreeMapInsert, /fn\s+insert\s+<\.K:\s*Ord&Copy,\.V:\s*Copy>\s+<\(BTreeMap<\.K,\.V>,\.K,\.V\)\*>Result<BTreeMap<\.K,\.V>,\s*BTreeMapInsertError<\.K,\.V>>>/, 'BTreeMap.insert must expose owner-preserving BTreeMapInsertError');
 assertNoUnsafeUnwraps(btreeMapInsertFile, ['insert', 'btreemap_insert_ready']);
 
 const btreeSetApiFile = 'stdlib/alloc/collections/btreeset/api.nepl';
@@ -117,12 +118,14 @@ for (const submodule of ['create', 'observer', 'insert', 'remove', 'cleanup']) {
 
 const btreeSetInsert = functionBlock(btreeSetInsertFile, 'insert');
 assert.match(btreeSetInsert, /match\s+btreeset_grow<\.T>\s+set0:/, 'BTreeSet.insert must match grow result');
-assert.match(btreeSetInsert, /Result::Err\s+d:/, 'BTreeSet.insert must keep an Err arm');
-assert.match(btreeSetInsert, /err<BTreeSet<\.T>,\s*Diag>\s+d/, 'BTreeSet.insert must return grow Err');
+assert.match(btreeSetInsert, /Result::Err\s+e:/, 'BTreeSet.insert must keep an owner-preserving Err arm');
+assert.match(btreeSetInsert, /Result<BTreeSet<\.T>,\s*BTreeSetInsertError<\.T>>::Err\s+e/, 'BTreeSet.insert must return grow Err with the recovered owner through the typed Result variant');
+assert.match(btreeSetInsert, /fn\s+insert\s+<\.T:\s*Ord&Copy>\s+<\(BTreeSet<\.T>,\.T\)\*>Result<BTreeSet<\.T>,\s*BTreeSetInsertError<\.T>>>/, 'BTreeSet.insert must expose owner-preserving BTreeSetInsertError');
 assertNoUnsafeUnwraps(btreeSetInsertFile, ['insert', 'btreeset_insert_ready']);
 
 const btreeMapTypesSource = sourceWithoutComments(btreeMapTypesFile);
 const btreeMapStorageSource = sourceWithoutComments(btreeMapStorageFile);
+const btreeMapGrow = functionBlock(btreeMapStorageFile, 'btreemap_grow');
 const btreeMapSearchSource = sourceWithoutComments(btreeMapSearchFile);
 const btreeMapSource = [
     btreeMapRootSource,
@@ -138,6 +141,10 @@ const btreeMapSource = [
     sourceWithoutComments('stdlib/alloc/collections/btreemap/alias.nepl'),
 ].join('\n');
 assert.match(btreeMapSource, /struct BTreeMapStorage<\.K,\.V>:/, 'BTreeMap must keep typed storage wrapper');
+assert.match(btreeMapSource, /struct BTreeMapInsertError<\.K,\.V>:[\s\S]*owner\s+<BTreeMap<\.K,\.V>>[\s\S]*diag\s+<Diag>/, 'BTreeMap insert failure must carry the consumed map owner and diagnostic');
+assert.match(btreeMapGrow, /fn\s+btreemap_grow\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMap<\.K,\.V>\)\*>Result<BTreeMap<\.K,\.V>,\s*BTreeMapInsertError<\.K,\.V>>>/, 'BTreeMap grow must return an owner-preserving insert error');
+assert.match(btreeMapGrow, /Result::Err\s+d:[\s\S]*Result<BTreeMap<\.K,\.V>,\s*BTreeMapInsertError<\.K,\.V>>::Err\s+BTreeMapInsertError<\.K,\.V>\s+\(BTreeMap<\.K,\.V>\s+len0\s+cap0\s+storage\)\s+d/, 'BTreeMap grow allocation failure must return the original map owner through the typed Result variant');
+assert.doesNotMatch(btreeMapGrow, /Result::Err\s+d:\s*\n\s*btreemap_free_storage<\.K,\.V>\s+storage/, 'BTreeMap grow failure must not hide owner disposal inside storage helper');
 assert.match(btreeMapSource, /keys\s+<Vec<Option<\.K>>>/, 'BTreeMap keys must use Vec<Option<K>> storage');
 assert.match(btreeMapSource, /values\s+<Vec<Option<\.V>>>/, 'BTreeMap values must use Vec<Option<V>> storage');
 assert.match(btreeMapStorageSource, /match\s+btreemap_key_at<\.K>/, 'BTreeMap storage must branch on Option key slots');
@@ -148,6 +155,7 @@ assert.match(sourceWithoutComments(btreeMapCleanupFile), /fn\s+free\s+<\.K:\s*Co
 
 const btreeSetTypesSource = sourceWithoutComments(btreeSetTypesFile);
 const btreeSetStorageSource = sourceWithoutComments(btreeSetStorageFile);
+const btreeSetGrow = functionBlock(btreeSetStorageFile, 'btreeset_grow');
 const btreeSetSearchSource = sourceWithoutComments(btreeSetSearchFile);
 const btreeSetSource = [
     btreeSetRootSource,
@@ -163,6 +171,10 @@ const btreeSetSource = [
     sourceWithoutComments('stdlib/alloc/collections/btreeset/alias.nepl'),
 ].join('\n');
 assert.match(btreeSetSource, /struct BTreeSetStorage<\.T>:/, 'BTreeSet must keep typed storage wrapper');
+assert.match(btreeSetSource, /struct BTreeSetInsertError<\.T>:[\s\S]*owner\s+<BTreeSet<\.T>>[\s\S]*diag\s+<Diag>/, 'BTreeSet insert failure must carry the consumed set owner and diagnostic');
+assert.match(btreeSetGrow, /fn\s+btreeset_grow\s+<\.T:\s*Copy>\s+<\(BTreeSet<\.T>\)\*>Result<BTreeSet<\.T>,\s*BTreeSetInsertError<\.T>>>/, 'BTreeSet grow must return an owner-preserving insert error');
+assert.match(btreeSetGrow, /Result::Err\s+d:[\s\S]*Result<BTreeSet<\.T>,\s*BTreeSetInsertError<\.T>>::Err\s+BTreeSetInsertError<\.T>\s+\(BTreeSet<\.T>\s+len0\s+cap0\s+storage\)\s+d/, 'BTreeSet grow allocation failure must return the original set owner through the typed Result variant');
+assert.doesNotMatch(btreeSetGrow, /Result::Err\s+d:\s*\n\s*btreeset_free_storage<\.T>\s+storage/, 'BTreeSet grow failure must not hide owner disposal inside storage helper');
 assert.match(btreeSetSource, /keys\s+<Vec<Option<\.T>>>/, 'BTreeSet keys must use Vec<Option<T>> storage');
 assert.match(btreeSetStorageSource, /match\s+btreeset_key_at<\.T>/, 'BTreeSet storage must branch on Option key slots');
 assert.match(btreeSetSearchSource, /fn\s+btreeset_key_eq\s+<\.T:\s*Ord&Copy>\s+<\(\.T,\.T\)->bool>/, 'BTreeSet key equality must remain Copy-only until borrowed key comparison exists');

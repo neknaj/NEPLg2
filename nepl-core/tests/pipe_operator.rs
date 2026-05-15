@@ -403,9 +403,11 @@ fn pipe_complete_nullary_source_call_into_target() {
 fn main <()*>i32> ():
     let hm <BTreeMap<i32, i32>>:
         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
-        |> insert 3 30 |> uwok
-        |> insert 7 70 |> uwok
-    len hm
+        |> insert 3 30 |> unwrap_ok<BTreeMap<i32, i32>, BTreeMapInsertError<i32, i32>>
+        |> insert 7 70 |> unwrap_ok<BTreeMap<i32, i32>, BTreeMapInsertError<i32, i32>>
+    let n <i32> len &hm
+    free<i32, i32> hm
+    n
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 2);

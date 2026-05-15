@@ -89,31 +89,30 @@ neplg2:test
 #import "core/result" as *
 #import "core/field" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
+fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
     match r:
         Result::Ok m:
             m
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            btreemap_insert_error_owner<i32,i32> e
 
 fn main <()*>i32> ():
     let mut checks checks_new;
     let m0 <BTreeMap<i32,i32>>:
-        new<i32,i32>
-        |> must_map
+        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> must_map
+        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
         |> insert<i32,i32> 1 10
-        |> must_map
+        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
     set checks checks_push checks check_eq_i32 2 len<i32,i32> &m0;
     free<i32,i32> m0;
     let m1 <BTreeMap<i32,i32>>:
-        new<i32,i32>
-        |> must_map
+        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> must_map
+        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
         |> insert<i32,i32> 1 10
-        |> must_map
+        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
     match get<i32,i32> &m1 3:
         Option::Some v:
             set checks checks_push checks check_eq_i32 30 v
@@ -121,12 +120,11 @@ fn main <()*>i32> ():
             set checks checks_push checks Result<(),str>::Err "pipe btreemap get failed";
     free<i32,i32> m1;
     let m2 <BTreeMap<i32,i32>>:
-        new<i32,i32>
-        |> must_map
+        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> must_map
+        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
         |> insert<i32,i32> 1 10
-        |> must_map
+        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
     set checks checks_push checks check contains<i32,i32> &m2 1;
     free<i32,i32> m2;
     let shown checks_print_report checks;
@@ -147,37 +145,38 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
+fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
     match r:
         Result::Ok s:
             s
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            btreeset_insert_error_owner<i32> e
 
 fn main <()*>i32> ():
     let mut checks checks_new;
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> must_set
+        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
         |> insert<i32> 2
-        |> must_set
+        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
     set checks checks_push checks check contains<i32> &s0 5;
     free<i32> s0;
     let s1 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> must_set
+        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
         |> insert<i32> 2
-        |> must_set
+        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
     set checks checks_push checks check_eq_i32 2 len<i32> &s1;
     free<i32> s1;
     let s2 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> must_set
+        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
         |> insert<i32> 2
-        |> must_set
+        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
         |> remove<i32> 5
     set checks checks_push checks check not contains<i32> &s2 5;
     free<i32> s2;

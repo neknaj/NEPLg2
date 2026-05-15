@@ -140,16 +140,15 @@ pub fn btreemap_shift_left_after_remove <.K: Copy,.V: Copy> <(&BTreeMapStorage<.
     btreemap_store_key_slot<.K,.V> storage last none<.K>
     btreemap_store_value_slot<.K,.V> storage last none<.V>
 
-pub fn btreemap_grow <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>Result<BTreeMap<.K,.V>, Diag>> (hm):
+pub fn btreemap_grow <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>> (hm):
     let len0 <i32> *field::get_ref &hm "len"
     let cap0 <i32> *field::get_ref &hm "cap"
     let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
     let cap1 <i32> mul cap0 2
     match btreemap_alloc_storage<.K,.V> cap1:
         Result::Err d:
-            btreemap_free_storage<.K,.V> storage
-            err<BTreeMap<.K,.V>, Diag> d
+            Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Err BTreeMapInsertError<.K,.V> (BTreeMap<.K,.V> len0 cap0 storage) d
         Result::Ok next_storage:
             btreemap_copy_live_slots<.K,.V> &storage &next_storage len0
             btreemap_free_storage<.K,.V> storage
-            ok<BTreeMap<.K,.V>, Diag> BTreeMap<.K,.V> len0 cap1 next_storage
+            Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Ok BTreeMap<.K,.V> len0 cap1 next_storage

@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - grow が必要な準備処理と、容量確保済み storage への lower_bound / shift / store を所有します。
-//: - grow failure は `Result::Err` として返し、owner cleanup を storage helper の契約に委ねます。
+//: - grow failure は owner [返却/へんきゃく]つき `BTreeMapInsertError` として返します。
 
 #indent 4
 
@@ -28,7 +28,7 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - lower_bound は O(log n)、挿入時の shift は O(n) です。
-pub fn btreemap_insert_ready <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K,.V)*>Result<BTreeMap<.K,.V>, Diag>> (hm1, key, value):
+pub fn btreemap_insert_ready <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K,.V)*>BTreeMap<.K,.V>> (hm1, key, value):
     let len0 <i32> *field::get_ref &hm1 "len"
     let cap0 <i32> *field::get_ref &hm1 "cap"
     let storage <BTreeMapStorage<.K,.V>> field::get hm1 "storage"
@@ -37,22 +37,22 @@ pub fn btreemap_insert_ready <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K,.V)*>R
         btreemap_is_at_storage<.K,.V> &storage len0 idx key
         then:
             btreemap_store_value_slot<.K,.V> &storage idx some<.V> value
-            ok<BTreeMap<.K,.V>, Diag> BTreeMap<.K,.V> len0 cap0 storage
+            BTreeMap<.K,.V> len0 cap0 storage
         else:
             btreemap_shift_right<.K,.V> &storage idx len0
             btreemap_store_key_slot<.K,.V> &storage idx some<.K> key
             btreemap_store_value_slot<.K,.V> &storage idx some<.V> value
-            ok<BTreeMap<.K,.V>, Diag> BTreeMap<.K,.V> add len0 1 cap0 storage
+            BTreeMap<.K,.V> add len0 1 cap0 storage
 
 //: ## insert
 //: key/value を[挿入/そうにゅう]または[更新/こうしん]する
 //:
 //: ### [実装/じっそう]
-//: - 現在の[容量/ようりょう]が[満杯/まんぱい]なら `btreemap_grow` を[実行/じっこう]し、`Result::Err` はそのまま[返/かえ]します。
+//: - 現在の[容量/ようりょう]が[満杯/まんぱい]なら `btreemap_grow` を[実行/じっこう]し、`Result::Err` は owner [返却/へんきゃく]つきでそのまま[返/かえ]します。
 //: - 確保に[成功/せいこう]した map、または元から[余裕/よゆう]のある map だけを `btreemap_insert_ready` に[渡/わた]します。
 //:
 //: ### [失敗/しっぱい]
-//: - grow 用 key/value buffer の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `Diag::OutOfMemory` を[返/かえ]し、trap しません。
+//: - grow 用 key/value buffer の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `BTreeMapInsertError` に元の map owner と `Diag::OutOfMemory` を[入/い]れて[返/かえ]し、trap しません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 通常は O(n)、grow が[起/お]きる[回/かい]は既存要素の copy を含め O(n) です。
@@ -73,7 +73,7 @@ pub fn btreemap_insert_ready <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K,.V)*>R
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-pub fn insert <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K,.V)*>Result<BTreeMap<.K,.V>, Diag>> (hm, key, value):
+pub fn insert <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K,.V)*>Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>> (hm, key, value):
     let len_init <i32> *field::get_ref &hm "len"
     let cap_init <i32> *field::get_ref &hm "cap"
     if:
@@ -81,7 +81,10 @@ pub fn insert <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K,.V)*>Result<BTreeMap<
         then:
             match btreemap_grow<.K,.V> hm:
                 Result::Ok hm1:
-                    btreemap_insert_ready<.K,.V> hm1 key value
-                Result::Err d:
-                    err<BTreeMap<.K,.V>, Diag> d
-        else btreemap_insert_ready<.K,.V> hm key value
+                    let next <BTreeMap<.K,.V>> btreemap_insert_ready<.K,.V> hm1 key value
+                    Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Ok next
+                Result::Err e:
+                    Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Err e
+        else:
+            let next <BTreeMap<.K,.V>> btreemap_insert_ready<.K,.V> hm key value
+            Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Ok next

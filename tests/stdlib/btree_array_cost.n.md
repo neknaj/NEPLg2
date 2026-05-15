@@ -16,12 +16,13 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
+fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
     match r:
         Result::Ok m:
             m
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            btreemap_insert_error_owner<i32,i32> e
 
 fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     let mut m <BTreeMap<i32,i32>> unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
@@ -29,7 +30,7 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
+            set m unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>> sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
@@ -53,12 +54,13 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
+fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
     match r:
         Result::Ok m:
             m
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            btreemap_insert_error_owner<i32,i32> e
 
 fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     let mut m <BTreeMap<i32,i32>> unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
@@ -66,7 +68,7 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
+            set m unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>> sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
@@ -91,12 +93,13 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
+fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
     match r:
         Result::Ok m:
             m
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            btreemap_insert_error_owner<i32,i32> e
 
 fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     let mut m <BTreeMap<i32,i32>> unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
@@ -104,7 +107,7 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
+            set m unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>> sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
@@ -132,12 +135,13 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
+fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
     match r:
         Result::Ok s:
             s
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            btreeset_insert_error_owner<i32> e
 
 fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     let mut s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
@@ -145,7 +149,7 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set s must_set sorted_array_set_insert<i32> s k;
+            set s unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>> sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 
@@ -169,12 +173,13 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
+fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
     match r:
         Result::Ok s:
             s
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            btreeset_insert_error_owner<i32> e
 
 fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     let mut s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
@@ -182,7 +187,7 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set s must_set sorted_array_set_insert<i32> s k;
+            set s unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>> sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 
@@ -206,12 +211,13 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
+fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
     match r:
         Result::Ok s:
             s
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            btreeset_insert_error_owner<i32> e
 
 fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     let mut s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
@@ -219,7 +225,7 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set s must_set sorted_array_set_insert<i32> s k;
+            set s unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>> sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 

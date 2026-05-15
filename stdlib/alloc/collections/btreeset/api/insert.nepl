@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - grow が必要な準備処理と、容量確保済み storage への lower_bound / shift / store を所有します。
-//: - grow failure は `Result::Err` として返し、trap にしません。
+//: - grow failure は owner [返却/へんきゃく]つき `BTreeSetInsertError` として返します。
 
 #indent 4
 
@@ -28,28 +28,28 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - lower_bound は O(log n)、新規[挿入/そうにゅう]時の shift は O(n) です。
-pub fn btreeset_insert_ready <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set1, key):
+pub fn btreeset_insert_ready <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set1, key):
     let len0 <i32> *field::get_ref &set1 "len"
     let cap0 <i32> *field::get_ref &set1 "cap"
     let storage <BTreeSetStorage<.T>> field::get set1 "storage"
     let idx <i32> btreeset_lower_bound_storage<.T> &storage key 0 len0
     if:
         btreeset_is_at_storage<.T> &storage len0 idx key
-        then ok<BTreeSet<.T>, Diag> BTreeSet<.T> len0 cap0 storage
+        then BTreeSet<.T> len0 cap0 storage
         else:
             btreeset_shift_right<.T> &storage idx len0
             btreeset_store_key_slot<.T> &storage idx some<.T> key
-            ok<BTreeSet<.T>, Diag> BTreeSet<.T> add len0 1 cap0 storage
+            BTreeSet<.T> add len0 1 cap0 storage
 
 //: ## insert
 //: key を[集合/しゅうごう]へ[挿入/そうにゅう]する
 //:
 //: ### [実装/じっそう]
-//: - 現在の[容量/ようりょう]が[満杯/まんぱい]なら `btreeset_grow` を[実行/じっこう]し、`Result::Err` はそのまま[返/かえ]します。
+//: - 現在の[容量/ようりょう]が[満杯/まんぱい]なら `btreeset_grow` を[実行/じっこう]し、`Result::Err` は owner [返却/へんきゃく]つきでそのまま[返/かえ]します。
 //: - 確保に[成功/せいこう]した set、または元から[余裕/よゆう]のある set だけを `btreeset_insert_ready` に[渡/わた]します。
 //:
 //: ### [失敗/しっぱい]
-//: - grow 用 key buffer の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `Diag::OutOfMemory` を[返/かえ]し、trap しません。
+//: - grow 用 key buffer の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `BTreeSetInsertError` に元の set owner と `Diag::OutOfMemory` を[入/い]れて[返/かえ]し、trap しません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 通常は O(n)、grow が[起/お]きる[回/かい]は既存要素の copy を含め O(n) です。
@@ -70,7 +70,7 @@ pub fn btreeset_insert_ready <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-pub fn insert <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
+pub fn insert <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, BTreeSetInsertError<.T>>> (set0, key):
     let len_init <i32> *field::get_ref &set0 "len"
     let cap_init <i32> *field::get_ref &set0 "cap"
     if:
@@ -78,7 +78,10 @@ pub fn insert <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (se
         then:
             match btreeset_grow<.T> set0:
                 Result::Ok set1:
-                    btreeset_insert_ready<.T> set1 key
-                Result::Err d:
-                    err<BTreeSet<.T>, Diag> d
-        else btreeset_insert_ready<.T> set0 key
+                    let next <BTreeSet<.T>> btreeset_insert_ready<.T> set1 key
+                    Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Ok next
+                Result::Err e:
+                    Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Err e
+        else:
+            let next <BTreeSet<.T>> btreeset_insert_ready<.T> set0 key
+            Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Ok next

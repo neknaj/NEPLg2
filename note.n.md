@@ -1,3 +1,21 @@
+# 2026-05-15 Agent 1 BTree insert grow owner-preserving error 修正
+
+- `ISS-20260515T112247069Z-BTREEMAP-BTREESET-INSERT-GROW-FAILUR-BACDFEB7` を追加して解決した。
+- `BTreeMap.insert` / `BTreeSet.insert` は collection owner を消費する fallible update であるため、grow allocation failure でも元 owner を caller へ返す必要がある。旧実装は `Result<Collection, Diag>` で、`btreemap_grow` / `btreeset_grow` が内部で storage を free していたため、owner の行方が API 型で証明できなかった。
+- `BTreeMapInsertError<K,V>` / `BTreeSetInsertError<T>` を追加し、`owner` と `Diag` を分けた。error diag は参照で読み、owner は accessor で回収する。
+- `btreemap_grow` / `btreeset_grow` と public `insert` は `Result<Collection, InsertError>` を返す。owner-bearing nested payload は ResourceIR が variant owner を正確に追えるよう、`ok` / `err` helper 経由ではなく typed `Result::Ok` / `Result::Err` constructor で直接構築する。
+- `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` を更新し、owner-preserving error 型、grow failure の owner 返却、内部 free の禁止、typed Result variant constructor を regression として固定した。
+- `nepl-core/tests/pipe_operator.rs` の BTreeMap pipe 回帰は、新しい `BTreeMapInsertError` を明示して unwrap し、作成した map owner を `free` する現在の ResourceIR 契約に同期した。
+- 作業中に、owner-bearing Result を直接 `match` する場合は通る一方、同じ分岐を helper 関数に閉じると入れ子 owner projection の summary が漏れる core 側の問題を確認したため、`ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8` として分離した。
+- 検証:
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/agent1-btree-insert-owner-error-doctests.json -j 1 --dist web/dist --assert-io`: total=10, passed=10
+  - `node nodesrc/tests.js -i tests/stdlib/btree_array_cost.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/agent1-btree-owner-error-alias-doctests.json -j 1 --dist web/dist --assert-io`: total=14, passed=14
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-collection-cleanup-contract-after-btree-owner-error.json -j 1 --dist web/dist --assert-io`: total=25, passed=25
+  - `cargo test -p nepl-core --test pipe_operator pipe_complete_nullary_source_call_into_target -- --exact`
+- `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` と親 issue `RV-STDLIB-004` を同期した。
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 stdlib/cliarg stdout report doctest 修正
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`stdlib/tests/cliarg.n.md` の `ret:` 依存 doctest 2 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
