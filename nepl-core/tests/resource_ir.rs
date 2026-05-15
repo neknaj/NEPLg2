@@ -11493,6 +11493,53 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_transfers_nested_btree_insert_error_owner_through_helper() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/btreemap" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+    match r:
+        Result::Ok m:
+            m
+        Result::Err e:
+            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            btreemap_insert_error_owner<i32,i32> e
+
+fn main <()*>()> ():
+    let map0 <BTreeMap<i32,i32>> unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+    let map1 <BTreeMap<i32,i32>> must_map insert<i32,i32> map0 1 10
+    free<i32,i32> map1
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("must_map__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "nested BTreeMap insert error owner must transfer through helper summary: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_recursive_vec_result_err_does_not_keep_inactive_ok_owner() {
     let source = r#"
 #entry main

@@ -11,6 +11,7 @@ use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_source::owner_projection_source_place;
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::parameter_return_extent_for_source;
+use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
@@ -26,6 +27,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
         args: &[Place],
         summary: &OwnerReturnSummary,
@@ -42,6 +44,15 @@ impl ResourceOwnerCheckEngine<'_> {
                 suffix: Vec::new(),
                 ty: arg.ty,
             };
+            variant_owner_effects.materialize_return_owner_for_target(
+                self,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                span,
+            );
             if self.try_copy_non_owning_parameter_return(
                 owners,
                 raw_aliases,
@@ -93,6 +104,15 @@ impl ResourceOwnerCheckEngine<'_> {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
+            variant_owner_effects.materialize_return_owner_for_target(
+                self,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source_place,
+                span,
+            );
             if self.try_copy_non_owning_parameter_return(
                 owners,
                 raw_aliases,
@@ -167,6 +187,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 &output_projection,
                 args,
                 projection,
+                variant_owner_effects,
                 span,
             );
         }
@@ -187,6 +208,7 @@ impl ResourceOwnerCheckEngine<'_> {
             storage_origins,
             args,
             summary,
+            variant_owner_effects,
             span,
         );
     }
@@ -210,6 +232,7 @@ impl ResourceOwnerCheckEngine<'_> {
         output: &Place,
         args: &[Place],
         summary: &OwnerProjectionReturnSummary,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         span: Span,
     ) {
         let mut transferred = false;
@@ -229,6 +252,15 @@ impl ResourceOwnerCheckEngine<'_> {
                 suffix: Vec::new(),
                 ty: arg.ty,
             };
+            variant_owner_effects.materialize_return_owner_for_target(
+                self,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                span,
+            );
             if self.try_copy_non_owning_parameter_return(
                 owners,
                 raw_aliases,
@@ -280,6 +312,15 @@ impl ResourceOwnerCheckEngine<'_> {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
+            variant_owner_effects.materialize_return_owner_for_target(
+                self,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source_place,
+                span,
+            );
             if self.try_copy_non_owning_parameter_return(
                 owners,
                 raw_aliases,

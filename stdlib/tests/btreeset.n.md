@@ -27,11 +27,11 @@ fn main <()*>i32> ():
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 1
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 3
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
     set checks checks_push checks check_eq_i32 3 len<i32> &s0;
     free<i32> s0;
 
@@ -66,23 +66,23 @@ fn main <()*>i32> ():
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 0
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 1
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 2
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 3
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 4
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 6
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 7
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 8
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
     set checks checks_push checks check contains<i32> &s0 8;
     free<i32> s0;
 
@@ -118,18 +118,18 @@ fn main <()*>i32> ():
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 1
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
     set checks checks_push checks check contains<i32> &s0 1;
     free<i32> s0;
 
     let s1 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 1
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> remove<i32> 1
     set checks checks_push checks check not contains<i32> &s1 1;
     free<i32> s1;
@@ -137,9 +137,9 @@ fn main <()*>i32> ():
     let s2 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 1
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> remove<i32> 1
     set checks checks_push checks check_eq_i32 1 len<i32> &s2;
     free<i32> s2;
@@ -175,9 +175,9 @@ fn main <()*>i32> ():
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 3
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 3
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
     set checks checks_push checks check_eq_i32 1 len<i32> &s0;
     free<i32> s0;
 
@@ -212,9 +212,9 @@ fn main <()*>i32> ():
     let s <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 2
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 1
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
     set checks checks_push checks check_eq_i32 2 len<i32> &s;
     set checks checks_push checks check contains<i32> &s 1;
     free s;

@@ -330,6 +330,53 @@ impl PendingVariantOwnerEffects {
         self.resolve_result(result);
     }
 
+    pub(super) fn materialize_return_owner_for_target(
+        &mut self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        target: &Place,
+        span: Span,
+    ) -> bool {
+        let matching_returns = self
+            .returns
+            .iter()
+            .filter(|entry| {
+                summary_projection_place(&entry.result, &entry.target_suffix, entry.target_ty)
+                    == *target
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if matching_returns.is_empty() {
+            return false;
+        }
+
+        let mut materialized_sources = Vec::new();
+        let mut materialized = false;
+        for entry in matching_returns {
+            if let Some(source) = apply_pending_variant_owner_return(
+                engine,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &entry,
+                &entry.result,
+                span,
+            ) {
+                let ty = source.ty;
+                push_unique_source(&mut materialized_sources, source, Vec::new(), ty);
+                materialized = true;
+            }
+        }
+        if !materialized_sources.is_empty() {
+            self.retain_unmaterialized_sources(raw_aliases, &materialized_sources);
+        }
+        materialized
+    }
+
     pub(super) fn collect_result_owner_effect_summaries(
         &self,
         _engine: &ResourceOwnerCheckEngine<'_>,
@@ -601,6 +648,25 @@ impl PendingVariantOwnerEffects {
             }
         }
         None
+    }
+
+    fn retain_unmaterialized_sources(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        materialized_sources: &[(Place, Vec<super::model::PlaceProjection>, TypeId)],
+    ) {
+        self.consumptions.retain(|entry| {
+            let source = pending_consumption_source(entry, raw_aliases);
+            let ty = source.ty;
+            !source_list_contains(materialized_sources, &source, &[], ty)
+        });
+        self.returns.retain(|entry| {
+            let Some(source) = pending_return_source(entry, raw_aliases) else {
+                return true;
+            };
+            let ty = source.ty;
+            !source_list_contains(materialized_sources, &source, &[], ty)
+        });
     }
 }
 

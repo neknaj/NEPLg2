@@ -30,7 +30,7 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set m unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>> sorted_array_map_insert<i32,i32> m k mul k 10;
+            set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
@@ -68,7 +68,7 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set m unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>> sorted_array_map_insert<i32,i32> m k mul k 10;
+            set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
@@ -107,7 +107,7 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set m unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>> sorted_array_map_insert<i32,i32> m k mul k 10;
+            set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
@@ -149,7 +149,7 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set s unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>> sorted_array_set_insert<i32> s k;
+            set s must_set sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 
@@ -187,7 +187,7 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set s unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>> sorted_array_set_insert<i32> s k;
+            set s must_set sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 
@@ -225,7 +225,7 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
     while gt i 0:
         do:
             let k <i32> sub i 1;
-            set s unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>> sorted_array_set_insert<i32> s k;
+            set s must_set sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 

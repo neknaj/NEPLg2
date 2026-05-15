@@ -1,3 +1,24 @@
+# 2026-05-15 Agent 1 ResourceIR nested variant owner summary 修正
+
+- `ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8` を解決した。
+- `Result<BTreeMap<...>, BTreeMapInsertError<...>>` / `Result<BTreeSet<...>, BTreeSetInsertError<...>>` を受け取る helper が `Ok` payload または `Err.owner` payload から collection owner を返すと、caller 側で元 `insert` 引数 owner が leak / maybe_leak と誤診断されていた。
+- 根本原因は、callee の owner return summary が指す source place が未解決 `Result` payload owner return target の内側にある場合、caller summary 適用前にその pending variant owner を materialize していなかったことだった。直接 `match` は通るが helper 化すると summary 間で owner が接続されないため、入れ子 owner aggregate だけが漏れていた。
+- `PendingVariantOwnerEffects::materialize_return_owner_for_target` を追加し、summary が返却または消費しようとする引数 / 引数 projection が pending variant owner return target と一致した時点で ResourceIR owner state へ実体化するようにした。実体化済み source に対応する stale pending return / consumption も除去し、同じ source owner を後段で再消費しない。
+- `stdlib/tests/btreemap.n.md` / `stdlib/tests/btreeset.n.md` / `tests/stdlib/btree_array_cost.n.md` / `tests/stdlib/pipe_collections.n.md` は、前回の暫定回避だった直接 `unwrap_ok<..., InsertError>` から、owner-preserving helper `must_map` / `must_set` を使う形へ戻した。これは core 側の summary 証明が成立することをstdlib doctestで固定するためである。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 6 Resource IR owner summary 進捗にこの修正を追記した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_nested_btree_insert_error_owner_through_helper -- --exact`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --exact`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_vec_push_error_owner_does_not_leak_through_result_err -- --exact`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_recursive_vec_result_err_does_not_keep_inactive_ok_owner -- --exact`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result_from_owner_returning_helper -- --exact`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_prefers_live_return_owner_over_moved_source_alias -- --exact`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument -- --exact`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/agent1-btree-helper-summary-doctests.json -j 1 --dist web/dist --assert-io`: total=10, passed=10
+  - `node nodesrc/tests.js -i tests/stdlib/btree_array_cost.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/agent1-btree-helper-summary-alias-doctests.json -j 1 --dist web/dist --assert-io`: total=14, passed=14
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 BTree insert grow owner-preserving error 修正
 
 - `ISS-20260515T112247069Z-BTREEMAP-BTREESET-INSERT-GROW-FAILUR-BACDFEB7` を追加して解決した。

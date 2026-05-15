@@ -27,11 +27,11 @@ fn main <()*>i32> ():
     let m0 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 5 50
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 3 30
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     set checks checks_push checks check_eq_i32 3 len<i32,i32> &m0;
     free<i32,i32> m0;
 
@@ -68,23 +68,23 @@ fn main <()*>i32> ():
     let m0 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 0 0
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 2 20
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 3 30
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 4 40
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 5 50
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 6 60
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 7 70
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 8 80
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     match get<i32,i32> &m0 8:
         Option::Some v:
             set checks checks_push checks check_eq_i32 80 v
@@ -126,9 +126,9 @@ fn main <()*>i32> ():
     let m0 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     match get<i32,i32> &m0 3:
         Option::Some v:
             set checks checks_push checks check_eq_i32 30 v
@@ -139,9 +139,9 @@ fn main <()*>i32> ():
     let m1 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> remove<i32,i32> 1
     set checks checks_push checks check_eq_i32 1 len<i32,i32> &m1;
     free<i32,i32> m1;
@@ -180,9 +180,9 @@ fn main <()*>i32> ():
     let m0 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 7 70
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 7 71
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     match get<i32,i32> &m0 7:
         Option::Some v:
             set checks checks_push checks check_eq_i32 71 v
@@ -223,9 +223,9 @@ fn main <()*>i32> ():
     let m <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 2 20
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     set checks checks_push checks check_eq_i32 2 len<i32,i32> &m;
     set checks checks_push checks check contains<i32,i32> &m 1;
     match get<i32,i32> &m 2:

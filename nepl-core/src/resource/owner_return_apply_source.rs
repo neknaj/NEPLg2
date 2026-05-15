@@ -10,6 +10,7 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::instantiate_owner_extent_summary;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_with_suffix;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{OwnerConsumedExtentRequirement, OwnerProjectionSource, OwnerReturnSummary};
@@ -19,10 +20,11 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         args: &[Place],
         summary: &OwnerReturnSummary,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         span: Span,
     ) {
         for arg in summary
@@ -44,6 +46,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 &source,
                 &summary.consumed_extent_requirements,
                 args,
+                variant_owner_effects,
                 span,
             );
         }
@@ -60,6 +63,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 source,
                 &summary.consumed_extent_requirements,
                 args,
+                variant_owner_effects,
                 span,
             );
         }
@@ -102,14 +106,24 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         arg: &Place,
         source: &OwnerProjectionSource,
         requirements: &[OwnerConsumedExtentRequirement],
         args: &[Place],
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         span: Span,
     ) {
+        variant_owner_effects.materialize_return_owner_for_target(
+            self,
+            owners,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            arg,
+            span,
+        );
         let requirement = requirements
             .iter()
             .find(|requirement| &requirement.owner == source);

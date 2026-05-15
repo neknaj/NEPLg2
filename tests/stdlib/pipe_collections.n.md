@@ -102,17 +102,17 @@ fn main <()*>i32> ():
     let m0 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     set checks checks_push checks check_eq_i32 2 len<i32,i32> &m0;
     free<i32,i32> m0;
     let m1 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     match get<i32,i32> &m1 3:
         Option::Some v:
             set checks checks_push checks check_eq_i32 30 v
@@ -122,9 +122,9 @@ fn main <()*>i32> ():
     let m2 <BTreeMap<i32,i32>>:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
         |> insert<i32,i32> 1 10
-        |> unwrap_ok<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>
+        |> must_map
     set checks checks_push checks check contains<i32,i32> &m2 1;
     free<i32,i32> m2;
     let shown checks_print_report checks;
@@ -158,25 +158,25 @@ fn main <()*>i32> ():
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 2
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
     set checks checks_push checks check contains<i32> &s0 5;
     free<i32> s0;
     let s1 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 2
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
     set checks checks_push checks check_eq_i32 2 len<i32> &s1;
     free<i32> s1;
     let s2 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> insert<i32> 2
-        |> unwrap_ok<BTreeSet<i32>, BTreeSetInsertError<i32>>
+        |> must_set
         |> remove<i32> 5
     set checks checks_push checks check not contains<i32> &s2 5;
     free<i32> s2;

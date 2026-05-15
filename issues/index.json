@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T12:05:38.531Z",
+  "generated_at": "2026-05-15T12:28:36.035Z",
   "counts": {
     "total": 822,
-    "open": 6,
-    "resolved": 816,
+    "open": 5,
+    "resolved": 817,
     "by_area": {
-      "core": {
-        "total": 409,
-        "open": 1,
-        "resolved": 408
-      },
       "stdlib": {
         "total": 234,
         "open": 3,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 409,
+        "open": 0,
+        "resolved": 409
       },
       "CORE": {
         "total": 1,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8",
-      "title": "Resource owner summary loses nested owner payload through result unwrapping helper",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "nepl-core/src/resource/**, stdlib/alloc/collections/btreemap/**, stdlib/alloc/collections/btreeset/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6178,6 +6163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T044945141Z-INTERNAL-MEMPTR-WRAPPER-CALLS-BYPASS-49539013.md"
+    },
+    {
+      "id": "ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8",
+      "title": "Resource owner summary loses nested owner payload through result unwrapping helper",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/resource/**, stdlib/alloc/collections/btreemap/**, stdlib/alloc/collections/btreeset/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T115250172Z-RESOURCE-OWNER-SUMMARY-LOSES-NESTED--28CFC4D8.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
