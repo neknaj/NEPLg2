@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T10:19:13.890Z",
+  "generated_at": "2026-05-15T10:41:47.211Z",
   "counts": {
-    "total": 817,
+    "total": 818,
     "open": 5,
-    "resolved": 812,
+    "resolved": 813,
     "by_area": {
       "stdlib": {
         "total": 232,
@@ -77,9 +77,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 10,
+        "total": 11,
         "open": 0,
-        "resolved": 10
+        "resolved": 11
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -6493,6 +6493,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T212118060Z-MEMPTR-OWNER-FIELD-MIGRATION-LACKS-G-7E2612E2.md"
+    },
+    {
+      "id": "ISS-20260515T104059906Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-EX-78F016BC",
+      "title": "source policy resource gate order expects untyped effect boundary",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "nodesrc/test_resource_gate_order.js,nepl-core/src/compiler.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T104059906Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-EX-78F016BC.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",

@@ -50,7 +50,7 @@ for (const gate of [
     'run_resource_drop_elaboration_plan_gate(',
     'crate::resource::check_resource_borrow_lifetimes(&resource, types)',
     'run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)',
-    'crate::resource::check_resource_effect_boundaries(&resource)',
+    'crate::resource::check_resource_effect_boundaries_typed(&resource, types)',
     'run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)',
     'crate::resource::check_resource_owner_obligations(&resource, types)',
     'run_resource_owner_obligation_gate(&owner_obligations, diagnostics)',
@@ -66,6 +66,10 @@ assert(
 assert(
     !body.includes('run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)'),
     'Resource owner obligation gate must not receive SourceMap because raw-memory-boundary suppression belongs to the effect boundary gate',
+);
+assert(
+    !body.includes('crate::resource::check_resource_effect_boundaries(&resource)'),
+    'Resource effect boundary gate must use typed effect summaries from TypeCtx instead of falling back to untyped Resource IR effects',
 );
 
 const compilerRelative = source

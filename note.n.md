@@ -1,3 +1,10 @@
+# 2026-05-15 Agent 1 Resource gate typed effect policy 修正
+
+- `ISS-20260515T104059906Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-EX-78F016BC` を追加し、`nodesrc/test_resource_gate_order.js` が古い untyped `check_resource_effect_boundaries(&resource)` を要求していた問題を記録した。
+- 現行 compiler は `check_resource_effect_boundaries_typed(&resource, types)` により Resource IR effect boundary を `TypeCtx` 付きで検査するため、source policy も typed call を必須にした。
+- 同時に、`run_resource_static_check` が untyped helper へ戻ることを禁止した。cell / owner gate から `source_map` を外し、raw-memory-boundary capability 判定を effect boundary gate に限定する既存方針は維持した。
+- `plan.md` は変更していない。
+
 # 2026-05-15 Agent 1 stdlib/string stdout report doctest 修正
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の継続対応として、`stdlib/tests/string.n.md` の doctest 9 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
