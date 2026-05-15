@@ -39040,3 +39040,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir owner_check_prefers_live_return_owner -- --nocapture`: 1 passed
   - `cargo test -p nepl-core --test resource_ir owner_check_reports_leaked_conditional_owner_return -- --nocapture`: 1 passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: Resource checker pass、documentation contract warning only
+
+## 2026-05-15 Agent 1 stdlib documentation contract baseline 復旧
+
+- `ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A` を fixed にした。
+- `node nodesrc/test_stdlib_documentation_contract.js` は `declarationNoDoctest=1038` で frozen baseline `1032` を 6 件超過していたため、baseline を緩めずに公開 helper の doctest を補った。
+- `stdlib/alloc/collections/deque/index.nepl` に `deque_normalize_capacity` / `deque_prev_index` / `deque_tail_index` / `deque_back_index` の canonical stdout report doctest を追加した。
+- `stdlib/alloc/collections/hashmap/probe.nepl` と `stdlib/alloc/collections/hashset/probe.nepl` に linear probing の next-slot wrap-around doctest を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: `declarationNoDoctest=1032`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/deque/index.nepl -i stdlib/alloc/collections/hashmap/probe.nepl -i stdlib/alloc/collections/hashset/probe.nepl --no-tree -o tmp/agent1-doc-contract-index-probe.json -j 1 --dist web/dist --assert-io`: 6 passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: source-policy warning なし

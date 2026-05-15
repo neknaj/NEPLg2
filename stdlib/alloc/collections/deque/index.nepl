@@ -10,17 +10,85 @@
 #import "core/math" as *
 
 //: deque_normalize_capacity: 1 [以上/いじょう]の capacity に[正規化/せいきか]する
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"deque_normalize_capacity_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"zero capacity becomes one\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"positive capacity is kept\" expected=\"5\" actual=\"5\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/deque/index" as *
+//: fn main <()*>i32> ():
+//:     let report:
+//:         test_report_new "deque_normalize_capacity_doc"
+//:         |> test_report_push assert_eq_i32 "zero capacity becomes one" 1 deque_normalize_capacity 0
+//:         |> test_report_push assert_eq_i32 "positive capacity is kept" 5 deque_normalize_capacity 5
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn deque_normalize_capacity <(i32)->i32> (cap):
     if lt cap 1 1 cap
 
 //: deque_prev_index: circular buffer の[前/まえ]の index を[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"deque_prev_index_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"middle previous\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"front wraps to cap minus one\" expected=\"3\" actual=\"3\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/deque/index" as *
+//: fn main <()*>i32> ():
+//:     let report:
+//:         test_report_new "deque_prev_index_doc"
+//:         |> test_report_push assert_eq_i32 "middle previous" 1 deque_prev_index 2 4
+//:         |> test_report_push assert_eq_i32 "front wraps to cap minus one" 3 deque_prev_index 0 4
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn deque_prev_index <(i32,i32)->i32> (idx, cap):
     rem_u add sub idx 1 cap cap
 
 //: deque_tail_index: `head + len` の circular tail index を[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"deque_tail_index_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"tail without wrap\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"tail wraps\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/deque/index" as *
+//: fn main <()*>i32> ():
+//:     let report:
+//:         test_report_new "deque_tail_index_doc"
+//:         |> test_report_push assert_eq_i32 "tail without wrap" 4 deque_tail_index 1 3 5
+//:         |> test_report_push assert_eq_i32 "tail wraps" 0 deque_tail_index 3 2 5
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn deque_tail_index <(i32,i32,i32)->i32> (head, len, cap):
     rem_u add head len cap
 
 //: deque_back_index: live range の[末尾/まつび] index を[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"deque_back_index_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"back without wrap\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"back wraps\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/deque/index" as *
+//: fn main <()*>i32> ():
+//:     let report:
+//:         test_report_new "deque_back_index_doc"
+//:         |> test_report_push assert_eq_i32 "back without wrap" 4 deque_back_index 2 3 5
+//:         |> test_report_push assert_eq_i32 "back wraps" 0 deque_back_index 4 2 5
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn deque_back_index <(i32,i32,i32)->i32> (head, len, cap):
     rem_u add head sub len 1 cap

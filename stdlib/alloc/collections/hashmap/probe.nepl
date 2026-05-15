@@ -25,6 +25,23 @@ pub fn hashmap_bucket_index <.K: HashKey&Copy,.H: Hasher<.K>&Copy> <(i32,.H,.K)-
     rem_u hash_with<.K,.H> hasher key cap
 
 //: hashmap_next_slot: linear probing の[次/つぎ]の index を[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"hashmap_next_slot_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"next slot\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"next slot wraps\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/hashmap/probe" as *
+//: fn main <()*>i32> ():
+//:     let report:
+//:         test_report_new "hashmap_next_slot_doc"
+//:         |> test_report_push assert_eq_i32 "next slot" 2 hashmap_next_slot 1 4
+//:         |> test_report_push assert_eq_i32 "next slot wraps" 0 hashmap_next_slot 3 4
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn hashmap_next_slot <(i32,i32)->i32> (idx, cap):
     rem_u add idx 1 cap
 

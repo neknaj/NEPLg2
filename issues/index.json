@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T13:13:48.824Z",
+  "generated_at": "2026-05-15T13:21:35.471Z",
   "counts": {
     "total": 829,
-    "open": 6,
-    "resolved": 823,
+    "open": 5,
+    "resolved": 824,
     "by_area": {
       "stdlib": {
         "total": 235,
-        "open": 4,
-        "resolved": 231
+        "open": 3,
+        "resolved": 232
       },
       "TEST": {
         "total": 24,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A",
-      "title": "Stdlib documentation contract declaration doctest baseline regressed to 1038",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "doc",
-      "created": "2026-05-15",
-      "updated": "2026-05-15",
-      "target": "stdlib/**/*.nepl, nodesrc/test_stdlib_documentation_contract.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -9748,6 +9733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T112247069Z-BTREEMAP-BTREESET-INSERT-GROW-FAILUR-BACDFEB7.md"
+    },
+    {
+      "id": "ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A",
+      "title": "Stdlib documentation contract declaration doctest baseline regressed to 1038",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/**/*.nepl, nodesrc/test_stdlib_documentation_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
