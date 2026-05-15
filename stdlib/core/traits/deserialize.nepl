@@ -18,6 +18,7 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "core/cast" as *
 
 //: ## Deserialize
 //: `str` から[値/あたい]を[復元/ふくげん]する[能力/のうりょく]
@@ -39,43 +40,26 @@ trait Deserialize:
 //: - [呼/よ]び[出/だ]し[側/がわ]が[型/かた]ごとの[具体的/ぐたいてき] API を[意識/いしき]せず、[共通/きょうつう]の[入口/いりぐち]から[復元/ふくげん]できるようにします。
 //:
 //: ### [使用例/しようれい]
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"deserialize_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"deserialize i32\" expected=\"42\" actual=\"42\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/deserialize" as *
-//:| #import "alloc/diag/error" as *
 //:| fn main <()*>i32> ():
-//:     let check <Result<(),str>>:
+//:     let assertion <TestAssertion>:
 //:         match deserialize<i32> "42":
 //:             Result::Ok v:
-//:                 assert_eq_i32 42 v
-//:             Result::Err e:
-//:                 match e:
-//:                     StdErrorKind::ParseError:
-//:                         test_fail "deserialize<i32> failed unexpectedly"
-//:                     StdErrorKind::Failure:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::OutOfMemory:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::EmptyCollection:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::IndexOutOfBounds:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::KeyNotFound:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::CapacityExceeded:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::InvalidOperation:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::InvalidUtf8:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::IoError:
-//:                         test_fail "wrong error kind"
-//:                     StdErrorKind::Other:
-//:                         test_fail "wrong error kind"
-//:     result_exit_code check
+//:                 assert_eq_i32 "deserialize i32" 42 v
+//:             Result::Err _e:
+//:                 test_assertion_failed AssertionKind::EqI32 "deserialize i32" "42" "Err" "deserialize<i32> failed unexpectedly"
+//:     let report:
+//:         test_report_new "deserialize_doc"
+//:         |> test_report_push assertion
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 //:
 //: ### [実装/じっそう]
@@ -120,7 +104,13 @@ impl Deserialize for u8:
     fn deserialize <(str)->Result<u8, StdErrorKind>> (s):
         match to_i32 s:
             Result::Ok v:
-                if and ge v 0 le v 255 then Result::Ok<u8, StdErrorKind> <u8> cast v else Result::Err<u8, StdErrorKind> StdErrorKind::ParseError
+                if:
+                    and ge v 0 le v 255
+                    then:
+                        let byte <u8> cast v
+                        Result::Ok<u8, StdErrorKind> byte
+                    else:
+                        Result::Err<u8, StdErrorKind> StdErrorKind::ParseError
             Result::Err _e:
                 Result::Err<u8, StdErrorKind> StdErrorKind::ParseError
 

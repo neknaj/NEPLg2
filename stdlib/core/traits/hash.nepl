@@ -17,18 +17,27 @@
 //: - `i32` は O(1) です。
 //: - `str` は[文字列長/もじれつちょう]を n として O(n) です。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"hash_trait_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"same input hash stable\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"different input changes hash\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/hash" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456
-//:         |> checks_push assert ne hash32_by_trait 123456 hash32_by_trait 123457
-//:     checks_exit_code checks
+//:     let h1 <i32> hash32_by_trait 123456
+//:     let h2 <i32> hash32_by_trait 123456
+//:     let h3 <i32> hash32_by_trait 123457
+//:     let same <bool> eq h1 h2
+//:     let different <bool> ne h1 h3
+//:     let report:
+//:         test_report_new "hash_trait_doc"
+//:         |> test_report_push assert "same input hash stable" same
+//:         |> test_report_push assert "different input changes hash" different
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

@@ -23,18 +23,23 @@ trait Debug:
 
 //: debug_string: trait を[通/とお]して debug [文字列/もじれつ]を[得/え]る
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"debug_string_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"debug str quotes\" expected=\"\\\"hi\\\"\" actual=\"\\\"hi\\\"\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"debug i32\" expected=\"7\" actual=\"7\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/debug" as *
 //:| fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_str_eq "\"hi\"" debug_string "hi"
-//:         |> checks_push assert_str_eq "7" debug_string 7
-//:     checks_exit_code checks
+//:     let text_str <str> debug_string "hi"
+//:     let text_i32 <str> debug_string 7
+//:     let report:
+//:         test_report_new "debug_string_doc"
+//:         |> test_report_push assert_str_eq "debug str quotes" "\"hi\"" text_str
+//:         |> test_report_push assert_str_eq "debug i32" "7" text_i32
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 //:
 //: [目的/もくてき]:

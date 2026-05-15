@@ -1126,3 +1126,22 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/run_doctest.js -i stdlib/alloc/string/slice/trim.nepl -n 1 --assert-io --dist web/dist`: pass
 
 この issue はまだ open のまま継続する。`stdlib/alloc/string/slice/trim.nepl` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
+
+## 2026-05-15 core traits doc-comment stdout report migration
+
+`ISS-20260515T132628228Z-CORE-TRAITS-DOC-COMMENT-DOCTESTS-STI-69D31B25` として、`stdlib/core/traits/{debug,deserialize,hash,serialize,stringify}.nepl` の public doc-comment doctest を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `Stringify` / `Serialize` / `Hash` / `Debug` / `Deserialize` の代表例を assertion label / expected / actual として stdout に固定した。
+- 旧 `checks_exit_code` / `result_exit_code` だけで成功を表す形をやめ、`test_report_print_stdout` と `test_report_exit_code` に分離した。
+- 移行時に `Deserialize<u8>` の typed cast が現在の parser/typecheck で compile できない潜在不具合を発見し、`core/cast` import と `let byte <u8> cast v` へ修正した。
+- `nodesrc/test_core_traits_doc_report_contract.js` を追加し、同 file 群が旧 quiet exit-code-only 形式へ戻らないことを source policy に固定した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/core/traits/stringify.nepl -i stdlib/core/traits/serialize.nepl -i stdlib/core/traits/hash.nepl -i stdlib/core/traits/debug.nepl -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/agent1-core-traits-doc-report.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+- `node nodesrc/test_core_traits_doc_report_contract.js`: pass
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: source-policy warning なし
+
+この issue はまだ open のまま継続する。core trait doc-comment の今回対象は移行済みだが、他の `checks_exit_code` / `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T13:21:35.471Z",
+  "generated_at": "2026-05-15T13:33:13.210Z",
   "counts": {
-    "total": 829,
+    "total": 830,
     "open": 5,
-    "resolved": 824,
+    "resolved": 825,
     "by_area": {
       "stdlib": {
-        "total": 235,
+        "total": 236,
         "open": 3,
-        "resolved": 232
+        "resolved": 233
       },
       "TEST": {
         "total": 24,
@@ -9748,6 +9748,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T130627053Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-3CDEFF1A.md"
+    },
+    {
+      "id": "ISS-20260515T132628228Z-CORE-TRAITS-DOC-COMMENT-DOCTESTS-STI-69D31B25",
+      "title": "core traits doc-comment doctests still use legacy checks_exit_code reports",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/core/traits/{debug,deserialize,hash,serialize,stringify}.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T132628228Z-CORE-TRAITS-DOC-COMMENT-DOCTESTS-STI-69D31B25.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

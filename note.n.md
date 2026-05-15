@@ -39051,3 +39051,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_documentation_contract.js`: `declarationNoDoctest=1032`
   - `node nodesrc/tests.js -i stdlib/alloc/collections/deque/index.nepl -i stdlib/alloc/collections/hashmap/probe.nepl -i stdlib/alloc/collections/hashset/probe.nepl --no-tree -o tmp/agent1-doc-contract-index-probe.json -j 1 --dist web/dist --assert-io`: 6 passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: source-policy warning なし
+
+## 2026-05-15 Agent 1 core traits doc-comment stdout report 化
+
+- `ISS-20260515T132628228Z-CORE-TRAITS-DOC-COMMENT-DOCTESTS-STI-69D31B25` を追加して fixed にした。
+- `stdlib/core/traits/stringify.nepl` / `serialize.nepl` / `hash.nepl` / `debug.nepl` / `deserialize.nepl` の public doc-comment doctest を `checks_exit_code` / `result_exit_code` から canonical `TestReport` stdout + `exit_code: 0` へ移行した。
+- `Deserialize<u8>` の doctest compile 中に、実装側が `cast` を import せず `<u8> cast v` を `Result::Ok` 引数内に直接書いていた潜在不具合を発見した。`core/cast` import と `let byte <u8> cast v` へ分離し、trait module 全体が compile できる状態に戻した。
+- `nodesrc/test_core_traits_doc_report_contract.js` を追加し、対象 5 file が `checks_exit_code` / `result_exit_code` へ退行しないことを `run_source_policy_regressions.js` に組み込んだ。
+- focused verification:
+  - `node nodesrc/tests.js -i stdlib/core/traits/stringify.nepl -i stdlib/core/traits/serialize.nepl -i stdlib/core/traits/hash.nepl -i stdlib/core/traits/debug.nepl -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/agent1-core-traits-doc-report.json -j 1 --dist web/dist --assert-io`: 5 passed
+  - `node nodesrc/test_core_traits_doc_report_contract.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: source-policy warning なし

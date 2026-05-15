@@ -32,18 +32,23 @@ trait Stringify:
 //: [目的/もくてき]:
 //: - `Stringify` impl を[直接/ちょくせつ] `[呼/よ]び[出/だ]す`のではなく、[共通/きょうつう]の[入口/いりぐち]として[使/つか]います。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"stringify_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"stringify i32\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"stringify bool\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/stringify" as *
 //:| fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_str_eq "42" stringify 42
-//:         |> checks_push assert_str_eq "true" stringify true
-//:     checks_exit_code checks
+//:     let text_i32 <str> stringify 42
+//:     let text_bool <str> stringify true
+//:     let report:
+//:         test_report_new "stringify_doc"
+//:         |> test_report_push assert_str_eq "stringify i32" "42" text_i32
+//:         |> test_report_push assert_str_eq "stringify bool" "true" text_bool
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 //:
 //: [実装/じっそう]:
