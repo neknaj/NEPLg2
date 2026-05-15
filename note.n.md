@@ -1,3 +1,23 @@
+# 2026-05-16 Agent 1 std/env cliarg raw RegionToken owner 境界修正
+
+- `ISS-20260515T202737251Z-STD-ENV-CLIARG-RAW-SCRATCH-STILL-USE-D6D56ABD` を追加して解決した。
+- `std/env/cliarg/raw.nepl` の argc metadata、argv pointer array、argv byte buffer、LLVM cmdline C string、cmdline temp buffer が `alloc_ptr` / `dealloc_ptr` を使い、`MemPtr<u8>` を free obligation carrier として残していた。
+- 対象 scratch はすべて `RegionToken<u8>` owner に移行し、raw ABI と checked byte access へ渡す値は `region_ptr` 由来の non-owning `MemPtr<u8>` view に限定した。
+- `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` に raw cliarg scratch の `RegionToken` owner pattern と、`core/mem/pointer/alloc` / `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` 再導入禁止を追加した。
+- 検証中に、`cliarg_get_checked` が負 index を拒否せず raw slot 計算へ進む memory-safety issue を `ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB` として分離した。
+- `std/env/cliarg/cstr.nepl` doctest が ordinary source から `mem_ptr_add` / `store_u8` を使う stale fixture issue を `ISS-20260515T203123090Z-STD-ENV-CLIARG-CSTR-DOCTESTS-USE-MEM-B6DEAC7B` として分離した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と親 issue に Stage 6 の進捗を追記した。`plan.md` は変更していない。
+- 検証:
+  - `node --check nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_cliarg_report_contract.js`
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-raw-region-token.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+  - `node nodesrc/issues.js index`: total=852, open=8, resolved=844
+  - `node nodesrc/issues.js check`
+  - `git diff --check`
+  - `rg -n "alloc_ptr|realloc_ptr|dealloc_ptr|core/mem/pointer/alloc" stdlib/std/fs stdlib/std/stdio stdlib/std/env/cliarg -g "*.nepl"`: no matches
+  - 参考: `node nodesrc/tests.js -i stdlib/std/env/cliarg/cstr.nepl ...` は `resource.raw.memory_outside_boundary` で 2 件失敗。これは分離済みの stale doctest issue。
+
 # 2026-05-16 Agent 1 std/fs LLVM C string RegionToken owner 境界修正
 
 - `ISS-20260515T202108805Z-STD-FS-LLVM-CSTR-SCRATCH-STILL-RETUR-69733E05` を追加して解決した。

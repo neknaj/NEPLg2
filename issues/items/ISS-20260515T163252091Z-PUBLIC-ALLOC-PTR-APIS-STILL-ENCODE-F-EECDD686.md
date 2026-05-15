@@ -130,3 +130,11 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 `__fs_copy_to_cstr` は `Result<RegionToken<u8>, i32>` を返し、byte copy と syscall address 取得は `region_ptr` 由来の non-owning `MemPtr<u8>` view だけを使う。`wasi_path_open` は syscall 後に `cpath_region` を `dealloc_region<u8>` で閉じる。
 
 これで `std/fs` 配下の direct `alloc_ptr` / `dealloc_ptr` owner API は `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` の監視対象から消えた。親 issue の remaining direct allocation owner は主に `std/env/cliarg/raw.nepl` と、最終的な `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal である。
+
+## 2026-05-16 Agent 1 部分対応メモ 11
+
+子 issue [ISS-20260515T202737251Z-STD-ENV-CLIARG-RAW-SCRATCH-STILL-USE-D6D56ABD](./ISS-20260515T202737251Z-STD-ENV-CLIARG-RAW-SCRATCH-STILL-USE-D6D56ABD.md) で、`stdlib/std/env/cliarg/raw.nepl` の argc metadata、argv pointer array、argv byte buffer、LLVM cmdline C string、LLVM cmdline temp buffer を `RegionToken<u8>` owner 境界へ移した。
+
+`cliarg_count_result` / `cliarg_get_checked` / LLVM fallback は direct `alloc_ptr` / `dealloc_ptr` を持たず、raw ABI や checked byte access へ渡す値は `region_ptr` 由来の non-owning `MemPtr<u8>` view に限定する。
+
+これで `std/fs` / `std/stdio` / `std/env/cliarg` の主要 raw-backed scratch path から direct low-level allocation owner API は消えた。この親 issue は public `alloc_ptr` API 自体の整理と、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。

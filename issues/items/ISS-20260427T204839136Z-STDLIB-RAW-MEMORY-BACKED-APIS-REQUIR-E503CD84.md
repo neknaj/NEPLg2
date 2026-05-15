@@ -563,3 +563,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 この修正により、Linux syscall に渡す NUL-terminated path buffer の free obligation は `RegionToken<u8>` に残り、`MemPtr<u8>` は byte copy と `mem_ptr_addr` のための non-owning view に限定される。LLVM fallback も WASI/raw helper 境界と同じ責務分割になり、`std/fs` module 群から direct low-level allocation owner API を取り除いた。
 
 この親 issue は引き続き open とする。`std/env/cliarg/raw.nepl` の argv scratch と、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-16 Agent 1 cliarg raw RegionToken owner 境界追記
+
+`ISS-20260515T202737251Z-STD-ENV-CLIARG-RAW-SCRATCH-STILL-USE-D6D56ABD` で、`std/env/cliarg/raw.nepl` の argv raw boundary scratch を `RegionToken<u8>` owner 境界へ移した。
+
+argc metadata、argv pointer array、argv byte buffer、LLVM `/proc/self/cmdline` C string、cmdline temporary buffer は token owner と non-owning `MemPtr<u8>` view に分離した。これにより root facade だけでなく raw boundary implementation 内でも、free obligation を `MemPtr` に保持し続ける経路を閉じた。
+
+この親 issue は引き続き open とする。今回の focused verification で `cliarg_get_checked` の負 index 下限検査不足と、`cstr.nepl` doctest の ordinary raw memory fixture を分離した。Stage 6 全体では `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残件である。

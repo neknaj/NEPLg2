@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T20:26:02.419Z",
+  "generated_at": "2026-05-15T20:33:40.470Z",
   "counts": {
-    "total": 849,
-    "open": 6,
-    "resolved": 843,
+    "total": 852,
+    "open": 8,
+    "resolved": 844,
     "by_area": {
       "stdlib": {
-        "total": 250,
-        "open": 4,
-        "resolved": 246
+        "total": 253,
+        "open": 6,
+        "resolved": 247
       },
       "TEST": {
         "total": 24,
@@ -120,6 +120,21 @@
   },
   "issues": [
     {
+      "id": "ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB",
+      "title": "std/env cliarg_get_checked accepts negative index before argv slot access",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/env/cliarg/raw.nepl; stdlib/tests/cliarg.n.md; nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -163,6 +178,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686.md"
+    },
+    {
+      "id": "ISS-20260515T203123090Z-STD-ENV-CLIARG-CSTR-DOCTESTS-USE-MEM-B6DEAC7B",
+      "title": "std/env cliarg cstr doctests use mem_ptr_add outside raw boundary",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/env/cliarg/cstr.nepl; nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T203123090Z-STD-ENV-CLIARG-CSTR-DOCTESTS-USE-MEM-B6DEAC7B.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -10048,6 +10078,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T202108805Z-STD-FS-LLVM-CSTR-SCRATCH-STILL-RETUR-69733E05.md"
+    },
+    {
+      "id": "ISS-20260515T202737251Z-STD-ENV-CLIARG-RAW-SCRATCH-STILL-USE-D6D56ABD",
+      "title": "std/env cliarg raw scratch still uses MemPtr owner API",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/env/cliarg/raw.nepl; nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T202737251Z-STD-ENV-CLIARG-RAW-SCRATCH-STILL-USE-D6D56ABD.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
