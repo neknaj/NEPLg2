@@ -114,3 +114,11 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 `fs_read_fd_bytes` は direct `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を持たず、`buf_region` / `iov_region` / `nread_region` owner と `region_ptr` 由来の non-owning view だけを扱う。`fs_finish_read_buffer` / `fs_discard_read_buffer` も `RegionToken<u8>` owner を消費する signature に揃え、shrink は `realloc_region_bytes_keep<u8>`、ByteBuf 確定は `io_bytebuf_finish_region` へ集約した。
 
 これで `std/fs/read` の fd read path は `MemPtr<u8>` を free obligation carrier として扱わない。親 issue の remaining direct allocation owner は主に `std/fs/dir/read_fd.nepl`、`std/fs/raw/llvm.nepl`、`std/env/cliarg/raw.nepl` などの raw-backed boundary に絞られる。
+
+## 2026-05-16 Agent 1 部分対応メモ 9
+
+子 issue [ISS-20260515T201227745Z-STD-FS-DIR-READ-SCRATCH-STILL-USES-M-92BCD4BA](./ISS-20260515T201227745Z-STD-FS-DIR-READ-SCRATCH-STILL-USES-M-92BCD4BA.md) で、`stdlib/std/fs/dir/read_fd.nepl` の `fd_readdir` data buffer / used out-pointer scratch を `RegionToken<u8>` owner 境界へ移した。
+
+`fs_read_dir_fd` は direct `alloc_ptr` / `dealloc_ptr` を持たず、`buf_region` / `used_region` owner と `region_ptr` 由来の non-owning view だけを扱う。raw ABI address は directory fd reader 内の `mem_ptr_addr` に閉じ、entry accumulation は引き続き `Vec<str>` public API 経由で行う。
+
+これで `std/fs/dir/read_fd` の fd_readdir path は `MemPtr<u8>` を free obligation carrier として扱わない。親 issue の remaining direct allocation owner は主に `std/fs/raw/llvm.nepl`、`std/env/cliarg/raw.nepl` などの raw-backed boundary に絞られる。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T20:10:17.238Z",
+  "generated_at": "2026-05-15T20:18:38.145Z",
   "counts": {
-    "total": 847,
+    "total": 848,
     "open": 6,
-    "resolved": 841,
+    "resolved": 842,
     "by_area": {
       "stdlib": {
-        "total": 248,
+        "total": 249,
         "open": 4,
-        "resolved": 244
+        "resolved": 245
       },
       "TEST": {
         "total": 24,
@@ -10018,6 +10018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T200013147Z-STD-FS-FD-READ-SCRATCH-STILL-USES-ME-7F2B4F1E.md"
+    },
+    {
+      "id": "ISS-20260515T201227745Z-STD-FS-DIR-READ-SCRATCH-STILL-USES-M-92BCD4BA",
+      "title": "std/fs dir read scratch still uses MemPtr owner API",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-15",
+      "target": "stdlib/std/fs/dir/read_fd.nepl; nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T201227745Z-STD-FS-DIR-READ-SCRATCH-STILL-USES-M-92BCD4BA.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

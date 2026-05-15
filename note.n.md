@@ -1,3 +1,20 @@
+# 2026-05-16 Agent 1 std/fs dir read RegionToken owner 境界修正
+
+- `ISS-20260515T201227745Z-STD-FS-DIR-READ-SCRATCH-STILL-USES-M-92BCD4BA` を追加して解決した。
+- `std/fs/dir/read_fd.nepl` の `fd_readdir` data buffer と `used` out-pointer scratch が `alloc_ptr` / `dealloc_ptr` を使い、`MemPtr<u8>` を free obligation carrier として残していた。
+- `fs_read_dir_fd` は `RegionToken<u8>` owner を持つ `buf_region` / `used_region` へ移行し、raw ABI へ渡す値は `region_ptr` 由来の non-owning `MemPtr<u8>` view に限定した。
+- entry name の所有・蓄積・sort は引き続き `Vec<str>` public API 境界で閉じ、directory listing path に direct low-level allocation owner API を残さない。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` に `std/fs/dir/read_fd` が `core/mem/pointer/alloc` と `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を再導入しない policy を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と親 issue に Stage 6 の進捗を追記した。`plan.md` は変更していない。
+- 検証:
+  - `node --check nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/std/fs/dir.nepl -i stdlib/std/fs/dir/path.nepl --no-tree -o tmp/agent1-fs-dir-region-token-consumers.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/issues.js index`: total=848, open=6, resolved=842
+  - `node nodesrc/issues.js check`
+  - `git diff --check`
+  - 参考: `node nodesrc/tests.js -i stdlib/std/fs/dir/read_fd.nepl ...` は `read_fd.nepl` 単体に runnable doctest が無いため scan error。実行時 failure ではないので、direct helper は source policy と public consumer doctest で監視する。
+
 # 2026-05-16 Agent 1 std/fs fd read RegionToken owner 境界修正
 
 - `ISS-20260515T200013147Z-STD-FS-FD-READ-SCRATCH-STILL-USES-ME-7F2B4F1E` を追加して解決した。

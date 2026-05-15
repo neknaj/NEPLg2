@@ -15,7 +15,6 @@
 #import "core/cast" as *
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/result" as *
@@ -30,6 +29,7 @@
 //:
 //: 実装(アルゴリズム):
 //: - 64KiB buffer で `fd_readdir` を繰り返し、dirent header と name byte 列を順に読みます。
+//: - fd_readdir buffer と used out-pointer は `RegionToken<u8>` が所有し、raw ABI へ渡す address は token から借りた non-owning view からだけ得ます。
 //: - `.` / `..` を除外してから byte 辞書順に sort します。
 //: - directory entry name の蓄積で確保に失敗した場合は `Err(12)` を返します。
 //:
@@ -45,26 +45,28 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
         Result::Ok entries0:
             let mut entries <Vec<str>> entries0
             let buf_len <i32> fs_readdir_buf_size
-            match alloc_ptr<u8> buf_len:
+            match alloc_region<u8> buf_len:
                 Result::Err _e:
                     v::free<str> entries
                     Result<Vec<str>,i32>::Err 12
-                Result::Ok buf:
-                    match alloc_ptr<u8> 4:
+                Result::Ok buf_region:
+                    match alloc_region<u8> 4:
                         Result::Err _e:
-                            match dealloc_ptr<u8> buf buf_len:
+                            match dealloc_region<u8> buf_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
                                     ()
                             v::free<str> entries
                             Result<Vec<str>,i32>::Err 12
-                        Result::Ok used_buf:
+                        Result::Ok used_region:
                             let mut cookie <i64> <i64> cast 0
                             let mut err <i32> 0
                             let mut done <bool> false
-                            let buf_raw <i32> mem_ptr_addr buf
-                            let used_raw <i32> mem_ptr_addr used_buf
+                            let buf_ptr <MemPtr<u8>> region_ptr &buf_region
+                            let used_ptr <MemPtr<u8>> region_ptr &used_region
+                            let buf_raw <i32> mem_ptr_addr buf_ptr
+                            let used_raw <i32> mem_ptr_addr used_ptr
                             while and not done eq err 0:
                                 do:
                                     store_i32 used_raw 0
@@ -121,12 +123,12 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                                                             set done true
                                                         else:
                                                             ()
-                            match dealloc_ptr<u8> used_buf 4:
+                            match dealloc_region<u8> used_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
                                     ()
-                            match dealloc_ptr<u8> buf buf_len:
+                            match dealloc_region<u8> buf_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
