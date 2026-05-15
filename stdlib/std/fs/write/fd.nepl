@@ -14,7 +14,6 @@
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/fs/bytes" as *
@@ -29,6 +28,7 @@
 //: 実装(アルゴリズム):
 //: - 1 要素 iovec を使って `fd_write` を呼び、partial write の場合は offset を進めて再試行します。
 //: - `nwritten <= 0` は進捗不能な I/O failure として errno 5 に丸めます。
+//: - iovec / nwritten scratch は `RegionToken<u8>` が所有し、raw ABI view は `fs_fd_write_from_result` にだけ渡します。
 //:
 //: 注意(重要):
 //: - この関数は raw memory range を借りて書き込むだけで、data owner は解放しません。
@@ -41,19 +41,21 @@ pub fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, 
         then:
             Result<(),i32>::Ok ()
         else:
-            match alloc_ptr<u8> 8:
+            match alloc_region<u8> 8:
                 Result::Err _e:
                     Result<(),i32>::Err 12
-                Result::Ok iov_buf:
-                    match alloc_ptr<u8> 4:
+                Result::Ok iov_region:
+                    let iov_buf <MemPtr<u8>> region_ptr &iov_region
+                    match alloc_region<u8> 4:
                         Result::Err _e:
-                            match dealloc_ptr<u8> iov_buf 8:
+                            match dealloc_region<u8> iov_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
                                     ()
                             Result<(),i32>::Err 12
-                        Result::Ok nwritten_buf:
+                        Result::Ok nwritten_region:
+                            let nwritten_buf <MemPtr<u8>> region_ptr &nwritten_region
                             let mut off <i32> 0
                             let mut done <i32> 0
                             let mut err <i32> 0
@@ -76,12 +78,12 @@ pub fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, 
                                                 Result::Err e:
                                                     set err e
                                                     set done 1
-                            match dealloc_ptr<u8> nwritten_buf 4:
+                            match dealloc_region<u8> nwritten_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
                                     ()
-                            match dealloc_ptr<u8> iov_buf 8:
+                            match dealloc_region<u8> iov_region:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:

@@ -39257,3 +39257,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer -- --nocapture`
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_source_after_string_from_mem_copy -- --nocapture`
 - 広めに `stdlib/alloc/io/bytebuf.nepl` を含めると、既存の `from_i128_radix` / JSON quote 系 builder owner leak が残る。これは ByteBuilder/StringBuilder result owner issue と stdio write 側で記録済みの別 issue として分離し、今回の read/text owner transfer 修正の完了条件には含めない。
+
+## 2026-05-16 Agent 1 std/fs fd_write scratch RegionToken 移行
+
+- `ISS-20260515T181501164Z-STD-FS-FD-WRITE-SCRATCH-STILL-USES-M-42F15E1B` を追加して fixed にした。親 issue は `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` のまま open で継続する。`plan.md` は変更していない。
+- 根本原因は、`std/fs/write/fd.nepl` だけが iovec / nwritten scratch を `alloc_ptr<u8>` / `dealloc_ptr<u8>` で扱い、`MemPtr<u8>` を一時 owner carrier として使い続けていたことだった。これは Stage 6 の `MemPtr = non-owning pointer view` 方針と、既に RegionToken 化済みの `std/stdio/write/fd.nepl` と不整合だった。
+- `fs_write_fd_mem_result` は `alloc_region<u8>` で `iov_region` / `nwritten_region` を確保し、`region_ptr` から得た non-owning view を `fs_fd_write_from_result` へ渡すようにした。raw ABI layout の store/load は引き続き `std/fs/raw/fd_io.nepl` に閉じ、write loop 側には raw address 操作を持ち込まない。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は、`std/fs/write/fd.nepl` が direct `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を再導入しないことと、scratch が `RegionToken` owner 境界で閉じることを検査するように更新した。
+- focused verification:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/std/fs/write/fd.nepl -i stdlib/std/fs/write/path.nepl -i stdlib/std/fs/write.nepl --no-tree -o tmp/agent1-fs-write-fd-region-scratch.json -j 1 --dist web/dist --assert-io`: 2 passed

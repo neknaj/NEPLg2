@@ -86,3 +86,9 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 子 issue [ISS-20260515T173402735Z-STDIO-READ-BYTES-STILL-USES-MEMPTR-O-571DB719](./ISS-20260515T173402735Z-STDIO-READ-BYTES-STILL-USES-MEMPTR-O-571DB719.md) で、`stdlib/std/stdio/read` の `read_all` / `read_line` 経路を `RegionToken<u8>` owner 境界へ移す。
 
 この対応では `stdio_read_all_bytes_result` の growable buffer、`stdio_read_line_result` の固定長 buffer、fd_read 用 iovec/nread scratch を direct `alloc_ptr` / `dealloc_ptr` / `realloc_ptr` から外し、`RegionToken<u8>` と non-owning `MemPtr<u8>` view に分離する。read 側の移行が完了すれば、`std/stdio` の主要 read/write 経路では `MemPtr<u8>` を free obligation carrier として扱わない。
+
+## 2026-05-16 Agent 1 部分対応メモ 5
+
+子 issue [ISS-20260515T181501164Z-STD-FS-FD-WRITE-SCRATCH-STILL-USES-M-42F15E1B](./ISS-20260515T181501164Z-STD-FS-FD-WRITE-SCRATCH-STILL-USES-M-42F15E1B.md) で、`stdlib/std/fs/write/fd.nepl` の fd_write iovec / nwritten scratch を `RegionToken<u8>` owner 境界へ移した。
+
+`fs_write_fd_mem_result` は direct `alloc_ptr` / `dealloc_ptr` を持たず、`iov_region` / `nwritten_region` owner と `region_ptr` から得た non-owning view だけを扱う。raw ABI layout の store/load は引き続き `std/fs/raw/fd_io.nepl` の `fs_fd_write_from_result` に閉じる。親 issue の残件は `std/fs/read/fd.nepl`、`std/fs/fd.nepl`、`std/fs/stat.nepl`、`std/fs/dir/read_fd.nepl`、`std/env/cliarg/raw.nepl` などの raw-backed boundary に残る direct allocation owner である。
