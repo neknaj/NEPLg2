@@ -92,3 +92,9 @@ Add compile-fail/user-facing regressions that ordinary safe source cannot obtain
 子 issue [ISS-20260515T181501164Z-STD-FS-FD-WRITE-SCRATCH-STILL-USES-M-42F15E1B](./ISS-20260515T181501164Z-STD-FS-FD-WRITE-SCRATCH-STILL-USES-M-42F15E1B.md) で、`stdlib/std/fs/write/fd.nepl` の fd_write iovec / nwritten scratch を `RegionToken<u8>` owner 境界へ移した。
 
 `fs_write_fd_mem_result` は direct `alloc_ptr` / `dealloc_ptr` を持たず、`iov_region` / `nwritten_region` owner と `region_ptr` から得た non-owning view だけを扱う。raw ABI layout の store/load は引き続き `std/fs/raw/fd_io.nepl` の `fs_fd_write_from_result` に閉じる。親 issue の残件は `std/fs/read/fd.nepl`、`std/fs/fd.nepl`、`std/fs/stat.nepl`、`std/fs/dir/read_fd.nepl`、`std/env/cliarg/raw.nepl` などの raw-backed boundary に残る direct allocation owner である。
+
+## 2026-05-16 Agent 1 部分対応メモ 6
+
+子 issue [ISS-20260515T182041827Z-STD-FS-OPEN-FD-OUT-SCRATCH-STILL-USE-7C3B2667](./ISS-20260515T182041827Z-STD-FS-OPEN-FD-OUT-SCRATCH-STILL-USE-7C3B2667.md) で、`stdlib/std/fs/fd.nepl` の `path_open` fd_out scratch を `RegionToken<u8>` owner 境界へ移した。
+
+`fs_open_with_flags` は direct `alloc_ptr` / `dealloc_ptr` を持たず、`fd_out_region` owner と `region_ptr` から得た non-owning view だけを扱う。`path_open` の raw fd_out address、`store_i32`、`load_i32` は fd lifecycle 境界内に残るが、free obligation は `RegionToken` 側で閉じる。親 issue の残件は `std/fs/read/fd.nepl`、`std/fs/stat.nepl`、`std/fs/dir/read_fd.nepl`、`std/env/cliarg/raw.nepl` などである。

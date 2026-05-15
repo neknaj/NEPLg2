@@ -14,7 +14,6 @@
 #import "alloc/string/storage" as *
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/pointer/alloc" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/result" as *
@@ -27,7 +26,7 @@
 //:
 //: 実装(アルゴリズム):
 //: - fd_out 用の 4 byte buffer を確保し、`path_open` 成功時だけ fd を読み出して返します。
-//: - scratch の所有権は `dealloc_ptr` で閉じ、raw address view には解放責務を移しません。
+//: - scratch の所有権は `RegionToken<u8>` が持ち、raw address view には解放責務を移しません。
 //:
 //: 注意(重要):
 //: - dirfd は 3 (preopen) を仮定します。
@@ -36,10 +35,11 @@
 //: 計算量:
 //: - O(1)
 pub fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights):
-    match alloc_ptr<u8> 4:
+    match alloc_region<u8> 4:
         Result::Err _e:
             Result<i32,i32>::Err 12
-        Result::Ok fd_out_buf:
+        Result::Ok fd_out_region:
+            let fd_out_buf <MemPtr<u8>> region_ptr &fd_out_region
             let fd_out_raw <i32> mem_ptr_addr fd_out_buf
             let res <Result<i32,i32>> if:
                 le fd_out_raw 0
@@ -56,11 +56,11 @@ pub fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights
                             Result<i32,i32>::Ok load_i32 fd_out_raw
                         else:
                             Result<i32,i32>::Err errno
-            match dealloc_ptr<u8> fd_out_buf 4:
+            match dealloc_region<u8> fd_out_region:
                 Result::Ok _:
                     ()
                 Result::Err _:
-                    #intrinsic "unreachable" <> ();
+                    ();
             res
 
 //: fs_open_read: ファイルを読み込み専用で開く

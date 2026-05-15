@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T18:17:37.848Z",
+  "generated_at": "2026-05-15T18:23:03.021Z",
   "counts": {
-    "total": 842,
+    "total": 843,
     "open": 6,
-    "resolved": 836,
+    "resolved": 837,
     "by_area": {
       "stdlib": {
-        "total": 245,
+        "total": 246,
         "open": 4,
-        "resolved": 241
+        "resolved": 242
       },
       "TEST": {
         "total": 24,
@@ -9943,6 +9943,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T181501164Z-STD-FS-FD-WRITE-SCRATCH-STILL-USES-M-42F15E1B.md"
+    },
+    {
+      "id": "ISS-20260515T182041827Z-STD-FS-OPEN-FD-OUT-SCRATCH-STILL-USE-7C3B2667",
+      "title": "std fs open fd_out scratch still uses MemPtr owner API",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/std/fs/fd.nepl; nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T182041827Z-STD-FS-OPEN-FD-OUT-SCRATCH-STILL-USE-7C3B2667.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -39267,3 +39267,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
   - `node nodesrc/tests.js -i stdlib/std/fs/write/fd.nepl -i stdlib/std/fs/write/path.nepl -i stdlib/std/fs/write.nepl --no-tree -o tmp/agent1-fs-write-fd-region-scratch.json -j 1 --dist web/dist --assert-io`: 2 passed
+
+## 2026-05-16 Agent 1 std/fs path_open fd_out scratch RegionToken 移行
+
+- `ISS-20260515T182041827Z-STD-FS-OPEN-FD-OUT-SCRATCH-STILL-USE-7C3B2667` を追加して fixed にした。親 issue は `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` のまま open で継続する。`plan.md` は変更していない。
+- 根本原因は、`std/fs/fd.nepl` の `fs_open_with_flags` が `path_open` 用 fd_out scratch を `alloc_ptr<u8>` / `dealloc_ptr<u8>` で扱い、`MemPtr<u8>` を一時 free-obligation owner として使い続けていたことだった。fd_out は 4 byte の syscall out pointer にすぎないため、owner token と non-owning view に分けるべきだった。
+- `fs_open_with_flags` は `alloc_region<u8>` で `fd_out_region` を確保し、`region_ptr` から得た non-owning view の raw address を `path_open` に渡すようにした。cleanup は `dealloc_region` で行い、`std/fs/fd.nepl` から direct `alloc_ptr` / `dealloc_ptr` import を削除した。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は、`std/fs/fd.nepl` が direct allocation owner API を再導入しないことと、fd_out scratch が `RegionToken` owner 境界で閉じることを検査するように更新した。
+- focused verification:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl -i stdlib/std/fs/dir/open.nepl --no-tree -o tmp/agent1-fs-open-fdout-region.json -j 1 --dist web/dist --assert-io`: 2 passed
