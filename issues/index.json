@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T01:07:43.909Z",
+  "generated_at": "2026-05-16T01:24:44.113Z",
   "counts": {
     "total": 860,
-    "open": 7,
-    "resolved": 853,
+    "open": 6,
+    "resolved": 854,
     "by_area": {
-      "core": {
-        "total": 421,
-        "open": 1,
-        "resolved": 420
-      },
       "stdlib": {
         "total": 255,
         "open": 4,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 421,
+        "open": 0,
+        "resolved": 421
       },
       "CORE": {
         "total": 1,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46",
-      "title": "Resource proof primitive classification is scattered across name-based checks",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "nepl-core/src/resource/**, nepl-core/src/source_capability/**, nepl-core/src/effects.rs, nodesrc/test_static_check_boundary_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6403,6 +6388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T232029920Z-BORROWED-ENUM-MATCH-CANNOT-BIND-OWNE-FD64ED88.md"
+    },
+    {
+      "id": "ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46",
+      "title": "Resource proof primitive classification is scattered across name-based checks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource/**, nepl-core/src/source_capability/**, nepl-core/src/effects.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

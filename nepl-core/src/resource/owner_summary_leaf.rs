@@ -3,6 +3,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
+use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection, ResourceFunction};
@@ -76,7 +77,7 @@ pub(super) fn owner_leaf_projections_mapped(
     }
     let out = match types.get_ref(mapped) {
         TypeKind::Unit | TypeKind::Never | TypeKind::Reference(_, _) => Vec::new(),
-        TypeKind::Struct { name, .. } if name == "MemPtr" => {
+        TypeKind::Struct { .. } if type_is_raw_pointer(types, mapped) => {
             mem_ptr_owner_leaf_projections(types, mapped, AggregateProjectionKind::Struct)
         }
         TypeKind::Struct { .. } => aggregate_owner_leaf_projections(
@@ -196,7 +197,7 @@ fn apply_owner_leaf_projections(
 ) -> Vec<OwnerLeafProjection> {
     let base = types.resolve_named_type_id(base);
     match types.get_ref(base) {
-        TypeKind::Struct { name, .. } if name == "MemPtr" => {
+        TypeKind::Struct { .. } if type_is_raw_pointer(types, apply_ty) => {
             mem_ptr_owner_leaf_projections(types, apply_ty, AggregateProjectionKind::Struct)
         }
         TypeKind::Struct { type_params, .. } => {

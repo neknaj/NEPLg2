@@ -1,5 +1,8 @@
-use crate::span::Span;
 use alloc::string::String;
+
+use crate::resource_primitives::compiler_memory_type_from_constructor_name;
+use crate::source_map::CompilerMemoryType;
+use crate::span::Span;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{AggregateKind, OwnerState, OwnerStorageExtent, Place};
@@ -599,5 +602,10 @@ fn replacement_preserves_live_storage(
 }
 
 fn region_token_construct_kind(kind: &AggregateKind) -> bool {
-    matches!(kind, AggregateKind::Struct { name, .. } if name == "RegionToken")
+    matches!(
+        kind,
+        AggregateKind::Struct { name, .. }
+            if compiler_memory_type_from_constructor_name(name)
+                == Some(CompilerMemoryType::OwnerToken)
+    )
 }

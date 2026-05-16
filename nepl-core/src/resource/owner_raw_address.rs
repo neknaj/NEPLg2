@@ -1,4 +1,4 @@
-use crate::runtime_helpers::helper_base_name;
+use crate::resource_primitives::MemoryHelperPrimitive;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RawAddressReturnOwnership {
@@ -6,8 +6,11 @@ pub(super) enum RawAddressReturnOwnership {
 }
 
 pub(super) fn raw_address_return_ownership(name: &str) -> Option<RawAddressReturnOwnership> {
-    match helper_base_name(name) {
-        "mem_ptr_addr" | "region_ptr" => Some(RawAddressReturnOwnership::NonOwningAddressView),
-        _ => None,
+    if MemoryHelperPrimitive::from_symbol(name)
+        .is_some_and(MemoryHelperPrimitive::returns_non_owning_address_view)
+    {
+        Some(RawAddressReturnOwnership::NonOwningAddressView)
+    } else {
+        None
     }
 }

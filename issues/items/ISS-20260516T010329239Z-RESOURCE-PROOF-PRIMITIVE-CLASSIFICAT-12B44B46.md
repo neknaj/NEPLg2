@@ -2,8 +2,8 @@
 id: ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46
 title: "Resource proof primitive classification is scattered across name-based checks"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-16
@@ -16,6 +16,8 @@ target: "nepl-core/src/resource/**, nepl-core/src/source_capability/**, nepl-cor
 ## 概要
 
 Static check authority is moving to Resource IR, but memory primitive roles are still recognized by scattered string-name checks such as MemPtr, RegionToken, region_new, region_ptr, and mem_ptr_addr. This is not a stdlib module allowlist, but it is still not a sufficiently centralized generic prover boundary.
+
+関連計画: [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
 
 ## 対象
 
@@ -55,6 +57,26 @@ Introduce a central typed resource primitive registry that classifies compiler m
 
 この issue は `Vec` の `OwnedBuffer` 化より先に確認する。`OwnedBuffer` を追加するたびに Resource IR の複数箇所へ名前判定を足すと、静的検査大規模修正の目的である「汎用的で強力な証明器」から外れるためである。
 
+## 解決
+
+2026-05-16 に修正した。`nepl-core/src/resource_primitives.rs` を新設し、compiler memory type と memory helper primitive の分類を typed registry に集約した。
+
+- `CompilerMemoryType` の constructor 名分類、`TypeId` からの `MemPtr` / `RegionToken` 判定、raw address identity を保持する型の判定を registry query にした。
+- `mem_ptr_wrap` / `mem_ptr_addr` / `mem_ptr_add` / `region_new` / `region_ptr` / `region_ptr_at` / `region_token_raw_ref` / `str_addr` / `str_from_addr_unchecked` を `MemoryHelperPrimitive` enum に集約し、Resource IR lowering / owner return / source capability evidence はこの enum を通して分岐するようにした。
+- `lower_raw_address_place`、`place_utils`、return escape / owner type / initialized release / owner flow / owner summary leaf などに分散していた `MemPtr` / `RegionToken` の ad hoc struct-name 判定を registry query へ置換した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に registry の存在、source capability evidence の direct helper string 重複禁止、ResourceIR 側の registry 使用を監視する policy を追加した。
+
+この修正は stdlib module 名や collection 名の allowlist を追加していない。source capability は authority evidence の発見に限定し、semantic proof は typecheck 後の typed registry と Resource IR で行う方針を維持する。
+
 ## 検証
 
 Run focused Resource IR/effect/typecheck tests, nodesrc static-check responsibility policy, and regressions for raw boundary, owner token construction, raw address projection, and no module-specific allowlist. Verify new primitive variants force compile-time updates through exhaustive matches.
+
+実施済み:
+
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core resource_primitives --lib`
+- `node nodesrc/test_static_check_boundary_responsibility.js`
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_marks_mem_ptr_addr_as_non_owning_projection -- --exact`
+- `cargo test -p nepl-core --test resource_ir compile_accepts_checked_mem_ptr_wrapper_from_region_provenance -- --exact`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_helper -- --exact`

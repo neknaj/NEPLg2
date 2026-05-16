@@ -40,6 +40,7 @@ pub mod passes;
 mod qualified_name;
 pub mod resolve;
 pub mod resource;
+mod resource_primitives;
 pub mod runtime_helpers;
 mod source_capability;
 pub mod source_map;

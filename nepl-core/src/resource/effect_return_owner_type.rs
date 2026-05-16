@@ -2,6 +2,7 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::layout::{extend_type_mapping, mapped_type_id};
+use crate::resource_primitives::type_is_owner_token;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 pub(super) fn raw_identity_type_is_opaque_owner(types: &TypeCtx, ty: TypeId) -> bool {
@@ -135,13 +136,5 @@ fn raw_identity_type_contains_opaque_owner(
 }
 
 fn is_region_token_type(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => name == "RegionToken",
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(types.get_ref(base), TypeKind::Struct { name, .. } if name == "RegionToken")
-        }
-        _ => false,
-    }
+    type_is_owner_token(types, ty)
 }

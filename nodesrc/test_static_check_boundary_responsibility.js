@@ -8,10 +8,25 @@ const CORE_SRC = path.join(ROOT, 'nepl-core', 'src');
 const TYPECHECK_ROOT = path.join(CORE_SRC, 'typecheck.rs');
 const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
 const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
+const RESOURCE_LOWER_RAW_ADDRESS = path.join(CORE_SRC, 'resource', 'lower_raw_address.rs');
+const RESOURCE_LOWER_RAW_ADDRESS_PLACE = path.join(
+    CORE_SRC,
+    'resource',
+    'lower_raw_address_place.rs',
+);
+const RESOURCE_LOWER_RAW_ADDRESS_RETURN = path.join(
+    CORE_SRC,
+    'resource',
+    'lower_raw_address_return.rs',
+);
+const RESOURCE_OWNER_FLOW = path.join(CORE_SRC, 'resource', 'owner_flow.rs');
+const RESOURCE_OWNER_RAW_ADDRESS = path.join(CORE_SRC, 'resource', 'owner_raw_address.rs');
+const RESOURCE_PLACE_UTILS = path.join(CORE_SRC, 'resource', 'place_utils.rs');
 const COMPILER = path.join(CORE_SRC, 'compiler.rs');
 const EFFECTS = path.join(CORE_SRC, 'effects.rs');
 const LOADER = path.join(CORE_SRC, 'loader.rs');
 const SOURCE_MAP = path.join(CORE_SRC, 'source_map.rs');
+const RESOURCE_PRIMITIVES = path.join(CORE_SRC, 'resource_primitives.rs');
 const SOURCE_CAPABILITY = path.join(CORE_SRC, 'source_capability.rs');
 const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     CORE_SRC,
@@ -102,6 +117,25 @@ function walkRustFiles(dir) {
 
 const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
+const resourcePrimitives = assertFile(RESOURCE_PRIMITIVES, 'resource_primitives.rs');
+const resourceLowerRawAddress = assertFile(
+    RESOURCE_LOWER_RAW_ADDRESS,
+    'resource/lower_raw_address.rs',
+);
+const resourceLowerRawAddressPlace = assertFile(
+    RESOURCE_LOWER_RAW_ADDRESS_PLACE,
+    'resource/lower_raw_address_place.rs',
+);
+const resourceLowerRawAddressReturn = assertFile(
+    RESOURCE_LOWER_RAW_ADDRESS_RETURN,
+    'resource/lower_raw_address_return.rs',
+);
+const resourceOwnerFlow = assertFile(RESOURCE_OWNER_FLOW, 'resource/owner_flow.rs');
+const resourceOwnerRawAddress = assertFile(
+    RESOURCE_OWNER_RAW_ADDRESS,
+    'resource/owner_raw_address.rs',
+);
+const resourcePlaceUtils = assertFile(RESOURCE_PLACE_UTILS, 'resource/place_utils.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
 const effects = assertFile(EFFECTS, 'effects.rs');
 const loader = assertFile(LOADER, 'loader.rs');
@@ -362,6 +396,7 @@ assertLineLimit(
     'source_capability/memory_type_definition.rs',
     100,
 );
+assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 240);
 assertLineLimit(
     SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE,
@@ -425,14 +460,39 @@ assertContains(
     'source_capability.rs',
 );
 assertContains(
-    sourceCapabilityMemoryTypeDefinition,
+    resourcePrimitives,
     'pub(crate) fn compiler_memory_type_from_constructor_name',
-    'source_capability/memory_type_definition.rs',
+    'resource_primitives.rs',
+);
+assertContains(
+    resourcePrimitives,
+    'match name',
+    'resource_primitives.rs',
+);
+assertContains(
+    resourcePrimitives,
+    'pub(crate) fn compiler_memory_type_of_type',
+    'resource_primitives.rs',
+);
+assertContains(
+    resourcePrimitives,
+    'pub(crate) fn type_is_raw_pointer',
+    'resource_primitives.rs',
+);
+assertContains(
+    resourcePrimitives,
+    'pub(crate) fn type_is_owner_token',
+    'resource_primitives.rs',
+);
+assertContains(
+    resourcePrimitives,
+    'pub(crate) enum MemoryHelperPrimitive',
+    'resource_primitives.rs',
 );
 assertContains(
     sourceCapabilityMemoryTypeDefinition,
-    'match name',
-    'source_capability/memory_type_definition.rs',
+    'compiler_memory_type_from_constructor_name(def.name.name.as_str())',
+    'source_capability/memory_type_definition.rs must use central compiler memory type classification',
 );
 assertContains(
     sourceCapabilityMemoryTypeDefinition,
@@ -548,8 +608,70 @@ assertContains(
 );
 assertContains(
     sourceCapabilityRawMemoryEvidence,
-    'enum RawAddressBoundaryHelper',
-    'source_capability/raw_memory/evidence.rs',
+    'MemoryHelperPrimitive::from_symbol(name)',
+    'raw address helper evidence must use the central memory helper registry',
+);
+for (const helperName of [
+    '"mem_ptr_wrap"',
+    '"mem_ptr_addr"',
+    '"mem_ptr_add"',
+    '"region_new"',
+    '"region_ptr"',
+    '"region_ptr_at"',
+    '"region_token_raw_ref"',
+    '"str_addr"',
+    '"str_from_addr_unchecked"',
+]) {
+    assertNotContains(
+        sourceCapabilityRawMemoryEvidence,
+        helperName,
+        'source_capability/raw_memory/evidence.rs must not duplicate memory helper names',
+    );
+}
+assertContains(
+    resourceLowerRawAddress,
+    'MemoryHelperPrimitive::from_base_name',
+    'resource/lower_raw_address.rs must use central helper classification for function references',
+);
+assertContains(
+    resourceLowerRawAddress,
+    'MemoryHelperPrimitive::from_symbol',
+    'resource/lower_raw_address.rs must use central helper classification for named calls',
+);
+assertContains(
+    resourceLowerRawAddressReturn,
+    'MemoryHelperPrimitive::from_symbol',
+    'resource/lower_raw_address_return.rs must use central helper classification for return expressions',
+);
+assertContains(
+    resourceLowerRawAddressReturn,
+    'MemoryHelperPrimitive::from_base_name',
+    'resource/lower_raw_address_return.rs must use central helper classification for function references',
+);
+assertContains(
+    resourceOwnerRawAddress,
+    'MemoryHelperPrimitive::returns_non_owning_address_view',
+    'resource/owner_raw_address.rs must use central non-owning view classification',
+);
+assertContains(
+    resourceOwnerFlow,
+    'compiler_memory_type_from_constructor_name(name)',
+    'resource/owner_flow.rs must use central compiler memory type classification',
+);
+assertNotContains(
+    resourceLowerRawAddressPlace,
+    'fn is_named_struct_type',
+    'resource/lower_raw_address_place.rs must not reintroduce ad hoc memory type classification',
+);
+assertNotContains(
+    resourcePlaceUtils,
+    'name == "MemPtr"',
+    'resource/place_utils.rs must not reintroduce ad hoc MemPtr classification',
+);
+assertNotContains(
+    resourcePlaceUtils,
+    'name == "RegionToken"',
+    'resource/place_utils.rs must not reintroduce ad hoc RegionToken classification',
 );
 assertNotContains(
     sourceCapabilityRawMemory,

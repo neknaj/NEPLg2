@@ -4,7 +4,12 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction};
+use crate::resource_primitives::{
+    compiler_memory_type_from_constructor_name, type_is_owner_token, type_is_raw_pointer,
+    MemoryHelperPrimitive,
+};
 use crate::runtime_helpers::helper_base_name;
+use crate::source_map::CompilerMemoryType;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -12,7 +17,7 @@ use super::lower::LoweringEnvironment;
 use super::lower_call::func_ref_base_name;
 use super::lower_raw_address::{i32_const_from_actual_arg, i32_const_from_size_of_call};
 use super::lower_raw_address_place::{
-    is_named_struct_type, raw_address_alias_target, raw_address_place_from_actual_argument,
+    raw_address_alias_target, raw_address_place_from_actual_argument,
     region_token_place_from_actual_arg, region_token_raw_field_place,
 };
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
@@ -66,7 +71,8 @@ pub(super) fn push_transparent_raw_address_return_projection(
 }
 
 fn function_has_dedicated_raw_address_lowering(name: &str) -> bool {
-    matches!(helper_base_name(name), "mem_ptr_addr" | "region_ptr")
+    MemoryHelperPrimitive::from_symbol(name)
+        .is_some_and(MemoryHelperPrimitive::has_dedicated_raw_address_lowering)
 }
 
 fn function_return_expr(function: &HirFunction) -> Option<&HirExpr> {
@@ -123,7 +129,10 @@ fn raw_address_source_from_return_expr(
             arg_places,
             env,
         ),
-        HirExprKind::StructConstruct { name, fields, .. } if name == "MemPtr" => {
+        HirExprKind::StructConstruct { name, fields, .. }
+            if compiler_memory_type_from_constructor_name(name)
+                == Some(CompilerMemoryType::RawPointer) =>
+        {
             raw_address_source_from_return_expr(
                 fields.first()?,
                 function,
@@ -172,6 +181,48 @@ fn raw_address_source_from_return_named_call(
     arg_places: &[Place],
     env: &LoweringEnvironment,
 ) -> Option<RawAddressSource> {
+    match MemoryHelperPrimitive::from_symbol(name) {
+        Some(MemoryHelperPrimitive::MemPtrAddr) if args.len() == 1 => {
+            return raw_address_source_from_return_operand_expr(
+                &args[0], function, hir_args, arg_places, env,
+            )
+            .map(RawAddressSource::into_non_owning_view);
+        }
+        Some(MemoryHelperPrimitive::MemPtrWrap | MemoryHelperPrimitive::StrFromAddrUnchecked)
+            if args.len() == 1 =>
+        {
+            return raw_address_source_from_return_operand_expr(
+                &args[0], function, hir_args, arg_places, env,
+            );
+        }
+        Some(MemoryHelperPrimitive::StrAddr) if args.len() == 1 => {
+            return raw_address_source_from_return_operand_expr(
+                &args[0], function, hir_args, arg_places, env,
+            )
+            .map(RawAddressSource::into_non_owning_view);
+        }
+        Some(MemoryHelperPrimitive::MemPtrAdd) if args.len() >= 2 => {
+            return raw_address_source_from_return_operand_expr(
+                &args[0], function, hir_args, arg_places, env,
+            )
+            .map(|source| {
+                source.with_added_offset(raw_address_offset_from_return_expr(
+                    &args[1], function, hir_args, arg_places, env,
+                ))
+            });
+        }
+        Some(MemoryHelperPrimitive::RegionNew) if args.len() >= 2 => {
+            return raw_address_source_from_return_operand_expr(
+                &args[0], function, hir_args, arg_places, env,
+            );
+        }
+        Some(MemoryHelperPrimitive::RegionTokenRawRef) if args.len() == 1 => {
+            return raw_address_source_from_region_token_raw_expr(
+                &args[0], function, hir_args, arg_places, env,
+            );
+        }
+        _ => {}
+    }
     match helper_base_name(name) {
         "add" if args.len() == 2 => raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
@@ -196,31 +247,10 @@ fn raw_address_source_from_return_named_call(
                 &args[1], function, hir_args, arg_places, env,
             ))
         }),
-        "mem_ptr_addr" if args.len() == 1 => raw_address_source_from_return_operand_expr(
-            &args[0], function, hir_args, arg_places, env,
-        )
-        .map(RawAddressSource::into_non_owning_view),
-        "mem_ptr_wrap" | "str_from_addr_unchecked" if args.len() == 1 => {
-            raw_address_source_from_return_operand_expr(
-                &args[0], function, hir_args, arg_places, env,
-            )
-        }
-        "str_addr" if args.len() == 1 => raw_address_source_from_return_operand_expr(
-            &args[0], function, hir_args, arg_places, env,
-        )
-        .map(RawAddressSource::into_non_owning_view),
-        "mem_ptr_add" if args.len() >= 2 => raw_address_source_from_return_operand_expr(
-            &args[0], function, hir_args, arg_places, env,
-        )
-        .map(|source| {
-            source.with_added_offset(raw_address_offset_from_return_expr(
-                &args[1], function, hir_args, arg_places, env,
-            ))
-        }),
         "get" | "get_field"
             if args.len() >= 2
                 && literal_field_name(env, &args[1]) == Some("raw")
-                && is_named_struct_type(env.types, args[0].ty, "MemPtr") =>
+                && type_is_raw_pointer(env.types, args[0].ty) =>
         {
             raw_address_source_from_return_operand_expr(
                 &args[0], function, hir_args, arg_places, env,
@@ -228,7 +258,7 @@ fn raw_address_source_from_return_named_call(
         }
         "get" | "get_field"
             if args.len() >= 2
-                && is_named_struct_type(env.types, args[0].ty, "RegionToken")
+                && type_is_owner_token(env.types, args[0].ty)
                 && matches!(
                     env.types.get_ref(
                         env.types
@@ -243,12 +273,6 @@ fn raw_address_source_from_return_named_call(
                 &args[0], function, hir_args, arg_places, env,
             )
         }
-        "region_new" if args.len() >= 2 => raw_address_source_from_return_operand_expr(
-            &args[0], function, hir_args, arg_places, env,
-        ),
-        "region_token_raw_ref" if args.len() == 1 => raw_address_source_from_region_token_raw_expr(
-            &args[0], function, hir_args, arg_places, env,
-        ),
         _ => None,
     }
 }
@@ -341,7 +365,8 @@ fn raw_address_source_from_region_token_raw_expr(
             })
         }
         HirExprKind::Call { callee, args }
-            if matches!(func_ref_base_name(callee), Some("region_new")) =>
+            if func_ref_base_name(callee).and_then(MemoryHelperPrimitive::from_base_name)
+                == Some(MemoryHelperPrimitive::RegionNew) =>
         {
             raw_address_source_from_return_operand_expr(
                 args.first()?,
@@ -351,7 +376,10 @@ fn raw_address_source_from_region_token_raw_expr(
                 env,
             )
         }
-        HirExprKind::Intrinsic { name, args, .. } if helper_base_name(name) == "region_new" => {
+        HirExprKind::Intrinsic { name, args, .. }
+            if MemoryHelperPrimitive::from_symbol(name)
+                == Some(MemoryHelperPrimitive::RegionNew) =>
+        {
             raw_address_source_from_return_operand_expr(
                 args.first()?,
                 function,
@@ -406,8 +434,8 @@ fn raw_address_output_can_carry_value(env: &LoweringEnvironment, ty: TypeId) -> 
         return false;
     }
     matches!(env.types.get_ref(resolved), TypeKind::I32 | TypeKind::Str)
-        || is_named_struct_type(env.types, ty, "MemPtr")
-        || is_named_struct_type(env.types, ty, "RegionToken")
+        || type_is_raw_pointer(env.types, ty)
+        || type_is_owner_token(env.types, ty)
 }
 
 fn literal_field_name<'a>(env: &'a LoweringEnvironment, expr: &HirExpr) -> Option<&'a str> {

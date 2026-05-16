@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind};
 use crate::layout::storage_size_bytes;
+use crate::resource_primitives::MemoryHelperPrimitive;
 use crate::runtime_helpers::helper_base_name;
 use crate::span::Span;
 use crate::types::TypeId;
@@ -29,8 +30,8 @@ pub(super) fn push_core_mem_wrapper_semantics(
     env: &LoweringEnvironment,
     span: Span,
 ) {
-    match func_ref_base_name(callee) {
-        Some("mem_ptr_wrap") => {
+    match func_ref_base_name(callee).and_then(MemoryHelperPrimitive::from_base_name) {
+        Some(MemoryHelperPrimitive::MemPtrWrap) => {
             let Some(raw) = arg_places.first() else {
                 return;
             };
@@ -40,7 +41,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 span,
             });
         }
-        Some("mem_ptr_addr") => {
+        Some(MemoryHelperPrimitive::MemPtrAddr) => {
             let Some(ptr) = arg_places.first() else {
                 return;
             };
@@ -52,7 +53,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 span,
             );
         }
-        Some("mem_ptr_add") => {
+        Some(MemoryHelperPrimitive::MemPtrAdd) => {
             let Some(ptr) = arg_places.first() else {
                 return;
             };
@@ -71,7 +72,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 span,
             );
         }
-        Some("region_new") => {
+        Some(MemoryHelperPrimitive::RegionNew) => {
             let Some(ptr) = arg_places.first() else {
                 return;
             };
@@ -82,7 +83,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 span,
             });
         }
-        Some("region_ptr") => {
+        Some(MemoryHelperPrimitive::RegionPtr) => {
             let Some(source) =
                 region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
             else {
@@ -97,7 +98,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 span,
             );
         }
-        Some("region_ptr_at") => {
+        Some(MemoryHelperPrimitive::RegionPtrAt) => {
             let Some(source) =
                 region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
             else {
@@ -126,7 +127,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 span,
             );
         }
-        Some("region_token_raw_ref") => {
+        Some(MemoryHelperPrimitive::RegionTokenRawRef) => {
             let Some(source) =
                 region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
             else {
@@ -154,7 +155,9 @@ pub(super) fn push_core_mem_owner_storage_origin(
     env: &LoweringEnvironment,
     span: Span,
 ) {
-    if !matches!(func_ref_base_name(callee), Some("region_new")) {
+    if func_ref_base_name(callee).and_then(MemoryHelperPrimitive::from_base_name)
+        != Some(MemoryHelperPrimitive::RegionNew)
+    {
         return;
     }
     ops.push(ResourceOp::StorageOrigin {
@@ -215,6 +218,29 @@ fn raw_address_source_from_actual_named_expr(
     arg_places: &[Place],
     env: &LoweringEnvironment,
 ) -> Option<RawAddressSource> {
+    match MemoryHelperPrimitive::from_symbol(name) {
+        Some(MemoryHelperPrimitive::MemPtrAddr) if args.len() == 1 && arg_places.len() == 1 => {
+            return raw_address_source_from_actual_arg(0, args, arg_places, env)
+                .map(RawAddressSource::into_non_owning_view);
+        }
+        Some(MemoryHelperPrimitive::MemPtrWrap) if args.len() == 1 && arg_places.len() == 1 => {
+            return raw_address_source_from_actual_arg(0, args, arg_places, env);
+        }
+        Some(MemoryHelperPrimitive::StrAddr) if args.len() == 1 && arg_places.len() == 1 => {
+            return raw_address_source_from_actual_arg(0, args, arg_places, env)
+                .map(RawAddressSource::into_non_owning_view);
+        }
+        Some(MemoryHelperPrimitive::MemPtrAdd) if args.len() >= 2 && arg_places.len() >= 2 => {
+            return raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
+                source
+                    .with_added_offset(raw_address_offset_from_actual_arg(1, args, arg_places, env))
+            });
+        }
+        Some(MemoryHelperPrimitive::RegionNew) if args.len() >= 2 && !arg_places.is_empty() => {
+            return raw_address_source_from_actual_arg(0, args, arg_places, env);
+        }
+        _ => {}
+    }
     match helper_base_name(name) {
         "add" if args.len() == 2 && arg_places.len() == 2 => {
             if i32_const_from_actual_arg(&args[0], env).is_some()
@@ -239,26 +265,6 @@ fn raw_address_source_from_actual_named_expr(
                     1, args, arg_places, env,
                 ))
             })
-        }
-        "mem_ptr_addr" if args.len() == 1 && arg_places.len() == 1 => {
-            raw_address_source_from_actual_arg(0, args, arg_places, env)
-                .map(RawAddressSource::into_non_owning_view)
-        }
-        "mem_ptr_wrap" if args.len() == 1 && arg_places.len() == 1 => {
-            raw_address_source_from_actual_arg(0, args, arg_places, env)
-        }
-        "str_addr" if args.len() == 1 && arg_places.len() == 1 => {
-            raw_address_source_from_actual_arg(0, args, arg_places, env)
-                .map(RawAddressSource::into_non_owning_view)
-        }
-        "mem_ptr_add" if args.len() >= 2 && arg_places.len() >= 2 => {
-            raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
-                source
-                    .with_added_offset(raw_address_offset_from_actual_arg(1, args, arg_places, env))
-            })
-        }
-        "region_new" if args.len() >= 2 && !arg_places.is_empty() => {
-            raw_address_source_from_actual_arg(0, args, arg_places, env)
         }
         _ => None,
     }

@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::resource_primitives::type_is_raw_pointer;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -163,11 +164,8 @@ impl ResourceOwnerCheckEngine<'_> {
             | TypeKind::Never
             | TypeKind::Reference(_, _)
             | TypeKind::Function { .. } => false,
-            TypeKind::Struct { name, .. } if name == "MemPtr" => false,
-            TypeKind::Apply { base, .. } => !matches!(
-                self.types.get_ref(self.types.resolve_named_type_id(*base)),
-                TypeKind::Struct { name, .. } if name == "MemPtr"
-            ),
+            TypeKind::Struct { .. } if type_is_raw_pointer(self.types, ty) => false,
+            TypeKind::Apply { .. } => !type_is_raw_pointer(self.types, ty),
             TypeKind::Struct { .. }
             | TypeKind::Tuple { .. }
             | TypeKind::Enum { .. }

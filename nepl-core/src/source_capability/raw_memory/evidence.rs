@@ -1,7 +1,9 @@
 use alloc::collections::BTreeSet;
 
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
-use crate::runtime_helpers::helper_base_name;
+use crate::resource_primitives::{
+    compiler_memory_type_from_constructor_name, MemoryHelperPrimitive,
+};
 
 #[derive(Debug, Default)]
 pub(super) struct RawMemoryEvidence {
@@ -30,43 +32,12 @@ pub(super) enum RawMemoryBoundaryEvidence {
     RestrictedConstructor,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RawAddressBoundaryHelper {
-    MemPtrWrap,
-    MemPtrAddr,
-    MemPtrAdd,
-    RegionNew,
-    RegionPtr,
-    RegionPtrAt,
-    RegionTokenRawRef,
-    StrAddr,
-    StrFromAddrUnchecked,
-}
-
-impl RawAddressBoundaryHelper {
-    fn from_symbol(name: &str) -> Option<Self> {
-        let helper = match helper_base_name(name) {
-            "mem_ptr_wrap" => Self::MemPtrWrap,
-            "mem_ptr_addr" => Self::MemPtrAddr,
-            "mem_ptr_add" => Self::MemPtrAdd,
-            "region_new" => Self::RegionNew,
-            "region_ptr" => Self::RegionPtr,
-            "region_ptr_at" => Self::RegionPtrAt,
-            "region_token_raw_ref" => Self::RegionTokenRawRef,
-            "str_addr" => Self::StrAddr,
-            "str_from_addr_unchecked" => Self::StrFromAddrUnchecked,
-            _ => return None,
-        };
-        Some(helper)
-    }
-}
-
 impl RawMemoryBoundaryEvidence {
     pub(super) fn from_symbol(name: &str) -> Option<Self> {
-        if matches!(name, "MemPtr" | "RegionToken") {
+        if compiler_memory_type_from_constructor_name(name).is_some() {
             return Some(Self::RestrictedConstructor);
         }
-        if RawAddressBoundaryHelper::from_symbol(name).is_some() {
+        if MemoryHelperPrimitive::from_symbol(name).is_some() {
             return Some(Self::RawAddressBoundaryHelper);
         }
         None

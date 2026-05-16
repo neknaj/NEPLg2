@@ -4,10 +4,11 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::layout::{extend_type_mapping, mapped_type_id};
+use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection};
-use super::place_utils::{is_mem_ptr_type, projection_result_type};
+use super::place_utils::projection_result_type;
 
 pub(super) fn raw_identity_return_projection_requires_summary(
     types: Option<&TypeCtx>,
@@ -61,7 +62,7 @@ fn raw_identity_type_can_propagate_public_escape(
     seen: &mut Vec<TypeId>,
 ) -> bool {
     let resolved = mapped_type_id(types, ty, mapping);
-    if is_mem_ptr_type(types, resolved) {
+    if type_is_raw_pointer(types, resolved) {
         return true;
     }
     if seen.contains(&resolved) {

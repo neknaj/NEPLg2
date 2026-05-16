@@ -1,4 +1,5 @@
 use crate::hir::{HirExpr, HirExprKind};
+use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::lower::LoweringEnvironment;
@@ -10,15 +11,15 @@ pub(super) fn raw_address_place_from_actual_argument(
     place: &Place,
     env: &LoweringEnvironment,
 ) -> Place {
-    if is_named_struct_type(env.types, place.ty, "MemPtr") {
+    if type_is_raw_pointer(env.types, place.ty) {
         mem_ptr_raw_field_place(place, env.types.i32())
-    } else if is_named_struct_type(env.types, place.ty, "RegionToken") {
+    } else if type_is_owner_token(env.types, place.ty) {
         region_token_raw_field_place(place, env.types.i32())
     } else if let Some(target_ty) = reference_target_type(env.types, place.ty) {
         let target = borrowed_source_place(expr, place, target_ty);
-        if is_named_struct_type(env.types, target_ty, "MemPtr") {
+        if type_is_raw_pointer(env.types, target_ty) {
             mem_ptr_raw_field_place(&target, env.types.i32())
-        } else if is_named_struct_type(env.types, target_ty, "RegionToken") {
+        } else if type_is_owner_token(env.types, target_ty) {
             region_token_raw_field_place(&target, env.types.i32())
         } else {
             place.clone()
@@ -33,35 +34,23 @@ pub(super) fn region_token_place_from_actual_arg(
     place: &Place,
     env: &LoweringEnvironment,
 ) -> Option<Place> {
-    if is_named_struct_type(env.types, place.ty, "RegionToken") {
+    if type_is_owner_token(env.types, place.ty) {
         return Some(place.clone());
     }
     let target_ty = reference_target_type(env.types, place.ty)?;
-    if !is_named_struct_type(env.types, target_ty, "RegionToken") {
+    if !type_is_owner_token(env.types, target_ty) {
         return None;
     }
     Some(borrowed_source_place(expr, place, target_ty))
 }
 
 pub(super) fn raw_address_alias_target(output: &Place, env: &LoweringEnvironment) -> Place {
-    if is_named_struct_type(env.types, output.ty, "MemPtr") {
+    if type_is_raw_pointer(env.types, output.ty) {
         mem_ptr_raw_field_place(output, env.types.i32())
-    } else if is_named_struct_type(env.types, output.ty, "RegionToken") {
+    } else if type_is_owner_token(env.types, output.ty) {
         region_token_raw_field_place(output, env.types.i32())
     } else {
         output.clone()
-    }
-}
-
-pub(super) fn is_named_struct_type(types: &TypeCtx, ty: TypeId, expected: &str) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => name == expected,
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(types.get_ref(base), TypeKind::Struct { name, .. } if name == expected)
-        }
-        _ => false,
     }
 }
 

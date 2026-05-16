@@ -3,6 +3,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
+use crate::resource_primitives::{type_is_raw_pointer, type_preserves_raw_address_identity};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{
@@ -36,18 +37,7 @@ pub(super) fn reference_target_place(reference: &Place, target_ty: TypeId) -> Pl
 }
 
 pub(super) fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => name == "MemPtr" || name == "RegionToken",
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(
-                types.get_ref(base),
-                TypeKind::Struct { name, .. } if name == "MemPtr" || name == "RegionToken"
-            )
-        }
-        _ => false,
-    }
+    type_preserves_raw_address_identity(types, ty)
 }
 
 pub(super) fn type_can_seed_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
@@ -66,9 +56,8 @@ fn type_can_seed_raw_address_alias_mapped(
     }
     seen.push(resolved);
     let result = match types.get_ref(resolved) {
-        TypeKind::Struct { name, fields, .. } => {
-            name == "MemPtr"
-                || name == "RegionToken"
+        TypeKind::Struct { fields, .. } => {
+            type_preserves_raw_address_identity(types, resolved)
                 || fields.iter().any(|field| {
                     type_can_seed_raw_address_alias_mapped(types, *field, mapping, seen)
                 })
@@ -85,12 +74,13 @@ fn type_can_seed_raw_address_alias_mapped(
             let base = types.resolve_named_type_id(*base);
             match types.get_ref(base) {
                 TypeKind::Struct {
-                    name,
                     type_params,
                     fields,
                     ..
                 } => {
-                    name == "MemPtr" || name == "RegionToken" || {
+                    if type_preserves_raw_address_identity(types, resolved) {
+                        true
+                    } else {
                         let nested_mapping = extend_type_mapping(types, mapping, type_params, args);
                         fields.iter().any(|field| {
                             type_can_seed_raw_address_alias_mapped(
@@ -166,7 +156,7 @@ pub(super) fn structural_i32_projection_preserves_raw_address(
 
 pub(super) fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place]) -> bool {
     args.first()
-        .map(|arg| is_mem_ptr_type(types, arg.ty))
+        .map(|arg| type_is_raw_pointer(types, arg.ty))
         .unwrap_or(false)
 }
 
@@ -189,21 +179,9 @@ pub(super) fn checked_mem_ptr_wrapper_arg_indices(
         .copied()
         .filter(|index| {
             args.get(*index)
-                .is_some_and(|arg| is_mem_ptr_type(types, arg.ty))
+                .is_some_and(|arg| type_is_raw_pointer(types, arg.ty))
         })
         .collect()
-}
-
-pub(super) fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => name == "MemPtr",
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(types.get_ref(base), TypeKind::Struct { name, .. } if name == "MemPtr")
-        }
-        _ => false,
-    }
 }
 
 pub(super) fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
