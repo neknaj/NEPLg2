@@ -12,6 +12,7 @@ use self::evidence::{
     owner_aggregate_symbol_evidence, OwnerAggregateCapabilityEvidence,
     OwnerAggregateEvidenceContext,
 };
+use super::prefix_call::PrefixCallHead;
 
 #[derive(Debug, Default)]
 struct OwnerAggregateEvidence {
@@ -20,10 +21,8 @@ struct OwnerAggregateEvidence {
 }
 
 pub(crate) fn module_owner_aggregate_constructor_evidence(module: &Module) -> Vec<String> {
-    collect_module_owner_aggregate_evidence(module)
-        .constructors
-        .into_iter()
-        .collect()
+    let evidence = collect_module_owner_aggregate_evidence(module);
+    evidence.constructors.into_iter().collect()
 }
 
 pub(crate) fn module_has_owner_aggregate_field_evidence(module: &Module) -> bool {
@@ -108,14 +107,16 @@ fn collect_expr_owner_aggregate_evidence(
     context: &OwnerAggregateEvidenceContext,
     evidence: &mut OwnerAggregateEvidence,
 ) {
-    if let Some(item) = expr.items.first() {
-        record_evidence(
-            owner_aggregate_call_head_evidence(item, scope, context),
-            evidence,
-        );
-    }
+    let mut call_head = PrefixCallHead::new();
     for item in &expr.items {
+        if call_head.current_item_can_start_call() {
+            record_evidence(
+                owner_aggregate_call_head_evidence(item, scope, context),
+                evidence,
+            );
+        }
         collect_prefix_item_owner_aggregate_evidence(item, scope, context, evidence);
+        call_head.observe_item(item);
     }
 }
 
@@ -178,9 +179,7 @@ fn record_evidence(
     evidence: &mut OwnerAggregateEvidence,
 ) {
     match observed {
-        Some(OwnerAggregateCapabilityEvidence::FieldAccessor) => {
-            evidence.field_accessor = true;
-        }
+        Some(OwnerAggregateCapabilityEvidence::FieldAccessor) => evidence.field_accessor = true,
         Some(OwnerAggregateCapabilityEvidence::Constructor(name)) => {
             evidence.constructors.insert(name);
         }

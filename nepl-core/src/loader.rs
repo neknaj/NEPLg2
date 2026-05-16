@@ -982,6 +982,58 @@ mod tests {
     }
 
     #[test]
+    fn owner_aggregate_boundary_accepts_constructor_initializer_call_head() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "owner_box", "init.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <(RegionToken<i32>)->OwnerBox<i32>> (region):\n",
+                "    let boxed <OwnerBox<i32>> OwnerBox<i32> region;\n",
+                "    boxed\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_constructor_boundary("OwnerBox"),
+            "constructor after let/type annotation is still prefix call-head evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("RegionToken"),
+            "initializer constructor evidence remains tied to the constructed aggregate name"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_accepts_field_initializer_call_head() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "owner_box", "field_init.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <(OwnerBox<i32>)->i32> (v):\n",
+                "    let owner <i32> field::get v \"owner\";\n",
+                "    owner\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_field_boundary(),
+            "field accessor after let/type annotation is still prefix call-head evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("OwnerBox"),
+            "field initializer evidence must not grant owner aggregate constructor capability"
+        );
+    }
+
+    #[test]
     fn owner_aggregate_boundary_accepts_same_module_struct_constructor_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

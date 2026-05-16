@@ -6,6 +6,7 @@
 
 mod memory_type_definition;
 mod owner_aggregate;
+mod prefix_call;
 mod raw_memory;
 mod scope;
 

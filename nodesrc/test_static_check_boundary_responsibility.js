@@ -33,6 +33,11 @@ const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     'source_capability',
     'memory_type_definition.rs',
 );
+const SOURCE_CAPABILITY_PREFIX_CALL = path.join(
+    CORE_SRC,
+    'source_capability',
+    'prefix_call.rs',
+);
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
     CORE_SRC,
@@ -150,6 +155,10 @@ const sourceCapability = assertFile(SOURCE_CAPABILITY, 'source_capability.rs');
 const sourceCapabilityMemoryTypeDefinition = assertFile(
     SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
     'source_capability/memory_type_definition.rs',
+);
+const sourceCapabilityPrefixCall = assertFile(
+    SOURCE_CAPABILITY_PREFIX_CALL,
+    'source_capability/prefix_call.rs',
 );
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
@@ -406,6 +415,7 @@ assertLineLimit(
     'source_capability/memory_type_definition.rs',
     100,
 );
+assertLineLimit(SOURCE_CAPABILITY_PREFIX_CALL, 'source_capability/prefix_call.rs', 80);
 assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 240);
 assertLineLimit(
@@ -460,14 +470,44 @@ assertContains(
     'source_capability/raw_memory.rs',
 );
 assertContains(
+    sourceCapability,
+    'mod prefix_call;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapabilityPrefixCall,
+    'struct PrefixCallHead',
+    'source capability prefix call-head tracking must be shared',
+);
+assertContains(
+    sourceCapabilityPrefixCall,
+    'fn prefix_item_allows_following_call_head',
+    'source capability prefix initializer positions must be centrally modeled',
+);
+assertContains(
+    sourceCapabilityPrefixCall,
+    'match item',
+    'source capability prefix call-head item classification must use enum matching',
+);
+assertContains(
+    sourceCapabilityPrefixCall,
+    'match symbol',
+    'source capability prefix call-head symbol classification must use enum matching',
+);
+assertNotContains(
+    sourceCapabilityPrefixCall,
+    'matches!',
+    'source capability prefix call-head classification must not hide enum coverage in matches',
+);
+assertContains(
     sourceCapabilityRawMemory,
     'fn collect_call_head_raw_memory_evidence',
     'raw memory source evidence must be restricted to call-head syntax',
 );
 assertContains(
     sourceCapabilityRawMemory,
-    'fn next_prefix_item_can_start_raw_memory_call',
-    'raw memory source evidence must understand prefix initializer call positions',
+    'PrefixCallHead::new',
+    'raw memory source evidence must use the shared prefix call-head tracker',
 );
 assertContains(
     sourceCapability,
@@ -562,6 +602,11 @@ assertContains(
 assertContains(sourceCapabilityOwnerAggregate, 'mod evidence;', 'source_capability/owner_aggregate.rs');
 assertContains(
     sourceCapabilityOwnerAggregate,
+    'PrefixCallHead::new',
+    'owner aggregate source evidence must use the shared prefix call-head tracker',
+);
+assertContains(
+    sourceCapabilityOwnerAggregate,
     'pub(crate) fn module_owner_aggregate_constructor_evidence',
     'source_capability/owner_aggregate.rs',
 );
@@ -614,6 +659,16 @@ assertContains(
     loader,
     'fn owner_aggregate_boundary_requires_constructor_call_head()',
     'loader.rs owner aggregate call-head regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_accepts_constructor_initializer_call_head()',
+    'loader.rs owner aggregate initializer constructor call-head regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_accepts_field_initializer_call_head()',
+    'loader.rs owner aggregate initializer field call-head regression',
 );
 assertContains(
     loader,

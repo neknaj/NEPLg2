@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T02:23:33.987Z",
+  "generated_at": "2026-05-16T02:35:06.259Z",
   "counts": {
-    "total": 862,
+    "total": 863,
     "open": 5,
-    "resolved": 857,
+    "resolved": 858,
     "by_area": {
       "stdlib": {
         "total": 255,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 423,
+        "total": 424,
         "open": 0,
-        "resolved": 423
+        "resolved": 424
       },
       "CORE": {
         "total": 1,
@@ -6418,6 +6418,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T021926423Z-RAW-MEMORY-SOURCE-EVIDENCE-ACCEPTS-N-88427FD2.md"
+    },
+    {
+      "id": "ISS-20260516T022823182Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-MISS-2CBBEB43",
+      "title": "owner aggregate source evidence misses prefix initializer call heads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/owner_aggregate.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T022823182Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-MISS-2CBBEB43.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

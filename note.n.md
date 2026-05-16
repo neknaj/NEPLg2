@@ -1,3 +1,16 @@
+# 2026-05-16 Agent 1 owner aggregate prefix call-head 共通化
+
+- `ISS-20260516T022823182Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-MISS-2CBBEB43` を追加して解決した。
+- owner aggregate source capability は前回の過大付与修正で expression 先頭だけを constructor / field evidence として見ていたため、`let boxed <OwnerBox<i32>> OwnerBox<i32> region` のように `let` / type annotation 後へ call head が来る正当な compiler-owned implementation source を過小拒否し得た。
+- `source_capability/prefix_call.rs` に `PrefixCallHead` tracker を追加し、raw memory と owner aggregate の source evidence walker が同じ prefix call-position model を使うようにした。
+- owner aggregate 側は constructor / field accessor evidence の両方でこの tracker を使い、initializer 中の `OwnerBox<i32>` / `field::get` を証拠として保持しつつ、非 call-head の大文字値は引き続き除外する。
+- loader regression に constructor initializer と field initializer の positive case を追加し、`nodesrc/test_static_check_boundary_responsibility.js` で共通 tracker と両方の source capability walker の利用を監視する。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 6 compiler-core の進捗として追記した。`plan.md` は変更していない。
+- 検証:
+  - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+
 # 2026-05-16 Agent 1 raw memory source evidence 精密化
 
 - `ISS-20260516T021926423Z-RAW-MEMORY-SOURCE-EVIDENCE-ACCEPTS-N-88427FD2` を追加して解決した。

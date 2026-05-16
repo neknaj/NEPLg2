@@ -10,6 +10,7 @@ use crate::source_capability::scope::SourceCapabilityScope;
 
 mod evidence;
 
+use super::prefix_call::PrefixCallHead;
 use evidence::{RawMemoryBoundaryEvidence, RawMemoryEvidence};
 
 pub(crate) fn module_has_raw_memory_boundary_evidence(module: &Module) -> bool {
@@ -128,13 +129,13 @@ fn collect_expr_raw_memory_evidence(
     scope: &SourceCapabilityScope,
     evidence: &mut RawMemoryEvidence,
 ) {
-    let mut next_item_can_start_call = true;
+    let mut call_head = PrefixCallHead::new();
     for item in &expr.items {
-        if next_item_can_start_call {
+        if call_head.current_item_can_start_call() {
             collect_call_head_raw_memory_evidence(item, scope, evidence);
         }
         collect_prefix_item_raw_memory_evidence(item, scope, evidence);
-        next_item_can_start_call = next_prefix_item_can_start_raw_memory_call(item);
+        call_head.observe_item(item);
     }
 }
 
@@ -180,22 +181,6 @@ fn collect_call_head_raw_memory_evidence(
     if let PrefixItem::Symbol(Symbol::Ident(ident, _, _)) = item {
         collect_symbol_raw_memory_evidence(ident.name.as_str(), scope, evidence);
     }
-}
-
-fn next_prefix_item_can_start_raw_memory_call(item: &PrefixItem) -> bool {
-    matches!(
-        item,
-        PrefixItem::TypeAnnotation(_, _)
-            | PrefixItem::Pipe(_)
-            | PrefixItem::Symbol(
-                Symbol::Let { .. }
-                    | Symbol::Set { .. }
-                    | Symbol::If(_)
-                    | Symbol::While(_)
-                    | Symbol::AddrOf { .. }
-                    | Symbol::Deref(_)
-            )
-    )
 }
 
 fn collect_symbol_raw_memory_evidence(
