@@ -1,3 +1,18 @@
+# 2026-05-17 Agent 1 adjacency_matrix create doctest TestReport 化
+
+- `ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9` を fixed / resolved にした。
+- `AdjacencyMatrix.new` の doctest は、現行 stdlib では未定義の stale `eq` helper と bool return に依存していた。`std/test` の `TestReport` stdout と `exit_code: 0` metadata へ移行し、stdout に `matrix len` の assertion 結果が出るようにした。
+- doctest は `unwrap_ok` で `new 5` の成功値を取り出し、`len &g` を `assert_eq_i32 "matrix len" 5 size` で確認し、`free g` で owner を明示的に閉じる典型例にした。
+- `nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js` を追加し、stdout metadata、`test_report_new "adjacency_matrix_new"`、`test_report_push assert_eq_i32`、`test_report_print_stdout` / `test_report_exit_code`、stale `eq` 再導入禁止を source policy に加えた。
+- 検証:
+  - `node nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js`
+  - `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl -n 1 --dist web/dist`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl --no-tree -o tmp/agent1-adjacency-create-doc-final.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/run_source_policy_regressions.js`
+- plan.md との差異:
+  - plan.md は変更していない。stdlib ドキュメント整備方針に沿って、実行結果が stdout と exit code の両方に現れる doctest へ更新した。
+
 # 2026-05-17 Agent 1 constructor payload raw call source proof 修正
 
 - `ISS-20260516T234310403Z-SOURCE-CAPABILITY-PROOF-MISSES-RAW-C-489C7267` を fixed / resolved にした。

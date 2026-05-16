@@ -18,18 +18,25 @@
 //: ## new
 //: [空/から]の[隣接行列/りんせつぎょうれつ]を[作/つく]る
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_new\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"matrix len\" expected=\"5\" actual=\"5\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let g <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 5;
-//:     let ok <bool> eq len &g 5;
+//:     let size <i32> len &g;
 //:     free g
-//:     if ok 1 0
+//:     let report:
+//:         test_report_new "adjacency_matrix_new"
+//:         |> test_report_push assert_eq_i32 "matrix len" 5 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn new <(i32)*>Result<AdjacencyMatrix, Diag>> (nverts):
     if:

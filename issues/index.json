@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T23:48:38.054Z",
+  "generated_at": "2026-05-16T23:53:33.881Z",
   "counts": {
     "total": 890,
-    "open": 6,
-    "resolved": 884,
+    "open": 5,
+    "resolved": 885,
     "by_area": {
       "stdlib": {
         "total": 257,
-        "open": 4,
-        "resolved": 253
+        "open": 3,
+        "resolved": 254
       },
       "TEST": {
         "total": 25,
@@ -193,21 +193,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9",
-      "title": "AdjacencyMatrix create doctest still uses stale eq assertion style",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "stdlib/alloc/collections/adjacency_matrix/api/create.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -13258,6 +13243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303.md"
+    },
+    {
+      "id": "ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9",
+      "title": "AdjacencyMatrix create doctest still uses stale eq assertion style",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-17",
+      "target": "stdlib/alloc/collections/adjacency_matrix/api/create.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",
