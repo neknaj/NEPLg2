@@ -39920,3 +39920,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-16 Agent 1 owner-backed aggregate root identity 修正
+
+- `ISS-20260516T095206737Z-OWNER-BACKED-AGGREGATE-ROOT-STILL-US-13A94EB8` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、owner-backed aggregate 判定の根になる compiler owner token 判定が `StructConstructorPolicy::RawMemoryBoundaryOnly(OwnerToken)` に依存し、TypeCtx の証明済み compiler memory identity とずれていたことだった。
+- 修正後は `copy_capability.rs` の `target_is_compiler_owner_token` が `resource_primitives::type_is_owner_token` を使う。`StructConstructorPolicy` は aggregate constructor policy propagation に限定し、owner token の semantic root には使わない。
+- `driver.rs` の Copy impl target rejection も新しい TypeCtx identity query へ接続した。compiler-owned `RegionToken<T>` の Copy impl は拒否し、同名 user `RegionToken` の Copy impl は許可する。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_generic_owner_backed_aggregate_constructor_after_application -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_region_token -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 copy_impl_rejects_compiler_owner_token_target -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 copy_impl_allows_user_struct_named_region_token -- --exact --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

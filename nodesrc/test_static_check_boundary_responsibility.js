@@ -382,6 +382,21 @@ assertContains(
     'typecheck/copy_capability.rs',
 );
 assertContains(
+    typecheckCopyCapability,
+    'type_is_owner_token(ctx, ty)',
+    'typecheck/copy_capability.rs owner token root must use proven TypeCtx identity',
+);
+assertNotContains(
+    typecheckCopyCapability,
+    'RestrictedStructConstructor::OwnerToken',
+    'typecheck/copy_capability.rs must not classify owner token roots through constructor policy metadata',
+);
+assertNotContains(
+    typecheckCopyCapability,
+    'StructConstructorPolicy::RawMemoryBoundaryOnly',
+    'typecheck/copy_capability.rs must not classify compiler owner token roots through struct policy',
+);
+assertContains(
     typecheckConstructorApply,
     'match constructor_policy',
     'typecheck/constructor_apply.rs',

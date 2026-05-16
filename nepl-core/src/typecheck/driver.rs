@@ -719,7 +719,7 @@ pub fn typecheck(
                 continue;
             }
             if trait_semantics.has_copy_capability(Some(trait_self_ty)) {
-                if target_is_compiler_owner_token(&ctx, &structs, target_ty)
+                if target_is_compiler_owner_token(&ctx, target_ty)
                     || !ctx.is_copy_impl_eligible(target_ty)
                 {
                     diagnostics.push(type_error(

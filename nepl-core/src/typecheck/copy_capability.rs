@@ -2,33 +2,13 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::resource_primitives::type_is_owner_token;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-use super::model::{RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
+use super::model::{StructConstructorPolicy, StructInfo};
 
-pub(super) fn target_is_compiler_owner_token(
-    ctx: &TypeCtx,
-    structs: &BTreeMap<String, StructInfo>,
-    ty: TypeId,
-) -> bool {
-    let resolved = ctx.resolve_id(ty);
-    match ctx.get_ref(resolved) {
-        TypeKind::Apply { base, .. } => target_is_compiler_owner_token(ctx, structs, *base),
-        TypeKind::Named(_) => {
-            let named = ctx.resolve_named_type_id(resolved);
-            named != resolved && target_is_compiler_owner_token(ctx, structs, named)
-        }
-        TypeKind::Struct { name, .. } => structs.get(name).is_some_and(|info| {
-            ctx.same_type(info.ty, resolved)
-                && matches!(
-                    info.constructor_policy,
-                    StructConstructorPolicy::RawMemoryBoundaryOnly(
-                        RestrictedStructConstructor::OwnerToken
-                    )
-                )
-        }),
-        _ => false,
-    }
+pub(super) fn target_is_compiler_owner_token(ctx: &TypeCtx, ty: TypeId) -> bool {
+    type_is_owner_token(ctx, ty)
 }
 
 pub(super) fn mark_owner_backed_aggregate_constructor_policies(
@@ -85,7 +65,7 @@ fn target_contains_owner_backed_aggregate_mapped(
         return target_contains_owner_backed_aggregate_mapped(ctx, structs, *mapped, mapping, seen);
     }
 
-    if target_is_compiler_owner_token(ctx, structs, ty) {
+    if target_is_compiler_owner_token(ctx, ty) {
         return true;
     }
 

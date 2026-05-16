@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T09:46:44.739Z",
+  "generated_at": "2026-05-16T09:56:14.789Z",
   "counts": {
-    "total": 883,
+    "total": 884,
     "open": 5,
-    "resolved": 878,
+    "resolved": 879,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 440,
+        "total": 441,
         "open": 0,
-        "resolved": 440
+        "resolved": 441
       },
       "CORE": {
         "total": 1,
@@ -6643,6 +6643,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T094111889Z-TYPECHECK-FIELD-ACCESS-USES-STRUCT-P-44D67554.md"
+    },
+    {
+      "id": "ISS-20260516T095206737Z-OWNER-BACKED-AGGREGATE-ROOT-STILL-US-13A94EB8",
+      "title": "owner-backed aggregate root still uses constructor policy instead of proven owner-token identity",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/typecheck/copy_capability.rs; nodesrc/test_static_check_boundary_responsibility.js; doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T095206737Z-OWNER-BACKED-AGGREGATE-ROOT-STILL-US-13A94EB8.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
