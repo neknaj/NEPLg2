@@ -9,13 +9,7 @@ pub(super) fn explicit_constructor_symbol(
     }
 
     match item {
-        PrefixItem::Symbol(Symbol::Ident(ident, type_args, _)) => {
-            if type_args.is_empty() {
-                None
-            } else {
-                Some(ident.name.as_str())
-            }
-        }
+        PrefixItem::Symbol(Symbol::Ident(ident, _type_args, _)) => Some(ident.name.as_str()),
         PrefixItem::Symbol(
             Symbol::Let { .. }
             | Symbol::Set { .. }

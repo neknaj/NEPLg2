@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T10:21:18.435Z",
+  "generated_at": "2026-05-16T10:41:04.412Z",
   "counts": {
-    "total": 885,
-    "open": 5,
-    "resolved": 880,
+    "total": 887,
+    "open": 6,
+    "resolved": 881,
     "by_area": {
+      "core": {
+        "total": 444,
+        "open": 1,
+        "resolved": 443
+      },
       "stdlib": {
         "total": 256,
         "open": 3,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 442,
-        "open": 0,
-        "resolved": 442
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412",
+      "title": "Owner token field projection ignores proven field boundary source",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/typecheck/field_access.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6673,6 +6688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T095206737Z-OWNER-BACKED-AGGREGATE-ROOT-STILL-US-13A94EB8.md"
+    },
+    {
+      "id": "ISS-20260516T103203631Z-OWNER-AGGREGATE-PROOF-MISSES-NESTED--F0DD4C3F",
+      "title": "Owner aggregate proof misses nested non-generic constructors",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/constructor_position.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T103203631Z-OWNER-AGGREGATE-PROOF-MISSES-NESTED--F0DD4C3F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

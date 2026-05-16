@@ -646,8 +646,8 @@ assertContains(
 );
 assertContains(
     sourceCapabilityConstructorPosition,
-    'type_args.is_empty()',
-    'source capability explicit constructor evidence must require explicit type arguments',
+    'PrefixItem::Symbol(Symbol::Ident(ident, _type_args, _)) => Some(ident.name.as_str())',
+    'source capability explicit constructor evidence must not require generic type arguments',
 );
 assertContains(
     sourceCapabilityConstructorPosition,

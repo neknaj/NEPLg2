@@ -1042,6 +1042,37 @@ mod tests {
     }
 
     #[test]
+    fn owner_aggregate_boundary_accepts_nested_nongeneric_constructor_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &[
+                "alloc",
+                "collections",
+                "adjacency_matrix",
+                "api",
+                "create.nepl",
+            ],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <(i32,i32,Bits)->Result<AdjacencyMatrix, Diag>> (nverts,nbytes,bits):\n",
+                "    ok<AdjacencyMatrix, Diag> AdjacencyMatrix nverts nbytes bits\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_constructor_boundary("AdjacencyMatrix"),
+            "nested non-generic owner aggregate constructors must be source evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("Ok"),
+            "qualified enum variant wrappers remain outside owner aggregate constructor evidence"
+        );
+    }
+
+    #[test]
     fn owner_aggregate_boundary_accepts_field_initializer_call_head() {
         let loader = real_test_loader();
         let path = canonicalize_path(&stdlib_path(

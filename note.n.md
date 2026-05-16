@@ -39957,3 +39957,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-16 Agent 1 nested non-generic owner aggregate constructor proof 修正
+
+- `ISS-20260516T103203631Z-OWNER-AGGREGATE-PROOF-MISSES-NESTED--F0DD4C3F` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、SourceCapability の nested constructor evidence が explicit type args 付き constructor だけを扱い、`ok<AdjacencyMatrix, Diag> AdjacencyMatrix ...` のような非 generic owner aggregate constructor を Result payload 位置で証明できなかったことだった。
+- 修正後は `explicit_constructor_symbol` が payload を持つ identifier を type args の有無に関係なく observer へ渡し、constructor 名の妥当性、shadowing、qualified enum variant、same-module enum variant、user source rejection は既存の owner aggregate evidence classifier に残す。
+- focused adjacency_matrix doctest は `type.owner_aggregate.constructor_restricted` を出さなくなった。次の blocker として `RegionToken` direct field projection が `OwnerAggregateFieldBoundary` を見ていない問題を `ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412` に分離した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core owner_aggregate_boundary_accepts_nested_nongeneric_constructor_evidence -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `trunk build`: passed
