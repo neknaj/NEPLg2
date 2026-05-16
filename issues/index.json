@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T01:53:46.972Z",
+  "generated_at": "2026-05-16T02:15:23.630Z",
   "counts": {
-    "total": 860,
+    "total": 861,
     "open": 5,
-    "resolved": 855,
+    "resolved": 856,
     "by_area": {
       "stdlib": {
         "total": 255,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 421,
+        "total": 422,
         "open": 0,
-        "resolved": 421
+        "resolved": 422
       },
       "CORE": {
         "total": 1,
@@ -6388,6 +6388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46.md"
+    },
+    {
+      "id": "ISS-20260516T020917148Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-ACCE-5E35D33F",
+      "title": "owner aggregate source evidence accepts non-call uppercase symbols",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/owner_aggregate.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T020917148Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-ACCE-5E35D33F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

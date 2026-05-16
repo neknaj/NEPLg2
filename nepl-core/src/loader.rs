@@ -905,7 +905,7 @@ mod tests {
         let aggregate = load_source_capabilities(
             &loader,
             path,
-            "fn helper <(Vec<i32>)->i32> (v):\n    field::get v \"len\"\n",
+            "fn helper <(OwnerBox<i32>)->i32> (v):\n    field::get v \"owner\"\n",
         );
         assert!(
             !aggregate.allows_owner_aggregate_constructor_boundary("Vec"),
@@ -952,18 +952,18 @@ mod tests {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(
             &loader.stdlib_root,
-            &["alloc", "collections", "vec", "mutation", "pop.nepl"],
+            &["alloc", "collections", "owner_box", "construct.nepl"],
         ));
         let capabilities = load_source_capabilities(
             &loader,
             path,
             concat!(
-                "fn helper <(RegionToken<i32>)->Vec<i32>> (region):\n",
-                "    Vec<i32> 0 1 (VecStorage<i32>::Owned region)\n",
+                "fn helper <(RegionToken<i32>)->OwnerBox<i32>> (region):\n",
+                "    OwnerBox<i32> region\n",
             ),
         );
         assert!(
-            capabilities.allows_owner_aggregate_constructor_boundary("Vec"),
+            capabilities.allows_owner_aggregate_constructor_boundary("OwnerBox"),
             "compiler-owned aggregate constructor syntax is constructor boundary evidence"
         );
         assert!(
@@ -1029,6 +1029,21 @@ mod tests {
     }
 
     #[test]
+    fn owner_aggregate_boundary_requires_constructor_call_head() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "diag", "argument_value_user.nepl"],
+        ));
+        let capabilities =
+            load_source_capabilities(&loader, path, "fn helper <()->i32> ():\n    consume Diag\n");
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("Diag"),
+            "uppercase values used as arguments are not constructor boundary evidence"
+        );
+    }
+
+    #[test]
     fn owner_aggregate_boundary_ignores_qualified_enum_variant_constructors() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(
@@ -1048,13 +1063,40 @@ mod tests {
     }
 
     #[test]
+    fn owner_aggregate_boundary_ignores_same_module_enum_variant_constructors() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "result_local_user.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "enum LocalResult:\n",
+                "    Ok <i32>\n\n",
+                "fn helper <()->LocalResult> ():\n",
+                "    Ok 1\n",
+            ),
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("Ok"),
+            "same-module enum variants are not owner-backed aggregate constructor evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_field_boundary(),
+            "same-module enum variants are not owner-token field projection evidence"
+        );
+    }
+
+    #[test]
     fn owner_aggregate_boundary_rejects_user_source_even_with_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&path_from_segments("C:/nepl-test/user", &["vec_like.nepl"]));
         let capabilities = load_source_capabilities(
             &loader,
             path,
-            "fn helper <(Vec<i32>)->i32> (v):\n    field::get v \"len\"\n",
+            "fn helper <(OwnerBox<i32>)->i32> (v):\n    field::get v \"owner\"\n",
         );
         assert!(
             !capabilities.allows_owner_aggregate_constructor_boundary("Vec"),

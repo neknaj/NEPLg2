@@ -45,6 +45,12 @@ const SOURCE_CAPABILITY_OWNER_AGGREGATE = path.join(
     'source_capability',
     'owner_aggregate.rs',
 );
+const SOURCE_CAPABILITY_OWNER_AGGREGATE_EVIDENCE = path.join(
+    CORE_SRC,
+    'source_capability',
+    'owner_aggregate',
+    'evidence.rs',
+);
 const SOURCE_CAPABILITY_SCOPE = path.join(
     CORE_SRC,
     'source_capability',
@@ -156,6 +162,10 @@ const sourceCapabilityRawMemoryEvidence = assertFile(
 const sourceCapabilityOwnerAggregate = assertFile(
     SOURCE_CAPABILITY_OWNER_AGGREGATE,
     'source_capability/owner_aggregate.rs',
+);
+const sourceCapabilityOwnerAggregateEvidence = assertFile(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE_EVIDENCE,
+    'source_capability/owner_aggregate/evidence.rs',
 );
 const sourceCapabilityScope = assertFile(
     SOURCE_CAPABILITY_SCOPE,
@@ -408,6 +418,11 @@ assertLineLimit(
     'source_capability/owner_aggregate.rs',
     190,
 );
+assertLineLimit(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE_EVIDENCE,
+    'source_capability/owner_aggregate/evidence.rs',
+    130,
+);
 assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
 assertContains(sourceMap, 'RawMemoryStructuralBoundary', 'source_map.rs');
@@ -530,10 +545,11 @@ assertContains(
     'source_capability.rs',
 );
 assertContains(
-    sourceCapabilityOwnerAggregate,
+    sourceCapabilityOwnerAggregateEvidence,
     'enum OwnerAggregateCapabilityEvidence',
-    'source_capability/owner_aggregate.rs',
+    'source_capability/owner_aggregate/evidence.rs',
 );
+assertContains(sourceCapabilityOwnerAggregate, 'mod evidence;', 'source_capability/owner_aggregate.rs');
 assertContains(
     sourceCapabilityOwnerAggregate,
     'pub(crate) fn module_owner_aggregate_constructor_evidence',
@@ -555,14 +571,39 @@ assertContains(
     'owner aggregate source capability must inspect intrinsic field access evidence',
 );
 assertContains(
-    sourceCapabilityOwnerAggregate,
+    sourceCapabilityOwnerAggregateEvidence,
+    'pub(super) fn owner_aggregate_call_head_evidence',
+    'owner aggregate constructor evidence must be restricted to call-head syntax',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateEvidence,
+    'OwnerAggregateEvidenceContext',
+    'owner aggregate evidence must carry declaration context for syntax filtering',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateEvidence,
     'crate::qualified_name::member_tail(symbol) != symbol',
     'owner aggregate constructor evidence must ignore qualified enum variants',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateEvidence,
+    'context.is_enum_variant(base)',
+    'owner aggregate constructor evidence must ignore same-module enum variants',
 );
 assertContains(
     loader,
     'fn owner_aggregate_boundary_ignores_qualified_enum_variant_constructors()',
     'loader.rs owner aggregate enum variant regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_ignores_same_module_enum_variant_constructors()',
+    'loader.rs owner aggregate same-module enum variant regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_requires_constructor_call_head()',
+    'loader.rs owner aggregate call-head regression',
 );
 assertContains(
     loader,

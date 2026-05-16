@@ -1,3 +1,17 @@
+# 2026-05-16 Agent 1 owner aggregate source evidence 精密化
+
+- `ISS-20260516T020917148Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-ACCE-5E35D33F` を追加して解決した。
+- owner aggregate source capability は、修正前は expression 内の任意の未修飾大文字 symbol を constructor evidence として扱っていた。このため `consume Diag` のような引数位置の値や、same-module enum variant `Ok 1` からも constructor boundary authority が導出され得た。
+- `nepl-core/src/source_capability/owner_aggregate/evidence.rs` を新設し、AST traversal と evidence classification を分離した。
+- constructor evidence は prefix expression の call-head に現れた symbol からだけ導出し、same-module enum variant は `OwnerAggregateEvidenceContext` で除外するようにした。
+- loader regression に call-head 以外の大文字値、same-module enum variant、qualified enum variant、intrinsic field evidence、constructor-name isolation を追加した。
+- `nodesrc/test_static_check_boundary_responsibility.js` で evidence module / call-head restriction / enum variant exclusion / regression test 名を監視するようにした。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 6 compiler-core の進捗として追記した。`plan.md` は変更していない。
+- 検証:
+  - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+
 # 2026-05-16 Agent 1 public alloc_ptr owner API 撤去
 
 - `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` を fixed / resolved にした。
