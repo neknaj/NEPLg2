@@ -1013,6 +1013,35 @@ mod tests {
     }
 
     #[test]
+    fn owner_aggregate_boundary_accepts_nested_explicit_constructor_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "storage", "alloc.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <.T> <(RegionToken<.T>)->Result<Vec<.T>, StdErrorKind>> (region):\n",
+                "    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> 0 1 (VecStorage<.T>::Owned region))\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_constructor_boundary("Vec"),
+            "explicit generic constructor nested as a Result payload must be owner aggregate constructor evidence"
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_constructor_boundary("OwnedBuffer"),
+            "explicit generic constructor nested inside another constructor must also be evidence"
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_constructor_boundary("Ok"),
+            "qualified enum variant wrappers must not become owner aggregate constructor evidence"
+        );
+    }
+
+    #[test]
     fn owner_aggregate_boundary_accepts_field_initializer_call_head() {
         let loader = real_test_loader();
         let path = canonicalize_path(&stdlib_path(

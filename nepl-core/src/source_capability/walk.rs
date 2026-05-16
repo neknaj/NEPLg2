@@ -1,6 +1,7 @@
-use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, StructDef, Symbol};
+use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, StructDef};
 use crate::hir::HirBody;
-use crate::source_capability::prefix_call::PrefixCallHead;
+use crate::source_capability::constructor_position::explicit_constructor_symbol;
+use crate::source_capability::prefix_call::{call_head_symbol, PrefixCallHead};
 use crate::source_capability::scope::SourceCapabilityScope;
 
 pub(super) trait SourceCapabilityObserver {
@@ -13,6 +14,13 @@ pub(super) trait SourceCapabilityObserver {
     fn observe_struct_definition(&mut self, _def: &StructDef) {}
 
     fn observe_call_head_symbol(&mut self, _symbol: &str, _scope: &SourceCapabilityScope) {}
+
+    fn observe_explicit_constructor_symbol(
+        &mut self,
+        _symbol: &str,
+        _scope: &SourceCapabilityScope,
+    ) {
+    }
 
     fn observe_intrinsic(&mut self, _name: &str, _scope: &SourceCapabilityScope) {}
 
@@ -90,10 +98,11 @@ fn walk_expr_capability_evidence(
     observer: &mut impl SourceCapabilityObserver,
 ) {
     let mut call_head = PrefixCallHead::new();
-    for item in &expr.items {
+    for (index, item) in expr.items.iter().enumerate() {
         if call_head.current_item_can_start_call() {
             observe_call_head_item(item, scope, observer);
         }
+        observe_explicit_constructor_item(index, item, &expr.items, scope, observer);
         walk_prefix_item_capability_evidence(item, scope, observer);
         call_head.observe_item(item);
     }
@@ -104,26 +113,20 @@ fn observe_call_head_item(
     scope: &SourceCapabilityScope,
     observer: &mut impl SourceCapabilityObserver,
 ) {
-    match item {
-        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) => {
-            observer.observe_call_head_symbol(ident.name.as_str(), scope);
-        }
-        PrefixItem::Symbol(
-            Symbol::Let { .. }
-            | Symbol::Set { .. }
-            | Symbol::If(_)
-            | Symbol::While(_)
-            | Symbol::AddrOf { .. }
-            | Symbol::Deref(_),
-        )
-        | PrefixItem::Literal(_, _)
-        | PrefixItem::Block(_, _)
-        | PrefixItem::Match(_, _)
-        | PrefixItem::Tuple(_, _)
-        | PrefixItem::Group(_, _)
-        | PrefixItem::TypeAnnotation(_, _)
-        | PrefixItem::Pipe(_)
-        | PrefixItem::Intrinsic(_, _) => {}
+    if let Some(symbol) = call_head_symbol(item) {
+        observer.observe_call_head_symbol(symbol, scope);
+    }
+}
+
+fn observe_explicit_constructor_item(
+    index: usize,
+    item: &PrefixItem,
+    items: &[PrefixItem],
+    scope: &SourceCapabilityScope,
+    observer: &mut impl SourceCapabilityObserver,
+) {
+    if let Some(symbol) = explicit_constructor_symbol(item, items.get(index + 1).is_some()) {
+        observer.observe_explicit_constructor_symbol(symbol, scope);
     }
 }
 

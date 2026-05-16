@@ -18415,6 +18415,59 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_mem_ptr_parameter_offset_raw_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+#import "core/option" as *
+
+fn byte_at <(MemPtr<u8>,i32)->i32> (data, idx):
+    let ptr <MemPtr<u8>> mem_ptr_add data idx
+    match load_u8 ptr:
+        Option::Some b:
+            b
+        Option::None:
+            0
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let byte_at_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "byte_at" || function.starts_with("byte_at__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        byte_at_diagnostics.is_empty(),
+        "MemPtr parameter offset view must keep external initialized storage evidence through typed load wrappers: {:#?}\nresource:\n{}",
+        byte_at_diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .dump_text()
+            .contains("raw_address_view mem_ptr_offset"),
+        "mem_ptr_add parameter view must lower as an explicit MemPtr offset:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_direct_arithmetic_external_raw_load() {
     let source = r#"
 #entry main

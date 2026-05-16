@@ -122,6 +122,7 @@ const checks = [
     "nodesrc/test_string_trim_doc_report_contract.js",
     "nodesrc/test_alloc_string_doc_report_contract.js",
     "nodesrc/test_stdlib_string_report_contract.js",
+    "nodesrc/test_stdlib_btreemap_report_contract.js",
     "nodesrc/test_stdlib_cliarg_report_contract.js",
     "nodesrc/test_llvm_runner_return_value.js",
     "nodesrc/test_stdlib_builder_owner_boundary.js",

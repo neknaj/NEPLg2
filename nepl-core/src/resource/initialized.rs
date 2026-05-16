@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
@@ -24,8 +25,9 @@ use super::model::{
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
-    call_uses_checked_mem_ptr_wrapper, construct_aggregate_field_place, reference_target_place,
-    structural_i32_projection_preserves_raw_address, type_preserves_raw_address_alias,
+    call_uses_checked_mem_ptr_wrapper, construct_aggregate_field_place, mem_ptr_raw_field_place,
+    reference_target_place, structural_i32_projection_preserves_raw_address,
+    type_preserves_raw_address_alias,
 };
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
@@ -101,13 +103,11 @@ impl ResourceCheckEngine<'_> {
         let mut variant_initializations = PendingVariantRawCellInitializations::default();
         for param in &function.params {
             cells.mark_initialized(&param.place);
-            cells.mark_external_raw_storage_root(&param.place);
-            raw_aliases.mark(&param.place);
+            self.seed_external_raw_storage_parameter(&mut cells, &mut raw_aliases, &param.place);
             if let Some(target_ty) = self.reference_target_type(param.place.ty) {
                 let target = reference_target_place(&param.place, target_ty);
                 cells.mark_initialized(&target);
-                cells.mark_external_raw_storage_root(&target);
-                raw_aliases.mark(&target);
+                self.seed_external_raw_storage_parameter(&mut cells, &mut raw_aliases, &target);
             }
         }
         for block in &function.blocks {
@@ -121,6 +121,21 @@ impl ResourceCheckEngine<'_> {
             );
         }
         cells.into_entries()
+    }
+
+    fn seed_external_raw_storage_parameter(
+        &self,
+        cells: &mut CellTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        place: &Place,
+    ) {
+        cells.mark_external_raw_storage_root(place);
+        raw_aliases.mark(place);
+        if type_is_raw_pointer(self.types, place.ty) {
+            let raw = mem_ptr_raw_field_place(place, self.types.i32());
+            cells.mark_external_raw_storage_root(&raw);
+            raw_aliases.mark(&raw);
+        }
     }
 
     fn check_block(

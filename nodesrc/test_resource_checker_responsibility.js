@@ -133,11 +133,15 @@ for (const moduleName of [
     'owner_summary.rs',
     'owner_summary_canonicalize.rs',
     'owner_summary_consumed.rs',
+    'owner_summary_i32_condition_leaf.rs',
     'owner_summary_i32_leaf.rs',
+    'owner_summary_owner_token_leaf.rs',
+    'owner_summary_owner_token_type.rs',
     'owner_summary_parameters.rs',
     'owner_summary_raw_alias.rs',
     'owner_summary_raw_alias_branch.rs',
     'owner_summary_raw_alias_walk.rs',
+    'owner_summary_raw_i32_leaf.rs',
     'owner_summary_variant_build.rs',
     'owner_summary_variant_conditions.rs',
     'owner_summary_variant_construct.rs',
@@ -227,6 +231,7 @@ for (const moduleName of [
     'lower_raw_address.rs',
     'lower_raw_address_place.rs',
     'lower_raw_address_return.rs',
+    'lower_raw_address_return_util.rs',
     'lower_raw_memory.rs',
     'lower_temporary_scope.rs',
     'report.rs',
@@ -344,11 +349,15 @@ for (const moduleDecl of [
     'mod owner_summary;',
     'mod owner_summary_canonicalize;',
     'mod owner_summary_consumed;',
+    'mod owner_summary_i32_condition_leaf;',
     'mod owner_summary_i32_leaf;',
+    'mod owner_summary_owner_token_leaf;',
+    'mod owner_summary_owner_token_type;',
     'mod owner_summary_parameters;',
     'mod owner_summary_raw_alias;',
     'mod owner_summary_raw_alias_branch;',
     'mod owner_summary_raw_alias_walk;',
+    'mod owner_summary_raw_i32_leaf;',
     'mod owner_summary_update;',
     'mod owner_summary_variant_build;',
     'mod owner_summary_raw_consumption;',
@@ -426,6 +435,7 @@ for (const moduleDecl of [
     'mod lower_raw_address;',
     'mod lower_raw_address_place;',
     'mod lower_raw_address_return;',
+    'mod lower_raw_address_return_util;',
     'mod lower_raw_memory;',
     'mod lower_temporary_scope;',
     'mod report;',
@@ -569,6 +579,7 @@ const lowerAggregateSelector = readResource('lower_aggregate_selector.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
+const lowerRawAddressReturnUtil = readResource('lower_raw_address_return_util.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
 const lowerTemporaryScope = readResource('lower_temporary_scope.rs');
 const initializedDropRequirement = readResource('initialized_drop_requirement.rs');
@@ -577,11 +588,23 @@ const initializedAliasRelation = readResource('initialized_alias_relation.rs');
 const initializedAliasRelationFlow = readResource('initialized_alias_relation_flow.rs');
 const initializedAliasRelationOp = readResource('initialized_alias_relation_op.rs');
 const initializedAliasScalar = readResource('initialized_alias_scalar.rs');
+const ownerSummaryRawI32Leaf = readResource('owner_summary_raw_i32_leaf.rs');
+const ownerSummaryOwnerTokenLeaf = readResource('owner_summary_owner_token_leaf.rs');
 
 assertContains(initialized, 'struct ResourceCheckEngine', 'initialized.rs');
 assertContains(borrowCheck, 'struct ResourceBorrowCheckEngine', 'borrow_check.rs');
 assertContains(ownerCheck, 'struct ResourceOwnerCheckEngine', 'owner_check.rs');
 assertContains(effectCheck, 'struct ResourceEffectBoundaryEngine', 'effect_check.rs');
+assertContains(
+    ownerSummaryOwnerTokenLeaf,
+    'field_name == "raw"',
+    'owner_summary_owner_token_leaf.rs must identify owner-token raw identity by field name, not by field order',
+);
+assertContains(
+    ownerSummaryRawI32Leaf,
+    'RawI32OwnerLeafMode::OwnerTokenOnly',
+    'owner_summary_raw_i32_leaf.rs must keep owner-token-backed metadata out of raw owner candidates',
+);
 
 assertNotContains(effect, 'struct ResourceEffectBoundaryEngine', 'effect.rs');
 assertContains(effect, 'pub fn check_resource_effect_boundaries', 'effect.rs');
@@ -723,12 +746,12 @@ assertContains(
 );
 assertMatches(
     lowerRawAddress,
-    /Some\("mem_ptr_addr"\)\s*=>\s*\{[\s\S]*push_raw_address_op\([\s\S]*Some\(RawAddressViewKind::NonOwningProjection\)[\s\S]*\}\s*Some\("mem_ptr_add"\)/,
+    /Some\(MemoryHelperPrimitive::MemPtrAddr\)\s*=>\s*\{[\s\S]*push_raw_address_op\([\s\S]*Some\(RawAddressViewKind::NonOwningProjection\)[\s\S]*\}\s*Some\(MemoryHelperPrimitive::MemPtrAdd\)/,
     'lower_raw_address.rs mem_ptr_addr non-owning projection policy',
 );
 assertMatches(
     lowerRawAddress,
-    /Some\("mem_ptr_add"\)\s*=>\s*\{[\s\S]*RawAddressViewKind::MemPtrOffset[\s\S]*push_raw_address_op/,
+    /Some\(MemoryHelperPrimitive::MemPtrAdd\)\s*=>\s*\{[\s\S]*RawAddressViewKind::MemPtrOffset[\s\S]*push_raw_address_op/,
     'lower_raw_address.rs mem_ptr_add offset boundary policy',
 );
 assertContains(
@@ -743,8 +766,13 @@ assertContains(
 );
 assertMatches(
     lowerRawAddressReturn,
-    /fn function_has_dedicated_raw_address_lowering[\s\S]*"mem_ptr_addr"\s*\|\s*"region_ptr"/,
+    /fn function_has_dedicated_raw_address_lowering[\s\S]*MemoryHelperPrimitive::from_symbol\(name\)[\s\S]*MemoryHelperPrimitive::has_dedicated_raw_address_lowering/,
     'lower_raw_address_return.rs dedicated wrapper policy',
+);
+assertContains(
+    lowerRawAddressReturnUtil,
+    'pub(super) fn raw_address_offset_from_return_expr',
+    'lower_raw_address_return_util.rs',
 );
 assertContains(
     lowerRawMemory,
@@ -1146,11 +1174,15 @@ const maxLines = new Map([
     ['owner_summary.rs', 460],
     ['owner_summary_canonicalize.rs', 240],
     ['owner_summary_consumed.rs', 80],
+    ['owner_summary_i32_condition_leaf.rs', 180],
     ['owner_summary_i32_leaf.rs', 220],
+    ['owner_summary_owner_token_leaf.rs', 100],
+    ['owner_summary_owner_token_type.rs', 120],
     ['owner_summary_parameters.rs', 100],
     ['owner_summary_raw_alias.rs', 140],
     ['owner_summary_raw_alias_branch.rs', 80],
     ['owner_summary_raw_alias_walk.rs', 180],
+    ['owner_summary_raw_i32_leaf.rs', 240],
     ['owner_summary_raw_transfer.rs', 150],
     ['owner_summary_variant_build.rs', 360],
     ['owner_summary_resolved_variant.rs', 260],
@@ -1251,6 +1283,7 @@ const maxLines = new Map([
     ['lower_raw_address.rs', 620],
     ['lower_raw_address_place.rs', 180],
     ['lower_raw_address_return.rs', 430],
+    ['lower_raw_address_return_util.rs', 160],
     ['lower_raw_address_source.rs', 180],
     ['lower_raw_memory.rs', 120],
     ['lower_temporary_scope.rs', 100],

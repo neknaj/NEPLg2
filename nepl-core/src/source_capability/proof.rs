@@ -9,8 +9,9 @@ use crate::effects::{
 use crate::hir::HirBody;
 use crate::source_capability::memory_type_definition::compiler_memory_type_from_struct_def;
 use crate::source_capability::owner_aggregate::{
-    owner_aggregate_intrinsic_evidence, owner_aggregate_symbol_evidence,
-    OwnerAggregateCapabilityEvidence, OwnerAggregateEvidenceContext,
+    owner_aggregate_explicit_constructor_evidence, owner_aggregate_intrinsic_evidence,
+    owner_aggregate_symbol_evidence, OwnerAggregateCapabilityEvidence,
+    OwnerAggregateEvidenceContext,
 };
 use crate::source_capability::raw_memory::{RawMemoryBoundaryEvidence, RawMemoryEvidence};
 use crate::source_capability::scope::SourceCapabilityScope;
@@ -143,6 +144,18 @@ impl SourceCapabilityProofCollector<'_> {
         ));
     }
 
+    fn collect_owner_aggregate_explicit_constructor_evidence(
+        &mut self,
+        symbol: &str,
+        scope: &SourceCapabilityScope,
+    ) {
+        self.record_owner_aggregate_evidence(owner_aggregate_explicit_constructor_evidence(
+            symbol,
+            scope,
+            self.owner_context,
+        ));
+    }
+
     fn record_owner_aggregate_evidence(
         &mut self,
         observed: Option<OwnerAggregateCapabilityEvidence>,
@@ -185,6 +198,10 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
 
     fn observe_call_head_symbol(&mut self, symbol: &str, scope: &SourceCapabilityScope) {
         self.collect_symbol_evidence(symbol, scope);
+    }
+
+    fn observe_explicit_constructor_symbol(&mut self, symbol: &str, scope: &SourceCapabilityScope) {
+        self.collect_owner_aggregate_explicit_constructor_evidence(symbol, scope);
     }
 
     fn observe_intrinsic(&mut self, name: &str, _scope: &SourceCapabilityScope) {

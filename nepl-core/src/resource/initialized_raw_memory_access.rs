@@ -134,7 +134,7 @@ impl ResourceCheckEngine<'_> {
     }
 }
 
-fn raw_memory_load_reads_zero_initialized_runtime_cell(
+pub(super) fn raw_memory_load_reads_zero_initialized_runtime_cell(
     cells: &CellTable,
     raw_aliases: &RawCellAddressAliases,
     address: &Place,

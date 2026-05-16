@@ -33,6 +33,11 @@ const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     'source_capability',
     'memory_type_definition.rs',
 );
+const SOURCE_CAPABILITY_CONSTRUCTOR_POSITION = path.join(
+    CORE_SRC,
+    'source_capability',
+    'constructor_position.rs',
+);
 const SOURCE_CAPABILITY_PREFIX_CALL = path.join(
     CORE_SRC,
     'source_capability',
@@ -177,6 +182,10 @@ const sourceCapability = assertFile(SOURCE_CAPABILITY, 'source_capability.rs');
 const sourceCapabilityMemoryTypeDefinition = assertFile(
     SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
     'source_capability/memory_type_definition.rs',
+);
+const sourceCapabilityConstructorPosition = assertFile(
+    SOURCE_CAPABILITY_CONSTRUCTOR_POSITION,
+    'source_capability/constructor_position.rs',
 );
 const sourceCapabilityPrefixCall = assertFile(
     SOURCE_CAPABILITY_PREFIX_CALL,
@@ -453,6 +462,11 @@ assertLineLimit(
     'source_capability/memory_type_definition.rs',
     100,
 );
+assertLineLimit(
+    SOURCE_CAPABILITY_CONSTRUCTOR_POSITION,
+    'source_capability/constructor_position.rs',
+    80,
+);
 assertLineLimit(SOURCE_CAPABILITY_PREFIX_CALL, 'source_capability/prefix_call.rs', 80);
 assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 170);
 assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 240);
@@ -511,6 +525,11 @@ assertContains(
 );
 assertContains(
     sourceCapability,
+    'mod constructor_position;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
     'mod prefix_call;',
     'source_capability.rs',
 );
@@ -528,6 +547,11 @@ assertContains(
     sourceCapabilityPrefixCall,
     'struct PrefixCallHead',
     'source capability prefix call-head tracking must be shared',
+);
+assertContains(
+    sourceCapabilityPrefixCall,
+    'pub(super) fn call_head_symbol',
+    'source capability call-head symbol extraction must be shared',
 );
 assertContains(
     sourceCapabilityPrefixCall,
@@ -550,6 +574,21 @@ assertNotContains(
     'source capability prefix call-head classification must not hide enum coverage in matches',
 );
 assertContains(
+    sourceCapabilityConstructorPosition,
+    'pub(super) fn explicit_constructor_symbol',
+    'source capability explicit constructor positions must be centrally modeled',
+);
+assertContains(
+    sourceCapabilityConstructorPosition,
+    'type_args.is_empty()',
+    'source capability explicit constructor evidence must require explicit type arguments',
+);
+assertContains(
+    sourceCapabilityConstructorPosition,
+    'match item',
+    'source capability explicit constructor item classification must use enum matching',
+);
+assertContains(
     sourceCapabilityWalk,
     'pub(super) trait SourceCapabilityObserver',
     'source capability proof traversal must be observer-driven',
@@ -568,6 +607,11 @@ assertContains(
     sourceCapabilityWalk,
     'fn observe_call_head_item',
     'source capability proof traversal must restrict call-head evidence centrally',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'fn observe_explicit_constructor_item',
+    'source capability proof traversal must model nested explicit constructor evidence centrally',
 );
 assertContains(
     sourceCapabilityWalk,
@@ -613,6 +657,11 @@ assertContains(
     sourceCapabilityProof,
     'fn observe_call_head_symbol',
     'source capability proof must restrict source symbol evidence to shared call-head callbacks',
+);
+assertContains(
+    sourceCapabilityProof,
+    'fn observe_explicit_constructor_symbol',
+    'source capability proof must classify nested explicit constructor evidence through the unified proof collector',
 );
 assertContains(
     sourceCapabilityProof,

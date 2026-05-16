@@ -1,20 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T04:15:50.386Z",
+  "generated_at": "2026-05-16T06:14:53.647Z",
   "counts": {
-    "total": 870,
-    "open": 5,
-    "resolved": 865,
+    "total": 874,
+    "open": 8,
+    "resolved": 866,
     "by_area": {
+      "core": {
+        "total": 431,
+        "open": 2,
+        "resolved": 429
+      },
       "stdlib": {
-        "total": 255,
-        "open": 3,
+        "total": 256,
+        "open": 4,
         "resolved": 252
       },
       "TEST": {
-        "total": 24,
+        "total": 25,
         "open": 1,
-        "resolved": 23
+        "resolved": 24
       },
       "selfhost": {
         "total": 67,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 429,
-        "open": 0,
-        "resolved": 429
       },
       "CORE": {
         "total": 1,
@@ -120,6 +120,21 @@
   },
   "issues": [
     {
+      "id": "ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF",
+      "title": "Resource IR owner regression exact tests fail on current main after Stage 6 owner model changes",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/tests/resource_ir.rs, nepl-core/src/resource/**, stdlib/core/mem/**, stdlib/alloc/collections/vec/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -150,6 +165,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F",
+      "title": "Stdlib documentation contract declaration doctest baseline regressed to 1039 on main",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "stdlib/alloc/collections/**/*.nepl, stdlib/core/mem/types.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F.md"
+    },
+    {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
       "title": ".n.md tests rely on return values instead of stdout assertion reports",
       "area": "TEST",
@@ -158,11 +188,26 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-05-15",
+      "updated": "2026-05-16",
       "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59",
+      "title": "WASM codegen responsibility freeze regressed on main",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/codegen_wasm.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -10798,6 +10843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T125018872Z-STRING-TRIM-DOC-COMMENT-DOCTEST-OMIT-E2099223.md"
+    },
+    {
+      "id": "ISS-20260516T042051521Z-BTREEMAP-FOCUSED-DOCTESTS-STILL-HIDE-87F9DD7B",
+      "title": "BTreeMap focused doctests still hide assertion details behind checks_exit_code",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "stdlib/tests/btreemap.n.md, nodesrc/test_stdlib_btreemap_report_contract.js, nepl-core/src/resource/owner_summary*.rs, nepl-core/src/source_capability/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T042051521Z-BTREEMAP-FOCUSED-DOCTESTS-STILL-HIDE-87F9DD7B.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

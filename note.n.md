@@ -39711,3 +39711,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`: passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `cargo fmt -p nepl-core -- --check`: passed
+
+## 2026-05-16 Agent 1 BTreeMap report fixture と Resource IR owner summary 修正
+
+- `ISS-20260516T042051521Z-BTREEMAP-FOCUSED-DOCTESTS-STILL-HIDE-87F9DD7B` を fixed にした。`plan.md` は変更していない。
+- `stdlib/tests/btreemap.n.md` の focused doctest 5 件を `checks_exit_code` だけの quiet fixture から、canonical `TestReport` stdout + `exit_code: 0` へ移行した。成功時も assertion label / expected / actual が stdout fixture に固定される。
+- stdout 化で `btreemap_insert_error_rolls_back_owner` の Resource IR owner summary false positive が露出した。根本原因は、owner-token-backed aggregate の全 `i32` leaf を free obligation owner candidate として扱っていたことで、`RegionToken.size` や collection metadata が raw owner leak に見えていた。
+- `owner_summary_i32_condition_leaf.rs` と `owner_summary_raw_i32_leaf.rs` に分離し、condition/value scalar と raw owner candidate を同じ列挙器で扱わないようにした。`owner_summary_owner_token_type.rs` は型構造から owner token を含む aggregate を判定し、その場合の free obligation candidate を `RegionToken.raw` に限定する。
+- SourceCapability unified proof には explicit generic constructor evidence を追加し、型適用付き constructor boundary も個別 proof engine ではなく単一 proof collector で収集する。`MemPtr<T>` parameter raw load は Resource IR initialized check の外部 typed raw cell として seed する。
+- `nodesrc/test_stdlib_btreemap_report_contract.js` を追加し、BTreeMap focused doctest が `ret:` / `checks_exit_code` に戻らないことを固定した。`nodesrc/test_resource_checker_responsibility.js` と `nodesrc/test_static_check_boundary_responsibility.js` も新しい責務分割を監視する。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 6 へ進捗を追記した。これは BTreeMap 名や stdlib module allowlist ではなく、source proof、型構造、Resource IR summary から owner/token 性質を導く修正である。
+- 広めの `cargo test -p nepl-core resource_ir_owner -- --nocapture` は current `origin/main` でも代表 exact failure が再現する既存残件を拾ったため、`ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF` として分離した。今回の BTreeMap regression 自体は exact で passing。
+- `node nodesrc/run_source_policy_regressions.js` は `nodesrc/test_stdlib_documentation_contract.js` と `nodesrc/test_parser_backend_responsibility_policy.js` の既存 main 由来 warning を拾った。current / `HEAD` / `origin/main` はいずれも `declarationNoDoctest=1039`、`codegen_wasm.rs=2582 lines` で、今回の差分による増加ではないため `ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F` と `ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59` として分離した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core resource_ir_cell_check_preserves_mem_ptr_parameter_offset_raw_load -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_owner_check_transfers_nested_btree_insert_error_owner_through_helper -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_owner_summary_does_not_treat_plain_i32_struct_fields_as_owners -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_owner_check_reinitializes_self_update_aggregate_return -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_owner_check_rejects_region_ptr_raw_owner_return -- --exact --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_stdlib_btreemap_report_contract.js`: passed
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md --no-tree -o tmp/agent1-btreemap-report-tests.json -j 1 --dist web/dist --assert-io`: total=5, passed=5

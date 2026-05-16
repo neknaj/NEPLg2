@@ -7,6 +7,7 @@ use super::cell_state::{raw_cell_address_prefix, CellTable};
 use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_raw_memory_access::raw_memory_load_reads_zero_initialized_runtime_cell;
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
 };
@@ -182,7 +183,19 @@ impl PendingVariantRawCellInitializations {
                 raw_cell_address_prefix(&place).is_some_and(|address| {
                     cells.raw_cell_initialized_by_byte_range(&address, place.ty, raw_aliases)
                 });
-            if !initialized_by_byte_range {
+            let loaded_from_untracked_source =
+                raw_cell_address_prefix(&place).is_some_and(|address| {
+                    raw_aliases
+                        .aliases_for(&address)
+                        .iter()
+                        .any(|alias| cells.raw_cell_is_untracked_external(alias))
+                        || raw_memory_load_reads_zero_initialized_runtime_cell(
+                            cells,
+                            raw_aliases,
+                            &address,
+                        )
+                });
+            if !initialized_by_byte_range && !loaded_from_untracked_source {
                 engine.ensure_available(
                     cells,
                     &place,

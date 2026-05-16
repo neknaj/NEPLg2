@@ -57,7 +57,8 @@ pub fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
                                     StringUtf8LeadKind::Invalid
 
 pub fn string_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32,str>> (data, idx):
-    match load_u8 mem_ptr_add data idx:
+    let ptr <MemPtr<u8>> mem_ptr_add data idx
+    match load_u8 ptr:
         Option::Some b:
             Result<i32,str>::Ok b
         Option::None:

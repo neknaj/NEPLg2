@@ -83,8 +83,8 @@ for (const name of [
 
 assert.match(
     sliceByteCode,
-    /fn\s+str_slice_result[\s\S]*str_utf8_is_boundary\s+s\s+s0[\s\S]*string_from_mem_unchecked_result\s+mem_ptr_add\s+string_data_ptr\s+s\s+s0\s+out_len/,
-    'str_slice_result must validate UTF-8 byte boundaries before owned string construction',
+    /fn\s+str_slice_result[\s\S]*str_utf8_is_boundary\s+s\s+s0[\s\S]*let\s+src\s+<MemPtr<u8>>\s+mem_ptr_add\s+string_data_ptr\s+s\s+s0[\s\S]*string_from_mem_unchecked_result\s+src\s+out_len/,
+    'str_slice_result must validate UTF-8 byte boundaries and expose mem_ptr_add as call-head evidence before owned string construction',
 );
 assert.match(
     sliceCharCode,

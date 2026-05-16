@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-15
+updated: 2026-05-16
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -1160,3 +1160,22 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/run_source_policy_regressions.js --warn-only`: source-policy warning なし
 
 この issue はまだ open のまま継続する。core trait doc-comment の今回対象は移行済みだが、他の `checks_exit_code` / `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
+
+## 2026-05-16 BTreeMap stdout report migration
+
+`ISS-20260516T042051521Z-BTREEMAP-FOCUSED-DOCTESTS-STILL-HIDE-87F9DD7B` として、`stdlib/tests/btreemap.n.md` の focused doctest 5 件を canonical `std/test` stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `btreemap_insert_and_lookup`、`btreemap_update_replaces_value`、`btreemap_remove_returns_value`、`btreemap_insert_error_rolls_back_owner`、`btreemap_set_wrapper` が assertion label / expected / actual を stdout に固定するようになった。
+- `checks_exit_code` だけで終わらせず、named `TestReport` を `test_report_print_stdout` で出力してから `test_report_exit_code` へ渡す形へ揃えた。
+- `nodesrc/test_stdlib_btreemap_report_contract.js` を追加し、BTreeMap focused doctest が `ret:` / `checks_exit_code` へ戻る退行を検出する。
+- 移行時に露出した Resource IR owner summary false positive は、`i32` condition/value leaf と raw owner candidate leaf を分離し、owner-token-backed aggregate の free obligation candidate を `RegionToken.raw` に限定する compiler-core 修正で解決した。
+
+検証:
+
+- `node nodesrc/test_stdlib_btreemap_report_contract.js`: pass
+- `node nodesrc/test_stdlib_btree_borrowed_observers.js`: pass
+- `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md --no-tree -o tmp/agent1-btreemap-report-tests.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+
+この issue はまだ open のまま継続する。BTreeMap focused doctest は移行済みだが、他の `checks_exit_code` / `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
