@@ -39771,3 +39771,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - WASM responsibility line check: `codegen_wasm.rs` 2519/2525, `string_data.rs` 66/80, `aggregate.rs` 26/40
   - `node nodesrc/test_parser_backend_responsibility_policy.js`: known unrelated failure `ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190`
   - `node nodesrc/run_source_policy_regressions.js`: known unrelated failure `ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F`
+
+## 2026-05-16 Agent 1 LLVM backend responsibility freeze 修正
+
+- `ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、LLVM backend root が HIR type から LLVM value type への写像と aggregate field selector 解決を保持し、raw body bridge / function lowering / value lowering と同じ file に責務が集中していたこと。
+- `nepl-core/src/codegen_llvm/type_map.rs` を追加し、HIR `TypeId` から `LlTy` への変換を分離した。
+- `nepl-core/src/codegen_llvm/aggregate.rs` を追加し、tuple index / struct field name から field type と byte offset を得る selector layout 解決を分離した。
+- `nodesrc/test_parser_backend_responsibility_policy.js` は `codegen_llvm.rs` の freeze を 4188 行へ下げ、新 module の存在と line budget を監視する。
+- `doc/neplg2/parser_backend_responsibility_split_plan.md` の B3 進捗に今回の分割を反映した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core codegen_llvm::tests -- --nocapture`: 9 passed
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 10 passed
+  - `node nodesrc/test_parser_backend_responsibility_policy.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+  - LLVM responsibility line check: `codegen_llvm.rs` 4184/4188, `type_map.rs` 23/40, `aggregate.rs` 26/40
+  - `node nodesrc/run_source_policy_regressions.js`: known unrelated failure `ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F`

@@ -24,7 +24,7 @@
 |---|---:|---|
 | `nepl-core/src/parser.rs` | 4233 | token navigation、syntax recovery、declaration / expression / type expression parsing が集中している。 |
 | `nepl-core/src/codegen_wasm.rs` | 2519 | WASM module assembly、instruction emission、runtime helper lowering が残る。string data layout と aggregate field selector は分離済み。 |
-| `nepl-core/src/codegen_llvm.rs` | 4188 | LLVM IR text lowering、raw LLVM body handling、entry / target preparation が集中している。 |
+| `nepl-core/src/codegen_llvm.rs` | 4184 | LLVM IR text lowering、raw LLVM body handling、entry / target preparation が残る。HIR type mapping と aggregate field selector は分離済み。 |
 | `nepl-core/src/monomorphize.rs` | 1454 | trait impl indexing、call specialization、runtime helper selection、unresolved trait call reporting が集中している。 |
 
 これらの line limit は完成形ではなく、これ以上の責務増加を防ぐ凍結線である。新規機能や大きな修正が必要な場合は、まず下記の分割 stage に従って責務を切り出してから実装する。
@@ -110,6 +110,12 @@
 - `llvm/value.rs`: SSA value and local mapping。
 - `llvm/aggregate.rs`: struct / tuple / enum payload lowering。
 - `llvm/raw_body.rs`: source raw LLVM body bridge。
+
+進捗:
+
+- `codegen_llvm/type_map.rs`: HIR `TypeId` から LLVM scalar/value type への写像を root から分離した。
+- `codegen_llvm/aggregate.rs`: tuple index / struct field name から field type と byte offset を得る selector layout 解決を root から分離した。
+- `nodesrc/test_parser_backend_responsibility_policy.js`: root file の line freeze を 4188 行に下げ、上記 2 module の存在と責務上限を監視する。
 
 ## Monomorphize split stages
 

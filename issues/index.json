@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T06:58:23.802Z",
+  "generated_at": "2026-05-16T07:05:08.647Z",
   "counts": {
     "total": 875,
-    "open": 7,
-    "resolved": 868,
+    "open": 6,
+    "resolved": 869,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -16,11 +16,6 @@
         "open": 1,
         "resolved": 24
       },
-      "core": {
-        "total": 432,
-        "open": 1,
-        "resolved": 431
-      },
       "selfhost": {
         "total": 67,
         "open": 1,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 432,
+        "open": 0,
+        "resolved": 432
       },
       "CORE": {
         "total": 1,
@@ -178,21 +178,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190",
-      "title": "LLVM codegen responsibility freeze regressed on main",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "nepl-core/src/codegen_llvm.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -11653,6 +11638,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59.md"
+    },
+    {
+      "id": "ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190",
+      "title": "LLVM codegen responsibility freeze regressed on main",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/codegen_llvm.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

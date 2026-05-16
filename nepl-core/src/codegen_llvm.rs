@@ -20,7 +20,7 @@ use crate::hir::{
 };
 use crate::layout::{
     enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
-    storage_align_bytes, storage_size_bytes, struct_field_layout_by_name, tuple_field_layout,
+    storage_align_bytes, storage_size_bytes,
 };
 use crate::llvm_ir::{
     collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
@@ -30,6 +30,12 @@ use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::target_precheck::{self, ActiveRawBody};
 use crate::types::{TypeCtx, TypeId, TypeKind};
+
+mod aggregate;
+mod type_map;
+
+use aggregate::aggregate_field_layout;
+use type_map::llty_for_type;
 
 /// LLVM IR 生成時のエラー。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -728,7 +734,7 @@ fn raw_abi_signature_key(name: &str, params: &[LlTy], ret: LlTy) -> String {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LlTy {
+pub(super) enum LlTy {
     Void,
     I32,
     I64,
@@ -3689,45 +3695,6 @@ fn lower_hir_string_literal(
         ty: LlTy::I32,
         repr: ptr_tmp,
     }))
-}
-
-fn llty_for_type(types: &TypeCtx, ty: TypeId) -> LlTy {
-    match types.get(types.resolve_id(ty)) {
-        TypeKind::Unit | TypeKind::Never => LlTy::Void,
-        TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Char | TypeKind::Str => LlTy::I32,
-        TypeKind::F32 => LlTy::F32,
-        TypeKind::Named(name) if name == "i64" || name == "u64" => LlTy::I64,
-        TypeKind::Named(name) if name == "f64" => LlTy::F64,
-        TypeKind::Reference(_, _) => LlTy::I32,
-        TypeKind::Box(_) => LlTy::I32,
-        TypeKind::Tuple { .. } => LlTy::I32,
-        TypeKind::Struct { .. } => LlTy::I32,
-        TypeKind::Enum { .. } => LlTy::I32,
-        TypeKind::Apply { .. } => LlTy::I32,
-        TypeKind::Function { .. } => LlTy::I32,
-        TypeKind::Var(_) => LlTy::I32,
-        TypeKind::Named(_) => LlTy::I32,
-    }
-}
-
-fn aggregate_field_layout(
-    types: &TypeCtx,
-    ctx: &LowerCtx<'_>,
-    base_ty: TypeId,
-    field_expr: &HirExpr,
-) -> Option<(TypeId, i64)> {
-    match &field_expr.kind {
-        HirExprKind::LiteralI32(index) if *index >= 0 => {
-            tuple_field_layout(types, base_ty, *index as usize)
-                .map(|field| (field.ty, field.offset as i64))
-        }
-        HirExprKind::LiteralStr(id) => {
-            let field_name = ctx.strings.get(*id as usize)?;
-            struct_field_layout_by_name(types, base_ty, field_name.as_str())
-                .map(|field| (field.ty, field.offset as i64))
-        }
-        _ => None,
-    }
 }
 
 fn ll_symbol(name: &str) -> String {

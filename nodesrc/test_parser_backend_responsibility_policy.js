@@ -59,7 +59,9 @@ assertLineLimit("nepl-core/src/parser.rs", 4234);
 assertLineLimit("nepl-core/src/codegen_wasm.rs", 2525);
 assertLineLimit("nepl-core/src/codegen_wasm/string_data.rs", 80);
 assertLineLimit("nepl-core/src/codegen_wasm/aggregate.rs", 40);
-assertLineLimit("nepl-core/src/codegen_llvm.rs", 4189);
+assertLineLimit("nepl-core/src/codegen_llvm.rs", 4188);
+assertLineLimit("nepl-core/src/codegen_llvm/type_map.rs", 40);
+assertLineLimit("nepl-core/src/codegen_llvm/aggregate.rs", 40);
 assertLineLimit("nepl-core/src/monomorphize.rs", 1425);
 assertLineLimit("nepl-core/src/monomorphize/trait_identity.rs", 45);
 assertLineLimit("nepl-core/src/monomorphize/trait_lookup.rs", 90);
@@ -76,6 +78,20 @@ assertContains(
     read(path.join(CORE_SRC, "codegen_wasm", "aggregate.rs")),
     "pub(super) fn aggregate_field_layout",
     "wasm aggregate module",
+);
+
+const llvmRoot = read(path.join(CORE_SRC, "codegen_llvm.rs"));
+assertContains(llvmRoot, "mod type_map;", "llvm backend root");
+assertContains(llvmRoot, "mod aggregate;", "llvm backend root");
+assertContains(
+    read(path.join(CORE_SRC, "codegen_llvm", "type_map.rs")),
+    "pub(super) fn llty_for_type",
+    "llvm type map module",
+);
+assertContains(
+    read(path.join(CORE_SRC, "codegen_llvm", "aggregate.rs")),
+    "pub(super) fn aggregate_field_layout",
+    "llvm aggregate module",
 );
 
 const monomorphizeRoot = read(path.join(CORE_SRC, "monomorphize.rs"));
