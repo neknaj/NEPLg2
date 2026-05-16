@@ -2,12 +2,12 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::Module;
+use crate::ast::{Module, StructDef};
 use crate::effects::{
     raw_body_direct_callees, raw_body_memory_operations, raw_memory_op_from_name,
 };
 use crate::hir::HirBody;
-use crate::source_capability::memory_type_definition::module_compiler_memory_type_definitions;
+use crate::source_capability::memory_type_definition::compiler_memory_type_from_struct_def;
 use crate::source_capability::owner_aggregate::{
     owner_aggregate_intrinsic_evidence, owner_aggregate_symbol_evidence,
     OwnerAggregateCapabilityEvidence, OwnerAggregateEvidenceContext,
@@ -65,15 +65,14 @@ fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
         owner_context: &owner_context,
         raw_memory: RawMemoryEvidence::default(),
         owner_aggregate: OwnerAggregateProofEvidence::default(),
+        compiler_memory_types: BTreeSet::new(),
         function_has_raw_memory_evidence: Vec::new(),
     };
     walk_module_capability_evidence(module, &mut collector);
     SourceCapabilityProof {
         raw_memory: collector.raw_memory,
         owner_aggregate: collector.owner_aggregate,
-        compiler_memory_types: module_compiler_memory_type_definitions(module)
-            .into_iter()
-            .collect(),
+        compiler_memory_types: collector.compiler_memory_types,
     }
 }
 
@@ -81,6 +80,7 @@ struct SourceCapabilityProofCollector<'a> {
     owner_context: &'a OwnerAggregateEvidenceContext,
     raw_memory: RawMemoryEvidence,
     owner_aggregate: OwnerAggregateProofEvidence,
+    compiler_memory_types: BTreeSet<CompilerMemoryType>,
     function_has_raw_memory_evidence: Vec<bool>,
 }
 
@@ -175,6 +175,12 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
 
     fn observe_fn_alias_target(&mut self, symbol: &str, scope: &SourceCapabilityScope) {
         self.collect_symbol_evidence(symbol, scope);
+    }
+
+    fn observe_struct_definition(&mut self, def: &StructDef) {
+        if let Some(memory_type) = compiler_memory_type_from_struct_def(def) {
+            self.compiler_memory_types.insert(memory_type);
+        }
     }
 
     fn observe_call_head_symbol(&mut self, symbol: &str, scope: &SourceCapabilityScope) {

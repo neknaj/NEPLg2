@@ -590,6 +590,11 @@ assertContains(
     'source capability proof traversal must centralize raw body observation',
 );
 assertContains(
+    sourceCapabilityWalk,
+    'observer.observe_struct_definition',
+    'source capability proof traversal must centralize struct definition observation',
+);
+assertContains(
     sourceCapabilityProof,
     'struct SourceCapabilityProof',
     'source capability proof must have a single typed proof value',
@@ -620,6 +625,11 @@ assertContains(
     'source capability proof must classify raw bodies through the unified proof collector',
 );
 assertContains(
+    sourceCapabilityProof,
+    'fn observe_struct_definition',
+    'source capability proof must classify compiler memory type definitions through the unified proof collector',
+);
+assertContains(
     sourceCapability,
     'mod memory_type_definition;',
     'source_capability.rs',
@@ -631,7 +641,7 @@ assertContains(
 );
 assertContains(
     sourceCapabilityProof,
-    'module_compiler_memory_type_definitions',
+    'compiler_memory_type_from_struct_def',
     'source_capability/proof.rs',
 );
 assertContains(
@@ -671,7 +681,7 @@ assertContains(
 );
 assertContains(
     sourceCapabilityMemoryTypeDefinition,
-    'pub(in crate::source_capability) fn module_compiler_memory_type_definitions',
+    'pub(in crate::source_capability) fn compiler_memory_type_from_struct_def',
     'source_capability/memory_type_definition.rs',
 );
 assertContains(

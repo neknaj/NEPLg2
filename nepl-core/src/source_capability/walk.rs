@@ -1,4 +1,4 @@
-use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, Symbol};
+use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, StructDef, Symbol};
 use crate::hir::HirBody;
 use crate::source_capability::prefix_call::PrefixCallHead;
 use crate::source_capability::scope::SourceCapabilityScope;
@@ -9,6 +9,8 @@ pub(super) trait SourceCapabilityObserver {
     fn observe_named_function_end(&mut self, _name: &str, _scope: &SourceCapabilityScope) {}
 
     fn observe_fn_alias_target(&mut self, _symbol: &str, _scope: &SourceCapabilityScope) {}
+
+    fn observe_struct_definition(&mut self, _def: &StructDef) {}
 
     fn observe_call_head_symbol(&mut self, _symbol: &str, _scope: &SourceCapabilityScope) {}
 
@@ -60,12 +62,13 @@ fn walk_stmt_capability_evidence(
         Stmt::FnAlias(alias) => {
             observer.observe_fn_alias_target(alias.target.name.as_str(), scope);
         }
+        Stmt::StructDef(def) => observer.observe_struct_definition(def),
         Stmt::Wasm(body) => observer.observe_raw_body(HirBody::Wasm(body.clone())),
         Stmt::LlvmIr(body) => observer.observe_raw_body(HirBody::LlvmIr(body.clone())),
         Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
             walk_expr_capability_evidence(expr, scope, observer);
         }
-        Stmt::Directive(_) | Stmt::StructDef(_) | Stmt::EnumDef(_) | Stmt::Trait(_) => {}
+        Stmt::Directive(_) | Stmt::EnumDef(_) | Stmt::Trait(_) => {}
     }
 }
 

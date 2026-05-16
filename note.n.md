@@ -39670,3 +39670,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt -p nepl-core -- --check`: passed
   - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`: passed
   - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`: passed
+
+## 2026-05-16 Agent 1 compiler memory type evidence を unified proof へ統合
+
+- `ISS-20260516T035713850Z-SOURCE-CAPABILITY-COMPILER-MEMORY-TY-47DC1113` を追加して fixed にした。`plan.md` は変更していない。
+- 直前の `SourceCapabilityProof` 導入後も、compiler memory type definition evidence だけは `module_compiler_memory_type_definitions(module)` で `Module.root.items` を別走査していた。raw memory / owner aggregate は shared traversal に乗っていたため、このままでは capability domain が 1 つだけ proof lifecycle から外れる。
+- `SourceCapabilityObserver` に `observe_struct_definition` を追加し、shared traversal が `Stmt::StructDef` を proof event として通知するようにした。`SourceCapabilityProofCollector` はこの callback で `compiler_memory_type_from_struct_def` を呼び、`CompilerMemoryType` evidence を同じ `SourceCapabilityProof` に記録する。
+- `memory_type_definition.rs` は module walker を持たず、`StructDef -> Option<CompilerMemoryType>` の typed classifier に縮小した。source policy も旧 module walker 名ではなく、struct definition callback と proof collector の分類を監視する。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core compiler_memory_type_definition -- --nocapture`: passed
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo fmt -p nepl-core -- --check`: passed

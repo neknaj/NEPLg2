@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T03:52:47.200Z",
+  "generated_at": "2026-05-16T04:01:12.663Z",
   "counts": {
-    "total": 868,
+    "total": 869,
     "open": 6,
-    "resolved": 862,
+    "resolved": 863,
     "by_area": {
       "stdlib": {
         "total": 255,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 428,
+        "total": 429,
         "open": 0,
-        "resolved": 428
+        "resolved": 429
       },
       "CORE": {
         "total": 1,
@@ -6508,6 +6508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T034018225Z-SOURCE-CAPABILITY-EVIDENCE-USES-PER--87E68F2E.md"
+    },
+    {
+      "id": "ISS-20260516T035713850Z-SOURCE-CAPABILITY-COMPILER-MEMORY-TY-47DC1113",
+      "title": "Source capability compiler memory type evidence re-walks module outside unified proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T035713850Z-SOURCE-CAPABILITY-COMPILER-MEMORY-TY-47DC1113.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
