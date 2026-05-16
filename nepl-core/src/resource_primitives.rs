@@ -19,13 +19,10 @@ pub(crate) fn compiler_memory_type_of_type(
 ) -> Option<CompilerMemoryType> {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
     match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => compiler_memory_type_from_constructor_name(name),
+        TypeKind::Struct { .. } => types.compiler_memory_type(resolved),
         TypeKind::Apply { base, .. } => {
             let base = types.resolve_named_type_id(*base);
-            match types.get_ref(base) {
-                TypeKind::Struct { name, .. } => compiler_memory_type_from_constructor_name(name),
-                _ => None,
-            }
+            types.compiler_memory_type(base)
         }
         _ => None,
     }
@@ -107,7 +104,7 @@ mod tests {
         let i32_ty = types.i32();
         let fields = field_names.iter().map(|_| i32_ty).collect();
         let field_names = field_names.iter().map(|name| (*name).to_string()).collect();
-        types.register_named(
+        let ty = types.register_named(
             name.to_string(),
             TypeKind::Struct {
                 doc: None,
@@ -116,7 +113,11 @@ mod tests {
                 fields,
                 field_names,
             },
-        )
+        );
+        if let Some(memory_type) = compiler_memory_type_from_constructor_name(name) {
+            types.mark_compiler_memory_type(ty, memory_type);
+        }
+        ty
     }
 
     #[test]
@@ -146,6 +147,28 @@ mod tests {
         );
         assert!(!type_is_raw_pointer(&types, applied_region));
         assert!(!type_is_owner_token(&types, applied_mem_ptr));
+    }
+
+    #[test]
+    fn same_name_structs_are_not_memory_types_without_proven_identity() {
+        let mut types = TypeCtx::new();
+        let type_param = types.fresh_var(Some("T".to_string()));
+        let i32_ty = types.i32();
+        let fake_mem_ptr = types.register_named(
+            RAW_POINTER_TYPE_NAME.to_string(),
+            TypeKind::Struct {
+                doc: None,
+                name: RAW_POINTER_TYPE_NAME.to_string(),
+                type_params: vec![type_param],
+                fields: vec![i32_ty],
+                field_names: vec!["raw".to_string()],
+            },
+        );
+        let applied_fake = types.apply(fake_mem_ptr, vec![types.u8()]);
+
+        assert_eq!(compiler_memory_type_of_type(&types, fake_mem_ptr), None);
+        assert_eq!(compiler_memory_type_of_type(&types, applied_fake), None);
+        assert!(!type_is_raw_pointer(&types, fake_mem_ptr));
     }
 
     #[test]

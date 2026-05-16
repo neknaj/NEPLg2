@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ast::Effect;
+use crate::source_map::CompilerMemoryType;
 
 macro_rules! type_log {
     ($($arg:tt)*) => {{
@@ -106,6 +107,7 @@ pub struct TypeCtx {
     copy_impl_targets: Vec<TypeId>,
     copy_trait_enabled: bool,
     drop_impl_targets: Vec<TypeId>,
+    compiler_memory_types: Vec<(TypeId, CompilerMemoryType)>,
     undo_log: Vec<TypeCtxUndo>,
     active_snapshots: usize,
 }
@@ -128,6 +130,7 @@ pub struct TypeCtxCheckpoint {
     undo_len: usize,
     copy_impl_targets_len: usize,
     drop_impl_targets_len: usize,
+    compiler_memory_types_len: usize,
     copy_trait_enabled: bool,
     active_snapshots: usize,
 }
@@ -148,6 +151,7 @@ impl Clone for TypeCtx {
             copy_impl_targets: self.copy_impl_targets.clone(),
             copy_trait_enabled: self.copy_trait_enabled,
             drop_impl_targets: self.drop_impl_targets.clone(),
+            compiler_memory_types: self.compiler_memory_types.clone(),
             undo_log: Vec::new(),
             active_snapshots: 0,
         }
@@ -197,6 +201,7 @@ impl TypeCtx {
             copy_impl_targets: Vec::new(),
             copy_trait_enabled: false,
             drop_impl_targets: Vec::new(),
+            compiler_memory_types: Vec::new(),
             undo_log: Vec::new(),
             active_snapshots: 0,
         }
@@ -208,6 +213,7 @@ impl TypeCtx {
             undo_len: self.undo_log.len(),
             copy_impl_targets_len: self.copy_impl_targets.len(),
             drop_impl_targets_len: self.drop_impl_targets.len(),
+            compiler_memory_types_len: self.compiler_memory_types.len(),
             copy_trait_enabled: self.copy_trait_enabled,
             active_snapshots: self.active_snapshots,
         };
@@ -237,6 +243,8 @@ impl TypeCtx {
             .truncate(checkpoint.copy_impl_targets_len);
         self.drop_impl_targets
             .truncate(checkpoint.drop_impl_targets_len);
+        self.compiler_memory_types
+            .truncate(checkpoint.compiler_memory_types_len);
         self.copy_trait_enabled = checkpoint.copy_trait_enabled;
         self.active_snapshots = checkpoint.active_snapshots;
     }
@@ -614,6 +622,25 @@ impl TypeCtx {
             return;
         }
         self.drop_impl_targets.push(resolved);
+    }
+
+    pub fn mark_compiler_memory_type(&mut self, id: TypeId, memory_type: CompilerMemoryType) {
+        let resolved = self.resolve_named_type_id(self.resolve_id(id));
+        if self
+            .compiler_memory_types
+            .iter()
+            .any(|(ty, registered)| *ty == resolved && *registered == memory_type)
+        {
+            return;
+        }
+        self.compiler_memory_types.push((resolved, memory_type));
+    }
+
+    pub fn compiler_memory_type(&self, id: TypeId) -> Option<CompilerMemoryType> {
+        let resolved = self.resolve_named_type_id(self.resolve_id(id));
+        self.compiler_memory_types
+            .iter()
+            .find_map(|(ty, memory_type)| (*ty == resolved).then_some(*memory_type))
     }
 
     pub fn has_drop_impl_target(&self, id: TypeId) -> bool {

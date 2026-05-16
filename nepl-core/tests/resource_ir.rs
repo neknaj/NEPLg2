@@ -26,7 +26,7 @@ use nepl_core::resource::{
     ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
     ResourceOwnerOperation, ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
-use nepl_core::source_map::{SourceCapabilities, SourceCapability};
+use nepl_core::source_map::{CompilerMemoryType, SourceCapabilities, SourceCapability};
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
 use nepl_core::{BuildProfile, CompileOptions, CompileTarget};
@@ -12289,8 +12289,7 @@ fn string_addr <(str)->i32> (s):
 
 fn forge_region_from_str <(str)*>Result<(), str>> (s):
     let raw <i32> string_addr s
-    let p <MemPtr<u8>> mem_ptr_wrap raw
-    let token <RegionToken<u8>> RegionToken p 1
+    let token <RegionToken<u8>> RegionToken raw 1
     dealloc_region token
 
 fn main <()*>()> ():
@@ -12305,6 +12304,32 @@ fn main <()*>()> ():
         source,
         CompileTarget::Wasm,
         "type.owner_token.constructor_restricted",
+    );
+}
+
+#[test]
+fn typecheck_marks_imported_compiler_memory_types_in_type_context() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let (_module, types) = typecheck_resource_source(source);
+    let mem_ptr = types.lookup_named("MemPtr").expect("MemPtr type");
+    let region_token = types.lookup_named("RegionToken").expect("RegionToken type");
+
+    assert_eq!(
+        types.compiler_memory_type(mem_ptr),
+        Some(CompilerMemoryType::RawPointer)
+    );
+    assert_eq!(
+        types.compiler_memory_type(region_token),
+        Some(CompilerMemoryType::OwnerToken)
     );
 }
 

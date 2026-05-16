@@ -4,10 +4,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
+const CORE_SRC_DIR = path.join(ROOT, 'nepl-core', 'src');
 const RESOURCE_DIR = path.join(ROOT, 'nepl-core', 'src', 'resource');
 
 function readResource(name) {
     return fs.readFileSync(path.join(RESOURCE_DIR, name), 'utf8').replace(/\r\n/g, '\n');
+}
+
+function readCoreSrc(name) {
+    return fs.readFileSync(path.join(CORE_SRC_DIR, name), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function lineCount(text) {
@@ -98,6 +103,9 @@ function assertUsesResourceModuleSymbol(text, moduleName, symbolName, source) {
 }
 
 const mod = assertFile('mod.rs');
+const resourcePrimitives = readCoreSrc('resource_primitives.rs');
+const typeCtxSource = readCoreSrc('types.rs');
+const typecheckDriver = readCoreSrc(path.join('typecheck', 'driver.rs'));
 assertMissing('check.rs');
 
 for (const moduleName of [
@@ -795,6 +803,41 @@ assertNotContains(
     initializedAliasFlowValueProjection,
     'name == "Result"',
     'initialized_alias_flow_value_projection.rs',
+);
+assertContains(
+    typeCtxSource,
+    'compiler_memory_types: Vec<(TypeId, CompilerMemoryType)>',
+    'types.rs compiler memory type identity store',
+);
+assertContains(
+    typeCtxSource,
+    'pub fn mark_compiler_memory_type',
+    'types.rs compiler memory type proof registration',
+);
+assertContains(
+    typeCtxSource,
+    'pub fn compiler_memory_type',
+    'types.rs compiler memory type proof query',
+);
+assertContains(
+    typecheckDriver,
+    'ctx.mark_compiler_memory_type(ty, memory_type)',
+    'typecheck driver must attach proven compiler memory type identity to TypeCtx',
+);
+assertContains(
+    resourcePrimitives,
+    'TypeKind::Struct { .. } => types.compiler_memory_type(resolved)',
+    'resource_primitives.rs must query proven TypeCtx identity for compiler memory structs',
+);
+assertContains(
+    resourcePrimitives,
+    'types.compiler_memory_type(base)',
+    'resource_primitives.rs must preserve proven compiler memory identity through type application',
+);
+assertNotContains(
+    resourcePrimitives,
+    'TypeKind::Struct { name, .. } => compiler_memory_type_from_constructor_name(name)',
+    'resource_primitives.rs must not infer compiler memory type identity from struct names',
 );
 assertContains(
     lowerTemporaryScope,

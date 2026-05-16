@@ -439,6 +439,11 @@ pub fn typecheck(
                         field_names: f_names.clone(),
                     },
                 );
+                let compiler_memory_type =
+                    compiler_memory_type_definition_allowed(&s.name.name, s.name.span, source_map);
+                if let Some(memory_type) = compiler_memory_type {
+                    ctx.mark_compiler_memory_type(ty, memory_type);
+                }
 
                 let is_tag_unit_struct = fs.len() == 1
                     && f_names.len() == 1
@@ -485,11 +490,7 @@ pub fn typecheck(
                         type_params: tps,
                         fields: fs,
                         field_names: f_names,
-                        constructor_policy: struct_constructor_policy(
-                            &s.name.name,
-                            s.name.span,
-                            source_map,
-                        ),
+                        constructor_policy: struct_constructor_policy(compiler_memory_type),
                     },
                 );
             }
@@ -1652,22 +1653,28 @@ pub fn typecheck(
     }
 }
 
-fn struct_constructor_policy(
+fn compiler_memory_type_definition_allowed(
     name: &str,
     span: Span,
     source_map: Option<&SourceMap>,
-) -> StructConstructorPolicy {
+) -> Option<CompilerMemoryType> {
     let Some(memory_type) = compiler_memory_type_from_constructor_name(name) else {
-        return StructConstructorPolicy::Public;
+        return None;
     };
-    if !source_map
+    source_map
         .map(|source_map| {
             source_map.compiler_memory_type_definition_allowed(span.file_id, memory_type)
         })
         .unwrap_or(false)
-    {
+        .then_some(memory_type)
+}
+
+fn struct_constructor_policy(
+    compiler_memory_type: Option<CompilerMemoryType>,
+) -> StructConstructorPolicy {
+    let Some(memory_type) = compiler_memory_type else {
         return StructConstructorPolicy::Public;
-    }
+    };
     match memory_type {
         CompilerMemoryType::RawPointer => {
             StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::RawPointer)

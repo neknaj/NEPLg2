@@ -39865,3 +39865,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core loader::tests::raw_memory_boundary -- --nocapture`: passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `cargo fmt -p nepl-core --check`: passed
+
+## 2026-05-16 Agent 1 compiler memory type identity 証明化
+
+- `ISS-20260516T083402106Z-COMPILER-MEMORY-TYPE-IDENTITY-IS-INF-3F3AF6C8` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の compiler memory type 判定が `MemPtr` / `RegionToken` という struct 名に依存し、source capability で証明された stdlib/compiler-owned type identity を見ていなかったことだった。
+- 修正後は typecheck が `CompilerMemoryTypeDefinition` capability を持つ source file の struct 定義だけを `TypeCtx::mark_compiler_memory_type` で登録し、Resource IR は `TypeCtx::compiler_memory_type` だけを読む。
+- 同名の user struct や未証明 struct は raw pointer / owner token として扱わない。`RegionToken` constructor rejection fixture も現行の `RegionToken<T> raw size` model に合わせ、古い `MemPtr` owner field 前提を除去した。
+- regression / policy:
+  - `same_name_structs_are_not_memory_types_without_proven_identity`
+  - actual `core/mem/types.nepl` の compiler memory type source capability
+  - import span が `RegionToken` owner-token capability を保つこと
+  - typecheck が imported `MemPtr` / `RegionToken` identity を `TypeCtx` に登録すること
+  - resource checker policy が `TypeKind::Struct { name, .. }` による compiler memory type 推論の再導入を拒否すること

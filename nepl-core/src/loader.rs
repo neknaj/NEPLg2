@@ -1320,6 +1320,53 @@ mod tests {
     }
 
     #[test]
+    fn actual_core_mem_types_expose_both_compiler_memory_type_capabilities() {
+        let loader = real_test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "types.nepl"],
+        ));
+        let src = read_file_to_string(&path).expect("read core/mem/types.nepl");
+        let module = loader
+            .parse_module(FileId(0), src)
+            .expect("parse core/mem/types.nepl");
+        let capabilities = module_source_capabilities(&module);
+
+        assert!(capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::RawPointer
+        ));
+        assert!(capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::OwnerToken
+        ));
+    }
+
+    #[test]
+    fn imported_region_token_span_keeps_owner_token_capability() {
+        let mut loader = real_test_loader();
+        let loaded = loader
+            .load_inline(
+                PathBuf::from("region_token_span_probe.nepl"),
+                String::from("#import \"core/mem\" as *\n"),
+            )
+            .expect("load core/mem import");
+        let region_token = loaded
+            .module
+            .root
+            .items
+            .iter()
+            .find_map(|stmt| match stmt {
+                Stmt::StructDef(def) if def.name.name == "RegionToken" => Some(def),
+                _ => None,
+            })
+            .expect("RegionToken struct is imported");
+
+        assert!(loaded.source_map.compiler_memory_type_definition_allowed(
+            region_token.name.span.file_id,
+            crate::source_map::CompilerMemoryType::OwnerToken,
+        ));
+    }
+
+    #[test]
     fn compiler_memory_type_definition_requires_configured_stdlib_source_path() {
         let loader = test_loader();
         let path = canonicalize_path(&PathBuf::from("C:/nepl-user/types.nepl"));

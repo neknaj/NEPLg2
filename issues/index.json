@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T08:26:27.634Z",
+  "generated_at": "2026-05-16T08:51:51.311Z",
   "counts": {
-    "total": 879,
+    "total": 880,
     "open": 5,
-    "resolved": 874,
+    "resolved": 875,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 436,
+        "total": 437,
         "open": 0,
-        "resolved": 436
+        "resolved": 437
       },
       "CORE": {
         "total": 1,
@@ -523,6 +523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T110646911Z-CHECKED-MEMPTR-PROOF-DROPS-REGIONTOK-B846CF4C.md"
+    },
+    {
+      "id": "ISS-20260516T083402106Z-COMPILER-MEMORY-TYPE-IDENTITY-IS-INF-3F3AF6C8",
+      "title": "compiler memory type identity is inferred from names without source proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource_primitives.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T083402106Z-COMPILER-MEMORY-TYPE-IDENTITY-IS-INF-3F3AF6C8.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",
