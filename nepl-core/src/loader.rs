@@ -1247,6 +1247,44 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_requires_raw_operation_call_head() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "raw_operation_argument.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <()->i32> ():\n    consume load_i32\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "raw helper values used as non-call arguments are not raw operation evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_requires_raw_structural_call_head() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "raw_structural_argument.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <()->i32> ():\n    consume mem_ptr_addr\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "raw address helper values used as non-call arguments are not structural boundary evidence"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_accepts_raw_helper_definition_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

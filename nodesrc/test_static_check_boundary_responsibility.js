@@ -460,6 +460,16 @@ assertContains(
     'source_capability/raw_memory.rs',
 );
 assertContains(
+    sourceCapabilityRawMemory,
+    'fn collect_call_head_raw_memory_evidence',
+    'raw memory source evidence must be restricted to call-head syntax',
+);
+assertContains(
+    sourceCapabilityRawMemory,
+    'fn next_prefix_item_can_start_raw_memory_call',
+    'raw memory source evidence must understand prefix initializer call positions',
+);
+assertContains(
     sourceCapability,
     'mod memory_type_definition;',
     'source_capability.rs',
@@ -738,6 +748,16 @@ assertContains(
     loader,
     'fn raw_memory_boundary_accepts_raw_helper_definition_evidence()',
     'loader.rs raw helper definition operation evidence regression',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_requires_raw_operation_call_head()',
+    'loader.rs raw operation call-head regression',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_requires_raw_structural_call_head()',
+    'loader.rs raw structural call-head regression',
 );
 assertContains(
     testHarness,

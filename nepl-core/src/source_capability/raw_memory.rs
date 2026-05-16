@@ -128,8 +128,13 @@ fn collect_expr_raw_memory_evidence(
     scope: &SourceCapabilityScope,
     evidence: &mut RawMemoryEvidence,
 ) {
+    let mut next_item_can_start_call = true;
     for item in &expr.items {
+        if next_item_can_start_call {
+            collect_call_head_raw_memory_evidence(item, scope, evidence);
+        }
         collect_prefix_item_raw_memory_evidence(item, scope, evidence);
+        next_item_can_start_call = next_prefix_item_can_start_raw_memory_call(item);
     }
 }
 
@@ -139,9 +144,6 @@ fn collect_prefix_item_raw_memory_evidence(
     evidence: &mut RawMemoryEvidence,
 ) {
     match item {
-        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) if !scope.shadows(&ident.name) => {
-            collect_symbol_raw_memory_evidence(ident.name.as_str(), scope, evidence);
-        }
         PrefixItem::Intrinsic(intrinsic, _) => {
             collect_builtin_raw_memory_evidence(intrinsic.name.as_str(), evidence);
             for expr in &intrinsic.args {
@@ -168,6 +170,32 @@ fn collect_prefix_item_raw_memory_evidence(
         | PrefixItem::Pipe(_)
         | PrefixItem::Symbol(_) => {}
     }
+}
+
+fn collect_call_head_raw_memory_evidence(
+    item: &PrefixItem,
+    scope: &SourceCapabilityScope,
+    evidence: &mut RawMemoryEvidence,
+) {
+    if let PrefixItem::Symbol(Symbol::Ident(ident, _, _)) = item {
+        collect_symbol_raw_memory_evidence(ident.name.as_str(), scope, evidence);
+    }
+}
+
+fn next_prefix_item_can_start_raw_memory_call(item: &PrefixItem) -> bool {
+    matches!(
+        item,
+        PrefixItem::TypeAnnotation(_, _)
+            | PrefixItem::Pipe(_)
+            | PrefixItem::Symbol(
+                Symbol::Let { .. }
+                    | Symbol::Set { .. }
+                    | Symbol::If(_)
+                    | Symbol::While(_)
+                    | Symbol::AddrOf { .. }
+                    | Symbol::Deref(_)
+            )
+    )
 }
 
 fn collect_symbol_raw_memory_evidence(

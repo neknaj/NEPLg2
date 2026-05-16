@@ -1,3 +1,16 @@
+# 2026-05-16 Agent 1 raw memory source evidence 精密化
+
+- `ISS-20260516T021926423Z-RAW-MEMORY-SOURCE-EVIDENCE-ACCEPTS-N-88427FD2` を追加して解決した。
+- `source_capability/raw_memory.rs` は修正前、prefix expression 内の全 symbol を raw helper evidence として見ていたため、`consume load_i32` や `consume mem_ptr_addr` のような値・引数位置の名前から raw operation / structural boundary authority が導出され得た。
+- `collect_expr_raw_memory_evidence` に prefix call-position scanner を追加し、expression 先頭と `let` / `set` / `if` / `while` / address/reference introducer / type annotation / pipe の直後だけを call head 位置として扱うようにした。
+- これにより `let cur <i32> load_i32 0` のような正当な raw helper implementation evidence は維持し、非 call-head の raw helper symbol は authority evidence から除外する。
+- loader regression に raw operation helper と raw structural helper の非 call-head negative case を追加し、source policy でも scanner と regression を監視する。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 6 compiler-core の進捗として追記した。`plan.md` は変更していない。
+- 検証:
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+
 # 2026-05-16 Agent 1 owner aggregate source evidence 精密化
 
 - `ISS-20260516T020917148Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-ACCE-5E35D33F` を追加して解決した。

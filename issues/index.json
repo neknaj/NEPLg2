@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T02:15:23.630Z",
+  "generated_at": "2026-05-16T02:23:33.987Z",
   "counts": {
-    "total": 861,
+    "total": 862,
     "open": 5,
-    "resolved": 856,
+    "resolved": 857,
     "by_area": {
       "stdlib": {
         "total": 255,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 422,
+        "total": 423,
         "open": 0,
-        "resolved": 422
+        "resolved": 423
       },
       "CORE": {
         "total": 1,
@@ -6403,6 +6403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T020917148Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-ACCE-5E35D33F.md"
+    },
+    {
+      "id": "ISS-20260516T021926423Z-RAW-MEMORY-SOURCE-EVIDENCE-ACCEPTS-N-88427FD2",
+      "title": "raw memory source evidence accepts non-call helper symbols",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/raw_memory.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T021926423Z-RAW-MEMORY-SOURCE-EVIDENCE-ACCEPTS-N-88427FD2.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
