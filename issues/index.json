@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T03:12:18.274Z",
+  "generated_at": "2026-05-16T03:33:56.724Z",
   "counts": {
-    "total": 865,
-    "open": 5,
-    "resolved": 860,
+    "total": 867,
+    "open": 6,
+    "resolved": 861,
     "by_area": {
       "stdlib": {
         "total": 255,
@@ -15,6 +15,11 @@
         "total": 24,
         "open": 1,
         "resolved": 23
+      },
+      "tools": {
+        "total": 3,
+        "open": 1,
+        "resolved": 2
       },
       "selfhost": {
         "total": 67,
@@ -27,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 426,
+        "total": 427,
         "open": 0,
-        "resolved": 426
+        "resolved": 427
       },
       "CORE": {
         "total": 1,
@@ -101,11 +106,6 @@
         "open": 0,
         "resolved": 10
       },
-      "tools": {
-        "total": 2,
-        "open": 0,
-        "resolved": 2
-      },
       "tutorials": {
         "total": 2,
         "open": 0,
@@ -163,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4",
+      "title": "playground editor analysis fixtures are stale after source import expansion",
+      "area": "tools",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "tests/playground_editor/analysis_payload_basic/**, tests/playground_editor/analysis_hover_definition/**, nodesrc/playground_editor_test_runner.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -6463,6 +6478,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T025931471Z-WINDOWS-STDLIB-PATH-CANONICALIZATION-5C6E2D4E.md"
+    },
+    {
+      "id": "ISS-20260516T031913953Z-SOURCE-CAPABILITY-PROOF-TRAVERSAL-IS-9E939884",
+      "title": "Source capability proof traversal is duplicated per capability domain",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/**, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T031913953Z-SOURCE-CAPABILITY-PROOF-TRAVERSAL-IS-9E939884.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

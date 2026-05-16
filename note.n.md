@@ -1,3 +1,22 @@
+# 2026-05-16 Agent 1 source capability proof traversal 共通化
+
+- `ISS-20260516T031913953Z-SOURCE-CAPABILITY-PROOF-TRAVERSAL-IS-9E939884` を解決した。
+- raw memory と owner aggregate の source proof は、どちらも stdlib path allowlist ではなく source evidence を見る形になっていたが、AST traversal / scope update / prefix call-head 判定 / raw body descent を capability ごとに重複して持っていた。
+- `nepl-core/src/source_capability/walk.rs` を追加し、module / block / stmt / function body / prefix expression / intrinsic / match arm / raw body の走査を `SourceCapabilityObserver` で共通化した。
+- raw memory / owner aggregate は shared walker の observer として evidence 分類だけを担当する形へ縮小した。これにより、今後の capability 追加時に call-head や match scope の扱いが個別実装でずれる危険を減らす。
+- `nodesrc/test_static_check_boundary_responsibility.js` を更新し、共通 walker の存在、scope update、call-head tracking、raw body callbackを監視し、個別 collector が traversal を再実装する退行を拒否するようにした。
+- 検証:
+  - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `cargo fmt -p nepl-core -- --check`
+  - `git diff --check`
+  - `trunk build`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-source-capability-proof-walk.json` は 11/13 で失敗。`analysis_payload_basic` / `analysis_hover_definition` の source/expected drift は origin/main にも存在し、今回の Rust source capability 変更とは無関係な既存 fixture 問題として `ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4` を追加した。
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source capability proof の実装責務を、個別 proof engine から共通 traversal invariant へ寄せた。
+
 # 2026-05-16 Agent 1 Windows stdlib path canonicalization 修正
 
 - `ISS-20260516T025931471Z-WINDOWS-STDLIB-PATH-CANONICALIZATION-5C6E2D4E` を解決した。

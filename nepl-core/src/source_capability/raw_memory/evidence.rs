@@ -12,20 +12,6 @@ pub(super) struct RawMemoryEvidence {
     pub(super) raw_body_operations: BTreeSet<RawBodyMemoryOp>,
 }
 
-impl RawMemoryEvidence {
-    pub(super) fn has_any_evidence(&self) -> bool {
-        self.structural_boundary
-            || !self.operations.is_empty()
-            || !self.raw_body_operations.is_empty()
-    }
-
-    pub(super) fn merge(&mut self, other: Self) {
-        self.structural_boundary |= other.structural_boundary;
-        self.operations.extend(other.operations);
-        self.raw_body_operations.extend(other.raw_body_operations);
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RawMemoryBoundaryEvidence {
     RawAddressBoundaryHelper,

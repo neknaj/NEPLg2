@@ -1,6 +1,5 @@
 use alloc::string::String;
 
-use crate::ast::{PrefixItem, Symbol};
 use crate::qualified_name::split_leading_qualifier;
 use crate::runtime_helpers::helper_base_name;
 use crate::source_capability::scope::SourceCapabilityScope;
@@ -11,19 +10,6 @@ use super::context::OwnerAggregateEvidenceContext;
 pub(super) enum OwnerAggregateCapabilityEvidence {
     Constructor(String),
     FieldAccessor,
-}
-
-pub(super) fn owner_aggregate_call_head_evidence(
-    item: &PrefixItem,
-    scope: &SourceCapabilityScope,
-    context: &OwnerAggregateEvidenceContext,
-) -> Option<OwnerAggregateCapabilityEvidence> {
-    match item {
-        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) => {
-            owner_aggregate_symbol_evidence(ident.name.as_str(), scope, context)
-        }
-        _ => None,
-    }
 }
 
 pub(super) fn owner_aggregate_symbol_evidence(

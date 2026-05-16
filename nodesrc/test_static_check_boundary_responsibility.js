@@ -38,6 +38,11 @@ const SOURCE_CAPABILITY_PREFIX_CALL = path.join(
     'source_capability',
     'prefix_call.rs',
 );
+const SOURCE_CAPABILITY_WALK = path.join(
+    CORE_SRC,
+    'source_capability',
+    'walk.rs',
+);
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
     CORE_SRC,
@@ -171,6 +176,10 @@ const sourceCapabilityMemoryTypeDefinition = assertFile(
 const sourceCapabilityPrefixCall = assertFile(
     SOURCE_CAPABILITY_PREFIX_CALL,
     'source_capability/prefix_call.rs',
+);
+const sourceCapabilityWalk = assertFile(
+    SOURCE_CAPABILITY_WALK,
+    'source_capability/walk.rs',
 );
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
@@ -436,6 +445,7 @@ assertLineLimit(
     100,
 );
 assertLineLimit(SOURCE_CAPABILITY_PREFIX_CALL, 'source_capability/prefix_call.rs', 80);
+assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 170);
 assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 240);
 assertLineLimit(
@@ -505,6 +515,11 @@ assertContains(
     'source_capability.rs',
 );
 assertContains(
+    sourceCapability,
+    'mod walk;',
+    'source_capability.rs',
+);
+assertContains(
     sourceCapabilityPrefixCall,
     'struct PrefixCallHead',
     'source capability prefix call-head tracking must be shared',
@@ -530,14 +545,64 @@ assertNotContains(
     'source capability prefix call-head classification must not hide enum coverage in matches',
 );
 assertContains(
-    sourceCapabilityRawMemory,
-    'fn collect_call_head_raw_memory_evidence',
-    'raw memory source evidence must be restricted to call-head syntax',
+    sourceCapabilityWalk,
+    'pub(super) trait SourceCapabilityObserver',
+    'source capability proof traversal must be observer-driven',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'pub(super) fn walk_module_capability_evidence',
+    'source capability proof traversal must have one module entry point',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'PrefixCallHead::new',
+    'source capability proof traversal must centralize prefix call-head tracking',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'fn observe_call_head_item',
+    'source capability proof traversal must restrict call-head evidence centrally',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'match item',
+    'source capability proof traversal must classify call-head items with enum matching',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'block_scope.bind_stmt_locals(stmt)',
+    'source capability proof traversal must centralize statement scope updates',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'arm_scope.bind_match_pattern(&arm.pattern)',
+    'source capability proof traversal must centralize match-arm scope updates',
+);
+assertContains(
+    sourceCapabilityWalk,
+    'observer.observe_raw_body',
+    'source capability proof traversal must centralize raw body observation',
 );
 assertContains(
     sourceCapabilityRawMemory,
-    'PrefixCallHead::new',
-    'raw memory source evidence must use the shared prefix call-head tracker',
+    'impl SourceCapabilityObserver for RawMemoryCollector',
+    'raw memory source evidence must use the shared proof walker',
+);
+assertContains(
+    sourceCapabilityRawMemory,
+    'fn observe_call_head_symbol',
+    'raw memory source evidence must be restricted to shared call-head callbacks',
+);
+assertContains(
+    sourceCapabilityRawMemory,
+    'fn observe_intrinsic',
+    'raw memory source evidence must classify intrinsic callbacks from the shared proof walker',
+);
+assertContains(
+    sourceCapabilityRawMemory,
+    'fn observe_raw_body',
+    'raw memory source evidence must classify raw bodies from the shared proof walker',
 );
 assertContains(
     sourceCapability,
@@ -633,8 +698,8 @@ assertContains(sourceCapabilityOwnerAggregate, 'mod evidence;', 'source_capabili
 assertContains(sourceCapabilityOwnerAggregate, 'mod context;', 'source_capability/owner_aggregate.rs');
 assertContains(
     sourceCapabilityOwnerAggregate,
-    'PrefixCallHead::new',
-    'owner aggregate source evidence must use the shared prefix call-head tracker',
+    'impl SourceCapabilityObserver for OwnerAggregateCollector',
+    'owner aggregate source evidence must use the shared proof walker',
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
@@ -653,13 +718,13 @@ assertContains(
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
-    'PrefixItem::Intrinsic',
-    'owner aggregate source capability must inspect intrinsic field access evidence',
+    'fn observe_intrinsic',
+    'owner aggregate source capability must inspect intrinsic field access evidence through the shared proof walker',
 );
 assertContains(
-    sourceCapabilityOwnerAggregateEvidence,
-    'pub(super) fn owner_aggregate_call_head_evidence',
-    'owner aggregate constructor evidence must be restricted to call-head syntax',
+    sourceCapabilityOwnerAggregate,
+    'fn observe_call_head_symbol',
+    'owner aggregate constructor evidence must be restricted to shared call-head callbacks',
 );
 assertContains(
     sourceCapabilityOwnerAggregateContext,
@@ -792,11 +857,30 @@ assertNotContains(
     'source capability scope must not treat type definitions as value-level shadows',
 );
 assertContains(sourceCapabilityRawMemory, 'raw_memory_op_from_name', 'source_capability/raw_memory.rs');
-assertContains(sourceCapabilityRawMemory, 'PrefixItem::Intrinsic', 'source_capability/raw_memory.rs');
 assertContains(
     sourceCapabilityRawMemory,
-    'evidence.has_any_evidence()',
+    'function_has_evidence',
     'raw helper definitions must grant their operation only when the body has raw evidence',
+);
+assertNotContains(
+    sourceCapabilityRawMemory,
+    'PrefixCallHead::new',
+    'raw memory source evidence must not reimplement prefix call-head traversal',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregate,
+    'PrefixCallHead::new',
+    'owner aggregate source evidence must not reimplement prefix call-head traversal',
+);
+assertNotContains(
+    sourceCapabilityRawMemory,
+    'PrefixItem::Match',
+    'raw memory source evidence must not duplicate AST traversal',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregate,
+    'PrefixItem::Match',
+    'owner aggregate source evidence must not duplicate AST traversal',
 );
 assertContains(
     sourceCapabilityRawMemoryEvidence,

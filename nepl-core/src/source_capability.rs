@@ -9,6 +9,7 @@ mod owner_aggregate;
 mod prefix_call;
 mod raw_memory;
 mod scope;
+mod walk;
 
 pub(crate) use crate::resource_primitives::compiler_memory_type_from_constructor_name;
 pub(crate) use memory_type_definition::module_compiler_memory_type_definitions;
