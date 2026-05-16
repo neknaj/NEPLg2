@@ -65,11 +65,13 @@ impl<'a> BlockChecker<'a> {
             return false;
         };
         match restricted {
-            RestrictedStructConstructor::OwnerToken => source_map
-                .compiler_memory_type_definition_allowed(
-                    span.file_id,
-                    CompilerMemoryType::OwnerToken,
-                ),
+            RestrictedStructConstructor::OwnerToken => {
+                self.owner_aggregate_field_boundary_allowed(span)
+                    || source_map.compiler_memory_type_definition_allowed(
+                        span.file_id,
+                        CompilerMemoryType::OwnerToken,
+                    )
+            }
             RestrictedStructConstructor::RawPointer => source_map
                 .compiler_memory_type_definition_allowed(
                     span.file_id,

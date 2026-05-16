@@ -39970,3 +39970,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `trunk build`: passed
+
+## 2026-05-16 Agent 1 owner token field projection source proof 修正
+
+- `ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`OwnerAggregateFieldBoundary` source evidence が owner-backed aggregate field 型 projection には使われていた一方、direct `RegionToken.raw` / `RegionToken.size` projection の `OwnerToken` base branch では見られていなかったことだった。
+- 修正後は `field_access.rs` の `OwnerToken` branch が `owner_aggregate_field_boundary_allowed(span)` または `CompilerMemoryTypeDefinition(OwnerToken)` を要求する。`RawPointer` branch はこの field boundary では許可しない。
+- user source は capability が無いため `#import "core/field"` だけでは direct `RegionToken` field access を許可しない。stdlib module 名の allowlist ではなく、source proof + typecheck gate の接続で許可する。
+- `stdlib/core/mem/pointer/region.nepl::doctest#1` は通過した。`adjacency_matrix/api/create.nepl` は次の stale `eq` doctest issue を `ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9` に分離した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_region_token_field_access_with_owner_field_boundary -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_field_access_with_owner_field_boundary -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_field_access_outside_memory_boundary -- --exact --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `trunk build`: passed

@@ -12434,6 +12434,63 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_allows_region_token_field_access_with_owner_field_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/field" as field
+
+fn reveal_raw <(RegionToken<u8>)->i32> (token):
+    field::get token "raw"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    compile_resource_source_with_target_and_capabilities(
+        source,
+        CompileTarget::Wasm,
+        SourceCapabilities::owner_aggregate_field_boundary(),
+    )
+    .expect("owner field source proof must allow direct RegionToken field projection");
+}
+
+#[test]
+fn typecheck_rejects_mem_ptr_field_access_with_owner_field_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/field" as field
+
+fn reveal_raw <(MemPtr<u8>)->i32> (ptr):
+    field::get ptr "raw"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let err = compile_resource_source_with_target_and_capabilities(
+        source,
+        CompileTarget::Wasm,
+        SourceCapabilities::owner_aggregate_field_boundary(),
+    )
+    .expect_err("owner field source proof must not allow raw pointer field projection");
+    let nepl_core::CoreError::Diagnostics(diagnostics) = err else {
+        panic!("expected diagnostics error");
+    };
+    assert!(
+        diagnostics.iter().any(
+            |diagnostic| diagnostic.code.as_str() == "type.raw_pointer.field_access_restricted"
+        ),
+        "expected raw pointer field access restriction, diagnostics: {diagnostics:#?}"
+    );
+}
+
+#[test]
 fn typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary() {
     let source = r#"
 #entry main

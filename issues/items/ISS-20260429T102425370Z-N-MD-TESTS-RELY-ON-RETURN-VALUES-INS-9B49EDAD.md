@@ -64,6 +64,10 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue の残りは、既存 assertion suite の `ret:` 代用を stdout report + `exit_code:` へ移行することと、stdout report 省略を検出する lint / runner policy の追加である。
 
+## 2026-05-16 tutorials Vec basics ret metadata drift
+
+`tutorials/getting_started/13_vec_basics.n.md::doctest#1` は focused run で `return value mismatch expected: 0 actual: null` になっており、canonical stdout report を持ちながら `exit_code:` ではなく `ret:` を使っている。これは compiler core の静的検査 issue ではなく、この issue の残件である `ret:` 代用 fixture の移行漏れとして扱う。修正時は `exit_code: 0` と stdout report を維持し、Vec owner cleanup / error path の検査を弱めない。
+
 ## 2026-04-29 進捗メモ 2
 
 `ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A` で、`std/test` に `AssertionStatus` / `AssertionKind` / `TestAssertion` / `TestReport` ベースの structured report API を追加し、`tests/stdlib/std_test_collect.n.md` を canonical `test_report_*` + `stdout:` + `exit_code:` fixture へ更新した。

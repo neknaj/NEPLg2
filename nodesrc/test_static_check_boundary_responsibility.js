@@ -478,6 +478,11 @@ assertMatches(
 );
 assertMatches(
     typecheckFieldAccess,
+    /RestrictedStructConstructor::OwnerToken\s*=>\s*\{\s*self\.owner_aggregate_field_boundary_allowed\(span\)\s*\|\|\s*source_map\.compiler_memory_type_definition_allowed\(\s*span\.file_id,\s*CompilerMemoryType::OwnerToken,\s*\)/,
+    'typecheck/field_access.rs owner token field projection must accept proven field-boundary source',
+);
+assertMatches(
+    typecheckFieldAccess,
     /RestrictedStructConstructor::RawPointer[\s\S]*CompilerMemoryType::RawPointer/,
     'typecheck/field_access.rs raw pointer definition capability branch',
 );

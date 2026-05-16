@@ -2,8 +2,8 @@
 id: ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412
 title: "Owner token field projection ignores proven field boundary source"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-16
@@ -39,6 +39,21 @@ Valid compiler-owned memory boundary helpers cannot project RegionToken raw/size
 
 Allow direct OwnerToken field projection when the source file has OwnerAggregateFieldBoundary evidence, while keeping RawPointer field access restricted to raw structural/compiler memory definition evidence and keeping user source without capability rejected.
 
+## 対応内容
+
+- `restricted_struct_field_access_allowed` の `OwnerToken` branch で `OwnerAggregateFieldBoundary` を認めるようにした。
+- `RawPointer` branch は従来どおり raw structural boundary / compiler memory type definition capability のみで許可し、owner field source proof では許可しない。
+- user source は `SourceCapabilities::none` のままなので、`#import "core/field"` を書いただけでは direct `RegionToken` field projection を許可しない。
+- focused `region.nepl` doctest は通過した。`adjacency_matrix/api/create.nepl` は compiler boundary 系の error を越え、次の stale doctest assertion issue [ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9](./ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9.md) に進んだ。
+
 ## 検証
 
-Add a typecheck regression for OwnerAggregateFieldBoundary on RegionToken field projection, keep the user-source rejection regression, and rerun focused adjacency_matrix doctest.
+- `cargo fmt -p nepl-core --check`: passed
+- `cargo test -p nepl-core --test resource_ir typecheck_allows_region_token_field_access_with_owner_field_boundary -- --exact --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_field_access_with_owner_field_boundary -- --exact --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_field_access_outside_memory_boundary -- --exact --nocapture`: passed
+- `cargo check -p nepl-core`: passed
+- `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+- `trunk build`: passed
+- `node nodesrc/run_doctest.js -i stdlib/core/mem/pointer/region.nepl -n 1 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl -n 1 --dist web/dist`: compiler boundary errors are gone; stale `eq` doctest issue remains

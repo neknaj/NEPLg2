@@ -1,19 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T10:41:04.412Z",
+  "generated_at": "2026-05-16T10:49:39.138Z",
   "counts": {
-    "total": 887,
+    "total": 888,
     "open": 6,
-    "resolved": 881,
+    "resolved": 882,
     "by_area": {
-      "core": {
-        "total": 444,
-        "open": 1,
-        "resolved": 443
-      },
       "stdlib": {
-        "total": 256,
-        "open": 3,
+        "total": 257,
+        "open": 4,
         "resolved": 253
       },
       "TEST": {
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 444,
+        "open": 0,
+        "resolved": 444
       },
       "CORE": {
         "total": 1,
@@ -120,21 +120,6 @@
   },
   "issues": [
     {
-      "id": "ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412",
-      "title": "Owner token field projection ignores proven field boundary source",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "nepl-core/src/typecheck/field_access.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412.md"
-    },
-    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -208,6 +193,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9",
+      "title": "AdjacencyMatrix create doctest still uses stale eq assertion style",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "stdlib/alloc/collections/adjacency_matrix/api/create.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -6703,6 +6703,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T103203631Z-OWNER-AGGREGATE-PROOF-MISSES-NESTED--F0DD4C3F.md"
+    },
+    {
+      "id": "ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412",
+      "title": "Owner token field projection ignores proven field boundary source",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/typecheck/field_access.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
