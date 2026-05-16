@@ -39790,3 +39790,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
   - LLVM responsibility line check: `codegen_llvm.rs` 4184/4188, `type_map.rs` 23/40, `aggregate.rs` 26/40
   - `node nodesrc/run_source_policy_regressions.js`: known unrelated failure `ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F`
+
+## 2026-05-16 Agent 1 Stdlib declaration doctest baseline 修正
+
+- `ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、owner-bearing stdlib API の declaration doctest が不足しており、global source policy の `declarationNoDoctest <= 1032` baseline に対して `1039` まで悪化していたこと。
+- `BTreeMapInsertError` / `BTreeSetInsertError` / `OwnedBuffer` には、owner aggregate direct constructor が禁止されることを `compile_fail` doctest として固定した。
+- `StackPop` / `VecPop` / `VecPartition` / `VecStorage` / `region_token_raw_ref` には、safe constructor / public accessor / explicit free を通した使用例を追加し、owner field を caller 側で直接 projection しない方針を doctest でも示した。
+- `VecPartition` helpers は direct constructor に依存せず `partition` の返却値で検証し、stdlib の memory-safety boundary と整合する例にした。
+- focused verification:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed (`declarationNoDoctest=1022`)
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap/types.nepl -i stdlib/alloc/collections/btreeset/types.nepl -i stdlib/alloc/collections/stack/types.nepl -i stdlib/alloc/collections/stack/api.nepl -i stdlib/alloc/collections/vec/types.nepl -i stdlib/alloc/collections/vec/transform/filter.nepl -i stdlib/core/mem/types.nepl --no-tree -o tmp/agent1-stdlib-doc-contract.json -j 1 --dist web/dist --assert-io`: total=21, passed=21
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

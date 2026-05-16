@@ -33,6 +33,28 @@ pub struct RegionToken<.T>:
 //: 目的:
 //: - `RegionToken` は領域の解放責務を持つため、bounds check などの観察用 API が token を move してはいけません。
 //: - 返される参照は core/mem 内部の checked projection 用であり、public raw address API ではありません。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 1:
+//:         Result::Ok region:
+//:             let raw <i32> *region_token_raw_ref<i32> &region;
+//:             let ok <bool> ge raw 0;
+//:             match dealloc_region<i32> region:
+//:                 Result::Ok _:
+//:                     if ok 0 1
+//:                 Result::Err _:
+//:                     1
+//:         Result::Err _:
+//:             1
+//: ```
 pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
     #intrinsic "get_field_ref" <> (token,"raw")
 

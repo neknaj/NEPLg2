@@ -87,6 +87,29 @@ pub fn pop_top <.T: Copy> <(Stack<.T>)*>StackPop<.T>> (stk):
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st0 <Stack<i32>> unwrap_ok new<i32>;
+//:     let st1 <Stack<i32>> unwrap_ok push<i32> st0 3;
+//:     let p <StackPop<i32>> pop_top<i32> st1;
+//:     let item <Option<i32>> stack_pop_item<i32> &p;
+//:     let st2 <Stack<i32>> stack_pop_stack<i32> p;
+//:     free<i32> st2;
+//:     match item:
+//:         Option::Some x:
+//:             if eq x 3 0 1
+//:         Option::None:
+//:             1
+//: ```
 pub fn stack_pop_item <.T: Copy> <(&StackPop<.T>)->Option<.T>> (p):
     *field::get_ref p "item"
 
@@ -99,6 +122,24 @@ pub fn stack_pop_item <.T: Copy> <(&StackPop<.T>)->Option<.T>> (p):
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st0 <Stack<i32>> unwrap_ok new<i32>;
+//:     let st1 <Stack<i32>> unwrap_ok push<i32> st0 5;
+//:     let p <StackPop<i32>> pop_top<i32> st1;
+//:     let st2 <Stack<i32>> stack_pop_stack<i32> p;
+//:     let ok <bool> eq len<i32> &st2 0;
+//:     free<i32> st2;
+//:     if ok 0 1
+//: ```
 pub fn stack_pop_stack <.T: Copy> <(StackPop<.T>)->Stack<.T>> (p):
     field::get p "stack"
 

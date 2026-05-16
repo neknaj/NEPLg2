@@ -27,6 +27,29 @@ pub struct Stack<.T>:
 //: ### [注意/ちゅうい]
 //: - `StackPop` は stack owner を[含/ふく]む owner-preserving result です。
 //: - 利用側は field projection ではなく、`stack_pop_item` / `stack_pop_stack` で[分解/ぶんかい]します。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st0 <Stack<i32>> unwrap_ok new<i32>;
+//:     let st1 <Stack<i32>> unwrap_ok push<i32> st0 7;
+//:     let p <StackPop<i32>> pop_top<i32> st1;
+//:     let item <Option<i32>> stack_pop_item<i32> &p;
+//:     let st2 <Stack<i32>> stack_pop_stack<i32> p;
+//:     free<i32> st2;
+//:     match item:
+//:         Option::Some x:
+//:             if eq x 7 0 1
+//:         Option::None:
+//:             1
+//: ```
 pub struct StackPop<.T>:
     stack <Stack<.T>>
     item <Option<.T>>

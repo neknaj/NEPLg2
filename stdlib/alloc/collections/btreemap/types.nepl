@@ -49,6 +49,20 @@ pub struct BTreeMap<.K,.V>:
 //: ### [注意/ちゅうい]
 //: - `Result::Err` を[受/う]け[取/と]った caller は `btreemap_insert_error_owner` で owner を[取/と]り[出/だ]し、[不要/ふよう]なら `free` します。
 //: - `diag` は `Diag` の Copy [値/あたい]で、owner を[動/うご]かさず `btreemap_insert_error_diag` から[確認/かくにん]できます。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let m <BTreeMap<i32,i32>> unwrap_ok new<i32,i32>;
+//:     let _e <BTreeMapInsertError<i32,i32>> BTreeMapInsertError<i32,i32> m (diag_error StdErrorKind::OutOfMemory "grow");
+//:     0
+//: ```
 pub struct BTreeMapInsertError<.K,.V>:
     owner <BTreeMap<.K,.V>>
     diag <Diag>

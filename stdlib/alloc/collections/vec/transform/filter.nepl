@@ -206,6 +206,27 @@ pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, Vec
 //: ### [目的/もくてき]
 //: - `VecPartition` owner を[移動/いどう]せず、`matched` 側の[要素数/ようそすう]だけを[観測/かんそく]します。
 //: - owner aggregate field を caller が直接 projection しないための public observer です。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
+//:     let ok <bool> eq vec_partition_matched_len<i32> &parts 1;
+//:     vec_partition_free<i32> parts;
+//:     if ok 0 1
+//: ```
 pub fn vec_partition_matched_len <.T> <(&VecPartition<.T>)->i32> (parts):
     let matched <&Vec<.T>> field::get_ref parts "matched"
     let matched_buffer <&OwnedBuffer<.T>> field::get_ref matched "buffer"
@@ -213,6 +234,27 @@ pub fn vec_partition_matched_len <.T> <(&VecPartition<.T>)->i32> (parts):
 
 //: ## vec_partition_rest_len
 //: `partition` の false 側 `Vec` の[長/なが]さを[返/かえ]す
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
+//:     let ok <bool> eq vec_partition_rest_len<i32> &parts 1;
+//:     vec_partition_free<i32> parts;
+//:     if ok 0 1
+//: ```
 pub fn vec_partition_rest_len <.T> <(&VecPartition<.T>)->i32> (parts):
     let rest <&Vec<.T>> field::get_ref parts "rest"
     let rest_buffer <&OwnedBuffer<.T>> field::get_ref rest "buffer"
@@ -224,12 +266,64 @@ pub fn vec_partition_rest_len <.T> <(&VecPartition<.T>)->i32> (parts):
 //: ### [目的/もくてき]
 //: - `matched` 側の `Vec` を[借用/しゃくよう]し、`Vec.get` と同じ境界規則で `Option<T>` を[返/かえ]します。
 //: - `.T: Copy` に[限定/げんてい]し、要素 owner の move-out をこの API では[扱/あつか]いません。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
+//:     let item <Option<i32>> vec_partition_matched_get<i32> &parts 0;
+//:     vec_partition_free<i32> parts;
+//:     match item:
+//:         Option::Some x:
+//:             if eq x 2 0 1
+//:         Option::None:
+//:             1
+//: ```
 pub fn vec_partition_matched_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (parts, idx):
     let matched <&Vec<.T>> field::get_ref parts "matched"
     vec_get::get<.T> matched idx
 
 //: ## vec_partition_rest_get
 //: `partition` の false 側から index の[要素/ようそ]を[読/よ]む
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
+//:     let item <Option<i32>> vec_partition_rest_get<i32> &parts 0;
+//:     vec_partition_free<i32> parts;
+//:     match item:
+//:         Option::Some x:
+//:             if eq x 1 0 1
+//:         Option::None:
+//:             1
+//: ```
 pub fn vec_partition_rest_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (parts, idx):
     let rest <&Vec<.T>> field::get_ref parts "rest"
     vec_get::get<.T> rest idx
@@ -240,6 +334,26 @@ pub fn vec_partition_rest_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (
 //: ### [目的/もくてき]
 //: - `matched` と `rest` の両方の owner を実装境界内で[取/と]り[出/だ]し、解放漏れを避けます。
 //: - caller は owner aggregate field を直接 projection せず、`VecPartition` 全体をこの関数へ[渡/わた]します。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
+//:     vec_partition_free<i32> parts;
+//:     0
+//: ```
 pub fn vec_partition_free <.T: Copy> <(VecPartition<.T>)->()> (parts):
     let matched <Vec<.T>> field::get parts "matched"
     let rest <Vec<.T>> field::get parts "rest"

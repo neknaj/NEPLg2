@@ -25,6 +25,21 @@
 //: - `cap = 0` の empty storage と、実際に[確保/かくほ]された buffer owner を enum として[分/わ]けます。
 //: - `mem_ptr_wrap 0` を owner sentinel として[使/つか]わず、`match` の[網羅性/もうらせい]で storage state を[扱/あつか]います。
 //: - backing owner は `Owned` variant の payload として[保持/ほじ]し、`Empty` と owner token の不正な組み合わせを source type で[表現/ひょうげん]できないようにします。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let storage <VecStorage<i32>> VecStorage::Empty;
+//:     match storage:
+//:         VecStorage::Empty:
+//:             0
+//:         VecStorage::Owned _region:
+//:             1
+//: ```
 pub enum VecStorage<.T>:
     Empty
     Owned <RegionToken<.T>>
@@ -43,6 +58,17 @@ pub enum VecStorage<.T>:
 //: ### [注意/ちゅうい]
 //: - 現段階では initialized prefix / moved slot / drop traversal は Resource IR 上で完全な typed cell API になっていません。そのため public `Vec` mutation は引き続き `.T: Copy` に[限定/げんてい]します。
 //: - non-Copy payload を[扱/あつか]う最終 API では、`OwnedBuffer` に move-out / replace / drop state をさらに[接続/せつぞく]します。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let _buffer <OwnedBuffer<i32>> OwnedBuffer<i32> 0 0 VecStorage::Empty;
+//:     0
+//: ```
 pub struct OwnedBuffer<.T>:
     len <i32>
     cap <i32>
@@ -122,6 +148,29 @@ pub fn vec_transform_error_vec <.T> <(VecTransformError<.T>)->Vec<.T>> (e):
 //: ### [目的/もくてき]
 //: - `.Pair` の数値 field ではなく、`vec` と `item` を名前付き field として Resource IR に渡します。
 //: - 返却された `vec` owner を呼び出し側が明示的に回収できます。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 4;
+//:     let p <VecPop<i32>> pop<i32> v1;
+//:     let item <Option<i32>> vec_pop_item<i32> &p;
+//:     let next <Vec<i32>> vec_pop_vec<i32> p;
+//:     free<i32> next;
+//:     match item:
+//:         Option::Some x:
+//:             if eq x 4 0 1
+//:         Option::None:
+//:             1
+//: ```
 pub struct VecPop<.T>:
     vec <Vec<.T>>
     item <Option<.T>>
@@ -132,6 +181,29 @@ pub struct VecPop<.T>:
 //: ### [目的/もくてき]
 //: - `VecPop` は[更新後/こうしんご]の `Vec` owner を[含/ふく]むため、caller が field を直接 projection しないようにします。
 //: - `item` は `Option<T>` として[複製/ふくせい]して[読/よ]むだけなので `.T: Copy` に[限定/げんてい]します。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 8;
+//:     let p <VecPop<i32>> pop<i32> v1;
+//:     let item <Option<i32>> vec_pop_item<i32> &p;
+//:     let next <Vec<i32>> vec_pop_vec<i32> p;
+//:     free<i32> next;
+//:     match item:
+//:         Option::Some x:
+//:             if eq x 8 0 1
+//:         Option::None:
+//:             1
+//: ```
 pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
     *field::get_ref p "item"
 
@@ -141,6 +213,24 @@ pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
 //: ### [目的/もくてき]
 //: - `VecPop` を[消費/しょうひ]し、次に[使/つか]う `Vec` owner だけを[移動/いどう]します。
 //: - owner を[含/ふく]む field projection は `Vec` 実装境界に[閉/と]じます。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 9;
+//:     let p <VecPop<i32>> pop<i32> v1;
+//:     let next <Vec<i32>> vec_pop_vec<i32> p;
+//:     let ok <bool> eq len<i32> &next 0;
+//:     free<i32> next;
+//:     if ok 0 1
+//: ```
 pub fn vec_pop_vec <.T> <(VecPop<.T>)->Vec<.T>> (p):
     field::get p "vec"
 
@@ -150,6 +240,27 @@ pub fn vec_pop_vec <.T> <(VecPop<.T>)->Vec<.T>> (p):
 //: ### [目的/もくてき]
 //: - `matched` は predicate が true の[要素/ようそ]、`rest` は false の[要素/ようそ]を[保持/ほじ]します。
 //: - `.Pair` の位置番号ではなく名前付き field にして、owner の[解放/かいほう]漏れを静的検査で[見/み]える形にします。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
+//:     let ok <bool> and (eq vec_partition_matched_len<i32> &parts 1) (eq vec_partition_rest_len<i32> &parts 1);
+//:     vec_partition_free<i32> parts;
+//:     if ok 0 1
+//: ```
 pub struct VecPartition<.T>:
     matched <Vec<.T>>
     rest <Vec<.T>>
