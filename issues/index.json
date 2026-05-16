@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T04:09:53.865Z",
+  "generated_at": "2026-05-16T04:15:50.386Z",
   "counts": {
-    "total": 869,
+    "total": 870,
     "open": 5,
-    "resolved": 864,
+    "resolved": 865,
     "by_area": {
       "stdlib": {
         "total": 255,
@@ -67,9 +67,9 @@
         "resolved": 2
       },
       "docs": {
-        "total": 6,
+        "total": 7,
         "open": 0,
-        "resolved": 6
+        "resolved": 7
       },
       "examples": {
         "total": 17,
@@ -6598,6 +6598,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F.md"
+    },
+    {
+      "id": "ISS-20260516T041311764Z-STAGE-6-MEMORY-MODEL-DOC-STILL-DESCR-AEC8348B",
+      "title": "Stage 6 memory model doc still describes removed alloc_ptr owner path",
+      "area": "docs",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "doc/neplg2/stdlib_collection_mem_string_static_safety_design.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T041311764Z-STAGE-6-MEMORY-MODEL-DOC-STILL-DESCR-AEC8348B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

@@ -1,3 +1,17 @@
+# 2026-05-16 Agent 1 memory model doc stale alloc_ptr 方針修正
+
+- `ISS-20260516T041311764Z-STAGE-6-MEMORY-MODEL-DOC-STILL-DESCR-AEC8348B` を追加して fixed / resolved にした。
+- 根本原因は、`doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` が Stage 6 の実装進捗に追従しておらず、削除済みの `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` public owner API と `core/mem/pointer/alloc` direct import を前提にした記述を残していたこと。
+- `core/mem` の進捗表を現在の実装に合わせ、`MemPtr<T>` は non-owning projection、`RegionToken<T>` は free obligation owner、public / direct import 可能な `MemPtr<T>` owner API は削除済みと明記した。
+- Stage 6 の 2026-05-16 追記と判定節を更新し、scratch storage も `RegionToken` owner と `region_ptr` 由来の non-owning ABI view に分ける方針へ同期した。
+- 親 issue `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` に、今回閉じたのは stale guidance であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は残件であることを追記した。
+- 検証:
+  - stale wording 検索: 0 件
+  - current wording 検索: 2 件
+  - `node nodesrc/issues.js check --dir issues`: passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の設計文書を現行実装へ同期し、削除済みの `MemPtr<T>` owner API を将来作業の前提にしないようにした。
+
 # 2026-05-16 Agent 1 playground editor analysis fixture 更新
 
 - `ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4` を fixed / resolved にした。

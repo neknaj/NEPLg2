@@ -593,3 +593,11 @@ root facade の `cliarg_get` は既に負 index を拒否していたが、raw b
 修正後の doctest は NUL を含む string literal `"nep\0"` の `string_data_ptr` を `cstr_len` / `cstr_to_str` に渡す。これにより C string helper の典型例を維持しながら、ordinary doctest に raw memory write authority を要求しない。Resource IR の `resource.raw.memory_outside_boundary` は緩めない。
 
 この親 issue は引き続き open とする。Stage 6 の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は残件である。
+
+## 2026-05-16 Agent 1 memory model doc 同期追記
+
+`ISS-20260516T041311764Z-STAGE-6-MEMORY-MODEL-DOC-STILL-DESCR-AEC8348B` で、`doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に残っていた削除済み `alloc_ptr` owner path / `core/mem/pointer/alloc` direct import 前提を修正した。
+
+実装上は `stdlib/core/mem/pointer/alloc.nepl` が削除済みであり、safe facade だけでなく direct import でも `MemPtr<T>` allocation owner API へ戻れない。文書もこれに合わせ、scratch storage は `RegionToken` owner と `region_ptr` 由来の non-owning ABI view に分ける方針へ同期した。
+
+この親 issue は引き続き open とする。今回閉じたのは設計文書の stale guidance であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件である。
