@@ -1,3 +1,17 @@
+# 2026-05-16 Agent 1 playground editor analysis fixture 更新
+
+- `ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4` を fixed / resolved にした。
+- 根本原因は、`analysis_payload_basic` / `analysis_hover_definition` の `source.nepl` だけが `#import "core/math" as *` を含む現在の source に更新され、`analysis.json` の token / definition / reference / semantic span と `expected.json`、hover request offset が import 追加前のまま残っていたこと。
+- `analysis.json` に `DirImport` token を追加し、`fn add`、`let x add`、unused variable diagnostic、semantic token / inlay hint の span を現在の source offset / line / column に揃えた。
+- hover / definition / occurrences の request offset は旧 source の `22` から、現在の `add` 参照上の `47` へ更新した。
+- `expected.json` は更新後の `analysis.json` と request から playground editor runner の snapshot を再生成し、definition target も現在の `fn add` definition offset `28` に揃えた。
+- 検証:
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-after.json`: 13/13 passed
+  - `trunk build`: passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-after-trunk.json`: 13/13 passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正後の source import expansion に伴う playground editor analysis fixture drift を閉じ、post-trunk の nodesrc/cli.js JSON gate を再び信頼できる状態にした。
+
 # 2026-05-16 Agent 1 source capability proof traversal 共通化
 
 - `ISS-20260516T031913953Z-SOURCE-CAPABILITY-PROOF-TRAVERSAL-IS-9E939884` を解決した。

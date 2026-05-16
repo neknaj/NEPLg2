@@ -6,44 +6,64 @@
         "tokens": [
           {
             "startIndex": 0,
-            "endIndex": 2,
+            "endIndex": 7,
             "type": "keyword"
           },
           {
-            "startIndex": 3,
-            "endIndex": 6,
+            "startIndex": 8,
+            "endIndex": 19,
+            "type": "string"
+          },
+          {
+            "startIndex": 20,
+            "endIndex": 22,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 23,
+            "endIndex": 24,
+            "type": "operator"
+          },
+          {
+            "startIndex": 25,
+            "endIndex": 27,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 28,
+            "endIndex": 31,
             "type": "function"
           },
           {
-            "startIndex": 6,
-            "endIndex": 7,
+            "startIndex": 31,
+            "endIndex": 32,
             "type": "punctuation"
           },
           {
-            "startIndex": 12,
-            "endIndex": 13,
+            "startIndex": 37,
+            "endIndex": 38,
             "type": "number"
           },
           {
-            "startIndex": 15,
-            "endIndex": 18,
+            "startIndex": 40,
+            "endIndex": 43,
             "type": "keyword"
           },
           {
-            "startIndex": 19,
-            "endIndex": 20,
+            "startIndex": 44,
+            "endIndex": 45,
             "type": "variable"
           },
           {
-            "startIndex": 21,
-            "endIndex": 24,
+            "startIndex": 46,
+            "endIndex": 49,
             "type": "function"
           }
         ],
         "diagnostics": [
           {
-            "startIndex": 19,
-            "endIndex": 20,
+            "startIndex": 44,
+            "endIndex": 45,
             "code": null,
             "codeMessage": null,
             "message": "unused variable x",
@@ -52,28 +72,28 @@
         ],
         "foldingRanges": [
           {
-            "startLine": 0,
-            "endLine": 1,
+            "startLine": 1,
+            "endLine": 2,
             "placeholder": "..."
           }
         ],
         "semanticTokens": [
           {
-            "tokenIndex": 3,
+            "tokenIndex": 4,
             "inferredType": "i32",
             "exprSpan": {
-              "start": 12,
-              "end": 13
+              "start": 37,
+              "end": 38
             },
             "argIndex": null,
             "argSpan": null
           },
           {
-            "tokenIndex": 6,
+            "tokenIndex": 7,
             "inferredType": "fn()->i32",
             "exprSpan": {
-              "start": 21,
-              "end": 24
+              "start": 46,
+              "end": 49
             },
             "argIndex": null,
             "argSpan": null
@@ -82,20 +102,20 @@
         "inlayHints": [
           {
             "kind": "type",
-            "position": 12,
+            "position": 37,
             "label": "<i32>",
             "exprSpan": {
-              "start": 12,
-              "end": 13
+              "start": 37,
+              "end": 38
             }
           },
           {
             "kind": "type",
-            "position": 21,
+            "position": 46,
             "label": "<fn()->i32>",
             "exprSpan": {
-              "start": 21,
-              "end": 24
+              "start": 46,
+              "end": 49
             }
           }
         ],

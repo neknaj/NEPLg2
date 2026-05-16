@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T04:01:12.663Z",
+  "generated_at": "2026-05-16T04:09:53.865Z",
   "counts": {
     "total": 869,
-    "open": 6,
-    "resolved": 863,
+    "open": 5,
+    "resolved": 864,
     "by_area": {
       "stdlib": {
         "total": 255,
@@ -15,11 +15,6 @@
         "total": 24,
         "open": 1,
         "resolved": 23
-      },
-      "tools": {
-        "total": 3,
-        "open": 1,
-        "resolved": 2
       },
       "selfhost": {
         "total": 67,
@@ -106,6 +101,11 @@
         "open": 0,
         "resolved": 10
       },
+      "tools": {
+        "total": 3,
+        "open": 0,
+        "resolved": 3
+      },
       "tutorials": {
         "total": 2,
         "open": 0,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4",
-      "title": "playground editor analysis fixtures are stale after source import expansion",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "tests/playground_editor/analysis_payload_basic/**, tests/playground_editor/analysis_hover_definition/**, nodesrc/playground_editor_test_runner.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -10813,6 +10798,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553.md"
+    },
+    {
+      "id": "ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4",
+      "title": "playground editor analysis fixtures are stale after source import expansion",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "tests/playground_editor/analysis_payload_basic/**, tests/playground_editor/analysis_hover_definition/**, nodesrc/playground_editor_test_runner.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",
