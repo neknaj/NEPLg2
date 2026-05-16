@@ -3,12 +3,7 @@ use crate::diagnostic::Severity;
 use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
-use crate::source_capability::{
-    module_compiler_memory_type_definitions, module_has_owner_aggregate_field_evidence,
-    module_has_raw_memory_boundary_evidence, module_owner_aggregate_constructor_evidence,
-    module_raw_body_memory_operation_evidence, module_raw_memory_operation_evidence,
-};
-use crate::source_map::SourceCapability;
+use crate::source_capability::module_source_capabilities;
 use crate::span::FileId;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
@@ -695,28 +690,11 @@ impl Loader {
         canon: &PathBuf,
         module: &Module,
     ) -> SourceCapabilities {
-        let mut capabilities = SourceCapabilities::none();
         if self.configured_stdlib_source_path(canon) {
-            for name in module_owner_aggregate_constructor_evidence(module) {
-                capabilities.insert(SourceCapability::OwnerAggregateConstructorBoundary(name));
-            }
-            if module_has_owner_aggregate_field_evidence(module) {
-                capabilities.insert(SourceCapability::OwnerAggregateFieldBoundary);
-            }
-            if module_has_raw_memory_boundary_evidence(module) {
-                capabilities.insert(SourceCapability::RawMemoryStructuralBoundary);
-            }
-            for operation in module_raw_memory_operation_evidence(module) {
-                capabilities.insert(SourceCapability::RawMemoryOperationBoundary(operation));
-            }
-            for operation in module_raw_body_memory_operation_evidence(module) {
-                capabilities.insert(SourceCapability::RawBodyMemoryOperationBoundary(operation));
-            }
-            for memory_type in module_compiler_memory_type_definitions(module) {
-                capabilities.insert(SourceCapability::CompilerMemoryTypeDefinition(memory_type));
-            }
+            module_source_capabilities(module)
+        } else {
+            SourceCapabilities::none()
         }
-        capabilities
     }
 
     fn configured_stdlib_source_path(&self, canon: &PathBuf) -> bool {

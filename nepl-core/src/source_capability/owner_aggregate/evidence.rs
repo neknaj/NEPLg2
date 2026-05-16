@@ -7,12 +7,12 @@ use crate::source_capability::scope::SourceCapabilityScope;
 use super::context::OwnerAggregateEvidenceContext;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum OwnerAggregateCapabilityEvidence {
+pub(in crate::source_capability) enum OwnerAggregateCapabilityEvidence {
     Constructor(String),
     FieldAccessor,
 }
 
-pub(super) fn owner_aggregate_symbol_evidence(
+pub(in crate::source_capability) fn owner_aggregate_symbol_evidence(
     symbol: &str,
     scope: &SourceCapabilityScope,
     context: &OwnerAggregateEvidenceContext,
@@ -26,7 +26,7 @@ pub(super) fn owner_aggregate_symbol_evidence(
     constructor_evidence_name(symbol, context).map(OwnerAggregateCapabilityEvidence::Constructor)
 }
 
-pub(super) fn owner_aggregate_intrinsic_evidence(
+pub(in crate::source_capability) fn owner_aggregate_intrinsic_evidence(
     symbol: &str,
 ) -> Option<OwnerAggregateCapabilityEvidence> {
     match helper_base_name(symbol) {

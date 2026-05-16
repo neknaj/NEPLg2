@@ -6,13 +6,13 @@ use crate::ast::{Block, FnBody, Module, Stmt};
 use super::field_imports::CoreFieldAccessorImports;
 
 #[derive(Debug, Default)]
-pub(super) struct OwnerAggregateEvidenceContext {
+pub(in crate::source_capability) struct OwnerAggregateEvidenceContext {
     enum_variants: BTreeSet<String>,
     field_imports: CoreFieldAccessorImports,
 }
 
 impl OwnerAggregateEvidenceContext {
-    pub(super) fn from_module(module: &Module) -> Self {
+    pub(in crate::source_capability) fn from_module(module: &Module) -> Self {
         let mut context = Self::default();
         for directive in &module.directives {
             context.field_imports.collect_directive(directive);
@@ -21,11 +21,11 @@ impl OwnerAggregateEvidenceContext {
         context
     }
 
-    pub(super) fn is_enum_variant(&self, name: &str) -> bool {
+    pub(in crate::source_capability) fn is_enum_variant(&self, name: &str) -> bool {
         self.enum_variants.contains(name)
     }
 
-    pub(super) fn is_core_field_accessor_symbol(&self, symbol: &str) -> bool {
+    pub(in crate::source_capability) fn is_core_field_accessor_symbol(&self, symbol: &str) -> bool {
         self.field_imports.accepts_symbol(symbol)
     }
 

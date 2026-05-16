@@ -7,16 +7,10 @@
 mod memory_type_definition;
 mod owner_aggregate;
 mod prefix_call;
+mod proof;
 mod raw_memory;
 mod scope;
 mod walk;
 
 pub(crate) use crate::resource_primitives::compiler_memory_type_from_constructor_name;
-pub(crate) use memory_type_definition::module_compiler_memory_type_definitions;
-pub(crate) use owner_aggregate::{
-    module_has_owner_aggregate_field_evidence, module_owner_aggregate_constructor_evidence,
-};
-pub(crate) use raw_memory::{
-    module_has_raw_memory_boundary_evidence, module_raw_body_memory_operation_evidence,
-    module_raw_memory_operation_evidence,
-};
+pub(crate) use proof::module_source_capabilities;

@@ -6,20 +6,20 @@ use crate::resource_primitives::{
 };
 
 #[derive(Debug, Default)]
-pub(super) struct RawMemoryEvidence {
-    pub(super) structural_boundary: bool,
-    pub(super) operations: BTreeSet<RawMemoryOp>,
-    pub(super) raw_body_operations: BTreeSet<RawBodyMemoryOp>,
+pub(in crate::source_capability) struct RawMemoryEvidence {
+    pub(in crate::source_capability) structural_boundary: bool,
+    pub(in crate::source_capability) operations: BTreeSet<RawMemoryOp>,
+    pub(in crate::source_capability) raw_body_operations: BTreeSet<RawBodyMemoryOp>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum RawMemoryBoundaryEvidence {
+pub(in crate::source_capability) enum RawMemoryBoundaryEvidence {
     RawAddressBoundaryHelper,
     RestrictedConstructor,
 }
 
 impl RawMemoryBoundaryEvidence {
-    pub(super) fn from_symbol(name: &str) -> Option<Self> {
+    pub(in crate::source_capability) fn from_symbol(name: &str) -> Option<Self> {
         if compiler_memory_type_from_constructor_name(name).is_some() {
             return Some(Self::RestrictedConstructor);
         }

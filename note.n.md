@@ -39655,3 +39655,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
   - `node nodesrc/run_doctest.js -i tests/stdlib/collection_cleanup_contract.n.md -n 5 --dist web/dist`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-16 Agent 1 SourceCapabilities unified proof 化
+
+- `ISS-20260516T034018225Z-SOURCE-CAPABILITY-EVIDENCE-USES-PER--87E68F2E` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`source_capability/walk.rs` に共通 traversal を入れた後も、raw memory / owner aggregate が domain 別 collector と public API を持ち、`loader.rs` がそれらを個別に呼んで `SourceCapabilities` を組み立てていたことだった。これでは新しい capability domain を追加するときに局所 proof engine を増やしやすく、検査プログラム自体の誤りも source policy で発見しにくい。
+- `source_capability/proof.rs` に `SourceCapabilityProof` と `SourceCapabilityProofCollector` を追加し、raw memory evidence、owner aggregate evidence、compiler memory type evidence を単一 typed proof value に集約した。collector は `SourceCapabilityObserver` を一度だけ消費し、call-head symbol、intrinsic、raw body、function body raw evidence を同じ traversal lifecycle で分類する。
+- `loader.rs` は configured stdlib source に対して `module_source_capabilities(module)` だけを呼ぶ形へ変更した。raw memory / owner aggregate module は traversal owner ではなく、evidence classifier / context provider の責務へ縮小した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、loader が旧 per-domain collector を呼ばないこと、raw memory / owner aggregate module が `SourceCapabilityObserver` を直接実装しないこと、proof module が単一 collector を持つことを監視する regression を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 6 進捗と Issue 整理方針に反映した。これは stdlib 名の列挙ではなく、source AST を基に compiler が capability を証明する仕組みを単一の汎用 proof に寄せる作業である。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo fmt -p nepl-core -- --check`: passed
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`: passed

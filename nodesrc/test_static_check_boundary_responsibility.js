@@ -43,6 +43,11 @@ const SOURCE_CAPABILITY_WALK = path.join(
     'source_capability',
     'walk.rs',
 );
+const SOURCE_CAPABILITY_PROOF = path.join(
+    CORE_SRC,
+    'source_capability',
+    'proof.rs',
+);
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
     CORE_SRC,
@@ -180,6 +185,10 @@ const sourceCapabilityPrefixCall = assertFile(
 const sourceCapabilityWalk = assertFile(
     SOURCE_CAPABILITY_WALK,
     'source_capability/walk.rs',
+);
+const sourceCapabilityProof = assertFile(
+    SOURCE_CAPABILITY_PROOF,
+    'source_capability/proof.rs',
 );
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
@@ -446,8 +455,9 @@ assertLineLimit(
 );
 assertLineLimit(SOURCE_CAPABILITY_PREFIX_CALL, 'source_capability/prefix_call.rs', 80);
 assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 170);
+assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 240);
 assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
-assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 240);
+assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 40);
 assertLineLimit(
     SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE,
     'source_capability/raw_memory/evidence.rs',
@@ -456,7 +466,7 @@ assertLineLimit(
 assertLineLimit(
     SOURCE_CAPABILITY_OWNER_AGGREGATE,
     'source_capability/owner_aggregate.rs',
-    190,
+    60,
 );
 assertLineLimit(
     SOURCE_CAPABILITY_OWNER_AGGREGATE_CONTEXT,
@@ -495,19 +505,9 @@ assertContains(
     'source_capability/raw_memory/evidence.rs',
 );
 assertContains(
-    sourceCapabilityRawMemory,
-    'pub(crate) fn module_has_raw_memory_boundary_evidence',
-    'source_capability/raw_memory.rs',
-);
-assertContains(
-    sourceCapabilityRawMemory,
-    'pub(crate) fn module_raw_memory_operation_evidence',
-    'source_capability/raw_memory.rs',
-);
-assertContains(
-    sourceCapabilityRawMemory,
-    'pub(crate) fn module_raw_body_memory_operation_evidence',
-    'source_capability/raw_memory.rs',
+    sourceCapability,
+    'mod proof;',
+    'source_capability.rs',
 );
 assertContains(
     sourceCapability,
@@ -517,6 +517,11 @@ assertContains(
 assertContains(
     sourceCapability,
     'mod walk;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'pub(crate) use proof::module_source_capabilities',
     'source_capability.rs',
 );
 assertContains(
@@ -585,24 +590,34 @@ assertContains(
     'source capability proof traversal must centralize raw body observation',
 );
 assertContains(
-    sourceCapabilityRawMemory,
-    'impl SourceCapabilityObserver for RawMemoryCollector',
-    'raw memory source evidence must use the shared proof walker',
+    sourceCapabilityProof,
+    'struct SourceCapabilityProof',
+    'source capability proof must have a single typed proof value',
 );
 assertContains(
-    sourceCapabilityRawMemory,
+    sourceCapabilityProof,
+    'struct SourceCapabilityProofCollector',
+    'source capability proof must have one collector for all capability domains',
+);
+assertContains(
+    sourceCapabilityProof,
+    'impl SourceCapabilityObserver for SourceCapabilityProofCollector',
+    'source capability proof must consume the shared proof walker once',
+);
+assertContains(
+    sourceCapabilityProof,
     'fn observe_call_head_symbol',
-    'raw memory source evidence must be restricted to shared call-head callbacks',
+    'source capability proof must restrict source symbol evidence to shared call-head callbacks',
 );
 assertContains(
-    sourceCapabilityRawMemory,
+    sourceCapabilityProof,
     'fn observe_intrinsic',
-    'raw memory source evidence must classify intrinsic callbacks from the shared proof walker',
+    'source capability proof must classify intrinsic callbacks through the unified proof collector',
 );
 assertContains(
-    sourceCapabilityRawMemory,
+    sourceCapabilityProof,
     'fn observe_raw_body',
-    'raw memory source evidence must classify raw bodies from the shared proof walker',
+    'source capability proof must classify raw bodies through the unified proof collector',
 );
 assertContains(
     sourceCapability,
@@ -615,9 +630,9 @@ assertContains(
     'source_capability.rs',
 );
 assertContains(
-    sourceCapability,
+    sourceCapabilityProof,
     'module_compiler_memory_type_definitions',
-    'source_capability.rs',
+    'source_capability/proof.rs',
 );
 assertContains(
     resourcePrimitives,
@@ -656,7 +671,7 @@ assertContains(
 );
 assertContains(
     sourceCapabilityMemoryTypeDefinition,
-    'pub(crate) fn module_compiler_memory_type_definitions',
+    'pub(in crate::source_capability) fn module_compiler_memory_type_definitions',
     'source_capability/memory_type_definition.rs',
 );
 assertContains(
@@ -680,14 +695,14 @@ assertContains(
     'source_capability.rs',
 );
 assertContains(
-    sourceCapability,
-    'module_owner_aggregate_constructor_evidence',
-    'source_capability.rs',
+    sourceCapabilityProof,
+    'owner_aggregate_symbol_evidence',
+    'source_capability/proof.rs',
 );
 assertContains(
-    sourceCapability,
-    'module_has_owner_aggregate_field_evidence',
-    'source_capability.rs',
+    sourceCapabilityProof,
+    'OwnerAggregateProofEvidence',
+    'source_capability/proof.rs',
 );
 assertContains(
     sourceCapabilityOwnerAggregateEvidence,
@@ -698,31 +713,26 @@ assertContains(sourceCapabilityOwnerAggregate, 'mod evidence;', 'source_capabili
 assertContains(sourceCapabilityOwnerAggregate, 'mod context;', 'source_capability/owner_aggregate.rs');
 assertContains(
     sourceCapabilityOwnerAggregate,
-    'impl SourceCapabilityObserver for OwnerAggregateCollector',
-    'owner aggregate source evidence must use the shared proof walker',
+    'OwnerAggregateEvidenceContext',
+    'owner aggregate source evidence must expose context to the unified proof collector',
 );
 assertContains(
     sourceCapabilityOwnerAggregate,
-    'pub(crate) fn module_owner_aggregate_constructor_evidence',
-    'source_capability/owner_aggregate.rs',
+    'OwnerAggregateCapabilityEvidence',
+    'owner aggregate source evidence must expose typed evidence to the unified proof collector',
 );
 assertContains(
-    sourceCapabilityOwnerAggregate,
+    sourceCapabilityProof,
     'constructors: BTreeSet<String>',
     'owner aggregate constructor evidence must be tracked by constructor name',
 );
 assertContains(
-    sourceCapabilityOwnerAggregate,
-    'pub(crate) fn module_has_owner_aggregate_field_evidence',
-    'source_capability/owner_aggregate.rs',
-);
-assertContains(
-    sourceCapabilityOwnerAggregate,
+    sourceCapabilityProof,
     'fn observe_intrinsic',
     'owner aggregate source capability must inspect intrinsic field access evidence through the shared proof walker',
 );
 assertContains(
-    sourceCapabilityOwnerAggregate,
+    sourceCapabilityProof,
     'fn observe_call_head_symbol',
     'owner aggregate constructor evidence must be restricted to shared call-head callbacks',
 );
@@ -856,10 +866,14 @@ assertNotContains(
     'Stmt::StructDef(def) => self.bind(&def.name.name)',
     'source capability scope must not treat type definitions as value-level shadows',
 );
-assertContains(sourceCapabilityRawMemory, 'raw_memory_op_from_name', 'source_capability/raw_memory.rs');
 assertContains(
-    sourceCapabilityRawMemory,
-    'function_has_evidence',
+    sourceCapabilityProof,
+    'raw_memory_op_from_name',
+    'source_capability/proof.rs',
+);
+assertContains(
+    sourceCapabilityProof,
+    'function_has_raw_memory_evidence',
     'raw helper definitions must grant their operation only when the body has raw evidence',
 );
 assertNotContains(
@@ -873,14 +887,19 @@ assertNotContains(
     'owner aggregate source evidence must not reimplement prefix call-head traversal',
 );
 assertNotContains(
-    sourceCapabilityRawMemory,
+    sourceCapabilityProof,
     'PrefixItem::Match',
-    'raw memory source evidence must not duplicate AST traversal',
+    'unified source capability proof must not duplicate AST traversal',
+);
+assertNotContains(
+    sourceCapabilityRawMemory,
+    'SourceCapabilityObserver',
+    'raw memory source evidence must not own a domain-specific proof walker',
 );
 assertNotContains(
     sourceCapabilityOwnerAggregate,
-    'PrefixItem::Match',
-    'owner aggregate source evidence must not duplicate AST traversal',
+    'SourceCapabilityObserver',
+    'owner aggregate source evidence must not own a domain-specific proof walker',
 );
 assertContains(
     sourceCapabilityRawMemoryEvidence,
@@ -963,12 +982,21 @@ assertContains(sourceCapabilityRawMemoryEvidence, 'RestrictedConstructor', 'sour
 assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
 assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
 assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
-assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
-assertContains(loader, 'module_raw_memory_operation_evidence', 'loader.rs');
-assertContains(loader, 'module_raw_body_memory_operation_evidence', 'loader.rs');
-assertContains(loader, 'module_owner_aggregate_constructor_evidence', 'loader.rs');
-assertContains(loader, 'module_has_owner_aggregate_field_evidence', 'loader.rs');
-assertContains(loader, 'module_compiler_memory_type_definitions', 'loader.rs');
+assertContains(loader, 'module_source_capabilities(module)', 'loader.rs');
+for (const oldCapabilityCollector of [
+    'module_has_raw_memory_boundary_evidence',
+    'module_raw_memory_operation_evidence',
+    'module_raw_body_memory_operation_evidence',
+    'module_owner_aggregate_constructor_evidence',
+    'module_has_owner_aggregate_field_evidence',
+    'module_compiler_memory_type_definitions(module)',
+]) {
+    assertNotContains(
+        loader,
+        oldCapabilityCollector,
+        'loader.rs must consume one unified source capability proof',
+    );
+}
 assertContains(
     loader,
     'fn raw_memory_boundary_accepts_raw_helper_definition_evidence()',
