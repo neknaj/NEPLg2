@@ -258,7 +258,7 @@ stdout: "test_report name=\"sizeof_collection_structs\" count=1 failed=0\nassert
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let vec_expected <i32> add (add 4 4) (add size_of<VecStorageState> size_of<MemPtr<i32>>);
+    let vec_expected <i32> add (add 4 4) size_of<VecStorage<i32>>;
     let stack_expected <i32> add (add 4 4) size_of<Vec<Option<i32>>>;
     let actual <i32> if:
         eq size_of<Vec<i32>> vec_expected

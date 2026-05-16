@@ -1,36 +1,24 @@
 //: # vec/storage/view
-//: `Vec` storage state の empty constructor helper
+//: `Vec` empty storage constructor helper
 //:
 //: ### [目的/もくてき]
 //: - allocation を[持/も]たない empty storage の構築を[所有/しょゆう]します。
 
 #indent 4
 
-#import "core/mem" as *
-#import "core/mem/internal" as *
 #import "core/traits/copy" as *
 #import "../types" as *
-
-//: ## vec_empty_region
-//: allocation を[持/も]たない `VecStorageState::Empty` 用の内部 sentinel を[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - `Vec` の struct layout が `region` field を要求する過渡期間だけ、zero-size `RegionToken` を内部で[組/く]み[立/た]てます。
-//: - public API には出さず、caller は `vec_empty` / `with_capacity 0` の typed empty state を[使/つか]います。
-fn vec_empty_region <.T> <()->RegionToken<.T>> ():
-    let ptr <MemPtr<.T>> mem_ptr_wrap 0
-    region_new ptr 0
 
 //: ## vec_empty
 //: allocation を[持/も]たない[空/から]の `Vec` を[作/つく]る
 //:
 //: ### [目的/もくてき]
-//: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorageState::Empty` で空 storage を[表/あらわ]します。
+//: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorage::Empty` で空 storage を[表/あらわ]します。
 //: - `OwnedBuffer<T>` と initialized prefix drop traversal が[完成/かんせい]するまでは、`Vec<T>` 自体も `.T: Copy` の public collection owner としてだけ[作/つく]ります。
 //:
 //: ### [制約/せいやく]
-//: - Empty state は runtime allocation を[持/も]ちませんが、返り[値/ち]は `RegionToken<T>` sentinel を[含/ふく]む `Vec<T>` owner aggregate です。
+//: - Empty state は runtime allocation も `RegionToken<T>` owner も[持/も]ちません。
 //: - non-Copy payload を[許/ゆる]すと、後続の `free` / `clear` / `push` / `pop` が扱えない `Vec<NonCopyPayload>` を safe surface へ[出/だ]せます。
 //: - non-Copy collection は、compiler-issued owner token と initialized/moved/drop state による `OwnedBuffer<T>` 設計へ[移行/いこう]してから別 API として[解禁/かいきん]します。
 pub fn vec_empty <.T: Copy> <()->Vec<.T>> ():
-    Vec<.T> 0 0 VecStorageState::Empty vec_empty_region<.T>
+    Vec<.T> 0 0 VecStorage<.T>::Empty

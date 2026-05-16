@@ -959,7 +959,7 @@ mod tests {
             path,
             concat!(
                 "fn helper <(RegionToken<i32>)->Vec<i32>> (region):\n",
-                "    Vec<i32> 0 1 VecStorageState::Owned region\n",
+                "    Vec<i32> 0 1 (VecStorage<i32>::Owned region)\n",
             ),
         );
         assert!(

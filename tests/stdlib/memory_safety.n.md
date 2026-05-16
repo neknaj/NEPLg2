@@ -951,14 +951,14 @@ fn main <()*>i32> ():
         Result::Err _e:
             0
         Result::Ok region:
-            let _v <Vec<i32>> Vec<i32> 0 1 VecStorageState::Owned region
+            let _v <Vec<i32>> Vec<i32> 0 1 (VecStorage<i32>::Owned region)
             0
 ```
 
-## owner token 型の aggregate field は memory boundary 外で投影できない
+## owner token を含む aggregate field は memory boundary 外で投影できない
 
 neplg2:test[compile_fail]
-diag_code: type.owner_token.field_access_restricted
+diag_code: type.owner_aggregate.field_access_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -970,7 +970,7 @@ diag_code: type.owner_token.field_access_restricted
 
 fn main <()->i32> ():
     let v <Vec<i32>> vec_empty<i32>
-    let _region <&RegionToken<i32>> field::get_ref &v "region"
+    let _storage <&VecStorage<i32>> field::get_ref &v "storage"
     0
 ```
 

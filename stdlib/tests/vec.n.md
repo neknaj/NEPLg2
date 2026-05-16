@@ -294,9 +294,7 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_even_len unwrap_ok partition<i32> partition_even_len_src is_even;
-    let evens_len <Vec<i32>> get parts_even_len "matched";
-    let rest_len <Vec<i32>> get parts_even_len "rest";
-    let evens_len_value <i32> len<i32> &evens_len;
+    let evens_len_value <i32> vec_partition_matched_len<i32> &parts_even_len;
     let partition_even_get_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -304,10 +302,8 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_even_get unwrap_ok partition<i32> partition_even_get_src is_even;
-    let evens_get <Vec<i32>> get parts_even_get "matched";
-    let rest_get <Vec<i32>> get parts_even_get "rest";
     let mut evens_get_value <i32> -1;
-    match get<i32> &evens_get 1:
+    match vec_partition_matched_get<i32> &parts_even_get 1:
         Option::Some x:
             set evens_get_value x
         Option::None:
@@ -319,9 +315,7 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_odds_len unwrap_ok partition<i32> partition_odds_len_src is_even;
-    let evens_len_drop <Vec<i32>> get parts_odds_len "matched";
-    let odds_len <Vec<i32>> get parts_odds_len "rest";
-    let odds_len_value <i32> len<i32> &odds_len;
+    let odds_len_value <i32> vec_partition_rest_len<i32> &parts_odds_len;
     let partition_odds_get_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -329,23 +323,17 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_odds_get unwrap_ok partition<i32> partition_odds_get_src is_even;
-    let evens_get_drop <Vec<i32>> get parts_odds_get "matched";
-    let odds_get <Vec<i32>> get parts_odds_get "rest";
     let mut odds_get_value <i32> -1;
-    match get<i32> &odds_get 0:
+    match vec_partition_rest_get<i32> &parts_odds_get 0:
         Option::Some x:
             set odds_get_value x
         Option::None:
             ()
 
-    free<i32> evens_len;
-    free<i32> rest_len;
-    free<i32> evens_get;
-    free<i32> rest_get;
-    free<i32> evens_len_drop;
-    free<i32> odds_len;
-    free<i32> evens_get_drop;
-    free<i32> odds_get;
+    vec_partition_free<i32> parts_even_len;
+    vec_partition_free<i32> parts_even_get;
+    vec_partition_free<i32> parts_odds_len;
+    vec_partition_free<i32> parts_odds_get;
     let report:
         test_report_new "vec_partition_helpers"
         |> test_report_push assert_eq_i32 "partition evens len" 2 evens_len_value

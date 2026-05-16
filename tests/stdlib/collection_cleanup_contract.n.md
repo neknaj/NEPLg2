@@ -98,7 +98,7 @@ diag_code: resolve.identifier.undefined
 #import "alloc/collections/vec" as *
 
 fn main <()->i32> ():
-    vec_free_storage VecStorageState::Empty
+    vec_free_storage VecStorage<i32>::Empty
 ```
 
 ## stack_free_rejects_non_copy_payload

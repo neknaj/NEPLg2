@@ -27,32 +27,56 @@ impl<'a> BlockChecker<'a> {
         // This allows disambiguation of overloaded scrutinee calls when the enum base
         // type is enough to select the right overload.
         let expected_scrut_ty = self.infer_expected_type_from_match_arms(&m.arms);
-        // evaluate scrutinee
+        let checkpoint = self.ctx.checkpoint();
+        let diagnostics_len = self.diagnostics.len();
+        let pending_trait_bound_checks_len = self.pending_trait_bound_checks.len();
         let mut tmp_stack = Vec::new();
-        if let Some((scrut_expr, _)) =
-            self.check_prefix(&m.scrutinee, 0, &mut tmp_stack, expected_scrut_ty)
-        {
-            let scrut_ty = scrut_expr.ty;
-            let resolved_ty = self.ctx.resolve(scrut_ty);
-            if let Some((variants, bind_mode)) = self.match_enum_subject_for_type(resolved_ty) {
-                return self.check_enum_match_expr(m, scrut_expr, variants, bind_mode);
+        if let Some((scrut_expr, _)) = self.check_prefix(&m.scrutinee, 0, &mut tmp_stack, None) {
+            if let Some(result) = self.check_match_expr_from_scrutinee(m, scrut_expr.clone()) {
+                return Some(result);
             }
-            let scalar = match self.ctx.get(resolved_ty) {
-                TypeKind::I32 => Some(ScalarMatchKind::I32),
-                TypeKind::U8 => Some(ScalarMatchKind::U8),
-                TypeKind::Bool => Some(ScalarMatchKind::Bool),
-                TypeKind::Char => Some(ScalarMatchKind::Char),
-                _ => None,
-            };
-            if let Some(kind) = scalar {
-                return self.check_scalar_match_expr(m, scrut_expr, kind);
-            }
-            self.diagnostics.push(type_error(
-                TypeDiagnosticCode::MatchScrutineeNotEnum,
-                "match scrutinee must be an enum, bool, char, i32, or u8",
-                m.span,
-            ));
         }
+
+        if expected_scrut_ty.is_some() {
+            self.diagnostics.truncate(diagnostics_len);
+            self.pending_trait_bound_checks
+                .truncate(pending_trait_bound_checks_len);
+            self.ctx.rollback(checkpoint);
+            let mut tmp_stack = Vec::new();
+            if let Some((scrut_expr, _)) =
+                self.check_prefix(&m.scrutinee, 0, &mut tmp_stack, expected_scrut_ty)
+            {
+                return self.check_match_expr_from_scrutinee(m, scrut_expr);
+            }
+        }
+        None
+    }
+
+    fn check_match_expr_from_scrutinee(
+        &mut self,
+        m: &MatchExpr,
+        scrut_expr: HirExpr,
+    ) -> Option<(HirExpr, TypeId)> {
+        let scrut_ty = scrut_expr.ty;
+        let resolved_ty = self.ctx.resolve(scrut_ty);
+        if let Some((variants, bind_mode)) = self.match_enum_subject_for_type(resolved_ty) {
+            return self.check_enum_match_expr(m, scrut_expr, variants, bind_mode);
+        }
+        let scalar = match self.ctx.get(resolved_ty) {
+            TypeKind::I32 => Some(ScalarMatchKind::I32),
+            TypeKind::U8 => Some(ScalarMatchKind::U8),
+            TypeKind::Bool => Some(ScalarMatchKind::Bool),
+            TypeKind::Char => Some(ScalarMatchKind::Char),
+            _ => None,
+        };
+        if let Some(kind) = scalar {
+            return self.check_scalar_match_expr(m, scrut_expr, kind);
+        }
+        self.diagnostics.push(type_error(
+            TypeDiagnosticCode::MatchScrutineeNotEnum,
+            "match scrutinee must be an enum, bool, char, i32, or u8",
+            m.span,
+        ));
         None
     }
 

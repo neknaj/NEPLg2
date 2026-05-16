@@ -39525,3 +39525,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/agent1-borrowed-enum-match-reference-codegen.json -j 1 --dist web/dist --assert-io`: 5/5 passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-16 Agent 1 Vec storage owner-state 統合
+
+- `ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`VecStorageState` と `RegionToken<T>` を split field / helper 引数として持つ設計では、`Empty` と allocated token の不正な組み合わせを source type が排除できなかったことだった。
+- `stdlib/alloc/collections/vec/types.nepl` は `VecStorage<T>::Empty | Owned(RegionToken<T>)` に移行し、`Vec<T>` は `len/cap/storage` の 3 field へ整理した。`vec_free_storage<T>` は owner-carrying enum を消費し、`match` により `Empty` no-op と `Owned` dealloc を型から証明する。
+- `data_mem_ptr` / `get` / `replace` などの observer は borrowed enum match により `&VecStorage<T>` payload を `&RegionToken<T>` として観測し、owner token を move/copy しない。mutation / transform / sort は owner-carrying `VecStorage<T>` を移す形へ更新した。
+- compiler 側では match typecheck の expected enum retry を rollback 付きにし、`&VecStorage<T>` が owned `VecStorage<T>` に誤推論されないようにした。owner-backed aggregate field gate は field type 基準へ絞り、scalar metadata projection を許可しつつ owner field extraction を拒否する。
+- `VecPop` / `VecPartition` には public accessor / cleanup helper を追加し、stdlib/tests は direct field projection ではなく public API を使う形へ更新した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `trunk build`: passed
+  - `cargo test -p nepl-core owner_aggregate -- --nocapture`: passed
+  - `cargo test -p nepl-core typecheck_allows_owner_backed_aggregate_scalar_metadata_field_projection -- --exact`: passed
+  - `cargo test -p nepl-core typecheck_rejects_hashmap_owner_storage_field_projection_outside_boundary -- --exact`: passed
+  - `cargo test -p nepl-core typecheck_rejects_nested_owner_backed_aggregate_field_projection_outside_boundary -- --exact`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/tests/vec.n.md -n 3 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 35 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 36 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/sizeof.n.md -n 7 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collection_cleanup_contract.n.md -n 5 --dist web/dist`: passed

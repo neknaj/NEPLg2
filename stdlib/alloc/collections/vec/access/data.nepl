@@ -2,7 +2,7 @@
 //: `Vec` の typed data view observer
 //:
 //: ### [目的/もくてき]
-//: - storage state を `VecStorageState` の match 経由に[揃/そろ]え、`RegionToken` owner から borrowed data view だけを[取/と]り[出/だ]します。
+//: - storage state を `VecStorage` の match 経由に[揃/そろ]え、`Owned` payload の `RegionToken` owner から borrowed data view だけを[取/と]り[出/だ]します。
 
 #indent 4
 
@@ -19,8 +19,8 @@
 //: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付きポインタとして[安全/あんぜん]に[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - field `region` を借用し、`region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
-//: - `VecStorageState::Empty` は allocation を[持/も]たないため、0 address の typed view を[返/かえ]します。
+//: - field `storage` を借用し、`Owned(region)` のときだけ `region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
+//: - `VecStorage::Empty` は allocation を[持/も]たないため、0 address の typed view を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
@@ -63,10 +63,9 @@
 //:     0
 //: ```
 pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
-    let v_storage <VecStorageState> *field::get_ref v "storage"
-    let v_region <&RegionToken<.T>> field::get_ref v "region"
+    let v_storage <&VecStorage<.T>> field::get_ref v "storage"
     match v_storage:
-        VecStorageState::Empty:
+        VecStorage::Empty:
             mem_ptr_wrap 0
-        VecStorageState::Owned:
-            region_ptr v_region
+        VecStorage::Owned region:
+            region_ptr region

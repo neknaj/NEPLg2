@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-15T23:52:20.939Z",
+  "generated_at": "2026-05-16T00:45:01.356Z",
   "counts": {
     "total": 858,
-    "open": 7,
-    "resolved": 851,
+    "open": 6,
+    "resolved": 852,
     "by_area": {
       "stdlib": {
         "total": 254,
-        "open": 5,
-        "resolved": 249
+        "open": 4,
+        "resolved": 250
       },
       "TEST": {
         "total": 24,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF.md"
-    },
-    {
-      "id": "ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134",
-      "title": "Vec storage tag and RegionToken owner are split, so Empty cleanup cannot be proven by type",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-15",
-      "updated": "2026-05-16",
-      "target": "stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/vec/storage/cleanup.nepl, nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -10183,6 +10168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T203123090Z-STD-ENV-CLIARG-CSTR-DOCTESTS-USE-MEM-B6DEAC7B.md"
+    },
+    {
+      "id": "ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134",
+      "title": "Vec storage tag and RegionToken owner are split, so Empty cleanup cannot be proven by type",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-15",
+      "updated": "2026-05-16",
+      "target": "stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/vec/storage/cleanup.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -86,7 +86,7 @@ pub fn new <.T: Copy> <()->Result<Vec<.T>, StdErrorKind>> ():
 //:
 //: ### [実装/じっそう]
 //: - [指定/してい]した `cap` に[応/おう]じて typed `alloc_region<.T>` を[呼/よ]び、`len = 0` で[返/かえ]します。
-//: - `cap = 0` は null pointer sentinel ではなく、`VecStorageState::Empty` に[正規化/せいきか]します。
+//: - `cap = 0` は null pointer sentinel ではなく、`VecStorage::Empty` に[正規化/せいきか]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `cap = 0` でも[動作/どうさ]し、`cap` observer は 0 を[返/かえ]します。

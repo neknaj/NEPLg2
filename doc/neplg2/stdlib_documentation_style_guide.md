@@ -104,7 +104,7 @@ NEPLg2 の stdlib に置く `//:` documentation comment は、利用者向け説
 良い点:
 
 - `vec.nepl` は facade、submodule 責務、`Copy` 制約、再確保時に内部番地が変わること、module doctest、move 後利用の `compile_fail` を持ち、collection doc の基準として使える。
-- `vec/types.nepl` は `VecStorageState` を enum として説明し、null pointer sentinel ではなく typed storage state を match で扱う方針を明示している。
+- `vec/types.nepl` は `VecStorage<T>::Empty | Owned(RegionToken<T>)` を説明し、null pointer sentinel や split owner field ではなく、typed storage state と free obligation owner を同じ enum の `match` で扱う方針を明示している。
 - `bitset`、`adjacency_matrix`、`fenwick`、`binary_heap` の API facade は、借用 observer と owner-moving update の境界を分ける意図を module doc で示している。
 - `BitSetUpdateError`、`AdjacencyMatrixUpdateError`、`DisjointSetUpdateError` は、失敗時に owner を返して cleanup 可能にする契約を説明している。
 

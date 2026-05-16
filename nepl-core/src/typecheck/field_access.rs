@@ -33,7 +33,7 @@ impl<'a> BlockChecker<'a> {
             }
         }
 
-        if self.owner_backed_aggregate_field_projection_restricted(base_ty, field_ty, span) {
+        if self.owner_backed_aggregate_field_projection_restricted(field_ty, span) {
             return Some((
                 TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted,
                 "owner-backed aggregate fields are restricted to compiler memory boundary",
@@ -45,13 +45,11 @@ impl<'a> BlockChecker<'a> {
 
     fn owner_backed_aggregate_field_projection_restricted(
         &self,
-        base_ty: TypeId,
         field_ty: TypeId,
         span: Span,
     ) -> bool {
         !self.owner_aggregate_field_boundary_allowed(span)
-            && (target_contains_owner_backed_aggregate(self.ctx, self.structs, base_ty)
-                || target_contains_owner_backed_aggregate(self.ctx, self.structs, field_ty))
+            && target_contains_owner_backed_aggregate(self.ctx, self.structs, field_ty)
     }
 
     fn restricted_struct_field_access_allowed(

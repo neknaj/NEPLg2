@@ -12,7 +12,7 @@
 //: list の storage owner
 //:
 //: ### [目的/もくてき]
-//: - raw node pointer ではなく `Vec<T>` を[保持/ほじ]し、storage owner state を `VecStorageState` 側へ[集約/しゅうやく]します。
+//: - raw node pointer ではなく `Vec<T>` を[保持/ほじ]し、storage owner state を `VecStorage<T>` 側へ[集約/しゅうやく]します。
 //:
 //: ### [不変条件/ふへんじょうけん]
 //: - `items` の末尾が論理上の先頭です。

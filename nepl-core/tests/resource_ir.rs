@@ -5732,6 +5732,7 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
                         source: vec_param.clone(),
                         output: vec_ref,
                         kind: BorrowKind::Shared,
+                        synthetic: false,
                         span,
                     },
                     ResourceOp::RawAddressAlias {
@@ -12420,6 +12421,25 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_allows_owner_backed_aggregate_scalar_metadata_field_projection() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+
+fn vec_len_from_ref <(&Vec<i32>)->i32> (v):
+    *field::get_ref v "len"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let _ = typecheck_resource_source(source);
+}
+
+#[test]
 fn typecheck_allows_user_struct_named_region_token_field_access() {
     let source = r#"
 #no_prelude
@@ -14793,6 +14813,7 @@ fn resource_ir_borrow_check_allows_shared_read_until_release() {
                 source: x.clone(),
                 output: borrow.clone(),
                 kind: BorrowKind::Shared,
+                synthetic: false,
                 span,
             },
             ResourceOp::Read {
@@ -14825,6 +14846,7 @@ fn resource_ir_borrow_check_reports_read_during_unique_borrow() {
                 source: x.clone(),
                 output: unique.clone(),
                 kind: BorrowKind::Unique,
+                synthetic: false,
                 span,
             },
             ResourceOp::Read {
@@ -14866,12 +14888,14 @@ fn resource_ir_borrow_check_reports_unique_conflict_with_shared_borrow() {
                 source: x.clone(),
                 output: shared.clone(),
                 kind: BorrowKind::Shared,
+                synthetic: false,
                 span,
             },
             ResourceOp::Borrow {
                 source: x,
                 output: Place::temporary(ResourceId(1), types.i32()),
                 kind: BorrowKind::Unique,
+                synthetic: false,
                 span,
             },
             ResourceOp::Read {
@@ -14908,6 +14932,7 @@ fn resource_ir_borrow_check_releases_shared_before_unique_borrow() {
                 source: x.clone(),
                 output: shared.clone(),
                 kind: BorrowKind::Shared,
+                synthetic: false,
                 span,
             },
             ResourceOp::Drop {
@@ -14918,6 +14943,7 @@ fn resource_ir_borrow_check_releases_shared_before_unique_borrow() {
                 source: x,
                 output: Place::temporary(ResourceId(1), types.i32()),
                 kind: BorrowKind::Unique,
+                synthetic: false,
                 span,
             },
         ],
@@ -14948,6 +14974,7 @@ fn resource_ir_borrow_check_reports_returned_borrow_token() {
                     source: x,
                     output: shared.clone(),
                     kind: BorrowKind::Shared,
+                    synthetic: false,
                     span,
                 }],
                 terminator: ResourceTerminator::Return {
@@ -15022,6 +15049,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_helper() {
                             source: x,
                             output: shared.clone(),
                             kind: BorrowKind::Shared,
+                            synthetic: false,
                             span,
                         },
                         ResourceOp::Call {
@@ -15110,6 +15138,7 @@ fn resource_ir_borrow_check_releases_non_returned_call_argument_borrow_token() {
                             source: x.clone(),
                             output: shared.clone(),
                             kind: BorrowKind::Shared,
+                            synthetic: false,
                             span,
                         },
                         ResourceOp::Call {
@@ -15192,6 +15221,7 @@ fn resource_ir_borrow_check_keeps_local_call_argument_borrow_token_live() {
                             source: x.clone(),
                             output: local_ref.clone(),
                             kind: BorrowKind::Shared,
+                            synthetic: false,
                             span,
                         },
                         ResourceOp::Call {
@@ -15290,6 +15320,7 @@ fn resource_ir_borrow_check_keeps_returned_call_argument_borrow_token_live() {
                             source: x.clone(),
                             output: shared.clone(),
                             kind: BorrowKind::Shared,
+                            synthetic: false,
                             span,
                         },
                         ResourceOp::Call {
@@ -15387,6 +15418,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_function_value() {
                             source: x,
                             output: shared.clone(),
                             kind: BorrowKind::Shared,
+                            synthetic: false,
                             span,
                         },
                         ResourceOp::FunctionValue {
@@ -15484,6 +15516,7 @@ fn resource_ir_borrow_check_releases_non_returned_indirect_call_argument_borrow_
                             source: x.clone(),
                             output: shared.clone(),
                             kind: BorrowKind::Shared,
+                            synthetic: false,
                             span,
                         },
                         ResourceOp::FunctionValue {
@@ -15551,6 +15584,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_unknown_callback() 
                         source: x,
                         output: shared.clone(),
                         kind: BorrowKind::Shared,
+                        synthetic: false,
                         span,
                     },
                     ResourceOp::IndirectCall {
@@ -15614,6 +15648,7 @@ fn resource_ir_borrow_check_does_not_return_unknown_callback_token_with_mismatch
                         source: x,
                         output: shared.clone(),
                         kind: BorrowKind::Shared,
+                        synthetic: false,
                         span,
                     },
                     ResourceOp::IndirectCall {
@@ -15671,6 +15706,7 @@ fn resource_ir_borrow_check_clears_stale_function_alias_on_assignment() {
                         source: x,
                         output: shared.clone(),
                         kind: BorrowKind::Shared,
+                        synthetic: false,
                         span,
                     },
                     ResourceOp::FunctionValue {
@@ -15750,6 +15786,7 @@ fn resource_ir_borrow_check_allows_return_after_borrow_release() {
                         source: x.clone(),
                         output: shared.clone(),
                         kind: BorrowKind::Shared,
+                        synthetic: false,
                         span,
                     },
                     ResourceOp::Drop {
@@ -15812,6 +15849,7 @@ fn resource_ir_borrow_check_rejects_assign_over_borrowed_field_projection() {
                 source: field,
                 output: shared.clone(),
                 kind: BorrowKind::Shared,
+                synthetic: false,
                 span,
             },
             ResourceOp::Assign {
@@ -16114,6 +16152,7 @@ fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
                     source: x.clone(),
                     output: shared.clone(),
                     kind: BorrowKind::Shared,
+                    synthetic: false,
                     span,
                 }],
                 then_value,

@@ -19,16 +19,20 @@
 //: storage state に[応/おう]じて backing buffer を[解放/かいほう]する
 //:
 //: ### [目的/もくてき]
-//: - 現行の `Vec` は `VecStorageState` と `RegionToken` を[別々/べつべつ]の field に[持/も]つため、cleanup helper の型だけでは `Empty` と zero-size token の[相関/そうかん]を[証明/しょうめい]できません。
-//: - そのため、この helper は token を必ず owner-consuming `dealloc_region` へ[渡/わた]し、Resource IR 上の free obligation を[漏/も]らさず[閉/と]じます。
-//: - `VecStorageState::Empty` の zero-size sentinel は `dealloc_raw` の `ptr <= 0` no-op により runtime allocation を[返/かえ]しません。
+//: - `VecStorage::Empty` は owner payload を[持/も]たないため、free obligation はありません。
+//: - `VecStorage::Owned(region)` だけが owner-consuming `dealloc_region` へ進みます。
+//: - `Empty` と `RegionToken` を同時に渡す形を型から[排除/はいじょ]し、cleanup helper に stdlib 固有の相関仮定を[持/も]たせません。
 //:
 //: ### [注意/ちゅうい]
 //: - この helper は storage-only dealloc であり、要素ごとの Drop は[実行/じっこう]しません。そのため `OwnedBuffer<T>` と initialized prefix traversal が[入/はい]るまでは `.T: Copy` に[限定/げんてい]します。
 //: - non-Copy 要素の drop traversal は collection cleanup issue の対象として分けます。
-pub fn vec_free_storage <.T: Copy> <(VecStorageState,RegionToken<.T>)->()> (_storage, region):
-    match dealloc_region<.T> region:
-        Result::Ok _:
+pub fn vec_free_storage <.T: Copy> <(VecStorage<.T>)->()> (storage):
+    match storage:
+        VecStorage::Empty:
             ()
-        Result::Err _:
-            ()
+        VecStorage::Owned region:
+            match dealloc_region<.T> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()

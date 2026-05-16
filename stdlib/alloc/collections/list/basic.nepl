@@ -39,8 +39,8 @@ pub fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
         Result::Ok next_items:
             ok<List<.T>, Diag> List<.T> next_items
         Result::Err e:
-            let error <StdErrorKind> field::get e "error"
-            let returned_items <Vec<.T>> field::get e "vec"
+            let error <StdErrorKind> vec::vec_push_error_kind<.T> &e
+            let returned_items <Vec<.T>> vec::vec_push_error_vec<.T> e
             vec::free<.T> returned_items
             diag_err<List<.T>> list_diag_from_vec_error error
 
@@ -61,8 +61,8 @@ pub fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
             none<List<.T>>
         else:
             let popped <VecPop<.T>> vec::pop<.T> items
-            let item <Option<.T>> field::get popped "item"
-            let next_items <Vec<.T>> field::get popped "vec"
+            let item <Option<.T>> vec::vec_pop_item<.T> &popped
+            let next_items <Vec<.T>> vec::vec_pop_vec<.T> popped
             match item:
                 Option::Some _head:
                     some<List<.T>> List<.T> next_items

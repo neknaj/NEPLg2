@@ -58,7 +58,7 @@
 //: ```
 pub fn get <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
     let v_len <i32> *field::get_ref v "len"
-    let v_storage <VecStorageState> *field::get_ref v "storage"
+    let v_storage <&VecStorage<.T>> field::get_ref v "storage"
     let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> v
     if:
         lt idx 0
@@ -69,7 +69,7 @@ pub fn get <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
                 then none<.T>
                 else:
                     match v_storage:
-                        VecStorageState::Empty:
+                        VecStorage::Empty:
                             none<.T>
-                        VecStorageState::Owned:
+                        VecStorage::Owned _region:
                             some<.T> vec_raw::vec_read_at<.T> v_data idx

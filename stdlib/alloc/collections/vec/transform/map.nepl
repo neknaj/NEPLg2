@@ -76,7 +76,6 @@ pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, VecTransfor
             Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
-            let out_storage <VecStorageState> *field::get_ref &out0 "storage"
             let out_data <MemPtr<.U>> vec_data::data_mem_ptr<.U> &out0
             let mut i <i32> 0
             while lt i src_len:
@@ -88,4 +87,5 @@ pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, VecTransfor
                             ()
                     set i add i 1
             vec_cleanup::free<.T> v
-            Result::Ok<Vec<.U>, VecTransformError<.T>> Vec<.U> src_len out_cap out_storage field::get out0 "region"
+            let out_storage <VecStorage<.U>> field::get out0 "storage"
+            Result::Ok<Vec<.U>, VecTransformError<.T>> Vec<.U> src_len out_cap out_storage

@@ -21,7 +21,7 @@
 //: [空/から]の `Vec` 用 owned storage を[確保/かくほ]する
 //:
 //: ### [目的/もくてき]
-//: - `cap > 0` の[空/から] `Vec` に対して、`VecStorageState::Owned` の backing storage owner token を[確保/かくほ]します。
+//: - `cap > 0` の[空/から] `Vec` に対して、`VecStorage::Owned` の backing storage owner token を[確保/かくほ]します。
 //:
 //: ### [実装/じっそう]
 //:
@@ -35,6 +35,6 @@ pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (reques
         else:
             match alloc_region<.T> requested_cap:
                 Result::Ok region:
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 requested_cap VecStorageState::Owned region
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 requested_cap (VecStorage<.T>::Owned region)
                 Result::Err _e:
                     Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
