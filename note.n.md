@@ -39550,3 +39550,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 36 --dist web/dist`: passed
   - `node nodesrc/run_doctest.js -i tests/compiler/sizeof.n.md -n 7 --dist web/dist`: passed
   - `node nodesrc/run_doctest.js -i tests/stdlib/collection_cleanup_contract.n.md -n 5 --dist web/dist`: passed
+
+## 2026-05-16 Agent 1 Vec empty cleanup issue 最終整理
+
+- `ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF` を fixed に戻した。`plan.md` は変更していない。
+- 直前の `VecStorage<T>::Empty | Owned(RegionToken<T>)` 統合により、`Empty` と allocated token の不正な組み合わせは source type 上構築できなくなった。
+- `vec_free_storage<T>(VecStorage<T>)` は `Empty` no-op / `Owned region` dealloc を enum `match` で証明できるため、zero-capacity sentinel を owned storage として扱う問題は解決済みである。
+- 親 issue の `RV-STDLIB-004` と `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` には、empty cleanup は閉じたが `OwnedBuffer<T>` / initialized prefix / non-Copy payload drop traversal は継続であることを追記した。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collection_cleanup_contract.n.md -n 5 --dist web/dist`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

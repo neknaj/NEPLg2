@@ -280,6 +280,12 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 
 これは `RegionToken<T>` を compiler-issued token へ置き換える最終修正ではないため、この親 issue は open のまま継続する。次の主対象は `OwnedBuffer<T>` / initialized prefix / forged token API 廃止である。
 
+## 2026-05-16 Agent 1 Vec empty cleanup final state 追記
+
+`ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134` の解決により、`VecStorageState` と split `RegionToken<T>` field は `VecStorage<T>::Empty | Owned(RegionToken<T>)` へ統合された。現在の `vec_free_storage<T>` は `VecStorage<T>` を消費し、`Empty` branch では owner payload が存在せず、`Owned region` branch だけが `dealloc_region` へ進む。
+
+そのため `ISS-20260514T155034305Z-VEC-EMPTY-CLEANUP-TREATS-ZERO-CAPACI-EACF73AF` は fixed とする。この親 issue は open のまま継続する。残る対象は `RegionToken` の forgeability、compiler-issued `OwnedBuffer<T>`、initialized prefix、non-Copy payload drop traversal である。
+
 ## 2026-05-15 Agent 1 Vec empty sentinel helper private 化追記
 
 `ISS-20260514T155620178Z-VEC-EMPTY-REGIONTOKEN-SENTINEL-HELPE-B3CF72E9` で、`vec_empty_region<T>` を public API から外した。
