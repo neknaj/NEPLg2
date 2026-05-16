@@ -4852,6 +4852,73 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_assignment_overwrite_records_partial_drop_after_field_move() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/field" as field
+#import "core/traits/drop" as *
+
+struct GuardA:
+    id <i32>
+struct GuardB:
+    id <i32>
+struct Pair:
+    left <GuardA>
+    right <GuardB>
+
+impl Drop for GuardA:
+    fn drop <(&GuardA)*>()> (_self):
+        ()
+
+impl Drop for GuardB:
+    fn drop <(&GuardB)*>()> (_self):
+        ()
+
+fn main <()->i32> ():
+    let mut p <Pair> Pair (GuardA 0) (GuardB 0)
+    let left <GuardA> field::get p "left"
+    set p Pair (GuardA 1) (GuardB 1)
+    0
+"#;
+    let (source_module, _) = typecheck_resource_source(source);
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("partial assignment overwrite should build a checked drop elaboration plan");
+    let main_plan = plan
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("main"))
+        .expect("main plan should exist");
+    let overwrite_drop = main_plan
+        .auto_drops
+        .iter()
+        .find(|drop| {
+            drop.source_name == "p"
+                && matches!(drop.kind, ResourceAutoDropKind::AssignmentOverwrite)
+        })
+        .expect("partially moved assignment target should drop remaining initialized descendants");
+    match &overwrite_drop.requirement {
+        ResourceDropRequirement::Structural {
+            fields,
+            dynamic_enum_fields,
+        } => {
+            assert_eq!(fields.len(), 1);
+            assert!(dynamic_enum_fields.is_empty());
+            assert_eq!(types.type_to_string(fields[0].ty), "GuardB");
+        }
+        other => panic!("partial overwrite must only drop the remaining GuardB field: {other:?}"),
+    }
+    nepl_core::resource::validate_resource_drop_elaboration_hir_bridge(&source_module, &plan)
+        .expect("partial assignment overwrite drop should bridge to source HIR set binding");
+}
+
+#[test]
 fn resource_ir_drop_elaboration_plan_skips_moved_assignment_targets() {
     let source = r#"
 #entry main

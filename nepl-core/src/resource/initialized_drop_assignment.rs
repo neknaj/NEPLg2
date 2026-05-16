@@ -7,9 +7,11 @@ use super::cell_state::CellTable;
 use super::drop_model::{ResourceAutoDrop, ResourceDropPoint};
 use super::drop_plan_assignment::auto_drop_candidate_for_assignment_overwrite;
 use super::drop_point_path::ResourceDropPointPath;
+use super::drop_requirement::ResourceDropRequirement;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_drop_requirement::partial_drop_requirement_for_initialized_descendants;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{CellState, Place};
 use super::raw_realloc::PendingRawReallocs;
@@ -25,10 +27,15 @@ fn auto_drop_assignment_overwrite_with_record(
     span: Span,
 ) -> Option<ResourceAutoDrop> {
     let candidate = auto_drop_candidate_for_assignment_overwrite(types, target, span)?;
-    if !matches!(
+    let requirement = if matches!(
         cells.availability_state_with_types(types, target),
         CellState::Initialized(_)
     ) {
+        candidate.requirement.clone()
+    } else {
+        partial_drop_requirement_for_initialized_descendants(types, cells, target)
+    };
+    if matches!(requirement, ResourceDropRequirement::StateOnly) {
         return None;
     }
     cells.set_state(target, CellState::Dropped);
@@ -36,7 +43,10 @@ fn auto_drop_assignment_overwrite_with_record(
     function_aliases.clear_alias(target);
     pending_reallocs.clear_result(target);
     variant_initializations.clear_result(target);
-    Some(candidate)
+    Some(ResourceAutoDrop {
+        requirement,
+        ..candidate
+    })
 }
 
 impl ResourceCheckEngine<'_> {

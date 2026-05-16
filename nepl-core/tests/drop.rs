@@ -440,6 +440,44 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn assignment_overwrite_drops_remaining_fields_after_partial_move() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/field" as field
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct GuardA:
+    dummy <i32>
+struct GuardB:
+    dummy <i32>
+struct Pair:
+    left <GuardA>
+    right <GuardB>
+
+impl Drop for GuardA:
+    fn drop <(&GuardA)*>()> (self):
+        tick 1;
+        ()
+
+impl Drop for GuardB:
+    fn drop <(&GuardB)*>()> (self):
+        tick 2;
+        ()
+
+fn main <()->i32> ():
+    let mut p <Pair> Pair (GuardA 0) (GuardB 0);
+    let left <GuardA> field::get p "left";
+    set p Pair (GuardA 1) (GuardB 1);
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![2, 1, 1, 2]);
+}
+
+#[test]
 fn auto_drop_copy_field_read_keeps_struct_owner_alive() {
     let source = r#"
 #target wasm

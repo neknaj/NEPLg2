@@ -39821,3 +39821,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-16 Agent 1 Resource IR partial assignment drop 修正
+
+- `ISS-20260516T074901579Z-RESOURCE-IR-ASSIGNMENT-OVERWRITE-SKI-265F0C40` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、scope end の auto drop は部分 move 済み aggregate の残存 field を `partial_drop_requirement_for_initialized_descendants` で拾う一方、assignment overwrite は whole target が `Initialized` のときだけ drop fact を作っていたことだった。
+- 修正後は assignment overwrite でも、whole target が moved / partially moved の場合に initialized descendant だけの `ResourceDropRequirement::Structural` を生成する。これにより `Pair.left` を move out した後の `set p Pair ...` で旧 `Pair.right` が上書き前に drop される。
+- move 済み target の再初期化は、残存 initialized descendant がなければ `StateOnly` として drop fact を出さないため、余計な drop は挿入しない。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4 drop authority 進捗と関連 issue に反映した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_assignment_overwrite_records_partial_drop_after_field_move -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test drop assignment_overwrite_drops_remaining_fields_after_partial_move -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir assignment_overwrite -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test drop auto_drop_partially_moved_struct_drops_remaining_fields -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_drop_elaboration_plan_skips_moved_assignment_targets -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_drop_insertion_consumes_checked_scope_and_assignment_points -- --exact --nocapture`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

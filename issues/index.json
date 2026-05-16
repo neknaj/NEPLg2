@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T07:38:06.954Z",
+  "generated_at": "2026-05-16T07:55:52.744Z",
   "counts": {
-    "total": 876,
+    "total": 877,
     "open": 5,
-    "resolved": 871,
+    "resolved": 872,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 433,
+        "total": 434,
         "open": 0,
-        "resolved": 433
+        "resolved": 434
       },
       "CORE": {
         "total": 1,
@@ -6538,6 +6538,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T073151046Z-SOURCE-CAPABILITY-RAW-HELPER-BODY-EV-43BC8055.md"
+    },
+    {
+      "id": "ISS-20260516T074901579Z-RESOURCE-IR-ASSIGNMENT-OVERWRITE-SKI-265F0C40",
+      "title": "Resource IR assignment overwrite skips partial drop for moved aggregate descendants",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource/initialized_drop_assignment.rs, nepl-core/src/resource/initialized_drop_requirement.rs, nepl-core/tests/drop.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T074901579Z-RESOURCE-IR-ASSIGNMENT-OVERWRITE-SKI-265F0C40.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
