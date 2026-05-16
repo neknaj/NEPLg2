@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T09:11:41.629Z",
+  "generated_at": "2026-05-16T09:28:20.194Z",
   "counts": {
-    "total": 881,
+    "total": 882,
     "open": 5,
-    "resolved": 876,
+    "resolved": 877,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 438,
+        "total": 439,
         "open": 0,
-        "resolved": 438
+        "resolved": 439
       },
       "CORE": {
         "total": 1,
@@ -553,6 +553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T090208743Z-RESOURCE-IR-CONSTRUCT-MEMORY-TYPE-CH-B8053A9C.md"
+    },
+    {
+      "id": "ISS-20260516T092004954Z-TYPECHECK-COMPILER-MEMORY-TYPE-REGIS-86C93B83",
+      "title": "typecheck compiler memory type registration trusts file capability without struct shape proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/typecheck/compiler_memory_type.rs, nepl-core/src/typecheck/driver.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T092004954Z-TYPECHECK-COMPILER-MEMORY-TYPE-REGIS-86C93B83.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

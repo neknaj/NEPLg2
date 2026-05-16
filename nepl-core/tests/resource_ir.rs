@@ -12334,6 +12334,62 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_requires_struct_shape_for_compiler_memory_type_registration() {
+    let source = r#"
+#no_prelude
+#entry main
+#indent 4
+#target std
+
+pub struct MemPtr:
+    raw <i32>
+    tag <i32>
+
+fn make <()->MemPtr> ():
+    MemPtr 1 2
+
+fn main <()->i32> ():
+    let _p <MemPtr> make
+    0
+"#;
+
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline(
+            PathBuf::from("/virtual/malformed_mem_ptr.nepl"),
+            source.to_string(),
+        )
+        .expect("load malformed same-name memory type source");
+    let mut source_map = loaded.source_map;
+    let entry_file = source_map
+        .iter_paths()
+        .find_map(|(id, path)| {
+            path.as_str()
+                .ends_with("malformed_mem_ptr.nepl")
+                .then_some(id)
+        })
+        .expect("entry source file id");
+    source_map.set_capabilities(
+        entry_file,
+        SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::RawPointer),
+    );
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&source_map),
+    );
+
+    assert!(
+        checked.diagnostics.is_empty(),
+        "malformed user MemPtr must not be rejected through injected file capability: {:#?}",
+        checked.diagnostics
+    );
+    let mem_ptr = checked.types.lookup_named("MemPtr").expect("MemPtr type");
+    assert_eq!(checked.types.compiler_memory_type(mem_ptr), None);
+}
+
+#[test]
 fn typecheck_allows_user_struct_named_region_token() {
     let source = r#"
 #no_prelude

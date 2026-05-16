@@ -9,7 +9,6 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
-use crate::source_capability::compiler_memory_type_from_constructor_name;
 use crate::source_map::{CompilerMemoryType, SourceMap};
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
@@ -20,6 +19,7 @@ use super::binding_rules::{
     is_callable_binding, shadow_blocked_by_nonshadow,
 };
 use super::check_function;
+use super::compiler_memory_type::compiler_memory_type_definition_allowed;
 use super::copy_capability::{
     mark_owner_backed_aggregate_constructor_policies, target_is_compiler_owner_token,
 };
@@ -439,8 +439,9 @@ pub fn typecheck(
                         field_names: f_names.clone(),
                     },
                 );
-                let compiler_memory_type =
-                    compiler_memory_type_definition_allowed(&s.name.name, s.name.span, source_map);
+                let compiler_memory_type = compiler_memory_type_definition_allowed(
+                    s, &fs, &f_names, &tps, &ctx, source_map,
+                );
                 if let Some(memory_type) = compiler_memory_type {
                     ctx.mark_compiler_memory_type(ty, memory_type);
                 }
@@ -1651,22 +1652,6 @@ pub fn typecheck(
         diagnostics,
         types: ctx,
     }
-}
-
-fn compiler_memory_type_definition_allowed(
-    name: &str,
-    span: Span,
-    source_map: Option<&SourceMap>,
-) -> Option<CompilerMemoryType> {
-    let Some(memory_type) = compiler_memory_type_from_constructor_name(name) else {
-        return None;
-    };
-    source_map
-        .map(|source_map| {
-            source_map.compiler_memory_type_definition_allowed(span.file_id, memory_type)
-        })
-        .unwrap_or(false)
-        .then_some(memory_type)
 }
 
 fn struct_constructor_policy(

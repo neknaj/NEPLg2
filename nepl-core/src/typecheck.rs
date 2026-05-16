@@ -9,6 +9,7 @@ mod block_check;
 mod call_binding_lookup;
 mod call_reduction;
 mod call_resolution;
+mod compiler_memory_type;
 mod constructor_apply;
 mod context;
 mod control_apply;

@@ -39890,3 +39890,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 同名 user struct `RegionToken` が owner-token construct extent check を受けない Resource IR regression
   - `lower_raw_address_return.rs` / `owner_flow.rs` が `compiler_memory_type_from_constructor_name` を使わない source policy
   - `resource_primitives` registry の既存 identity / helper classification regression
+
+## 2026-05-16 Agent 1 typecheck compiler memory type shape proof 修正
+
+- `ISS-20260516T092004954Z-TYPECHECK-COMPILER-MEMORY-TYPE-REGIS-86C93B83` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、compiler memory type identity の `TypeCtx` 登録が `SourceMap` の file capability と struct 名を組み合わせるだけで、現在 typecheck 中の `StructDef` の typed shape を登録境界で再検証していなかったことだった。
+- 修正後は `typecheck/compiler_memory_type.rs` に登録証明を分離し、`SourceMap` capability と typed shape の両方が成立した場合だけ `TypeCtx::mark_compiler_memory_type` を呼ぶ。`MemPtr` は `raw:i32`、`RegionToken` は `raw:i32,size:i32` の public 1 type parameter struct だけを認める。
+- malformed `MemPtr` に `RawPointer` capability を手動注入しても user struct として扱われ、compiler memory identity に登録されない regression と source policy を追加した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_requires_struct_shape_for_compiler_memory_type_registration -- --exact --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed

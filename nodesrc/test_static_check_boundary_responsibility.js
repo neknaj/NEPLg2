@@ -244,6 +244,10 @@ const typecheckDriver = assertFile(
     path.join(TYPECHECK_DIR, 'driver.rs'),
     'typecheck/driver.rs',
 );
+const typecheckCompilerMemoryType = assertFile(
+    path.join(TYPECHECK_DIR, 'compiler_memory_type.rs'),
+    'typecheck/compiler_memory_type.rs',
+);
 const typecheckConstructorApply = assertFile(
     path.join(TYPECHECK_DIR, 'constructor_apply.rs'),
     'typecheck/constructor_apply.rs',
@@ -267,6 +271,7 @@ for (const moduleName of [
     'call_binding_lookup',
     'call_reduction',
     'call_resolution',
+    'compiler_memory_type',
     'constructor_apply',
     'context',
     'control_apply',
@@ -316,14 +321,39 @@ assertContains(
 );
 assertContains(typecheckDriver, 'fn struct_constructor_policy', 'typecheck/driver.rs');
 assertContains(
-    typecheckDriver,
-    'compiler_memory_type_from_constructor_name(name)',
-    'typecheck/driver.rs',
+    typecheckCompilerMemoryType,
+    'compiler_memory_type_from_constructor_name(def.name.name.as_str())',
+    'typecheck/compiler_memory_type.rs must classify the current struct definition',
+);
+assertContains(
+    typecheckCompilerMemoryType,
+    'compiler_memory_type_definition_shape_holds',
+    'typecheck/compiler_memory_type.rs must re-check typed struct shape',
+);
+assertContains(
+    typecheckCompilerMemoryType,
+    'source_map.compiler_memory_type_definition_allowed(def.name.span.file_id, memory_type)',
+    'typecheck/compiler_memory_type.rs must still require SourceMap source proof',
+);
+assertContains(
+    typecheckCompilerMemoryType,
+    'fn type_id_is_i32',
+    'typecheck/compiler_memory_type.rs must validate typed field shape',
 );
 assertContains(
     typecheckDriver,
-    'compiler_memory_type_definition_allowed(span.file_id, memory_type)',
-    'typecheck/driver.rs',
+    'let compiler_memory_type = compiler_memory_type_definition_allowed(',
+    'typecheck/driver.rs must use compiler memory registration helper',
+);
+assertContains(
+    typecheckDriver,
+    's, &fs, &f_names, &tps, &ctx, source_map',
+    'typecheck/driver.rs must pass the current struct definition and typed fields to compiler memory registration',
+);
+assertNotContains(
+    typecheckDriver,
+    'compiler_memory_type_definition_allowed(&s.name.name, s.name.span, source_map)',
+    'typecheck/driver.rs must not register compiler memory type from name plus file capability only',
 );
 assertContains(typecheckDriver, 'CompilerMemoryType::RawPointer', 'typecheck/driver.rs');
 assertContains(typecheckDriver, 'CompilerMemoryType::OwnerToken', 'typecheck/driver.rs');
@@ -1260,6 +1290,7 @@ for (const filePath of walkRustFiles(CORE_SRC)) {
 
 for (const [moduleName, limit] of [
     ['driver.rs', 1700],
+    ['compiler_memory_type.rs', 90],
     ['prefix_check.rs', 2200],
     ['call_resolution.rs', 760],
     ['block_check.rs', 700],
