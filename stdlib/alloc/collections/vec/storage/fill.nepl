@@ -29,7 +29,7 @@
 //: ### [実装/じっそう]
 //: - `n <= 0` なら `VecStorage::Empty` の[空/から]の `Vec` を[返/かえ]します。
 //: - `n > 0` なら `n` [要素分/ようそぶん]を typed `alloc_region<.T>` で[確保/かくほ]し、先頭から順に `store` で同じ値を書き込みます。
-//: - 書き込み完了後は `len = cap = n` の `Vec` として[返/かえ]します。
+//: - 書き込み完了後は `len = cap = n` の `OwnedBuffer` を[持/も]つ `Vec` として[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `.T: Copy` に[限定/げんてい]します。同じ値を複数セルへ複製して保持するためです。
@@ -77,6 +77,6 @@ pub fn filled <.T: Copy> <(i32,.T)->Result<Vec<.T>, StdErrorKind>> (n, value):
                             let write_off <i32> mul i size_of<.T>
                             store<.T> add mem_ptr_addr data write_off value
                             set i add i 1
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> n n (VecStorage<.T>::Owned region)
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> n n (VecStorage<.T>::Owned region))
                 Result::Err _e:
                     Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory

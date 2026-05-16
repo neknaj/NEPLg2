@@ -57,7 +57,8 @@
 //:             1
 //: ```
 pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
-    let src_len <i32> *field::get_ref v "len"
+    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+    let src_len <i32> *field::get_ref v_buffer "len"
     let mut out <Option<.T>> none<.T>
     let mut active <bool> true
     let mut i <i32> 0
@@ -112,7 +113,8 @@ pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //:     if ok 0 1
 //: ```
 pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
-    let src_len <i32> *field::get_ref v "len"
+    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+    let src_len <i32> *field::get_ref v_buffer "len"
     let mut out <bool> false
     let mut i <i32> 0
     while and lt i src_len not out:
@@ -160,7 +162,8 @@ pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //:     if ok 0 1
 //: ```
 pub fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
-    let src_len <i32> *field::get_ref v "len"
+    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+    let src_len <i32> *field::get_ref v_buffer "len"
     let mut out <bool> true
     let mut i <i32> 0
     while and lt i src_len out:

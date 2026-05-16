@@ -2,8 +2,8 @@
 id: ISS-20260516T005642964Z-VEC-STORES-BACKING-STORAGE-DIRECTLY--2407B1D0
 title: "Vec stores backing storage directly instead of OwnedBuffer"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-16
@@ -45,6 +45,23 @@ Introduce OwnedBuffer<T> as the backing storage owner for Vec, move len/cap/stor
 
 `OwnedBuffer` 化に入る前に、compiler 側では Resource primitive classification を個別 string 判定から typed registry へ集約する必要がある。`OwnedBuffer` を追加するたび Resource IR の複数箇所へ名前判定を増やす設計は避ける。
 
+## 解決内容
+
+2026-05-16 に Stage 6 / Stage D の一部として修正した。
+
+- `OwnedBuffer<T>` を追加し、`len` / `cap` / `storage` を backing storage owner 側へ移した。
+- `Vec<T>` は `buffer: OwnedBuffer<T>` だけを持つ public facade になった。
+- `VecStorage<T>::Empty | Owned(RegionToken<T>)` は維持し、storage tag と free obligation owner の相関は enum / match で表す。
+- storage allocation、borrowed observer、query、mutation、transform、sort wrapper はすべて `OwnedBuffer<T>` 経由で storage owner を参照または消費する。
+- source policy は旧 `Vec<T> len cap storage` constructor と `Vec<T>` 直下の `len/cap/storage` field を退行として拒否する。
+
+この修正は `OwnedBuffer<T>` と collection facade の責務分離を完了させるものだが、non-Copy payload collection の完成ではない。initialized prefix、moved slot、drop traversal、compiler-issued owner token は `RV-STDLIB-004` と raw-memory-backed stdlib API 親 issue の残件として扱う。
+
 ## 検証
 
-Run focused Vec doctests, collection cleanup contract regressions, source policies for Vec raw boundary, and Resource IR owner aggregate regressions.
+- `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+- `node nodesrc/test_stdlib_vec_borrowed_observers.js`
+- `node nodesrc/test_stdlib_vec_sort_module_split.js`
+- `node nodesrc/test_stdlib_memptr_owner_field_policy.js`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec -o tmp/vec-owned-buffer-stdlib-tests.json --dist web/dist --no-tree -j 1`
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md -o tmp/vec-owned-buffer-nmd-tests.json --dist web/dist --no-tree -j 1`

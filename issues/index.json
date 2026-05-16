@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T01:24:44.113Z",
+  "generated_at": "2026-05-16T01:53:46.972Z",
   "counts": {
     "total": 860,
-    "open": 6,
-    "resolved": 854,
+    "open": 5,
+    "resolved": 855,
     "by_area": {
       "stdlib": {
         "total": 255,
-        "open": 4,
-        "resolved": 251
+        "open": 3,
+        "resolved": 252
       },
       "TEST": {
         "total": 24,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260516T005642964Z-VEC-STORES-BACKING-STORAGE-DIRECTLY--2407B1D0",
-      "title": "Vec stores backing storage directly instead of OwnedBuffer",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "stdlib/alloc/collections/vec/**, doc/neplg2/stdlib_collection_mem_string_static_safety_design.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260516T005642964Z-VEC-STORES-BACKING-STORAGE-DIRECTLY--2407B1D0.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -10213,6 +10198,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134.md"
+    },
+    {
+      "id": "ISS-20260516T005642964Z-VEC-STORES-BACKING-STORAGE-DIRECTLY--2407B1D0",
+      "title": "Vec stores backing storage directly instead of OwnedBuffer",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "stdlib/alloc/collections/vec/**, doc/neplg2/stdlib_collection_mem_string_static_safety_design.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T005642964Z-VEC-STORES-BACKING-STORAGE-DIRECTLY--2407B1D0.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

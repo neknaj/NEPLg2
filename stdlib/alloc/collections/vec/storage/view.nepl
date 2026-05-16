@@ -21,4 +21,4 @@
 //: - non-Copy payload を[許/ゆる]すと、後続の `free` / `clear` / `push` / `pop` が扱えない `Vec<NonCopyPayload>` を safe surface へ[出/だ]せます。
 //: - non-Copy collection は、compiler-issued owner token と initialized/moved/drop state による `OwnedBuffer<T>` 設計へ[移行/いこう]してから別 API として[解禁/かいきん]します。
 pub fn vec_empty <.T: Copy> <()->Vec<.T>> ():
-    Vec<.T> 0 0 VecStorage<.T>::Empty
+    Vec<.T> (OwnedBuffer<.T> 0 0 VecStorage<.T>::Empty)

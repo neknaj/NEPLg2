@@ -61,7 +61,7 @@ pub fn sort_heap <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: - 破壊的ソートを行った同じ `Vec` を返し、後続処理で検証や連結処理をしやすくします。
 //:
 //: [実装/じっそう]:
-//: - `sort_heap` を呼んだあと `v` をそのまま返します。
+//: - 借用 view で storage を in-place に並べ替えたあと、入力 owner `v` をそのまま返します。
 //:
 //: [注意/ちゅうい]:
 //: - ソート自体は in-place です。
@@ -69,8 +69,7 @@ pub fn sort_heap <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - `sort_heap` と同じです。
 pub fn sort_heap_ret <.T: Ord&Copy> <(Vec<.T>)*>Vec<.T>> (v):
-    let n <i32> get v "len"
-    let cap <i32> get v "cap"
+    let n <i32> len<.T> &v
     let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
     if:
         le n 1
@@ -90,5 +89,4 @@ pub fn sort_heap_ret <.T: Ord&Copy> <(Vec<.T>)*>Vec<.T>> (v):
                     sort_heap_sift_down_data<.T> data_ptr 0 end;
                     set end sub end 1;
             ()
-    let storage <VecStorage<.T>> get v "storage"
-    Vec<.T> n cap storage
+    v

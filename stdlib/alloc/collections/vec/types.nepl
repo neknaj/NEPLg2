@@ -2,11 +2,12 @@
 //: `Vec` の型定義
 //:
 //: ### [目的/もくてき]
-//: - `VecStorage`、`Vec`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
+//: - `VecStorage`、`OwnedBuffer`、`Vec`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
 //: - storage owner state と backing allocation owner を同じ enum に[保持/ほじ]し、null pointer sentinel や分離 owner field を public owner state に[戻/もど]さないための型境界を[明確/めいかく]にします。
 //:
 //: ### [注意/ちゅうい]
-//: - `Vec<T>` は backing storage owner です。shallow copy せず、owner を move して[扱/あつか]います。
+//: - `OwnedBuffer<T>` は backing storage owner と len/cap metadata を[束/たば]ねます。shallow copy せず、owner を move して[扱/あつか]います。
+//: - `Vec<T>` は public collection facade で、storage owner は `OwnedBuffer<T>` field に[委譲/いじょう]します。
 //: - backing storage の free obligation は `VecStorage<T>::Owned(RegionToken<T>)` に[集約/しゅうやく]し、`MemPtr<T>` は参照から得る data view としてだけ[扱/あつか]います。
 
 #indent 4
@@ -28,18 +29,38 @@ pub enum VecStorage<.T>:
     Empty
     Owned <RegionToken<.T>>
 
+//: ## OwnedBuffer
+//: `Vec` の backing storage owner と initialized prefix metadata
+//:
+//: ### [目的/もくてき]
+//: - storage owner state、[長/なが]さ、[容量/ようりょう]を 1 つの owner aggregate に[束/たば]ねます。
+//: - `Vec<.T>` facade が storage の内部表現を直接[保持/ほじ]せず、buffer owner に[委譲/いじょう]するための境界です。
+//:
+//: ### [実装/じっそう]
+//: - `len` は[初期化済/しょきかず]み prefix の[長/なが]さ、`cap` は backing storage の[容量/ようりょう]です。
+//: - `storage` は `VecStorage<.T>` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
+//:
+//: ### [注意/ちゅうい]
+//: - 現段階では initialized prefix / moved slot / drop traversal は Resource IR 上で完全な typed cell API になっていません。そのため public `Vec` mutation は引き続き `.T: Copy` に[限定/げんてい]します。
+//: - non-Copy payload を[扱/あつか]う最終 API では、`OwnedBuffer` に move-out / replace / drop state をさらに[接続/せつぞく]します。
+pub struct OwnedBuffer<.T>:
+    len <i32>
+    cap <i32>
+    storage <VecStorage<.T>>
+
 //: ## Vec
 //: [可変長/かへんちょう][配列/はいれつ]の[本体/ほんたい]
 //:
 //: ### [目的/もくてき]
-//: - [要素数/ようそすう]・[容量/ようりょう]・storage owner を[保持/ほじ]し、`alloc/collections` の[他/ほか] API から[共通/きょうつう]に[扱/あつか]えるようにします。
+//: - `OwnedBuffer<.T>` を[保持/ほじ]し、`alloc/collections` の[他/ほか] API から[共通/きょうつう]に[扱/あつか]える facade として[振/ふ]る[舞/ま]います。
 //:
 //: ### [実装/じっそう]
-//: - `len` と `cap` は `i32`、`storage` は `VecStorage<.T>` で[保持/ほじ]します。
+//: - `Vec<.T>` [自体/じたい]は `buffer: OwnedBuffer<.T>` だけを[保持/ほじ]します。
+//: - `len`、`cap`、`storage` は `OwnedBuffer<.T>` 内に[閉/と]じます。
 //: - [実体/じったい]の[配列/はいれつ]はヒープ[上/じょう]の[連続/れんぞく][領域/りょういき]です。
 //:
 //: ### [注意/ちゅうい]
-//: - `Vec<.T>` [自体/じたい]は `storage` variant の payload として backing [領域/りょういき]の[所有権/しょゆうけん]を[持/も]ちます。
+//: - `Vec<.T>` [自体/じたい]は `OwnedBuffer<.T>` を通して backing [領域/りょういき]の[所有権/しょゆうけん]を[持/も]ちます。
 //: - `Vec<.T>` は shallow copy できません。値を[渡/わた]すと[所有権/しょゆうけん]が[移動/いどう]します。
 //: - [再確保/さいかくほ]により `region` から得た data view の[番地/ばんち]が[変/か]わるため、[生/なま]アドレスを[長期/ちょうき]に[保持/ほじ]してはいけません。
 //:
@@ -61,9 +82,7 @@ pub enum VecStorage<.T>:
 //:     0
 //: ```
 pub struct Vec<.T>:
-    len <i32>
-    cap <i32>
-    storage <VecStorage<.T>>
+    buffer <OwnedBuffer<.T>>
 
 //: ## VecPushError
 //: `push` の[失敗/しっぱい]時に `Vec` owner を[返/かえ]す error payload

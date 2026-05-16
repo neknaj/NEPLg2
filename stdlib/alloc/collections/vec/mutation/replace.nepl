@@ -46,8 +46,9 @@
 //:     0
 //: ```
 pub fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
-    let v_len <i32> *field::get_ref v "len"
-    let v_storage <&VecStorage<.T>> field::get_ref v "storage"
+    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+    let v_len <i32> *field::get_ref v_buffer "len"
+    let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
     let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> v
     if:
         lt idx 0

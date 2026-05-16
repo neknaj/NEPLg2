@@ -19,7 +19,7 @@
 //: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付きポインタとして[安全/あんぜん]に[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - field `storage` を借用し、`Owned(region)` のときだけ `region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
+//: - `Vec` の `buffer` field を[借用/しゃくよう]し、`OwnedBuffer.storage` が `Owned(region)` のときだけ `region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
 //: - `VecStorage::Empty` は allocation を[持/も]たないため、0 address の typed view を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
@@ -63,7 +63,8 @@
 //:     0
 //: ```
 pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
-    let v_storage <&VecStorage<.T>> field::get_ref v "storage"
+    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+    let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
     match v_storage:
         VecStorage::Empty:
             mem_ptr_wrap 0

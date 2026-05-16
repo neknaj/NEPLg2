@@ -21,7 +21,7 @@
 //: - `len` を 0 にして、[確保済/かくほず]み[領域/りょういき]を[再利用/さいりよう]できる[空/から]ベクタを[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - `storage` と `cap` はそのままに、`len` だけを 0 にします。
+//: - `OwnedBuffer` から `storage` owner を[取/と]り[出/だ]し、`cap` はそのままに `len` だけを 0 にした新しい `OwnedBuffer` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ]メモリは[解放/かいほう]しません。
@@ -48,9 +48,11 @@
 //:     if ok 0 1
 //: ```
 pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
-    let v_cap <i32> *field::get_ref &v "cap"
-    let v_storage <VecStorage<.T>> field::get v "storage"
-    Vec<.T> 0 v_cap v_storage
+    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let v_cap <i32> *field::get_ref v_buffer_ref "cap"
+    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
+    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+    Vec<.T> (OwnedBuffer<.T> 0 v_cap v_storage)
 
 //: ## free
 //: [内部/ないぶ]メモリを[解放/かいほう]する
@@ -59,7 +61,7 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //: - `Vec<.T>` が `VecStorage::Owned` payload として[所有/しょゆう]する storage [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - `storage` owner は `vec/storage` の cleanup helper へ[移動/いどう]します。
+//: - `OwnedBuffer` から `storage` owner を[取/と]り[出/だ]し、`vec/storage` の cleanup helper へ[移動/いどう]します。
 //: - `VecStorage::Empty` は owner payload を[持/も]たず、`VecStorage::Owned(region)` だけが owner-consuming destructor へ[進/すす]みます。
 //:
 //: ### [注意/ちゅうい]
@@ -84,5 +86,6 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //:     0
 //: ```
 pub fn free <.T: Copy> <(Vec<.T>)->()> (v):
-    let v_storage <VecStorage<.T>> field::get v "storage"
+    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
+    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
     vec_storage::vec_free_storage<.T> v_storage

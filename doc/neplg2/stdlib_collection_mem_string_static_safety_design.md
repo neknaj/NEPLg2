@@ -25,8 +25,8 @@
 | `alloc/io` `ByteBuilder` | `io/bytebuilder` が grow/reserve/append/finish を所有する。`region: RegionToken<u8>` と `byte_builder_with_len` で storage owner を field 全体として移し、append は参照から非所有 pointer view を得る。safe API は pure surface とし、raw memory effect は raw-memory-boundary source 内で Resource IR が検査する。 | 良い方向。builder owner leak は回帰テストで監視済み。raw capability は `io/bytebuilder` に限定した。 | fallible append の失敗契約を collection と揃え、将来の compiler-issued owner wrapper に合わせる。 |
 | `alloc/string` `str` | `string_alloc_region` / `string_finish` で `RegionToken` を使う経路が増えた。UTF-8 と char API も進み、numeric conversion は `integer/common` / `integer/format` / `integer/parse` / `float/format` / `float/parse` へ分割済み。 | 部分的に良い。`str` 確定境界と module 責務は改善済みだが、raw address helper はまだ内部 discipline に依存する。 | `str` 生成 API を `OwnedStringRegion` に寄せ、unchecked helper を internal boundary に閉じる。 |
 | `alloc/string` `StringBuilder` | `bytes: ByteBuilder` を保持する typed text builder wrapper。append は `ByteBuilder` の byte owner boundary へ委譲し、build は `ByteBuilder -> ByteBuf -> str` の確定経路を通す。 | 良い方向。StringBuilder 固有の raw `MemPtr` owner field はなくなった。短期 self-host の text builder として使用可能。 | `ByteBuilder` / `ByteBuf` 側を将来の `OwnedBytes` / `OwnedStringRegion` へ移行する。 |
-| `alloc/collections/Vec` | `VecStorage<T>::Empty/Owned(RegionToken<T>)` で storage state と free obligation owner を同じ enum に束ねる。`Vec<T>` は `len/cap/storage` を持ち、型定義は `vec/types`、storage allocation/free は `vec/storage`、borrowed observer は `vec/access`、raw load/store と scan/fold helper は `vec/raw`、owner-consuming transform は `vec/transform`、borrowed query は `vec/query`、mutation/cleanup は `vec/mutation` が所有する。allocation constructor、raw data observer、raw element helper、`push` / `pop` / `sort` / `clear` / `free` / `vec_free_storage` は、raw storage identity / raw copy / storage-only cleanup / raw swap に依存するため `.T: Copy` に限定済み。`MemPtr<T>` は `RegionToken<T>` 参照から得る non-owning view としてだけ使う。 | 改善済みの過渡。`MemPtr` owner field と split `RegionToken<T>` field は消え、`Empty` と allocated token の相関は型で表せるようになった。ただし `RegionToken<T>` が forgeable である点と、non-Copy payload collection の owner-preserving update / move-out / drop traversal は `OwnedBuffer<T>` 化まで残る。 | `OwnedBuffer<T>` + initialized prefix へ移行し、read/copy/move/drop/free を分離する。 |
-| `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` | raw header は廃止済みで、`len/cap/head/items: Vec<Option<T>>` 系へ移行済み。live/inactive slot は `Some` / `None` で表す。 | 良い方向。ただし現行 `Vec` は `RegionToken<T>` owner へ移っただけで、compiler-issued `OwnedBuffer<T>` と initialized prefix は未完である。 | `OwnedBuffer<T>` 再実装後、`Vec<Option<T>>` 依存を新 buffer model に移す。 |
+| `alloc/collections/Vec` | `Vec<T>` は public facade として `buffer: OwnedBuffer<T>` だけを保持する。`OwnedBuffer<T>` が `len/cap/storage` を持ち、`VecStorage<T>::Empty/Owned(RegionToken<T>)` で storage state と free obligation owner を同じ enum に束ねる。型定義は `vec/types`、storage allocation/free は `vec/storage`、borrowed observer は `vec/access`、raw load/store と scan/fold helper は `vec/raw`、owner-consuming transform は `vec/transform`、borrowed query は `vec/query`、mutation/cleanup は `vec/mutation` が所有する。allocation constructor、raw data observer、raw element helper、`push` / `pop` / `sort` / `clear` / `free` / `vec_free_storage` は、raw storage identity / raw copy / storage-only cleanup / raw swap に依存するため `.T: Copy` に限定済み。`MemPtr<T>` は `RegionToken<T>` 参照から得る non-owning view としてだけ使う。 | 改善済みの過渡。collection facade と backing storage owner の責務分離は入った。`MemPtr` owner field、split `RegionToken<T>` field、`Vec<T>` 直下の `len/cap/storage` は消え、`Empty` と allocated token の相関は型で表せる。ただし `RegionToken<T>` が forgeable である点と、non-Copy payload collection の owner-preserving update / move-out / drop traversal は initialized cell state まで残る。 | `OwnedBuffer<T>` に initialized prefix / moved slot / drop traversal を接続し、read/copy/move/drop/free を分離する。 |
+| `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` | raw header は廃止済みで、`len/cap/head/items: Vec<Option<T>>` 系へ移行済み。live/inactive slot は `Some` / `None` で表す。 | 良い方向。ただし現行 `Vec` は `OwnedBuffer<T>` facade へ移った段階で、compiler-issued owner token と initialized prefix / moved slot / drop traversal は未完である。 | `OwnedBuffer<T>` の initialized cell state 実装後、`Vec<Option<T>>` 依存を新 buffer model に移す。 |
 | `HashMap` / `HashSet` | `BucketState` enum と typed bucket storage を導入済み。key/value/key-only storage は `Vec<Option<...>>` で初期化状態を表す。 | 良い方向。Copy payload 前提では Resource IR が storage owner と initialized slot を追いやすい。 | source policy で raw header / numeric sentinel への退行を防ぎ、非 Copy payload は別設計で扱う。 |
 | `BTreeMap` / `BTreeSet` | sorted-array typed storage を使い、key/value slot は `Vec<Option<T>>` で表す。`key_eq` は by-value `ord_lt` を 2 回呼ぶため `.K: Ord&Copy` / `.T: Ord&Copy` に限定済み。`insert` / grow failure は `BTreeMapInsertError` / `BTreeSetInsertError` に元 owner と `Diag` を入れて返す。 | 良い方向。raw header はなく、non-Copy key の二重消費入口と grow failure で owner を隠す入口を閉じた。ただし名称通りの木構造ではなく小規模 ordered table である。 | borrowed comparison と non-Copy key/value の owner-preserving update は `OwnedBuffer<T>` と initialized cell state が入った後に別 API として設計する。 |
 | bitset 系 collection | `BitSet` / `AdjacencyMatrix` / BloomFilter / CountingBloomFilter は `Vec<u8>` storage へ移行済み。 | 良い方向。byte collection 固有の raw owner field は解消済み。 | `Vec` の基礎 owner model を `OwnedBuffer` へ移行し、byte collection もそれに追従する。 |
@@ -48,13 +48,13 @@
 | list collection | `List` は `items: Vec<T>` storage。`reverse` / `map` / `filter` / observer は raw node を使わず owner を閉じる。 | 良い方向。raw node は解消済み。Copy payload 前提と `Vec` 基礎 owner model は残る。 | `OwnedBuffer` based storage と borrowed observer / non-Copy payload contract へ追従する。 |
 | byte/bit collection | `BitSet` / `AdjacencyMatrix` / BloomFilter / CountingBloomFilter は `Vec<u8>` storage。 | 良い方向。byte/bit collection の payload owner field は `Vec<u8>` に統一済み。 | `Vec` の基礎 owner model を `OwnedBuffer` へ移し、byte collection も `OwnedBytes` 相当の安全境界へ追従する。 |
 | numeric array collection | SparseSet / Fenwick / SegmentTree / DisjointSet は `Vec<i32>` storage。 | 良い方向。numeric collection 固有の raw i32 storage は解消済みだが、基礎 `Vec` の owner model は未完。 | `OwnedBuffer<i32>` / typed index API へ移す。 |
-| `Vec<T>` | `len/cap/storage` を持ち、`VecStorage<T>::Empty | Owned(RegionToken<T>)` が storage state と free obligation owner を同時に表す。型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済み。 | 最重要残件。split owner field は解消したが、`RegionToken<T>` が forge 可能で、initialized prefix / moved slot / drop traversal は型に出ていない。 | `OwnedBuffer<T>` + `StorageState<T>` + initialized prefix に再実装する。 |
+| `Vec<T>` | `buffer: OwnedBuffer<T>` を持つ public facade で、`OwnedBuffer<T>` が `len/cap/storage` を保持する。`VecStorage<T>::Empty | Owned(RegionToken<T>)` が storage state と free obligation owner を同時に表す。型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済み。 | 重要残件は縮小した。facade と backing storage owner は分離済みだが、`RegionToken<T>` が forge 可能で、initialized prefix / moved slot / drop traversal はまだ型に出ていない。 | `OwnedBuffer<T>` に compiler-issued owner token と initialized cell state を接続する。 |
 | `core/mem` | raw allocator、`MemPtr<T>`、`RegionToken<T>`、load/store が同居。 | 過渡。token forging と owner/view 混同が残る。 | public safe API と internal raw API を分離し、compiler-issued owner token にする。 |
 | `alloc/string` / `alloc/io` | `RegionToken` owner と `ByteBuilder` / `ByteBuf` の typed boundary で owner flow を改善済み。`StringBuilder` 固有 raw owner field と `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field は削除済み。 | 短期 self-host では使用可能。 | `OwnedBytes` / `OwnedStringRegion` へ移し、unchecked raw conversion を internal boundary に閉じる。 |
 
 現状実装の粗い集計:
 
-- raw memory pattern が残る collection: `Vec`（raw memory boundary を持つ基礎 storage）。
+- raw memory pattern が残る collection: `Vec`（public facade は `OwnedBuffer<T>` 化済みだが、基礎 storage boundary はまだ raw memory を持つ）。
 - raw memory pattern が消えた主要 collection: `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `Queue`, `Deque`, `RingBuffer`, `Stack`, `BinaryHeap`, `SparseSet`, `BitSet`, `Fenwick`, `SegmentTree`, `DisjointSet`, `AdjacencyMatrix`, `BloomFilter`, `CountingBloomFilter`。
 - enum state が明示されている主要 collection: `HashMap`, `HashSet`。
 - slot state を `Option<T>` で明示している collection: `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `Queue`, `Deque`, `RingBuffer`, `Stack`, `BinaryHeap`, 一部 `Vec` 利用 API。
@@ -62,7 +62,7 @@
 この状態での設計判断:
 
 1. derived collection の raw header 廃止は正しい。Resource IR が raw header 内の疑似 field を復元する必要がなくなり、所有権検査の入力が構造化された。
-2. `Vec<Option<T>>` は改善だが完成形ではない。`Vec` 自体は `RegionToken<T>` owner field へ移ったが、最終的な static check authority は `OwnedBuffer<T>` / initialized prefix まで進めて初めて確立する。
+2. `Vec<Option<T>>` は改善だが完成形ではない。`Vec` 自体は `OwnedBuffer<T>` facade へ移ったが、最終的な static check authority は compiler-issued owner token / initialized prefix / moved slot / drop traversal まで進めて初めて確立する。
 3. `RegionToken<T>` は builder / string / Vec で raw address owner を局所化する効果があるが、stdlib から forge 可能な struct である限り compiler capability ではない。self-host の memory model へそのまま移植してはいけない。
 4. type safety の観点では、state を enum / Option へ出した領域は良い。逆に raw `i32` address、numeric length/state、string diagnostic code へ依存する領域は再設計対象である。
 5. memory safety の観点では、allocation failure 時の owner contract が API 型に出ていない `Result<Collection<T>, E>` は non-Copy payload では不十分である。Err で collection / item owner を返す専用 enum が必要である。
@@ -133,8 +133,8 @@ collections は self-host に必要な基礎構造だが、現状は安全設計
 - `Queue` / `Deque` / `RingBuffer` / `Stack` / `BinaryHeap` は raw header を廃止し、`Vec<Option<T>>` storage へ移行済みである。live slot と inactive slot は `Some` / `None` で表す。
 - `BTreeMap` / `BTreeSet` は sorted-array 形式の typed `Vec<Option<T>>` storage へ移行済みであり、raw key/value pointer layout ではない。
 - `List` は raw node chain を廃止し、`items: Vec<T>` storage へ移行済みである。論理先頭を `Vec` 末尾に置くことで先頭追加と `tail` を owner-preserving に実装している。
-- CountingBloomFilter / BitSet / AdjacencyMatrix / BloomFilter / SparseSet / Fenwick / SegmentTree / DisjointSet は `Vec<u8>` / `Vec<i32>` storage へ移行済みである。payload は主に Copy だが、基礎 `Vec` 自体はまだ raw memory owner field を持つ。
-- `Vec<T>` は `len/cap/storage` を持ち、空 Vec は `VecStorage<T>::Empty`、allocated storage は `VecStorage<T>::Owned(RegionToken<T>)` で表す。型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済みで、`MemPtr<T>` は `data_mem_ptr<T>(&Vec<T>)` が参照から返す raw pointer view に限定される。ただし基礎型 `Vec` はまだ forgeable `RegionToken<T>` と Copy-only raw element helper に依存するため、owner model の完成には `OwnedBuffer<T>` が必要である。
+- CountingBloomFilter / BitSet / AdjacencyMatrix / BloomFilter / SparseSet / Fenwick / SegmentTree / DisjointSet は `Vec<u8>` / `Vec<i32>` storage へ移行済みである。payload は主に Copy だが、基礎 `Vec` 自体はまだ raw memory backed storage boundary を持つ。
+- `Vec<T>` は `buffer: OwnedBuffer<T>` だけを持ち、`OwnedBuffer<T>` が `len/cap/storage` を束ねる。空 Vec は `VecStorage<T>::Empty`、allocated storage は `VecStorage<T>::Owned(RegionToken<T>)` で表す。型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済みで、`MemPtr<T>` は `data_mem_ptr<T>(&Vec<T>)` が `OwnedBuffer<T>` 内の storage 参照から返す raw pointer view に限定される。ただし基礎型 `OwnedBuffer<T>` はまだ forgeable `RegionToken<T>` と Copy-only raw element helper に依存するため、owner model の完成には compiler-issued owner token と initialized cell state が必要である。
 - `get_ref<T: Copy>` のように Copy 読み取りへ制限した API はあるが、`get(Vec<T>) -> Option<T>` や `pop` などは move-out と owner state の扱いが明確でない。
 - `free<T>(Vec<T>)` などの storage free は、要素の Drop / consume と storage-only dealloc を完全には分けていない。
 
@@ -320,6 +320,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - 追加調査で、struct field としての `MemPtr` owner は 0 件になった一方、`alloc_ptr<T> -> Result<MemPtr<T>, str>` / `realloc_ptr<T> -> Result<MemPtr<T>, str>` / `dealloc_ptr<T>(MemPtr<T>, i32)` が public API として free obligation を `MemPtr<T>` に残していることを確認した。これは [ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686](../../issues/items/ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686.md) として分離し、Stage B/F の実装対象にする。
 - `std/stdio/write/byte.nepl` の `print_byte` は 1 byte scratch buffer を `RegionToken<u8>` owner と non-owning `MemPtr<u8>` view に分けた。これは direct `alloc_ptr` 利用を syscall ABI boundary ではない stdio adapter から取り除く最初の子対応であり、残る fd write / fs / env raw scratch は同じ方針で owner token と ABI view を分離する。
 - `std/stdio/write/fd.nepl` も `iov` / `nwritten` scratch owner を `RegionToken<u8>` に移し、raw iovec layout は `std/stdio/raw.nepl` の `stdio_fd_write_from_result` へ閉じた。stdout/stderr write path では `MemPtr<u8>` を free owner として扱わない。
+- `Vec<T>` は `buffer: OwnedBuffer<T>` だけを持つ public facade へ移行した。`OwnedBuffer<T>` が `len/cap/storage` と storage owner enum を保持し、observer / mutation / transform / sort wrapper はすべて `OwnedBuffer<T>` 経由で storage を参照または消費する。source policy は旧 `Vec<T> len cap storage` constructor と `Vec<T>` 直下の `len/cap/storage` field の復活を拒否する。残件は initialized prefix、move-out / replace / drop traversal、compiler-issued owner token の接続である。
 
 ### Stage B: `core/mem` の internal/public 分離
 
@@ -337,7 +338,7 @@ Resource IR / typecheck / match check は次を必須にする。
 
 ### Stage D: `OwnedBuffer<T>` と Vec 再実装
 
-- `Vec<T>` を `OwnedBuffer<T>` 上に再実装する。
+- `Vec<T>` を `OwnedBuffer<T>` 上に再実装する。2026-05-16 時点で public facade と backing storage owner の分離は完了し、`Vec<T>` 直下の `len/cap/storage` は削除済みである。
 - Copy read、borrow read、move-out、replace、clear、free を別 API に分ける。
 - fallible push/grow は Err path で collection / item owner を返す設計にする。
 - `Vec<T>` の doctest は `T: Copy` と non-Copy payload の両方を持つ。
@@ -388,6 +389,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` | `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field を `RegionToken` owner boundary へ集約。 |
 | `ISS-20260514T085248522Z-VEC-STORES-BACKING-STORAGE-AS-MEMPTR-FFC9775A` | `Vec.data` raw `MemPtr` owner field を `Vec.region: RegionToken<T>` owner boundary へ集約。 |
 | `ISS-20260515T223330574Z-VEC-STORAGE-TAG-AND-REGIONTOKEN-OWNE-DDDAD134` | split `VecStorageState` / `RegionToken<T>` field を `VecStorage<T>::Owned(RegionToken<T>)` へ統合し、Empty と owned token の相関を型で証明。 |
+| `ISS-20260516T005642964Z-VEC-STORES-BACKING-STORAGE-DIRECTLY--2407B1D0` | `Vec<T>` を `buffer: OwnedBuffer<T>` facade にし、`len/cap/storage` を backing storage owner 側へ移す。 |
 | `ISS-20260515T141747916Z-VEC-GROW-REIMPLEMENTS-REGIONTOKEN-RE-255A043F` | `Vec` / `ByteBuilder` の `RegionToken` realloc を core/mem に集約し、Vec grow capacity overflow proof を追加。 |
 | `ISS-20260515T155626605Z-REGIONTOKEN-STILL-STORES-MEMPTR-AS-O-C0F9E4D1` | `RegionToken<T>` の `MemPtr<T>` owner-like field を direct raw owner identity へ置き換え、MemPtr owner-field transitional baseline を 0 件にする。 |
 | `ISS-20260515T163252091Z-PUBLIC-ALLOC-PTR-APIS-STILL-ENCODE-F-EECDD686` | public `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` が `MemPtr<T>` を free obligation carrier として公開している残件。 |
@@ -405,7 +407,7 @@ Resource IR / typecheck / match check は次を必須にする。
 
 現状の方向性は「過渡期としては正しいが、最終設計としては未完」である。
 
-`ByteBuf` / `ByteBuilder` / `StringBuilder` / `Vec` は、空/所有 storage を型に出す方向へ進んだため短期利用に耐える。`StringBuilder` 固有の raw owner field と `Vec.data` raw owner field は削除済みである。一方で `core/mem` と collections は、forgeable `RegionToken` と Copy-only raw element helper にまだ依存しており、Resource IR が後追いで alias と initialized cell を復元する構造が残っている。この複雑さは設計上の警告であり、さらに特例を足して維持すべきではない。
+`ByteBuf` / `ByteBuilder` / `StringBuilder` / `Vec` は、空/所有 storage を型に出す方向へ進んだため短期利用に耐える。`StringBuilder` 固有の raw owner field、`Vec.data` raw owner field、`Vec<T>` 直下の `len/cap/storage` は削除済みである。一方で `core/mem` と collections は、forgeable `RegionToken` と Copy-only raw element helper にまだ依存しており、Resource IR が後追いで alias と initialized cell を復元する構造が残っている。この複雑さは設計上の警告であり、さらに特例を足して維持すべきではない。
 
 2026-05-16 時点で、`core/mem` root と `mem/pointer` facade は低レベル `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を再公開しない。safe caller の標準経路は `alloc_region` / `region_ptr` / `dealloc_region` であり、低レベル scratch 実装は `core/mem/pointer/alloc` を明示 import する。これは最終設計ではなく、direct low-level import を `OwnedBytes` / `OwnedBuffer` / compiler-issued owner token へ置き換える前段である。
 

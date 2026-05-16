@@ -35,6 +35,6 @@ pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (reques
         else:
             match alloc_region<.T> requested_cap:
                 Result::Ok region:
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 requested_cap (VecStorage<.T>::Owned region)
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> 0 requested_cap (VecStorage<.T>::Owned region))
                 Result::Err _e:
                     Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
