@@ -5,13 +5,14 @@ use alloc::vec::Vec;
 
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::layout::composite_field_offset_bytes;
+use crate::resource_primitives::compiler_memory_type_of_type;
 use crate::source_map::CompilerMemoryType;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::copy_capability::target_contains_owner_backed_aggregate;
 use super::diagnostics::type_error;
-use super::model::{RestrictedStructConstructor, StructConstructorPolicy};
+use super::model::RestrictedStructConstructor;
 use super::{BlockChecker, FieldIdx};
 
 impl<'a> BlockChecker<'a> {
@@ -91,18 +92,13 @@ impl<'a> BlockChecker<'a> {
     }
 
     fn restricted_struct_constructor_for_field_access(
-        &mut self,
+        &self,
         base_ty: TypeId,
     ) -> Option<RestrictedStructConstructor> {
-        let resolved_ty = self.ctx.resolve(base_ty);
-        match self.ctx.get(resolved_ty) {
-            TypeKind::Struct { name, .. } | TypeKind::Named(name) => {
-                restricted_struct_constructor_policy(self.structs.get(&name)?.constructor_policy)
-            }
-            TypeKind::Apply { base, .. } => {
-                self.restricted_struct_constructor_for_field_access(base)
-            }
-            _ => None,
+        match compiler_memory_type_of_type(self.ctx, base_ty) {
+            Some(CompilerMemoryType::RawPointer) => Some(RestrictedStructConstructor::RawPointer),
+            Some(CompilerMemoryType::OwnerToken) => Some(RestrictedStructConstructor::OwnerToken),
+            None => None,
         }
     }
 
@@ -139,6 +135,16 @@ impl<'a> BlockChecker<'a> {
         }
 
         let resolved_ty = self.ctx.resolve(base_ty);
+        if let Some(restricted) = self.restricted_struct_constructor_for_field_access(resolved_ty) {
+            if !self.restricted_struct_field_access_allowed(restricted, span) {
+                if emit_diagnostics {
+                    let (code, message) = restricted_struct_field_access_error(restricted);
+                    self.diagnostics.push(type_error(code, message, span));
+                }
+                return None;
+            }
+        }
+
         let access = match self.ctx.get(resolved_ty) {
             TypeKind::Struct {
                 fields,
@@ -404,16 +410,6 @@ impl<'a> BlockChecker<'a> {
         }
 
         access
-    }
-}
-
-fn restricted_struct_constructor_policy(
-    policy: StructConstructorPolicy,
-) -> Option<RestrictedStructConstructor> {
-    match policy {
-        StructConstructorPolicy::Public => None,
-        StructConstructorPolicy::RawMemoryBoundaryOnly(restricted) => Some(restricted),
-        StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly => None,
     }
 }
 

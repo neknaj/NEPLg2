@@ -421,10 +421,20 @@ assertContains(
     'compiler_memory_type_definition_allowed',
     'typecheck/field_access.rs',
 );
+assertContains(
+    typecheckFieldAccess,
+    'compiler_memory_type_of_type(self.ctx, base_ty)',
+    'typecheck/field_access.rs field access must classify compiler memory types through proven TypeCtx identity',
+);
+assertNotContains(
+    typecheckFieldAccess,
+    'StructConstructorPolicy::RawMemoryBoundaryOnly(restricted) => Some(restricted)',
+    'typecheck/field_access.rs must not classify compiler memory fields through struct constructor policy',
+);
 assertMatches(
     typecheckFieldAccess,
-    /StructConstructorPolicy::RawMemoryBoundaryOnly\(restricted\)\s*=>\s*Some\(restricted\)/,
-    'typecheck/field_access.rs field access constructor policy gate',
+    /let resolved_ty = self\.ctx\.resolve\(base_ty\);\s*if let Some\(restricted\) = self\.restricted_struct_constructor_for_field_access\(resolved_ty\)[\s\S]*?return None;[\s\S]*?let access = match self\.ctx\.get\(resolved_ty\)/,
+    'typecheck/field_access.rs must gate restricted compiler memory field access before field-name validation',
 );
 assertContains(
     typecheckFieldAccess,

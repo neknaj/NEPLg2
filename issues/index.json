@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T09:28:20.194Z",
+  "generated_at": "2026-05-16T09:46:44.739Z",
   "counts": {
-    "total": 882,
+    "total": 883,
     "open": 5,
-    "resolved": 877,
+    "resolved": 878,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 439,
+        "total": 440,
         "open": 0,
-        "resolved": 439
+        "resolved": 440
       },
       "CORE": {
         "total": 1,
@@ -6628,6 +6628,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T082019110Z-SOURCE-CAPABILITY-RAW-EVIDENCE-IGNOR-0C74F9EA.md"
+    },
+    {
+      "id": "ISS-20260516T094111889Z-TYPECHECK-FIELD-ACCESS-USES-STRUCT-P-44D67554",
+      "title": "typecheck field access uses struct policy instead of proven compiler memory type identity",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/typecheck/field_access.rs; nodesrc/test_static_check_boundary_responsibility.js; doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T094111889Z-TYPECHECK-FIELD-ACCESS-USES-STRUCT-P-44D67554.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

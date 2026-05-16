@@ -39903,3 +39903,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
+
+## 2026-05-16 Agent 1 typecheck field access memory identity 修正
+
+- `ISS-20260516T094111889Z-TYPECHECK-FIELD-ACCESS-USES-STRUCT-P-44D67554` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、compiler memory type の semantic identity を TypeCtx へ移した後も、typecheck の field access restriction が `StructConstructorPolicy` と struct name map から `MemPtr` / `RegionToken` を分類していたことだった。
+- 修正後は `field_access.rs` が `resource_primitives::compiler_memory_type_of_type` を使い、TypeCtx の証明済み compiler memory identity から `RestrictedStructConstructor` を enum `match` で得る。
+- restricted compiler memory type の base field access は field name 解決より前に境界検査する。存在しない field 名でも `FieldInvalidAccess` ではなく `type.owner_token.field_access_restricted` / `type.raw_pointer.field_access_restricted` を返し、内部 field 構造を通常 source へ漏らさない。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_field_access_outside_memory_boundary -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_field_access_outside_memory_boundary -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_mem_ptr_field_access -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_region_token_field_access -- --exact --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
