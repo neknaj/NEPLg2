@@ -68,6 +68,8 @@ mod effect_summary;
 mod effect_summary_identity;
 mod effect_summary_pointer;
 mod effect_summary_seed;
+mod effect_summary_seed_alias;
+mod effect_summary_seed_walk;
 mod function_alias;
 mod i32_call_facts;
 mod initialized;

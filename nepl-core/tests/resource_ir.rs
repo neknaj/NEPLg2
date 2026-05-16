@@ -7321,7 +7321,7 @@ fn main <()*>i32> ():
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement() {
+fn resource_ir_owner_check_rejects_raw_dealloc_after_region_dealloc_consumes_token() {
     let source = r#"
 #entry main
 #indent 4
@@ -7367,19 +7367,19 @@ fn main <()*>()> ():
         main_diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::Read | ResourceOwnerOperation::Dealloc,
-                state: OwnerState::Reserved { .. },
+                operation: ResourceOwnerOperation::Dealloc,
+                state: OwnerState::NoFreeObligation,
                 ..
             }
         )),
-        "dealloc_region result must reserve the RegionToken raw owner until Result is matched: {:#?}\nresource:\n{}",
+        "dealloc_region consumes the RegionToken owner; the borrowed raw view must not carry a second free obligation: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement() {
+fn resource_ir_owner_check_rejects_old_raw_dealloc_after_realloc_region_consumes_token() {
     let source = r#"
 #entry main
 #indent 4
@@ -7434,12 +7434,12 @@ fn main <()*>()> ():
         main_diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::Read | ResourceOwnerOperation::Dealloc,
-                state: OwnerState::Reserved { .. },
+                operation: ResourceOwnerOperation::Dealloc,
+                state: OwnerState::NoFreeObligation,
                 ..
             }
         )),
-        "realloc_region result must reserve the old RegionToken raw owner until Result is matched: {:#?}\nresource:\n{}",
+        "realloc_region consumes the old RegionToken owner; the borrowed old raw view must not carry a second free obligation before Result refinement: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -8963,9 +8963,9 @@ fn resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free() {
                 args: vec![],
                 span,
             },
-            ResourceOp::Read {
+            ResourceOp::RawAddressAlias {
                 source: p.clone(),
-                output: alias.clone(),
+                target: alias.clone(),
                 span,
             },
             ResourceOp::RawMemory {
@@ -9165,10 +9165,34 @@ fn resource_ir_owner_check_reports_leaked_alloc() {
 #[test]
 fn resource_ir_owner_check_reports_double_dealloc() {
     let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
     let span = Span::dummy();
-    let module = raw_owner_module(types.unit(), types.i32(), span, 2);
-
-    let resource = lower_hir_module_skeleton(&module);
+    let p = Place::local("p".to_string(), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: p.clone(),
+                args: vec![Place::i32_constant(4, i32_ty)],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(0), unit_ty),
+                args: vec![p.clone(), Place::i32_constant(4, i32_ty)],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(1), unit_ty),
+                args: vec![p.clone(), Place::i32_constant(4, i32_ty)],
+                span,
+            },
+        ],
+    );
     let report = check_resource_owner_obligations(&resource, &types);
     assert!(
         report.diagnostics.iter().any(|diagnostic| matches!(
@@ -13727,6 +13751,7 @@ fn resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view() {
 #import "alloc/diag/error" as *
 #import "alloc/io" as *
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
@@ -13786,8 +13811,8 @@ fn resource_ir_owner_check_vec_partition_returns_named_vec_owners() {
 #indent 4
 #target std
 #import "alloc/collections/vec" as *
-#import "core/field" as field
 #import "core/math" as *
+#import "core/result" as *
 
 fn is_even <(i32)->bool> (x):
     eq rem_s x 2 0
@@ -13799,12 +13824,9 @@ fn main <()*>i32> ():
         |> push<i32> 1 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 3 |> uwok
-    let parts unwrap_ok partition<i32> xs is_even
-    let evens <Vec<i32>> field::get parts "matched"
-    let rest <Vec<i32>> field::get parts "rest"
-    let ok <bool> and eq len<i32> &evens 1 eq len<i32> &rest 2
-    free<i32> evens
-    free<i32> rest
+    let parts <VecPartition<i32>> unwrap_ok<VecPartition<i32>, VecTransformError<i32>> partition<i32> xs @is_even
+    let ok <bool> and eq vec_partition_matched_len<i32> &parts 1 eq vec_partition_rest_len<i32> &parts 2
+    vec_partition_free<i32> parts
     if ok 0 1
 "#;
 

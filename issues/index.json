@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T06:14:53.647Z",
+  "generated_at": "2026-05-16T06:47:09.063Z",
   "counts": {
     "total": 874,
-    "open": 8,
-    "resolved": 866,
+    "open": 7,
+    "resolved": 867,
     "by_area": {
-      "core": {
-        "total": 431,
-        "open": 2,
-        "resolved": 429
-      },
       "stdlib": {
         "total": 256,
         "open": 4,
@@ -20,6 +15,11 @@
         "total": 25,
         "open": 1,
         "resolved": 24
+      },
+      "core": {
+        "total": 431,
+        "open": 1,
+        "resolved": 430
       },
       "selfhost": {
         "total": 67,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF",
-      "title": "Resource IR owner regression exact tests fail on current main after Stage 6 owner model changes",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-16",
-      "updated": "2026-05-16",
-      "target": "nepl-core/tests/resource_ir.rs, nepl-core/src/resource/**, stdlib/core/mem/**, stdlib/alloc/collections/vec/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6553,6 +6538,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T035713850Z-SOURCE-CAPABILITY-COMPILER-MEMORY-TY-47DC1113.md"
+    },
+    {
+      "id": "ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF",
+      "title": "Resource IR owner regression exact tests fail on current main after Stage 6 owner model changes",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/tests/resource_ir.rs, nepl-core/src/resource/**, stdlib/core/mem/**, stdlib/alloc/collections/vec/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

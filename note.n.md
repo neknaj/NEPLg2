@@ -39738,3 +39738,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: passed
   - `trunk build`: passed
   - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md --no-tree -o tmp/agent1-btreemap-report-tests.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+
+## 2026-05-16 Agent 1 Resource IR owner exact regression 修正
+
+- `ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF` を fixed にした。`plan.md` は変更していない。
+- Stage 6 の `MemPtr = non-owning pointer` / `RegionToken = free obligation owner` 分離後に残っていた stale fixture を整理し、`dealloc_region` / `realloc_region` が token owner を消費した後の borrowed raw view は `NoFreeObligation` で拒否される、という現行モデルに合わせた。
+- compiler 側の根本原因は、raw identity return summary の seed 収集が同一 root prefix だけを見ており、`Read` / `Borrow` / `RawAddressView` で生成された local alias から `parameter.deref.raw` を復元できなかったことだった。
+- `effect_summary_seed_alias.rs` と `effect_summary_seed_walk.rs` を追加し、parameter-derived alias を IR op walk で復元する責務を分離した。`effect_summary_identity.rs` は callee summary が要求する `arg + source_projections` も seed に含め、higher-order callback 経由の `region_ptr` raw provenance を stdlib 関数名の列挙なしで証明する。
+- `resource_ir_owner_check_reports_double_dealloc` は `Read` による moved-owner diagnostic を混ぜない manual Resource IR に直し、`Alloc -> Dealloc -> Dealloc` の `Freed` diagnostic を直接固定した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 6 進捗に、今回の summary seed / alias proof 修正を追記した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_region_ptr_through_known_identity_callback -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_region_ptr_through_callback_parameter -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner`: 102 passed
