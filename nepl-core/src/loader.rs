@@ -746,10 +746,8 @@ fn read_file_to_string(_path: &PathBuf) -> Result<String, LoaderError> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn canonicalize_path(path: &PathBuf) -> PathBuf {
-    match path.canonicalize() {
-        Ok(p) => normalize_path_lexically(&p),
-        Err(_) => normalize_path_lexically(path),
-    }
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+    normalize_path_lexically(&strip_windows_verbatim_prefix(canonical))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -771,6 +769,23 @@ fn normalize_path_lexically(path: &PathBuf) -> PathBuf {
         }
     }
     out
+}
+
+#[cfg(all(not(target_arch = "wasm32"), windows))]
+fn strip_windows_verbatim_prefix(path: PathBuf) -> PathBuf {
+    let text = path.to_string_lossy();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{}", rest));
+    }
+    if let Some(rest) = text.strip_prefix(r"\\?\") {
+        return PathBuf::from(rest);
+    }
+    path
+}
+
+#[cfg(all(not(target_arch = "wasm32"), not(windows)))]
+fn strip_windows_verbatim_prefix(path: PathBuf) -> PathBuf {
+    path
 }
 
 fn path_to_source_label(path: &PathBuf) -> String {
@@ -1566,6 +1581,30 @@ mod tests {
         assert!(
             !loader.configured_stdlib_source_path(&path),
             "raw memory boundary must not be granted by prefix-like path text: {:?}",
+            path
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn configured_stdlib_source_path_accepts_virtual_child_under_existing_windows_root() {
+        let loader = real_test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &[
+                "alloc",
+                "collections",
+                "owner_box",
+                "virtual_field_alias.nepl",
+            ],
+        ));
+        assert!(
+            !path.exists(),
+            "this regression must use a virtual child path under an existing stdlib root"
+        );
+        assert!(
+            loader.configured_stdlib_source_path(&path),
+            "virtual stdlib child paths must compare equal to the configured stdlib root prefix: {:?}",
             path
         );
     }

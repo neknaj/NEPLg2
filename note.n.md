@@ -1,3 +1,16 @@
+# 2026-05-16 Agent 1 Windows stdlib path canonicalization 修正
+
+- `ISS-20260516T025931471Z-WINDOWS-STDLIB-PATH-CANONICALIZATION-5C6E2D4E` を解決した。
+- Windows では既存 stdlib root の `canonicalize()` が `\\?\C:\...` を返し、存在しない仮想 stdlib child は通常 `C:\...` のままになるため、`configured_stdlib_source_path` の prefix 比較が false になり得た。
+- `canonicalize_path` の成功時・失敗時を同じ後処理に通し、Windows verbatim prefix を通常 prefix に戻してから lexical normalization するようにした。
+- 実在する stdlib root 配下の仮想 child path が configured stdlib source として扱われる Windows 限定 regression を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 6 compiler-core の source capability 基盤修正として追記した。`plan.md` は変更していない。
+- 検証:
+  - `cargo test -p nepl-core configured_stdlib_source_path_accepts_virtual_child_under_existing_windows_root -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary_rejects_same_suffix_outside_configured_stdlib -- --nocapture`
+- plan.md との差異:
+  - plan.md は変更していない。source capability の proof 以前に configured stdlib 判定が環境依存で落ちないよう loader の path 表現を統一した。
+
 # 2026-05-16 Agent 1 owner aggregate field evidence import provenance 修正
 
 - `ISS-20260516T024129752Z-OWNER-AGGREGATE-FIELD-EVIDENCE-ACCEP-22239551` を解決した。

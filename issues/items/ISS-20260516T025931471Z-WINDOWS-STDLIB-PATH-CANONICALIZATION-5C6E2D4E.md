@@ -2,8 +2,8 @@
 id: ISS-20260516T025931471Z-WINDOWS-STDLIB-PATH-CANONICALIZATION-5C6E2D4E
 title: "Windows stdlib path canonicalization can drop source capabilities for virtual files"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-16
@@ -39,6 +39,15 @@ Source capability tests using virtual stdlib files can silently exercise SourceC
 
 Normalize Windows verbatim prefixes before lexical path comparison, or store stdlib root and loaded source paths in a common canonical representation. Add a focused loader regression for an existing stdlib root with a non-existing stdlib child path.
 
+## 解決内容
+
+- `canonicalize_path` で `std::fs::canonicalize` 成功時と失敗時の両方を同じ後処理に通し、Windows の `\\?\` / `\\?\UNC\` verbatim prefix を通常 path prefix に正規化してから lexical normalization するようにした。
+- これにより、既存 stdlib root が verbatim path、仮想 stdlib child が通常 path になっても `configured_stdlib_source_path` は同一表現で prefix 比較できる。
+- Windows 限定 regression として、実在する stdlib root 配下の存在しない child path が configured stdlib source として認識されることを追加した。
+
 ## 検証
 
 cargo test -p nepl-core loader::tests::configured_stdlib_source_path_accepts_virtual_child_under_existing_windows_root -- --nocapture
+
+- `cargo test -p nepl-core configured_stdlib_source_path_accepts_virtual_child_under_existing_windows_root -- --nocapture`
+- `cargo test -p nepl-core raw_memory_boundary_rejects_same_suffix_outside_configured_stdlib -- --nocapture`
