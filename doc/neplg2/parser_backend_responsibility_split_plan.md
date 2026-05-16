@@ -11,6 +11,8 @@
 関連 issue:
 
 - [ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587](../../issues/items/ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587.md): parser / backend / monomorphize の responsibility source policy 欠落。
+- [ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59](../../issues/items/ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59.md): WASM backend root file の responsibility freeze 回帰。
+- [ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190](../../issues/items/ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190.md): LLVM backend root file の responsibility freeze 回帰。
 - [ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D](../../issues/items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md): enum-first diagnostic と境界表示。
 - [NEPLg2 静的検査の複雑化解消計画](./static_check_complexity_reduction_plan.md): Resource IR を authority にする大規模修正。
 
@@ -21,7 +23,7 @@
 | file | lines | 責務 |
 |---|---:|---|
 | `nepl-core/src/parser.rs` | 4233 | token navigation、syntax recovery、declaration / expression / type expression parsing が集中している。 |
-| `nepl-core/src/codegen_wasm.rs` | 2573 | WASM module assembly、instruction emission、aggregate lowering、runtime helper lowering が集中している。 |
+| `nepl-core/src/codegen_wasm.rs` | 2519 | WASM module assembly、instruction emission、runtime helper lowering が残る。string data layout と aggregate field selector は分離済み。 |
 | `nepl-core/src/codegen_llvm.rs` | 4188 | LLVM IR text lowering、raw LLVM body handling、entry / target preparation が集中している。 |
 | `nepl-core/src/monomorphize.rs` | 1454 | trait impl indexing、call specialization、runtime helper selection、unresolved trait call reporting が集中している。 |
 
@@ -92,6 +94,12 @@
 - `wasm/instruction.rs`: expression / statement instruction emission。
 - `wasm/aggregate.rs`: struct / tuple / enum payload lowering。
 - `wasm/call.rs`: direct / indirect / intrinsic call lowering。
+
+進捗:
+
+- `codegen_wasm/string_data.rs`: string literal の static data segment、heap base、minimum memory page 算出を root から分離した。
+- `codegen_wasm/aggregate.rs`: tuple index / struct field name から field type と byte offset を得る selector layout 解決を root から分離した。
+- `nodesrc/test_parser_backend_responsibility_policy.js`: root file の line freeze を 2525 行に下げ、上記 2 module の存在と責務上限を監視する。
 
 ### B3: LLVM backend
 

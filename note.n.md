@@ -39751,3 +39751,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_region_ptr_through_known_identity_callback -- --exact --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_region_ptr_through_callback_parameter -- --exact --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner`: 102 passed
+
+## 2026-05-16 Agent 1 WASM backend responsibility freeze 修正
+
+- `ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、WASM backend root が module assembly / instruction emission だけでなく、string literal の static data layout と aggregate field selector 解決も保持しており、小さな変更でも responsibility freeze を超える構造になっていたこと。
+- `nepl-core/src/codegen_wasm/string_data.rs` を追加し、string literal の offset、data segment、heap base、minimum memory page 算出を root から分離した。
+- `nepl-core/src/codegen_wasm/aggregate.rs` を追加し、tuple index / struct field name から field type と byte offset を得る selector layout 解決を root から分離した。
+- `nodesrc/test_parser_backend_responsibility_policy.js` は `codegen_wasm.rs` の freeze を 2525 行へ下げ、新 module の存在と line budget を監視する。
+- `doc/neplg2/parser_backend_responsibility_split_plan.md` の B2 進捗に今回の分割を反映した。
+- 同じ policy 実行で `codegen_llvm.rs` が 4217 行となり既存 limit 4189 を超えていることが判明したため、別 issue `ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190` を追加した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 10 passed
+  - `cargo test -p nepl-core --test layout -- --nocapture`: 4 passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+  - WASM responsibility line check: `codegen_wasm.rs` 2519/2525, `string_data.rs` 66/80, `aggregate.rs` 26/40
+  - `node nodesrc/test_parser_backend_responsibility_policy.js`: known unrelated failure `ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190`
+  - `node nodesrc/run_source_policy_regressions.js`: known unrelated failure `ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F`

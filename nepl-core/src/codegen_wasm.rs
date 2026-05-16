@@ -23,12 +23,17 @@ use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::*;
 use crate::layout::{
     enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
-    storage_align_bytes, storage_size_bytes, struct_field_layout_by_name, tuple_field_layout,
-    tuple_field_layouts_by_result,
+    storage_align_bytes, storage_size_bytes, tuple_field_layouts_by_result,
 };
 use crate::runtime_helpers::{self, RuntimeHelperKind};
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
+
+mod aggregate;
+mod string_data;
+
+use aggregate::aggregate_field_layout;
+use string_data::{lower_strings, StringDataLayout};
 
 macro_rules! wasm_log {
     ($($arg:tt)*) => {{
@@ -53,74 +58,6 @@ type LowerResult<T> = Result<T, Diagnostic>;
 
 fn codegen_error(message: impl Into<String>, span: Span, code: DiagnosticCode) -> Diagnostic {
     Diagnostic::error_with_code(code, message, span)
-}
-
-#[derive(Debug, Clone)]
-struct StringLower {
-    values: Vec<String>,
-    offsets: Vec<u32>,
-    segments: Vec<(u32, Vec<u8>)>,
-    min_pages: u32,
-    heap_base: u32,
-}
-
-impl StringLower {
-    fn offset(&self, idx: u32) -> Option<u32> {
-        self.offsets.get(idx as usize).copied()
-    }
-}
-
-fn lower_strings(strings: &[String]) -> StringLower {
-    let values = strings.to_vec();
-    let mut offsets = Vec::new();
-    let mut segments = Vec::new();
-    // Reserve the first 8 bytes for allocator metadata (heap ptr + free list head).
-    let mut cursor: u32 = 8;
-    for s in strings {
-        cursor = align_to(cursor, 4);
-        offsets.push(cursor);
-        let mut data = Vec::new();
-        let bytes = s.as_bytes();
-        let len = bytes.len() as u32;
-        data.extend_from_slice(&len.to_le_bytes());
-        data.extend_from_slice(bytes);
-        segments.push((cursor, data));
-        cursor = cursor.saturating_add(4 + len);
-    }
-    let heap_base = align_to(cursor, 4);
-    let min_pages = ((heap_base + 0xFFFF) / 0x10000).max(1);
-    StringLower {
-        values,
-        offsets,
-        segments,
-        min_pages,
-        heap_base,
-    }
-}
-
-fn align_to(x: u32, align: u32) -> u32 {
-    let mask = align - 1;
-    (x + mask) & !mask
-}
-
-fn aggregate_field_layout(
-    ctx: &TypeCtx,
-    base_ty: TypeId,
-    field_expr: &HirExpr,
-    strings: &StringLower,
-) -> Option<(TypeId, u32)> {
-    match &field_expr.kind {
-        HirExprKind::LiteralI32(index) if *index >= 0 => {
-            tuple_field_layout(ctx, base_ty, *index as usize)
-                .map(|field| (field.ty, field.offset as u32))
-        }
-        HirExprKind::LiteralStr(id) => {
-            let field_name = strings.values.get(*id as usize)?;
-            struct_field_layout_by_name(ctx, base_ty, field_name.as_str())
-                .map(|field| (field.ty, field.offset as u32))
-        }
-        _ => None,
-    }
 }
 
 pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult, Vec<Diagnostic>> {
@@ -272,7 +209,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
 
     let mut memory_section = MemorySection::new();
     memory_section.memory(MemoryType {
-        minimum: strings.min_pages as u64,
+        minimum: strings.min_pages() as u64,
         maximum: None,
         memory64: false,
         shared: false,
@@ -296,10 +233,10 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
     data_section.active(
         0,
         &ConstExpr::i32_const(0),
-        strings.heap_base.to_le_bytes().to_vec(),
+        strings.heap_base().to_le_bytes().to_vec(),
     );
     data_section.active(0, &ConstExpr::i32_const(4), 0u32.to_le_bytes().to_vec());
-    for (offset, bytes) in &strings.segments {
+    for (offset, bytes) in strings.segments() {
         data_section.active(0, &ConstExpr::i32_const(*offset as i32), bytes.clone());
     }
 
@@ -574,7 +511,7 @@ fn lower_body<'a>(
     func: &FuncLower<'a>,
     name_map: &BTreeMap<String, u32>,
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
-    strings: &StringLower,
+    strings: &StringDataLayout,
 ) -> LowerResult<Function> {
     match func.body {
         FuncBodyLower::User(f) => lower_user(ctx, f, name_map, sig_map, strings),
@@ -590,7 +527,7 @@ fn lower_user(
     func: &HirFunction,
     name_map: &BTreeMap<String, u32>,
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
-    strings: &StringLower,
+    strings: &StringDataLayout,
 ) -> LowerResult<Function> {
     let mut locals = LocalMap::new();
     for p in &func.params {
@@ -673,7 +610,7 @@ fn gen_block(
     block: &HirBlock,
     name_map: &BTreeMap<String, u32>,
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
-    strings: &StringLower,
+    strings: &StringDataLayout,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
 ) -> LowerResult<Option<Option<ValType>>> {
@@ -853,7 +790,7 @@ fn gen_simple_expr_iteratively(
     ctx: &TypeCtx,
     expr: &HirExpr,
     name_map: &BTreeMap<String, u32>,
-    strings: &StringLower,
+    strings: &StringDataLayout,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
 ) -> LowerResult<Option<ValType>> {
@@ -966,7 +903,7 @@ fn gen_if_else_chain(
     expr: &HirExpr,
     name_map: &BTreeMap<String, u32>,
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
-    strings: &StringLower,
+    strings: &StringDataLayout,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
 ) -> LowerResult<Option<ValType>> {
@@ -1009,7 +946,7 @@ fn gen_expr(
     expr: &HirExpr,
     name_map: &BTreeMap<String, u32>,
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
-    strings: &StringLower,
+    strings: &StringDataLayout,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
 ) -> LowerResult<Option<ValType>> {

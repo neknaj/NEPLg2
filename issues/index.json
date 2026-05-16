@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T06:47:09.063Z",
+  "generated_at": "2026-05-16T06:58:23.802Z",
   "counts": {
-    "total": 874,
+    "total": 875,
     "open": 7,
-    "resolved": 867,
+    "resolved": 868,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -17,9 +17,9 @@
         "resolved": 24
       },
       "core": {
-        "total": 431,
+        "total": 432,
         "open": 1,
-        "resolved": 430
+        "resolved": 431
       },
       "selfhost": {
         "total": 67,
@@ -180,8 +180,8 @@
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
     },
     {
-      "id": "ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59",
-      "title": "WASM codegen responsibility freeze regressed on main",
+      "id": "ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190",
+      "title": "LLVM codegen responsibility freeze regressed on main",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -189,10 +189,10 @@
       "type": "architecture",
       "created": "2026-05-16",
       "updated": "2026-05-16",
-      "target": "nepl-core/src/codegen_wasm.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
+      "target": "nepl-core/src/codegen_llvm.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59.md"
+      "file": "items/ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -11638,6 +11638,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T080145702Z-STACK-STD-TEST-DOCTESTS-EXCEED-WASM--4870E145.md"
+    },
+    {
+      "id": "ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59",
+      "title": "WASM codegen responsibility freeze regressed on main",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/codegen_wasm.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T061424173Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-2705FB59.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

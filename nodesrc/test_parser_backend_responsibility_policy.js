@@ -56,11 +56,27 @@ assert(
 );
 
 assertLineLimit("nepl-core/src/parser.rs", 4234);
-assertLineLimit("nepl-core/src/codegen_wasm.rs", 2574);
+assertLineLimit("nepl-core/src/codegen_wasm.rs", 2525);
+assertLineLimit("nepl-core/src/codegen_wasm/string_data.rs", 80);
+assertLineLimit("nepl-core/src/codegen_wasm/aggregate.rs", 40);
 assertLineLimit("nepl-core/src/codegen_llvm.rs", 4189);
 assertLineLimit("nepl-core/src/monomorphize.rs", 1425);
 assertLineLimit("nepl-core/src/monomorphize/trait_identity.rs", 45);
 assertLineLimit("nepl-core/src/monomorphize/trait_lookup.rs", 90);
+
+const wasmRoot = read(path.join(CORE_SRC, "codegen_wasm.rs"));
+assertContains(wasmRoot, "mod string_data;", "wasm backend root");
+assertContains(wasmRoot, "mod aggregate;", "wasm backend root");
+assertContains(
+    read(path.join(CORE_SRC, "codegen_wasm", "string_data.rs")),
+    "pub(super) struct StringDataLayout",
+    "wasm string data module",
+);
+assertContains(
+    read(path.join(CORE_SRC, "codegen_wasm", "aggregate.rs")),
+    "pub(super) fn aggregate_field_layout",
+    "wasm aggregate module",
+);
 
 const monomorphizeRoot = read(path.join(CORE_SRC, "monomorphize.rs"));
 assertContains(monomorphizeRoot, "mod trait_identity;", "monomorphize root");
