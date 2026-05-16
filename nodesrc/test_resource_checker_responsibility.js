@@ -592,6 +592,9 @@ const initializedAliasRelation = readResource('initialized_alias_relation.rs');
 const initializedAliasRelationFlow = readResource('initialized_alias_relation_flow.rs');
 const initializedAliasRelationOp = readResource('initialized_alias_relation_op.rs');
 const initializedAliasScalar = readResource('initialized_alias_scalar.rs');
+const initializedAliasFlowValueProjection = readResource(
+    'initialized_alias_flow_value_projection.rs',
+);
 const ownerSummaryRawI32Leaf = readResource('owner_summary_raw_i32_leaf.rs');
 const ownerSummaryOwnerTokenLeaf = readResource('owner_summary_owner_token_leaf.rs');
 
@@ -782,6 +785,16 @@ assertContains(
     lowerRawMemory,
     'pub(super) fn raw_memory_op_from_name',
     'lower_raw_memory.rs',
+);
+assertNotContains(
+    initializedAliasFlowValueProjection,
+    'type_is_result_enum',
+    'initialized_alias_flow_value_projection.rs',
+);
+assertNotContains(
+    initializedAliasFlowValueProjection,
+    'name == "Result"',
+    'initialized_alias_flow_value_projection.rs',
 );
 assertContains(
     lowerTemporaryScope,

@@ -39841,3 +39841,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-16 Agent 1 Resource IR value projection summary 汎用化
+
+- `ISS-20260516T080917185Z-RESOURCE-IR-VALUE-PROJECTION-SUMMARY-FB1D14CC` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、initialized raw cell alias の value projection summary が `Result` 型名だけを許可する gate を持っており、同じ Resource IR alias flow を持つ custom enum payload で証明が落ちていたことだった。
+- 修正後は `Result` 名 gate を削除し、single-block/simple-op Resource IR body の construct/read/match/call から導かれる value projection alias flow を authority にする。
+- `MaybeBox::Ready(Boxed)` payload bind 経由で `Boxed.ptr` の initialized raw cell evidence が維持される regression と、`type_is_result_enum` / `name == "Result"` の再導入を拒否する resource checker policy を追加した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_custom_enum_payload_raw_address_field -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_result_payload_raw_address_field -- --exact --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed

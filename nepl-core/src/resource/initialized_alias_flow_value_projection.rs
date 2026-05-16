@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::types::{TypeCtx, TypeId, TypeKind};
+use crate::types::{TypeCtx, TypeId};
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias_flow::{
@@ -29,7 +29,7 @@ pub(super) fn function_value_projection_return_aliases(
     summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> Vec<RawCellAddressReturnAlias> {
-    if !function_allows_value_projection_summary(function, types) {
+    if !function_allows_value_projection_summary(function) {
         return Vec::new();
     }
     let mut value_aliases = function
@@ -62,9 +62,8 @@ pub(super) fn function_value_projection_return_aliases(
     Vec::new()
 }
 
-fn function_allows_value_projection_summary(function: &ResourceFunction, types: &TypeCtx) -> bool {
+fn function_allows_value_projection_summary(function: &ResourceFunction) -> bool {
     function_has_simple_value_projection_body(function)
-        && type_is_result_enum(types, function.result)
 }
 
 fn function_has_simple_value_projection_body(function: &ResourceFunction) -> bool {
@@ -72,18 +71,6 @@ fn function_has_simple_value_projection_body(function: &ResourceFunction) -> boo
         return false;
     };
     block.ops.iter().all(value_projection_op_is_simple)
-}
-
-fn type_is_result_enum(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Enum { name, .. } => name == "Result",
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(types.get_ref(base), TypeKind::Enum { name, .. } if name == "Result")
-        }
-        _ => false,
-    }
 }
 
 fn value_projection_op_is_simple(op: &ResourceOp) -> bool {

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T07:55:52.744Z",
+  "generated_at": "2026-05-16T08:14:06.234Z",
   "counts": {
-    "total": 877,
+    "total": 878,
     "open": 5,
-    "resolved": 872,
+    "resolved": 873,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 434,
+        "total": 435,
         "open": 0,
-        "resolved": 434
+        "resolved": 435
       },
       "CORE": {
         "total": 1,
@@ -6553,6 +6553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T074901579Z-RESOURCE-IR-ASSIGNMENT-OVERWRITE-SKI-265F0C40.md"
+    },
+    {
+      "id": "ISS-20260516T080917185Z-RESOURCE-IR-VALUE-PROJECTION-SUMMARY-FB1D14CC",
+      "title": "Resource IR value projection summary is hard-coded to Result",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource/initialized_alias_flow_value_projection.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T080917185Z-RESOURCE-IR-VALUE-PROJECTION-SUMMARY-FB1D14CC.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

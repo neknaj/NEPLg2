@@ -18777,6 +18777,63 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_custom_enum_payload_raw_address_field() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+
+struct Boxed:
+    ptr <i32>
+
+enum MaybeBox:
+    Ready <Boxed>
+    Empty
+
+fn pass_custom <(Boxed)->MaybeBox> (box):
+    MaybeBox::Ready box
+
+fn read_after_custom <(Boxed)->i32> (box):
+    match pass_custom box:
+        MaybeBox::Ready ready:
+            let ptr <i32> field::get ready "ptr"
+            load_i32 ptr
+        MaybeBox::Empty:
+            0
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "read_after_custom" || function.starts_with("read_after_custom__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "custom enum payload bind must preserve raw address field aliases through Resource IR value projection proof: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_direct_result_payload_raw_address_alias() {
     let source = r#"
 #entry main
