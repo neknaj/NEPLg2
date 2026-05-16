@@ -920,6 +920,16 @@ assertContains(
     'bind_match_pattern',
     'source_capability/scope.rs',
 );
+assertContains(
+    sourceCapabilityScope,
+    'shadows_symbol_or_qualifier',
+    'source capability scope must centralize qualified shadowing',
+);
+assertContains(
+    sourceCapabilityScope,
+    'split_leading_qualifier',
+    'source capability scope must check qualified symbol aliases before helper classification',
+);
 assertNotContains(
     sourceCapabilityScope,
     'Stmt::StructDef(def) => self.bind(&def.name.name)',
@@ -939,6 +949,11 @@ assertContains(
     sourceCapabilityProof,
     'function_has_raw_memory_evidence.last_mut()',
     'raw helper definition evidence must be scoped to the currently walked function frame',
+);
+assertContains(
+    sourceCapabilityProof,
+    'scope.shadows_symbol_or_qualifier(symbol)',
+    'raw memory source evidence must reject shadowed qualified helper-looking symbols',
 );
 assertNotContains(
     sourceCapabilityProof,
@@ -1075,6 +1090,11 @@ assertContains(
     loader,
     'fn raw_memory_boundary_keeps_raw_helper_body_evidence_function_scoped()',
     'loader.rs raw helper definition nested-scope regression',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_ignores_shadowed_qualified_parameter_names()',
+    'loader.rs raw qualified shadow regression',
 );
 assertContains(
     loader,

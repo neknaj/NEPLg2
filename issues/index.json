@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T08:14:06.234Z",
+  "generated_at": "2026-05-16T08:26:27.634Z",
   "counts": {
-    "total": 878,
+    "total": 879,
     "open": 5,
-    "resolved": 873,
+    "resolved": 874,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 435,
+        "total": 436,
         "open": 0,
-        "resolved": 435
+        "resolved": 436
       },
       "CORE": {
         "total": 1,
@@ -6568,6 +6568,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T080917185Z-RESOURCE-IR-VALUE-PROJECTION-SUMMARY-FB1D14CC.md"
+    },
+    {
+      "id": "ISS-20260516T082019110Z-SOURCE-CAPABILITY-RAW-EVIDENCE-IGNOR-0C74F9EA",
+      "title": "source capability raw evidence ignores qualified shadowing",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/proof.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T082019110Z-SOURCE-CAPABILITY-RAW-EVIDENCE-IGNOR-0C74F9EA.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -39853,3 +39853,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_custom_enum_payload_raw_address_field -- --exact --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_result_payload_raw_address_field -- --exact --nocapture`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
+
+## 2026-05-16 Agent 1 source capability qualified raw shadow 修正
+
+- `ISS-20260516T082019110Z-SOURCE-CAPABILITY-RAW-EVIDENCE-IGNOR-0C74F9EA` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw memory source evidence が `scope.shadows(symbol)` だけを見ており、`raw::load_i32` のような qualified symbol で `raw` が引数や local により shadow されていても tail の `load_i32` を raw helper evidence として扱い得たことだった。
+- `SourceCapabilityScope::shadows_symbol_or_qualifier` を追加し、raw memory と owner aggregate の両方が qualified symbol の qualifier shadowing を共通 rule で拒否するようにした。
+- `raw_memory_boundary_ignores_shadowed_qualified_parameter_names` regression と static boundary policy を追加し、source scope と qualified name 構文を合わせた proof から外れる raw authority 付与を防ぐ。
+- focused verification:
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary_ignores_shadowed_qualified_parameter_names -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary -- --nocapture`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo fmt -p nepl-core --check`: passed

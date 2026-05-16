@@ -1,6 +1,5 @@
 use alloc::string::String;
 
-use crate::qualified_name::split_leading_qualifier;
 use crate::runtime_helpers::helper_base_name;
 use crate::source_capability::scope::SourceCapabilityScope;
 
@@ -64,7 +63,5 @@ fn constructor_evidence_name(
 }
 
 fn source_symbol_shadowed(symbol: &str, scope: &SourceCapabilityScope) -> bool {
-    split_leading_qualifier(symbol)
-        .map(|(qualifier, _)| scope.shadows(qualifier))
-        .unwrap_or_else(|| scope.shadows(symbol))
+    scope.shadows_symbol_or_qualifier(symbol)
 }

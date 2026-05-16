@@ -1366,6 +1366,25 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_ignores_shadowed_qualified_parameter_names() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "safe_qualified_shadow.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->i32> (raw):\n    raw::load_i32 1\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "qualified raw helper-looking symbols with a shadowed qualifier are not source evidence"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_ignores_shadowed_local_names() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

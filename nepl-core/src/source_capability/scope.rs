@@ -2,6 +2,7 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 
 use crate::ast::{Ident, MatchPattern, Module, PrefixItem, Stmt, Symbol};
+use crate::qualified_name::split_leading_qualifier;
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct SourceCapabilityScope {
@@ -46,6 +47,12 @@ impl SourceCapabilityScope {
 
     pub(super) fn shadows(&self, name: &str) -> bool {
         self.shadowed_symbols.contains(name)
+    }
+
+    pub(super) fn shadows_symbol_or_qualifier(&self, symbol: &str) -> bool {
+        split_leading_qualifier(symbol)
+            .map(|(qualifier, _)| self.shadows(qualifier))
+            .unwrap_or_else(|| self.shadows(symbol))
     }
 
     fn bind_top_level_stmt(&mut self, stmt: &Stmt) {

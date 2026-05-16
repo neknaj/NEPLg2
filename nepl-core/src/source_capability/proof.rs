@@ -98,7 +98,7 @@ impl SourceCapabilityProofCollector<'_> {
     }
 
     fn collect_raw_symbol_evidence(&mut self, symbol: &str, scope: &SourceCapabilityScope) {
-        if scope.shadows(symbol) {
+        if scope.shadows_symbol_or_qualifier(symbol) {
             return;
         }
         self.collect_raw_builtin_evidence(symbol);
