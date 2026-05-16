@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T02:35:06.259Z",
+  "generated_at": "2026-05-16T03:07:10.201Z",
   "counts": {
-    "total": 863,
-    "open": 5,
-    "resolved": 858,
+    "total": 865,
+    "open": 6,
+    "resolved": 859,
     "by_area": {
+      "core": {
+        "total": 426,
+        "open": 1,
+        "resolved": 425
+      },
       "stdlib": {
         "total": 255,
         "open": 3,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 424,
-        "open": 0,
-        "resolved": 424
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260516T025931471Z-WINDOWS-STDLIB-PATH-CANONICALIZATION-5C6E2D4E",
+      "title": "Windows stdlib path canonicalization can drop source capabilities for virtual files",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T025931471Z-WINDOWS-STDLIB-PATH-CANONICALIZATION-5C6E2D4E.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6433,6 +6448,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T022823182Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-MISS-2CBBEB43.md"
+    },
+    {
+      "id": "ISS-20260516T024129752Z-OWNER-AGGREGATE-FIELD-EVIDENCE-ACCEP-22239551",
+      "title": "owner aggregate field evidence accepts unrelated get names",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/owner_aggregate/evidence.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T024129752Z-OWNER-AGGREGATE-FIELD-EVIDENCE-ACCEP-22239551.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

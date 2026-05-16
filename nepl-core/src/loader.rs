@@ -791,6 +791,14 @@ mod tests {
         Loader::new(PathBuf::from("C:/nepl-test/stdlib"))
     }
 
+    fn real_test_loader() -> Loader {
+        Loader::new(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("stdlib"),
+        )
+    }
+
     fn path_from_segments(root: &str, segments: &[&str]) -> PathBuf {
         segments
             .iter()
@@ -885,10 +893,10 @@ mod tests {
 
     #[test]
     fn owner_aggregate_boundaries_require_matching_source_evidence() {
-        let loader = test_loader();
+        let loader = real_test_loader();
         let path = canonicalize_path(&stdlib_path(
             &loader.stdlib_root,
-            &["alloc", "collections", "vec", "future_safe.nepl"],
+            &["alloc", "collections", "vec", "types.nepl"],
         ));
 
         let safe =
@@ -905,7 +913,11 @@ mod tests {
         let aggregate = load_source_capabilities(
             &loader,
             path,
-            "fn helper <(OwnerBox<i32>)->i32> (v):\n    field::get v \"owner\"\n",
+            concat!(
+                "#import \"core/field\" as field\n\n",
+                "fn helper <(OwnerBox<i32>)->i32> (v):\n",
+                "    field::get v \"owner\"\n",
+            ),
         );
         assert!(
             !aggregate.allows_owner_aggregate_constructor_boundary("Vec"),
@@ -1009,17 +1021,18 @@ mod tests {
 
     #[test]
     fn owner_aggregate_boundary_accepts_field_initializer_call_head() {
-        let loader = test_loader();
+        let loader = real_test_loader();
         let path = canonicalize_path(&stdlib_path(
             &loader.stdlib_root,
-            &["alloc", "collections", "owner_box", "field_init.nepl"],
+            &["alloc", "collections", "vec", "access.nepl"],
         ));
         let capabilities = load_source_capabilities(
             &loader,
             path,
             concat!(
+                "#import \"core/field\" as *\n\n",
                 "fn helper <(OwnerBox<i32>)->i32> (v):\n",
-                "    let owner <i32> field::get v \"owner\";\n",
+                "    let owner <i32> get v \"owner\";\n",
                 "    owner\n",
             ),
         );
@@ -1030,6 +1043,72 @@ mod tests {
         assert!(
             !capabilities.allows_owner_aggregate_constructor_boundary("OwnerBox"),
             "field initializer evidence must not grant owner aggregate constructor capability"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_rejects_unrelated_get_call_head() {
+        let loader = real_test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "query.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "#import \"alloc/collections/vec/query/get\" as *\n\n",
+                "fn helper <()->i32> ():\n",
+                "    get items 0\n",
+            ),
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_field_boundary(),
+            "ordinary get helpers imported from non-field modules are not owner field evidence"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_accepts_field_alias_import_call_head() {
+        let loader = real_test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "storage.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "#import \"core/field\" as f\n\n",
+                "fn helper <(OwnerBox<i32>)->i32> (v):\n",
+                "    f::get v \"owner\"\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_field_boundary(),
+            "core/field alias calls are owner aggregate field source evidence"
+        );
+    }
+
+    #[test]
+    fn owner_aggregate_boundary_accepts_field_merge_import_call_head() {
+        let loader = real_test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "mutation.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "#import \"core/field\" as @merge\n\n",
+                "fn helper <(OwnerBox<i32>)->i32> (v):\n",
+                "    get v \"owner\"\n",
+            ),
+        );
+        assert!(
+            capabilities.allows_owner_aggregate_field_boundary(),
+            "core/field merge imports expose field accessors as source evidence"
         );
     }
 
@@ -1143,12 +1222,16 @@ mod tests {
 
     #[test]
     fn owner_aggregate_boundary_rejects_user_source_even_with_evidence() {
-        let loader = test_loader();
+        let loader = real_test_loader();
         let path = canonicalize_path(&path_from_segments("C:/nepl-test/user", &["vec_like.nepl"]));
         let capabilities = load_source_capabilities(
             &loader,
             path,
-            "fn helper <(OwnerBox<i32>)->i32> (v):\n    field::get v \"owner\"\n",
+            concat!(
+                "#import \"core/field\" as field\n\n",
+                "fn helper <(OwnerBox<i32>)->i32> (v):\n",
+                "    field::get v \"owner\"\n",
+            ),
         );
         assert!(
             !capabilities.allows_owner_aggregate_constructor_boundary("Vec"),

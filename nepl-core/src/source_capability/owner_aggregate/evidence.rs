@@ -1,67 +1,16 @@
-use alloc::collections::BTreeSet;
 use alloc::string::String;
 
-use crate::ast::{Block, Module, PrefixItem, Stmt, Symbol};
+use crate::ast::{PrefixItem, Symbol};
+use crate::qualified_name::split_leading_qualifier;
 use crate::runtime_helpers::helper_base_name;
 use crate::source_capability::scope::SourceCapabilityScope;
+
+use super::context::OwnerAggregateEvidenceContext;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum OwnerAggregateCapabilityEvidence {
     Constructor(String),
     FieldAccessor,
-}
-
-#[derive(Debug, Default)]
-pub(super) struct OwnerAggregateEvidenceContext {
-    enum_variants: BTreeSet<String>,
-}
-
-impl OwnerAggregateEvidenceContext {
-    pub(super) fn from_module(module: &Module) -> Self {
-        let mut context = Self::default();
-        context.collect_block(&module.root);
-        context
-    }
-
-    fn collect_block(&mut self, block: &Block) {
-        for stmt in &block.items {
-            self.collect_stmt(stmt);
-        }
-    }
-
-    fn collect_stmt(&mut self, stmt: &Stmt) {
-        match stmt {
-            Stmt::EnumDef(def) => {
-                for variant in &def.variants {
-                    self.enum_variants.insert(variant.name.name.clone());
-                }
-            }
-            Stmt::FnDef(def) => {
-                if let crate::ast::FnBody::Parsed(block) = &def.body {
-                    self.collect_block(block);
-                }
-            }
-            Stmt::Impl(def) => {
-                for method in &def.methods {
-                    if let crate::ast::FnBody::Parsed(block) = &method.body {
-                        self.collect_block(block);
-                    }
-                }
-            }
-            Stmt::Expr(_)
-            | Stmt::ExprSemi(_, _)
-            | Stmt::Directive(_)
-            | Stmt::FnAlias(_)
-            | Stmt::StructDef(_)
-            | Stmt::Trait(_)
-            | Stmt::Wasm(_)
-            | Stmt::LlvmIr(_) => {}
-        }
-    }
-
-    fn is_enum_variant(&self, name: &str) -> bool {
-        self.enum_variants.contains(name)
-    }
 }
 
 pub(super) fn owner_aggregate_call_head_evidence(
@@ -70,8 +19,8 @@ pub(super) fn owner_aggregate_call_head_evidence(
     context: &OwnerAggregateEvidenceContext,
 ) -> Option<OwnerAggregateCapabilityEvidence> {
     match item {
-        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) if !scope.shadows(&ident.name) => {
-            owner_aggregate_symbol_evidence(ident.name.as_str(), context)
+        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) => {
+            owner_aggregate_symbol_evidence(ident.name.as_str(), scope, context)
         }
         _ => None,
     }
@@ -79,16 +28,16 @@ pub(super) fn owner_aggregate_call_head_evidence(
 
 pub(super) fn owner_aggregate_symbol_evidence(
     symbol: &str,
+    scope: &SourceCapabilityScope,
     context: &OwnerAggregateEvidenceContext,
 ) -> Option<OwnerAggregateCapabilityEvidence> {
-    let base = helper_base_name(symbol);
-    match base {
-        "get" | "get_ref" | "put" | "get_field" | "get_field_ref" => {
-            Some(OwnerAggregateCapabilityEvidence::FieldAccessor)
-        }
-        _ => constructor_evidence_name(symbol, context)
-            .map(OwnerAggregateCapabilityEvidence::Constructor),
+    if source_symbol_shadowed(symbol, scope) {
+        return None;
     }
+    if context.is_core_field_accessor_symbol(symbol) {
+        return Some(OwnerAggregateCapabilityEvidence::FieldAccessor);
+    }
+    constructor_evidence_name(symbol, context).map(OwnerAggregateCapabilityEvidence::Constructor)
 }
 
 pub(super) fn owner_aggregate_intrinsic_evidence(
@@ -115,4 +64,10 @@ fn constructor_evidence_name(
         .first()
         .is_some_and(|byte| byte.is_ascii_uppercase())
         .then(|| String::from(base))
+}
+
+fn source_symbol_shadowed(symbol: &str, scope: &SourceCapabilityScope) -> bool {
+    split_leading_qualifier(symbol)
+        .map(|(qualifier, _)| scope.shadows(qualifier))
+        .unwrap_or_else(|| scope.shadows(symbol))
 }

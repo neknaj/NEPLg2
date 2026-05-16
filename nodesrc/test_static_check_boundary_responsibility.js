@@ -50,11 +50,23 @@ const SOURCE_CAPABILITY_OWNER_AGGREGATE = path.join(
     'source_capability',
     'owner_aggregate.rs',
 );
+const SOURCE_CAPABILITY_OWNER_AGGREGATE_CONTEXT = path.join(
+    CORE_SRC,
+    'source_capability',
+    'owner_aggregate',
+    'context.rs',
+);
 const SOURCE_CAPABILITY_OWNER_AGGREGATE_EVIDENCE = path.join(
     CORE_SRC,
     'source_capability',
     'owner_aggregate',
     'evidence.rs',
+);
+const SOURCE_CAPABILITY_OWNER_AGGREGATE_FIELD_IMPORTS = path.join(
+    CORE_SRC,
+    'source_capability',
+    'owner_aggregate',
+    'field_imports.rs',
 );
 const SOURCE_CAPABILITY_SCOPE = path.join(
     CORE_SRC,
@@ -172,9 +184,17 @@ const sourceCapabilityOwnerAggregate = assertFile(
     SOURCE_CAPABILITY_OWNER_AGGREGATE,
     'source_capability/owner_aggregate.rs',
 );
+const sourceCapabilityOwnerAggregateContext = assertFile(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE_CONTEXT,
+    'source_capability/owner_aggregate/context.rs',
+);
 const sourceCapabilityOwnerAggregateEvidence = assertFile(
     SOURCE_CAPABILITY_OWNER_AGGREGATE_EVIDENCE,
     'source_capability/owner_aggregate/evidence.rs',
+);
+const sourceCapabilityOwnerAggregateFieldImports = assertFile(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE_FIELD_IMPORTS,
+    'source_capability/owner_aggregate/field_imports.rs',
 );
 const sourceCapabilityScope = assertFile(
     SOURCE_CAPABILITY_SCOPE,
@@ -429,9 +449,19 @@ assertLineLimit(
     190,
 );
 assertLineLimit(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE_CONTEXT,
+    'source_capability/owner_aggregate/context.rs',
+    110,
+);
+assertLineLimit(
     SOURCE_CAPABILITY_OWNER_AGGREGATE_EVIDENCE,
     'source_capability/owner_aggregate/evidence.rs',
     130,
+);
+assertLineLimit(
+    SOURCE_CAPABILITY_OWNER_AGGREGATE_FIELD_IMPORTS,
+    'source_capability/owner_aggregate/field_imports.rs',
+    110,
 );
 assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
@@ -600,6 +630,7 @@ assertContains(
     'source_capability/owner_aggregate/evidence.rs',
 );
 assertContains(sourceCapabilityOwnerAggregate, 'mod evidence;', 'source_capability/owner_aggregate.rs');
+assertContains(sourceCapabilityOwnerAggregate, 'mod context;', 'source_capability/owner_aggregate.rs');
 assertContains(
     sourceCapabilityOwnerAggregate,
     'PrefixCallHead::new',
@@ -631,9 +662,49 @@ assertContains(
     'owner aggregate constructor evidence must be restricted to call-head syntax',
 );
 assertContains(
-    sourceCapabilityOwnerAggregateEvidence,
+    sourceCapabilityOwnerAggregateContext,
     'OwnerAggregateEvidenceContext',
     'owner aggregate evidence must carry declaration context for syntax filtering',
+);
+assertContains(
+    sourceCapabilityOwnerAggregate,
+    'mod field_imports;',
+    'owner aggregate core/field import proof must be separated from evidence classification',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateContext,
+    'CoreFieldAccessorImports',
+    'owner aggregate context must depend on the dedicated core/field import proof',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'field_aliases',
+    'owner aggregate field evidence must track core/field import aliases',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'enum CoreFieldAccessorMember',
+    'owner aggregate field accessor names must be represented as an enum domain',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'ImportClause::Open',
+    'owner aggregate field evidence must prove open core/field imports',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'ImportClause::Merge',
+    'owner aggregate field evidence must follow resolver merge import visibility',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'split_leading_qualifier',
+    'owner aggregate field evidence must check qualified import aliases',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateEvidence,
+    '"get" | "get_ref" | "put" | "get_field" | "get_field_ref"',
+    'owner aggregate field evidence must not accept broad helper names without import proof',
 );
 assertContains(
     sourceCapabilityOwnerAggregateEvidence,
@@ -669,6 +740,21 @@ assertContains(
     loader,
     'fn owner_aggregate_boundary_accepts_field_initializer_call_head()',
     'loader.rs owner aggregate initializer field call-head regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_rejects_unrelated_get_call_head()',
+    'loader.rs owner aggregate unrelated get regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_accepts_field_alias_import_call_head()',
+    'loader.rs owner aggregate core field alias import regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_accepts_field_merge_import_call_head()',
+    'loader.rs owner aggregate core field merge import regression',
 );
 assertContains(
     loader,

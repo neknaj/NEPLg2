@@ -1,3 +1,25 @@
+# 2026-05-16 Agent 1 owner aggregate field evidence import provenance 修正
+
+- `ISS-20260516T024129752Z-OWNER-AGGREGATE-FIELD-EVIDENCE-ACCEP-22239551` を解決した。
+- owner aggregate field evidence は修正前、call-head が `get` / `get_ref` / `put` という名前なら `core/field` 由来でなくても field boundary evidence として扱っていた。
+- `source_capability/owner_aggregate/field_imports.rs` を追加し、`#import "core/field"` の default alias / alias / open / merge / selective import だけから field accessor import proof を作るようにした。
+- `source_capability/owner_aggregate/context.rs` を追加し、same-module enum variant と field import provenance を context として収集する責務を evidence classification から分離した。
+- `evidence.rs` は scope shadowing、field import proof、constructor call-head proof の分類だけを行う構成に縮小した。
+- loader regression に `core/field` open / alias import の positive case と、`alloc/collections/vec/query/get` の unrelated `get` negative case を追加した。
+- 調査中に Windows の verbatim path canonicalization 差異で仮想 stdlib child source の SourceCapabilities が落ちる問題を見つけ、`ISS-20260516T025931471Z-WINDOWS-STDLIB-PATH-CANONICALIZATION-5C6E2D4E` として分離した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 6 compiler-core の進捗として追記した。`plan.md` は変更していない。
+- 検証:
+  - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundaries -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `cargo fmt -p nepl-core -- --check`
+  - `git diff --check`
+  - `trunk build`
+- plan.md との差異:
+  - plan.md は変更していない。source capability は module allowlist ではなく、source AST の import provenance と prefix call-head を組み合わせる証明へ寄せている。
+
 # 2026-05-16 Agent 1 owner aggregate prefix call-head 共通化
 
 - `ISS-20260516T022823182Z-OWNER-AGGREGATE-SOURCE-EVIDENCE-MISS-2CBBEB43` を追加して解決した。

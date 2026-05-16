@@ -2,15 +2,16 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+mod context;
 mod evidence;
-
+mod field_imports;
 use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt};
 use crate::source_capability::scope::SourceCapabilityScope;
 
+use self::context::OwnerAggregateEvidenceContext;
 use self::evidence::{
     owner_aggregate_call_head_evidence, owner_aggregate_intrinsic_evidence,
     owner_aggregate_symbol_evidence, OwnerAggregateCapabilityEvidence,
-    OwnerAggregateEvidenceContext,
 };
 use super::prefix_call::PrefixCallHead;
 
@@ -168,10 +169,10 @@ fn collect_symbol_evidence(
     context: &OwnerAggregateEvidenceContext,
     evidence: &mut OwnerAggregateEvidence,
 ) {
-    if scope.shadows(symbol) {
-        return;
-    }
-    record_evidence(owner_aggregate_symbol_evidence(symbol, context), evidence);
+    record_evidence(
+        owner_aggregate_symbol_evidence(symbol, scope, context),
+        evidence,
+    );
 }
 
 fn record_evidence(
