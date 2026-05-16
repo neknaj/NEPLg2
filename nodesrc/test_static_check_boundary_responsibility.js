@@ -695,6 +695,11 @@ assertContains(
 );
 assertContains(
     sourceCapabilityWalk,
+    'expr.items.get(index + 1).is_some()',
+    'source capability proof traversal must observe nested payload-leading calls',
+);
+assertContains(
+    sourceCapabilityWalk,
     'fn observe_explicit_constructor_item',
     'source capability proof traversal must model nested explicit constructor evidence centrally',
 );
@@ -1260,6 +1265,11 @@ assertContains(
     loader,
     'fn raw_memory_boundary_accepts_same_name_raw_helper_wrapper_evidence()',
     'loader.rs same-name raw helper wrapper regression',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_accepts_raw_helper_call_in_constructor_payload()',
+    'loader.rs raw helper constructor-payload regression',
 );
 assertContains(
     loader,

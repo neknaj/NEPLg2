@@ -1519,6 +1519,24 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_accepts_raw_helper_call_in_constructor_payload() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "pointer", "scalar.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):\n    let raw <i32> mem_ptr_addr p;\n    Option<i32>::Some load_u8 raw\n",
+        );
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "a raw primitive call used as a constructor payload must remain source evidence"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_rejects_local_shadow_inside_same_name_raw_helper() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

@@ -1,3 +1,21 @@
+# 2026-05-17 Agent 1 constructor payload raw call source proof 修正
+
+- `ISS-20260516T234310403Z-SOURCE-CAPABILITY-PROOF-MISSES-RAW-C-489C7267` を fixed / resolved にした。
+- 根本原因は、shared source capability walker が prefix expression の先頭や `let` / type annotation 後だけを call-head evidence として扱い、`Option<i32>::Some load_u8 raw` のように constructor payload 先頭へ現れる nested raw primitive call を見落としていたこと。
+- `walk.rs` で後続 payload を持つ identifier も payload-leading nested call として `observe_call_head_symbol` に渡すようにした。raw evidence として採用するかどうかは `proof.rs` / `raw_evidence_gate.rs` の shadow / current function / raw helper registry gate に残しているため、payload のない `consume load_i32` の値参照 regression は引き続き拒否する。
+- loader regression に `Option::Some load_u8 raw` 形を追加し、static-check source policy で nested payload call evidence の観測を監視するようにした。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core raw_memory_boundary_accepts_raw_helper_call_in_constructor_payload -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary_requires_raw_operation_call_head -- --nocapture`
+  - `cargo check -p nepl-core`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl --no-tree -o tmp/agent1-adjacency-create-doc-after-payload-proof.json -j 1 --dist web/dist --assert-io`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl -n 1 --dist web/dist`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の SourceCapabilities を、constructor / Result wrapper の payload に現れる nested raw operation も source proof として扱える形へ拡張した。
+
 # 2026-05-17 Agent 1 raw helper same-name wrapper source proof 修正
 
 - `ISS-20260516T105520905Z-RAW-HELPER-WRAPPER-NAMES-SHADOW-THEI-4B3F64AC` を fixed / resolved にした。

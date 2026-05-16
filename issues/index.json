@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T23:37:08.195Z",
+  "generated_at": "2026-05-16T23:48:38.054Z",
   "counts": {
-    "total": 889,
+    "total": 890,
     "open": 6,
-    "resolved": 883,
+    "resolved": 884,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 445,
+        "total": 446,
         "open": 0,
-        "resolved": 445
+        "resolved": 446
       },
       "CORE": {
         "total": 1,
@@ -6733,6 +6733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T105520905Z-RAW-HELPER-WRAPPER-NAMES-SHADOW-THEI-4B3F64AC.md"
+    },
+    {
+      "id": "ISS-20260516T234310403Z-SOURCE-CAPABILITY-PROOF-MISSES-RAW-C-489C7267",
+      "title": "Source capability proof misses raw calls in constructor payloads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/walk.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T234310403Z-SOURCE-CAPABILITY-PROOF-MISSES-RAW-C-489C7267.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

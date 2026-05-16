@@ -6,9 +6,7 @@ use crate::source_capability::scope::SourceCapabilityScope;
 
 pub(super) trait SourceCapabilityObserver {
     fn observe_named_function_start(&mut self, _name: &str, _scope: &SourceCapabilityScope) {}
-
     fn observe_named_function_end(&mut self, _name: &str, _scope: &SourceCapabilityScope) {}
-
     fn observe_fn_alias_target(&mut self, _symbol: &str, _scope: &SourceCapabilityScope) {}
 
     fn observe_struct_definition(&mut self, _def: &StructDef) {}
@@ -99,9 +97,12 @@ fn walk_expr_capability_evidence(
 ) {
     let mut call_head = PrefixCallHead::new();
     for (index, item) in expr.items.iter().enumerate() {
-        if call_head.current_item_can_start_call() {
-            observe_call_head_item(item, scope, observer);
-        }
+        observe_call_head_item(
+            item,
+            call_head.current_item_can_start_call() || expr.items.get(index + 1).is_some(),
+            scope,
+            observer,
+        );
         observe_explicit_constructor_item(index, item, &expr.items, scope, observer);
         walk_prefix_item_capability_evidence(item, scope, observer);
         call_head.observe_item(item);
@@ -110,11 +111,14 @@ fn walk_expr_capability_evidence(
 
 fn observe_call_head_item(
     item: &PrefixItem,
+    can_start_call: bool,
     scope: &SourceCapabilityScope,
     observer: &mut impl SourceCapabilityObserver,
 ) {
-    if let Some(symbol) = call_head_symbol(item) {
-        observer.observe_call_head_symbol(symbol, scope);
+    if can_start_call {
+        if let Some(symbol) = call_head_symbol(item) {
+            observer.observe_call_head_symbol(symbol, scope);
+        }
     }
 }
 
