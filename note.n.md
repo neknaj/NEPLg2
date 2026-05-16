@@ -1,3 +1,20 @@
+# 2026-05-17 Agent 1 raw helper same-name wrapper source proof 修正
+
+- `ISS-20260516T105520905Z-RAW-HELPER-WRAPPER-NAMES-SHADOW-THEI-4B3F64AC` を fixed / resolved にした。
+- 根本原因は、`SourceCapabilityScope` が module top-level の関数名を local shadow と同じ扱いで保持していたため、`load_u8` / `store_u8` / `mem_copy` のような同名 raw helper wrapper の body 内 raw primitive call-head まで shadowed symbol として拒否していたこと。
+- `SourceCapabilityBindingKind::{TopLevelCallable, LocalValue}` を導入し、source capability proof は local/parameter/match binding shadow を拒否しつつ、現在走査中の関数名と一致する top-level callable が中央 raw helper registry 上の raw symbol である場合だけ raw evidence を許可する。
+- 同名 wrapper の許可判定は `raw_evidence_gate.rs` に分け、`proof.rs` は unified walker / frame / evidence aggregation に集中させた。これにより個別 stdlib module allowlist ではなく、source scope、current function frame、raw operation enum registry による汎用証明になっている。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core raw_memory_boundary_accepts_same_name_raw_helper_wrapper_evidence -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary_rejects_local_shadow_inside_same_name_raw_helper -- --nocapture`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl -n 1 --dist web/dist` は raw capability diagnostic を出さなくなり、次の doctest exit-code contract 問題に進んだ。
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source capability proof を、local shadow と top-level helper definition の区別を持つ形へ精密化した。
+
 # 2026-05-16 Agent 1 raw address view capability 分離
 
 - `ISS-20260516T100329630Z-RAW-ADDRESS-VIEW-SOURCE-PROOF-GRANTS-A2AEFF8E` を追加し、fixed / resolved にした。

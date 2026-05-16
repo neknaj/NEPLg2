@@ -9,6 +9,7 @@ mod memory_type_definition;
 mod owner_aggregate;
 mod prefix_call;
 mod proof;
+mod raw_evidence_gate;
 mod raw_memory;
 mod scope;
 mod walk;

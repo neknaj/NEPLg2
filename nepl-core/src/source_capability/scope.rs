@@ -1,4 +1,4 @@
-use alloc::collections::BTreeSet;
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 
 use crate::ast::{Ident, MatchPattern, Module, PrefixItem, Stmt, Symbol};
@@ -6,7 +6,13 @@ use crate::qualified_name::split_leading_qualifier;
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct SourceCapabilityScope {
-    shadowed_symbols: BTreeSet<String>,
+    shadowed_symbols: BTreeMap<String, SourceCapabilityBindingKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SourceCapabilityBindingKind {
+    TopLevelCallable,
+    LocalValue,
 }
 
 impl SourceCapabilityScope {
@@ -45,20 +51,32 @@ impl SourceCapabilityScope {
         }
     }
 
-    pub(super) fn shadows(&self, name: &str) -> bool {
-        self.shadowed_symbols.contains(name)
-    }
-
     pub(super) fn shadows_symbol_or_qualifier(&self, symbol: &str) -> bool {
-        split_leading_qualifier(symbol)
-            .map(|(qualifier, _)| self.shadows(qualifier))
-            .unwrap_or_else(|| self.shadows(symbol))
+        self.shadow_kind_symbol_or_qualifier(symbol).is_some()
     }
 
+    pub(super) fn shadow_kind_symbol_or_qualifier(
+        &self,
+        symbol: &str,
+    ) -> Option<SourceCapabilityBindingKind> {
+        split_leading_qualifier(symbol)
+            .map(|(qualifier, _)| self.shadow_kind(qualifier))
+            .unwrap_or_else(|| self.shadow_kind(symbol))
+    }
+
+    fn shadow_kind(&self, name: &str) -> Option<SourceCapabilityBindingKind> {
+        self.shadowed_symbols.get(name).copied()
+    }
     fn bind_top_level_stmt(&mut self, stmt: &Stmt) {
         match stmt {
-            Stmt::FnDef(def) => self.bind(&def.name.name),
-            Stmt::FnAlias(alias) => self.bind(&alias.name.name),
+            Stmt::FnDef(def) => self.bind_kind(
+                &def.name.name,
+                SourceCapabilityBindingKind::TopLevelCallable,
+            ),
+            Stmt::FnAlias(alias) => self.bind_kind(
+                &alias.name.name,
+                SourceCapabilityBindingKind::TopLevelCallable,
+            ),
             Stmt::Directive(_)
             | Stmt::StructDef(_)
             | Stmt::EnumDef(_)
@@ -72,6 +90,10 @@ impl SourceCapabilityScope {
     }
 
     fn bind(&mut self, name: &str) {
-        self.shadowed_symbols.insert(String::from(name));
+        self.bind_kind(name, SourceCapabilityBindingKind::LocalValue);
+    }
+
+    fn bind_kind(&mut self, name: &str, kind: SourceCapabilityBindingKind) {
+        self.shadowed_symbols.insert(String::from(name), kind);
     }
 }

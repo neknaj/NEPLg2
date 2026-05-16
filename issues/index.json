@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T10:49:39.138Z",
+  "generated_at": "2026-05-16T23:37:08.195Z",
   "counts": {
-    "total": 888,
+    "total": 889,
     "open": 6,
-    "resolved": 882,
+    "resolved": 883,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 444,
+        "total": 445,
         "open": 0,
-        "resolved": 444
+        "resolved": 445
       },
       "CORE": {
         "total": 1,
@@ -6718,6 +6718,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T103911431Z-OWNER-TOKEN-FIELD-PROJECTION-IGNORES-A0BA1412.md"
+    },
+    {
+      "id": "ISS-20260516T105520905Z-RAW-HELPER-WRAPPER-NAMES-SHADOW-THEI-4B3F64AC",
+      "title": "Raw helper wrapper names shadow their own raw operation evidence",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/proof.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T105520905Z-RAW-HELPER-WRAPPER-NAMES-SHADOW-THEI-4B3F64AC.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

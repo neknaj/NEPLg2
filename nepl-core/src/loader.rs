@@ -1501,6 +1501,42 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_accepts_same_name_raw_helper_wrapper_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "pointer", "scalar.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):\n    load_u8 mem_ptr_addr p\n",
+        );
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "a raw helper wrapper must be allowed to prove its own raw primitive call"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_rejects_local_shadow_inside_same_name_raw_helper() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "pointer", "scalar.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "pub fn load_u8 <()->i32> ():\n    let load_u8 <i32> 1;\n    load_u8 0\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "local shadowing inside a same-name raw helper must still reject raw evidence"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_requires_raw_operation_call_head() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

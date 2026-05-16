@@ -13,6 +13,7 @@ use crate::source_capability::owner_aggregate::{
     owner_aggregate_symbol_evidence, OwnerAggregateCapabilityEvidence,
     OwnerAggregateEvidenceContext,
 };
+use crate::source_capability::raw_evidence_gate::raw_symbol_shadow_allows_evidence;
 use crate::source_capability::raw_memory::{
     RawAddressViewEvidence, RawMemoryEvidence, RawMemoryStructuralEvidence,
 };
@@ -28,6 +29,12 @@ pub(crate) fn module_source_capabilities(module: &Module) -> SourceCapabilities 
 struct OwnerAggregateProofEvidence {
     constructors: BTreeSet<String>,
     field_accessor: bool,
+}
+
+#[derive(Debug)]
+struct RawOperationFunctionFrame {
+    name: String,
+    has_raw_operation_evidence: bool,
 }
 
 #[derive(Debug, Default)]
@@ -72,7 +79,7 @@ fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
         raw_memory: RawMemoryEvidence::default(),
         owner_aggregate: OwnerAggregateProofEvidence::default(),
         compiler_memory_types: BTreeSet::new(),
-        function_has_raw_operation_evidence: Vec::new(),
+        raw_operation_function_frames: Vec::new(),
     };
     walk_module_capability_evidence(module, &mut collector);
     SourceCapabilityProof {
@@ -87,13 +94,13 @@ struct SourceCapabilityProofCollector<'a> {
     raw_memory: RawMemoryEvidence,
     owner_aggregate: OwnerAggregateProofEvidence,
     compiler_memory_types: BTreeSet<CompilerMemoryType>,
-    function_has_raw_operation_evidence: Vec<bool>,
+    raw_operation_function_frames: Vec<RawOperationFunctionFrame>,
 }
 
 impl SourceCapabilityProofCollector<'_> {
     fn record_raw_operation_evidence(&mut self) {
-        if let Some(frame) = self.function_has_raw_operation_evidence.last_mut() {
-            *frame = true;
+        if let Some(frame) = self.raw_operation_function_frames.last_mut() {
+            frame.has_raw_operation_evidence = true;
         }
     }
 
@@ -103,8 +110,14 @@ impl SourceCapabilityProofCollector<'_> {
     }
 
     fn collect_raw_symbol_evidence(&mut self, symbol: &str, scope: &SourceCapabilityScope) {
-        if scope.shadows_symbol_or_qualifier(symbol) {
-            return;
+        if let Some(kind) = scope.shadow_kind_symbol_or_qualifier(symbol) {
+            let current_function = self
+                .raw_operation_function_frames
+                .last()
+                .map(|frame| frame.name.as_str());
+            if !raw_symbol_shadow_allows_evidence(symbol, kind, current_function) {
+                return;
+            }
         }
         self.collect_raw_builtin_evidence(symbol);
     }
@@ -176,15 +189,19 @@ impl SourceCapabilityProofCollector<'_> {
 }
 
 impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
-    fn observe_named_function_start(&mut self, _name: &str, _scope: &SourceCapabilityScope) {
-        self.function_has_raw_operation_evidence.push(false);
+    fn observe_named_function_start(&mut self, name: &str, _scope: &SourceCapabilityScope) {
+        self.raw_operation_function_frames
+            .push(RawOperationFunctionFrame {
+                name: String::from(name),
+                has_raw_operation_evidence: false,
+            });
     }
 
     fn observe_named_function_end(&mut self, name: &str, _scope: &SourceCapabilityScope) {
         let has_body_evidence = self
-            .function_has_raw_operation_evidence
+            .raw_operation_function_frames
             .pop()
-            .unwrap_or(false);
+            .is_some_and(|frame| frame.has_raw_operation_evidence);
         if has_body_evidence {
             if let Some(operation) = raw_memory_op_from_name(name) {
                 self.raw_memory.operations.insert(operation);

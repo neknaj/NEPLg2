@@ -53,6 +53,11 @@ const SOURCE_CAPABILITY_PROOF = path.join(
     'source_capability',
     'proof.rs',
 );
+const SOURCE_CAPABILITY_RAW_EVIDENCE_GATE = path.join(
+    CORE_SRC,
+    'source_capability',
+    'raw_evidence_gate.rs',
+);
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
     CORE_SRC,
@@ -198,6 +203,10 @@ const sourceCapabilityWalk = assertFile(
 const sourceCapabilityProof = assertFile(
     SOURCE_CAPABILITY_PROOF,
     'source_capability/proof.rs',
+);
+const sourceCapabilityRawEvidenceGate = assertFile(
+    SOURCE_CAPABILITY_RAW_EVIDENCE_GATE,
+    'source_capability/raw_evidence_gate.rs',
 );
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
@@ -528,6 +537,11 @@ assertLineLimit(
     80,
 );
 assertLineLimit(SOURCE_CAPABILITY_PREFIX_CALL, 'source_capability/prefix_call.rs', 80);
+assertLineLimit(
+    SOURCE_CAPABILITY_RAW_EVIDENCE_GATE,
+    'source_capability/raw_evidence_gate.rs',
+    60,
+);
 assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 170);
 assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 240);
 assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
@@ -988,6 +1002,21 @@ assertContains(
 );
 assertContains(
     sourceCapabilityScope,
+    'enum SourceCapabilityBindingKind',
+    'source capability scope must distinguish top-level callable and local shadow kinds',
+);
+assertContains(
+    sourceCapabilityScope,
+    'TopLevelCallable',
+    'source capability scope must represent top-level callable shadows separately',
+);
+assertContains(
+    sourceCapabilityScope,
+    'LocalValue',
+    'source capability scope must represent local/parameter shadows separately',
+);
+assertContains(
+    sourceCapabilityScope,
     'bind_stmt_locals',
     'source_capability/scope.rs',
 );
@@ -1018,22 +1047,42 @@ assertContains(
 );
 assertContains(
     sourceCapabilityProof,
-    'function_has_raw_operation_evidence',
+    'raw_operation_function_frames',
     'raw helper definitions must grant their operation only when the body has raw operation evidence',
 );
 assertContains(
     sourceCapabilityProof,
-    'function_has_raw_operation_evidence.last_mut()',
+    'raw_operation_function_frames.last_mut()',
     'raw helper definition operation evidence must be scoped to the currently walked function frame',
 );
 assertContains(
     sourceCapabilityProof,
-    'scope.shadows_symbol_or_qualifier(symbol)',
+    'scope.shadow_kind_symbol_or_qualifier(symbol)',
     'raw memory source evidence must reject shadowed qualified helper-looking symbols',
+);
+assertContains(
+    sourceCapabilityProof,
+    'raw_symbol_shadow_allows_evidence',
+    'raw helper wrappers must prove same-name raw primitive evidence without allowing local shadowing',
+);
+assertContains(
+    sourceCapabilityRawEvidenceGate,
+    'kind == SourceCapabilityBindingKind::TopLevelCallable',
+    'raw helper shadow evidence gate must only allow top-level callable shadows',
+);
+assertContains(
+    sourceCapabilityRawEvidenceGate,
+    'current_function.is_some_and(|name| name == symbol)',
+    'raw helper shadow evidence gate must require the current same-name helper body',
+);
+assertContains(
+    sourceCapabilityRawEvidenceGate,
+    'raw_memory_op_from_name(symbol).is_some()',
+    'raw helper shadow evidence gate must require a known raw operation symbol',
 );
 assertNotContains(
     sourceCapabilityProof,
-    'for frame in &mut self.function_has_raw_operation_evidence',
+    'for frame in &mut self.raw_operation_function_frames',
     'nested raw helper evidence must not mark every active function frame',
 );
 assertNotContains(
@@ -1206,6 +1255,16 @@ assertContains(
     loader,
     'fn raw_memory_boundary_requires_raw_operation_call_head()',
     'loader.rs raw operation call-head regression',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_accepts_same_name_raw_helper_wrapper_evidence()',
+    'loader.rs same-name raw helper wrapper regression',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_rejects_local_shadow_inside_same_name_raw_helper()',
+    'loader.rs same-name raw helper local shadow regression',
 );
 assertContains(
     loader,
