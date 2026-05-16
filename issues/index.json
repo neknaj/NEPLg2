@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T01:06:21.194Z",
+  "generated_at": "2026-05-16T01:07:43.909Z",
   "counts": {
-    "total": 859,
-    "open": 6,
+    "total": 860,
+    "open": 7,
     "resolved": 853,
     "by_area": {
+      "core": {
+        "total": 421,
+        "open": 1,
+        "resolved": 420
+      },
       "stdlib": {
         "total": 255,
         "open": 4,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 420,
-        "open": 0,
-        "resolved": 420
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46",
+      "title": "Resource proof primitive classification is scattered across name-based checks",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource/**, nepl-core/src/source_capability/**, nepl-core/src/effects.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T010329239Z-RESOURCE-PROOF-PRIMITIVE-CLASSIFICAT-12B44B46.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
