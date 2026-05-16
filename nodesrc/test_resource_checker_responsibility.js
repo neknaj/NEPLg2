@@ -546,6 +546,7 @@ const ownerCheck = readResource('owner_check.rs');
 const ownerConsumption = readResource('owner_consumption.rs');
 const ownerDrop = readResource('owner_drop.rs');
 const ownerExpr = readResource('owner_expr.rs');
+const ownerFlow = readResource('owner_flow.rs');
 const ownerRawViewModel = readResource('owner_raw_view_model.rs');
 const ownerSummary = readResource('owner_summary.rs');
 const ownerSummaryRawTransfer = readResource('owner_summary_raw_transfer.rs');
@@ -833,6 +834,26 @@ assertContains(
     resourcePrimitives,
     'types.compiler_memory_type(base)',
     'resource_primitives.rs must preserve proven compiler memory identity through type application',
+);
+assertNotContains(
+    lowerRawAddressReturn,
+    'compiler_memory_type_from_constructor_name',
+    'lower_raw_address_return.rs must not classify compiler memory constructs by constructor name',
+);
+assertContains(
+    lowerRawAddressReturn,
+    'type_is_raw_pointer(env.types, expr.ty)',
+    'lower_raw_address_return.rs must query proven TypeCtx identity for constructed raw pointer returns',
+);
+assertNotContains(
+    ownerFlow,
+    'compiler_memory_type_from_constructor_name',
+    'owner_flow.rs must not classify compiler memory constructs by constructor name',
+);
+assertContains(
+    ownerFlow,
+    'type_is_owner_token(self.types, output.ty)',
+    'owner_flow.rs must query proven TypeCtx identity for owner-token construct extent handling',
 );
 assertNotContains(
     resourcePrimitives,

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T08:51:51.311Z",
+  "generated_at": "2026-05-16T09:11:41.629Z",
   "counts": {
-    "total": 880,
+    "total": 881,
     "open": 5,
-    "resolved": 875,
+    "resolved": 876,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 437,
+        "total": 438,
         "open": 0,
-        "resolved": 437
+        "resolved": 438
       },
       "CORE": {
         "total": 1,
@@ -538,6 +538,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T083402106Z-COMPILER-MEMORY-TYPE-IDENTITY-IS-INF-3F3AF6C8.md"
+    },
+    {
+      "id": "ISS-20260516T090208743Z-RESOURCE-IR-CONSTRUCT-MEMORY-TYPE-CH-B8053A9C",
+      "title": "Resource IR construct memory type checks still use constructor names",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/resource/lower_raw_address_return.rs, nepl-core/src/resource/owner_flow.rs, nodesrc/test_resource_checker_responsibility.js, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T090208743Z-RESOURCE-IR-CONSTRUCT-MEMORY-TYPE-CH-B8053A9C.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

@@ -1,7 +1,6 @@
 use alloc::string::String;
 
-use crate::resource_primitives::compiler_memory_type_from_constructor_name;
-use crate::source_map::CompilerMemoryType;
+use crate::resource_primitives::type_is_owner_token;
 use crate::span::Span;
 
 use super::initialized_alias::RawCellAddressAliases;
@@ -33,7 +32,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let region_token_extent_ok = self.region_token_construct_extent_requirement_holds(
             owners,
             raw_aliases,
-            kind,
+            output,
             inputs,
             span,
         );
@@ -55,7 +54,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 owners.set_state(&field, OwnerState::NoFreeObligation);
             }
         }
-        if region_token_extent_ok && region_token_construct_kind(kind) && inputs.len() >= 2 {
+        if region_token_extent_ok && self.region_token_construct_kind(output) && inputs.len() >= 2 {
             let raw = construct_aggregate_field_place(output, kind, 0, &inputs[0]);
             owners.set_live_extent(&raw, OwnerStorageExtent::RegionTokenSize);
         }
@@ -65,11 +64,11 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
-        kind: &AggregateKind,
+        output: &Place,
         inputs: &[Place],
         span: Span,
     ) -> bool {
-        if !region_token_construct_kind(kind) {
+        if !self.region_token_construct_kind(output) {
             return true;
         }
         let [raw, size, ..] = inputs else {
@@ -94,6 +93,10 @@ impl ResourceOwnerCheckEngine<'_> {
             );
             false
         }
+    }
+
+    fn region_token_construct_kind(&self, output: &Place) -> bool {
+        type_is_owner_token(self.types, output.ty)
     }
 
     pub(super) fn report_overwritten_owners(
@@ -598,14 +601,5 @@ fn replacement_preserves_live_storage(
                 ..
             }),
         ) if *overwritten_storage == replacement_storage
-    )
-}
-
-fn region_token_construct_kind(kind: &AggregateKind) -> bool {
-    matches!(
-        kind,
-        AggregateKind::Struct { name, .. }
-            if compiler_memory_type_from_constructor_name(name)
-                == Some(CompilerMemoryType::OwnerToken)
     )
 }

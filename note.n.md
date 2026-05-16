@@ -39878,3 +39878,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - import span が `RegionToken` owner-token capability を保つこと
   - typecheck が imported `MemPtr` / `RegionToken` identity を `TypeCtx` に登録すること
   - resource checker policy が `TypeKind::Struct { name, .. }` による compiler memory type 推論の再導入を拒否すること
+
+## 2026-05-16 Agent 1 Resource IR construct memory type identity 修正
+
+- `ISS-20260516T090208743Z-RESOURCE-IR-CONSTRUCT-MEMORY-TYPE-CH-B8053A9C` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`TypeCtx` に証明済み compiler memory type identity を持たせた後も、Resource IR construct path の一部が constructor 名文字列から `MemPtr` / `RegionToken` を再分類していたことだった。
+- `lower_raw_address_return.rs` は raw pointer construct return 判定を `type_is_raw_pointer(env.types, expr.ty)` に変更し、`owner_flow.rs` は owner-token construct extent 判定を `type_is_owner_token(self.types, output.ty)` に変更した。
+- source capability 側の constructor 名分類は compiler-owned source evidence の抽出入口に限定し、Resource IR の semantic proof は型検査済み TypeCtx identity に統一した。
+- `resource_primitives.rs` の unit test は別ファイルへ分離し、primitive registry 本体の責務境界と line-limit policy を緩めずに維持した。
+- regression / policy:
+  - 同名 user struct `RegionToken` が owner-token construct extent check を受けない Resource IR regression
+  - `lower_raw_address_return.rs` / `owner_flow.rs` が `compiler_memory_type_from_constructor_name` を使わない source policy
+  - `resource_primitives` registry の既存 identity / helper classification regression

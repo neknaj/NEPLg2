@@ -3,12 +3,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction};
-use crate::resource_primitives::{
-    compiler_memory_type_from_constructor_name, type_is_owner_token, type_is_raw_pointer,
-    MemoryHelperPrimitive,
-};
+use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer, MemoryHelperPrimitive};
 use crate::runtime_helpers::helper_base_name;
-use crate::source_map::CompilerMemoryType;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -131,10 +127,7 @@ fn raw_address_source_from_return_expr(
             arg_places,
             env,
         ),
-        HirExprKind::StructConstruct { name, fields, .. }
-            if compiler_memory_type_from_constructor_name(name)
-                == Some(CompilerMemoryType::RawPointer) =>
-        {
+        HirExprKind::StructConstruct { fields, .. } if type_is_raw_pointer(env.types, expr.ty) => {
             raw_address_source_from_return_expr(
                 fields.first()?,
                 function,

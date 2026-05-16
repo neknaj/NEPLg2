@@ -12577,6 +12577,120 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_uses_proven_region_token_identity_for_construct_extent() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let fake_region = types.register_named(
+        "RegionToken".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "RegionToken".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty, i32_ty],
+            field_names: vec!["raw".to_string(), "size".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            origin_name: "main".to_string(),
+            func_ty: TypeId(100),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Impure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![
+                    HirLine {
+                        expr: HirExpr {
+                            ty: unit_ty,
+                            kind: HirExprKind::Let {
+                                name: "p".to_string(),
+                                mutable: false,
+                                value: Box::new(HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::Call {
+                                        callee: FuncRef::User(
+                                            "alloc_raw".to_string(),
+                                            vec![],
+                                            None,
+                                        ),
+                                        args: vec![HirExpr {
+                                            ty: i32_ty,
+                                            kind: HirExprKind::LiteralI32(4),
+                                            span,
+                                        }],
+                                    },
+                                    span,
+                                }),
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                    HirLine {
+                        expr: HirExpr {
+                            ty: unit_ty,
+                            kind: HirExprKind::Let {
+                                name: "token".to_string(),
+                                mutable: false,
+                                value: Box::new(HirExpr {
+                                    ty: fake_region,
+                                    kind: HirExprKind::StructConstruct {
+                                        name: "RegionToken".to_string(),
+                                        type_args: vec![],
+                                        fields: vec![
+                                            HirExpr {
+                                                ty: i32_ty,
+                                                kind: HirExprKind::Var("p".to_string()),
+                                                span,
+                                            },
+                                            HirExpr {
+                                                ty: i32_ty,
+                                                kind: HirExprKind::LiteralI32(8),
+                                                span,
+                                            },
+                                        ],
+                                    },
+                                    span,
+                                }),
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                ],
+                ty: unit_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        !report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ConstructInput,
+                ..
+            }
+        )),
+        "same-name user RegionToken must not receive owner-token construct extent checks: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary() {
     let source = r#"
 #entry main

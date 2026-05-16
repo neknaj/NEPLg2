@@ -1027,6 +1027,11 @@ assertContains(
     'MemoryHelperPrimitive::from_base_name',
     'resource/lower_raw_address_return.rs must use central helper classification for function references',
 );
+assertNotContains(
+    resourceLowerRawAddressReturn,
+    'compiler_memory_type_from_constructor_name',
+    'resource/lower_raw_address_return.rs must not classify compiler memory constructs by constructor name',
+);
 assertContains(
     resourceOwnerRawAddress,
     'MemoryHelperPrimitive::returns_non_owning_address_view',
@@ -1034,8 +1039,13 @@ assertContains(
 );
 assertContains(
     resourceOwnerFlow,
-    'compiler_memory_type_from_constructor_name(name)',
-    'resource/owner_flow.rs must use central compiler memory type classification',
+    'type_is_owner_token(self.types, output.ty)',
+    'resource/owner_flow.rs must use proven TypeCtx identity for owner-token construct classification',
+);
+assertNotContains(
+    resourceOwnerFlow,
+    'compiler_memory_type_from_constructor_name',
+    'resource/owner_flow.rs must not classify compiler memory constructs by constructor name',
 );
 assertNotContains(
     resourceLowerRawAddressPlace,
