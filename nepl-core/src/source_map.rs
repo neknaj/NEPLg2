@@ -65,6 +65,7 @@ impl fmt::Display for SourcePathDisplay<'_> {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SourceCapability {
     RawMemoryStructuralBoundary,
+    RawAddressViewBoundary,
     RawMemoryOperationBoundary(RawMemoryOp),
     RawBodyMemoryOperationBoundary(RawBodyMemoryOp),
     OwnerAggregateConstructorBoundary(String),
@@ -129,6 +130,7 @@ impl SourceCapabilities {
     pub fn raw_memory_boundary() -> Self {
         let mut capabilities = Self::none();
         capabilities.insert(SourceCapability::RawMemoryStructuralBoundary);
+        capabilities.insert(SourceCapability::RawAddressViewBoundary);
         for operation in ALL_RAW_MEMORY_OPS {
             capabilities.insert(SourceCapability::RawMemoryOperationBoundary(*operation));
         }
@@ -168,6 +170,10 @@ impl SourceCapabilities {
 
     pub fn allows_raw_memory_structural_boundary(&self) -> bool {
         self.allows(SourceCapability::RawMemoryStructuralBoundary)
+    }
+
+    pub fn allows_raw_address_view_boundary(&self) -> bool {
+        self.allows(SourceCapability::RawAddressViewBoundary)
     }
 
     pub fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool {
@@ -231,6 +237,10 @@ impl SourceMap {
     pub fn raw_memory_structural_boundary_allowed(&self, id: FileId) -> bool {
         self.capabilities(id)
             .allows_raw_memory_structural_boundary()
+    }
+
+    pub fn raw_address_view_boundary_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id).allows_raw_address_view_boundary()
     }
 
     pub fn raw_memory_operation_boundary_allowed(
@@ -343,6 +353,7 @@ mod tests {
     fn source_capabilities_are_enum_keyed() {
         let none = SourceCapabilities::none();
         assert!(!none.allows(SourceCapability::RawMemoryStructuralBoundary));
+        assert!(!none.allows(SourceCapability::RawAddressViewBoundary));
         assert!(!none.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
         assert!(!none.allows(SourceCapability::CompilerMemoryTypeDefinition(
             CompilerMemoryType::RawPointer,
@@ -350,7 +361,9 @@ mod tests {
 
         let raw_boundary = SourceCapabilities::raw_memory_boundary();
         assert!(raw_boundary.allows(SourceCapability::RawMemoryStructuralBoundary));
+        assert!(raw_boundary.allows(SourceCapability::RawAddressViewBoundary));
         assert!(raw_boundary.allows_raw_memory_structural_boundary());
+        assert!(raw_boundary.allows_raw_address_view_boundary());
         assert!(raw_boundary.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
         assert!(raw_boundary.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
 
@@ -360,17 +373,24 @@ mod tests {
         assert!(raw_load.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
         assert!(!raw_load.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
         assert!(!raw_load.allows_raw_memory_structural_boundary());
+        assert!(!raw_load.allows_raw_address_view_boundary());
 
         let owner_constructor = SourceCapabilities::owner_aggregate_constructor_boundary("Vec");
         assert!(owner_constructor.allows_owner_aggregate_constructor_boundary("Vec"));
         assert!(!owner_constructor.allows_owner_aggregate_constructor_boundary("Diag"));
         assert!(!owner_constructor.allows_owner_aggregate_field_boundary());
         assert!(!owner_constructor.allows_raw_memory_structural_boundary());
+        assert!(!owner_constructor.allows_raw_address_view_boundary());
 
         let owner_field = SourceCapabilities::owner_aggregate_field_boundary();
         assert!(owner_field.allows_owner_aggregate_field_boundary());
         assert!(!owner_field.allows_owner_aggregate_constructor_boundary("Vec"));
         assert!(!owner_field.allows_raw_memory_structural_boundary());
+        assert!(!owner_field.allows_raw_address_view_boundary());
+
+        let address_view = SourceCapabilities::with(SourceCapability::RawAddressViewBoundary);
+        assert!(address_view.allows_raw_address_view_boundary());
+        assert!(!address_view.allows_raw_memory_structural_boundary());
 
         let memory_type =
             SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::OwnerToken);
@@ -389,7 +409,9 @@ mod tests {
         );
 
         assert!(!source_map.raw_memory_structural_boundary_allowed(plain));
+        assert!(!source_map.raw_address_view_boundary_allowed(plain));
         assert!(source_map.raw_memory_structural_boundary_allowed(raw));
+        assert!(!source_map.raw_address_view_boundary_allowed(raw));
         assert!(!source_map.raw_memory_operation_boundary_allowed(raw, RawMemoryOp::Load));
         assert!(!source_map.owner_aggregate_constructor_boundary_allowed(raw, "Vec"));
         assert!(!source_map.owner_aggregate_field_boundary_allowed(raw));

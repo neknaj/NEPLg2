@@ -86,3 +86,16 @@ fn memory_helper_primitive_classifies_suffixed_symbols() {
     );
     assert_eq!(MemoryHelperPrimitive::from_symbol("alloc_region"), None);
 }
+
+#[test]
+fn memory_helper_primitive_separates_address_view_boundary_evidence() {
+    assert!(MemoryHelperPrimitive::MemPtrAddr.is_raw_address_view_boundary_evidence());
+    assert!(MemoryHelperPrimitive::MemPtrWrap.is_raw_address_view_boundary_evidence());
+    assert!(MemoryHelperPrimitive::MemPtrAdd.is_raw_address_view_boundary_evidence());
+    assert!(MemoryHelperPrimitive::RegionPtr.is_raw_address_view_boundary_evidence());
+    assert!(MemoryHelperPrimitive::RegionPtrAt.is_raw_address_view_boundary_evidence());
+    assert!(MemoryHelperPrimitive::RegionTokenRawRef.is_raw_address_view_boundary_evidence());
+    assert!(MemoryHelperPrimitive::StrAddr.is_raw_address_view_boundary_evidence());
+    assert!(MemoryHelperPrimitive::StrFromAddrUnchecked.is_raw_address_view_boundary_evidence());
+    assert!(!MemoryHelperPrimitive::RegionNew.is_raw_address_view_boundary_evidence());
+}

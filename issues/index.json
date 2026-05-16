@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T09:56:14.789Z",
+  "generated_at": "2026-05-16T10:21:18.435Z",
   "counts": {
-    "total": 884,
+    "total": 885,
     "open": 5,
-    "resolved": 879,
+    "resolved": 880,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 441,
+        "total": 442,
         "open": 0,
-        "resolved": 441
+        "resolved": 442
       },
       "CORE": {
         "total": 1,
@@ -568,6 +568,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T092004954Z-TYPECHECK-COMPILER-MEMORY-TYPE-REGIS-86C93B83.md"
+    },
+    {
+      "id": "ISS-20260516T100329630Z-RAW-ADDRESS-VIEW-SOURCE-PROOF-GRANTS-A2AEFF8E",
+      "title": "raw address view source proof grants structural memory boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/proof.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T100329630Z-RAW-ADDRESS-VIEW-SOURCE-PROOF-GRANTS-A2AEFF8E.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

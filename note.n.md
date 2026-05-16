@@ -1,3 +1,22 @@
+# 2026-05-16 Agent 1 raw address view capability 分離
+
+- `ISS-20260516T100329630Z-RAW-ADDRESS-VIEW-SOURCE-PROOF-GRANTS-A2AEFF8E` を追加し、fixed / resolved にした。
+- 根本原因は、`SourceCapabilityProof` が `MemoryHelperPrimitive` 呼び出しを `RawMemoryStructuralBoundary` として扱い、`mem_ptr_addr` / `region_ptr` / `str_addr` のような raw address view 証拠だけで `MemPtr` / `RegionToken` の direct constructor / restricted field access まで許可し得たこと。
+- `SourceCapability::RawAddressViewBoundary` を追加し、raw address view helper / intrinsic の source proof と、compiler memory representation 直操作の source proof を分離した。
+- `RawMemoryStructuralEvidence` は restricted constructor evidence だけを扱い、`RawAddressViewEvidence` は central `MemoryHelperPrimitive` registry の `is_raw_address_view_boundary_evidence` から address-view use だけを記録する。`RegionNew` のような owner-token helper は address-view evidence から除外し、ResourceEffectBoundary の `RawAddressViewOutsideBoundary` suppression も `raw_address_view_boundary_allowed` だけを見る。
+- raw helper definition self-operation proof は `function_has_raw_operation_evidence` に改め、actual raw operation / raw body evidence だけで更新するようにした。これにより、address-view helper を呼ぶ `load_i32` という名前の関数が raw load operation capability を得る経路も閉じた。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary_accepts_raw_address_helper_evidence -- --exact --nocapture`
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary_does_not_promote_address_view_helper_to_operation_definition -- --exact --nocapture`
+  - `cargo test -p nepl-core source_map::tests::source_capabilities_are_enum_keyed -- --exact --nocapture`
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate_allows_raw_address_view_inside_raw_boundary -- --exact --nocapture`
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary_rejects_owner_constructor_helper_as_address_view_evidence -- --exact --nocapture`
+  - `cargo test -p nepl-core resource_primitives::tests::memory_helper_primitive_separates_address_view_boundary_evidence -- --exact --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source capability proof を、個別 module allowlist ではなく source evidence と typed capability enum の対応でより細かくした。
+
 # 2026-05-16 Agent 1 memory model doc stale alloc_ptr 方針修正
 
 - `ISS-20260516T041311764Z-STAGE-6-MEMORY-MODEL-DOC-STILL-DESCR-AEC8348B` を追加して fixed / resolved にした。

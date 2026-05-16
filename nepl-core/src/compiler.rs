@@ -1142,7 +1142,7 @@ mod tests {
         let raw_file = source_map.add_with_capabilities(
             "stdlib/core/mem/pointer/view.nepl",
             String::new(),
-            SourceCapabilities::with(SourceCapability::RawMemoryStructuralBoundary),
+            SourceCapabilities::with(SourceCapability::RawAddressViewBoundary),
         );
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
             function: String::from("mem_ptr_add"),
@@ -1294,7 +1294,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_structural_boundary_allowed(span.file_id))
+                .map(|map| map.raw_address_view_boundary_allowed(span.file_id))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {

@@ -1563,6 +1563,47 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_does_not_promote_address_view_helper_to_operation_definition() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "pointer", "scalar.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn load_i32 <(MemPtr<i32>)->i32> (ptr):\n    mem_ptr_addr ptr\n",
+        );
+        assert!(
+            capabilities.allows_raw_address_view_boundary(),
+            "raw address helper evidence must still prove address-view use"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "raw address view evidence alone must not prove a raw memory load helper body"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_rejects_owner_constructor_helper_as_address_view_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "pointer", "region.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(MemPtr<i32>)->RegionToken<i32>> (ptr):\n    region_new ptr 4\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_address_view_boundary(),
+            "owner-token helper calls are not direct representation or raw-address-view evidence"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_accepts_restricted_constructor_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(
@@ -1594,8 +1635,9 @@ mod tests {
             "fn helper <(MemPtr<i32>)->i32> (ptr):\n    mem_ptr_addr ptr\n",
         );
         assert!(
-            capabilities.allows_raw_memory_structural_boundary(),
-            "compiler-owned raw address identity helpers are raw boundary evidence"
+            !capabilities.allows_raw_memory_structural_boundary()
+                && capabilities.allows_raw_address_view_boundary(),
+            "raw address helper calls prove raw-address-view use, not representation access"
         );
         assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
     }
@@ -1614,6 +1656,7 @@ mod tests {
         );
         assert!(
             !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_address_view_boundary()
                 && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Alloc),
             "checked owner helper calls are safe API usage, not raw boundary evidence"
         );
@@ -1632,8 +1675,9 @@ mod tests {
             "fn helper <(i32)->str> (raw):\n    #intrinsic \"str_from_addr_unchecked\" <> (raw)\n",
         );
         assert!(
-            capabilities.allows_raw_memory_structural_boundary(),
-            "compiler-owned raw address intrinsics are raw boundary evidence"
+            !capabilities.allows_raw_memory_structural_boundary()
+                && capabilities.allows_raw_address_view_boundary(),
+            "compiler-owned raw address intrinsics are raw-address-view evidence"
         );
     }
 

@@ -13,7 +13,9 @@ use crate::source_capability::owner_aggregate::{
     owner_aggregate_symbol_evidence, OwnerAggregateCapabilityEvidence,
     OwnerAggregateEvidenceContext,
 };
-use crate::source_capability::raw_memory::{RawMemoryBoundaryEvidence, RawMemoryEvidence};
+use crate::source_capability::raw_memory::{
+    RawAddressViewEvidence, RawMemoryEvidence, RawMemoryStructuralEvidence,
+};
 use crate::source_capability::scope::SourceCapabilityScope;
 use crate::source_capability::walk::{walk_module_capability_evidence, SourceCapabilityObserver};
 use crate::source_map::{CompilerMemoryType, SourceCapabilities, SourceCapability};
@@ -41,6 +43,9 @@ impl SourceCapabilityProof {
         if self.raw_memory.structural_boundary {
             capabilities.insert(SourceCapability::RawMemoryStructuralBoundary);
         }
+        if self.raw_memory.raw_address_view_boundary {
+            capabilities.insert(SourceCapability::RawAddressViewBoundary);
+        }
         for operation in self.raw_memory.operations {
             capabilities.insert(SourceCapability::RawMemoryOperationBoundary(operation));
         }
@@ -67,7 +72,7 @@ fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
         raw_memory: RawMemoryEvidence::default(),
         owner_aggregate: OwnerAggregateProofEvidence::default(),
         compiler_memory_types: BTreeSet::new(),
-        function_has_raw_memory_evidence: Vec::new(),
+        function_has_raw_operation_evidence: Vec::new(),
     };
     walk_module_capability_evidence(module, &mut collector);
     SourceCapabilityProof {
@@ -82,12 +87,12 @@ struct SourceCapabilityProofCollector<'a> {
     raw_memory: RawMemoryEvidence,
     owner_aggregate: OwnerAggregateProofEvidence,
     compiler_memory_types: BTreeSet<CompilerMemoryType>,
-    function_has_raw_memory_evidence: Vec<bool>,
+    function_has_raw_operation_evidence: Vec<bool>,
 }
 
 impl SourceCapabilityProofCollector<'_> {
-    fn record_raw_memory_evidence(&mut self) {
-        if let Some(frame) = self.function_has_raw_memory_evidence.last_mut() {
+    fn record_raw_operation_evidence(&mut self) {
+        if let Some(frame) = self.function_has_raw_operation_evidence.last_mut() {
             *frame = true;
         }
     }
@@ -105,29 +110,27 @@ impl SourceCapabilityProofCollector<'_> {
     }
 
     fn collect_raw_builtin_evidence(&mut self, symbol: &str) {
-        let mut observed = false;
-        if RawMemoryBoundaryEvidence::from_symbol(symbol).is_some() {
+        if RawMemoryStructuralEvidence::from_symbol(symbol).is_some() {
             self.raw_memory.structural_boundary = true;
-            observed = true;
+        }
+        if RawAddressViewEvidence::from_symbol(symbol).is_some() {
+            self.raw_memory.raw_address_view_boundary = true;
         }
         if let Some(operation) = raw_memory_op_from_name(symbol) {
             self.raw_memory.operations.insert(operation);
-            observed = true;
-        }
-        if observed {
-            self.record_raw_memory_evidence();
+            self.record_raw_operation_evidence();
         }
     }
 
     fn collect_raw_body_evidence(&mut self, body: HirBody) {
         for operation in raw_body_memory_operations(&body) {
             self.raw_memory.raw_body_operations.insert(operation);
-            self.record_raw_memory_evidence();
+            self.record_raw_operation_evidence();
         }
         for callee in raw_body_direct_callees(&body) {
             if let Some(operation) = raw_memory_op_from_name(&callee) {
                 self.raw_memory.operations.insert(operation);
-                self.record_raw_memory_evidence();
+                self.record_raw_operation_evidence();
             }
         }
     }
@@ -174,11 +177,14 @@ impl SourceCapabilityProofCollector<'_> {
 
 impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
     fn observe_named_function_start(&mut self, _name: &str, _scope: &SourceCapabilityScope) {
-        self.function_has_raw_memory_evidence.push(false);
+        self.function_has_raw_operation_evidence.push(false);
     }
 
     fn observe_named_function_end(&mut self, name: &str, _scope: &SourceCapabilityScope) {
-        let has_body_evidence = self.function_has_raw_memory_evidence.pop().unwrap_or(false);
+        let has_body_evidence = self
+            .function_has_raw_operation_evidence
+            .pop()
+            .unwrap_or(false);
         if has_body_evidence {
             if let Some(operation) = raw_memory_op_from_name(name) {
                 self.raw_memory.operations.insert(operation);

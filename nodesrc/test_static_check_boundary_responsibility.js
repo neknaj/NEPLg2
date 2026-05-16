@@ -555,6 +555,7 @@ assertLineLimit(
 assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
 assertContains(sourceMap, 'RawMemoryStructuralBoundary', 'source_map.rs');
+assertContains(sourceMap, 'RawAddressViewBoundary', 'source_map.rs');
 assertContains(sourceMap, 'RawMemoryOperationBoundary(RawMemoryOp)', 'source_map.rs');
 assertContains(sourceMap, 'RawBodyMemoryOperationBoundary(RawBodyMemoryOp)', 'source_map.rs');
 assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
@@ -569,8 +570,18 @@ assertContains(
     'source_map.rs',
 );
 assertContains(
+    sourceMap,
+    'raw_address_view_boundary_allowed',
+    'source_map.rs',
+);
+assertContains(
     sourceCapabilityRawMemoryEvidence,
-    'enum RawMemoryBoundaryEvidence',
+    'enum RawMemoryStructuralEvidence',
+    'source_capability/raw_memory/evidence.rs',
+);
+assertContains(
+    sourceCapabilityRawMemoryEvidence,
+    'enum RawAddressViewEvidence',
     'source_capability/raw_memory/evidence.rs',
 );
 assertContains(
@@ -777,6 +788,11 @@ assertContains(
     resourcePrimitives,
     'pub(crate) enum MemoryHelperPrimitive',
     'resource_primitives.rs',
+);
+assertContains(
+    resourcePrimitives,
+    'is_raw_address_view_boundary_evidence',
+    'memory helper primitive roles must distinguish raw address view evidence from owner-token construction',
 );
 assertContains(
     sourceCapabilityMemoryTypeDefinition,
@@ -997,13 +1013,13 @@ assertContains(
 );
 assertContains(
     sourceCapabilityProof,
-    'function_has_raw_memory_evidence',
-    'raw helper definitions must grant their operation only when the body has raw evidence',
+    'function_has_raw_operation_evidence',
+    'raw helper definitions must grant their operation only when the body has raw operation evidence',
 );
 assertContains(
     sourceCapabilityProof,
-    'function_has_raw_memory_evidence.last_mut()',
-    'raw helper definition evidence must be scoped to the currently walked function frame',
+    'function_has_raw_operation_evidence.last_mut()',
+    'raw helper definition operation evidence must be scoped to the currently walked function frame',
 );
 assertContains(
     sourceCapabilityProof,
@@ -1012,7 +1028,7 @@ assertContains(
 );
 assertNotContains(
     sourceCapabilityProof,
-    'for frame in &mut self.function_has_raw_memory_evidence',
+    'for frame in &mut self.function_has_raw_operation_evidence',
     'nested raw helper evidence must not mark every active function frame',
 );
 assertNotContains(
@@ -1044,6 +1060,16 @@ assertContains(
     sourceCapabilityRawMemoryEvidence,
     'MemoryHelperPrimitive::from_symbol(name)',
     'raw address helper evidence must use the central memory helper registry',
+);
+assertContains(
+    sourceCapabilityRawMemoryEvidence,
+    'MemoryHelperPrimitive::is_raw_address_view_boundary_evidence',
+    'raw address helper evidence must use the central helper role classifier',
+);
+assertContains(
+    sourceCapabilityRawMemoryEvidence,
+    'compiler_memory_type_from_constructor_name(name)',
+    'raw structural evidence must use compiler memory constructor registry only for restricted constructors',
 );
 for (const helperName of [
     '"mem_ptr_wrap"',
@@ -1158,6 +1184,16 @@ assertContains(
 );
 assertContains(
     loader,
+    'fn raw_memory_boundary_does_not_promote_address_view_helper_to_operation_definition()',
+    'loader.rs raw address view must not become raw operation evidence',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_rejects_owner_constructor_helper_as_address_view_evidence()',
+    'loader.rs owner-token helper calls must not prove raw address view boundary',
+);
+assertContains(
+    loader,
     'fn raw_memory_boundary_ignores_shadowed_qualified_parameter_names()',
     'loader.rs raw qualified shadow regression',
 );
@@ -1260,6 +1296,11 @@ assertMatches(
     compiler,
     /ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_operation_boundary_allowed\(span\.file_id, \*operation\)\)\s*\.unwrap_or\(false\)\s*\}/,
     'compiler.rs raw memory outside-boundary suppression must require the exact raw-memory operation capability',
+);
+assertMatches(
+    compiler,
+    /ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary\s*\{\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_address_view_boundary_allowed\(span\.file_id\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    'compiler.rs raw address view suppression must require the raw-address-view capability',
 );
 assertMatches(
     compiler,

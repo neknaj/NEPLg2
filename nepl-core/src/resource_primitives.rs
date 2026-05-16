@@ -91,6 +91,20 @@ impl MemoryHelperPrimitive {
     pub(crate) const fn returns_non_owning_address_view(self) -> bool {
         matches!(self, Self::MemPtrAddr | Self::RegionPtr | Self::StrAddr)
     }
+
+    pub(crate) const fn is_raw_address_view_boundary_evidence(self) -> bool {
+        match self {
+            Self::MemPtrWrap
+            | Self::MemPtrAddr
+            | Self::MemPtrAdd
+            | Self::RegionPtr
+            | Self::RegionPtrAt
+            | Self::RegionTokenRawRef
+            | Self::StrAddr
+            | Self::StrFromAddrUnchecked => true,
+            Self::RegionNew => false,
+        }
+    }
 }
 
 #[cfg(test)]
