@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-16T07:25:17.522Z",
+  "generated_at": "2026-05-16T07:38:06.954Z",
   "counts": {
-    "total": 875,
+    "total": 876,
     "open": 5,
-    "resolved": 870,
+    "resolved": 871,
     "by_area": {
       "stdlib": {
         "total": 256,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 432,
+        "total": 433,
         "open": 0,
-        "resolved": 432
+        "resolved": 433
       },
       "CORE": {
         "total": 1,
@@ -6523,6 +6523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T054508246Z-RESOURCE-IR-OWNER-REGRESSION-EXACT-T-0E97FFDF.md"
+    },
+    {
+      "id": "ISS-20260516T073151046Z-SOURCE-CAPABILITY-RAW-HELPER-BODY-EV-43BC8055",
+      "title": "source capability raw helper body evidence leaks across nested function scopes",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-16",
+      "updated": "2026-05-16",
+      "target": "nepl-core/src/source_capability/proof.rs, nepl-core/src/source_capability/walk.rs, nepl-core/src/loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260516T073151046Z-SOURCE-CAPABILITY-RAW-HELPER-BODY-EV-43BC8055.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

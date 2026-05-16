@@ -935,6 +935,16 @@ assertContains(
     'function_has_raw_memory_evidence',
     'raw helper definitions must grant their operation only when the body has raw evidence',
 );
+assertContains(
+    sourceCapabilityProof,
+    'function_has_raw_memory_evidence.last_mut()',
+    'raw helper definition evidence must be scoped to the currently walked function frame',
+);
+assertNotContains(
+    sourceCapabilityProof,
+    'for frame in &mut self.function_has_raw_memory_evidence',
+    'nested raw helper evidence must not mark every active function frame',
+);
 assertNotContains(
     sourceCapabilityRawMemory,
     'PrefixCallHead::new',
@@ -1060,6 +1070,11 @@ assertContains(
     loader,
     'fn raw_memory_boundary_accepts_raw_helper_definition_evidence()',
     'loader.rs raw helper definition operation evidence regression',
+);
+assertContains(
+    loader,
+    'fn raw_memory_boundary_keeps_raw_helper_body_evidence_function_scoped()',
+    'loader.rs raw helper definition nested-scope regression',
 );
 assertContains(
     loader,

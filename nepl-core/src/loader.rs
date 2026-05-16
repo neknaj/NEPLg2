@@ -1469,6 +1469,34 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_keeps_raw_helper_body_evidence_function_scoped() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "allocator.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "pub fn alloc_raw <(i32)->i32> (size):\n",
+                "    fn nested <(i32)->i32> (ptr):\n",
+                "        load_i32 ptr\n",
+                "    size\n",
+            ),
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Alloc),
+            "raw evidence in a nested function must not grant the outer raw helper name operation"
+        );
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "nested raw helper body still contributes exact module-level operation evidence"
+        );
+        assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
+    }
+
+    #[test]
     fn raw_memory_boundary_accepts_restricted_constructor_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

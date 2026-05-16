@@ -39804,3 +39804,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-16 Agent 1 source capability raw helper frame evidence 修正
+
+- `ISS-20260516T073151046Z-SOURCE-CAPABILITY-RAW-HELPER-BODY-EV-43BC8055` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`SourceCapabilityProofCollector::record_raw_memory_evidence` が raw memory evidence を active な全 function frame に記録していたことだった。nested function が `load_i32` などを使うだけで、外側の `alloc_raw` 関数にも body evidence が付いたことになり、source AST から証明できない `RawMemoryOp::Alloc` capability が過大付与され得た。
+- 修正後は現在 walk 中の function frame だけへ evidence を記録する。nested body の exact raw operation evidence は module-level capability として残るため、証明力を削らず、raw helper name と self body evidence の対応だけを lexical function scope に閉じた。
+- `nodesrc/test_static_check_boundary_responsibility.js` に `last_mut()` による current-frame 記録と、全 frame 更新禁止を固定した。loader regression では外側 `alloc_raw` が nested `load_i32` helper だけを持つ場合に `Alloc` capability を得ず、`Load` capability だけが残ることを確認する。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 6 source capability unified proof 進捗と issue 整理に反映した。
+- focused verification:
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary_keeps_raw_helper_body_evidence_function_scoped -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary -- --nocapture`: 16 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

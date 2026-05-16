@@ -87,7 +87,7 @@ struct SourceCapabilityProofCollector<'a> {
 
 impl SourceCapabilityProofCollector<'_> {
     fn record_raw_memory_evidence(&mut self) {
-        for frame in &mut self.function_has_raw_memory_evidence {
+        if let Some(frame) = self.function_has_raw_memory_evidence.last_mut() {
             *frame = true;
         }
     }
