@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T05:09:39.840Z",
+  "generated_at": "2026-05-17T05:19:52.916Z",
   "counts": {
-    "total": 911,
+    "total": 912,
     "open": 5,
-    "resolved": 906,
+    "resolved": 907,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 461,
+        "total": 462,
         "open": 0,
-        "resolved": 461
+        "resolved": 462
       },
       "CORE": {
         "total": 1,
@@ -6958,6 +6958,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T050529675Z-FIELD-ACCESSOR-INTRINSIC-DETECTION-D-D864665B.md"
+    },
+    {
+      "id": "ISS-20260517T051256916Z-PREFIX-INTRINSIC-FIELD-ACCESS-STILL--AB3AD18A",
+      "title": "prefix intrinsic field access still branches on field accessor strings",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/prefix_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T051256916Z-PREFIX-INTRINSIC-FIELD-ACCESS-STILL--AB3AD18A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
