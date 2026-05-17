@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T08:18:42.632Z",
+  "generated_at": "2026-05-17T08:28:16.468Z",
   "counts": {
-    "total": 929,
+    "total": 930,
     "open": 5,
-    "resolved": 924,
+    "resolved": 925,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 475,
+        "total": 476,
         "open": 0,
-        "resolved": 475
+        "resolved": 476
       },
       "CORE": {
         "total": 1,
@@ -7218,6 +7218,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T080907212Z-TYPECHECK-VERBOSE-LOGGING-STILL-USES-A2497472.md"
+    },
+    {
+      "id": "ISS-20260517T082244329Z-RESOURCE-IR-REGION-PTR-AT-LOWERING-H-F552468A",
+      "title": "Resource IR region_ptr_at lowering hardcodes Result Ok payload spelling",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/lower_raw_address.rs; nepl-core/src/resource/result_variant.rs; nodesrc/test_resource_checker_responsibility.js; doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T082244329Z-RESOURCE-IR-REGION-PTR-AT-LOWERING-H-F552468A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
