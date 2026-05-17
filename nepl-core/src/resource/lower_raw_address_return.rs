@@ -118,6 +118,7 @@ fn raw_address_source_from_return_expr(
             func_ref_base_name(callee)?,
             args,
             expr.ty,
+            RawAddressReturnCalleeEvidence::OrdinaryCall,
             function,
             hir_args,
             arg_places,
@@ -127,6 +128,7 @@ fn raw_address_source_from_return_expr(
             helper_base_name(name),
             args,
             expr.ty,
+            RawAddressReturnCalleeEvidence::Intrinsic,
             function,
             hir_args,
             arg_places,
@@ -155,6 +157,21 @@ enum RawAddressReturnContext {
     AddressOperand,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RawAddressReturnCalleeEvidence {
+    OrdinaryCall,
+    Intrinsic,
+}
+
+impl RawAddressReturnCalleeEvidence {
+    fn field_accessor_kind(self, name: &str) -> Option<FieldAccessorKind> {
+        match self {
+            Self::OrdinaryCall => None,
+            Self::Intrinsic => FieldAccessorKind::from_intrinsic_name(helper_base_name(name)),
+        }
+    }
+}
+
 fn raw_address_source_from_return_operand_expr(
     expr: &HirExpr,
     function: &HirFunction,
@@ -176,6 +193,7 @@ fn raw_address_source_from_return_named_call(
     name: &str,
     args: &[HirExpr],
     return_ty: TypeId,
+    callee_evidence: RawAddressReturnCalleeEvidence,
     function: &HirFunction,
     hir_args: &[HirExpr],
     arg_places: &[Place],
@@ -228,7 +246,7 @@ fn raw_address_source_from_return_named_call(
     ) {
         return Some(source);
     }
-    let field_accessor = FieldAccessorKind::from_call_base_name(helper_base_name(name));
+    let field_accessor = callee_evidence.field_accessor_kind(name);
     if field_accessor == Some(FieldAccessorKind::Get)
         && args.len() >= 2
         && literal_field_name(env, &args[1]) == Some(CompilerMemoryFieldSpec::RawI32.name())

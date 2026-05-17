@@ -769,6 +769,11 @@ assertNotContains(
     'FieldAccessorKind::from_call_base_name',
     'resource/lower.rs direct call recursion must not classify field access from callee spelling',
 );
+assertNotContains(
+    resourceLowerRawAddressReturn,
+    'FieldAccessorKind::from_call_base_name',
+    'resource/lower_raw_address_return.rs must not classify transparent field projection proof from ordinary callee spelling',
+);
 assertContains(
     typecheckPrefixCheck,
     'field_accessor.argument_count()',

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T17:47:19.265Z",
+  "generated_at": "2026-05-17T18:00:06.000Z",
   "counts": {
-    "total": 955,
+    "total": 956,
     "open": 5,
-    "resolved": 950,
+    "resolved": 951,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 493,
+        "total": 494,
         "open": 0,
-        "resolved": 493
+        "resolved": 494
       },
       "CORE": {
         "total": 1,
@@ -7488,6 +7488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T173445922Z-RESOURCE-IR-FIELD-PROJECTION-PROOF-A-7ABBA4D1.md"
+    },
+    {
+      "id": "ISS-20260517T175341624Z-TRANSPARENT-RAW-ADDRESS-RETURN-PROOF-52AEEF7B",
+      "title": "transparent raw address return proof accepts ordinary get calls",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/lower_raw_address_return.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T175341624Z-TRANSPARENT-RAW-ADDRESS-RETURN-PROOF-52AEEF7B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

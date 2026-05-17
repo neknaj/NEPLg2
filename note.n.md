@@ -41064,3 +41064,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core --tests`: passed
   - `cargo test -p nepl-core resource::lower::tests::ordinary_get_direct_call_is_not_field_projection -- --nocapture`: 1 passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+
+## 2026-05-18 Agent 1 transparent raw-address return proof boundary 修正
+
+- `ISS-20260517T175341624Z-TRANSPARENT-RAW-ADDRESS-RETURN-PROOF-52AEEF7B` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の ordinary direct call 修正後も、transparent raw-address return analysis だけが `FieldAccessorKind::from_call_base_name` を使い、function body の return expression にある ordinary `get` call を compiler field projection proof として扱い得たことだった。
+- 修正後は `RawAddressReturnCalleeEvidence` enum で ordinary call と intrinsic evidence を分け、field accessor projection proof は intrinsic branch で `FieldAccessorKind::from_intrinsic_name` を読む場合だけ成立する。古い `FieldAccessorKind::from_call_base_name` API は削除した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource::lower::tests -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core resource::lower::tests::transparent_raw_address_return_ignores_ordinary_get_call -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only
