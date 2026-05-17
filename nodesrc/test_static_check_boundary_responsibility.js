@@ -388,6 +388,16 @@ assertContains(
     'typecheck/model.rs must keep scalar intrinsic types in a typed enum domain',
 );
 assertContains(
+    typecheckModel,
+    'pub(super) enum CoreIntrinsicKind',
+    'typecheck/model.rs must keep core intrinsic result rules in a typed enum domain',
+);
+assertContains(
+    typecheckModel,
+    'pub(super) enum CoreIntrinsicResultKind',
+    'typecheck/model.rs must keep core intrinsic result types in a typed enum domain',
+);
+assertContains(
     typecheckBindingRules,
     'FieldAccessorKind::from_intrinsic_name',
     'typecheck/binding_rules.rs must use typed field accessor intrinsic classification',
@@ -424,6 +434,16 @@ assertContains(
 );
 assertContains(
     typecheckPrefixCheck,
+    'CoreIntrinsicKind::from_intrinsic_name',
+    'typecheck/prefix_check.rs must use typed core intrinsic classification',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'core_intrinsic_type_id',
+    'typecheck/prefix_check.rs must derive core intrinsic result types from CoreIntrinsicKind',
+);
+assertContains(
+    typecheckPrefixCheck,
     'scalar_intrinsic.output_type()',
     'typecheck/prefix_check.rs must derive scalar intrinsic result types from ScalarIntrinsicKind',
 );
@@ -452,6 +472,20 @@ for (const scalarIntrinsicName of [
         typecheckPrefixCheck,
         `intrin.name == "${scalarIntrinsicName}"`,
         `typecheck/prefix_check.rs must not duplicate ${scalarIntrinsicName} branch spelling outside ScalarIntrinsicKind`,
+    );
+}
+for (const coreIntrinsicName of [
+    'size_of',
+    'align_of',
+    'load',
+    'store',
+    'callsite_span',
+    'unreachable',
+]) {
+    assertNotContains(
+        typecheckPrefixCheck,
+        `intrin.name == "${coreIntrinsicName}"`,
+        `typecheck/prefix_check.rs must not duplicate ${coreIntrinsicName} branch spelling outside CoreIntrinsicKind`,
     );
 }
 assertNotContains(

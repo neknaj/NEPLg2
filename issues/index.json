@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T05:59:57.374Z",
+  "generated_at": "2026-05-17T06:08:12.782Z",
   "counts": {
-    "total": 917,
+    "total": 918,
     "open": 5,
-    "resolved": 912,
+    "resolved": 913,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 467,
+        "total": 468,
         "open": 0,
-        "resolved": 467
+        "resolved": 468
       },
       "CORE": {
         "total": 1,
@@ -7048,6 +7048,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T055606243Z-RAW-MEMORY-HELPER-EFFECT-MARKERS-DUP-617FE309.md"
+    },
+    {
+      "id": "ISS-20260517T060320513Z-PREFIX-CORE-INTRINSIC-RESULT-TYPING--0B7AACB4",
+      "title": "prefix core intrinsic result typing still uses string branches",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/prefix_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T060320513Z-PREFIX-CORE-INTRINSIC-RESULT-TYPING--0B7AACB4.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

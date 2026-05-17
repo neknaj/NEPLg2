@@ -91,6 +91,60 @@ impl FieldAccessorKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CoreIntrinsicKind {
+    SizeOf,
+    AlignOf,
+    Load,
+    Store,
+    CallsiteSpan,
+    Unreachable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CoreIntrinsicResultKind {
+    I32,
+    Unit,
+    Never,
+    FirstTypeArgOrUnit,
+    FirstTypeArgOrDiagnostic,
+}
+
+impl CoreIntrinsicKind {
+    pub(super) fn from_intrinsic_name(name: &str) -> Option<Self> {
+        match name {
+            "size_of" => Some(Self::SizeOf),
+            "align_of" => Some(Self::AlignOf),
+            "load" => Some(Self::Load),
+            "store" => Some(Self::Store),
+            "callsite_span" => Some(Self::CallsiteSpan),
+            "unreachable" => Some(Self::Unreachable),
+            _ => None,
+        }
+    }
+
+    pub(super) const fn intrinsic_name(self) -> &'static str {
+        match self {
+            Self::SizeOf => "size_of",
+            Self::AlignOf => "align_of",
+            Self::Load => "load",
+            Self::Store => "store",
+            Self::CallsiteSpan => "callsite_span",
+            Self::Unreachable => "unreachable",
+        }
+    }
+
+    pub(super) const fn result_kind(self) -> CoreIntrinsicResultKind {
+        match self {
+            Self::SizeOf | Self::AlignOf => CoreIntrinsicResultKind::I32,
+            Self::Load => CoreIntrinsicResultKind::FirstTypeArgOrUnit,
+            Self::Store => CoreIntrinsicResultKind::Unit,
+            Self::CallsiteSpan => CoreIntrinsicResultKind::FirstTypeArgOrDiagnostic,
+            Self::Unreachable => CoreIntrinsicResultKind::Never,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ScalarIntrinsicType {
     I32,
     I64,
@@ -226,7 +280,10 @@ pub(super) enum AssignKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{FieldAccessorKind, ScalarIntrinsicKind, ScalarIntrinsicType};
+    use super::{
+        CoreIntrinsicKind, CoreIntrinsicResultKind, FieldAccessorKind, ScalarIntrinsicKind,
+        ScalarIntrinsicType,
+    };
 
     #[test]
     fn field_accessor_intrinsic_names_round_trip_through_kind() {
@@ -248,6 +305,34 @@ mod tests {
         assert_eq!(FieldAccessorKind::Get.argument_count(), 2);
         assert_eq!(FieldAccessorKind::GetRef.argument_count(), 2);
         assert_eq!(FieldAccessorKind::Put.argument_count(), 3);
+    }
+
+    #[test]
+    fn core_intrinsic_result_kinds_round_trip_through_kind() {
+        for (kind, result_kind) in [
+            (CoreIntrinsicKind::SizeOf, CoreIntrinsicResultKind::I32),
+            (CoreIntrinsicKind::AlignOf, CoreIntrinsicResultKind::I32),
+            (
+                CoreIntrinsicKind::Load,
+                CoreIntrinsicResultKind::FirstTypeArgOrUnit,
+            ),
+            (CoreIntrinsicKind::Store, CoreIntrinsicResultKind::Unit),
+            (
+                CoreIntrinsicKind::CallsiteSpan,
+                CoreIntrinsicResultKind::FirstTypeArgOrDiagnostic,
+            ),
+            (
+                CoreIntrinsicKind::Unreachable,
+                CoreIntrinsicResultKind::Never,
+            ),
+        ] {
+            assert_eq!(
+                CoreIntrinsicKind::from_intrinsic_name(kind.intrinsic_name()),
+                Some(kind)
+            );
+            assert_eq!(kind.result_kind(), result_kind);
+        }
+        assert_eq!(CoreIntrinsicKind::from_intrinsic_name("i32_to_f32"), None);
     }
 
     #[test]
