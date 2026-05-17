@@ -38,11 +38,12 @@ mod trait_call_apply;
 mod trait_check;
 mod traits;
 mod type_expr;
+use crate::intrinsic_kinds::FieldAccessorKind;
 use context::BlockChecker;
 use function_check::check_function;
 use model::{
-    AssignKind, CoreIntrinsicKind, CoreIntrinsicResultKind, FieldAccessorKind, FieldIdx,
-    ScalarIntrinsicKind, ScalarIntrinsicType, ScalarMatchKind, StackEntry,
+    AssignKind, CoreIntrinsicKind, CoreIntrinsicResultKind, FieldIdx, ScalarIntrinsicKind,
+    ScalarIntrinsicType, ScalarMatchKind, StackEntry,
 };
 use traits::BoundEnv;
 

@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
+use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::resource_primitives::MemoryHelperPrimitive;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -40,7 +41,9 @@ pub(super) fn get_field_intrinsic_owner<'a>(
     types: &TypeCtx,
     string_literals: &[String],
 ) -> Option<&'a HirExpr> {
-    if helper_base_name(name) != "get_field" {
+    if FieldAccessorKind::from_intrinsic_name(helper_base_name(name))
+        != Some(FieldAccessorKind::Get)
+    {
         return None;
     }
     let owner = args.first()?;
@@ -55,7 +58,9 @@ pub(super) fn get_field_ref_intrinsic_owner<'a>(
     types: &TypeCtx,
     string_literals: &[String],
 ) -> Option<&'a HirExpr> {
-    if helper_base_name(name) != "get_field_ref" {
+    if FieldAccessorKind::from_intrinsic_name(helper_base_name(name))
+        != Some(FieldAccessorKind::GetRef)
+    {
         return None;
     }
     let owner = args.first()?;

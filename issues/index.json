@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T06:08:12.782Z",
+  "generated_at": "2026-05-17T06:16:07.129Z",
   "counts": {
-    "total": 918,
+    "total": 919,
     "open": 5,
-    "resolved": 913,
+    "resolved": 914,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 468,
+        "total": 469,
         "open": 0,
-        "resolved": 468
+        "resolved": 469
       },
       "CORE": {
         "total": 1,
@@ -7063,6 +7063,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T060320513Z-PREFIX-CORE-INTRINSIC-RESULT-TYPING--0B7AACB4.md"
+    },
+    {
+      "id": "ISS-20260517T061045507Z-RESOURCE-FIELD-ACCESSOR-INTRINSIC-PR-9951F2BE",
+      "title": "resource field accessor intrinsic proof duplicates typecheck spelling",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/lower_aggregate.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T061045507Z-RESOURCE-FIELD-ACCESSOR-INTRINSIC-PR-9951F2BE.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -40363,6 +40363,8 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only
 
 ## 2026-05-17 Agent 1 host effect enum 列挙元修正
 
@@ -40432,3 +40434,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+
+## 2026-05-17 Agent 1 shared field accessor intrinsic kind 修正
+
+- `ISS-20260517T061045507Z-RESOURCE-FIELD-ACCESSOR-INTRINSIC-PR-9951F2BE` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、typecheck 側では `FieldAccessorKind` が field accessor intrinsic spelling を所有していた一方で、Resource IR の aggregate projection coverage / lowering が `get_field` / `get_field_ref` を direct string branch で再分類していたことだった。
+- 修正後は `FieldAccessorKind` を crate-level `intrinsic_kinds.rs` へ移し、typecheck と Resource IR の両方が同じ enum domain を消費するようにした。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core field_accessor_intrinsic --lib -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test neplg2 field_accessor_intrinsic_arg_arity_has_type_code -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
