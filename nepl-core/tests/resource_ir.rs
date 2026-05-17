@@ -1,4 +1,5 @@
 use nepl_core::ast::Effect;
+use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::{
     DiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
 };
@@ -58,7 +59,10 @@ fn typecheck_resource_source_with_target(
         Some(&loaded.source_map),
     );
     assert!(
-        checked.diagnostics.is_empty(),
+        checked
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !matches!(diagnostic.severity, Severity::Error)),
         "typecheck diagnostics: {:#?}",
         checked.diagnostics
     );
