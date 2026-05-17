@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T05:19:52.916Z",
+  "generated_at": "2026-05-17T05:28:16.825Z",
   "counts": {
-    "total": 912,
+    "total": 913,
     "open": 5,
-    "resolved": 907,
+    "resolved": 908,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 462,
+        "total": 463,
         "open": 0,
-        "resolved": 462
+        "resolved": 463
       },
       "CORE": {
         "total": 1,
@@ -6973,6 +6973,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T051256916Z-PREFIX-INTRINSIC-FIELD-ACCESS-STILL--AB3AD18A.md"
+    },
+    {
+      "id": "ISS-20260517T052246957Z-FIELD-ACCESSOR-INTRINSIC-ARITY-CAN-P-CA712F19",
+      "title": "field accessor intrinsic arity can panic before diagnostics",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/prefix_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T052246957Z-FIELD-ACCESSOR-INTRINSIC-ARITY-CAN-P-CA712F19.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -760,6 +760,24 @@ fn main <()->()> ():
 }
 
 #[test]
+fn field_accessor_intrinsic_arg_arity_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+struct Pair:
+    x <i32>
+    y <i32>
+
+fn main <()->()> ():
+    let p Pair 1 2;
+    #intrinsic "set_field" <> (p,"x")
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::IntrinsicArgArityMismatch);
+}
+
+#[test]
 fn invalid_integer_literal_has_type_code() {
     let src = r#"
 #entry main
