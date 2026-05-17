@@ -40349,3 +40349,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core field_accessor_intrinsic_names_round_trip_through_kind --lib -- --nocapture`: 1 passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-17 Agent 1 field accessor intrinsic arity 診断修正
+
+- `ISS-20260517T052246957Z-FIELD-ACCESSOR-INTRINSIC-ARITY-CAN-P-CA712F19` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、field accessor intrinsic の spelling は `FieldAccessorKind` に寄った一方で、必要引数数が enum domain の契約になっておらず、`prefix_check.rs` が `set_field` の引数不足時に `args[2]` を診断前に参照し得たことだった。
+- 修正後は `FieldAccessorKind::argument_count()` を追加し、prefix checker が `match` lowering の前に `args.len()` を検査する。不一致なら `type.intrinsic.arg_arity_mismatch` diagnostic を発行して generic intrinsic recovery に進むため、malformed source は compiler panic ではなく structured error になる。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core field_accessor_intrinsic --lib -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test neplg2 field_accessor_intrinsic_arg_arity_has_type_code -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only

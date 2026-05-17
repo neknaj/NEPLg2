@@ -81,6 +81,13 @@ impl FieldAccessorKind {
             Self::Put => "set_field",
         }
     }
+
+    pub(super) const fn argument_count(self) -> usize {
+        match self {
+            Self::Get | Self::GetRef => 2,
+            Self::Put => 3,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -108,6 +115,13 @@ mod tests {
             );
         }
         assert_eq!(FieldAccessorKind::from_intrinsic_name("get"), None);
+    }
+
+    #[test]
+    fn field_accessor_intrinsic_argument_counts_are_kind_owned() {
+        assert_eq!(FieldAccessorKind::Get.argument_count(), 2);
+        assert_eq!(FieldAccessorKind::GetRef.argument_count(), 2);
+        assert_eq!(FieldAccessorKind::Put.argument_count(), 3);
     }
 }
 

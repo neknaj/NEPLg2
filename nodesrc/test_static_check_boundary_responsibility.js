@@ -373,6 +373,11 @@ assertContains(
     'typecheck/model.rs must keep field accessor intrinsic spelling on FieldAccessorKind',
 );
 assertContains(
+    typecheckModel,
+    'const fn argument_count',
+    'typecheck/model.rs must keep field accessor intrinsic arity on FieldAccessorKind',
+);
+assertContains(
     typecheckBindingRules,
     'FieldAccessorKind::from_intrinsic_name',
     'typecheck/binding_rules.rs must use typed field accessor intrinsic classification',
@@ -396,6 +401,11 @@ assertContains(
     typecheckPrefixCheck,
     'FieldAccessorKind::from_intrinsic_name',
     'typecheck/prefix_check.rs must use typed field accessor intrinsic classification',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'field_accessor.argument_count()',
+    'typecheck/prefix_check.rs must validate field accessor arity through FieldAccessorKind',
 );
 assertNotContains(
     typecheckPrefixCheck,
