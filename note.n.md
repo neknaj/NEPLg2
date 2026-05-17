@@ -40100,3 +40100,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core loader::tests::raw_memory_boundary_accepts_same_name_raw_helper_wrapper_evidence -- --exact --nocapture`: passed
   - `cargo fmt -p nepl-core --check`: passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+
+## 2026-05-17 Agent 1 source capability use-site proof 設計監査
+
+- 静的検査 proof 設計を確認し、調査報告を Discord に送った。`plan.md` は変更していない。
+- 現行 main は `source_capability/walk.rs` と `source_capability/proof.rs` により、raw memory / owner aggregate / compiler memory type evidence を単一 source proof traversal で収集している。個別 module ごとの proof engine や stdlib path allowlist へ戻ってはいない。
+- 一方で、proof の消費単位がまだ `SourceCapabilities` の file-level enum set であることを設計残件として確認した。`compiler.rs` と `typecheck/effect_check.rs` は raw operation / raw address / checked MemPtr の許可を `span.file_id` と operation で query しているため、exact privileged use site の proof にはなっていない。
+- `ISS-20260517T004939361Z-SOURCE-CAPABILITY-PROOF-IS-STILL-CON-C609583C` を追加した。compiler-owned stdlib eligibility と exact use-site proof artifact を分離し、raw operation / raw body / raw address view / owner aggregate / compiler memory definition の各 use を typed query へ移す方針にした。

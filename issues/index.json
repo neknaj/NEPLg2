@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T00:42:19.538Z",
+  "generated_at": "2026-05-17T00:49:39.518Z",
   "counts": {
-    "total": 894,
-    "open": 5,
+    "total": 895,
+    "open": 6,
     "resolved": 889,
     "by_area": {
+      "core": {
+        "total": 451,
+        "open": 1,
+        "resolved": 450
+      },
       "stdlib": {
         "total": 257,
         "open": 3,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 450,
-        "open": 0,
-        "resolved": 450
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260517T004939361Z-SOURCE-CAPABILITY-PROOF-IS-STILL-CON-C609583C",
+      "title": "Source capability proof is still consumed as file-scoped privilege instead of use-site proof",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/proof.rs, nepl-core/src/source_map.rs, nepl-core/src/compiler.rs, nepl-core/src/typecheck/effect_check.rs, nodesrc/test_static_check_boundary_responsibility.js, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T004939361Z-SOURCE-CAPABILITY-PROOF-IS-STILL-CON-C609583C.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
