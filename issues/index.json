@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T05:44:02.357Z",
+  "generated_at": "2026-05-17T05:52:26.974Z",
   "counts": {
-    "total": 915,
+    "total": 916,
     "open": 5,
-    "resolved": 910,
+    "resolved": 911,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 465,
+        "total": 466,
         "open": 0,
-        "resolved": 465
+        "resolved": 466
       },
       "CORE": {
         "total": 1,
@@ -7018,6 +7018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T053938813Z-RAW-MEMORY-INTRINSIC-EFFECT-STILL-US-63EAEAFB.md"
+    },
+    {
+      "id": "ISS-20260517T054640694Z-IMPURE-HOST-EFFECT-MARKERS-DUPLICATE-3783BAA7",
+      "title": "impure host effect markers duplicate typed effect enums",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T054640694Z-IMPURE-HOST-EFFECT-MARKERS-DUPLICATE-3783BAA7.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

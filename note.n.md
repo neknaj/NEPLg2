@@ -40364,6 +40364,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
 
+## 2026-05-17 Agent 1 host effect enum 列挙元修正
+
+- `ISS-20260517T054640694Z-IMPURE-HOST-EFFECT-MARKERS-DUPLICATE-3783BAA7` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、external I/O と nondeterministic host effect が `ExternalIoOp` / `NondetOp` enum で型付き分類されている一方、`IMPURE_IO_EFFECT_MARKERS` という重複 string list も公開され、テストが list と classifier の一致に依存していたことだった。
+- 修正後は旧 marker list を削除し、`ExternalIoOp::ALL` / `NondetOp::ALL` を enum 実装側に追加した。host effect の列挙は enum-owned domain を起点にし、round-trip test と source policy が drift と marker list 再導入を拒否する。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects host_effect -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only
+
 ## 2026-05-17 Agent 1 raw memory intrinsic effect kind 分類修正
 
 - `ISS-20260517T053938813Z-RAW-MEMORY-INTRINSIC-EFFECT-STILL-US-63EAEAFB` を追加して fixed にした。`plan.md` は変更していない。

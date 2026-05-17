@@ -677,6 +677,14 @@ assertContains(effects, 'pub enum RawBodyBackend', 'effects.rs');
 assertContains(effects, 'RawBodyDirectCallee::BackendIntrinsic', 'effects.rs');
 assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum LlvmRawBodyMemoryOp', 'effects.rs');
+assertContains(effects, 'pub enum ExternalIoOp', 'effects.rs');
+assertContains(effects, 'impl ExternalIoOp', 'effects.rs');
+assertContains(effects, 'pub const ALL: &', 'effects.rs');
+assertContains(effects, 'Self::FdRead', 'effects.rs');
+assertContains(effects, 'pub enum NondetOp', 'effects.rs');
+assertContains(effects, 'impl NondetOp', 'effects.rs');
+assertContains(effects, 'Self::RandomGet', 'effects.rs');
+assertNotContains(effects, 'IMPURE_IO_EFFECT_MARKERS', 'effects.rs');
 assertContains(
     effects,
     'pub fn raw_body_memory_operations(body: &HirBody) -> Vec<RawBodyMemoryOp>',
