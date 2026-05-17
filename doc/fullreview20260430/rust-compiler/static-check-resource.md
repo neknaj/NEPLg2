@@ -29,7 +29,7 @@ Resource IR gate は compiler pipeline の authoritative static-check gate と�
 ## 残る問題
 
 - 旧 `passes::move_check::run` fallback は 2026-05-06 に削除済みである。
-- Resource IR check は HIR `passes::insert_drops` より前に実行される。ただし、drop elaboration 自体はまだ HIR pass に残っている。
+- HIR `passes::insert_drops` / `VarState` scope walker は 2026-05-06 の `ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860` で削除済みである。現在の実 drop call 生成は checked `ResourceDropElaborationPlan` を `passes::insert_resource_drops` が消費する。
 - `UnsafeMemoryInPureFunction` は 2026-05-06 時点で compiler error gate へ接続済みである。ただし `stdlib/core/mem.nepl` など raw-memory-boundary capability を持つ移行中 source は Stage 6 完了まで限定許可される。
 - `MemPtr` / `RegionToken` が compiler-issued owner/provenance capability ではないため、owner checker は複雑な alias/variant condition を増やし続ける圧力がある。
 - `tests/stdlib/memory_safety.n.md` の残失敗は、stdlib cleanup ではなく owner token / non-owning pointer 分離が必要な問題として残っている。
@@ -39,7 +39,7 @@ Resource IR gate は compiler pipeline の authoritative static-check gate と�
 
 Resource IR の方向は正しい。型安全・メモリ安全を必達にするなら、HIR direct traversal ではなく Resource IR で resource operation を明示化し、enum state と exhaustive match で検査すべきである。
 
-ただし現状は「二重防壁」であり、最終設計ではない。これを完了と誤認すると、selfhost が旧 checker と Resource IR の両方をコピーする危険がある。
+2026-05-17 時点で、旧 move checker fallback と旧 HIR drop scope walker は削除済みであり、「Resource IR と legacy HIR checker の二重防壁」を selfhost がコピーすべき状況ではない。現時点の主な未完了点は、Stage 6 の raw-memory-backed stdlib public API 境界、`MemPtr = non-owning pointer` / owner token 分離、抽象化機能・diagnostic・stdlib doctest の追従である。
 
 ## 2026-05-06 追補
 
@@ -52,12 +52,12 @@ Resource IR の方向は正しい。型安全・メモリ安全を必達にす�
 
 残る未完了点は「unsafe memory gate が shadow-only かどうか」ではなく、次の点である。
 
-- 旧 `passes::move_check::run` fallback は削除済みであり、Resource IR check は HIR drop insertion より前に実行される。ただし HIR `passes::insert_drops` 自体がまだ drop elaboration authority として残る。
+- 旧 `passes::move_check::run` fallback と旧 HIR `passes::insert_drops` scope walker は削除済みである。drop call 生成は checked `ResourceDropElaborationPlan` consumer へ移行済みで、現在の確認対象は partial field move / nested control-flow / LLVM parity の regression 固定である。
 - raw-memory-boundary capability が stdlib/core/mem 移行のために残っており、safe public API と internal raw implementation の Stage 6 分離が未完了である。
 - `MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は完了していない。
 - owner variant path builder の責務分割は完了済みであり、現在の blocker からは外す。
 
-したがって、今後の優先順位は UnsafeMemory gate の再実装ではなく、HIR drop insertion の Resource IR drop elaboration への置換、owner/provenance capability、stdlib raw-memory-backed API の境界移行である。
+したがって、今後の優先順位は UnsafeMemory gate や旧 drop insertion の再実装ではなく、owner/provenance capability、stdlib raw-memory-backed API の境界移行、Resource IR authority の regression 固定である。
 
 ## 2026-05-06 pre-drop gate 追補
 
@@ -161,11 +161,11 @@ compiler pipeline も、Resource IR check 用 HIR と legacy drop insertion 用 
 
 ## 次の確認対象
 
-- `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。
+- `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。旧 move checker / old drop walker は削除済みなので、今後は checked Resource IR authority の regression 固定と selfhost 設計への反映を確認する。
 - `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`: owner/provenance capability。
 - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`: raw memory operation boundary。
 - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D`: diagnostic parity。
-- `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8`: owner variant path builder の責務分割。
+- `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8`: owner variant path builder の責務分割は解消済み。再集中しないことを `nodesrc/test_resource_checker_responsibility.js` で監視する。
 
 ## selfhost への示唆
 

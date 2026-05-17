@@ -1,3 +1,16 @@
+# 2026-05-17 Agent 1 fullreview static-check resource doc 現状同期
+
+- `ISS-20260517T122212012Z-FULLREVIEW-STATIC-CHECK-RESOURCE-DOC-B3C83DCC` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`doc/fullreview20260430/rust-compiler/static-check-resource.md` の冒頭が、解決済みの HIR `passes::insert_drops` / `VarState` scope walker blocker を現在も残る問題として説明していたこと。
+- 同じ文書の後半には `ResourceDropElaborationPlan consumer` 追補が存在しており、文書内で現在状態と歴史的経緯が矛盾していた。
+- 冒頭「残る問題」と設計評価を更新し、旧 move checker / old drop walker は削除済み、現在の残件は Stage 6 の owner/provenance capability、stdlib raw-memory-backed API 境界、Resource IR authority regression 固定であると整理した。
+- `次の確認対象` も現在状態に合わせ、owner variant path builder は解消済みで source policy 監視対象であることを明記した。
+- 検証:
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の現在状態を fullreview 側にも反映し、古い blocker を根拠に設計判断を誤らないようにした。
+
 # 2026-05-17 Agent 1 top-level raw call propagation event 化
 
 - `ISS-20260517T121456312Z-TOP-LEVEL-RAW-CALL-PROPAGATION-BYPAS-35B3CCC0` を追加し、fixed / resolved にした。`plan.md` は変更していない。
