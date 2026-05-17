@@ -2,8 +2,8 @@
 
 入力値の検証は、最初の失敗を `Err` として返す関数に分けると扱いやすくなります。呼び出し側は `match` で検証結果を受け取ります。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok]
     ##: [0] ok

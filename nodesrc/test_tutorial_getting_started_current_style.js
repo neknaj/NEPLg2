@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { parseFile } = require('./parser.js');
 
 const repoRoot = path.resolve(__dirname, '..');
 const tutorialDir = path.join(repoRoot, 'tutorials', 'getting_started');
@@ -106,7 +107,8 @@ const forbiddenCodePatterns = [
 let doctestCount = 0;
 for (const name of files) {
     const rel = `tutorials/getting_started/${name}`;
-    const text = fs.readFileSync(path.join(tutorialDir, name), 'utf8');
+    const filePath = path.join(tutorialDir, name);
+    const text = fs.readFileSync(filePath, 'utf8');
     const blocks = extractNeplBlocks(text);
     doctestCount += blocks.length;
     for (const block of blocks) {
@@ -114,6 +116,32 @@ for (const name of files) {
             assert.doesNotMatch(block, pattern, `${rel} code block must not contain ${label}`);
         }
     }
+
+    const parsed = parseFile(filePath);
+    parsed.doctests.forEach((doctest, index) => {
+        if (!/#import\s+"std\/test"\s+as\b/.test(doctest.code)) {
+            return;
+        }
+
+        const label = `${rel} doctest#${index + 1}`;
+        assert.deepEqual(
+            doctest.tags,
+            ['stdio', 'normalize_newlines'],
+            `${label} must opt into normalized stdout execution`,
+        );
+        assert.equal(doctest.ret, null, `${label} must not use ret: as an exit-code substitute`);
+        assert.equal(doctest.exit_code, 0, `${label} must pin exit_code: 0`);
+        assert.match(
+            doctest.stdout || '',
+            /^Checked \[[a-z,]+\]\n(?:\[\d+\] [a-z]+\n)+$/,
+            `${label} must pin the deterministic std/test stdout report`,
+        );
+        assert.match(
+            doctest.code,
+            /checks_print_report[\s\S]*checks_exit_code/,
+            `${label} must print the report before deriving the exit code`,
+        );
+    });
 }
 
 assert.ok(doctestCount >= 20, 'current tutorial must keep runnable examples across the main track');

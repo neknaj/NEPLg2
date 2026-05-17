@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T16:32:11.104Z",
+  "generated_at": "2026-05-17T16:47:46.434Z",
   "counts": {
-    "total": 951,
+    "total": 952,
     "open": 5,
-    "resolved": 946,
+    "resolved": 947,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -112,9 +112,9 @@
         "resolved": 3
       },
       "tutorials": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       },
       "web": {
         "total": 2,
@@ -12003,6 +12003,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153.md"
+    },
+    {
+      "id": "ISS-20260517T164243934Z-GETTING-STARTED-STD-TEST-TUTORIALS-K-00E8CD95",
+      "title": "Getting started std/test tutorials keep ret metadata despite stdout reports",
+      "area": "tutorials",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "tutorials/getting_started/*.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T164243934Z-GETTING-STARTED-STD-TEST-TUTORIALS-K-00E8CD95.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

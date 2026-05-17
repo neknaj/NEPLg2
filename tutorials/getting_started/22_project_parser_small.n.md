@@ -2,8 +2,8 @@
 
 parser は byte と char の境界を意識して作ります。text の先頭文字を読むときは、`str_char_at_result` で UTF-8 と範囲を確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok]
     ##: [0] ok
