@@ -55,7 +55,9 @@ pub(super) fn lower_field_get_call_source(
     ctx: &mut LoweringContext,
     env: &LoweringEnvironment,
 ) -> Option<Place> {
-    if func_ref_base_name(callee)? != "get" {
+    if FieldAccessorKind::from_core_field_member_name(func_ref_base_name(callee)?)
+        != Some(FieldAccessorKind::Get)
+    {
         return None;
     }
     let owner = args.first()?;
@@ -86,7 +88,9 @@ pub(super) fn lower_field_get_ref_call_source(
     ctx: &mut LoweringContext,
     env: &LoweringEnvironment,
 ) -> Option<Place> {
-    if func_ref_base_name(callee)? != "get_ref" {
+    if FieldAccessorKind::from_core_field_member_name(func_ref_base_name(callee)?)
+        != Some(FieldAccessorKind::GetRef)
+    {
         return None;
     }
     field_get_ref_source(args, ref_ty, ops, ctx, env)

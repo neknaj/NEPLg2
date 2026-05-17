@@ -18,6 +18,24 @@ impl FieldAccessorKind {
         }
     }
 
+    pub(crate) fn from_core_field_member_name(name: &str) -> Option<Self> {
+        match name {
+            "get" => Some(Self::Get),
+            "get_ref" => Some(Self::GetRef),
+            "put" => Some(Self::Put),
+            _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) const fn core_field_member_name(self) -> &'static str {
+        match self {
+            Self::Get => "get",
+            Self::GetRef => "get_ref",
+            Self::Put => "put",
+        }
+    }
+
     pub(crate) const fn intrinsic_name(self) -> &'static str {
         match self {
             Self::Get => "get_field",
@@ -120,6 +138,24 @@ mod tests {
             );
         }
         assert_eq!(FieldAccessorKind::from_intrinsic_name("get"), None);
+    }
+
+    #[test]
+    fn field_accessor_core_field_members_round_trip_through_kind() {
+        for kind in [
+            FieldAccessorKind::Get,
+            FieldAccessorKind::GetRef,
+            FieldAccessorKind::Put,
+        ] {
+            assert_eq!(
+                FieldAccessorKind::from_core_field_member_name(kind.core_field_member_name()),
+                Some(kind)
+            );
+        }
+        assert_eq!(
+            FieldAccessorKind::from_core_field_member_name("get_field"),
+            None
+        );
     }
 
     #[test]

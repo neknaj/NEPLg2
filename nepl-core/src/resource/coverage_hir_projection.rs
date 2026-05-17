@@ -28,7 +28,7 @@ pub(super) fn field_get_call_owner<'a>(
         FuncRef::Builtin(name) | FuncRef::User(name, _, _) => helper_base_name(name),
         FuncRef::Trait { .. } => return None,
     };
-    if name != "get" {
+    if FieldAccessorKind::from_core_field_member_name(name) != Some(FieldAccessorKind::Get) {
         return None;
     }
     let owner = args.first()?;

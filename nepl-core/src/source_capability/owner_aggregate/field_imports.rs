@@ -2,6 +2,7 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 
 use crate::ast::{Directive, ImportClause, ImportItem};
+use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::qualified_name::split_leading_qualifier;
 
 #[derive(Debug, Default)]
@@ -9,13 +10,6 @@ pub(super) struct CoreFieldAccessorImports {
     field_aliases: BTreeSet<String>,
     field_unqualified_members: BTreeSet<String>,
     field_open_imported: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CoreFieldAccessorMember {
-    Get,
-    GetRef,
-    Put,
 }
 
 impl CoreFieldAccessorImports {
@@ -55,7 +49,7 @@ impl CoreFieldAccessorImports {
                 self.field_open_imported = true;
                 continue;
             }
-            if CoreFieldAccessorMember::from_name(item.name.as_str()).is_none() {
+            if FieldAccessorKind::from_core_field_member_name(item.name.as_str()).is_none() {
                 continue;
             }
             self.field_unqualified_members
@@ -64,23 +58,14 @@ impl CoreFieldAccessorImports {
     }
 
     fn accepts_qualified_accessor(&self, alias: &str, member: &str) -> bool {
-        self.field_aliases.contains(alias) && CoreFieldAccessorMember::from_name(member).is_some()
+        self.field_aliases.contains(alias)
+            && FieldAccessorKind::from_core_field_member_name(member).is_some()
     }
 
     fn accepts_unqualified_accessor(&self, symbol: &str) -> bool {
-        (self.field_open_imported && CoreFieldAccessorMember::from_name(symbol).is_some())
+        (self.field_open_imported
+            && FieldAccessorKind::from_core_field_member_name(symbol).is_some())
             || self.field_unqualified_members.contains(symbol)
-    }
-}
-
-impl CoreFieldAccessorMember {
-    fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "get" => Some(Self::Get),
-            "get_ref" => Some(Self::GetRef),
-            "put" => Some(Self::Put),
-            _ => None,
-        }
     }
 }
 
