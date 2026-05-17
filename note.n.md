@@ -1,3 +1,21 @@
+# 2026-05-17 Agent 1 owner token raw leaf の CompilerMemoryFieldSpec 接続
+
+- `ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194` を追加し、fixed / resolved にした。
+- 根本原因は、`MemPtr` / `RegionToken` definition shape proof を `CompilerMemoryFieldSpec` へ集約した後も、Resource IR owner summary の `RegionToken.raw` leaf 抽出だけが local な field name 判定を持ち、source proof / typecheck proof と別契約になっていたこと。
+- `resource_primitives.rs` に `compiler_memory_type_field_index` を追加し、`CompilerMemoryType::OwnerToken` と `CompilerMemoryFieldSpec::RawI32` から raw field index を導出できるようにした。
+- `owner_summary_owner_token_leaf.rs` は `type_is_owner_token` で TypeCtx の証明済み owner-token identity を確認し、未証明の同形 struct からは raw owner leaf を作らないようにした。
+- 回帰テストとして、shared field spec に基づく leaf 抽出と未証明同形 struct の拒否を追加し、責務検査では local `field_name == "raw"` 判定の再導入を禁止した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core owner_token_leaf --lib -- --nocapture`
+  - `cargo test -p nepl-core compiler_memory_type_field_specs_are_kind_owned --lib -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR owner summary も、source proof / typed registration / shared enum field spec に接続した。
+
 # 2026-05-17 Agent 1 compiler memory type shape spec 集約
 
 - `ISS-20260517T071912004Z-COMPILER-MEMORY-TYPE-DEFINITION-SHAP-EE5DF0E2` を追加し、fixed / resolved にした。

@@ -2,6 +2,10 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::layout::{aggregate_fields_with_offsets, FieldLayout};
+use crate::resource_primitives::{
+    compiler_memory_type_field_index, type_is_owner_token, CompilerMemoryFieldSpec,
+};
+use crate::source_map::CompilerMemoryType;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::PlaceProjection;
@@ -34,19 +38,36 @@ fn owner_token_raw_field(types: &TypeCtx, ty: TypeId) -> Option<(usize, FieldLay
 }
 
 fn owner_token_raw_field_index(types: &TypeCtx, ty: TypeId) -> Option<usize> {
+    if !type_is_owner_token(types, ty) {
+        return None;
+    }
+    let raw_index = compiler_memory_type_field_index(
+        CompilerMemoryType::OwnerToken,
+        CompilerMemoryFieldSpec::RawI32,
+    )?;
+    let expected_field_name = CompilerMemoryFieldSpec::RawI32.name();
+    let field_names = owner_token_field_names(types, ty)?;
+    field_names
+        .get(raw_index)
+        .is_some_and(|field_name| field_name.as_str() == expected_field_name)
+        .then_some(raw_index)
+}
+
+fn owner_token_field_names(types: &TypeCtx, ty: TypeId) -> Option<&[alloc::string::String]> {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    let field_names = match types.get_ref(resolved) {
-        TypeKind::Struct { field_names, .. } => field_names,
+    match types.get_ref(resolved) {
+        TypeKind::Struct { field_names, .. } => Some(field_names),
         TypeKind::Apply { base, .. } => {
             let base = types.resolve_named_type_id(*base);
             match types.get_ref(base) {
-                TypeKind::Struct { field_names, .. } => field_names,
-                _ => return None,
+                TypeKind::Struct { field_names, .. } => Some(field_names),
+                _ => None,
             }
         }
-        _ => return None,
-    };
-    field_names
-        .iter()
-        .position(|field_name| field_name == "raw")
+        _ => None,
+    }
 }
+
+#[cfg(test)]
+#[path = "owner_summary_owner_token_leaf_tests.rs"]
+mod tests;

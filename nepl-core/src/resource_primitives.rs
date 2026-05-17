@@ -49,6 +49,15 @@ pub(crate) fn compiler_memory_type_field_specs(
     }
 }
 
+pub(crate) fn compiler_memory_type_field_index(
+    memory_type: CompilerMemoryType,
+    field: CompilerMemoryFieldSpec,
+) -> Option<usize> {
+    compiler_memory_type_field_specs(memory_type)
+        .iter()
+        .position(|spec| *spec == field)
+}
+
 pub(crate) fn compiler_memory_type_of_type(
     types: &TypeCtx,
     ty: TypeId,
