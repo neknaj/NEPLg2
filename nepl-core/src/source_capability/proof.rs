@@ -3,7 +3,8 @@ use alloc::vec::Vec;
 
 use crate::ast::{Module, StructDef};
 use crate::effects::{
-    raw_body_direct_callees, raw_body_memory_operations, raw_memory_op_from_name,
+    raw_body_direct_callees, raw_body_memory_operations, raw_memory_op_from_name, RawBodyMemoryOp,
+    RawMemoryOp,
 };
 use crate::hir::HirBody;
 use crate::source_capability::binding::SourceCapabilityBindingKind;
@@ -15,6 +16,9 @@ use crate::source_capability::owner_aggregate::{
 use crate::source_capability::proof_builder::SourceCapabilityProof;
 use crate::source_capability::raw_evidence_gate::raw_symbol_shadow_allows_evidence;
 use crate::source_capability::raw_memory::{RawAddressViewEvidence, RawMemoryStructuralEvidence};
+use crate::source_capability::raw_operation_proof::{
+    RawOperationBoundaryContract, RawOperationFunctionEvidence,
+};
 use crate::source_capability::scope::SourceCapabilityScope;
 use crate::source_capability::top_level_raw_calls::{
     apply_top_level_raw_call_evidence, RawOperationFunctionProof, TopLevelRawCallSite,
@@ -31,7 +35,8 @@ pub(crate) fn module_source_capabilities(module: &Module) -> SourceCapabilities 
 struct RawOperationFunctionFrame {
     name: String,
     span: Span,
-    has_direct_raw_evidence: bool,
+    boundary_contract: RawOperationBoundaryContract,
+    evidence: RawOperationFunctionEvidence,
     top_level_raw_calls: Vec<TopLevelRawCallSite>,
 }
 
@@ -59,22 +64,22 @@ struct SourceCapabilityProofCollector<'a> {
 }
 
 impl SourceCapabilityProofCollector<'_> {
-    fn record_raw_operation_evidence(&mut self, _operation: crate::effects::RawMemoryOp) {
+    fn record_raw_operation_evidence(&mut self, operation: RawMemoryOp) {
         if let Some(frame) = self.raw_operation_function_frames.last_mut() {
-            frame.has_direct_raw_evidence = true;
+            frame.evidence.insert_operation(operation);
         }
     }
 
-    fn record_raw_body_operation_evidence(&mut self) {
+    fn record_raw_body_operation_evidence(&mut self, operation: RawBodyMemoryOp) {
         if let Some(frame) = self.raw_operation_function_frames.last_mut() {
-            frame.has_direct_raw_evidence = true;
+            frame.evidence.insert_raw_body_operation(operation);
         }
     }
 
     fn record_top_level_raw_call_evidence(
         &mut self,
         target: &str,
-        operation: crate::effects::RawMemoryOp,
+        operation: RawMemoryOp,
         span: Span,
     ) {
         if let Some(frame) = self.raw_operation_function_frames.last_mut() {
@@ -132,7 +137,7 @@ impl SourceCapabilityProofCollector<'_> {
         for operation in raw_body_memory_operations(&body) {
             self.proof
                 .insert_raw_body_memory_operation_boundary(operation, span);
-            self.record_raw_body_operation_evidence();
+            self.record_raw_body_operation_evidence(operation);
         }
         for callee in raw_body_direct_callees(&body) {
             if let Some(operation) = raw_memory_op_from_name(&callee) {
@@ -148,7 +153,8 @@ impl SourceCapabilityProofCollector<'_> {
             .push(RawOperationFunctionProof {
                 name: frame.name,
                 span: frame.span,
-                has_direct_raw_evidence: frame.has_direct_raw_evidence,
+                boundary_contract: frame.boundary_contract,
+                evidence: frame.evidence,
                 top_level_raw_calls: frame.top_level_raw_calls,
             });
     }
@@ -189,7 +195,8 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
             .push(RawOperationFunctionFrame {
                 name: String::from(name),
                 span,
-                has_direct_raw_evidence: false,
+                boundary_contract: raw_memory_boundary_contract_from_function_name(name),
+                evidence: RawOperationFunctionEvidence::default(),
                 top_level_raw_calls: Vec::new(),
             });
     }
@@ -243,4 +250,10 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
     fn observe_raw_body(&mut self, body: HirBody, span: Span) {
         self.collect_raw_body_evidence(body, span);
     }
+}
+
+fn raw_memory_boundary_contract_from_function_name(name: &str) -> RawOperationBoundaryContract {
+    raw_memory_op_from_name(name)
+        .map(RawOperationBoundaryContract::RawMemoryOperation)
+        .unwrap_or(RawOperationBoundaryContract::None)
 }

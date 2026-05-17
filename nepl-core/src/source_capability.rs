@@ -13,6 +13,7 @@ mod proof;
 mod proof_builder;
 mod raw_evidence_gate;
 mod raw_memory;
+mod raw_operation_proof;
 mod scope;
 mod top_level_raw_calls;
 mod walk;
