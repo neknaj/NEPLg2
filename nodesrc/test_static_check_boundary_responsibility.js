@@ -563,6 +563,8 @@ assertNotContains(
 );
 assertContains(effects, 'pub enum RawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum RawBodyDirectCallee', 'effects.rs');
+assertContains(effects, 'pub enum RawBodyBackend', 'effects.rs');
+assertContains(effects, 'RawBodyDirectCallee::BackendIntrinsic', 'effects.rs');
 assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum LlvmRawBodyMemoryOp', 'effects.rs');
 assertContains(
@@ -597,6 +599,11 @@ assertContains(
     'RawBodyDirectCallee::RawMemory',
     'typecheck/effect_check.rs must match typed raw body raw-memory callees',
 );
+assertContains(
+    typecheckEffectCheck,
+    'RawBodyDirectCallee::BackendIntrinsic',
+    'typecheck/effect_check.rs must match typed backend intrinsic callees',
+);
 assertNotContains(
     typecheckEffectCheck,
     'raw_body_direct_callees',
@@ -606,6 +613,11 @@ assertNotContains(
     typecheckEffectCheck,
     'raw_memory_op_from_name(&callee)',
     'typecheck/effect_check.rs must not reclassify raw body callees at the consumer',
+);
+assertNotContains(
+    typecheckEffectCheck,
+    'starts_with("llvm.")',
+    'typecheck/effect_check.rs must not hard-code backend intrinsic purity with string prefixes',
 );
 assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
 assertContains(

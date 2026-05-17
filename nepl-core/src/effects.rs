@@ -151,7 +151,17 @@ pub enum RawBodyDirectCallee {
         callee: String,
         operation: RawMemoryOp,
     },
+    BackendIntrinsic {
+        callee: String,
+        backend: RawBodyBackend,
+    },
     Other(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RawBodyBackend {
+    Wasm,
+    Llvm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -510,9 +520,9 @@ pub fn internal_effect_untrusted_surface(effect: &InternalEffect) -> Effect {
 }
 
 pub fn raw_body_direct_callee_effects(body: &HirBody) -> Vec<RawBodyDirectCallee> {
-    let lines = match body {
-        HirBody::Wasm(w) => &w.lines,
-        HirBody::LlvmIr(l) => &l.lines,
+    let (backend, lines) = match body {
+        HirBody::Wasm(w) => (RawBodyBackend::Wasm, &w.lines),
+        HirBody::LlvmIr(l) => (RawBodyBackend::Llvm, &l.lines),
         HirBody::Block(_) => return Vec::new(),
     };
     let mut out = Vec::new();
@@ -523,14 +533,27 @@ pub fn raw_body_direct_callee_effects(body: &HirBody) -> Vec<RawBodyDirectCallee
             HirBody::Block(_) => None,
         };
         if let Some(callee) = callee {
-            let effect = match raw_memory_op_from_name(&callee) {
-                Some(operation) => RawBodyDirectCallee::RawMemory { callee, operation },
-                None => RawBodyDirectCallee::Other(callee),
-            };
-            out.push(effect);
+            out.push(classify_raw_body_direct_callee(backend, callee));
         }
     }
     out
+}
+
+fn classify_raw_body_direct_callee(backend: RawBodyBackend, callee: String) -> RawBodyDirectCallee {
+    if let Some(operation) = raw_memory_op_from_name(&callee) {
+        return RawBodyDirectCallee::RawMemory { callee, operation };
+    }
+    if raw_body_backend_intrinsic_callee(backend, &callee) {
+        return RawBodyDirectCallee::BackendIntrinsic { callee, backend };
+    }
+    RawBodyDirectCallee::Other(callee)
+}
+
+fn raw_body_backend_intrinsic_callee(backend: RawBodyBackend, callee: &str) -> bool {
+    match backend {
+        RawBodyBackend::Wasm => false,
+        RawBodyBackend::Llvm => callee.starts_with("llvm."),
+    }
 }
 
 pub fn raw_body_memory_operations(body: &HirBody) -> Vec<RawBodyMemoryOp> {

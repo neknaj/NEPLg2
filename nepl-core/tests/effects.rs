@@ -5,8 +5,8 @@ use nepl_core::effects::{
     external_io_op_from_name, internal_effect_surface_fold, intrinsic_effect, nondet_op_from_name,
     raw_body_direct_callee_effects, raw_body_memory_operations, raw_callee_internal_effect,
     raw_memory_callee_internal_effect, raw_memory_op_from_name, ExternalIoOp, InternalEffect,
-    LlvmRawBodyMemoryOp, NondetOp, RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
-    WasmRawBodyMemoryOp,
+    LlvmRawBodyMemoryOp, NondetOp, RawBodyBackend, RawBodyDirectCallee, RawBodyMemoryOp,
+    RawMemoryOp, WasmRawBodyMemoryOp,
 };
 use nepl_core::error::CoreError;
 use nepl_core::hir::HirBody;
@@ -226,6 +226,7 @@ fn raw_body_direct_callee_effects_are_typed_before_consumers() {
     let llvm = HirBody::LlvmIr(LlvmIrBlock {
         lines: vec![
             String::from("call void @store_i32(i32 0, i32 1)"),
+            String::from("call void @llvm.assume(i1 true)"),
             String::from("call i32 @fd_read(i32 0)"),
         ],
         span: Span::dummy(),
@@ -236,6 +237,10 @@ fn raw_body_direct_callee_effects_are_typed_before_consumers() {
             RawBodyDirectCallee::RawMemory {
                 callee: String::from("store_i32"),
                 operation: RawMemoryOp::Store,
+            },
+            RawBodyDirectCallee::BackendIntrinsic {
+                callee: String::from("llvm.assume"),
+                backend: RawBodyBackend::Llvm,
             },
             RawBodyDirectCallee::Other(String::from("fd_read")),
         ]
