@@ -1,7 +1,10 @@
 use alloc::string::String;
 
 use crate::ast::{StructDef, Visibility};
-use crate::source_capability::compiler_memory_type_from_constructor_name;
+use crate::resource_primitives::{
+    compiler_memory_type_field_specs, compiler_memory_type_from_constructor_name,
+    CompilerMemoryFieldSpec,
+};
 use crate::source_map::{CompilerMemoryType, SourceMap};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -49,19 +52,23 @@ fn compiler_memory_type_definition_shape_holds(
     {
         return false;
     }
-    match memory_type {
-        CompilerMemoryType::RawPointer => {
-            matches!(field_names, [raw] if raw == "raw")
-                && fields.len() == 1
-                && type_id_is_i32(ctx, fields[0])
-        }
-        CompilerMemoryType::OwnerToken => {
-            matches!(field_names, [raw, size] if raw == "raw" && size == "size")
-                && fields.len() == 2
-                && type_id_is_i32(ctx, fields[0])
-                && type_id_is_i32(ctx, fields[1])
-        }
-    }
+    let field_specs = compiler_memory_type_field_specs(memory_type);
+    field_names.len() == field_specs.len()
+        && fields.len() == field_specs.len()
+        && field_names
+            .iter()
+            .zip(fields)
+            .zip(field_specs)
+            .all(|((name, ty), spec)| typed_field_shape_holds(*spec, name, *ty, ctx))
+}
+
+fn typed_field_shape_holds(
+    spec: CompilerMemoryFieldSpec,
+    field_name: &str,
+    field_ty: TypeId,
+    ctx: &TypeCtx,
+) -> bool {
+    field_name == spec.name() && (!spec.requires_i32() || type_id_is_i32(ctx, field_ty))
 }
 
 fn type_id_is_i32(ctx: &TypeCtx, ty: TypeId) -> bool {

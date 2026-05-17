@@ -621,6 +621,11 @@ assertContains(
 );
 assertContains(
     typecheckCompilerMemoryType,
+    'compiler_memory_type_field_specs(memory_type)',
+    'typecheck/compiler_memory_type.rs must consume shared compiler memory field shape spec',
+);
+assertContains(
+    typecheckCompilerMemoryType,
     'source_map.compiler_memory_type_definition_allowed_at(def.name.span, memory_type)',
     'typecheck/compiler_memory_type.rs must require exact SourceMap source proof',
 );
@@ -1256,10 +1261,10 @@ assertContains(
     'mod top_level_raw_calls;',
     'source_capability.rs',
 );
-assertContains(
+assertNotContains(
     sourceCapability,
     'compiler_memory_type_from_constructor_name',
-    'source_capability.rs',
+    'source_capability.rs must not re-export compiler memory primitive classifiers',
 );
 assertContains(
     sourceCapabilityProof,
@@ -1270,6 +1275,16 @@ assertContains(
     resourcePrimitives,
     'pub(crate) fn compiler_memory_type_from_constructor_name',
     'resource_primitives.rs',
+);
+assertContains(
+    resourcePrimitives,
+    'pub(crate) enum CompilerMemoryFieldSpec',
+    'resource_primitives.rs must keep compiler memory field shape in a typed enum domain',
+);
+assertContains(
+    resourcePrimitives,
+    'pub(crate) fn compiler_memory_type_field_specs',
+    'resource_primitives.rs must own compiler memory type field shape contracts',
 );
 assertContains(
     resourcePrimitives,
@@ -1313,18 +1328,43 @@ assertContains(
 );
 assertContains(
     sourceCapabilityMemoryTypeDefinition,
+    'compiler_memory_type_field_specs(memory_type)',
+    'source_capability/memory_type_definition.rs must consume shared compiler memory field shape spec',
+);
+assertContains(
+    sourceCapabilityMemoryTypeDefinition,
     'pub(in crate::source_capability) fn compiler_memory_type_from_struct_def',
     'source_capability/memory_type_definition.rs',
 );
-assertContains(
+assertNotContains(
     sourceCapabilityMemoryTypeDefinition,
     'is_mem_ptr_definition',
-    'source_capability/memory_type_definition.rs',
+    'source_capability/memory_type_definition.rs must not keep per-memory-type shape checkers',
 );
-assertContains(
+assertNotContains(
     sourceCapabilityMemoryTypeDefinition,
     'is_region_token_definition',
-    'source_capability/memory_type_definition.rs',
+    'source_capability/memory_type_definition.rs must not keep per-memory-type shape checkers',
+);
+assertNotContains(
+    sourceCapabilityMemoryTypeDefinition,
+    '.name == "raw"',
+    'source_capability/memory_type_definition.rs must not duplicate raw field spelling outside CompilerMemoryFieldSpec',
+);
+assertNotContains(
+    sourceCapabilityMemoryTypeDefinition,
+    '.name == "size"',
+    'source_capability/memory_type_definition.rs must not duplicate size field spelling outside CompilerMemoryFieldSpec',
+);
+assertNotContains(
+    typecheckCompilerMemoryType,
+    'raw == "raw"',
+    'typecheck/compiler_memory_type.rs must not duplicate raw field spelling outside CompilerMemoryFieldSpec',
+);
+assertNotContains(
+    typecheckCompilerMemoryType,
+    'size == "size"',
+    'typecheck/compiler_memory_type.rs must not duplicate size field spelling outside CompilerMemoryFieldSpec',
 );
 assertContains(
     sourceCapability,

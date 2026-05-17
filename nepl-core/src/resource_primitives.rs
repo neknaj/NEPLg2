@@ -5,11 +5,47 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 pub(crate) const RAW_POINTER_TYPE_NAME: &str = "MemPtr";
 pub(crate) const OWNER_TOKEN_TYPE_NAME: &str = "RegionToken";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CompilerMemoryFieldSpec {
+    RawI32,
+    SizeI32,
+}
+
+const RAW_POINTER_FIELDS: &[CompilerMemoryFieldSpec] = &[CompilerMemoryFieldSpec::RawI32];
+const OWNER_TOKEN_FIELDS: &[CompilerMemoryFieldSpec] = &[
+    CompilerMemoryFieldSpec::RawI32,
+    CompilerMemoryFieldSpec::SizeI32,
+];
+
+impl CompilerMemoryFieldSpec {
+    pub(crate) const fn name(self) -> &'static str {
+        match self {
+            Self::RawI32 => "raw",
+            Self::SizeI32 => "size",
+        }
+    }
+
+    pub(crate) const fn requires_i32(self) -> bool {
+        match self {
+            Self::RawI32 | Self::SizeI32 => true,
+        }
+    }
+}
+
 pub(crate) fn compiler_memory_type_from_constructor_name(name: &str) -> Option<CompilerMemoryType> {
     match name {
         RAW_POINTER_TYPE_NAME => Some(CompilerMemoryType::RawPointer),
         OWNER_TOKEN_TYPE_NAME => Some(CompilerMemoryType::OwnerToken),
         _ => None,
+    }
+}
+
+pub(crate) fn compiler_memory_type_field_specs(
+    memory_type: CompilerMemoryType,
+) -> &'static [CompilerMemoryFieldSpec] {
+    match memory_type {
+        CompilerMemoryType::RawPointer => RAW_POINTER_FIELDS,
+        CompilerMemoryType::OwnerToken => OWNER_TOKEN_FIELDS,
     }
 }
 
