@@ -1,3 +1,17 @@
+# 2026-05-17 Agent 1 SourceCapabilities insert_use_site production policy
+
+- `ISS-20260517T123624102Z-SOURCECAPABILITIES-INSERT-USE-SITE-L-7F2B23E5` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、source capability proof は `SourceCapabilityProofEvent` / `SourceCapabilityProofFact` へ集約済みだが、`SourceCapabilities::insert_use_site` は module 構造上 `pub(crate)` で、future production code が proof fact pipeline を迂回して直接 authority を挿入できる余地を source policy が明示的には塞いでいなかったこと。
+- `nodesrc/test_static_check_boundary_responsibility.js` に direct `.insert_use_site(...)` caller policy を追加し、production code では `source_capability/proof_builder.rs` だけを許可した。`#[cfg(test)] mod tests` 内の test helper は許可している。
+- `SourceCapabilityProofBuilder` が `self.capabilities.insert_use_site(use_site);` を持つことも確認し、typed proof fact pipeline の唯一の production bridge として固定した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 6 関連 issue に今回の policy issue を追記した。
+- 検証:
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の proof construction が個別 module から直接挿入されず、generic typed proof pipeline を通ることを source policy で監視するようにした。
+
 # 2026-05-17 Agent 1 collections_diag stdout report 固定
 
 - `ISS-20260517T123036015Z-COLLECTIONS-DIAG-DOCTESTS-PRINT-REPO-CF717FA0` を追加し、fixed / resolved にした。`plan.md` は変更していない。

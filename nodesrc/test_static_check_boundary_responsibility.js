@@ -229,6 +229,17 @@ function walkRustFiles(dir) {
     return files;
 }
 
+function lineNumberAt(text, offset) {
+    return text.slice(0, offset).split('\n').length;
+}
+
+function isInsideCfgTestModule(text, offset) {
+    const prefix = text.slice(0, offset);
+    const cfgTest = prefix.lastIndexOf('#[cfg(test)]');
+    const modTests = prefix.lastIndexOf('mod tests');
+    return cfgTest >= 0 && modTests >= cfgTest;
+}
+
 const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const resourcePrimitives = assertFile(RESOURCE_PRIMITIVES, 'resource_primitives.rs');
@@ -2135,6 +2146,32 @@ assertContains(
     sourceCapabilityProofBuilder,
     'match fact',
     'source_capability/proof_builder.rs must map proof facts through an exhaustive match',
+);
+assertContains(
+    sourceCapabilityProofBuilder,
+    'self.capabilities.insert_use_site(use_site);',
+    'source_capability/proof_builder.rs must be the production insert_use_site bridge',
+);
+const directUseSiteInsertViolations = [];
+for (const filePath of walkRustFiles(CORE_SRC)) {
+    const rel = toPosixPath(filePath);
+    const text = read(filePath);
+    const re = /\.insert_use_site\s*\(/g;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+        if (rel === 'nepl-core/src/source_capability/proof_builder.rs') {
+            continue;
+        }
+        if (isInsideCfgTestModule(text, match.index)) {
+            continue;
+        }
+        directUseSiteInsertViolations.push(`${rel}:${lineNumberAt(text, match.index)}`);
+    }
+}
+assert(
+    directUseSiteInsertViolations.length === 0,
+    'SourceCapabilities.insert_use_site must not be called by production code outside source_capability/proof_builder.rs:\n'
+    + directUseSiteInsertViolations.join('\n'),
 );
 for (const oldProofInsert of [
     'fn insert_raw_memory_structural_boundary',
