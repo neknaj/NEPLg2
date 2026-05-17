@@ -41120,3 +41120,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 修正後は error severity の diagnostic だけを typecheck failure とし、warning は表示可能なまま Resource IR focused test を継続できる。
 - focused verification:
   - `cargo test -p nepl-core resource_ir_cell_check_preserves_direct_arithmetic_external_raw_load -- --nocapture`: passed
+
+## 2026-05-18 Agent 1 Resource IR nested Copy field initialization 修正
+
+- `ISS-20260517T182739351Z-RESOURCE-IR-REJECTS-INITIALIZED-NEST-1388C7B5` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw aggregate load 後の `item.span.file_id` が Resource IR で `Local("item") + StorageOffset(known) + Deref + Field(...)` になり、whole-value initialized fact から typed storage-view field へ初期化証明が流れていなかったことだった。
+- 修正後は known offset が aggregate layout 上の field と一致し、残りの projection を適用した query type が Copy の場合だけ initialized fact を流す。unknown / symbolic offset、追加 deref、non-Copy query は拒否するため、raw memory の一般的な読み出しを緩めず Copy leaf の field-storage view だけを証明対象にする。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 4 initialized cell proof の進捗として追記した。
+- focused verification:
+  - `cargo test -p nepl-core resource_ir_cell_check_preserves_nested_copy_field_after_raw_aggregate_load -- --nocapture`: passed

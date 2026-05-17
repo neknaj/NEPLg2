@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T18:32:30.511Z",
+  "generated_at": "2026-05-17T18:39:28.561Z",
   "counts": {
-    "total": 959,
+    "total": 960,
     "open": 5,
-    "resolved": 954,
+    "resolved": 955,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 494,
+        "total": 495,
         "open": 0,
-        "resolved": 494
+        "resolved": 495
       },
       "CORE": {
         "total": 1,
@@ -7508,6 +7508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T175341624Z-TRANSPARENT-RAW-ADDRESS-RETURN-PROOF-52AEEF7B.md"
+    },
+    {
+      "id": "ISS-20260517T182739351Z-RESOURCE-IR-REJECTS-INITIALIZED-NEST-1388C7B5",
+      "title": "Resource IR rejects initialized nested Copy field loaded from raw aggregate",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/cell_state.rs; nepl-core/tests/resource_ir.rs; doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T182739351Z-RESOURCE-IR-REJECTS-INITIALIZED-NEST-1388C7B5.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
