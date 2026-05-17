@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T12:33:31.690Z",
+  "generated_at": "2026-05-17T12:38:35.219Z",
   "counts": {
-    "total": 946,
+    "total": 947,
     "open": 5,
-    "resolved": 941,
+    "resolved": 942,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 490,
+        "total": 491,
         "open": 0,
-        "resolved": 490
+        "resolved": 491
       },
       "CORE": {
         "total": 1,
@@ -7443,6 +7443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T121456312Z-TOP-LEVEL-RAW-CALL-PROPAGATION-BYPAS-35B3CCC0.md"
+    },
+    {
+      "id": "ISS-20260517T123624102Z-SOURCECAPABILITIES-INSERT-USE-SITE-L-7F2B23E5",
+      "title": "SourceCapabilities insert_use_site lacks a production caller policy",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_map.rs, nepl-core/src/source_capability/proof_builder.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T123624102Z-SOURCECAPABILITIES-INSERT-USE-SITE-L-7F2B23E5.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
