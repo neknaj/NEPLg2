@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 Resource place skeleton address projection classifier 接続
+
+- `ISS-20260517T003825703Z-RESOURCE-PLACE-SKELETON-STILL-CLASSI-5ED30216` を追加し、fixed / resolved にした。
+- 根本原因は、field address projection classifier を共有化した後も、`lower.rs` の `place_from_expr_skeleton` と `coverage_hir_place.rs` が `name == "add"` を局所判定していたこと。
+- `address_projection.rs` に `intrinsic_is_address_projection` と `storage_offset_base_and_offset` を追加し、storage-offset skeleton は `ResourceOffset::{Known, Unknown}` を共有 classifier から受け取るようにした。
+- `coverage_hir_place.rs` は place coverage の address-add 判定を `intrinsic_is_address_projection` に接続した。
+- `nodesrc/test_resource_checker_responsibility.js` で lower / coverage_hir_place の local `name == "add"` 再導入禁止を監視する。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_treats_compiler_field_load_as_field_read -- --exact --nocapture`
+  - `cargo check -p nepl-core`
+  - `cargo fmt -p nepl-core --check`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR place skeleton / coverage を、局所文字列分類から共有 enum classifier へ寄せた。
+
 # 2026-05-17 Agent 1 Resource field address projection classifier 共通化
 
 - `ISS-20260517T002958580Z-RESOURCE-FIELD-ADDRESS-PROJECTION-CL-A7B732C5` を追加し、fixed / resolved にした。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T00:35:16.093Z",
+  "generated_at": "2026-05-17T00:42:19.538Z",
   "counts": {
-    "total": 893,
+    "total": 894,
     "open": 5,
-    "resolved": 888,
+    "resolved": 889,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 449,
+        "total": 450,
         "open": 0,
-        "resolved": 449
+        "resolved": 450
       },
       "CORE": {
         "total": 1,
@@ -6778,6 +6778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T002958580Z-RESOURCE-FIELD-ADDRESS-PROJECTION-CL-A7B732C5.md"
+    },
+    {
+      "id": "ISS-20260517T003825703Z-RESOURCE-PLACE-SKELETON-STILL-CLASSI-5ED30216",
+      "title": "Resource place skeleton still classifies address add by local string match",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/address_projection.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage_hir_place.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T003825703Z-RESOURCE-PLACE-SKELETON-STILL-CLASSI-5ED30216.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

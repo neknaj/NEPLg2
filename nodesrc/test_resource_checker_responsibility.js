@@ -569,6 +569,7 @@ const resourceDump = readResource('dump.rs');
 const addressProjection = readResource('address_projection.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
+const coverageHirPlace = readResource('coverage_hir_place.rs');
 const coverageHirProjection = readResource('coverage_hir_projection.rs');
 const coverageHirProjectionAggregate = readResource('coverage_hir_projection_aggregate.rs');
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
@@ -661,8 +662,28 @@ assertContains(
     'pub(super) fn non_negative_i32_literal',
     'address_projection.rs',
 );
+assertContains(
+    addressProjection,
+    'pub(super) fn intrinsic_is_address_projection',
+    'address_projection.rs',
+);
+assertContains(
+    addressProjection,
+    'pub(super) fn storage_offset_base_and_offset',
+    'address_projection.rs',
+);
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
+assertContains(
+    coverageHirPlace,
+    'intrinsic_is_address_projection(name)',
+    'coverage_hir_place.rs must use shared address projection classification',
+);
+assertNotContains(
+    coverageHirPlace,
+    'name == "add"',
+    'coverage_hir_place.rs must not classify address add locally',
+);
 assertContains(
     coverageHirProjection,
     'pub(super) fn field_get_call_owner',
@@ -959,6 +980,16 @@ assertContains(
     lowerAggregate,
     'super::address_projection::{',
     'lower_aggregate.rs must use the shared address projection classifier',
+);
+assertContains(
+    lower,
+    'storage_offset_base_and_offset(expr)',
+    'lower.rs place skeleton must use the shared address projection classifier',
+);
+assertNotContains(
+    lower,
+    'name == "add"',
+    'lower.rs must not classify address add locally',
 );
 assertContains(
     lowerAggregateProjection,

@@ -5,6 +5,7 @@ use alloc::string::String;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::TypeCtx;
 
+use super::address_projection::intrinsic_is_address_projection;
 use super::coverage::ResourceCoverageCounts;
 use super::coverage_hir::hir_expr_coverage;
 use super::coverage_hir_projection::{intrinsic_projects_reference_field, raw_load_address_expr};
@@ -21,7 +22,9 @@ pub(super) fn hir_place_expr_coverage(
             counts.deref_projections += 1;
             hir_place_expr_coverage(inner, counts, types, string_literals);
         }
-        HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
+        HirExprKind::Intrinsic { name, args, .. }
+            if intrinsic_is_address_projection(name) && !args.is_empty() =>
+        {
             if intrinsic_projects_reference_field(name, args, expr.ty, types) {
                 counts.borrows += 1;
                 counts.deref_projections += 1;

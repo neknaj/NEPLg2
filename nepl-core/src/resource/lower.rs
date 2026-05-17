@@ -14,6 +14,7 @@ use crate::layout::aggregate_fields_with_offsets;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+use super::address_projection::storage_offset_base_and_offset;
 use super::lower_aggregate::{
     lower_compiler_field_load_source, lower_field_get_call_source, lower_field_get_ref_call_source,
     lower_get_field_intrinsic_source, lower_get_field_ref_intrinsic_source,
@@ -1094,6 +1095,17 @@ fn aggregate_construct_field_offsets(types: &TypeCtx, ty: TypeId) -> Vec<usize> 
 }
 
 pub(super) fn place_from_expr_skeleton(expr: &HirExpr, ctx: &LoweringContext) -> Place {
+    if let Some((base, offset)) = storage_offset_base_and_offset(expr) {
+        let source = place_from_expr_skeleton(base, ctx);
+        if matches!(&source.root, super::model::PlaceRoot::Unknown) {
+            return Place::unknown(expr.ty);
+        }
+        return source.with_projection(
+            super::model::PlaceProjection::StorageOffset(offset),
+            expr.ty,
+        );
+    }
+
     match &expr.kind {
         HirExprKind::Var(name) => ctx.local_place(name, expr.ty),
         HirExprKind::Deref(inner) => {
@@ -1103,23 +1115,6 @@ pub(super) fn place_from_expr_skeleton(expr: &HirExpr, ctx: &LoweringContext) ->
             } else {
                 source.with_projection(super::model::PlaceProjection::Deref, expr.ty)
             }
-        }
-        HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
-            let source = place_from_expr_skeleton(&args[0], ctx);
-            if matches!(&source.root, super::model::PlaceRoot::Unknown) {
-                return Place::unknown(expr.ty);
-            }
-            let bytes = args.get(1).and_then(|offset| match &offset.kind {
-                HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
-                _ => None,
-            });
-            source.with_projection(
-                super::model::PlaceProjection::StorageOffset(match bytes {
-                    Some(bytes) => super::model::ResourceOffset::Known(bytes),
-                    None => super::model::ResourceOffset::Unknown,
-                }),
-                expr.ty,
-            )
         }
         _ => Place::unknown(expr.ty),
     }

@@ -1,6 +1,8 @@
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::runtime_helpers::helper_base_name;
 
+use super::model::ResourceOffset;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AddressProjectionPrimitive {
     Add,
@@ -29,6 +31,10 @@ pub(super) fn non_negative_i32_literal(expr: &HirExpr) -> Option<usize> {
     }
 }
 
+pub(super) fn intrinsic_is_address_projection(name: &str) -> bool {
+    AddressProjectionPrimitive::from_symbol(name) == Some(AddressProjectionPrimitive::Add)
+}
+
 pub(super) fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, usize)> {
     match &expr.kind {
         HirExprKind::Intrinsic { name, args, .. }
@@ -48,5 +54,21 @@ pub(super) fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(
             Some((&args[0], offset))
         }
         _ => Some((expr, 0)),
+    }
+}
+
+pub(super) fn storage_offset_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, ResourceOffset)> {
+    match &expr.kind {
+        HirExprKind::Intrinsic { name, args, .. }
+            if intrinsic_is_address_projection(name) && !args.is_empty() =>
+        {
+            let offset = args
+                .get(1)
+                .and_then(non_negative_i32_literal)
+                .map(ResourceOffset::Known)
+                .unwrap_or(ResourceOffset::Unknown);
+            Some((&args[0], offset))
+        }
+        _ => None,
     }
 }
