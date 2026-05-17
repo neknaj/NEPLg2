@@ -25,7 +25,6 @@ fn memory_struct(
     let ty = types.register_named(
         name.to_string(),
         TypeKind::Struct {
-            doc: None,
             name: name.to_string(),
             type_params: vec![type_param],
             fields: field_specs.iter().map(|_| i32_ty).collect(),

@@ -324,7 +324,6 @@ pub fn typecheck(
                 let ty = ctx.register_named(
                     e.name.name.clone(),
                     TypeKind::Enum {
-                        doc: e.doc.clone(),
                         name: e.name.name.clone(),
                         type_params: tps.clone(),
                         variants: vars.clone(),
@@ -434,7 +433,6 @@ pub fn typecheck(
                 let ty = ctx.register_named(
                     s.name.name.clone(),
                     TypeKind::Struct {
-                        doc: s.doc.clone(),
                         name: s.name.name.clone(),
                         type_params: tps.clone(),
                         fields: fs.clone(),

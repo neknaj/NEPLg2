@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use super::effect_identity::RawIdentityOrigin;
 use super::model::PlaceProjection;
 use super::summary_index::{FunctionSummary, SummaryIndex};
+use crate::span::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawIdentityReturnSummary {
@@ -25,6 +26,7 @@ pub(super) struct RawIdentityParameterReturn {
 pub(super) struct RawIdentityReturnProjection {
     pub(super) projections: Vec<PlaceProjection>,
     pub(super) ty: crate::types::TypeId,
+    pub(super) return_span: Span,
     pub(super) origins: Vec<RawIdentityOrigin>,
 }
 

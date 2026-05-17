@@ -61,6 +61,19 @@ impl RawPointerAliasTable {
         }
     }
 
+    pub(in crate::resource) fn move_alias(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        let groups = self.groups_with_replaced_prefix_or_singleton(source, target, true);
+        self.remove_place(target);
+        self.remove_place(source);
+        for mut group in groups {
+            group.retain(|place| !place_has_prefix(place, source));
+            self.union_group(&group);
+        }
+    }
+
     pub(super) fn group_for_or_singleton(&self, place: &Place) -> Vec<Place> {
         self.groups
             .iter()

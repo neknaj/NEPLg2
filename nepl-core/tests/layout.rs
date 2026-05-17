@@ -9,7 +9,6 @@ fn bool_field_offsets_use_backend_scalar_width() {
     let pair_ty = types.register_named(
         "BoolThenI32".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "BoolThenI32".to_string(),
             type_params: vec![],
             fields: vec![bool_ty, i32_ty],
@@ -34,7 +33,6 @@ fn generic_struct_layout_substitutes_field_sizes_once() {
     let generic_ty = types.register_named(
         "GenericPair".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "GenericPair".to_string(),
             type_params: vec![type_param],
             fields: vec![type_param, bool_ty],

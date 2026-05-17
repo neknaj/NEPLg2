@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T13:27:57.177Z",
+  "generated_at": "2026-05-17T16:32:11.104Z",
   "counts": {
     "total": 951,
-    "open": 6,
-    "resolved": 945,
+    "open": 5,
+    "resolved": 946,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -13,8 +13,8 @@
       },
       "TEST": {
         "total": 30,
-        "open": 2,
-        "resolved": 28
+        "open": 1,
+        "resolved": 29
       },
       "selfhost": {
         "total": 67,
@@ -168,21 +168,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91",
-      "title": "selfhost_cli_driver doctests exceed extended compile timeout",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-17",
-      "updated": "2026-05-17",
-      "target": "tests/stdlib/selfhost_cli_driver.n.md, nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -11958,6 +11943,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T125745927Z-SELFHOST-CLI-DRIVER-DOCTESTS-HIDE-ST-15DDEDC6.md"
+    },
+    {
+      "id": "ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91",
+      "title": "selfhost_cli_driver doctests exceed extended compile timeout",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/types.rs, nepl-core/src/resource/effect_summary_identity.rs, nepl-core/src/resource/effect_summary_pointer.rs, nepl-core/src/resource/effect_raw_provenance.rs, nepl-core/src/resource/raw_pointer_type.rs, nodesrc/test_typekind_doc_free_policy.js, tests/stdlib/selfhost_cli_driver.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

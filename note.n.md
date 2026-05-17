@@ -1,3 +1,22 @@
+# 2026-05-17 Agent 1 selfhost_cli_driver compile timeout 根本修正
+
+- `ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、型 identity と Resource Effect summary の hot path に semantic ではない doc payload と、型構造上不要な raw provenance summary 計算が混入していたこと。
+- `TypeKind::Struct` / `TypeKind::Enum` から `doc` field を削除し、AST/HIR の doc 保持と TypeCtx semantic identity を分離した。
+- raw identity summary は typed projection 検証と return 型による早期終了を入れ、`str` など raw identity summary を必要としない返り値で重い固定点を回さないようにした。
+- raw pointer summary は `raw_pointer_type.rs` の typed predicate で non-owning raw pointer alias を運べる型だけを対象にし、`StringBuilder` / `RegionToken` の owned storage を `MemPtr` alias summary と混同しないようにした。
+- summary 由来の pure internal alloc escape diagnostic を `effect_raw_provenance.rs` へ分離し、checked `MemPtr` access がない関数では full raw provenance tracking を避ける構成にした。
+- 検証:
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core typed_resource_ir_effect_check_keeps_i32_raw_identity_parameter_summary --test resource_ir -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_typekind_doc_free_policy.js`
+  - `node nodesrc/run_source_policy_regressions.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/agent1-selfhost-cli-driver-after-typed-seed.json -j 1 --dist web/dist --assert-io`: pass 3/3
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR / raw provenance 方針に沿って、stdlib 名の allowlist ではなく型構造と Resource IR proof から不要な summary 計算を除外するようにした。
+
 # 2026-05-17 Agent 1 selfhost_cli_driver stdout report 固定
 
 - `ISS-20260517T125745927Z-SELFHOST-CLI-DRIVER-DOCTESTS-HIDE-ST-15DDEDC6` を追加し、fixed / resolved にした。`plan.md` は変更していない。

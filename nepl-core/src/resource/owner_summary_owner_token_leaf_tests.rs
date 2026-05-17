@@ -14,7 +14,6 @@ fn owner_token_struct(types: &mut TypeCtx, mark: bool) -> TypeId {
     let ty = types.register_named(
         OWNER_TOKEN_TYPE_NAME.to_string(),
         TypeKind::Struct {
-            doc: None,
             name: OWNER_TOKEN_TYPE_NAME.to_string(),
             type_params: vec![type_param],
             fields: vec![i32_ty, i32_ty],
