@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T02:59:12.312Z",
+  "generated_at": "2026-05-17T03:10:04.017Z",
   "counts": {
-    "total": 900,
+    "total": 901,
     "open": 5,
-    "resolved": 895,
+    "resolved": 896,
     "by_area": {
       "stdlib": {
-        "total": 257,
+        "total": 258,
         "open": 3,
-        "resolved": 254
+        "resolved": 255
       },
       "TEST": {
         "total": 25,
@@ -10738,6 +10738,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T061152439Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-B1897B0F.md"
+    },
+    {
+      "id": "ISS-20260517T030536827Z-DEQUE-POP-DROPS-UPDATED-OWNER-INSTEA-2B452BAF",
+      "title": "Deque pop drops updated owner instead of returning owner-preserving result",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "stdlib/alloc/collections/deque/**; stdlib/tests/deque.n.md; nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T030536827Z-DEQUE-POP-DROPS-UPDATED-OWNER-INSTEA-2B452BAF.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

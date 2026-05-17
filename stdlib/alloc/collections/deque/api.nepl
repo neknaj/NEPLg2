@@ -2,11 +2,11 @@
 //: double-ended queue の public 操作
 //:
 //: ### [目的/もくてき]
-//: - `new` / `with_capacity` / `len` / `cap` / `is_empty` / `push_front` / `push_back` / `pop_front` / `pop_back` / `peek_front` / `peek_back` / `clear` / `free` を[提供/ていきょう]します。
+//: - `new` / `with_capacity` / `len` / `cap` / `is_empty` / `push_front` / `push_back` / `pop_front` / `pop_back` / `deque_pop_item` / `deque_pop_deque` / `peek_front` / `peek_back` / `clear` / `free` を[提供/ていきょう]します。
 //: - owner を[更新/こうしん]する API と、owner を[借用/しゃくよう]して[観測/かんそく]する API を[分/わ]けます。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len` / `cap` / `is_empty` / `peek_front` / `peek_back` / terminal pop は O(1) です。
+//: - `len` / `cap` / `is_empty` / `peek_front` / `peek_back` / `pop_front` / `pop_back` は O(1) です。
 //: - `push_front` / `push_back` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
 
 #indent 4
@@ -132,18 +132,54 @@ pub fn push_back <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, Diag>> (dq, item)
             ok<Deque<.T>, Diag> Deque<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
-//: deque を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
-pub fn pop_front <.T: Copy> <(Deque<.T>)*>Option<.T>> (dq):
-    let item <Option<.T>> peek_front<.T> &dq
-    free<.T> dq
-    item
+//: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の deque と[値/あたい]を[返/かえ]す
+pub fn pop_front <.T: Copy> <(Deque<.T>)*>DequePop<.T>> (dq):
+    let len0 <i32> *field::get_ref &dq "len"
+    let cap0 <i32> *field::get_ref &dq "cap"
+    let head0 <i32> *field::get_ref &dq "head"
+    let items <Vec<Option<.T>>> field::get dq "items"
+    if:
+        eq len0 0
+        then:
+            let next_dq <Deque<.T>> Deque<.T> 0 cap0 head0 items
+            DequePop<.T> next_dq none<.T>
+        else:
+            let item <Option<.T>> deque_item_at<.T> &items head0
+            deque_store_slot<.T> &items head0 none<.T>
+            let next_len <i32> sub len0 1
+            let next_head <i32> deque_next_index head0 cap0
+            let next_dq <Deque<.T>> Deque<.T> next_len cap0 next_head items
+            DequePop<.T> next_dq item
 
 //: ## pop_back
-//: deque を[消費/しょうひ]して[末尾/まつび]の[値/あたい]だけを[返/かえ]す
-pub fn pop_back <.T: Copy> <(Deque<.T>)*>Option<.T>> (dq):
-    let item <Option<.T>> peek_back<.T> &dq
-    free<.T> dq
-    item
+//: [末尾/まつび]を[取/と]り[出/だ]し、[更新後/こうしんご]の deque と[値/あたい]を[返/かえ]す
+pub fn pop_back <.T: Copy> <(Deque<.T>)*>DequePop<.T>> (dq):
+    let len0 <i32> *field::get_ref &dq "len"
+    let cap0 <i32> *field::get_ref &dq "cap"
+    let head0 <i32> *field::get_ref &dq "head"
+    let items <Vec<Option<.T>>> field::get dq "items"
+    if:
+        eq len0 0
+        then:
+            let next_dq <Deque<.T>> Deque<.T> 0 cap0 head0 items
+            DequePop<.T> next_dq none<.T>
+        else:
+            let back <i32> deque_back_index head0 len0 cap0
+            let item <Option<.T>> deque_item_at<.T> &items back
+            deque_store_slot<.T> &items back none<.T>
+            let next_len <i32> sub len0 1
+            let next_dq <Deque<.T>> Deque<.T> next_len cap0 head0 items
+            DequePop<.T> next_dq item
+
+//: ## deque_pop_item
+//: `DequePop` を[借用/しゃくよう]し、[取/と]り[出/だ]した[値/あたい]を[読/よ]む
+pub fn deque_pop_item <.T: Copy> <(&DequePop<.T>)->Option<.T>> (p):
+    *field::get_ref p "item"
+
+//: ## deque_pop_deque
+//: `DequePop` を[消費/しょうひ]し、[更新後/こうしんご]の deque owner を[取/と]り[出/だ]す
+pub fn deque_pop_deque <.T: Copy> <(DequePop<.T>)->Deque<.T>> (p):
+    field::get p "deque"
 
 //: ## peek_front
 //: `Deque` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む

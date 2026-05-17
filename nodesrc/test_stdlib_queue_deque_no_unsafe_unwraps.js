@@ -79,11 +79,14 @@ const deque = [
     'stdlib/alloc/collections/deque/api.nepl',
 ].map(implementationCode).join('\n');
 assert.match(deque, /struct\s+Deque<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*head\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Deque must keep typed Vec<Option<T>> storage in its public owner struct');
+assert.match(deque, /struct\s+DequePop<\.T>:[\s\S]*deque\s+<Deque<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Deque must expose an owner-preserving pop result');
 assert.match(deque, /fn\s+len\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.len must borrow the owner');
 assert.match(deque, /fn\s+cap\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.cap must borrow the owner');
 assert.match(deque, /fn\s+is_empty\s+<\.T>\s+<\(&Deque<\.T>\)->bool>\s+\(dq\):/, 'Deque.is_empty must borrow the owner');
 assert.match(deque, /fn\s+peek_front\s+<\.T:\s*Copy>\s+<\(&Deque<\.T>\)->Option<\.T>>\s+\(dq\):/, 'Deque.peek_front must borrow the owner');
 assert.match(deque, /fn\s+peek_back\s+<\.T:\s*Copy>\s+<\(&Deque<\.T>\)->Option<\.T>>\s+\(dq\):/, 'Deque.peek_back must borrow the owner');
+assert.match(deque, /fn\s+deque_pop_item\s+<\.T:\s*Copy>\s+<\(&DequePop<\.T>\)->Option<\.T>>\s+\(p\):/, 'Deque pop item access must borrow the pop result');
+assert.match(deque, /fn\s+deque_pop_deque\s+<\.T:\s*Copy>\s+<\(DequePop<\.T>\)->Deque<\.T>>\s+\(p\):/, 'Deque pop deque access must move the updated owner out of the pop result');
 assert.doesNotMatch(deque, /fn\s+(?:len_ref|cap_ref|is_empty_ref|peek_front_ref|peek_back_ref)\b/, 'Deque must not keep duplicate *_ref observer surfaces');
 assert.doesNotMatch(deque, /fn\s+(?:len|cap|is_empty|peek_front|peek_back)\s+<[^>]+>\s+<\(Deque<\.T>\)/, 'Deque observers must not consume the owner');
 assert.match(deque, /fn\s+deque_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'Deque must read initialized slot state through Option<T>');
@@ -91,6 +94,8 @@ assert.match(deque, /fn\s+deque_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>
 assert.match(deque, /fn\s+deque_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'Deque allocation must initialize every slot as None');
 assert.match(deque, /fn\s+push_front\s+<\.T:\s*Copy>[\s\S]*deque_prev_index[\s\S]*deque_store_slot<\.T>\s+&items\s+head1\s+some<\.T>\s+item/, 'Deque push_front must write a typed Some slot at the new head');
 assert.match(deque, /fn\s+push_back\s+<\.T:\s*Copy>[\s\S]*deque_tail_index[\s\S]*deque_store_slot<\.T>\s+&items\s+tail\s+some<\.T>\s+item/, 'Deque push_back must write a typed Some slot at the tail');
+assert.match(deque, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)\*>DequePop<\.T>>[\s\S]*deque_store_slot<\.T>\s+&items\s+head0\s+none<\.T>[\s\S]*DequePop<\.T>/, 'Deque pop_front must clear the consumed front slot and return the updated owner');
+assert.match(deque, /fn\s+pop_back\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)\*>DequePop<\.T>>[\s\S]*deque_back_index[\s\S]*deque_store_slot<\.T>\s+&items\s+back\s+none<\.T>[\s\S]*DequePop<\.T>/, 'Deque pop_back must clear the consumed back slot and return the updated owner');
 assert.match(deque, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+dq\s+"items"/, 'Deque.free must close the Copy-only Vec<Option<T>> owner');
 assert.doesNotMatch(deque, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b/, 'Deque must not reintroduce raw header or raw element storage');
 

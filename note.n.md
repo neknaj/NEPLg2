@@ -40207,3 +40207,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core resource_ir_lowers_dedicated_memory_helpers_once_per_call --test resource_ir -- --nocapture`: passed
   - `cargo test -p nepl-core memory_helper_primitive_marks_single_resource_lowering_authority -- --nocapture`: passed
   - `cargo check -p nepl-core`: passed
+
+## 2026-05-17 Agent 1 Deque owner-preserving pop 修正
+
+- `ISS-20260517T030536827Z-DEQUE-POP-DROPS-UPDATED-OWNER-INSTEA-2B452BAF` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Deque.pop_front` / `pop_back` が item 取得後に `free` で container owner を閉じ、更新後 owner を返さない terminal API になっていたことだった。これにより remove/pop と container cleanup の責務が型で分離されず、`Queue` / `RingBuffer` / `Stack` の owner-preserving pop contract とずれていた。
+- 修正後は `DequePop<T>` を追加し、`pop_front` / `pop_back` が対象 slot を `None` に戻してから、更新後 `Deque<T>` owner と `Option<T>` item を同時に返す。`deque_pop_item` / `deque_pop_deque` で結果を分解する。
+- focused verification:
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/tests/deque.n.md -n 2`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/deque/index.nepl -n 3`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/deque.n.md --no-tree -o tmp/deque-tests.json -j 1`: passed
