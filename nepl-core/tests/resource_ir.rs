@@ -2302,6 +2302,8 @@ fn resource_ir_lowering_preserves_nonzero_i32_relation_condition_fact() {
 #indent 4
 #target wasm
 
+#import "core/math" as *
+
 fn main <(i32,i32)->i32> (i, len):
     if lt i len:
         then:
@@ -2351,6 +2353,8 @@ fn resource_ir_lowering_preserves_loop_i32_relation_condition_fact() {
 #entry main
 #indent 4
 #target wasm
+
+#import "core/math" as *
 
 fn main <(i32)->i32> (len):
     let mut i <i32> 0

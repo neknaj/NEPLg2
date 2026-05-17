@@ -20,6 +20,7 @@ use super::model::{
     Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp, StorageOrigin,
 };
 use super::place_utils::{enum_payload_type, mem_ptr_raw_field_place, reference_target_place};
+use super::scalar_primitive::I32ArithmeticPrimitive;
 
 pub(super) fn push_core_mem_wrapper_semantics(
     callee: &FuncRef,
@@ -248,8 +249,8 @@ fn raw_address_source_from_actual_named_expr(
         }
         _ => {}
     }
-    match helper_base_name(name) {
-        "add" if args.len() == 2 && arg_places.len() == 2 => {
+    match I32ArithmeticPrimitive::from_symbol(name) {
+        Some(I32ArithmeticPrimitive::Add) if args.len() == 2 && arg_places.len() == 2 => {
             if i32_const_from_actual_arg(&args[0], env).is_some()
                 && i32_const_from_actual_arg(&args[1], env).is_none()
             {
@@ -266,7 +267,7 @@ fn raw_address_source_from_actual_named_expr(
                 })
             }
         }
-        "sub" if args.len() == 2 && arg_places.len() == 2 => {
+        Some(I32ArithmeticPrimitive::Sub) if args.len() == 2 && arg_places.len() == 2 => {
             raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
                 source.with_subtracted_offset(raw_address_offset_from_actual_arg(
                     1, args, arg_places, env,
@@ -356,12 +357,9 @@ fn i32_const_from_actual_named_expr(
     if args.len() != 2 {
         return None;
     }
-    match name {
-        "add" => i32_const_from_actual_arg(&args[0], env)?
-            .checked_add(i32_const_from_actual_arg(&args[1], env)?),
-        "sub" => i32_const_from_actual_arg(&args[0], env)?
-            .checked_sub(i32_const_from_actual_arg(&args[1], env)?),
-        "mul" => {
+    let op = I32ArithmeticPrimitive::from_symbol(name)?;
+    match op {
+        I32ArithmeticPrimitive::Mul => {
             let left = i32_const_from_actual_arg(&args[0], env);
             if matches!(left, Some(0)) {
                 return Some(0);
@@ -372,7 +370,10 @@ fn i32_const_from_actual_named_expr(
             }
             left?.checked_mul(right?)
         }
-        _ => None,
+        I32ArithmeticPrimitive::Add | I32ArithmeticPrimitive::Sub => op.checked_i64(
+            i32_const_from_actual_arg(&args[0], env)?,
+            i32_const_from_actual_arg(&args[1], env)?,
+        ),
     }
 }
 

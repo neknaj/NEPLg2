@@ -8,7 +8,9 @@ use crate::resource_primitives::MemoryHelperPrimitive;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-use super::address_projection::compiler_field_address_base_and_offset;
+use super::address_projection::{
+    compiler_field_address_base_and_offset, AddressProjectionPrimitive,
+};
 use super::coverage_hir_projection_aggregate::{
     aggregate_field_exists, aggregate_field_matches_selector, reference_target_type,
 };
@@ -136,7 +138,7 @@ pub(super) fn compiler_field_load_base_and_offset<'a>(
 
 fn projects_reference_address(name: Option<&str>, args: &[HirExpr], types: &TypeCtx) -> bool {
     let projects_reference = match name {
-        Some("add" | "sub") => true,
+        Some(name) if AddressProjectionPrimitive::from_base_name(name).is_some() => true,
         Some(name) => matches!(
             MemoryHelperPrimitive::from_base_name(name),
             Some(
@@ -159,7 +161,10 @@ fn projects_reference_field(
     ref_ty: TypeId,
     types: &TypeCtx,
 ) -> bool {
-    if !matches!(name, Some("add")) || args.len() != 2 {
+    if name.and_then(AddressProjectionPrimitive::from_base_name)
+        != Some(AddressProjectionPrimitive::Add)
+        || args.len() != 2
+    {
         return false;
     }
     let Some(owner) = args.first() else {

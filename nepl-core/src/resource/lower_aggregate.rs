@@ -7,7 +7,9 @@ use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::TypeId;
 
-use super::address_projection::{compiler_field_address_base_and_offset, non_negative_i32_literal};
+use super::address_projection::{
+    compiler_field_address_base_and_offset, non_negative_i32_literal, AddressProjectionPrimitive,
+};
 use super::lower::{
     lower_expr_skeleton, place_from_expr_skeleton, LoweringContext, LoweringEnvironment,
 };
@@ -150,7 +152,9 @@ pub(super) fn lower_reference_address_projection_source(
     ctx: &mut LoweringContext,
     env: &LoweringEnvironment,
 ) -> Option<Place> {
-    if helper_base_name(name) != "add" || args.len() != 2 {
+    if AddressProjectionPrimitive::from_symbol(name) != Some(AddressProjectionPrimitive::Add)
+        || args.len() != 2
+    {
         return None;
     }
     let owner = args.first()?;
