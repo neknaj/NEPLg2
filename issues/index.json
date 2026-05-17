@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T12:00:36.462Z",
+  "generated_at": "2026-05-17T12:11:49.951Z",
   "counts": {
-    "total": 942,
+    "total": 943,
     "open": 5,
-    "resolved": 937,
+    "resolved": 938,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 488,
+        "total": 489,
         "open": 0,
-        "resolved": 488
+        "resolved": 489
       },
       "CORE": {
         "total": 1,
@@ -7413,6 +7413,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T115530657Z-RAW-BODY-MEMORY-OPERATION-PARSING-OV-18BEA5D1.md"
+    },
+    {
+      "id": "ISS-20260517T120443246Z-RAW-BODY-BACKEND-INTRINSIC-CLASSIFIE-4A602A92",
+      "title": "Raw body backend intrinsic classifier accepts arbitrary llvm namespace callees",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck/effect_check.rs, nepl-core/tests/effects.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T120443246Z-RAW-BODY-BACKEND-INTRINSIC-CLASSIFIE-4A602A92.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

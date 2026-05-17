@@ -209,7 +209,7 @@ pub enum RawBodyDirectCallee {
     },
     BackendIntrinsic {
         callee: String,
-        backend: RawBodyBackend,
+        intrinsic: RawBodyBackendIntrinsic,
     },
     Other(String),
 }
@@ -218,6 +218,148 @@ pub enum RawBodyDirectCallee {
 pub enum RawBodyBackend {
     Wasm,
     Llvm,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum RawBodyBackendIntrinsic {
+    Llvm(LlvmRawBodyIntrinsic),
+}
+
+impl RawBodyBackendIntrinsic {
+    fn from_callee(backend: RawBodyBackend, callee: &str) -> Option<Self> {
+        match backend {
+            RawBodyBackend::Wasm => None,
+            RawBodyBackend::Llvm => {
+                LlvmRawBodyIntrinsic::from_callee(callee).map(RawBodyBackendIntrinsic::Llvm)
+            }
+        }
+    }
+
+    pub const fn surface_effect(self) -> Effect {
+        match self {
+            RawBodyBackendIntrinsic::Llvm(intrinsic) => intrinsic.surface_effect(),
+        }
+    }
+
+    pub const fn memory_operation(self) -> Option<RawBodyMemoryOp> {
+        match self {
+            RawBodyBackendIntrinsic::Llvm(intrinsic) => match intrinsic.memory_operation() {
+                Some(operation) => Some(RawBodyMemoryOp::Llvm(operation)),
+                None => None,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum LlvmRawBodyIntrinsic {
+    Assume,
+    Sqrt,
+    Ceil,
+    Floor,
+    Trunc,
+    NearbyInt,
+    Minimum,
+    Maximum,
+    Copysign,
+    FpToSignedIntSat,
+    FpToUnsignedIntSat,
+    FunnelShiftLeft,
+    FunnelShiftRight,
+    CountLeadingZeros,
+    CountTrailingZeros,
+    CountPopulation,
+    Memory(LlvmRawBodyMemoryOp),
+}
+
+impl LlvmRawBodyIntrinsic {
+    fn from_callee(callee: &str) -> Option<Self> {
+        if let Some(operation) = LlvmRawBodyMemoryOp::from_intrinsic_callee(callee) {
+            return Some(Self::Memory(operation));
+        }
+
+        let segments = callee.split('.').collect::<Vec<_>>();
+        let operation = match segments.as_slice() {
+            ["llvm", "assume"] => Self::Assume,
+            ["llvm", "sqrt", ty] if llvm_raw_body_float_type(ty) => Self::Sqrt,
+            ["llvm", "ceil", ty] if llvm_raw_body_float_type(ty) => Self::Ceil,
+            ["llvm", "floor", ty] if llvm_raw_body_float_type(ty) => Self::Floor,
+            ["llvm", "trunc", ty] if llvm_raw_body_float_type(ty) => Self::Trunc,
+            ["llvm", "nearbyint", ty] if llvm_raw_body_float_type(ty) => Self::NearbyInt,
+            ["llvm", "minimum", ty] if llvm_raw_body_float_type(ty) => Self::Minimum,
+            ["llvm", "maximum", ty] if llvm_raw_body_float_type(ty) => Self::Maximum,
+            ["llvm", "copysign", ty] if llvm_raw_body_float_type(ty) => Self::Copysign,
+            ["llvm", "fptosi", "sat", int_ty, float_ty]
+                if llvm_raw_body_integer_type(int_ty) && llvm_raw_body_float_type(float_ty) =>
+            {
+                Self::FpToSignedIntSat
+            }
+            ["llvm", "fptoui", "sat", int_ty, float_ty]
+                if llvm_raw_body_integer_type(int_ty) && llvm_raw_body_float_type(float_ty) =>
+            {
+                Self::FpToUnsignedIntSat
+            }
+            ["llvm", "fshl", ty] if llvm_raw_body_integer_type(ty) => Self::FunnelShiftLeft,
+            ["llvm", "fshr", ty] if llvm_raw_body_integer_type(ty) => Self::FunnelShiftRight,
+            ["llvm", "ctlz", ty] if llvm_raw_body_integer_type(ty) => Self::CountLeadingZeros,
+            ["llvm", "cttz", ty] if llvm_raw_body_integer_type(ty) => Self::CountTrailingZeros,
+            ["llvm", "ctpop", ty] if llvm_raw_body_integer_type(ty) => Self::CountPopulation,
+            _ => return None,
+        };
+        Some(operation)
+    }
+
+    pub const fn surface_effect(self) -> Effect {
+        match self {
+            Self::Assume
+            | Self::Sqrt
+            | Self::Ceil
+            | Self::Floor
+            | Self::Trunc
+            | Self::NearbyInt
+            | Self::Minimum
+            | Self::Maximum
+            | Self::Copysign
+            | Self::FpToSignedIntSat
+            | Self::FpToUnsignedIntSat
+            | Self::FunnelShiftLeft
+            | Self::FunnelShiftRight
+            | Self::CountLeadingZeros
+            | Self::CountTrailingZeros
+            | Self::CountPopulation
+            | Self::Memory(_) => Effect::Pure,
+        }
+    }
+
+    pub const fn memory_operation(self) -> Option<LlvmRawBodyMemoryOp> {
+        match self {
+            Self::Memory(operation) => Some(operation),
+            Self::Assume
+            | Self::Sqrt
+            | Self::Ceil
+            | Self::Floor
+            | Self::Trunc
+            | Self::NearbyInt
+            | Self::Minimum
+            | Self::Maximum
+            | Self::Copysign
+            | Self::FpToSignedIntSat
+            | Self::FpToUnsignedIntSat
+            | Self::FunnelShiftLeft
+            | Self::FunnelShiftRight
+            | Self::CountLeadingZeros
+            | Self::CountTrailingZeros
+            | Self::CountPopulation => None,
+        }
+    }
+}
+
+fn llvm_raw_body_float_type(ty: &str) -> bool {
+    matches!(ty, "f32" | "f64")
+}
+
+fn llvm_raw_body_integer_type(ty: &str) -> bool {
+    matches!(ty, "i32" | "i64")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -704,17 +846,10 @@ fn classify_raw_body_direct_callee(backend: RawBodyBackend, callee: String) -> R
     if let Some(operation) = raw_memory_op_from_name(&callee) {
         return RawBodyDirectCallee::RawMemory { callee, operation };
     }
-    if raw_body_backend_intrinsic_callee(backend, &callee) {
-        return RawBodyDirectCallee::BackendIntrinsic { callee, backend };
+    if let Some(intrinsic) = RawBodyBackendIntrinsic::from_callee(backend, &callee) {
+        return RawBodyDirectCallee::BackendIntrinsic { callee, intrinsic };
     }
     RawBodyDirectCallee::Other(callee)
-}
-
-fn raw_body_backend_intrinsic_callee(backend: RawBodyBackend, callee: &str) -> bool {
-    match backend {
-        RawBodyBackend::Wasm => false,
-        RawBodyBackend::Llvm => callee.starts_with("llvm."),
-    }
 }
 
 pub fn raw_body_memory_operations(body: &HirBody) -> Vec<RawBodyMemoryOp> {

@@ -3,8 +3,8 @@ use alloc::format;
 use crate::ast::{Block, Effect, Stmt};
 use crate::diagnostic_codes::EffectDiagnosticCode;
 use crate::effects::{
-    intrinsic_effect, raw_body_direct_callee_effects, raw_body_memory_operations,
-    raw_memory_intrinsic_op_from_name, RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
+    raw_body_direct_callee_effects, raw_body_memory_operations, raw_memory_intrinsic_op_from_name,
+    RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
 };
 use crate::hir::HirBody;
 use crate::span::Span;
@@ -45,12 +45,36 @@ impl<'a> BlockChecker<'a> {
                             return false;
                         }
                     }
-                    RawBodyDirectCallee::BackendIntrinsic { .. } => {}
-                    RawBodyDirectCallee::Other(callee) => {
-                        if self.raw_callee_is_impure(&callee) {
+                    RawBodyDirectCallee::BackendIntrinsic { callee, intrinsic } => {
+                        if let Some(operation) = intrinsic.memory_operation() {
+                            if !self.raw_body_memory_operation_allowed(operation, span) {
+                                self.diagnostics.push(effect_error(
+                                    EffectDiagnosticCode::PureCallsImpure,
+                                    format!(
+                                        "pure raw body cannot access raw memory instruction '{}'",
+                                        operation.as_str()
+                                    ),
+                                    span,
+                                ));
+                                return false;
+                            }
+                        } else if matches!(intrinsic.surface_effect(), Effect::Impure) {
                             self.diagnostics.push(effect_error(
                                 EffectDiagnosticCode::PureCallsImpure,
-                                "pure context cannot call impure function",
+                                format!("pure raw body cannot call backend intrinsic '{}'", callee),
+                                span,
+                            ));
+                            return false;
+                        }
+                    }
+                    RawBodyDirectCallee::Other(callee) => {
+                        if !self.raw_callee_is_proven_pure(&callee) {
+                            self.diagnostics.push(effect_error(
+                                EffectDiagnosticCode::PureCallsImpure,
+                                format!(
+                                    "pure raw body cannot call '{}' without a pure callee proof",
+                                    callee
+                                ),
                                 span,
                             ));
                             return false;
@@ -110,11 +134,9 @@ impl<'a> BlockChecker<'a> {
             .is_some_and(|operation| self.raw_memory_operation_allowed(operation, span))
     }
 
-    pub(super) fn raw_callee_is_impure(&self, callee: &str) -> bool {
-        if let Some(effect) = self.raw_callee_declared_effect(callee) {
-            return matches!(effect, Effect::Impure);
-        }
-        matches!(intrinsic_effect(callee), Effect::Impure)
+    pub(super) fn raw_callee_is_proven_pure(&self, callee: &str) -> bool {
+        self.raw_callee_declared_effect(callee)
+            .is_some_and(|effect| matches!(effect, Effect::Pure))
     }
 
     pub(super) fn raw_callee_declared_effect(&self, callee: &str) -> Option<Effect> {

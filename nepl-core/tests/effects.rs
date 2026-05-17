@@ -5,8 +5,9 @@ use nepl_core::effects::{
     external_io_op_from_name, internal_effect_surface_fold, intrinsic_effect, nondet_op_from_name,
     raw_body_direct_callee_effects, raw_body_memory_operations, raw_callee_internal_effect,
     raw_memory_callee_internal_effect, raw_memory_intrinsic_op_from_name, raw_memory_op_from_name,
-    ExternalIoOp, InternalEffect, LlvmRawBodyMemoryOp, NondetOp, RawBodyBackend,
-    RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryHelper, RawMemoryOp, WasmRawBodyMemoryOp,
+    ExternalIoOp, InternalEffect, LlvmRawBodyIntrinsic, LlvmRawBodyMemoryOp, NondetOp,
+    RawBodyBackendIntrinsic, RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryHelper, RawMemoryOp,
+    WasmRawBodyMemoryOp,
 };
 use nepl_core::error::CoreError;
 use nepl_core::hir::HirBody;
@@ -259,6 +260,8 @@ fn raw_body_direct_callee_effects_are_typed_before_consumers() {
         lines: vec![
             String::from("call void @store_i32(i32 0, i32 1)"),
             String::from("call void @llvm.assume(i1 true)"),
+            String::from("call float @llvm.sqrt.f32(float 4.0)"),
+            String::from("call void @llvm.trap()"),
             String::from("call i32 @fd_read(i32 0)"),
         ],
         span: Span::dummy(),
@@ -272,8 +275,13 @@ fn raw_body_direct_callee_effects_are_typed_before_consumers() {
             },
             RawBodyDirectCallee::BackendIntrinsic {
                 callee: String::from("llvm.assume"),
-                backend: RawBodyBackend::Llvm,
+                intrinsic: RawBodyBackendIntrinsic::Llvm(LlvmRawBodyIntrinsic::Assume),
             },
+            RawBodyDirectCallee::BackendIntrinsic {
+                callee: String::from("llvm.sqrt.f32"),
+                intrinsic: RawBodyBackendIntrinsic::Llvm(LlvmRawBodyIntrinsic::Sqrt),
+            },
+            RawBodyDirectCallee::Other(String::from("llvm.trap")),
             RawBodyDirectCallee::Other(String::from("fd_read")),
         ]
     );
@@ -565,6 +573,53 @@ fn main <()->i32> ():
 "#;
 
     check_source(src, CompileTarget::Llvm).expect("check");
+}
+
+#[test]
+fn pure_llvm_raw_call_to_known_pure_backend_intrinsic_is_allowed() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+fn raw_sqrt <(f32)->f32> (x):
+    #llvmir:
+        define float @raw_sqrt(float %x) {
+        entry:
+            %y = call float @llvm.sqrt.f32(float %x)
+            ret float %y
+        }
+
+fn main <()->f32> ():
+    raw_sqrt 4.0
+"#;
+
+    check_source(src, CompileTarget::Llvm).expect("check");
+}
+
+#[test]
+fn pure_llvm_raw_call_to_unknown_llvm_intrinsic_is_rejected() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+fn raw_unknown <()->i32> ():
+    #llvmir:
+        define i32 @raw_unknown() {
+        entry:
+            call void @llvm.trap()
+            ret i32 0
+        }
+
+fn main <()->i32> ():
+    raw_unknown
+"#;
+
+    assert_has_diag(
+        check_source(src, CompileTarget::Llvm),
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]

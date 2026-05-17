@@ -1,3 +1,24 @@
+# 2026-05-17 Agent 1 raw body backend intrinsic semantic domain 化
+
+- `ISS-20260517T120443246Z-RAW-BODY-BACKEND-INTRINSIC-CLASSIFIE-4A602A92` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、raw body direct callee proof が `llvm.` namespace prefix だけで任意の LLVM callee を `BackendIntrinsic` として扱い、typecheck がその variant を無条件 pure 扱いしていたこと。
+- `RawBodyBackendIntrinsic` / `LlvmRawBodyIntrinsic` を追加し、LLVM backend intrinsic の分類を semantic enum domain に移した。`llvm.sqrt.f32` などの known pure intrinsic と `llvm.memcpy.*` などの memory intrinsic は typed classifier で分類される。
+- `RawBodyDirectCallee::BackendIntrinsic` は backend 名ではなく typed intrinsic を持つようにし、typecheck は `intrinsic.surface_effect()` と `intrinsic.memory_operation()` を `match` 経由で消費するようにした。
+- ordinary raw body direct callee は宣言済み pure と証明できる場合だけ pure raw body 内で許可するようにした。unknown callee を「known impure でないから pure」とする `raw_callee_is_impure` gate は削除した。
+- `llvm.trap` を pure raw body で拒否し、declared pure extern と known pure LLVM intrinsic は維持する回帰テストを追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --test effects raw_body -- --nocapture`
+  - `cargo test -p nepl-core --test effects pure_llvm_raw_call_to_unknown_llvm_intrinsic_is_rejected -- --exact --nocapture`
+  - `cargo test -p nepl-core --test effects pure_llvm_raw_call_to_known_pure_backend_intrinsic_is_allowed -- --exact --nocapture`
+  - `cargo test -p nepl-core --test effects pure_llvm_raw_call_to_declared_pure_substring_name_is_allowed -- --exact --nocapture`
+  - `cargo test -p nepl-core --test effects pure_llvm_raw_call_to_declared_impure_extern_is_rejected -- --exact --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「個別 prefix 許可ではなく typed proof artifact と enum/match で検査の誤りを発見しやすくする」方針に沿って、backend intrinsic proof を具体化した。
+
 # 2026-05-17 Agent 1 raw body memory operation classifier domain 化
 
 - `ISS-20260517T115530657Z-RAW-BODY-MEMORY-OPERATION-PARSING-OV-18BEA5D1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
