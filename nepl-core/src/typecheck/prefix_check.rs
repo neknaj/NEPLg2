@@ -17,7 +17,7 @@ use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
 use super::traits::TraitId;
 use super::type_expr::type_from_expr;
-use super::{AssignKind, BlockChecker, FieldIdx, StackEntry};
+use super::{AssignKind, BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
 
 fn prefix_check_dump_enabled() -> bool {
     #[cfg(target_os = "none")]
@@ -1106,6 +1106,8 @@ impl<'a> BlockChecker<'a> {
                         }
                     }
 
+                    let field_accessor_intrinsic =
+                        FieldAccessorKind::from_intrinsic_name(intrin.name.as_str());
                     let ty = if intrin.name == "size_of" || intrin.name == "align_of" {
                         self.ctx.i32()
                     } else if intrin.name == "load" {
@@ -1127,8 +1129,13 @@ impl<'a> BlockChecker<'a> {
                             ));
                             self.ctx.unit()
                         }
-                    } else if intrin.name == "set_field" {
-                        self.ctx.unit() // temporary, will continue below
+                    } else if let Some(field_accessor) = field_accessor_intrinsic {
+                        match field_accessor {
+                            FieldAccessorKind::Get | FieldAccessorKind::GetRef => {
+                                self.ctx.fresh_var(None)
+                            }
+                            FieldAccessorKind::Put => self.ctx.unit(),
+                        }
                     } else if intrin.name == "unreachable" {
                         self.ctx.never()
                     } else if intrin.name == "i32_to_f32" {
@@ -1174,12 +1181,6 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.i32()
                     } else if intrin.name == "str_from_addr_unchecked" {
                         self.ctx.str()
-                    } else if intrin.name == "get_field" {
-                        self.ctx.fresh_var(None)
-                    } else if intrin.name == "get_field_ref" {
-                        self.ctx.fresh_var(None)
-                    } else if intrin.name == "set_field" {
-                        self.ctx.unit()
                     } else {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::IntrinsicUnknown,
@@ -1189,161 +1190,175 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.unit()
                     };
 
-                    if intrin.name == "get_field" {
-                        let obj = args[0].clone();
-                        let idx = &args[1];
-                        let res = match &idx.kind {
-                            HirExprKind::LiteralI32(val) => self.resolve_field_access(
-                                obj.ty,
-                                FieldIdx::Index(*val as usize),
-                                *sp,
-                            ),
-                            HirExprKind::LiteralStr(sid) => {
-                                let name = self.string_table.get(*sid).unwrap().clone();
-                                self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
-                            }
-                            _ => None,
-                        };
-                        if let Some((f_ty, _offset)) = res {
-                            // Unify our determined ty (fresh var) with the actual field type
-                            let _ = self.ctx.unify(ty, f_ty);
-
-                            let hexpr = HirExpr {
-                                ty: f_ty,
-                                kind: HirExprKind::Intrinsic {
-                                    name: "get_field".to_string(),
-                                    type_args: Vec::new(),
-                                    args: vec![obj, idx.clone()],
-                                },
-                                span: *sp,
-                            };
-                            stack.push(StackEntry {
-                                ty: f_ty,
-                                expr: hexpr.clone(),
-                                type_args: Vec::new(),
-                                assign: None,
-                                auto_call: true,
-                            });
-                            last_expr = Some(hexpr);
-                            continue;
-                        }
-                        // which pushes HirExprKind::Intrinsic and uses the fresh variable 'ty'.
-                    } else if intrin.name == "get_field_ref" {
-                        let obj = args[0].clone();
-                        let idx = &args[1];
-                        let resolved_obj_ty = self.ctx.resolve(obj.ty);
-                        let base_ty = match self.ctx.get(resolved_obj_ty) {
-                            TypeKind::Reference(inner, _) => inner,
-                            _ => {
-                                self.diagnostics.push(type_error(
-                                    TypeDiagnosticCode::FieldInvalidAccess,
-                                    "get_field_ref expects a reference to a composite value",
-                                    obj.span,
-                                ));
-                                self.ctx.never()
-                            }
-                        };
-                        let res = match &idx.kind {
-                            HirExprKind::LiteralI32(val) => self.resolve_field_access(
-                                base_ty,
-                                FieldIdx::Index(*val as usize),
-                                *sp,
-                            ),
-                            HirExprKind::LiteralStr(sid) => {
-                                let name = self.string_table.get(*sid).unwrap().clone();
-                                self.resolve_field_access(base_ty, FieldIdx::Name(name), *sp)
-                            }
-                            _ => None,
-                        };
-                        if let Some((f_ty, _offset)) = res {
-                            let ref_ty = self.ctx.reference(f_ty, false);
-                            let _ = self.ctx.unify(ty, ref_ty);
-                            let hexpr = HirExpr {
-                                ty: ref_ty,
-                                kind: HirExprKind::Intrinsic {
-                                    name: "get_field_ref".to_string(),
-                                    type_args: Vec::new(),
-                                    args: vec![obj, idx.clone()],
-                                },
-                                span: *sp,
-                            };
-                            stack.push(StackEntry {
-                                ty: ref_ty,
-                                expr: hexpr.clone(),
-                                type_args: Vec::new(),
-                                assign: None,
-                                auto_call: true,
-                            });
-                            last_expr = Some(hexpr);
-                            continue;
-                        }
-                    } else if intrin.name == "set_field" {
-                        let obj = args[0].clone();
-                        let idx = &args[1];
-                        let val = args[2].clone();
-                        let res = match &idx.kind {
-                            HirExprKind::LiteralI32(v) => {
-                                self.resolve_field_access(obj.ty, FieldIdx::Index(*v as usize), *sp)
-                            }
-                            HirExprKind::LiteralStr(sid) => {
-                                let name = self.string_table.get(*sid).unwrap().clone();
-                                self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
-                            }
-                            _ => None,
-                        };
-                        if let Some((f_ty, offset)) = res {
-                            // Unify value type with field type
-                            if let Err(_) = self.ctx.unify(val.ty, f_ty) {
-                                self.diagnostics.push(type_error(
-                                    TypeDiagnosticCode::AssignmentMismatch,
-                                    format!(
-                                        "type mismatch in set_field: expected {}, found {}",
-                                        self.ctx.type_to_string(f_ty),
-                                        self.ctx.type_to_string(val.ty)
+                    if let Some(field_accessor) = field_accessor_intrinsic {
+                        match field_accessor {
+                            FieldAccessorKind::Get => {
+                                let obj = args[0].clone();
+                                let idx = &args[1];
+                                let res = match &idx.kind {
+                                    HirExprKind::LiteralI32(val) => self.resolve_field_access(
+                                        obj.ty,
+                                        FieldIdx::Index(*val as usize),
+                                        *sp,
                                     ),
-                                    *sp,
-                                ));
-                            }
+                                    HirExprKind::LiteralStr(sid) => {
+                                        let name = self.string_table.get(*sid).unwrap().clone();
+                                        self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
+                                    }
+                                    _ => None,
+                                };
+                                if let Some((f_ty, _offset)) = res {
+                                    let _ = self.ctx.unify(ty, f_ty);
 
-                            // Lower to store(add(obj, offset), val)
-                            let addr_expr = if offset == 0 {
-                                obj
-                            } else {
-                                HirExpr {
-                                    ty: self.ctx.i32(),
-                                    kind: HirExprKind::Intrinsic {
-                                        name: "add".to_string(),
-                                        type_args: vec![self.ctx.i32()],
-                                        args: vec![
-                                            obj,
-                                            HirExpr {
-                                                ty: self.ctx.i32(),
-                                                kind: HirExprKind::LiteralI32(offset as i32),
-                                                span: idx.span,
-                                            },
-                                        ],
-                                    },
-                                    span: *sp,
+                                    let hexpr = HirExpr {
+                                        ty: f_ty,
+                                        kind: HirExprKind::Intrinsic {
+                                            name: FieldAccessorKind::Get
+                                                .intrinsic_name()
+                                                .to_string(),
+                                            type_args: Vec::new(),
+                                            args: vec![obj, idx.clone()],
+                                        },
+                                        span: *sp,
+                                    };
+                                    stack.push(StackEntry {
+                                        ty: f_ty,
+                                        expr: hexpr.clone(),
+                                        type_args: Vec::new(),
+                                        assign: None,
+                                        auto_call: true,
+                                    });
+                                    last_expr = Some(hexpr);
+                                    continue;
                                 }
-                            };
-                            let hexpr = HirExpr {
-                                ty: self.ctx.unit(),
-                                kind: HirExprKind::Intrinsic {
-                                    name: "store".to_string(),
-                                    type_args: vec![f_ty],
-                                    args: vec![addr_expr, val],
-                                },
-                                span: *sp,
-                            };
-                            stack.push(StackEntry {
-                                ty: self.ctx.unit(),
-                                expr: hexpr.clone(),
-                                type_args: Vec::new(),
-                                assign: None,
-                                auto_call: true,
-                            });
-                            last_expr = Some(hexpr);
-                            continue;
+                            }
+                            FieldAccessorKind::GetRef => {
+                                let obj = args[0].clone();
+                                let idx = &args[1];
+                                let resolved_obj_ty = self.ctx.resolve(obj.ty);
+                                let base_ty = match self.ctx.get(resolved_obj_ty) {
+                                    TypeKind::Reference(inner, _) => inner,
+                                    _ => {
+                                        self.diagnostics.push(type_error(
+                                            TypeDiagnosticCode::FieldInvalidAccess,
+                                            "get_field_ref expects a reference to a composite value",
+                                            obj.span,
+                                        ));
+                                        self.ctx.never()
+                                    }
+                                };
+                                let res = match &idx.kind {
+                                    HirExprKind::LiteralI32(val) => self.resolve_field_access(
+                                        base_ty,
+                                        FieldIdx::Index(*val as usize),
+                                        *sp,
+                                    ),
+                                    HirExprKind::LiteralStr(sid) => {
+                                        let name = self.string_table.get(*sid).unwrap().clone();
+                                        self.resolve_field_access(
+                                            base_ty,
+                                            FieldIdx::Name(name),
+                                            *sp,
+                                        )
+                                    }
+                                    _ => None,
+                                };
+                                if let Some((f_ty, _offset)) = res {
+                                    let ref_ty = self.ctx.reference(f_ty, false);
+                                    let _ = self.ctx.unify(ty, ref_ty);
+                                    let hexpr = HirExpr {
+                                        ty: ref_ty,
+                                        kind: HirExprKind::Intrinsic {
+                                            name: FieldAccessorKind::GetRef
+                                                .intrinsic_name()
+                                                .to_string(),
+                                            type_args: Vec::new(),
+                                            args: vec![obj, idx.clone()],
+                                        },
+                                        span: *sp,
+                                    };
+                                    stack.push(StackEntry {
+                                        ty: ref_ty,
+                                        expr: hexpr.clone(),
+                                        type_args: Vec::new(),
+                                        assign: None,
+                                        auto_call: true,
+                                    });
+                                    last_expr = Some(hexpr);
+                                    continue;
+                                }
+                            }
+                            FieldAccessorKind::Put => {
+                                let obj = args[0].clone();
+                                let idx = &args[1];
+                                let val = args[2].clone();
+                                let res = match &idx.kind {
+                                    HirExprKind::LiteralI32(v) => self.resolve_field_access(
+                                        obj.ty,
+                                        FieldIdx::Index(*v as usize),
+                                        *sp,
+                                    ),
+                                    HirExprKind::LiteralStr(sid) => {
+                                        let name = self.string_table.get(*sid).unwrap().clone();
+                                        self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
+                                    }
+                                    _ => None,
+                                };
+                                if let Some((f_ty, offset)) = res {
+                                    if let Err(_) = self.ctx.unify(val.ty, f_ty) {
+                                        self.diagnostics.push(type_error(
+                                            TypeDiagnosticCode::AssignmentMismatch,
+                                            format!(
+                                                "type mismatch in set_field: expected {}, found {}",
+                                                self.ctx.type_to_string(f_ty),
+                                                self.ctx.type_to_string(val.ty)
+                                            ),
+                                            *sp,
+                                        ));
+                                    }
+
+                                    let addr_expr = if offset == 0 {
+                                        obj
+                                    } else {
+                                        HirExpr {
+                                            ty: self.ctx.i32(),
+                                            kind: HirExprKind::Intrinsic {
+                                                name: "add".to_string(),
+                                                type_args: vec![self.ctx.i32()],
+                                                args: vec![
+                                                    obj,
+                                                    HirExpr {
+                                                        ty: self.ctx.i32(),
+                                                        kind: HirExprKind::LiteralI32(
+                                                            offset as i32,
+                                                        ),
+                                                        span: idx.span,
+                                                    },
+                                                ],
+                                            },
+                                            span: *sp,
+                                        }
+                                    };
+                                    let hexpr = HirExpr {
+                                        ty: self.ctx.unit(),
+                                        kind: HirExprKind::Intrinsic {
+                                            name: "store".to_string(),
+                                            type_args: vec![f_ty],
+                                            args: vec![addr_expr, val],
+                                        },
+                                        span: *sp,
+                                    };
+                                    stack.push(StackEntry {
+                                        ty: self.ctx.unit(),
+                                        expr: hexpr.clone(),
+                                        type_args: Vec::new(),
+                                        assign: None,
+                                        auto_call: true,
+                                    });
+                                    last_expr = Some(hexpr);
+                                    continue;
+                                }
+                            }
                         }
                     }
 

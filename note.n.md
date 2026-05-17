@@ -40335,3 +40335,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo test -p nepl-core field_accessor_intrinsic_names_round_trip_through_kind --lib -- --nocapture`: 1 passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+
+## 2026-05-17 Agent 1 prefix field accessor intrinsic kind 分類修正
+
+- `ISS-20260517T051256916Z-PREFIX-INTRINSIC-FIELD-ACCESS-STILL--AB3AD18A` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`FieldAccessorKind` が field accessor intrinsic spelling を所有するようになった後も、`typecheck/prefix_check.rs` が result type 決定と lowering で `get_field` / `get_field_ref` / `set_field` を直接文字列分岐していたことだった。
+- 修正後は `FieldAccessorKind::from_intrinsic_name` を 1 回だけ計算し、`Get` / `GetRef` / `Put` を `match` で網羅する。HIR の field accessor intrinsic name も `FieldAccessorKind::intrinsic_name()` 由来にし、prefix intrinsic checker と wrapper 検出が同じ typed enum domain を消費するようにした。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: initial failed by formatting only
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo fmt -p nepl-core --check`: passed after formatting
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core field_accessor_intrinsic_names_round_trip_through_kind --lib -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

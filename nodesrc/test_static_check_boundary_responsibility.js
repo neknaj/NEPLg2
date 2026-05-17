@@ -315,6 +315,10 @@ const typecheckFieldAccess = assertFile(
     path.join(TYPECHECK_DIR, 'field_access.rs'),
     'typecheck/field_access.rs',
 );
+const typecheckPrefixCheck = assertFile(
+    path.join(TYPECHECK_DIR, 'prefix_check.rs'),
+    'typecheck/prefix_check.rs',
+);
 const typecheckSyntaxHelpers = assertFile(
     path.join(TYPECHECK_DIR, 'syntax_helpers.rs'),
     'typecheck/syntax_helpers.rs',
@@ -387,6 +391,26 @@ assertNotContains(
     typecheckBindingRules,
     'intrin.name == "set_field"',
     'typecheck/binding_rules.rs must not duplicate set_field spelling outside FieldAccessorKind',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'FieldAccessorKind::from_intrinsic_name',
+    'typecheck/prefix_check.rs must use typed field accessor intrinsic classification',
+);
+assertNotContains(
+    typecheckPrefixCheck,
+    'intrin.name == "get_field"',
+    'typecheck/prefix_check.rs must not duplicate get_field branch spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    typecheckPrefixCheck,
+    'intrin.name == "get_field_ref"',
+    'typecheck/prefix_check.rs must not duplicate get_field_ref branch spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    typecheckPrefixCheck,
+    'intrin.name == "set_field"',
+    'typecheck/prefix_check.rs must not duplicate set_field branch spelling outside FieldAccessorKind',
 );
 assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
 assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');
