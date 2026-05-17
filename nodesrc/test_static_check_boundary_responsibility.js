@@ -398,14 +398,29 @@ assertContains(
     'typecheck/model.rs must keep scalar intrinsic types in a typed enum domain',
 );
 assertContains(
-    typecheckModel,
-    'pub(super) enum CoreIntrinsicKind',
-    'typecheck/model.rs must keep core intrinsic result rules in a typed enum domain',
+    intrinsicKinds,
+    'pub(crate) enum CoreIntrinsicKind',
+    'intrinsic_kinds.rs must keep shared core intrinsic spelling in a typed enum domain',
 );
 assertContains(
+    intrinsicKinds,
+    'pub(crate) enum CoreIntrinsicResultKind',
+    'intrinsic_kinds.rs must keep shared core intrinsic result types in a typed enum domain',
+);
+assertContains(
+    intrinsicKinds,
+    'pub(crate) fn layout_i32_value',
+    'intrinsic_kinds.rs must keep layout intrinsic value semantics on CoreIntrinsicKind',
+);
+assertNotContains(
     typecheckModel,
-    'pub(super) enum CoreIntrinsicResultKind',
-    'typecheck/model.rs must keep core intrinsic result types in a typed enum domain',
+    'enum CoreIntrinsicKind',
+    'typecheck/model.rs must not re-localize shared core intrinsic classification',
+);
+assertNotContains(
+    typecheckModel,
+    'enum CoreIntrinsicResultKind',
+    'typecheck/model.rs must not re-localize shared core intrinsic result classification',
 );
 assertContains(
     typecheckBindingRules,

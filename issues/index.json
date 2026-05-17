@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T06:40:36.130Z",
+  "generated_at": "2026-05-17T06:57:36.439Z",
   "counts": {
-    "total": 920,
+    "total": 921,
     "open": 5,
-    "resolved": 915,
+    "resolved": 916,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 470,
+        "total": 471,
         "open": 0,
-        "resolved": 470
+        "resolved": 471
       },
       "CORE": {
         "total": 1,
@@ -7093,6 +7093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T062207552Z-RESOURCE-SCALAR-PRIMITIVE-PROOFS-DUP-30D2A64C.md"
+    },
+    {
+      "id": "ISS-20260517T064500300Z-RESOURCE-LAYOUT-INTRINSIC-PROOFS-DUP-81984703",
+      "title": "Resource layout intrinsic proofs duplicate size_of spelling outside shared intrinsic kind",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/intrinsic_kinds.rs, nepl-core/src/typecheck/model.rs, nepl-core/src/resource/lower_layout_intrinsic.rs, nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/lower_raw_address_return_util.rs, nodesrc/test_static_check_boundary_responsibility.js, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T064500300Z-RESOURCE-LAYOUT-INTRINSIC-PROOFS-DUP-81984703.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

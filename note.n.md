@@ -40383,6 +40383,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+
+## 2026-05-17 Agent 1 Resource layout intrinsic proof 共有化
+
+- `ISS-20260517T064500300Z-RESOURCE-LAYOUT-INTRINSIC-PROOFS-DUP-81984703` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CoreIntrinsicKind` が typecheck-local のままで、Resource IR の layout constant proof が `size_of` / `align_of` を `helper_base_name` の文字列で再分類していたことだった。
+- 修正後は `CoreIntrinsicKind` / `CoreIntrinsicResultKind` を `intrinsic_kinds.rs` へ移し、`CoreIntrinsicKind::layout_i32_value` が `size_of` / `align_of` の値 semantics を所有するようにした。Resource IR lowering と raw address offset proof は `layout_intrinsic_i64_value(_from_callee)` 経由で同じ typed enum domain を消費する。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core core_intrinsic --lib -- --nocapture`: passed
+  - `cargo test -p nepl-core core_layout_intrinsic_value_is_kind_owned --lib -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_layout_intrinsics_use_shared_core_intrinsic_kind -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_symbolic_mem_ptr_add_offset -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_untracked_literal_helper_zero_offset_for_first_store -- --exact --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
 

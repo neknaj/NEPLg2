@@ -1,8 +1,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind};
-use crate::layout::storage_size_bytes;
+use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::resource_primitives::MemoryHelperPrimitive;
 use crate::runtime_helpers::helper_base_name;
 use crate::span::Span;
@@ -10,6 +9,9 @@ use crate::types::TypeId;
 
 use super::lower::LoweringEnvironment;
 use super::lower_call::func_ref_base_name;
+use super::lower_layout_intrinsic::{
+    layout_intrinsic_i64_value, layout_intrinsic_i64_value_from_callee,
+};
 use super::lower_raw_address_place::{
     raw_address_alias_target, raw_address_place_from_actual_argument, reference_target_type,
     region_token_place_from_actual_arg, region_token_raw_field_place,
@@ -203,19 +205,14 @@ pub(super) fn i32_const_from_actual_arg(expr: &HirExpr, env: &LoweringEnvironmen
         HirExprKind::LiteralI32(value) => Some(i64::from(*value)),
         HirExprKind::Call { callee, args } => {
             i32_const_from_actual_named_expr(func_ref_base_name(callee)?, args, env)
-                .or_else(|| i32_const_from_size_of_call(callee, env))
+                .or_else(|| layout_intrinsic_i64_value_from_callee(callee, env))
         }
         HirExprKind::Intrinsic {
             name,
             type_args,
             args,
-        } => {
-            if helper_base_name(name) == "size_of" && type_args.len() == 1 {
-                i64::try_from(storage_size_bytes(env.types, type_args[0])).ok()
-            } else {
-                i32_const_from_actual_named_expr(helper_base_name(name), args, env)
-            }
-        }
+        } => layout_intrinsic_i64_value(name, type_args, env)
+            .or_else(|| i32_const_from_actual_named_expr(helper_base_name(name), args, env)),
         _ => None,
     }
 }
@@ -374,39 +371,5 @@ fn i32_const_from_actual_named_expr(
             i32_const_from_actual_arg(&args[0], env)?,
             i32_const_from_actual_arg(&args[1], env)?,
         ),
-    }
-}
-
-pub(super) fn i32_const_from_size_of_call(
-    callee: &FuncRef,
-    env: &LoweringEnvironment,
-) -> Option<i64> {
-    match callee {
-        FuncRef::User(name, type_args, _)
-            if helper_base_name(name) == "size_of" && type_args.len() == 1 =>
-        {
-            i64::try_from(storage_size_bytes(env.types, type_args[0])).ok()
-        }
-        FuncRef::User(name, _, _) if helper_base_name(name) == "size_of" => {
-            let function = env.function(name)?;
-            let HirBody::Block(block) = &function.body else {
-                return None;
-            };
-            if block.lines.len() != 1 {
-                return None;
-            }
-            let HirExprKind::Intrinsic {
-                name, type_args, ..
-            } = &block.lines[0].expr.kind
-            else {
-                return None;
-            };
-            if helper_base_name(name) == "size_of" && type_args.len() == 1 {
-                i64::try_from(storage_size_bytes(env.types, type_args[0])).ok()
-            } else {
-                None
-            }
-        }
-        _ => None,
     }
 }

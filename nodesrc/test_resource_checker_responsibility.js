@@ -601,6 +601,7 @@ const lowerAggregate = readResource('lower_aggregate.rs');
 const lowerAggregateProjection = readResource('lower_aggregate_projection.rs');
 const lowerAggregateSelector = readResource('lower_aggregate_selector.rs');
 const lowerCondition = readResource('lower_condition.rs');
+const lowerLayoutIntrinsic = readResource('lower_layout_intrinsic.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
@@ -706,6 +707,26 @@ assertContains(
     scalarPrimitive,
     'pub(super) fn from_resource_call_target',
     'scalar_primitive.rs',
+);
+assertContains(
+    lowerLayoutIntrinsic,
+    'CoreIntrinsicKind::from_intrinsic_name',
+    'lower_layout_intrinsic.rs must use shared core intrinsic classification',
+);
+assertContains(
+    lowerLayoutIntrinsic,
+    'kind.layout_i32_value',
+    'lower_layout_intrinsic.rs must evaluate layout constants through CoreIntrinsicKind',
+);
+assertNotContains(
+    lowerLayoutIntrinsic,
+    '"size_of" =>',
+    'lower_layout_intrinsic.rs must not duplicate size_of spelling outside CoreIntrinsicKind',
+);
+assertNotContains(
+    lowerLayoutIntrinsic,
+    '"align_of" =>',
+    'lower_layout_intrinsic.rs must not duplicate align_of spelling outside CoreIntrinsicKind',
 );
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
@@ -1096,6 +1117,26 @@ assertContains(
     'I32ArithmeticPrimitive::from_symbol',
     'lower_raw_address_return_util.rs must use typed scalar arithmetic classification',
 );
+assertContains(
+    lowerRawAddress,
+    'layout_intrinsic_i64_value_from_callee',
+    'lower_raw_address.rs must evaluate call layout constants through shared core intrinsic classification',
+);
+assertContains(
+    lowerRawAddress,
+    'layout_intrinsic_i64_value(name, type_args, env)',
+    'lower_raw_address.rs must evaluate intrinsic layout constants through shared core intrinsic classification',
+);
+assertContains(
+    lowerRawAddressReturnUtil,
+    'layout_intrinsic_i64_value_from_callee',
+    'lower_raw_address_return_util.rs must evaluate return call layout constants through shared core intrinsic classification',
+);
+assertContains(
+    lowerRawAddressReturnUtil,
+    'layout_intrinsic_i64_value(name, type_args, env)',
+    'lower_raw_address_return_util.rs must evaluate return intrinsic layout constants through shared core intrinsic classification',
+);
 assertNotContains(
     lowerRawAddress,
     'match helper_base_name(name) {',
@@ -1110,6 +1151,16 @@ assertNotContains(
     lowerRawAddressReturnUtil,
     'match helper_base_name(name) {',
     'lower_raw_address_return_util.rs must not classify scalar arithmetic by local helper-base string match',
+);
+assertNotContains(
+    lowerRawAddress,
+    'helper_base_name(name) == "size_of"',
+    'lower_raw_address.rs must not duplicate size_of spelling outside CoreIntrinsicKind',
+);
+assertNotContains(
+    lowerRawAddressReturnUtil,
+    'helper_base_name(name) == "size_of"',
+    'lower_raw_address_return_util.rs must not duplicate size_of spelling outside CoreIntrinsicKind',
 );
 assertContains(
     i32CallFacts,
