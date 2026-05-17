@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T02:20:38.309Z",
+  "generated_at": "2026-05-17T02:35:54.689Z",
   "counts": {
-    "total": 897,
+    "total": 898,
     "open": 5,
-    "resolved": 892,
+    "resolved": 893,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 453,
+        "total": 454,
         "open": 0,
-        "resolved": 453
+        "resolved": 454
       },
       "CORE": {
         "total": 1,
@@ -6838,6 +6838,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T021245721Z-SOURCEMAP-STILL-EXPOSES-FILE-LEVEL-S-D2E7D025.md"
+    },
+    {
+      "id": "ISS-20260517T022637369Z-RAW-IDENTITY-ESCAPE-SUPPRESSION-USES-0DD1EDAA",
+      "title": "raw identity escape suppression uses return-span aggregate source proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/effect_identity.rs, nepl-core/src/resource/effect_raw_memory_identity.rs, nepl-core/src/compiler.rs, nepl-core/src/source_map.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T022637369Z-RAW-IDENTITY-ESCAPE-SUPPRESSION-USES-0DD1EDAA.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -44,6 +44,7 @@ pub enum ResourceEffectBoundaryDiagnostic {
         function: String,
         operation: RawMemoryOp,
         place: Place,
+        origin_span: Span,
         span: Span,
     },
     UnknownEffect {

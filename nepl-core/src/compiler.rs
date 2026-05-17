@@ -989,6 +989,7 @@ mod tests {
             function: String::from("leak_raw"),
             operation: RawMemoryOp::Alloc,
             place,
+            origin_span: Span::dummy(),
             span: Span::dummy(),
         };
 
@@ -1014,6 +1015,7 @@ mod tests {
             function: String::from("alloc_raw"),
             operation: RawMemoryOp::Alloc,
             place: Place::temporary(ResourceId(0), types.i32()),
+            origin_span: span,
             span,
         };
 
@@ -1044,12 +1046,14 @@ mod tests {
             function: String::from("alloc_raw"),
             operation: RawMemoryOp::Alloc,
             place: place.clone(),
+            origin_span: alloc_span,
             span: alloc_span,
         };
         let store_escape = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function: String::from("alloc_raw"),
             operation: RawMemoryOp::Alloc,
             place,
+            origin_span: store_span,
             span: store_span,
         };
 
@@ -1063,6 +1067,44 @@ mod tests {
                 Some(&source_map),
             )
         );
+    }
+
+    #[test]
+    fn resource_effect_gate_requires_raw_identity_origin_span_capability() {
+        let types = crate::types::TypeCtx::new();
+        let mut source_map = SourceMap::new();
+        let file = source_map.add("stdlib/core/mem/allocator.nepl", String::new());
+        let unrelated_alloc_span = Span::new(file, 40, 45);
+        let raw_identity_origin_span = Span::new(file, 10, 15);
+        let return_span = Span::new(file, 0, 60);
+        source_map.set_capabilities(
+            file,
+            raw_memory_operation_capabilities(RawMemoryOp::Alloc, unrelated_alloc_span),
+        );
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function: String::from("alloc_raw"),
+            operation: RawMemoryOp::Alloc,
+            place: Place::temporary(ResourceId(0), types.i32()),
+            origin_span: raw_identity_origin_span,
+            span: return_span,
+        };
+
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &diagnostic,
+                Some(&source_map),
+            )
+        );
+
+        source_map.set_capabilities(
+            file,
+            raw_memory_operation_capabilities(RawMemoryOp::Alloc, raw_identity_origin_span),
+        );
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &diagnostic,
+            Some(&source_map),
+        ));
     }
 
     #[test]
@@ -1331,32 +1373,30 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             operation,
+            origin_span,
             ..
-        } => {
-            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
-                return false;
-            };
-            source_map
-                .map(|map| raw_identity_escape_allowed(*operation, span, map))
-                .unwrap_or(false)
-        }
+        } => source_map
+            .map(|map| raw_identity_escape_allowed(*operation, *origin_span, map))
+            .unwrap_or(false),
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => false,
     }
 }
 
-fn raw_identity_escape_allowed(operation: RawMemoryOp, span: Span, source_map: &SourceMap) -> bool {
-    if source_map.raw_memory_structural_boundary_allowed_within(span) {
+fn raw_identity_escape_allowed(
+    operation: RawMemoryOp,
+    origin_span: Span,
+    source_map: &SourceMap,
+) -> bool {
+    if source_map.raw_memory_structural_boundary_allowed_at(origin_span) {
         return true;
     }
     match operation {
         RawMemoryOp::Alloc => {
-            source_map.raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Alloc)
-                || source_map
-                    .raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Realloc)
+            source_map.raw_memory_operation_boundary_allowed_at(origin_span, RawMemoryOp::Alloc)
         }
         RawMemoryOp::Realloc => {
-            source_map.raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Realloc)
+            source_map.raw_memory_operation_boundary_allowed_at(origin_span, RawMemoryOp::Realloc)
         }
         RawMemoryOp::Dealloc
         | RawMemoryOp::Load

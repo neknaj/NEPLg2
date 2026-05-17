@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_counts::ResourceEffectCounts;
-use super::effect_identity::{RawIdentityTable, RawPointerAliasTable};
+use super::effect_identity::{push_unique_origins, RawIdentityTable, RawPointerAliasTable};
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::effect_return_summary_filter::raw_identity_return_projection_requires_summary;
 use super::effect_summary::{
@@ -17,6 +17,7 @@ use super::model::{
 };
 use super::place_utils::{place_suffix_after_prefix, place_with_suffix, push_unique_place};
 use super::summary_worklist::SummaryWorklist;
+use crate::span::Span;
 use crate::types::TypeCtx;
 
 pub(super) fn compute_raw_identity_return_summaries(
@@ -119,7 +120,7 @@ fn push_parameter_identity_returns(
 ) {
     for seed in parameter_identity_summary_seed_places(function, parameter, summaries) {
         let mut identities = RawIdentityTable::default();
-        identities.mark(&seed, RawMemoryOp::Alloc);
+        identities.mark(&seed, RawMemoryOp::Alloc, Span::dummy());
         for returned in function_returned_identity_projections_with_engine(
             function,
             identities,
@@ -292,7 +293,7 @@ fn function_returned_identity_projections_with_engine(
             value: Some(place), ..
         } = &block.terminator
         {
-            for (suffix, ty, operations) in identities.projection_operations_under(place) {
+            for (suffix, ty, origins) in identities.projection_origins_under(place) {
                 if !raw_identity_return_projection_requires_summary(types, place, &suffix, ty) {
                     continue;
                 }
@@ -301,7 +302,7 @@ fn function_returned_identity_projections_with_engine(
                     RawIdentityReturnProjection {
                         projections: suffix,
                         ty,
-                        operations,
+                        origins,
                     },
                 );
             }
@@ -334,7 +335,7 @@ fn push_unique_return_projection(
     if let Some(existing) = target.iter_mut().find(|existing| {
         existing.projections == projection.projections && existing.ty == projection.ty
     }) {
-        push_unique_operations(&mut existing.operations, &projection.operations);
+        push_unique_origins(&mut existing.origins, &projection.origins);
     } else {
         target.push(projection);
     }
@@ -342,15 +343,6 @@ fn push_unique_return_projection(
         left.projections
             .cmp(&right.projections)
             .then_with(|| left.ty.cmp(&right.ty))
-            .then_with(|| left.operations.cmp(&right.operations))
+            .then_with(|| left.origins.cmp(&right.origins))
     });
-}
-
-fn push_unique_operations(target: &mut Vec<RawMemoryOp>, source: &[RawMemoryOp]) {
-    for operation in source {
-        if !target.contains(operation) {
-            target.push(*operation);
-        }
-    }
-    target.sort();
 }

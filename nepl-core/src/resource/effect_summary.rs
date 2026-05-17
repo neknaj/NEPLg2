@@ -1,7 +1,8 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use super::model::{PlaceProjection, RawMemoryOp};
+use super::effect_identity::RawIdentityOrigin;
+use super::model::PlaceProjection;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,7 +25,7 @@ pub(super) struct RawIdentityParameterReturn {
 pub(super) struct RawIdentityReturnProjection {
     pub(super) projections: Vec<PlaceProjection>,
     pub(super) ty: crate::types::TypeId,
-    pub(super) operations: Vec<RawMemoryOp>,
+    pub(super) origins: Vec<RawIdentityOrigin>,
 }
 
 pub(super) type RawIdentityReturnSummaryIndex<'a> = SummaryIndex<'a, RawIdentityReturnSummary>;

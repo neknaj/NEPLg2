@@ -11,7 +11,7 @@ use super::effect_counts::ResourceEffectCounts;
 use super::effect_diagnostic::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 use super::effect_identity::{
     construct_pointer_alias_fields, construct_raw_identity_fields, copy_pointer_alias,
-    raw_memory_op_produces_identity, RawIdentityTable, RawPointerAliasTable,
+    raw_memory_op_produces_identity, RawIdentityOrigin, RawIdentityTable, RawPointerAliasTable,
 };
 use super::effect_match::copy_match_payload_bind_identity;
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
@@ -89,7 +89,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         span: Span,
     ) {
         let mut reported = Vec::new();
-        for (suffix, ty, operations) in identities.projection_operations_under(place) {
+        for (suffix, ty, origins) in identities.projection_origins_under(place) {
             if !raw_identity_return_projection_is_escape(self.types, place, &suffix, ty) {
                 continue;
             }
@@ -100,12 +100,13 @@ impl ResourceEffectBoundaryEngine<'_> {
             {
                 continue;
             }
-            for operation in operations {
+            for origin in origins {
                 self.diagnostics.push(
                     ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
                         function: String::from(self.function),
-                        operation,
+                        operation: origin.operation,
                         place: escaped_place.clone(),
+                        origin_span: origin.span,
                         span,
                     },
                 );
@@ -151,7 +152,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             } => {
                 self.report_raw_memory_boundary_use(*operation, *span);
                 if self.track_alloc_identities && raw_memory_op_produces_identity(operation) {
-                    identities.mark(output, *operation);
+                    identities.mark(output, *operation, *span);
                 }
                 if raw_memory_op_produces_identity(operation) {
                     pointer_aliases.mark(output);
@@ -161,6 +162,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                     pointer_aliases,
                     raw_memory_identities,
                     operation,
+                    *span,
                     output,
                     args,
                 );
@@ -516,40 +518,40 @@ impl ResourceEffectBoundaryEngine<'_> {
         pointer_aliases: &RawPointerAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
         operation: &RawMemoryOp,
+        span: crate::span::Span,
         output: &Place,
         args: &[Place],
     ) {
         match operation {
             RawMemoryOp::Load => {
                 if let Some(ptr) = args.first() {
-                    let operations = raw_memory_identities.operations(pointer_aliases, ptr);
-                    identities.mark_many(output, &operations);
+                    let origins = raw_memory_identities.origins(pointer_aliases, ptr);
+                    identities.mark_many(output, &origins);
                 }
             }
             RawMemoryOp::Store => {
                 if let Some(ptr) = args.first() {
-                    let operations = args
+                    let origins = args
                         .get(1)
-                        .map(|value| identities.operations(value))
+                        .map(|value| identities.origins(value))
                         .unwrap_or_default();
-                    if !operations.is_empty() {
-                        raw_memory_identities.mark_many(pointer_aliases, ptr, &operations);
+                    if !origins.is_empty() {
+                        raw_memory_identities.mark_many(pointer_aliases, ptr, &origins);
                     } else {
                         raw_memory_identities.clear(pointer_aliases, ptr);
                     }
                 }
             }
             RawMemoryOp::Realloc => {
-                let carried_operations = args
+                let mut carried_origins = args
                     .first()
-                    .map(|ptr| raw_memory_identities.operations(pointer_aliases, ptr))
+                    .map(|ptr| raw_memory_identities.origins(pointer_aliases, ptr))
                     .unwrap_or_default();
+                carried_origins.push(RawIdentityOrigin::new(*operation, span));
                 if let Some(ptr) = args.first() {
                     raw_memory_identities.clear(pointer_aliases, ptr);
                 }
-                if !carried_operations.is_empty() {
-                    raw_memory_identities.mark_many(pointer_aliases, output, &carried_operations);
-                }
+                raw_memory_identities.mark_many(pointer_aliases, output, &carried_origins);
             }
             RawMemoryOp::Dealloc => {
                 if let Some(ptr) = args.first() {
@@ -558,9 +560,9 @@ impl ResourceEffectBoundaryEngine<'_> {
             }
             RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
                 if let (Some(dst), Some(src)) = (args.first(), args.get(1)) {
-                    let operations = raw_memory_identities.operations(pointer_aliases, src);
-                    if !operations.is_empty() {
-                        raw_memory_identities.mark_many(pointer_aliases, dst, &operations);
+                    let origins = raw_memory_identities.origins(pointer_aliases, src);
+                    if !origins.is_empty() {
+                        raw_memory_identities.mark_many(pointer_aliases, dst, &origins);
                     } else {
                         raw_memory_identities.clear(pointer_aliases, dst);
                     }

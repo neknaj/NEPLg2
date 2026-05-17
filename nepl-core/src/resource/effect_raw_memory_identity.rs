@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
-use super::effect_identity::RawPointerAliasTable;
-use super::model::{Place, RawMemoryOp};
+use super::effect_identity::{push_unique_origins, RawIdentityOrigin, RawPointerAliasTable};
+use super::model::Place;
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct RawMemoryIdentityTable {
@@ -11,32 +11,32 @@ pub(super) struct RawMemoryIdentityTable {
 #[derive(Debug, Clone)]
 struct RawMemoryIdentityGroup {
     places: Vec<Place>,
-    operations: Vec<RawMemoryOp>,
+    origins: Vec<RawIdentityOrigin>,
 }
 
 impl RawMemoryIdentityTable {
-    pub(super) fn operations(
+    pub(super) fn origins(
         &self,
         pointer_aliases: &RawPointerAliasTable,
         place: &Place,
-    ) -> Vec<RawMemoryOp> {
+    ) -> Vec<RawIdentityOrigin> {
         let group = pointer_aliases.group_for_or_singleton(place);
-        let mut operations = Vec::new();
+        let mut origins = Vec::new();
         for stored in &self.pointer_groups {
             if groups_overlap(&stored.places, &group) {
-                push_unique_operations(&mut operations, &stored.operations);
+                push_unique_origins(&mut origins, &stored.origins);
             }
         }
-        operations
+        origins
     }
 
     pub(super) fn mark_many(
         &mut self,
         pointer_aliases: &RawPointerAliasTable,
         place: &Place,
-        operations: &[RawMemoryOp],
+        origins: &[RawIdentityOrigin],
     ) {
-        self.union_group(&pointer_aliases.group_for_or_singleton(place), operations);
+        self.union_group(&pointer_aliases.group_for_or_singleton(place), origins);
     }
 
     pub(super) fn clear(&mut self, pointer_aliases: &RawPointerAliasTable, place: &Place) {
@@ -49,7 +49,7 @@ impl RawMemoryIdentityTable {
         let mut out = RawMemoryIdentityTable::default();
         for path in paths {
             for group in &path.pointer_groups {
-                out.union_group(&group.places, &group.operations);
+                out.union_group(&group.places, &group.origins);
             }
         }
         out
@@ -64,22 +64,22 @@ impl RawMemoryIdentityTable {
         self.pointer_groups.retain(|group| !group.places.is_empty());
     }
 
-    fn union_group(&mut self, places: &[Place], operations: &[RawMemoryOp]) {
+    fn union_group(&mut self, places: &[Place], origins: &[RawIdentityOrigin]) {
         let mut merged_places = places.to_vec();
-        let mut merged_operations = operations.to_vec();
+        let mut merged_origins = origins.to_vec();
         let mut retained = Vec::new();
         for existing in self.pointer_groups.drain(..) {
             if groups_overlap(&existing.places, &merged_places) {
                 push_unique_places(&mut merged_places, &existing.places);
-                push_unique_operations(&mut merged_operations, &existing.operations);
+                push_unique_origins(&mut merged_origins, &existing.origins);
             } else {
                 retained.push(existing);
             }
         }
-        if !merged_places.is_empty() && !merged_operations.is_empty() {
+        if !merged_places.is_empty() && !merged_origins.is_empty() {
             retained.push(RawMemoryIdentityGroup {
                 places: merged_places,
-                operations: merged_operations,
+                origins: merged_origins,
             });
         }
         self.pointer_groups = retained;
@@ -106,13 +106,4 @@ fn push_unique_places(target: &mut Vec<Place>, source: &[Place]) {
             target.push(place.clone());
         }
     }
-}
-
-fn push_unique_operations(target: &mut Vec<RawMemoryOp>, source: &[RawMemoryOp]) {
-    for operation in source {
-        if !target.contains(operation) {
-            target.push(*operation);
-        }
-    }
-    target.sort();
 }

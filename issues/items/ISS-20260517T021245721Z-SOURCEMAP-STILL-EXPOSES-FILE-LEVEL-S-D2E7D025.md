@@ -35,7 +35,7 @@ Static-check maintenance can regress from exact typed proof artifacts back to fi
 
 ## 修正方針
 
-Remove the file-level aggregate capability query methods from SourceCapabilities and SourceMap. Keep only exact _at queries and the narrow _within helper needed for diagnostic spans, and update source policy to reject reintroduction of file-id aggregate capability queries.
+Remove the file-level aggregate capability query methods from SourceCapabilities and SourceMap. Keep production source proof consumption on exact `_at` queries only. Diagnostic spans that are wider than the actual privileged use site must carry a separate origin proof span instead of using a broad span-contained query.
 
 ## 検証
 
@@ -43,7 +43,7 @@ Run cargo fmt/check for nepl-core, source_map focused tests, and nodesrc/test_st
 
 ## 2026-05-17 Agent 1 修正
 
-`SourceCapabilities` / `SourceMap` から、file id だけで「その file に何らかの capability があるか」を返す aggregate query を削除した。production API は exact `*_allowed_at(span, ...)` と、diagnostic span が call-head より広い場合に限って使う `*_allowed_within(span, ...)` に限定した。
+`SourceCapabilities` / `SourceMap` から、file id だけで「その file に何らかの capability があるか」を返す aggregate query を削除した。後続の `ISS-20260517T022637369Z-RAW-IDENTITY-ESCAPE-SUPPRESSION-USES-0DD1EDAA` で raw identity escape も origin span proof に移したため、現在の production API は exact `*_allowed_at(span, ...)` だけに限定している。
 
 `loader.rs` の source capability regression は、production API へ broad query を戻さず、test-only の use-site 走査 helper で既存の「何らかの evidence があるか」検証を維持した。`nepl-core/tests/effects.rs` の facade safety 検査も exact span query へ移した。
 

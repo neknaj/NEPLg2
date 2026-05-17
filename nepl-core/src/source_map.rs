@@ -74,10 +74,6 @@ impl SourceCapabilitySpan {
             end: span.end,
         }
     }
-
-    fn is_within(&self, span: Span) -> bool {
-        span.start <= self.start && self.end <= span.end
-    }
 }
 
 /// Compiler-owned privilege proven for one syntactic use site.
@@ -151,16 +147,6 @@ impl SourceCapabilities {
         })
     }
 
-    pub fn allows_raw_memory_structural_boundary_within(&self, span: Span) -> bool {
-        self.use_sites.iter().any(|site| {
-            matches!(
-                site,
-                SourceCapabilityUseSite::RawMemoryStructuralBoundary { span: site_span }
-                    if site_span.is_within(span)
-            )
-        })
-    }
-
     pub fn allows_raw_address_view_boundary_at(&self, span: Span) -> bool {
         self.allows_use_site(SourceCapabilityUseSite::RawAddressViewBoundary {
             span: SourceCapabilitySpan::from_span(span),
@@ -175,22 +161,6 @@ impl SourceCapabilities {
         self.allows_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
             operation,
             span: SourceCapabilitySpan::from_span(span),
-        })
-    }
-
-    pub fn allows_raw_memory_operation_boundary_within(
-        &self,
-        operation: RawMemoryOp,
-        span: Span,
-    ) -> bool {
-        self.use_sites.iter().any(|site| {
-            matches!(
-                site,
-                SourceCapabilityUseSite::RawMemoryOperationBoundary {
-                    operation: site_op,
-                    span: site_span,
-                } if *site_op == operation && site_span.is_within(span)
-            )
         })
     }
 
@@ -276,11 +246,6 @@ impl SourceMap {
             .allows_raw_memory_structural_boundary_at(span)
     }
 
-    pub fn raw_memory_structural_boundary_allowed_within(&self, span: Span) -> bool {
-        self.capabilities(span.file_id)
-            .allows_raw_memory_structural_boundary_within(span)
-    }
-
     pub fn raw_address_view_boundary_allowed_at(&self, span: Span) -> bool {
         self.capabilities(span.file_id)
             .allows_raw_address_view_boundary_at(span)
@@ -293,15 +258,6 @@ impl SourceMap {
     ) -> bool {
         self.capabilities(span.file_id)
             .allows_raw_memory_operation_boundary_at(operation, span)
-    }
-
-    pub fn raw_memory_operation_boundary_allowed_within(
-        &self,
-        span: Span,
-        operation: RawMemoryOp,
-    ) -> bool {
-        self.capabilities(span.file_id)
-            .allows_raw_memory_operation_boundary_within(operation, span)
     }
 
     pub fn raw_body_memory_operation_boundary_allowed_at(
@@ -555,13 +511,5 @@ mod tests {
         assert!(source_map.raw_memory_operation_boundary_allowed_at(proven, RawMemoryOp::Load));
         assert!(!source_map.raw_memory_operation_boundary_allowed_at(unproven, RawMemoryOp::Load));
         assert!(!source_map.raw_memory_operation_boundary_allowed_at(proven, RawMemoryOp::Store));
-        assert!(source_map.raw_memory_operation_boundary_allowed_within(
-            Span::new(file, 8, 24),
-            RawMemoryOp::Load
-        ));
-        assert!(!source_map.raw_memory_operation_boundary_allowed_within(
-            Span::new(file, 13, 24),
-            RawMemoryOp::Load
-        ));
     }
 }

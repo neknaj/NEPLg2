@@ -40165,3 +40165,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 現行 main は `source_capability/walk.rs` と `source_capability/proof.rs` により、raw memory / owner aggregate / compiler memory type evidence を単一 source proof traversal で収集している。個別 module ごとの proof engine や stdlib path allowlist へ戻ってはいない。
 - 一方で、proof の消費単位がまだ `SourceCapabilities` の file-level enum set であることを設計残件として確認した。`compiler.rs` と `typecheck/effect_check.rs` は raw operation / raw address / checked MemPtr の許可を `span.file_id` と operation で query しているため、exact privileged use site の proof にはなっていない。
 - `ISS-20260517T004939361Z-SOURCE-CAPABILITY-PROOF-IS-STILL-CON-C609583C` を追加した。compiler-owned stdlib eligibility と exact use-site proof artifact を分離し、raw operation / raw body / raw address view / owner aggregate / compiler memory definition の各 use を typed query へ移す方針にした。
+
+## 2026-05-17 Agent 1 raw identity origin span proof 修正
+
+- `ISS-20260517T022637369Z-RAW-IDENTITY-ESCAPE-SUPPRESSION-USES-0DD1EDAA` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の raw identity fact が `RawMemoryOp` だけを保持し、その raw identity を作った exact source span を持っていなかったことだった。そのため `RawAddressEscapeFromInternalAlloc` は return span 全体を使い、同じ return expression 内の unrelated raw evidence で別 identity の escape を抑制できる設計になっていた。
+- 修正後は `RawIdentityOrigin { operation, span }` を `RawIdentityTable` / `RawMemoryIdentityTable` / function return summary に伝播し、`RawAddressEscapeFromInternalAlloc` diagnostic も `origin_span` を持つ。compiler gate は `origin_span` の exact source capability だけを照合し、return span 内探索は行わない。
+- `SourceMap` / `SourceCapabilities` から `allowed_within` query を削除し、source policy で broad span-contained proof query の再導入を拒否する。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo test -p nepl-core resource_effect_gate_requires_raw_identity_origin_span_capability -- --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_effect_check_propagates_internal_alloc_return_summary --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-core source_map::tests -- --nocapture`: passed
+  - `cargo test -p nepl-core raw_identity --test resource_ir -- --nocapture`: passed
+  - `cargo fmt -p nepl-core --check`: passed

@@ -66,7 +66,7 @@ impl ResourceEffectBoundaryEngine<'_> {
     ) {
         for returned in returns {
             let target = place_with_suffix(output, &returned.projections, returned.ty);
-            identities.mark_many(&target, &returned.operations);
+            identities.mark_many(&target, &returned.origins);
         }
     }
 

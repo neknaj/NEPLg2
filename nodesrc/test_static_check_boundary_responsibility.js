@@ -656,6 +656,11 @@ assertContains(sourceMap, 'raw_address_view_boundary_allowed_at', 'source_map.rs
 assertContains(sourceMap, 'owner_aggregate_constructor_boundary_allowed_at', 'source_map.rs');
 assertContains(sourceMap, 'compiler_memory_field_boundary_allowed_at', 'source_map.rs');
 assertContains(sourceMap, 'compiler_memory_type_definition_allowed_at', 'source_map.rs');
+assertNotContains(
+    sourceMap,
+    'allowed_within',
+    'source_map.rs must not expose broad span-contained source proof queries',
+);
 for (const broadQuery of [
     'raw_memory_structural_boundary_allowed',
     'raw_address_view_boundary_allowed',
@@ -1561,12 +1566,12 @@ assertMatches(
 );
 assertMatches(
     compiler,
-    /ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| raw_identity_escape_allowed\(\*operation, span, map\)\)\s*\.unwrap_or\(false\)\s*\}/,
-    'compiler.rs raw identity escape must require structural or alloc/realloc operation source capability',
+    /ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc\s*\{\s*operation,\s*origin_span,\s*\.\.\s*\}\s*=>\s*source_map\s*\.map\(\|map\| raw_identity_escape_allowed\(\*operation, \*origin_span, map\)\)\s*\.unwrap_or\(false\)/,
+    'compiler.rs raw identity escape must require exact origin-span source capability',
 );
 assertContains(
     compiler,
-    'fn raw_identity_escape_allowed(operation: RawMemoryOp, span: Span, source_map: &SourceMap) -> bool',
+    'fn raw_identity_escape_allowed(',
     'compiler.rs raw identity escape helper',
 );
 assertContains(
@@ -1581,8 +1586,18 @@ assertContains(
 );
 assertContains(
     compiler,
-    'raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Realloc)',
-    'compiler.rs raw identity escape must accept proven realloc boundaries for internal alloc identity',
+    'raw_memory_operation_boundary_allowed_at(origin_span, RawMemoryOp::Realloc)',
+    'compiler.rs raw identity escape must require exact realloc origin proof',
+);
+assertNotContains(
+    compiler,
+    'raw_memory_operation_boundary_allowed_within',
+    'compiler.rs raw identity escape must not use broad return-span proof search',
+);
+assertContains(
+    compiler,
+    'fn resource_effect_gate_requires_raw_identity_origin_span_capability()',
+    'compiler.rs raw-boundary origin-span unit regression',
 );
 assertNotContains(
     compiler,
