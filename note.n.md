@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 Resource lower direct call recursion の FieldAccessorKind 接続
+
+- `ISS-20260517T080107274Z-RESOURCE-LOWER-DIRECT-CALL-RECURSION-F0DB469F` を追加し、fixed / resolved にした。
+- 根本原因は、`resource/lower.rs` の direct call recursion gate だけが `get` / `get_ref` / `get_field` / `get_field_ref` を直接列挙し、field accessor の shared classifier から外れていたこと。
+- `direct_call_needs_recursive_lowering` を `FieldAccessorKind::from_call_base_name` に接続し、`Get` / `GetRef` を enum match で再帰 lowering 対象にした。`Put` は再帰対象外として明示的に落ちる。
+- `nodesrc/test_resource_checker_responsibility.js` に policy を追加し、direct field accessor spelling 列挙の再導入を禁止した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core field_accessor_call_base_name --lib -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR lowering gate も shared field accessor enum に接続した。
+
 # 2026-05-17 Agent 1 raw address return proof の field accessor / raw field 集約
 
 - `ISS-20260517T075612588Z-RAW-ADDRESS-RETURN-PROOF-DUPLICATES--E5A6AE6F` を追加し、fixed / resolved にした。

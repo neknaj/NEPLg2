@@ -676,6 +676,16 @@ assertNotContains(lower, 'fn call_effect_skeleton', 'lower.rs');
 assertNotContains(lower, 'fn lower_call_target', 'lower.rs');
 assertNotContains(lower, 'fn should_lower_raw_memory_call', 'lower.rs');
 assertContains(
+    lower,
+    'FieldAccessorKind::from_call_base_name',
+    'lower.rs must classify recursive field accessor lowering through FieldAccessorKind',
+);
+assertNotContains(
+    lower,
+    'Some("get") | Some("get_ref") | Some("get_field") | Some("get_field_ref")',
+    'lower.rs must not duplicate field accessor spelling for recursive lowering',
+);
+assertContains(
     initializedDropRequirement,
     'pub(super) fn partial_drop_requirement_for_initialized_descendants',
     'initialized_drop_requirement.rs',
