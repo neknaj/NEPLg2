@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T12:18:39.361Z",
+  "generated_at": "2026-05-17T12:24:02.148Z",
   "counts": {
-    "total": 944,
+    "total": 945,
     "open": 5,
-    "resolved": 939,
+    "resolved": 940,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -72,9 +72,9 @@
         "resolved": 2
       },
       "docs": {
-        "total": 7,
+        "total": 8,
         "open": 0,
-        "resolved": 7
+        "resolved": 8
       },
       "examples": {
         "total": 17,
@@ -7548,6 +7548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T041311764Z-STAGE-6-MEMORY-MODEL-DOC-STILL-DESCR-AEC8348B.md"
+    },
+    {
+      "id": "ISS-20260517T122212012Z-FULLREVIEW-STATIC-CHECK-RESOURCE-DOC-B3C83DCC",
+      "title": "Fullreview static-check resource document still describes resolved drop insertion blockers",
+      "area": "docs",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "doc/fullreview20260430/rust-compiler/static-check-resource.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T122212012Z-FULLREVIEW-STATIC-CHECK-RESOURCE-DOC-B3C83DCC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
