@@ -3,12 +3,13 @@ use alloc::vec::Vec;
 
 use crate::span::Span;
 
+use super::compiler_memory_place::mem_ptr_raw_field_place;
 use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_diagnostic::ResourceEffectBoundaryDiagnostic;
 use super::effect_identity::{raw_memory_op_produces_identity, RawIdentityTable};
 use super::effect_pointer_alias::RawPointerAliasTable;
 use super::model::{EffectOp, Place, PlaceRoot};
-use super::place_utils::{checked_mem_ptr_wrapper_arg_indices, mem_ptr_raw_field_place};
+use super::place_utils::checked_mem_ptr_wrapper_arg_indices;
 
 impl ResourceEffectBoundaryEngine<'_> {
     pub(super) fn report_unproven_checked_mem_ptr_access(
@@ -29,7 +30,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             let Some(ptr) = args.get(index) else {
                 continue;
             };
-            let raw = mem_ptr_raw_field_place(ptr, types.i32());
+            let raw = mem_ptr_raw_field_place(types, ptr, types.i32());
             match checked_mem_ptr_access_proof(identities, pointer_aliases, &raw) {
                 CheckedMemPtrAccessProof::InternalAllocationIdentity
                 | CheckedMemPtrAccessProof::NullSentinel => {}

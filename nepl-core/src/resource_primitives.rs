@@ -16,6 +16,7 @@ const OWNER_TOKEN_FIELDS: &[CompilerMemoryFieldSpec] = &[
     CompilerMemoryFieldSpec::RawI32,
     CompilerMemoryFieldSpec::SizeI32,
 ];
+const COMPILER_MEMORY_I32_FIELD_BYTES: usize = 4;
 
 impl CompilerMemoryFieldSpec {
     pub(crate) const fn name(self) -> &'static str {
@@ -56,6 +57,22 @@ pub(crate) fn compiler_memory_type_field_index(
     compiler_memory_type_field_specs(memory_type)
         .iter()
         .position(|spec| *spec == field)
+}
+
+pub(crate) fn compiler_memory_type_field_offset_bytes(
+    memory_type: CompilerMemoryType,
+    field: CompilerMemoryFieldSpec,
+) -> Option<usize> {
+    let mut offset = 0usize;
+    for spec in compiler_memory_type_field_specs(memory_type) {
+        if *spec == field {
+            return Some(offset);
+        }
+        if spec.requires_i32() {
+            offset += COMPILER_MEMORY_I32_FIELD_BYTES;
+        }
+    }
+    None
 }
 
 pub(crate) fn compiler_memory_type_of_type(

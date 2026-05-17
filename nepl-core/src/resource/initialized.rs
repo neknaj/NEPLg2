@@ -6,6 +6,7 @@ use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
+use super::compiler_memory_place::mem_ptr_raw_field_place;
 use super::drop_model::ResourceDropPoint;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
@@ -25,9 +26,8 @@ use super::model::{
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
-    call_uses_checked_mem_ptr_wrapper, construct_aggregate_field_place, mem_ptr_raw_field_place,
-    reference_target_place, structural_i32_projection_preserves_raw_address,
-    type_preserves_raw_address_alias,
+    call_uses_checked_mem_ptr_wrapper, construct_aggregate_field_place, reference_target_place,
+    structural_i32_projection_preserves_raw_address, type_preserves_raw_address_alias,
 };
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
@@ -132,7 +132,7 @@ impl ResourceCheckEngine<'_> {
         cells.mark_external_raw_storage_root(place);
         raw_aliases.mark(place);
         if type_is_raw_pointer(self.types, place.ty) {
-            let raw = mem_ptr_raw_field_place(place, self.types.i32());
+            let raw = mem_ptr_raw_field_place(self.types, place, self.types.i32());
             cells.mark_external_raw_storage_root(&raw);
             raw_aliases.mark(&raw);
         }

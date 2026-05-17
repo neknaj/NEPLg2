@@ -6,10 +6,11 @@ use crate::ast::Effect;
 use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer};
 use crate::types::{TypeCtx, TypeId};
 
+use super::compiler_memory_place::{mem_ptr_raw_field_place, region_token_raw_field_place};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{RawCellReleaseParamRequirement, RawCellReleaseRequirementKind};
 use super::initialized_summary_release_build::collect_address_release_requirements;
-use super::model::{EffectOp, Place, PlaceProjection, ResourceLocal};
+use super::model::{EffectOp, Place, ResourceLocal};
 
 pub(super) fn collect_unknown_indirect_call_release_requirements(
     out: &mut Vec<RawCellReleaseParamRequirement>,
@@ -53,30 +54,10 @@ fn raw_address_release_place_for_call_arg(
     param_ty: TypeId,
 ) -> Option<Place> {
     if type_is_raw_pointer(types, param_ty) {
-        return Some(mem_ptr_raw_field_place(arg, types.i32()));
+        return Some(mem_ptr_raw_field_place(types, arg, types.i32()));
     }
     if type_is_owner_token(types, param_ty) {
-        return Some(region_token_raw_field_place(arg, types.i32()));
+        return Some(region_token_raw_field_place(types, arg, types.i32()));
     }
     None
-}
-
-fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
-    ptr.clone().with_projection(
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        },
-        raw_ty,
-    )
-}
-
-fn region_token_raw_field_place(token: &Place, raw_ty: TypeId) -> Place {
-    token.clone().with_projection(
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        },
-        raw_ty,
-    )
 }

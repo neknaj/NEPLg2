@@ -7,6 +7,7 @@ use crate::runtime_helpers::helper_base_name;
 use crate::span::Span;
 use crate::types::TypeId;
 
+use super::compiler_memory_place::{mem_ptr_raw_field_place, region_token_raw_field_place};
 use super::lower::LoweringEnvironment;
 use super::lower_call::func_ref_base_name;
 use super::lower_layout_intrinsic::{
@@ -14,14 +15,14 @@ use super::lower_layout_intrinsic::{
 };
 use super::lower_raw_address_place::{
     raw_address_alias_target, raw_address_place_from_actual_argument, reference_target_type,
-    region_token_place_from_actual_arg, region_token_raw_field_place,
+    region_token_place_from_actual_arg,
 };
 pub(super) use super::lower_raw_address_return::push_transparent_raw_address_return_projection;
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
 use super::model::{
     Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp, StorageOrigin,
 };
-use super::place_utils::{enum_payload_type, mem_ptr_raw_field_place, reference_target_place};
+use super::place_utils::{enum_payload_type, reference_target_place};
 use super::scalar_primitive::I32ArithmeticPrimitive;
 
 pub(super) fn push_core_mem_wrapper_semantics(
@@ -40,7 +41,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             };
             ops.push(ResourceOp::RawAddressAlias {
                 source: raw.clone(),
-                target: mem_ptr_raw_field_place(output, env.types.i32()),
+                target: mem_ptr_raw_field_place(env.types, output, env.types.i32()),
                 span,
             });
             true
@@ -50,7 +51,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 return false;
             };
             push_raw_address_op(
-                mem_ptr_raw_field_place(ptr, output.ty),
+                mem_ptr_raw_field_place(env.types, ptr, output.ty),
                 output.clone(),
                 Some(RawAddressViewKind::NonOwningProjection),
                 ops,
@@ -62,7 +63,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             let Some(ptr) = arg_places.first() else {
                 return false;
             };
-            let mut raw = mem_ptr_raw_field_place(ptr, env.types.i32());
+            let mut raw = mem_ptr_raw_field_place(env.types, ptr, env.types.i32());
             let view_kind = Some(RawAddressViewKind::MemPtrOffset);
             raw = raw_address_place_with_offset(
                 raw,
@@ -71,7 +72,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             );
             push_raw_address_op(
                 raw,
-                mem_ptr_raw_field_place(output, env.types.i32()),
+                mem_ptr_raw_field_place(env.types, output, env.types.i32()),
                 view_kind,
                 ops,
                 span,
@@ -82,9 +83,9 @@ pub(super) fn push_core_mem_wrapper_semantics(
             let Some(ptr) = arg_places.first() else {
                 return false;
             };
-            let target = region_token_raw_field_place(output, env.types.i32());
+            let target = region_token_raw_field_place(env.types, output, env.types.i32());
             ops.push(ResourceOp::RawAddressAlias {
-                source: mem_ptr_raw_field_place(ptr, env.types.i32()),
+                source: mem_ptr_raw_field_place(env.types, ptr, env.types.i32()),
                 target,
                 span,
             });
@@ -99,7 +100,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             let source = source.into_place_and_view(env.types.i32());
             push_raw_address_op(
                 source.place,
-                mem_ptr_raw_field_place(output, env.types.i32()),
+                mem_ptr_raw_field_place(env.types, output, env.types.i32()),
                 Some(RawAddressViewKind::NonOwningProjection),
                 ops,
                 span,
@@ -129,7 +130,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             );
             push_raw_address_op(
                 source.place,
-                mem_ptr_raw_field_place(&ok_payload, env.types.i32()),
+                mem_ptr_raw_field_place(env.types, &ok_payload, env.types.i32()),
                 source.view_kind,
                 ops,
                 span,
@@ -171,7 +172,7 @@ pub(super) fn push_core_mem_owner_storage_origin(
         return;
     }
     ops.push(ResourceOp::StorageOrigin {
-        target: region_token_raw_field_place(output, env.types.i32()),
+        target: region_token_raw_field_place(env.types, output, env.types.i32()),
         origin: StorageOrigin::Owned,
         span,
     });
@@ -339,7 +340,7 @@ fn region_token_raw_source_from_actual_arg(
 ) -> Option<RawAddressSource> {
     let token = region_token_place_from_actual_arg(args.get(index)?, arg_places.get(index)?, env)?;
     Some(RawAddressSource {
-        base: region_token_raw_field_place(&token, env.types.i32()),
+        base: region_token_raw_field_place(env.types, &token, env.types.i32()),
         offset: RawAddressOffset::Known(0),
         explicit_offset: false,
         non_owning_view: false,

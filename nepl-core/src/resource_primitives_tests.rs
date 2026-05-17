@@ -62,6 +62,27 @@ fn compiler_memory_type_field_specs_are_kind_owned() {
         ),
         None
     );
+    assert_eq!(
+        compiler_memory_type_field_offset_bytes(
+            CompilerMemoryType::OwnerToken,
+            CompilerMemoryFieldSpec::RawI32
+        ),
+        Some(0)
+    );
+    assert_eq!(
+        compiler_memory_type_field_offset_bytes(
+            CompilerMemoryType::OwnerToken,
+            CompilerMemoryFieldSpec::SizeI32
+        ),
+        Some(4)
+    );
+    assert_eq!(
+        compiler_memory_type_field_offset_bytes(
+            CompilerMemoryType::RawPointer,
+            CompilerMemoryFieldSpec::SizeI32
+        ),
+        None
+    );
 }
 
 #[test]

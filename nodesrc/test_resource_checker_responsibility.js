@@ -314,6 +314,8 @@ for (const moduleName of [
     'initialized_summary_variant_requirement.rs',
     'initialized_summary_variant_unique.rs',
     'initialized_variant.rs',
+    'compiler_memory_place.rs',
+    'compiler_memory_place_tests.rs',
     'lower_call.rs',
     'lower_aggregate.rs',
     'lower_aggregate_projection.rs',
@@ -529,6 +531,7 @@ for (const moduleDecl of [
     'mod summary_worklist;',
     'mod summary_worklist_order;',
     'mod timing;',
+    'mod compiler_memory_place;',
     'mod lower_call;',
     'mod lower_aggregate;',
     'mod lower_aggregate_projection;',
@@ -564,6 +567,7 @@ const ownerReturn = readResource('owner_return.rs');
 const ownerReturnApply = readResource('owner_return_apply.rs');
 const ownerReturnUnknown = readResource('owner_return_unknown.rs');
 const ownerReturnView = readResource('owner_return_view.rs');
+const compilerMemoryPlace = readResource('compiler_memory_place.rs');
 const placeUtils = readResource('place_utils.rs');
 const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
@@ -1500,6 +1504,31 @@ for (const resourceFileName of fs.readdirSync(RESOURCE_DIR)) {
         resourceFileName,
     );
 }
+assertContains(
+    compilerMemoryPlace,
+    'compiler_memory_type_field_index(memory_type, field)',
+    'compiler_memory_place.rs must derive compiler memory field index from shared field specs',
+);
+assertContains(
+    compilerMemoryPlace,
+    'compiler_memory_type_field_offset_bytes(memory_type, field)',
+    'compiler_memory_place.rs must derive compiler memory field offsets from shared field specs',
+);
+assertContains(
+    compilerMemoryPlace,
+    'type_is_compiler_memory_type(types, place.ty, memory_type)',
+    'compiler_memory_place.rs must require TypeCtx compiler memory identity before building field places',
+);
+assertNotContains(
+    readResource('lower_raw_address_place.rs'),
+    'PlaceProjection::Field {\n            index: 0,\n            offset_bytes: 0,',
+    'lower_raw_address_place.rs must not hand-code compiler memory field projections',
+);
+assertNotContains(
+    readResource('initialized_summary_indirect_release.rs'),
+    'PlaceProjection::Field {\n            index: 0,\n            offset_bytes: 0,',
+    'initialized_summary_indirect_release.rs must not duplicate compiler memory field projections',
+);
 
 const maxLines = new Map([
     ['address_projection.rs', 80],
@@ -1738,6 +1767,8 @@ const maxLines = new Map([
     ['initialized_summary_variant_requirement.rs', 120],
     ['initialized_summary_variant_unique.rs', 80],
     ['initialized_variant.rs', 500],
+    ['compiler_memory_place.rs', 120],
+    ['compiler_memory_place_tests.rs', 140],
     ['model.rs', 590],
     ['scalar_primitive.rs', 120],
     ['owner_control.rs', 680],

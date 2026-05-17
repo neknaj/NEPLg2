@@ -184,31 +184,6 @@ pub(super) fn checked_mem_ptr_wrapper_arg_indices(
         .collect()
 }
 
-pub(super) fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
-    ptr.clone().with_projection(
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        },
-        raw_ty,
-    )
-}
-
-pub(super) fn region_token_size_field_for_raw_owner(raw: &Place) -> Option<Place> {
-    let mut size = raw.clone();
-    match size.projections.last_mut()? {
-        PlaceProjection::Field {
-            index,
-            offset_bytes,
-        } if *index == 0 && *offset_bytes == 0 => {
-            *index = 1;
-            *offset_bytes = 4;
-            Some(size)
-        }
-        _ => None,
-    }
-}
-
 pub(super) fn construct_aggregate_field_place(
     output: &Place,
     kind: &AggregateKind,
