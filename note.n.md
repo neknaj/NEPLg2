@@ -1,3 +1,20 @@
+# 2026-05-17 Agent 1 WASM codegen LocalMap responsibility split
+
+- `ISS-20260517T124911215Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-49B83608` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、WASM backend root が module assembly / expression lowering だけでなく、local slot map、block scope stack、temporary local allocation、alloc helper index の状態管理も抱えており、後続の backend enum / intrinsic work で responsibility freeze を再び超えたこと。
+- `nepl-core/src/codegen_wasm/local_map.rs` を追加し、`LocalMap` の状態と操作を root から分離した。
+- root は `valtype(...)` の結果だけを `LocalMap` へ渡す形にして、`LocalMap` が `TypeCtx` / HIR 判定へ踏み込まない責務境界にした。
+- `nodesrc/test_parser_backend_responsibility_policy.js` に `local_map.rs` の存在確認と 120 行上限を追加し、line limit を緩めずに再肥大化を監視する。
+- `doc/neplg2/parser_backend_responsibility_split_plan.md` の B2 進捗と baseline を更新した。
+- 検証:
+  - `rustfmt --check nepl-core\src\codegen_wasm.rs nepl-core\src\codegen_wasm\local_map.rs`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_parser_backend_responsibility_policy.js`
+  - `node nodesrc/run_source_policy_regressions.js`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。parser/backend responsibility split plan 側へ、WASM backend B2 の追加分割として反映した。
+
 # 2026-05-17 Agent 1 features_tui stdout report 固定
 
 - `ISS-20260517T124048715Z-FEATURES-TUI-BOX-HELPER-DOCTEST-HIDE-22D23F90` を追加し、fixed / resolved にした。`plan.md` は変更していない。
