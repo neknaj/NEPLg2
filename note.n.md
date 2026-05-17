@@ -40942,6 +40942,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
 
+## 2026-05-18 Agent 1 selfhost diag/outcome std/test report metadata 修正
+
+- `ISS-20260517T190658373Z-SELFHOST-DIAG-OUTCOME-DOCTESTS-HIDE--A0C5B813` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/neplg2_diag_outcome.n.md` の診断構築と Outcome 分離の doctest 2 件が `checks_print_report` で8件ずつの deterministic report を出している一方、manifest が bare `neplg2:test` のままで stdout / exit code 契約を固定していなかったこと。
+- 修正後は 2 件を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + `stdout:` に統一した。検査ロジックは変えず、`checks_print_report` -> `checks_exit_code` の既存順序を fixture 側で固定する。
+- `nodesrc/test_selfhost_diag_outcome_report_contract.js` を追加し、report stdout、`ret:` 不使用、`exit_code: 0`、3件目の直接 stdout fixture `okerr` を検査する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_selfhost_diag_outcome_report_contract.js`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_diag_outcome.n.md -n 1 --assert-io --dist web\dist`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_diag_outcome.n.md -n 2 --assert-io --dist web\dist`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_diag_outcome.n.md -n 3 --assert-io --dist web\dist`: passed
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_diag_outcome.n.md --no-tree -o tmp\agent1-neplg2-diag-outcome-report-metadata.json -j 1 --dist web\dist --assert-io`: total=3, passed=3
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `git diff --check`: CRLF warnings only
+
 ## 2026-05-17 Agent 1 Resource layout intrinsic proof 共有化
 
 - `ISS-20260517T064500300Z-RESOURCE-LAYOUT-INTRINSIC-PROOFS-DUP-81984703` を追加して fixed にした。`plan.md` は変更していない。
