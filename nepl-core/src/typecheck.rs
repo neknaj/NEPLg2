@@ -20,6 +20,7 @@ mod driver;
 mod driver_entry;
 mod effect_check;
 mod env;
+mod extern_import;
 mod field_access;
 mod field_apply;
 mod function_apply;

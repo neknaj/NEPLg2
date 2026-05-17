@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 typecheck extern import module domain 化
+
+- `ISS-20260517T114805544Z-WASI-EXTERN-TARGET-GATE-HARDCODES-IM-26DFA510` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、WASI extern import の target gate が `typecheck/driver.rs` 内で `m == "wasi_snapshot_preview1"` という direct string branch と target 条件として閉じていたこと。
+- `typecheck/extern_import.rs` を追加し、`ExternImportModule::WasiSnapshotPreview1` が host import module spelling と allowed target を所有するようにした。
+- `driver.rs` は `ExternImportModule::from_module_name(m)` と `module.is_allowed_for_target(target)` を通すようにし、host import module ごとの target contract を enum の `match` に集約した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に `extern_import.rs` の存在、enum、target gate、driver consumer、旧 direct string guard 禁止を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core typecheck::extern_import::tests --lib -- --nocapture`
+  - `cargo test -p nepl-core --test neplg2 wasi_import_rejected_on_wasm_target -- --exact --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の enum-first / exhaustive match 方針に沿って、compile-target safety に関わる host import gate も typed domain へ移した。
+
 # 2026-05-17 Agent 1 backend add intrinsic arithmetic primitive domain 化
 
 - `ISS-20260517T112957906Z-BACKEND-ADD-INTRINSIC-BYPASSES-SHARE-42BA501F` を追加し、fixed / resolved にした。`plan.md` は変更していない。

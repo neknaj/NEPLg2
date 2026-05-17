@@ -26,6 +26,7 @@ use super::copy_capability::{
 use super::diagnostics::{resolve_error, resolve_warning, type_error};
 use super::driver_entry::resolve_entry_function;
 use super::env::{Binding, BindingKind, Env};
+use super::extern_import::ExternImportModule;
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::signature::{
     contains_same_type, function_signature_string, mangle_function_symbol,
@@ -175,8 +176,8 @@ pub fn typecheck(
             span,
         } = d
         {
-            if matches!(target, CompileTarget::Wasm | CompileTarget::Llvm)
-                && m == "wasi_snapshot_preview1"
+            if ExternImportModule::from_module_name(m)
+                .is_some_and(|module| !module.is_allowed_for_target(target))
             {
                 diagnostics.push(type_error(
                     TypeDiagnosticCode::ExternWasiTargetMismatch,
