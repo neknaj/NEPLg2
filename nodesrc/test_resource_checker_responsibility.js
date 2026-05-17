@@ -632,6 +632,7 @@ const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawAddressReturnUtil = readResource('lower_raw_address_return_util.rs');
+const lowerTests = readResource('lower_tests.rs');
 const resultVariant = readResource('result_variant.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
 const lowerTemporaryScope = readResource('lower_temporary_scope.rs');
@@ -697,10 +698,20 @@ assertContains(lowerCall, 'pub(super) fn func_ref_base_name', 'lower_call.rs');
 assertNotContains(lower, 'fn call_effect_skeleton', 'lower.rs');
 assertNotContains(lower, 'fn lower_call_target', 'lower.rs');
 assertNotContains(lower, 'fn should_lower_raw_memory_call', 'lower.rs');
-assertContains(
+assertNotContains(
     lower,
     'FieldAccessorKind::from_call_base_name',
-    'lower.rs must classify recursive field accessor lowering through FieldAccessorKind',
+    'lower.rs must not classify field access from ordinary direct call spelling',
+);
+assertContains(
+    lowerTests,
+    'ordinary_get_direct_call_is_not_field_projection',
+    'lower_tests.rs must keep the regression that ordinary get calls remain ordinary calls',
+);
+assertContains(
+    lowerTests,
+    'transparent_raw_address_return_ignores_ordinary_get_call',
+    'lower_tests.rs must keep the regression that transparent raw-address proof ignores ordinary get calls',
 );
 assertNotContains(
     lower,
@@ -809,8 +820,18 @@ assertNotContains(
 );
 assertContains(
     coverageHirProjection,
-    'pub(super) fn field_get_call_owner',
-    'coverage_hir_projection.rs',
+    'pub(super) fn get_field_intrinsic_owner',
+    'coverage_hir_projection.rs must classify get_field coverage from intrinsic evidence only',
+);
+assertContains(
+    coverageHirProjection,
+    'pub(super) fn get_field_ref_intrinsic_owner',
+    'coverage_hir_projection.rs must classify get_field_ref coverage from intrinsic evidence only',
+);
+assertNotContains(
+    coverageHirProjection,
+    'FieldAccessorKind::from_core_field_member_name',
+    'coverage_hir_projection.rs must not classify coverage from ordinary core/field method names',
 );
 assertContains(
     coverageHirProjection,
@@ -1533,10 +1554,25 @@ assertNotContains(
     'for _ in 0..=module.functions.len()',
     'effect_summary_pointer.rs must not reintroduce full-module fixed-point sweeps',
 );
+assertNotContains(
+    lowerRawAddressReturn,
+    'FieldAccessorKind::from_call_base_name',
+    'lower_raw_address_return.rs must not classify transparent field projection proof from ordinary callee spelling',
+);
 assertContains(
     lowerRawAddressReturn,
-    'FieldAccessorKind::from_call_base_name(helper_base_name(name))',
-    'lower_raw_address_return.rs must classify field accessor calls through FieldAccessorKind',
+    'enum RawAddressReturnCalleeEvidence',
+    'lower_raw_address_return.rs must keep explicit callee evidence for transparent raw-address proof',
+);
+assertContains(
+    lowerRawAddressReturn,
+    'Self::OrdinaryCall => None',
+    'lower_raw_address_return.rs must reject ordinary direct calls as field accessor proof evidence',
+);
+assertContains(
+    lowerRawAddressReturn,
+    'Self::Intrinsic => FieldAccessorKind::from_intrinsic_name(helper_base_name(name))',
+    'lower_raw_address_return.rs must restrict field accessor proof evidence to typed intrinsic classification',
 );
 assertContains(
     lowerRawAddressReturn,
@@ -1797,6 +1833,7 @@ const maxLines = new Map([
     ['lower_raw_address_source.rs', 180],
     ['lower_raw_memory.rs', 120],
     ['lower_temporary_scope.rs', 100],
+    ['lower_tests.rs', 340],
     ['raw_realloc.rs', 160],
     ['report.rs', 380],
     ['shadow.rs', 60],
