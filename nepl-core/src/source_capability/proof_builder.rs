@@ -1,14 +1,27 @@
+use alloc::string::String;
+
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
-use crate::source_capability::compiler_memory_field::CompilerMemoryFieldEvidence;
-use crate::source_capability::owner_aggregate::OwnerAggregateCapabilityEvidence;
 use crate::source_map::{
-    CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite,
+    CompilerMemoryField, CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan,
+    SourceCapabilityUseSite,
 };
 use crate::span::Span;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::source_capability) enum SourceCapabilityProofFact {
+    RawMemoryStructuralBoundary,
+    RawAddressViewBoundary,
+    RawMemoryOperationBoundary(RawMemoryOp),
+    RawBodyMemoryOperationBoundary(RawBodyMemoryOp),
+    OwnerAggregateFieldBoundary,
+    OwnerAggregateConstructorBoundary(String),
+    CompilerMemoryFieldBoundary(CompilerMemoryField),
+    CompilerMemoryTypeDefinition(CompilerMemoryType),
+}
+
 #[derive(Debug, Default)]
 pub(in crate::source_capability) struct SourceCapabilityProof {
-    pub(in crate::source_capability) capabilities: SourceCapabilities,
+    capabilities: SourceCapabilities,
 }
 
 impl SourceCapabilityProof {
@@ -24,88 +37,57 @@ impl SourceCapabilityProof {
         SourceCapabilitySpan::from_span(span)
     }
 
-    pub(in crate::source_capability) fn insert_raw_memory_structural_boundary(
+    pub(in crate::source_capability) fn insert_fact(
         &mut self,
+        fact: SourceCapabilityProofFact,
         span: Span,
     ) {
-        self.insert_use_site(SourceCapabilityUseSite::RawMemoryStructuralBoundary {
-            span: Self::site_span(span),
-        });
-    }
-
-    pub(in crate::source_capability) fn insert_raw_address_view_boundary(&mut self, span: Span) {
-        self.insert_use_site(SourceCapabilityUseSite::RawAddressViewBoundary {
-            span: Self::site_span(span),
-        });
-    }
-
-    pub(in crate::source_capability) fn insert_raw_memory_operation_boundary(
-        &mut self,
-        operation: RawMemoryOp,
-        span: Span,
-    ) {
-        self.insert_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
-            operation,
-            span: Self::site_span(span),
-        });
-    }
-
-    pub(in crate::source_capability) fn insert_raw_body_memory_operation_boundary(
-        &mut self,
-        operation: RawBodyMemoryOp,
-        span: Span,
-    ) {
-        self.insert_use_site(SourceCapabilityUseSite::RawBodyMemoryOperationBoundary {
-            operation,
-            span: Self::site_span(span),
-        });
-    }
-
-    pub(in crate::source_capability) fn insert_owner_aggregate_evidence(
-        &mut self,
-        observed: Option<OwnerAggregateCapabilityEvidence>,
-        span: Span,
-    ) {
-        match observed {
-            Some(OwnerAggregateCapabilityEvidence::FieldAccessor) => {
+        match fact {
+            SourceCapabilityProofFact::RawMemoryStructuralBoundary => {
+                self.insert_use_site(SourceCapabilityUseSite::RawMemoryStructuralBoundary {
+                    span: Self::site_span(span),
+                });
+            }
+            SourceCapabilityProofFact::RawAddressViewBoundary => {
+                self.insert_use_site(SourceCapabilityUseSite::RawAddressViewBoundary {
+                    span: Self::site_span(span),
+                });
+            }
+            SourceCapabilityProofFact::RawMemoryOperationBoundary(operation) => {
+                self.insert_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
+                    operation,
+                    span: Self::site_span(span),
+                });
+            }
+            SourceCapabilityProofFact::RawBodyMemoryOperationBoundary(operation) => {
+                self.insert_use_site(SourceCapabilityUseSite::RawBodyMemoryOperationBoundary {
+                    operation,
+                    span: Self::site_span(span),
+                });
+            }
+            SourceCapabilityProofFact::OwnerAggregateFieldBoundary => {
                 self.insert_use_site(SourceCapabilityUseSite::OwnerAggregateFieldBoundary {
                     span: Self::site_span(span),
                 });
             }
-            Some(OwnerAggregateCapabilityEvidence::Constructor(name)) => {
+            SourceCapabilityProofFact::OwnerAggregateConstructorBoundary(name) => {
                 self.insert_use_site(SourceCapabilityUseSite::OwnerAggregateConstructorBoundary {
                     name,
                     span: Self::site_span(span),
                 });
             }
-            None => {}
-        }
-    }
-
-    pub(in crate::source_capability) fn insert_compiler_memory_field_evidence(
-        &mut self,
-        observed: Option<CompilerMemoryFieldEvidence>,
-        span: Span,
-    ) {
-        match observed {
-            Some(evidence) => {
+            SourceCapabilityProofFact::CompilerMemoryFieldBoundary(field) => {
                 self.insert_use_site(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
-                    field: evidence.field(),
+                    field,
                     span: Self::site_span(span),
                 });
             }
-            None => {}
+            SourceCapabilityProofFact::CompilerMemoryTypeDefinition(memory_type) => {
+                self.insert_use_site(SourceCapabilityUseSite::CompilerMemoryTypeDefinition {
+                    memory_type,
+                    span: Self::site_span(span),
+                });
+            }
         }
-    }
-
-    pub(in crate::source_capability) fn insert_compiler_memory_type_definition(
-        &mut self,
-        memory_type: CompilerMemoryType,
-        span: Span,
-    ) {
-        self.insert_use_site(SourceCapabilityUseSite::CompilerMemoryTypeDefinition {
-            memory_type,
-            span: Self::site_span(span),
-        });
     }
 }

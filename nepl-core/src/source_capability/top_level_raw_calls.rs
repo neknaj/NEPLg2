@@ -3,10 +3,10 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::effects::RawMemoryOp;
+use crate::source_capability::proof_builder::{SourceCapabilityProof, SourceCapabilityProofFact};
 use crate::source_capability::raw_operation_proof::{
     RawOperationBoundaryContract, RawOperationFunctionEvidence,
 };
-use crate::source_map::{SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite};
 use crate::span::Span;
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ pub(in crate::source_capability) struct RawOperationFunctionProof {
 
 pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
     frames: &[RawOperationFunctionProof],
-    capabilities: &mut SourceCapabilities,
+    proof: &mut SourceCapabilityProof,
 ) {
     let mut proven_functions: BTreeMap<String, BTreeSet<RawMemoryOp>> = BTreeMap::new();
 
@@ -40,7 +40,7 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
                 .entry(frame.name.clone())
                 .or_default()
                 .insert(operation);
-            insert_raw_memory_operation(capabilities, operation, frame.span);
+            insert_raw_memory_operation(proof, operation, frame.span);
         }
     }
 
@@ -61,14 +61,14 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
                     .get(&call.target)
                     .is_some_and(|operations| operations.contains(&call.operation))
                 {
-                    insert_raw_memory_operation(capabilities, call.operation, call.span);
+                    insert_raw_memory_operation(proof, call.operation, call.span);
                 }
             }
 
             if let Some(operation) = frame.boundary_contract.operation() {
                 let operations = proven_functions.entry(frame.name.clone()).or_default();
                 if operations.insert(operation) {
-                    insert_raw_memory_operation(capabilities, operation, frame.span);
+                    insert_raw_memory_operation(proof, operation, frame.span);
                     changed = true;
                 }
             }
@@ -80,12 +80,12 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
 }
 
 fn insert_raw_memory_operation(
-    capabilities: &mut SourceCapabilities,
+    proof: &mut SourceCapabilityProof,
     operation: RawMemoryOp,
     span: Span,
 ) {
-    capabilities.insert_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
-        operation,
-        span: SourceCapabilitySpan::from_span(span),
-    });
+    proof.insert_fact(
+        SourceCapabilityProofFact::RawMemoryOperationBoundary(operation),
+        span,
+    );
 }

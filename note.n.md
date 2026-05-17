@@ -1,3 +1,22 @@
+# 2026-05-17 Agent 1 source capability proof fact 集約
+
+- `ISS-20260517T094754743Z-SOURCE-CAPABILITY-PROOF-BUILDER-EXPO-C06F3A22` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、source capability の traversal / event dispatch は統合済みだった一方で、`SourceCapabilityProof` が `insert_raw_memory_*`、`insert_owner_aggregate_evidence`、`insert_compiler_memory_*` のような domain 別 insert API を公開していたこと。
+- `SourceCapabilityProofFact` enum を追加し、raw memory、raw body、owner aggregate、compiler memory field、compiler memory type definition の source-derived proof を 1 つの typed fact domain に集約した。
+- `SourceCapabilityProof::insert_fact` が fact を exhaustive match して `SourceCapabilityUseSite` へ写像する。top-level raw helper call propagation も `SourceCapabilities` を直接触らず、同じ fact insertion path を通るようにした。
+- owner aggregate / compiler memory field の evidence-to-fact 変換は `source_capability/fact.rs` に分離し、`rule.rs` は source event から fact を発行する責務に寄せた。
+- `nodesrc/test_static_check_boundary_responsibility.js` に `SourceCapabilityProofFact`、`insert_fact`、fact conversion module、旧 domain 別 insert API 再導入禁止を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core source_map::tests --lib -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core compiler_memory_field_boundary --lib -- --nocapture`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「個別 module ごとの proof insertion ではなく、source-derived typed fact pipeline と enum / match で checker 自体を監査しやすくする」方針に沿って proof builder を締め直した。
+
 # 2026-05-17 Agent 1 source capability proof event dispatcher 化
 
 - `ISS-20260517T093306644Z-SOURCE-CAPABILITY-PROOF-COLLECTOR-DI-429F5FD2` を追加し、fixed / resolved にした。`plan.md` は変更していない。

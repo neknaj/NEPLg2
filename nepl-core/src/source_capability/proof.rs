@@ -45,7 +45,7 @@ fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
     walk_module_capability_evidence(module, &mut collector);
     apply_top_level_raw_call_evidence(
         &collector.completed_raw_operation_function_frames,
-        &mut collector.proof.capabilities,
+        &mut collector.proof,
     );
     collector.proof
 }
