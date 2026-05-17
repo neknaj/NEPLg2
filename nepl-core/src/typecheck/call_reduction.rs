@@ -7,12 +7,13 @@ use alloc::vec::Vec;
 use crate::ast::{Ident, MatchPattern};
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
+use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::diagnostics::type_error;
 use super::env::BindingKind;
-use super::{BlockChecker, FieldIdx, StackEntry};
+use super::{BlockChecker, CoreIntrinsicKind, FieldIdx, StackEntry};
 
 fn call_reduction_dump_enabled() -> bool {
     #[cfg(target_os = "none")]
@@ -347,7 +348,7 @@ impl<'a> BlockChecker<'a> {
                 HirExpr {
                     ty: self.ctx.i32(),
                     kind: HirExprKind::Intrinsic {
-                        name: "add".to_string(),
+                        name: I32ArithmeticPrimitive::Add.base_name().to_string(),
                         type_args: vec![self.ctx.i32()],
                         args: vec![
                             current,
@@ -364,7 +365,7 @@ impl<'a> BlockChecker<'a> {
             current = HirExpr {
                 ty: field_ty,
                 kind: HirExprKind::Intrinsic {
-                    name: "load".to_string(),
+                    name: CoreIntrinsicKind::Load.intrinsic_name().to_string(),
                     type_args: vec![field_ty],
                     args: vec![addr_expr],
                 },

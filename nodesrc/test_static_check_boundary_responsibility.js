@@ -435,6 +435,10 @@ const typecheckFieldAccess = assertFile(
     path.join(TYPECHECK_DIR, 'field_access.rs'),
     'typecheck/field_access.rs',
 );
+const typecheckFieldApply = assertFile(
+    path.join(TYPECHECK_DIR, 'field_apply.rs'),
+    'typecheck/field_apply.rs',
+);
 const typecheckFunctionApply = assertFile(
     path.join(TYPECHECK_DIR, 'function_apply.rs'),
     'typecheck/function_apply.rs',
@@ -678,6 +682,11 @@ assertContains(
     scalarPrimitives,
     'pub(crate) fn from_codegen_intrinsic_name',
     'scalar_primitives.rs must own backend i32 arithmetic intrinsic spelling',
+);
+assertContains(
+    scalarPrimitives,
+    'pub(crate) const fn base_name',
+    'scalar_primitives.rs must own i32 arithmetic source spelling',
 );
 assertContains(
     scalarPrimitives,
@@ -1015,6 +1024,28 @@ for (const coreIntrinsicName of [
         typecheckPrefixCheck,
         `intrin.name == "${coreIntrinsicName}"`,
         `typecheck/prefix_check.rs must not duplicate ${coreIntrinsicName} branch spelling outside CoreIntrinsicKind`,
+    );
+}
+for (const [label, source] of [
+    ['typecheck/call_reduction.rs', typecheckCallReduction],
+    ['typecheck/field_apply.rs', typecheckFieldApply],
+    ['typecheck/prefix_check.rs', typecheckPrefixCheck],
+    ['passes/drop_insertion.rs', dropInsertion],
+]) {
+    assertNotContains(
+        source,
+        'name: "add".to_string()',
+        `${label} must synthesize add intrinsics through I32ArithmeticPrimitive`,
+    );
+    assertNotContains(
+        source,
+        'name: "load".to_string()',
+        `${label} must synthesize load intrinsics through CoreIntrinsicKind`,
+    );
+    assertNotContains(
+        source,
+        'name: "store".to_string()',
+        `${label} must synthesize store intrinsics through CoreIntrinsicKind`,
     );
 }
 assertNotContains(

@@ -4,11 +4,12 @@ use alloc::vec::Vec;
 
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
+use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::span::Span;
 use crate::types::TypeKind;
 
 use super::diagnostics::type_error;
-use super::{BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
+use super::{BlockChecker, CoreIntrinsicKind, FieldAccessorKind, FieldIdx, StackEntry};
 
 pub(super) enum FieldAccessorApplyResult {
     NotHandled,
@@ -101,7 +102,7 @@ impl<'a> BlockChecker<'a> {
                 HirExpr {
                     ty: self.ctx.i32(),
                     kind: HirExprKind::Intrinsic {
-                        name: "add".to_string(),
+                        name: I32ArithmeticPrimitive::Add.base_name().to_string(),
                         type_args: vec![self.ctx.i32()],
                         args: vec![
                             obj,
@@ -120,7 +121,7 @@ impl<'a> BlockChecker<'a> {
                 expr: HirExpr {
                     ty: self.ctx.unit(),
                     kind: HirExprKind::Intrinsic {
-                        name: "store".to_string(),
+                        name: CoreIntrinsicKind::Store.intrinsic_name().to_string(),
                         type_args: vec![f_ty],
                         args: vec![addr_expr, val],
                     },

@@ -22,6 +22,14 @@ impl I32ArithmeticPrimitive {
         }
     }
 
+    pub(crate) const fn base_name(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Sub => "sub",
+            Self::Mul => "mul",
+        }
+    }
+
     pub(crate) fn from_codegen_intrinsic_name(name: &str) -> Option<Self> {
         match name {
             "add" => Some(Self::Add),
@@ -123,6 +131,7 @@ mod tests {
                 Some(primitive)
             );
             assert_eq!(I32ArithmeticPrimitive::from_symbol(name), Some(primitive));
+            assert_eq!(primitive.base_name(), name);
         }
         assert_eq!(I32ArithmeticPrimitive::from_base_name("div"), None);
     }
