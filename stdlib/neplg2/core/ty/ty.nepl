@@ -585,6 +585,22 @@ pub fn selfhost_type_arena_function_arg_len <(&SelfhostTypeArena)->i32> (arena):
 pub fn selfhost_type_arena_alloc_new <(SelfhostTypeArena,SelfhostTypeId)*>SelfhostTypeArenaAlloc> (arena, type_id):
     SelfhostTypeArenaAlloc arena type_id
 
+//: selfhost_type_arena_alloc_type_id: 型追加結果から新しい TypeId を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeArenaAlloc` は arena owner を含むため、通常の source から field を直接読むことはできません。
+//: - この accessor は borrow から Copy な `SelfhostTypeId` だけを返し、arena owner は動かしません。
+pub fn selfhost_type_arena_alloc_type_id <(&SelfhostTypeArenaAlloc)->SelfhostTypeId> (allocated):
+    *field::get_ref allocated "type_id"
+
+//: selfhost_type_arena_alloc_into_arena: 型追加結果を[消費/しょうひ]して arena owner を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - 型追加後の arena owner を次の arena 操作へ渡すための唯一の public 経路です。
+//: - wrapper を消費するため、`SelfhostTypeArenaAlloc` から owner field を複製する経路は作りません。
+pub fn selfhost_type_arena_alloc_into_arena <(SelfhostTypeArenaAlloc)*>SelfhostTypeArena> (allocated):
+    field::get allocated "arena"
+
 //: selfhost_type_arena_push_record: record を arena に[追加/ついか]する
 pub fn selfhost_type_arena_push_record <(SelfhostTypeArena,SelfhostTypeRecord)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, record):
     let type_id <SelfhostTypeId> selfhost_type_id_new selfhost_type_arena_len &arena
@@ -789,8 +805,8 @@ pub fn selfhost_ty_stage0 <()*>i32> ():
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
                 Result::Ok allocated:
-                    let unit_id <SelfhostTypeId> field::get allocated "type_id"
-                    let arena1 <SelfhostTypeArena> field::get allocated "arena"
+                    let unit_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena allocated
                     let ok <bool> and eq selfhost_type_id_index unit_id 0 eq selfhost_type_arena_len &arena1 1
                     selfhost_type_arena_free arena1
                     if ok 0 1

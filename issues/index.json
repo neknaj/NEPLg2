@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T17:09:14.507Z",
+  "generated_at": "2026-05-17T17:25:00.072Z",
   "counts": {
-    "total": 953,
+    "total": 954,
     "open": 5,
-    "resolved": 948,
+    "resolved": 949,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -17,9 +17,9 @@
         "resolved": 29
       },
       "selfhost": {
-        "total": 68,
+        "total": 69,
         "open": 1,
-        "resolved": 67
+        "resolved": 68
       },
       "cli": {
         "total": 19,
@@ -8583,6 +8583,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T165922465Z-SELFHOST-LEXER-DOCTESTS-HIDE-STD-TES-88C4711E.md"
+    },
+    {
+      "id": "ISS-20260517T171239067Z-SELFHOST-TYPE-ARENA-DOCTESTS-HIDE-ST-F725D758",
+      "title": "selfhost type arena doctests use owner-backed allocation fields and hide reports",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "stdlib/neplg2/core/ty/ty.nepl, tests/stdlib/neplg2_type_arena.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T171239067Z-SELFHOST-TYPE-ARENA-DOCTESTS-HIDE-ST-F725D758.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
