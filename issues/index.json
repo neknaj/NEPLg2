@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T18:39:28.561Z",
+  "generated_at": "2026-05-17T18:48:49.508Z",
   "counts": {
-    "total": 960,
+    "total": 961,
     "open": 5,
-    "resolved": 955,
+    "resolved": 956,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -12,9 +12,9 @@
         "resolved": 259
       },
       "TEST": {
-        "total": 32,
+        "total": 33,
         "open": 1,
-        "resolved": 31
+        "resolved": 32
       },
       "selfhost": {
         "total": 69,
@@ -12068,6 +12068,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40.md"
+    },
+    {
+      "id": "ISS-20260517T182028980Z-SELFHOST-MODULE-LOADER-DOCTESTS-STIL-FFD594CB",
+      "title": "selfhost module loader doctests still use ret metadata for stdout reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/neplg2_module_loader.n.md; nodesrc/test_selfhost_module_loader_report_contract.js; nodesrc/run_source_policy_regressions.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T182028980Z-SELFHOST-MODULE-LOADER-DOCTESTS-STIL-FFD594CB.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
