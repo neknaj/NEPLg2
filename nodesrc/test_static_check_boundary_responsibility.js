@@ -29,6 +29,16 @@ const INTRINSIC_KINDS = path.join(CORE_SRC, 'intrinsic_kinds.rs');
 const LOADER = path.join(CORE_SRC, 'loader.rs');
 const SOURCE_MAP = path.join(CORE_SRC, 'source_map.rs');
 const RESOURCE_PRIMITIVES = path.join(CORE_SRC, 'resource_primitives.rs');
+const RESOURCE_PRIMITIVES_COMPILER_MEMORY = path.join(
+    CORE_SRC,
+    'resource_primitives',
+    'compiler_memory.rs',
+);
+const RESOURCE_PRIMITIVES_MEMORY_HELPER = path.join(
+    CORE_SRC,
+    'resource_primitives',
+    'memory_helper.rs',
+);
 const SOURCE_CAPABILITY = path.join(CORE_SRC, 'source_capability.rs');
 const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     CORE_SRC,
@@ -187,6 +197,14 @@ function walkRustFiles(dir) {
 const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const resourcePrimitives = assertFile(RESOURCE_PRIMITIVES, 'resource_primitives.rs');
+const resourcePrimitivesCompilerMemory = assertFile(
+    RESOURCE_PRIMITIVES_COMPILER_MEMORY,
+    'resource_primitives/compiler_memory.rs',
+);
+const resourcePrimitivesMemoryHelper = assertFile(
+    RESOURCE_PRIMITIVES_MEMORY_HELPER,
+    'resource_primitives/memory_helper.rs',
+);
 const resourceLower = assertFile(RESOURCE_LOWER, 'resource/lower.rs');
 const resourceLowerRawAddress = assertFile(
     RESOURCE_LOWER_RAW_ADDRESS,
@@ -313,9 +331,21 @@ const typecheckConstructorApply = assertFile(
     path.join(TYPECHECK_DIR, 'constructor_apply.rs'),
     'typecheck/constructor_apply.rs',
 );
+const typecheckCallReduction = assertFile(
+    path.join(TYPECHECK_DIR, 'call_reduction.rs'),
+    'typecheck/call_reduction.rs',
+);
 const typecheckFieldAccess = assertFile(
     path.join(TYPECHECK_DIR, 'field_access.rs'),
     'typecheck/field_access.rs',
+);
+const typecheckFunctionApply = assertFile(
+    path.join(TYPECHECK_DIR, 'function_apply.rs'),
+    'typecheck/function_apply.rs',
+);
+const typecheckFunctionCheck = assertFile(
+    path.join(TYPECHECK_DIR, 'function_check.rs'),
+    'typecheck/function_check.rs',
 );
 const typecheckPrefixCheck = assertFile(
     path.join(TYPECHECK_DIR, 'prefix_check.rs'),
@@ -593,6 +623,45 @@ assertNotContains(
     'func_ref_base_name(callee)? != "get_ref"',
     'resource/lower_aggregate.rs must not duplicate core/field get_ref spelling outside FieldAccessorKind',
 );
+const staleTypecheckVerboseNameFilters = [
+    {
+        source: typecheckCallReduction,
+        forbidden: 'debug_name.as_deref()',
+        label: 'typecheck/call_reduction.rs',
+    },
+    {
+        source: typecheckPrefixCheck,
+        forbidden: '"A" | "use_a" | "DefaultHash32" | "new" | "must_hm"',
+        label: 'typecheck/prefix_check.rs',
+    },
+    {
+        source: typecheckConstructorApply,
+        forbidden: 'enm == "Result" && var == "Ok"',
+        label: 'typecheck/constructor_apply.rs',
+    },
+    {
+        source: typecheckDriver,
+        forbidden: 'f.name.name == "new"',
+        label: 'typecheck/driver.rs',
+    },
+    {
+        source: typecheckFunctionApply,
+        forbidden: 'name.contains("Result")',
+        label: 'typecheck/function_apply.rs',
+    },
+    {
+        source: typecheckFunctionCheck,
+        forbidden: 'function.name.contains("partition")',
+        label: 'typecheck/function_check.rs',
+    },
+];
+for (const { source, forbidden, label } of staleTypecheckVerboseNameFilters) {
+    assertNotContains(
+        source,
+        forbidden,
+        `${label} must not filter typecheck verbose diagnostics by stale concrete symbol names`,
+    );
+}
 assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
 assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');
 assertContains(typecheckSyntaxHelpers, 'fn split_qualified_name', 'typecheck/syntax_helpers.rs');
@@ -927,7 +996,17 @@ assertLineLimit(
     'source_capability/top_level_raw_calls.rs',
     120,
 );
-assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
+assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 40);
+assertLineLimit(
+    RESOURCE_PRIMITIVES_COMPILER_MEMORY,
+    'resource_primitives/compiler_memory.rs',
+    130,
+);
+assertLineLimit(
+    RESOURCE_PRIMITIVES_MEMORY_HELPER,
+    'resource_primitives/memory_helper.rs',
+    90,
+);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 40);
 assertLineLimit(
     SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE,
@@ -1273,51 +1352,61 @@ assertContains(
 );
 assertContains(
     resourcePrimitives,
+    'mod compiler_memory;',
+    'resource_primitives.rs must split compiler memory primitive contracts into a dedicated module',
+);
+assertContains(
+    resourcePrimitives,
+    'mod memory_helper;',
+    'resource_primitives.rs must split memory helper primitive contracts into a dedicated module',
+);
+assertContains(
+    resourcePrimitivesCompilerMemory,
     'pub(crate) fn compiler_memory_type_from_constructor_name',
-    'resource_primitives.rs',
+    'resource_primitives/compiler_memory.rs',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'pub(crate) enum CompilerMemoryFieldSpec',
-    'resource_primitives.rs must keep compiler memory field shape in a typed enum domain',
+    'resource_primitives/compiler_memory.rs must keep compiler memory field shape in a typed enum domain',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'pub(crate) fn compiler_memory_type_field_specs',
-    'resource_primitives.rs must own compiler memory type field shape contracts',
+    'resource_primitives/compiler_memory.rs must own compiler memory type field shape contracts',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'match name',
-    'resource_primitives.rs',
+    'resource_primitives/compiler_memory.rs',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'pub(crate) fn compiler_memory_type_of_type',
-    'resource_primitives.rs',
+    'resource_primitives/compiler_memory.rs',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'pub(crate) fn type_is_raw_pointer',
-    'resource_primitives.rs',
+    'resource_primitives/compiler_memory.rs',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'pub(crate) fn type_is_owner_token',
-    'resource_primitives.rs',
+    'resource_primitives/compiler_memory.rs',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesMemoryHelper,
     'pub(crate) enum MemoryHelperPrimitive',
-    'resource_primitives.rs',
+    'resource_primitives/memory_helper.rs',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesMemoryHelper,
     'is_raw_address_view_boundary_evidence',
     'memory helper primitive roles must distinguish raw address view evidence from owner-token construction',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesMemoryHelper,
     'has_resource_call_lowering',
     'memory helper primitive roles must expose dedicated Resource IR call-lowering authority',
 );

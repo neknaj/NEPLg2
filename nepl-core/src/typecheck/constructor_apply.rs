@@ -84,9 +84,11 @@ impl<'a> BlockChecker<'a> {
                 .any(|v| v.name == var)
                 .then_some(info.ty)
         })?;
-        if crate::log::is_verbose() && enm == "Result" && var == "Ok" {
+        if crate::log::is_verbose() {
             constructor_apply_log!(
-                "enum ctor debug: name={} resolved_args=[{}] user_params=[{}] arg_tys=[{}] c_result={}",
+                "enum ctor apply: enum={} variant={} name={} resolved_args=[{}] user_params=[{}] arg_tys=[{}] c_result={}",
+                enm,
+                var,
                 name,
                 resolved_args
                     .iter()

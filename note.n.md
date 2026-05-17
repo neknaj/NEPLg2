@@ -1,3 +1,21 @@
+# 2026-05-17 Agent 1 typecheck verbose trace の個別 symbol filter 削除
+
+- `ISS-20260517T080907212Z-TYPECHECK-VERBOSE-LOGGING-STILL-USES-A2497472` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`call_reduction.rs` / `prefix_check.rs` / `constructor_apply.rs` / `driver.rs` / `function_apply.rs` / `function_check.rs` の verbose trace が、`Result`、`new`、`partition`、`DefaultHash32`、一部 test helper 名などを直接比較していたこと。静的証明ロジックではないが、調査経路が個別 stdlib/test symbol へ偏り、汎用 checker / proof 設計とずれていた。
+- 修正後は verbose trace を `crate::log::is_verbose()` と処理段階だけで制御し、名前では絞らない。`nodesrc/test_static_check_boundary_responsibility.js` に stale name filter の再導入禁止 policy を追加した。
+- 監査テストで露出した `resource_primitives.rs` の責務超過も同時に解消し、`resource_primitives/compiler_memory.rs` と `resource_primitives/memory_helper.rs` へ分割した。compiler memory field contract と memory helper registry を別 module で管理する。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core compiler_memory_type_field_specs_are_kind_owned --lib -- --nocapture`
+  - `cargo test -p nepl-core memory_helper_primitive_classifies_suffixed_symbols --lib -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「checker 自身の誤りを静的に見つけやすくする」方針に沿って、個別名依存の verbose trace と肥大化した primitive module を整理した。
+
 # 2026-05-17 Agent 1 Resource lower direct call recursion の FieldAccessorKind 接続
 
 - `ISS-20260517T080107274Z-RESOURCE-LOWER-DIRECT-CALL-RECURSION-F0DB469F` を追加し、fixed / resolved にした。

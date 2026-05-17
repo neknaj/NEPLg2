@@ -667,12 +667,7 @@ impl<'a> BlockChecker<'a> {
                                             assign: None,
                                             auto_call: !*forced_value,
                                         });
-                                        if crate::log::is_verbose()
-                                            && matches!(
-                                                lookup_name.as_str(),
-                                                "A" | "use_a" | "DefaultHash32" | "new" | "must_hm"
-                                            )
-                                        {
+                                        if crate::log::is_verbose() {
                                             prefix_check_log!(
                                                 "push value {} ty={} auto_call={}",
                                                 lookup_name,
@@ -854,12 +849,7 @@ impl<'a> BlockChecker<'a> {
                                             assign: None,
                                             auto_call: true,
                                         });
-                                        if crate::log::is_verbose()
-                                            && matches!(
-                                                lookup_name.as_str(),
-                                                "A" | "use_a" | "DefaultHash32" | "new" | "must_hm"
-                                            )
-                                        {
+                                        if crate::log::is_verbose() {
                                             prefix_check_log!(
                                                 "push callable {} ty={} auto_call=true",
                                                 lookup_name,

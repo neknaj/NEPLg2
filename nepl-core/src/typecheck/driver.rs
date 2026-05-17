@@ -1004,9 +1004,10 @@ pub fn typecheck(
                 } else {
                     mangle_function_symbol(&f.name.name, ty, &ctx)
                 };
-                if crate::log::is_verbose() && f.name.name == "new" {
+                if crate::log::is_verbose() {
                     driver_log!(
-                        "typecheck: registering global func new sig={}",
+                        "typecheck: registering global func {} sig={}",
+                        f.name.name,
                         function_signature_string(&ctx, ty)
                     );
                 }
