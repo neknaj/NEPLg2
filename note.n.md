@@ -40035,3 +40035,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `trunk build`: passed
+
+## 2026-05-17 Agent 1 tutorial Vec basics exit_code metadata 移行
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の subcase として、`tutorials/getting_started/13_vec_basics.n.md` の doctest metadata を `ret: 0` から `exit_code: 0` へ移行した。`plan.md` は変更していない。
+- stdout report は `Checked [ok,ok,ok]` と 3 件の `ok` 行を維持し、`Vec.push` 失敗時に `VecPushError` へ戻る owner は `vec_push_error_vec` で回収して `free` するようにした。
+- `nodesrc/test_tutorial_vec_basics_report_contract.js` を追加し、`ret:` への退行、stdout report 欠落、`checks_print_report` より前に exit code を返す退行、push error path の owner cleanup 欠落を検出するようにした。
+- 親 issue はまだ open のまま継続する。tutorial 以外にも `ret:` 依存 fixture と report 省略検出 policy の残件がある。

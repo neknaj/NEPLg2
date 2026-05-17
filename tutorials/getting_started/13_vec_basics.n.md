@@ -2,8 +2,8 @@
 
 `Vec<T>` は所有権を持つ growable collection です。作成や追加は失敗しうるため、`Result` を `match` して扱います。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok]
     ##: [0] ok
@@ -26,11 +26,13 @@ fn build_numbers <()*>Result<Vec<i32>,str>> ():
             Result<Vec<i32>,str>::Err "vec.new failed"
         Result::Ok v0:
             match push<i32> v0 10:
-                Result::Err _e:
+                Result::Err e:
+                    free<i32> vec_push_error_vec<i32> e;
                     Result<Vec<i32>,str>::Err "vec.push 10 failed"
                 Result::Ok v1:
                     match push<i32> v1 20:
-                        Result::Err _e:
+                        Result::Err e:
+                            free<i32> vec_push_error_vec<i32> e;
                             Result<Vec<i32>,str>::Err "vec.push 20 failed"
                         Result::Ok v2:
                             Result<Vec<i32>,str>::Ok v2

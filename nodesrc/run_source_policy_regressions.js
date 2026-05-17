@@ -37,6 +37,7 @@ const checks = [
     "nodesrc/test_stdlib_string_doc_no_boilerplate.js",
     "nodesrc/test_stdlib_documentation_contract.js",
     "nodesrc/test_tutorial_getting_started_current_style.js",
+    "nodesrc/test_tutorial_vec_basics_report_contract.js",
     "nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js",
     "nodesrc/test_stdlib_nm_parser_no_block_unwraps.js",
     "nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",

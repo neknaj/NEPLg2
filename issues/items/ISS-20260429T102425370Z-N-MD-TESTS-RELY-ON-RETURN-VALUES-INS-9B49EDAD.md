@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-16
+updated: 2026-05-17
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -67,6 +67,19 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 ## 2026-05-16 tutorials Vec basics ret metadata drift
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` は focused run で `return value mismatch expected: 0 actual: null` になっており、canonical stdout report を持ちながら `exit_code:` ではなく `ret:` を使っている。これは compiler core の静的検査 issue ではなく、この issue の残件である `ret:` 代用 fixture の移行漏れとして扱う。修正時は `exit_code: 0` と stdout report を維持し、Vec owner cleanup / error path の検査を弱めない。
+
+## 2026-05-17 Vec basics tutorial exit_code metadata migration
+
+`tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。
+
+移行内容:
+
+- `checks_print_report checks` で Vec の観測結果を stdout に出してから `checks_exit_code shown` を返す順序を維持した。
+- stdout report は `Checked [ok,ok,ok]` と 3 件の `ok` 行を fixture として固定した。
+- `Vec.push` の失敗 payload に戻る `Vec` owner は `vec_push_error_vec` で回収して `free` し、error path の owner obligation を閉じるようにした。
+- `nodesrc/test_tutorial_vec_basics_report_contract.js` を追加し、この tutorial が `ret:` へ戻らず stdout report + `exit_code:` を維持することを source policy regression に登録した。
+
+この subcase は解消したが、この issue はまだ open のまま継続する。他の `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
 
 ## 2026-04-29 進捗メモ 2
 
