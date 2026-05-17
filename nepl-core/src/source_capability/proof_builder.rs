@@ -1,4 +1,5 @@
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
+use crate::source_capability::compiler_memory_field::CompilerMemoryFieldEvidence;
 use crate::source_capability::owner_aggregate::OwnerAggregateCapabilityEvidence;
 use crate::source_map::{
     CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite,
@@ -70,13 +71,26 @@ impl SourceCapabilityProof {
                 self.insert_use_site(SourceCapabilityUseSite::OwnerAggregateFieldBoundary {
                     span: Self::site_span(span),
                 });
-                self.insert_use_site(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
-                    span: Self::site_span(span),
-                });
             }
             Some(OwnerAggregateCapabilityEvidence::Constructor(name)) => {
                 self.insert_use_site(SourceCapabilityUseSite::OwnerAggregateConstructorBoundary {
                     name,
+                    span: Self::site_span(span),
+                });
+            }
+            None => {}
+        }
+    }
+
+    pub(in crate::source_capability) fn insert_compiler_memory_field_evidence(
+        &mut self,
+        observed: Option<CompilerMemoryFieldEvidence>,
+        span: Span,
+    ) {
+        match observed {
+            Some(evidence) => {
+                self.insert_use_site(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
+                    field: evidence.field(),
                     span: Self::site_span(span),
                 });
             }

@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::layout::composite_field_offset_bytes;
-use crate::resource_primitives::compiler_memory_type_of_type;
-use crate::source_map::CompilerMemoryType;
+use crate::resource_primitives::{compiler_memory_type_field_specs, compiler_memory_type_of_type};
+use crate::source_map::{CompilerMemoryField, CompilerMemoryType};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -20,10 +20,12 @@ impl<'a> BlockChecker<'a> {
         &mut self,
         base_ty: TypeId,
         field_ty: TypeId,
+        idx: &FieldIdx,
         span: Span,
     ) -> Option<(TypeDiagnosticCode, &'static str)> {
         if let Some(restricted) = self.restricted_struct_constructor_for_field_access(base_ty) {
-            if !self.restricted_struct_field_access_allowed(restricted, span) {
+            let compiler_field = self.compiler_memory_field_for_restricted_access(restricted, idx);
+            if !self.restricted_struct_field_access_allowed(restricted, compiler_field, span) {
                 return Some(restricted_struct_field_access_error(restricted));
             }
         }
@@ -56,6 +58,7 @@ impl<'a> BlockChecker<'a> {
     fn restricted_struct_field_access_allowed(
         &self,
         restricted: RestrictedStructConstructor,
+        compiler_field: Option<CompilerMemoryField>,
         span: Span,
     ) -> bool {
         if self.raw_memory_structural_boundary_allowed(span) {
@@ -73,11 +76,12 @@ impl<'a> BlockChecker<'a> {
                     )
             }
             RestrictedStructConstructor::RawPointer => {
-                source_map.compiler_memory_field_boundary_allowed_at(span)
-                    || source_map.compiler_memory_type_definition_allowed_at(
-                        span,
-                        CompilerMemoryType::RawPointer,
-                    )
+                compiler_field.is_some_and(|field| {
+                    source_map.compiler_memory_field_boundary_allowed_at(field, span)
+                }) || source_map.compiler_memory_type_definition_allowed_at(
+                    span,
+                    CompilerMemoryType::RawPointer,
+                )
             }
         }
     }
@@ -92,7 +96,14 @@ impl<'a> BlockChecker<'a> {
         {
             return true;
         }
-        self.restricted_struct_field_access_allowed(restricted, span)
+        match restricted {
+            RestrictedStructConstructor::OwnerToken => {
+                self.restricted_struct_field_access_allowed(restricted, None, span)
+            }
+            RestrictedStructConstructor::RawPointer => {
+                self.raw_memory_structural_boundary_allowed(span)
+            }
+        }
     }
 
     fn restricted_struct_constructor_for_field_access(
@@ -104,6 +115,18 @@ impl<'a> BlockChecker<'a> {
             Some(CompilerMemoryType::OwnerToken) => Some(RestrictedStructConstructor::OwnerToken),
             None => None,
         }
+    }
+
+    fn compiler_memory_field_for_restricted_access(
+        &self,
+        restricted: RestrictedStructConstructor,
+        idx: &FieldIdx,
+    ) -> Option<CompilerMemoryField> {
+        let memory_type = match restricted {
+            RestrictedStructConstructor::RawPointer => CompilerMemoryType::RawPointer,
+            RestrictedStructConstructor::OwnerToken => CompilerMemoryType::OwnerToken,
+        };
+        compiler_memory_field_for_selector(memory_type, idx)
     }
 
     pub(super) fn resolve_field_access(
@@ -138,9 +161,12 @@ impl<'a> BlockChecker<'a> {
             None
         }
 
+        let requested_idx = idx.clone();
         let resolved_ty = self.ctx.resolve(base_ty);
         if let Some(restricted) = self.restricted_struct_constructor_for_field_access(resolved_ty) {
-            if !self.restricted_struct_field_access_allowed(restricted, span) {
+            let compiler_field =
+                self.compiler_memory_field_for_restricted_access(restricted, &requested_idx);
+            if !self.restricted_struct_field_access_allowed(restricted, compiler_field, span) {
                 if emit_diagnostics {
                     let (code, message) = restricted_struct_field_access_error(restricted);
                     self.diagnostics.push(type_error(code, message, span));
@@ -403,9 +429,12 @@ impl<'a> BlockChecker<'a> {
         };
 
         if let Some((field_ty, _offset)) = access {
-            if let Some((code, message)) =
-                self.restricted_struct_field_access_error(resolved_ty, field_ty, span)
-            {
+            if let Some((code, message)) = self.restricted_struct_field_access_error(
+                resolved_ty,
+                field_ty,
+                &requested_idx,
+                span,
+            ) {
                 if emit_diagnostics {
                     self.diagnostics.push(type_error(code, message, span));
                 }
@@ -429,5 +458,19 @@ fn restricted_struct_field_access_error(
             TypeDiagnosticCode::RawPointerFieldAccessRestricted,
             "raw pointer fields are restricted to compiler memory boundary",
         ),
+    }
+}
+
+fn compiler_memory_field_for_selector(
+    memory_type: CompilerMemoryType,
+    idx: &FieldIdx,
+) -> Option<CompilerMemoryField> {
+    let specs = compiler_memory_type_field_specs(memory_type);
+    match idx {
+        FieldIdx::Index(index) => specs.get(*index).map(|spec| spec.proof_field()),
+        FieldIdx::Name(name) => specs
+            .iter()
+            .find(|spec| spec.name() == name.as_str())
+            .map(|spec| spec.proof_field()),
     }
 }

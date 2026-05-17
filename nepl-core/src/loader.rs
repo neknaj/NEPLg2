@@ -779,7 +779,7 @@ mod tests {
     use super::*;
 
     use crate::effects::RawMemoryOp;
-    use crate::source_map::{CompilerMemoryType, SourceCapabilityUseSite};
+    use crate::source_map::{CompilerMemoryField, CompilerMemoryType, SourceCapabilityUseSite};
     use crate::span::Span;
 
     trait SourceCapabilitiesTestExt {
@@ -788,6 +788,7 @@ mod tests {
         fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool;
         fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool;
         fn allows_owner_aggregate_field_boundary(&self) -> bool;
+        fn allows_compiler_memory_field_boundary(&self, field: CompilerMemoryField) -> bool;
         fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool;
     }
 
@@ -835,6 +836,18 @@ mod tests {
                 matches!(
                     site,
                     SourceCapabilityUseSite::OwnerAggregateFieldBoundary { .. }
+                )
+            })
+        }
+
+        fn allows_compiler_memory_field_boundary(&self, field: CompilerMemoryField) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
+                        field: site_field,
+                        ..
+                    } if *site_field == field
                 )
             })
         }
@@ -993,6 +1006,11 @@ mod tests {
             "configured stdlib source with field accessor evidence must receive owner aggregate field capability"
         );
         assert!(
+            !aggregate.allows_compiler_memory_field_boundary(CompilerMemoryField::Raw)
+                && !aggregate.allows_compiler_memory_field_boundary(CompilerMemoryField::Size),
+            "ordinary owner aggregate field access must not prove compiler memory representation-field authority"
+        );
+        assert!(
             !aggregate.allows_raw_memory_structural_boundary()
                 && !aggregate.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "owner aggregate manipulation is not raw memory operation authority"
@@ -1019,6 +1037,14 @@ mod tests {
             "compiler-owned intrinsic field reference must be owner aggregate field evidence"
         );
         assert!(
+            capabilities.allows_compiler_memory_field_boundary(CompilerMemoryField::Raw),
+            "compiler-owned intrinsic raw field reference must prove the exact compiler memory field"
+        );
+        assert!(
+            !capabilities.allows_compiler_memory_field_boundary(CompilerMemoryField::Size),
+            "compiler memory field source proof must remain tied to the observed field selector"
+        );
+        assert!(
             !capabilities.allows_owner_aggregate_constructor_boundary("RegionToken"),
             "intrinsic field evidence must not grant owner aggregate constructor capability"
         );
@@ -1042,6 +1068,48 @@ mod tests {
         assert!(
             !capabilities.allows_owner_aggregate_field_boundary(),
             "write intrinsics must not prove owner aggregate field read/reference boundary"
+        );
+        assert!(
+            !capabilities.allows_compiler_memory_field_boundary(CompilerMemoryField::Raw),
+            "write intrinsics must not prove compiler memory field read/reference boundary"
+        );
+    }
+
+    #[test]
+    fn compiler_memory_field_boundary_requires_representation_field_selector() {
+        let loader = real_test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "compiler_memory_field.nepl"],
+        ));
+        let raw_capabilities = load_source_capabilities(
+            &loader,
+            path.clone(),
+            concat!(
+                "#import \"core/field\" as *\n\n",
+                "fn helper <.T> <(MemPtr<.T>)->i32> (ptr):\n",
+                "    get ptr \"raw\"\n",
+            ),
+        );
+        assert!(raw_capabilities.allows_owner_aggregate_field_boundary());
+        assert!(raw_capabilities.allows_compiler_memory_field_boundary(CompilerMemoryField::Raw));
+        assert!(!raw_capabilities.allows_compiler_memory_field_boundary(CompilerMemoryField::Size));
+
+        let ordinary_capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "#import \"core/field\" as *\n\n",
+                "fn helper <.T> <(PtrHolder<.T>)->MemPtr<.T>> (holder):\n",
+                "    get holder \"ptr\"\n",
+            ),
+        );
+        assert!(ordinary_capabilities.allows_owner_aggregate_field_boundary());
+        assert!(
+            !ordinary_capabilities.allows_compiler_memory_field_boundary(CompilerMemoryField::Raw)
+                && !ordinary_capabilities
+                    .allows_compiler_memory_field_boundary(CompilerMemoryField::Size),
+            "field accessors whose selector is not a compiler memory representation field must not gain compiler memory field proof"
         );
     }
 

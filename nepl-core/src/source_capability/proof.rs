@@ -1,13 +1,16 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::{Module, StructDef};
+use crate::ast::{Module, PrefixExpr, StructDef};
 use crate::effects::{
     raw_body_direct_callee_effects, raw_body_memory_operations, raw_memory_op_from_name,
     RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
 };
 use crate::hir::HirBody;
 use crate::source_capability::binding::SourceCapabilityBindingKind;
+use crate::source_capability::compiler_memory_field::{
+    compiler_memory_field_intrinsic_evidence, compiler_memory_field_symbol_evidence,
+};
 use crate::source_capability::memory_type_definition::compiler_memory_type_from_struct_def;
 use crate::source_capability::owner_aggregate::{
     owner_aggregate_explicit_constructor_evidence, owner_aggregate_intrinsic_evidence,
@@ -91,9 +94,16 @@ impl SourceCapabilityProofCollector<'_> {
         }
     }
 
-    fn collect_symbol_evidence(&mut self, symbol: &str, span: Span, scope: &SourceCapabilityScope) {
+    fn collect_symbol_evidence(
+        &mut self,
+        symbol: &str,
+        span: Span,
+        selector: Option<&str>,
+        scope: &SourceCapabilityScope,
+    ) {
         self.collect_raw_symbol_evidence(symbol, span, scope);
         self.collect_owner_aggregate_symbol_evidence(symbol, span, scope);
+        self.collect_compiler_memory_field_symbol_evidence(symbol, selector, span, scope);
     }
 
     fn collect_raw_symbol_evidence(
@@ -171,6 +181,19 @@ impl SourceCapabilityProofCollector<'_> {
         );
     }
 
+    fn collect_compiler_memory_field_symbol_evidence(
+        &mut self,
+        symbol: &str,
+        selector: Option<&str>,
+        span: Span,
+        scope: &SourceCapabilityScope,
+    ) {
+        self.proof.insert_compiler_memory_field_evidence(
+            compiler_memory_field_symbol_evidence(symbol, selector, scope, self.owner_context),
+            span,
+        );
+    }
+
     fn collect_owner_aggregate_explicit_constructor_evidence(
         &mut self,
         symbol: &str,
@@ -213,7 +236,7 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
     }
 
     fn observe_fn_alias_target(&mut self, symbol: &str, span: Span, scope: &SourceCapabilityScope) {
-        self.collect_symbol_evidence(symbol, span, scope);
+        self.collect_symbol_evidence(symbol, span, None, scope);
     }
 
     fn observe_struct_definition(&mut self, def: &StructDef) {
@@ -227,9 +250,10 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
         &mut self,
         symbol: &str,
         span: Span,
+        selector: Option<&str>,
         scope: &SourceCapabilityScope,
     ) {
-        self.collect_symbol_evidence(symbol, span, scope);
+        self.collect_symbol_evidence(symbol, span, selector, scope);
     }
 
     fn observe_explicit_constructor_symbol(
@@ -241,10 +265,20 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
         self.collect_owner_aggregate_explicit_constructor_evidence(symbol, span, scope);
     }
 
-    fn observe_intrinsic(&mut self, name: &str, span: Span, _scope: &SourceCapabilityScope) {
+    fn observe_intrinsic(
+        &mut self,
+        name: &str,
+        args: &[PrefixExpr],
+        span: Span,
+        _scope: &SourceCapabilityScope,
+    ) {
         self.collect_raw_builtin_evidence(name, span);
         self.proof
             .insert_owner_aggregate_evidence(owner_aggregate_intrinsic_evidence(name), span);
+        self.proof.insert_compiler_memory_field_evidence(
+            compiler_memory_field_intrinsic_evidence(name, args),
+            span,
+        );
     }
 
     fn observe_raw_body(&mut self, body: HirBody, span: Span) {

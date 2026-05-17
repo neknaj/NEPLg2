@@ -1,4 +1,4 @@
-use crate::source_map::CompilerMemoryType;
+use crate::source_map::{CompilerMemoryField, CompilerMemoryType};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 pub(crate) const RAW_POINTER_TYPE_NAME: &str = "MemPtr";
@@ -28,6 +28,13 @@ impl CompilerMemoryFieldSpec {
     pub(crate) const fn requires_i32(self) -> bool {
         match self {
             Self::RawI32 | Self::SizeI32 => true,
+        }
+    }
+
+    pub(crate) const fn proof_field(self) -> CompilerMemoryField {
+        match self {
+            Self::RawI32 => CompilerMemoryField::Raw,
+            Self::SizeI32 => CompilerMemoryField::Size,
         }
     }
 }
