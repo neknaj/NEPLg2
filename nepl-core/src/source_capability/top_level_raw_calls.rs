@@ -3,7 +3,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::effects::RawMemoryOp;
-use crate::source_capability::proof_builder::{SourceCapabilityProof, SourceCapabilityProofFact};
 use crate::source_capability::raw_operation_proof::{
     RawOperationBoundaryContract, RawOperationFunctionEvidence,
 };
@@ -25,11 +24,17 @@ pub(in crate::source_capability) struct RawOperationFunctionProof {
     pub(in crate::source_capability) top_level_raw_calls: Vec<TopLevelRawCallSite>,
 }
 
-pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::source_capability) struct PropagatedRawOperationEvidence {
+    pub(in crate::source_capability) operation: RawMemoryOp,
+    pub(in crate::source_capability) span: Span,
+}
+
+pub(in crate::source_capability) fn collect_top_level_raw_call_evidence(
     frames: &[RawOperationFunctionProof],
-    proof: &mut SourceCapabilityProof,
-) {
+) -> Vec<PropagatedRawOperationEvidence> {
     let mut proven_functions: BTreeMap<String, BTreeSet<RawMemoryOp>> = BTreeMap::new();
+    let mut evidence = Vec::new();
 
     for frame in frames {
         if !frame.evidence.has_direct_raw_evidence() {
@@ -40,7 +45,10 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
                 .entry(frame.name.clone())
                 .or_default()
                 .insert(operation);
-            insert_raw_memory_operation(proof, operation, frame.span);
+            evidence.push(PropagatedRawOperationEvidence {
+                operation,
+                span: frame.span,
+            });
         }
     }
 
@@ -61,14 +69,20 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
                     .get(&call.target)
                     .is_some_and(|operations| operations.contains(&call.operation))
                 {
-                    insert_raw_memory_operation(proof, call.operation, call.span);
+                    evidence.push(PropagatedRawOperationEvidence {
+                        operation: call.operation,
+                        span: call.span,
+                    });
                 }
             }
 
             if let Some(operation) = frame.boundary_contract.operation() {
                 let operations = proven_functions.entry(frame.name.clone()).or_default();
                 if operations.insert(operation) {
-                    insert_raw_memory_operation(proof, operation, frame.span);
+                    evidence.push(PropagatedRawOperationEvidence {
+                        operation,
+                        span: frame.span,
+                    });
                     changed = true;
                 }
             }
@@ -77,15 +91,5 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
             break;
         }
     }
-}
-
-fn insert_raw_memory_operation(
-    proof: &mut SourceCapabilityProof,
-    operation: RawMemoryOp,
-    span: Span,
-) {
-    proof.insert_fact(
-        SourceCapabilityProofFact::RawMemoryOperationBoundary(operation),
-        span,
-    );
+    evidence
 }

@@ -47,6 +47,10 @@ pub(in crate::source_capability) enum SourceCapabilityProofEvent<'a> {
         body: HirBody,
         span: Span,
     },
+    PropagatedRawOperation {
+        operation: RawMemoryOp,
+        span: Span,
+    },
 }
 
 pub(in crate::source_capability) trait SourceCapabilityProofSink {
@@ -108,6 +112,12 @@ pub(in crate::source_capability) fn dispatch_source_capability_proof_event(
         }
         SourceCapabilityProofEvent::RawBody { body, span } => {
             collect_raw_body_evidence(sink, body, span);
+        }
+        SourceCapabilityProofEvent::PropagatedRawOperation { operation, span } => {
+            sink.proof_mut().insert_fact(
+                SourceCapabilityProofFact::RawMemoryOperationBoundary(operation),
+                span,
+            );
         }
     }
 }

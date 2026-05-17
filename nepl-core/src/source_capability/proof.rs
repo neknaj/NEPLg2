@@ -15,7 +15,7 @@ use crate::source_capability::rule::{
 };
 use crate::source_capability::scope::SourceCapabilityScope;
 use crate::source_capability::top_level_raw_calls::{
-    apply_top_level_raw_call_evidence, RawOperationFunctionProof, TopLevelRawCallSite,
+    collect_top_level_raw_call_evidence, RawOperationFunctionProof, TopLevelRawCallSite,
 };
 use crate::source_capability::walk::{walk_module_capability_evidence, SourceCapabilityObserver};
 use crate::source_map::SourceCapabilities;
@@ -43,10 +43,17 @@ fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
         completed_raw_operation_function_frames: Vec::new(),
     };
     walk_module_capability_evidence(module, &mut collector);
-    apply_top_level_raw_call_evidence(
-        &collector.completed_raw_operation_function_frames,
-        &mut collector.proof,
-    );
+    let propagated_raw_operations =
+        collect_top_level_raw_call_evidence(&collector.completed_raw_operation_function_frames);
+    for evidence in propagated_raw_operations {
+        dispatch_source_capability_proof_event(
+            &mut collector,
+            SourceCapabilityProofEvent::PropagatedRawOperation {
+                operation: evidence.operation,
+                span: evidence.span,
+            },
+        );
+    }
     collector.proof
 }
 
