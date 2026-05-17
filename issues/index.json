@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T01:22:35.922Z",
+  "generated_at": "2026-05-17T02:03:20.692Z",
   "counts": {
-    "total": 895,
+    "total": 896,
     "open": 5,
-    "resolved": 890,
+    "resolved": 891,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 451,
+        "total": 452,
         "open": 0,
-        "resolved": 451
+        "resolved": 452
       },
       "CORE": {
         "total": 1,
@@ -6808,6 +6808,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T004939361Z-SOURCE-CAPABILITY-PROOF-IS-STILL-CON-C609583C.md"
+    },
+    {
+      "id": "ISS-20260517T012833283Z-SOURCECAPABILITIES-STILL-CARRIES-BRO-5588739B",
+      "title": "SourceCapabilities still carries broad file-level authority after exact use-site proof migration",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_map.rs, nepl-core/src/source_capability/proof.rs, nodesrc/test_static_check_boundary_responsibility.js, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T012833283Z-SOURCECAPABILITIES-STILL-CARRIES-BRO-5588739B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

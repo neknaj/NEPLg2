@@ -1572,6 +1572,52 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_accepts_proven_top_level_raw_helper_call_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "allocator.nepl"],
+        ));
+        let src = concat!(
+            "pub fn alloc_raw <(i32)->i32> (size):\n",
+            "    mem_grow size\n",
+            "\n",
+            "pub fn __nepl_rt_alloc <(i32)->i32> (size):\n",
+            "    alloc_raw size\n",
+        );
+        let capabilities = load_source_capabilities(&loader, path, src);
+        let call_start = src.rfind("alloc_raw size").expect("raw helper call") as u32;
+        let call_span = Span::new(FileId(0), call_start, call_start + "alloc_raw".len() as u32);
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Alloc, call_span),
+            "a top-level raw helper call is evidence only after the target helper has source evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_rejects_unproven_top_level_raw_helper_call_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "allocator.nepl"],
+        ));
+        let src = concat!(
+            "pub fn alloc_raw <(i32)->i32> (_size):\n",
+            "    0\n",
+            "\n",
+            "pub fn __nepl_rt_alloc <(i32)->i32> (size):\n",
+            "    alloc_raw size\n",
+        );
+        let capabilities = load_source_capabilities(&loader, path, src);
+        let call_start = src.rfind("alloc_raw size").expect("raw helper call") as u32;
+        let call_span = Span::new(FileId(0), call_start, call_start + "alloc_raw".len() as u32);
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Alloc, call_span),
+            "a top-level raw helper name without source evidence must not prove a raw call site"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_rejects_local_shadow_inside_same_name_raw_helper() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

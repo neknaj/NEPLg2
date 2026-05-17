@@ -1,3 +1,25 @@
+# 2026-05-17 Agent 1 SourceCapabilities file-level authority 廃止
+
+- `ISS-20260517T012833283Z-SOURCECAPABILITIES-STILL-CARRIES-BRO-5588739B` を fixed / resolved にした。
+- 根本原因は、exact use-site proof の production gate 移行後も `SourceCapabilities` に旧 `SourceCapability` enum / file-level storage / broad constructor が残り、test harness などから entry file 全体へ authority を注入できたこと。
+- `SourceCapabilities` は `SourceCapabilityUseSite` の集合だけを持つ構造にし、旧 `raw_memory_boundary()` / `with(SourceCapability)` / broad `insert` / `allows(SourceCapability)` を削除した。
+- test harness と ResourceIR fixture は手動 capability 注入をやめ、configured stdlib root 配下の inline source path と source evidence から証明を得るようにした。
+- 旧 fallback 除去で露出した `core/mem/allocator.nepl` の raw helper 間呼び出しは、直接 raw evidence を持つ top-level helper だけを起点に call-site proof を伝播する `source_capability/top_level_raw_calls.rs` へ分離した。
+- ResourceIR の raw identity escape は return expression span が call-head より広くなるため、diagnostic span 内の typed raw operation proof を参照し、`Realloc` proof が内部 `Alloc` identity を返し得る境界として扱うようにした。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core source_map::tests -- --nocapture`
+  - `cargo test -p nepl-core raw_memory -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_owner_through_str_from_addr -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_requires_struct_shape_for_compiler_memory_type_registration -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_region_token_field_access_with_owner_field_boundary -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_field_access_outside_compiler_memory_field_boundary -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_owner_backed_constructor_inside_compiler_owned_source -- --exact --nocapture`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source capability を、file-level authority を持たない typed use-site proof artifact へ寄せた。
+
 # 2026-05-17 Agent 1 source capability exact use-site proof 実装
 
 - `ISS-20260517T004939361Z-SOURCE-CAPABILITY-PROOF-IS-STILL-CON-C609583C` を fixed / resolved にした。

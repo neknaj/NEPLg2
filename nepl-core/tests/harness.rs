@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use nepl_core::loader::Loader;
-use nepl_core::source_map::SourceCapabilities;
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -30,30 +29,17 @@ pub fn compile_src(src: &str) -> Vec<u8> {
 
 /// Compile source with explicit options (uses Loader to resolve imports).
 pub fn compile_src_with_options(src: &str, options: CompileOptions) -> Vec<u8> {
-    compile_src_with_options_and_entry_capabilities(src, options, SourceCapabilities::none())
+    compile_src_with_options_at_path(PathBuf::from("test.nepl"), src, options)
 }
 
-/// Compile source with explicit options and capabilities for the inline entry source.
-pub fn compile_src_with_options_and_entry_capabilities(
+/// Compile source with explicit options and a chosen virtual path.
+pub fn compile_src_with_options_at_path(
+    path: PathBuf,
     src: &str,
     options: CompileOptions,
-    entry_capabilities: SourceCapabilities,
 ) -> Vec<u8> {
     let mut loader = Loader::new(stdlib_root());
-    let mut loaded = loader
-        .load_inline(PathBuf::from("test.nepl"), src.to_string())
-        .expect("load");
-    let entry_file = loaded
-        .source_map
-        .iter_paths()
-        .find_map(|(file_id, path)| {
-            let normalized = path.as_str().replace('\\', "/");
-            (normalized == "test.nepl" || normalized.ends_with("/test.nepl")).then_some(file_id)
-        })
-        .expect("inline test entry source not loaded");
-    loaded
-        .source_map
-        .set_capabilities(entry_file, entry_capabilities);
+    let loaded = loader.load_inline(path, src.to_string()).expect("load");
     let artifact = compile_module_with_source_map(loaded.module, Some(&loaded.source_map), options)
         .expect("compile failure");
     artifact.wasm
@@ -373,14 +359,15 @@ pub fn run_main_wasi_i32(src: &str) -> i32 {
 
 /// Compile and run `main` as a compiler-owned raw-memory boundary test source.
 pub fn run_main_wasi_i32_raw_memory_boundary(src: &str) -> i32 {
-    let wasm = compile_src_with_options_and_entry_capabilities(
+    let path = stdlib_root().join("__raw_boundary_test.nepl");
+    let wasm = compile_src_with_options_at_path(
+        path,
         src,
         CompileOptions {
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
         },
-        SourceCapabilities::raw_memory_boundary(),
     );
     run_wasi_wasm_i32(&wasm)
 }

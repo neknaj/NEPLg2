@@ -1346,11 +1346,28 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
 }
 
 fn raw_identity_escape_allowed(operation: RawMemoryOp, span: Span, source_map: &SourceMap) -> bool {
-    if source_map.raw_memory_structural_boundary_allowed_at(span) {
+    if source_map.raw_memory_structural_boundary_allowed_within(span) {
         return true;
     }
-    matches!(operation, RawMemoryOp::Alloc | RawMemoryOp::Realloc)
-        && source_map.raw_memory_operation_boundary_allowed_at(span, operation)
+    match operation {
+        RawMemoryOp::Alloc => {
+            source_map.raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Alloc)
+                || source_map
+                    .raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Realloc)
+        }
+        RawMemoryOp::Realloc => {
+            source_map.raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Realloc)
+        }
+        RawMemoryOp::Dealloc
+        | RawMemoryOp::Load
+        | RawMemoryOp::Store
+        | RawMemoryOp::BulkCopy
+        | RawMemoryOp::BulkMove
+        | RawMemoryOp::MemorySize
+        | RawMemoryOp::MemoryGrow
+        | RawMemoryOp::FillBytes
+        | RawMemoryOp::Fill => false,
+    }
 }
 
 fn resource_effect_boundary_diagnostic_to_error(

@@ -10,9 +10,11 @@ mod memory_type_definition;
 mod owner_aggregate;
 mod prefix_call;
 mod proof;
+mod proof_builder;
 mod raw_evidence_gate;
 mod raw_memory;
 mod scope;
+mod top_level_raw_calls;
 mod walk;
 
 pub(crate) use crate::resource_primitives::compiler_memory_type_from_constructor_name;

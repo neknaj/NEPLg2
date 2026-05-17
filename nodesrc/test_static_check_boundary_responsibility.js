@@ -58,6 +58,11 @@ const SOURCE_CAPABILITY_PROOF = path.join(
     'source_capability',
     'proof.rs',
 );
+const SOURCE_CAPABILITY_PROOF_BUILDER = path.join(
+    CORE_SRC,
+    'source_capability',
+    'proof_builder.rs',
+);
 const SOURCE_CAPABILITY_RAW_EVIDENCE_GATE = path.join(
     CORE_SRC,
     'source_capability',
@@ -97,6 +102,11 @@ const SOURCE_CAPABILITY_SCOPE = path.join(
     CORE_SRC,
     'source_capability',
     'scope.rs',
+);
+const SOURCE_CAPABILITY_TOP_LEVEL_RAW_CALLS = path.join(
+    CORE_SRC,
+    'source_capability',
+    'top_level_raw_calls.rs',
 );
 const PASSES_MOD = path.join(CORE_SRC, 'passes', 'mod.rs');
 const DROP_INSERTION = path.join(CORE_SRC, 'passes', 'drop_insertion.rs');
@@ -217,6 +227,10 @@ const sourceCapabilityProof = assertFile(
     SOURCE_CAPABILITY_PROOF,
     'source_capability/proof.rs',
 );
+const sourceCapabilityProofBuilder = assertFile(
+    SOURCE_CAPABILITY_PROOF_BUILDER,
+    'source_capability/proof_builder.rs',
+);
 const sourceCapabilityRawEvidenceGate = assertFile(
     SOURCE_CAPABILITY_RAW_EVIDENCE_GATE,
     'source_capability/raw_evidence_gate.rs',
@@ -248,6 +262,10 @@ const sourceCapabilityOwnerAggregateFieldImports = assertFile(
 const sourceCapabilityScope = assertFile(
     SOURCE_CAPABILITY_SCOPE,
     'source_capability/scope.rs',
+);
+const sourceCapabilityTopLevelRawCalls = assertFile(
+    SOURCE_CAPABILITY_TOP_LEVEL_RAW_CALLS,
+    'source_capability/top_level_raw_calls.rs',
 );
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
@@ -563,6 +581,12 @@ assertLineLimit(
 );
 assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 260);
 assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 320);
+assertLineLimit(SOURCE_CAPABILITY_PROOF_BUILDER, 'source_capability/proof_builder.rs', 120);
+assertLineLimit(
+    SOURCE_CAPABILITY_TOP_LEVEL_RAW_CALLS,
+    'source_capability/top_level_raw_calls.rs',
+    120,
+);
 assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 40);
 assertLineLimit(
@@ -591,13 +615,37 @@ assertLineLimit(
     110,
 );
 assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
-assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
+assertNotContains(
+    sourceMap,
+    'pub enum SourceCapability {',
+    'source_map.rs broad file-level SourceCapability enum',
+);
+assertNotContains(
+    sourceMap,
+    'capabilities: BTreeSet<SourceCapability>',
+    'source_map.rs broad file-level SourceCapability storage',
+);
+assertNotContains(
+    sourceMap,
+    'pub fn with(capability: SourceCapability)',
+    'source_map.rs broad SourceCapabilities constructor',
+);
+assertNotContains(
+    sourceMap,
+    'raw_memory_boundary()',
+    'source_map.rs broad raw-memory-boundary constructor',
+);
+assertNotContains(
+    sourceMap,
+    'self.allows(SourceCapability::',
+    'source_map.rs file-level SourceCapability query',
+);
 assertContains(sourceMap, 'RawMemoryStructuralBoundary', 'source_map.rs');
 assertContains(sourceMap, 'RawAddressViewBoundary', 'source_map.rs');
-assertContains(sourceMap, 'RawMemoryOperationBoundary(RawMemoryOp)', 'source_map.rs');
-assertContains(sourceMap, 'RawBodyMemoryOperationBoundary(RawBodyMemoryOp)', 'source_map.rs');
-assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
-assertContains(sourceMap, 'OwnerAggregateConstructorBoundary(String)', 'source_map.rs');
+assertContains(sourceMap, 'RawMemoryOperationBoundary {', 'source_map.rs');
+assertContains(sourceMap, 'RawBodyMemoryOperationBoundary {', 'source_map.rs');
+assertContains(sourceMap, 'CompilerMemoryTypeDefinition {', 'source_map.rs');
+assertContains(sourceMap, 'OwnerAggregateConstructorBoundary {', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateFieldBoundary', 'source_map.rs');
 assertContains(sourceMap, 'CompilerMemoryFieldBoundary', 'source_map.rs');
 assertContains(sourceMap, 'pub enum SourceCapabilityUseSite', 'source_map.rs');
@@ -777,7 +825,7 @@ assertContains(
     'source capability proof traversal must centralize struct definition observation',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityProofBuilder,
     'struct SourceCapabilityProof',
     'source capability proof must have a single typed proof value',
 );
@@ -819,6 +867,16 @@ assertContains(
 assertContains(
     sourceCapability,
     'mod memory_type_definition;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'mod proof_builder;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'mod top_level_raw_calls;',
     'source_capability.rs',
 );
 assertContains(
@@ -924,12 +982,12 @@ assertContains(
     'owner aggregate source evidence must expose typed evidence to the unified proof collector',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityProofBuilder,
     'SourceCapabilityUseSite::OwnerAggregateConstructorBoundary',
     'owner aggregate constructor evidence must be tracked by constructor name and exact span',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityProofBuilder,
     'SourceCapabilityUseSite::CompilerMemoryFieldBoundary',
     'compiler memory field projection must use exact field-access source proof',
 );
@@ -1117,6 +1175,26 @@ assertContains(
     sourceCapabilityProof,
     'raw_operation_function_frames.last_mut()',
     'raw helper definition operation evidence must be scoped to the currently walked function frame',
+);
+assertContains(
+    sourceCapabilityProof,
+    'record_top_level_raw_call_evidence',
+    'raw helper calls through top-level functions must be recorded for proof-based propagation',
+);
+assertContains(
+    sourceCapabilityTopLevelRawCalls,
+    'apply_top_level_raw_call_evidence',
+    'top-level raw helper calls must be resolved by a shared proof propagation pass',
+);
+assertContains(
+    sourceCapabilityTopLevelRawCalls,
+    'has_direct_raw_evidence',
+    'top-level raw helper propagation must start only from functions with source evidence',
+);
+assertContains(
+    sourceCapabilityTopLevelRawCalls,
+    'proven_functions',
+    'top-level raw helper propagation must use proven helper summaries instead of file-level authority',
 );
 assertContains(
     sourceCapabilityProof,
@@ -1344,15 +1422,25 @@ assertContains(
     'fn raw_memory_boundary_requires_raw_structural_call_head()',
     'loader.rs raw structural call-head regression',
 );
-assertContains(
+assertNotContains(
     testHarness,
     'pub fn compile_src_with_options_and_entry_capabilities',
-    'nepl-core/tests/harness.rs',
+    'nepl-core/tests/harness.rs broad entry capability injection helper',
 );
 assertContains(
     testHarness,
     'pub fn run_main_wasi_i32_raw_memory_boundary',
     'nepl-core/tests/harness.rs',
+);
+assertContains(
+    testHarness,
+    'compile_src_with_options_at_path',
+    'nepl-core/tests/harness.rs raw fixture must use a compiler-owned source path',
+);
+assertNotContains(
+    testHarness,
+    'SourceCapabilities::raw_memory_boundary()',
+    'nepl-core/tests/harness.rs broad raw-memory test capability',
 );
 assertMatches(
     testHarness,
@@ -1361,8 +1449,8 @@ assertMatches(
 );
 assertMatches(
     testHarness,
-    /pub fn run_main_wasi_i32_raw_memory_boundary\(src: &str\) -> i32 \{[\s\S]*?SourceCapabilities::raw_memory_boundary\(\)[\s\S]*?run_wasi_wasm_i32\(&wasm\)\s*\}/,
-    'raw-memory fixture harness must grant the capability explicitly',
+    /pub fn run_main_wasi_i32_raw_memory_boundary\(src: &str\) -> i32 \{[\s\S]*?stdlib_root\(\)\.join\("__raw_boundary_test\.nepl"\)[\s\S]*?compile_src_with_options_at_path\([\s\S]*?run_wasi_wasm_i32\(&wasm\)\s*\}/,
+    'raw-memory fixture harness must obtain source proof through a compiler-owned virtual source path',
 );
 for (const testName of [
     'generic_intrinsic_store_load_struct_preserves_fields',
@@ -1451,8 +1539,18 @@ assertContains(
 );
 assertContains(
     compiler,
-    'matches!(operation, RawMemoryOp::Alloc | RawMemoryOp::Realloc)',
+    'RawMemoryOp::Alloc =>',
     'compiler.rs raw identity escape operation-specific suppression',
+);
+assertContains(
+    compiler,
+    'RawMemoryOp::Realloc =>',
+    'compiler.rs raw identity escape operation-specific suppression',
+);
+assertContains(
+    compiler,
+    'raw_memory_operation_boundary_allowed_within(span, RawMemoryOp::Realloc)',
+    'compiler.rs raw identity escape must accept proven realloc boundaries for internal alloc identity',
 );
 assertNotContains(
     compiler,

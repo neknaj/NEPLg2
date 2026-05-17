@@ -6,19 +6,21 @@ use crate::effects::{
     raw_body_direct_callees, raw_body_memory_operations, raw_memory_op_from_name,
 };
 use crate::hir::HirBody;
+use crate::source_capability::binding::SourceCapabilityBindingKind;
 use crate::source_capability::memory_type_definition::compiler_memory_type_from_struct_def;
 use crate::source_capability::owner_aggregate::{
     owner_aggregate_explicit_constructor_evidence, owner_aggregate_intrinsic_evidence,
-    owner_aggregate_symbol_evidence, OwnerAggregateCapabilityEvidence,
-    OwnerAggregateEvidenceContext,
+    owner_aggregate_symbol_evidence, OwnerAggregateEvidenceContext,
 };
+use crate::source_capability::proof_builder::SourceCapabilityProof;
 use crate::source_capability::raw_evidence_gate::raw_symbol_shadow_allows_evidence;
 use crate::source_capability::raw_memory::{RawAddressViewEvidence, RawMemoryStructuralEvidence};
 use crate::source_capability::scope::SourceCapabilityScope;
-use crate::source_capability::walk::{walk_module_capability_evidence, SourceCapabilityObserver};
-use crate::source_map::{
-    CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite,
+use crate::source_capability::top_level_raw_calls::{
+    apply_top_level_raw_call_evidence, RawOperationFunctionProof, TopLevelRawCallSite,
 };
+use crate::source_capability::walk::{walk_module_capability_evidence, SourceCapabilityObserver};
+use crate::source_map::SourceCapabilities;
 use crate::span::Span;
 
 pub(crate) fn module_source_capabilities(module: &Module) -> SourceCapabilities {
@@ -29,95 +31,8 @@ pub(crate) fn module_source_capabilities(module: &Module) -> SourceCapabilities 
 struct RawOperationFunctionFrame {
     name: String,
     span: Span,
-    has_raw_operation_evidence: bool,
-}
-
-#[derive(Debug, Default)]
-struct SourceCapabilityProof {
-    capabilities: SourceCapabilities,
-}
-
-impl SourceCapabilityProof {
-    fn into_source_capabilities(self) -> SourceCapabilities {
-        self.capabilities
-    }
-
-    fn insert_use_site(&mut self, use_site: SourceCapabilityUseSite) {
-        self.capabilities.insert_use_site(use_site);
-    }
-
-    fn site_span(span: Span) -> SourceCapabilitySpan {
-        SourceCapabilitySpan::from_span(span)
-    }
-
-    fn insert_raw_memory_structural_boundary(&mut self, span: Span) {
-        self.insert_use_site(SourceCapabilityUseSite::RawMemoryStructuralBoundary {
-            span: Self::site_span(span),
-        });
-    }
-
-    fn insert_raw_address_view_boundary(&mut self, span: Span) {
-        self.insert_use_site(SourceCapabilityUseSite::RawAddressViewBoundary {
-            span: Self::site_span(span),
-        });
-    }
-
-    fn insert_raw_memory_operation_boundary(
-        &mut self,
-        operation: crate::effects::RawMemoryOp,
-        span: Span,
-    ) {
-        self.insert_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
-            operation,
-            span: Self::site_span(span),
-        });
-    }
-
-    fn insert_raw_body_memory_operation_boundary(
-        &mut self,
-        operation: crate::effects::RawBodyMemoryOp,
-        span: Span,
-    ) {
-        self.insert_use_site(SourceCapabilityUseSite::RawBodyMemoryOperationBoundary {
-            operation,
-            span: Self::site_span(span),
-        });
-    }
-
-    fn insert_owner_aggregate_evidence(
-        &mut self,
-        observed: Option<OwnerAggregateCapabilityEvidence>,
-        span: Span,
-    ) {
-        match observed {
-            Some(OwnerAggregateCapabilityEvidence::FieldAccessor) => {
-                self.insert_use_site(SourceCapabilityUseSite::OwnerAggregateFieldBoundary {
-                    span: Self::site_span(span),
-                });
-                self.insert_use_site(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
-                    span: Self::site_span(span),
-                });
-            }
-            Some(OwnerAggregateCapabilityEvidence::Constructor(name)) => {
-                self.insert_use_site(SourceCapabilityUseSite::OwnerAggregateConstructorBoundary {
-                    name,
-                    span: Self::site_span(span),
-                });
-            }
-            None => {}
-        }
-    }
-
-    fn insert_compiler_memory_type_definition(
-        &mut self,
-        memory_type: CompilerMemoryType,
-        span: Span,
-    ) {
-        self.insert_use_site(SourceCapabilityUseSite::CompilerMemoryTypeDefinition {
-            memory_type,
-            span: Self::site_span(span),
-        });
-    }
+    has_direct_raw_evidence: bool,
+    top_level_raw_calls: Vec<TopLevelRawCallSite>,
 }
 
 fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
@@ -126,8 +41,13 @@ fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
         owner_context: &owner_context,
         proof: SourceCapabilityProof::default(),
         raw_operation_function_frames: Vec::new(),
+        completed_raw_operation_function_frames: Vec::new(),
     };
     walk_module_capability_evidence(module, &mut collector);
+    apply_top_level_raw_call_evidence(
+        &collector.completed_raw_operation_function_frames,
+        &mut collector.proof.capabilities,
+    );
     collector.proof
 }
 
@@ -135,12 +55,34 @@ struct SourceCapabilityProofCollector<'a> {
     owner_context: &'a OwnerAggregateEvidenceContext,
     proof: SourceCapabilityProof,
     raw_operation_function_frames: Vec<RawOperationFunctionFrame>,
+    completed_raw_operation_function_frames: Vec<RawOperationFunctionProof>,
 }
 
 impl SourceCapabilityProofCollector<'_> {
-    fn record_raw_operation_evidence(&mut self) {
+    fn record_raw_operation_evidence(&mut self, _operation: crate::effects::RawMemoryOp) {
         if let Some(frame) = self.raw_operation_function_frames.last_mut() {
-            frame.has_raw_operation_evidence = true;
+            frame.has_direct_raw_evidence = true;
+        }
+    }
+
+    fn record_raw_body_operation_evidence(&mut self) {
+        if let Some(frame) = self.raw_operation_function_frames.last_mut() {
+            frame.has_direct_raw_evidence = true;
+        }
+    }
+
+    fn record_top_level_raw_call_evidence(
+        &mut self,
+        target: &str,
+        operation: crate::effects::RawMemoryOp,
+        span: Span,
+    ) {
+        if let Some(frame) = self.raw_operation_function_frames.last_mut() {
+            frame.top_level_raw_calls.push(TopLevelRawCallSite {
+                target: String::from(target),
+                operation,
+                span,
+            });
         }
     }
 
@@ -161,6 +103,11 @@ impl SourceCapabilityProofCollector<'_> {
                 .last()
                 .map(|frame| frame.name.as_str());
             if !raw_symbol_shadow_allows_evidence(symbol, kind, current_function) {
+                if matches!(kind, SourceCapabilityBindingKind::TopLevelCallable) {
+                    if let Some(operation) = raw_memory_op_from_name(symbol) {
+                        self.record_top_level_raw_call_evidence(symbol, operation, span);
+                    }
+                }
                 return;
             }
         }
@@ -177,7 +124,7 @@ impl SourceCapabilityProofCollector<'_> {
         if let Some(operation) = raw_memory_op_from_name(symbol) {
             self.proof
                 .insert_raw_memory_operation_boundary(operation, span);
-            self.record_raw_operation_evidence();
+            self.record_raw_operation_evidence(operation);
         }
     }
 
@@ -185,15 +132,25 @@ impl SourceCapabilityProofCollector<'_> {
         for operation in raw_body_memory_operations(&body) {
             self.proof
                 .insert_raw_body_memory_operation_boundary(operation, span);
-            self.record_raw_operation_evidence();
+            self.record_raw_body_operation_evidence();
         }
         for callee in raw_body_direct_callees(&body) {
             if let Some(operation) = raw_memory_op_from_name(&callee) {
                 self.proof
                     .insert_raw_memory_operation_boundary(operation, span);
-                self.record_raw_operation_evidence();
+                self.record_raw_operation_evidence(operation);
             }
         }
+    }
+
+    fn finish_raw_operation_function_frame(&mut self, frame: RawOperationFunctionFrame) {
+        self.completed_raw_operation_function_frames
+            .push(RawOperationFunctionProof {
+                name: frame.name,
+                span: frame.span,
+                has_direct_raw_evidence: frame.has_direct_raw_evidence,
+                top_level_raw_calls: frame.top_level_raw_calls,
+            });
     }
 
     fn collect_owner_aggregate_symbol_evidence(
@@ -232,24 +189,19 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
             .push(RawOperationFunctionFrame {
                 name: String::from(name),
                 span,
-                has_raw_operation_evidence: false,
+                has_direct_raw_evidence: false,
+                top_level_raw_calls: Vec::new(),
             });
     }
 
     fn observe_named_function_end(
         &mut self,
-        name: &str,
+        _name: &str,
         _span: Span,
         _scope: &SourceCapabilityScope,
     ) {
         if let Some(frame) = self.raw_operation_function_frames.pop() {
-            if !frame.has_raw_operation_evidence {
-                return;
-            }
-            if let Some(operation) = raw_memory_op_from_name(name) {
-                self.proof
-                    .insert_raw_memory_operation_boundary(operation, frame.span);
-            }
+            self.finish_raw_operation_function_frame(frame);
         }
     }
 

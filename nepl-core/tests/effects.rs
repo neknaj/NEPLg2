@@ -60,14 +60,15 @@ fn check_source_as_core_mem_boundary(
     path: &str,
     target: CompileTarget,
 ) -> Result<(), CoreError> {
-    let mut source_map = SourceMap::new();
-    let file_id = source_map.add_with_capabilities(
-        path,
-        String::from(src),
-        SourceCapabilities::raw_memory_boundary(),
-    );
-    let module = parse_module_with_file_id(file_id, src);
-    check_module_with_source_map(module, Some(&source_map), options(target))
+    let path = std::path::PathBuf::from(path);
+    let stdlib_root = path
+        .parent()
+        .and_then(|parent| parent.parent())
+        .expect("raw memory boundary fixture must live under a stdlib subdirectory")
+        .to_path_buf();
+    let mut loader = Loader::new(stdlib_root);
+    let loaded = loader.load_inline(path, String::from(src)).expect("load");
+    check_module_with_source_map(loaded.module, Some(&loaded.source_map), options(target))
 }
 
 fn assert_has_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
@@ -411,6 +412,7 @@ fn main <()->i32> ():
 fn raw_memory_intrinsic_in_core_mem_source_is_allowed_during_migration() {
     let src = r#"
 #entry load_i32
+#no_prelude
 #indent 4
 #target wasm
 
@@ -569,6 +571,7 @@ fn main <()->i32> ():
 fn pure_raw_memory_in_core_mem_source_is_allowed_during_migration() {
     let src = r#"
 #entry raw_store
+#no_prelude
 #indent 4
 #target wasm
 
@@ -587,6 +590,7 @@ fn raw_store <(i32,i32)->()> (p, v):
 fn pure_raw_body_call_to_raw_helper_in_core_mem_source_is_allowed_during_migration() {
     let src = r#"
 #entry raw_store_helper
+#no_prelude
 #indent 4
 #target wasm
 
@@ -611,6 +615,7 @@ fn raw_store_helper <(i32,i32)->()> (p, v):
 fn pure_raw_memory_path_suffix_without_capability_is_rejected() {
     let src = r#"
 #entry raw_store
+#no_prelude
 #indent 4
 #target wasm
 
@@ -633,6 +638,7 @@ fn raw_store <(i32,i32)->()> (p, v):
 fn pure_raw_memory_in_custom_stdlib_core_mem_source_is_allowed() {
     let src = r#"
 #entry raw_store
+#no_prelude
 #indent 4
 #target wasm
 

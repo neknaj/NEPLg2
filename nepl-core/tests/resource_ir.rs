@@ -27,7 +27,7 @@ use nepl_core::resource::{
     ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
     ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
-use nepl_core::source_map::{CompilerMemoryType, SourceCapabilities, SourceCapability};
+use nepl_core::source_map::CompilerMemoryType;
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
 use nepl_core::{BuildProfile, CompileOptions, CompileTarget};
@@ -69,34 +69,39 @@ fn compile_resource_source_with_target(
     source: &str,
     target: CompileTarget,
 ) -> Result<(), nepl_core::CoreError> {
-    compile_resource_source_with_target_and_capabilities(source, target, SourceCapabilities::none())
+    compile_resource_source_with_path(source, target, PathBuf::from("/virtual/entry.nepl"))
 }
 
 fn compile_resource_source_with_raw_boundary(
     source: &str,
     target: CompileTarget,
 ) -> Result<(), nepl_core::CoreError> {
-    compile_resource_source_with_target_and_capabilities(
+    compile_resource_source_as_compiler_owned(source, target)
+}
+
+fn compile_resource_source_as_compiler_owned(
+    source: &str,
+    target: CompileTarget,
+) -> Result<(), nepl_core::CoreError> {
+    compile_resource_source_with_path(
         source,
         target,
-        SourceCapabilities::raw_memory_boundary(),
+        stdlib_root().join("__resource_ir_boundary_test.nepl"),
     )
 }
 
-fn compile_resource_source_with_target_and_capabilities(
+fn compile_resource_source_with_path(
     source: &str,
     target: CompileTarget,
-    entry_capabilities: SourceCapabilities,
+    path: PathBuf,
 ) -> Result<(), nepl_core::CoreError> {
     let mut loader = Loader::new(stdlib_root());
     let loaded = loader
-        .load_inline(PathBuf::from("/virtual/entry.nepl"), source.to_string())
+        .load_inline(path, source.to_string())
         .expect("load source with stdlib");
-    let mut source_map = loaded.source_map;
-    source_map.set_capabilities(FileId(0), entry_capabilities);
     nepl_core::compile_module_with_source_map(
         loaded.module,
-        Some(&source_map),
+        Some(&loaded.source_map),
         CompileOptions {
             target: Some(target),
             verbose: false,
@@ -11957,9 +11962,7 @@ fn main <()* >str> ():
             e
 "#;
 
-    let mut capabilities = SourceCapabilities::raw_memory_boundary();
-    capabilities.insert(SourceCapability::OwnerAggregateFieldBoundary);
-    compile_resource_source_with_target_and_capabilities(source, CompileTarget::Wasm, capabilities)
+    compile_resource_source_as_compiler_owned(source, CompileTarget::Wasm)
         .expect("str_from_addr_unchecked must transfer the raw allocation owner into returned str");
 }
 
@@ -12359,33 +12362,20 @@ fn main <()->i32> ():
     let mut loader = Loader::new(stdlib_root());
     let loaded = loader
         .load_inline(
-            PathBuf::from("/virtual/malformed_mem_ptr.nepl"),
+            stdlib_root().join("malformed_mem_ptr.nepl"),
             source.to_string(),
         )
         .expect("load malformed same-name memory type source");
-    let mut source_map = loaded.source_map;
-    let entry_file = source_map
-        .iter_paths()
-        .find_map(|(id, path)| {
-            path.as_str()
-                .ends_with("malformed_mem_ptr.nepl")
-                .then_some(id)
-        })
-        .expect("entry source file id");
-    source_map.set_capabilities(
-        entry_file,
-        SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::RawPointer),
-    );
     let checked = nepl_core::typecheck::typecheck(
         &loaded.module,
         CompileTarget::Wasm,
         BuildProfile::Debug,
-        Some(&source_map),
+        Some(&loaded.source_map),
     );
 
     assert!(
         checked.diagnostics.is_empty(),
-        "malformed user MemPtr must not be rejected through injected file capability: {:#?}",
+        "malformed compiler-owned MemPtr must not be rejected or registered without shape proof: {:#?}",
         checked.diagnostics
     );
     let mem_ptr = checked.types.lookup_named("MemPtr").expect("MemPtr type");
@@ -12452,16 +12442,12 @@ fn main <()->i32> ():
     0
 "#;
 
-    compile_resource_source_with_target_and_capabilities(
-        source,
-        CompileTarget::Wasm,
-        SourceCapabilities::owner_aggregate_field_boundary(),
-    )
-    .expect("owner field source proof must allow direct RegionToken field projection");
+    compile_resource_source_as_compiler_owned(source, CompileTarget::Wasm)
+        .expect("owner field source proof must allow direct RegionToken field projection");
 }
 
 #[test]
-fn typecheck_rejects_mem_ptr_field_access_with_owner_field_boundary() {
+fn typecheck_rejects_mem_ptr_field_access_outside_compiler_memory_field_boundary() {
     let source = r#"
 #entry main
 #indent 4
@@ -12476,12 +12462,8 @@ fn main <()->i32> ():
     0
 "#;
 
-    let err = compile_resource_source_with_target_and_capabilities(
-        source,
-        CompileTarget::Wasm,
-        SourceCapabilities::owner_aggregate_field_boundary(),
-    )
-    .expect_err("owner field source proof must not allow raw pointer field projection");
+    let err = compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect_err("ordinary source must not allow raw pointer field projection");
     let nepl_core::CoreError::Diagnostics(diagnostics) = err else {
         panic!("expected diagnostics error");
     };
@@ -12519,7 +12501,7 @@ fn main <()->i32> ():
 }
 
 #[test]
-fn typecheck_rejects_owner_backed_constructor_with_unrelated_constructor_capability() {
+fn typecheck_allows_owner_backed_constructor_inside_compiler_owned_source() {
     let source = r#"
 #entry main
 #indent 4
@@ -12536,22 +12518,8 @@ fn main <()->i32> ():
     0
 "#;
 
-    let err = compile_resource_source_with_target_and_capabilities(
-        source,
-        CompileTarget::Wasm,
-        SourceCapabilities::owner_aggregate_constructor_boundary("Diag"),
-    )
-    .expect_err("unrelated constructor capability must not authorize VecBox");
-    let nepl_core::CoreError::Diagnostics(diagnostics) = err else {
-        panic!("expected diagnostics error");
-    };
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code.as_str()
-                == "type.owner_aggregate.constructor_restricted"),
-        "expected constructor restriction diagnostic, diagnostics: {diagnostics:#?}"
-    );
+    compile_resource_source_as_compiler_owned(source, CompileTarget::Wasm)
+        .expect("compiler-owned source proof must allow the exact owner-backed constructor site");
 }
 
 #[test]
