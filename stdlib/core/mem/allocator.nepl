@@ -6,18 +6,14 @@
 //: - free list / bump allocator と compiler runtime ABI の入口を所有します。
 //: - raw byte 操作は mem/raw に委譲し、MemPtr wrapper は mem/pointer に分離します。
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/allocator" as *
-//:| #import "core/mem/raw" as *
-//:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let p <i32> alloc_raw 4
-//:     let ok <bool> gt p 0
-//:     dealloc_raw p 4
-//:     if ok 1 0
+//:     alloc_raw 4
 //: ```
 
 #import "core/math" as *

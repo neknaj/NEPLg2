@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T03:17:14.902Z",
+  "generated_at": "2026-05-17T03:30:39.992Z",
   "counts": {
-    "total": 902,
+    "total": 903,
     "open": 5,
-    "resolved": 897,
+    "resolved": 898,
     "by_area": {
       "stdlib": {
-        "total": 259,
+        "total": 260,
         "open": 3,
-        "resolved": 256
+        "resolved": 257
       },
       "TEST": {
         "total": 25,
@@ -10768,6 +10768,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T031453210Z-REGIONTOKEN-RAW-IDENTITY-REFERENCE-R-BB2D917B.md"
+    },
+    {
+      "id": "ISS-20260517T032727149Z-CORE-MEM-RAW-DOCTESTS-CALL-RAW-APIS--057347FB",
+      "title": "core/mem raw doctests call raw APIs from ordinary source",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "stdlib/core/mem/allocator.nepl, stdlib/core/mem/raw.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T032727149Z-CORE-MEM-RAW-DOCTESTS-CALL-RAW-APIS--057347FB.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

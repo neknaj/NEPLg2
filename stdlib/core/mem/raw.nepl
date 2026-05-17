@@ -6,14 +6,14 @@
 //: - compiler-owned raw-memory-boundary 内でだけ使う低レベル操作を集めます。
 //: - 型安全・所有権安全は呼び出し側の Resource IR / wrapper API が検査します。
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/raw" as *
-//:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     if ge mem_size 1 1 0
+//:     mem_size
 //: ```
 
 #import "core/math" as *
@@ -327,24 +327,15 @@ pub fn mem_move <(i32,i32,i32)->()> (dst, src, len):
 //: 計算量:
 //: - O(len)
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "std/test" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/allocator" as *
 //:| #import "core/mem/raw" as *
-//:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let p <i32> alloc_raw 8;
-//:     memset_u8 p 8 65;
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_eq_i32 65 load_u8 add p 0
-//:         |> checks_push assert_eq_i32 65 load_u8 add p 7
-//:     dealloc_raw p 8;
-//:     checks_exit_code checks
+//:     memset_u8 8 1 65
+//:     0
 //: ```
 pub fn memset_u8 <(i32,i32,i32)->()> (ptr, len, value):
     let mut i <i32> 0;
@@ -384,24 +375,15 @@ pub fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
 //: 計算量:
 //: - O(count)
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "std/test" as *
-//:| #import "core/mem" as *
-//:| #import "core/mem/allocator" as *
 //:| #import "core/mem/raw" as *
-//:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let p <i32> alloc_raw 16;
-//:     fill_i32 p 4 42;
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_eq_i32 42 load_i32 add p 0
-//:         |> checks_push assert_eq_i32 42 load_i32 add p 12
-//:     dealloc_raw p 16;
-//:     checks_exit_code checks
+//:     fill_i32 8 1 42
+//:     0
 //: ```
 pub fn fill_i32 <(i32,i32,i32)->()> (ptr, count, value):
     let mut i <i32> 0;

@@ -609,3 +609,11 @@ root facade の `cliarg_get` は既に負 index を拒否していたが、raw b
 `RegionToken.raw` の direct field projection は `type.owner_token.field_access_restricted` で拒否していたが、同じ raw free-obligation identity を `region_token_raw_ref` 経由で通常 source が読める状態では、Stage 6 の public/internal 境界として不十分だった。修正後は `region_token_raw_ref` を `mem/internal` に閉じ、safe `core/mem` facade には `region_size` / `region_in_bounds` のような metadata observer だけを残す。
 
 この親 issue は引き続き open とする。今回閉じたのは RegionToken raw identity の public observer 漏れであり、forgeable `RegionToken` を compiler-issued owner token / `OwnedBuffer<T>` / initialized prefix / collection drop traversal へ移す作業は継続する。
+
+## 2026-05-17 Agent 1 core/mem raw doctest 境界追記
+
+`ISS-20260517T032727149Z-CORE-MEM-RAW-DOCTESTS-CALL-RAW-APIS--057347FB` で、`core/mem/allocator` と `core/mem/raw` の doctest が ordinary source から raw API を成功例として呼んでいた問題を分離して修正した。
+
+Stage 6 では raw memory operation は compiler-owned raw-memory boundary の source proof がある場所だけで許可される。doctest entry は通常利用者 source として扱われるため、`alloc_raw`、`mem_size`、`memset_u8`、`fill_i32` の直接呼び出しを成功例にするのは設計と矛盾していた。修正後はこれらを `compile_fail` の境界回帰テストにし、raw boundary を緩めずに `stdlib/core/mem` focused doctest を通す。
+
+この親 issue は引き続き open とする。今回閉じたのは raw module docs の stale executable fixture であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。

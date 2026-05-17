@@ -40228,3 +40228,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_core_mem_boundary.js`: passed
   - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 30`: passed
   - `node nodesrc/run_doctest.js -i stdlib/core/mem/pointer/region.nepl -n 1`: passed
+
+## 2026-05-17 Agent 1 core/mem raw doctest boundary 修正
+
+- `ISS-20260517T032727149Z-CORE-MEM-RAW-DOCTESTS-CALL-RAW-APIS--057347FB` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`core/mem/allocator` と `core/mem/raw` の doctest が通常 user source としてコンパイルされるにもかかわらず、raw-memory-boundary 専用 API を成功例として直接呼んでいたことだった。
+- 修正後は `alloc_raw`、`mem_size`、`memset_u8`、`fill_i32` を ordinary doctest から直接使う例を `compile_fail` に変更し、`resource.raw.memory_outside_boundary` を期待 diag として固定した。検査を緩めず、ドキュメント側を Stage 6 の public/internal 境界に合わせた。
+- focused verification:
+  - `node nodesrc/tests.js -i stdlib/core/mem --no-tree -o tmp/core-mem-raw-doctest-boundary-after.json -j 1`: 33 passed
