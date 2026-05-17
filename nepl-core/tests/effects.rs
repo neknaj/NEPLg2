@@ -95,6 +95,10 @@ fn source_capabilities_for_suffix(source_map: &SourceMap, suffix: &str) -> Sourc
         .unwrap_or_else(|| panic!("source suffix not loaded: {suffix}"))
 }
 
+fn source_capability_probe_span() -> Span {
+    Span::new(FileId(0), 0, 8)
+}
+
 #[test]
 fn internal_effect_classifies_raw_memory_and_surface_fold() {
     let alloc = raw_callee_internal_effect("alloc_raw").expect("alloc effect");
@@ -689,9 +693,10 @@ fn main <()->i32> ():
     let mut loader = Loader::new(stdlib_root);
     let loaded = loader.load(&entry).expect("load");
     let capabilities = source_capabilities_for_suffix(&loaded.source_map, "stdlib/core/mem.nepl");
+    let probe = source_capability_probe_span();
     assert!(
-        !capabilities.allows_raw_memory_structural_boundary()
-            && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
+        !capabilities.allows_raw_memory_structural_boundary_at(probe)
+            && !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Store, probe),
         "core/mem facade without raw source evidence must not receive raw memory capability"
     );
     check_module_with_source_map(
@@ -739,9 +744,10 @@ fn main <()->i32> ():
     let loaded = loader.load(&entry).expect("load");
     let capabilities =
         source_capabilities_for_suffix(&loaded.source_map, "stdlib/alloc/string.nepl");
+    let probe = source_capability_probe_span();
     assert!(
-        !capabilities.allows_raw_memory_structural_boundary()
-            && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
+        !capabilities.allows_raw_memory_structural_boundary_at(probe)
+            && !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Store, probe),
         "alloc/string facade without raw source evidence must not receive raw memory capability"
     );
     check_module_with_source_map(
@@ -1183,9 +1189,10 @@ fn main <()->i32> ():
         let expected_suffix = format!("stdlib/{import_spec}.nepl");
         let capabilities =
             source_capabilities_for_suffix(&loaded.source_map, expected_suffix.as_str());
+        let probe = source_capability_probe_span();
         assert!(
-            !capabilities.allows_raw_memory_structural_boundary()
-                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
+            !capabilities.allows_raw_memory_structural_boundary_at(probe)
+                && !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Store, probe),
             "{import_spec} without raw source evidence must not receive raw memory capability"
         );
         check_module_with_source_map(

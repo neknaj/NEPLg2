@@ -779,7 +779,78 @@ mod tests {
     use super::*;
 
     use crate::effects::RawMemoryOp;
+    use crate::source_map::{CompilerMemoryType, SourceCapabilityUseSite};
     use crate::span::Span;
+
+    trait SourceCapabilitiesTestExt {
+        fn allows_raw_memory_structural_boundary(&self) -> bool;
+        fn allows_raw_address_view_boundary(&self) -> bool;
+        fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool;
+        fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool;
+        fn allows_owner_aggregate_field_boundary(&self) -> bool;
+        fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool;
+    }
+
+    impl SourceCapabilitiesTestExt for SourceCapabilities {
+        fn allows_raw_memory_structural_boundary(&self) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::RawMemoryStructuralBoundary { .. }
+                )
+            })
+        }
+
+        fn allows_raw_address_view_boundary(&self) -> bool {
+            self.use_sites_for_tests()
+                .any(|site| matches!(site, SourceCapabilityUseSite::RawAddressViewBoundary { .. }))
+        }
+
+        fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::RawMemoryOperationBoundary {
+                        operation: site_op,
+                        ..
+                    } if *site_op == operation
+                )
+            })
+        }
+
+        fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::OwnerAggregateConstructorBoundary {
+                        name: site_name,
+                        ..
+                    } if site_name == name
+                )
+            })
+        }
+
+        fn allows_owner_aggregate_field_boundary(&self) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::OwnerAggregateFieldBoundary { .. }
+                )
+            })
+        }
+
+        fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::CompilerMemoryTypeDefinition {
+                        memory_type: site_type,
+                        ..
+                    } if *site_type == memory_type
+                )
+            })
+        }
+    }
 
     fn test_loader() -> Loader {
         Loader::new(PathBuf::from("C:/nepl-test/stdlib"))

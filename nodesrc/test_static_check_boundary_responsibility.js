@@ -656,6 +656,38 @@ assertContains(sourceMap, 'raw_address_view_boundary_allowed_at', 'source_map.rs
 assertContains(sourceMap, 'owner_aggregate_constructor_boundary_allowed_at', 'source_map.rs');
 assertContains(sourceMap, 'compiler_memory_field_boundary_allowed_at', 'source_map.rs');
 assertContains(sourceMap, 'compiler_memory_type_definition_allowed_at', 'source_map.rs');
+for (const broadQuery of [
+    'raw_memory_structural_boundary_allowed',
+    'raw_address_view_boundary_allowed',
+    'raw_memory_operation_boundary_allowed',
+    'raw_body_memory_operation_boundary_allowed',
+    'owner_aggregate_constructor_boundary_allowed',
+    'owner_aggregate_field_boundary_allowed',
+    'compiler_memory_field_boundary_allowed',
+    'compiler_memory_type_definition_allowed',
+]) {
+    assertNotMatches(
+        sourceMap,
+        new RegExp(`pub fn ${broadQuery}\\s*\\(`),
+        `source_map.rs must not expose file-level aggregate query ${broadQuery}`,
+    );
+}
+for (const broadQuery of [
+    'allows_raw_memory_structural_boundary',
+    'allows_raw_address_view_boundary',
+    'allows_raw_memory_operation_boundary',
+    'allows_raw_body_memory_operation_boundary',
+    'allows_owner_aggregate_constructor_boundary',
+    'allows_owner_aggregate_field_boundary',
+    'allows_compiler_memory_field_boundary',
+    'allows_compiler_memory_type_definition',
+]) {
+    assertNotMatches(
+        sourceMap,
+        new RegExp(`pub fn ${broadQuery}\\s*\\(`),
+        `SourceCapabilities must not expose file-level aggregate query ${broadQuery}`,
+    );
+}
 assertContains(
     sourceMap,
     'fn source_capabilities_keep_source_proof_at_exact_use_site()',
@@ -676,12 +708,12 @@ assertContains(sourceMap, 'RawPointer', 'source_map.rs');
 assertContains(sourceMap, 'OwnerToken', 'source_map.rs');
 assertContains(
     sourceMap,
-    'compiler_memory_type_definition_allowed',
+    'compiler_memory_type_definition_allowed_at',
     'source_map.rs',
 );
 assertContains(
     sourceMap,
-    'raw_address_view_boundary_allowed',
+    'raw_address_view_boundary_allowed_at',
     'source_map.rs',
 );
 assertContains(

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T02:03:20.692Z",
+  "generated_at": "2026-05-17T02:20:38.309Z",
   "counts": {
-    "total": 896,
+    "total": 897,
     "open": 5,
-    "resolved": 891,
+    "resolved": 892,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 452,
+        "total": 453,
         "open": 0,
-        "resolved": 452
+        "resolved": 453
       },
       "CORE": {
         "total": 1,
@@ -6823,6 +6823,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T012833283Z-SOURCECAPABILITIES-STILL-CARRIES-BRO-5588739B.md"
+    },
+    {
+      "id": "ISS-20260517T021245721Z-SOURCEMAP-STILL-EXPOSES-FILE-LEVEL-S-D2E7D025",
+      "title": "SourceMap still exposes file-level source capability aggregate queries",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_map.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T021245721Z-SOURCEMAP-STILL-EXPOSES-FILE-LEVEL-S-D2E7D025.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

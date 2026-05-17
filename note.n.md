@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 SourceMap file-level capability query 廃止
+
+- `ISS-20260517T021245721Z-SOURCEMAP-STILL-EXPOSES-FILE-LEVEL-S-D2E7D025` を追加し、fixed / resolved にした。
+- 根本原因は、exact use-site proof が production gate の authority になった後も、`SourceCapabilities` / `SourceMap` が file-id aggregate query を public API として残していたこと。これは将来の compiler/typecheck/resource gate が exact span proof を迂回して file-level capability 判定へ戻る退行経路だった。
+- `SourceCapabilities` から broad `allows_*()` を削除し、`SourceMap` から broad `*_allowed(file_id, ...)` を削除した。production で使える query は exact `*_allowed_at(span, ...)` と、raw identity escape の diagnostic span に必要な narrow `*_allowed_within(span, ...)` に限定した。
+- `loader.rs` の source capability regression は production API へ broad query を戻さず、test-only の use-site 走査 helper へ移した。`nepl-core/tests/effects.rs` の facade safety 検査は exact span query へ更新した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、`source_map.rs` が broad query を再公開しない source policy を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core source_map::tests -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source capability proof 消費から file-level aggregate query API を取り除いた。
+
 # 2026-05-17 Agent 1 SourceCapabilities file-level authority 廃止
 
 - `ISS-20260517T012833283Z-SOURCECAPABILITIES-STILL-CARRIES-BRO-5588739B` を fixed / resolved にした。
