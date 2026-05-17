@@ -3,7 +3,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction};
-use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer, MemoryHelperPrimitive};
+use crate::intrinsic_kinds::FieldAccessorKind;
+use crate::resource_primitives::{
+    type_is_owner_token, type_is_raw_pointer, CompilerMemoryFieldSpec, MemoryHelperPrimitive,
+};
 use crate::runtime_helpers::helper_base_name;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
@@ -225,17 +228,17 @@ fn raw_address_source_from_return_named_call(
     ) {
         return Some(source);
     }
-    let base_name = helper_base_name(name);
-    if matches!(base_name, "get" | "get_field")
+    let field_accessor = FieldAccessorKind::from_call_base_name(helper_base_name(name));
+    if field_accessor == Some(FieldAccessorKind::Get)
         && args.len() >= 2
-        && literal_field_name(env, &args[1]) == Some("raw")
+        && literal_field_name(env, &args[1]) == Some(CompilerMemoryFieldSpec::RawI32.name())
         && type_is_raw_pointer(env.types, args[0].ty)
     {
         return raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
         );
     }
-    if matches!(base_name, "get" | "get_field")
+    if field_accessor == Some(FieldAccessorKind::Get)
         && args.len() >= 2
         && type_is_owner_token(env.types, args[0].ty)
         && matches!(
@@ -245,7 +248,8 @@ fn raw_address_source_from_return_named_call(
             ),
             TypeKind::I32
         )
-        && literal_field_name(env, &args[1]).is_none_or(|field_name| field_name == "raw")
+        && literal_field_name(env, &args[1])
+            .is_none_or(|field_name| field_name == CompilerMemoryFieldSpec::RawI32.name())
     {
         return raw_address_source_from_region_token_raw_expr(
             &args[0], function, hir_args, arg_places, env,

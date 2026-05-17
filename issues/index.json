@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T07:51:45.184Z",
+  "generated_at": "2026-05-17T07:58:36.797Z",
   "counts": {
-    "total": 926,
+    "total": 927,
     "open": 5,
-    "resolved": 921,
+    "resolved": 922,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -57,9 +57,9 @@
         "resolved": 5
       },
       "compiler/resource-ir": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       },
       "core/resource": {
         "total": 1,
@@ -1053,6 +1053,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T074003907Z-RESOURCE-MEMORY-FIELD-PLACE-CONSTRUC-5EF34F4F.md"
+    },
+    {
+      "id": "ISS-20260517T075612588Z-RAW-ADDRESS-RETURN-PROOF-DUPLICATES--E5A6AE6F",
+      "title": "Raw address return proof duplicates field accessor and raw field spelling",
+      "area": "compiler/resource-ir",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/lower_raw_address_return.rs; nepl-core/src/intrinsic_kinds.rs; nepl-core/src/resource_primitives.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T075612588Z-RAW-ADDRESS-RETURN-PROOF-DUPLICATES--E5A6AE6F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

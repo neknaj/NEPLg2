@@ -1466,6 +1466,31 @@ assertNotContains(
     'for _ in 0..=module.functions.len()',
     'effect_summary_pointer.rs must not reintroduce full-module fixed-point sweeps',
 );
+assertContains(
+    lowerRawAddressReturn,
+    'FieldAccessorKind::from_call_base_name(helper_base_name(name))',
+    'lower_raw_address_return.rs must classify field accessor calls through FieldAccessorKind',
+);
+assertContains(
+    lowerRawAddressReturn,
+    'CompilerMemoryFieldSpec::RawI32.name()',
+    'lower_raw_address_return.rs must derive raw field spelling from CompilerMemoryFieldSpec',
+);
+assertNotContains(
+    lowerRawAddressReturn,
+    'matches!(base_name, "get" | "get_field")',
+    'lower_raw_address_return.rs must not duplicate field accessor spelling',
+);
+assertNotContains(
+    lowerRawAddressReturn,
+    'field_name == "raw"',
+    'lower_raw_address_return.rs must not duplicate raw field spelling',
+);
+assertNotContains(
+    lowerRawAddressReturn,
+    'Some("raw")',
+    'lower_raw_address_return.rs must not duplicate raw field spelling',
+);
 assertUsesResourceModuleSymbol(
     placeUtils,
     'variant_name',
