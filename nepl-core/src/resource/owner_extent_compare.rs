@@ -1,5 +1,5 @@
+use super::compiler_memory_place::region_token_size_field_for_raw_owner;
 use super::model::{OwnerStorageExtent, Place};
-use super::place_utils::region_token_size_field_for_raw_owner;
 
 pub(super) fn comparable_owner_extent(
     owner: &Place,

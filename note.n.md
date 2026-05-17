@@ -1,3 +1,22 @@
+# 2026-05-17 Agent 1 Resource compiler memory field place 集約
+
+- `ISS-20260517T074003907Z-RESOURCE-MEMORY-FIELD-PLACE-CONSTRUC-5EF34F4F` を追加し、fixed / resolved にした。
+- 根本原因は、`CompilerMemoryFieldSpec` で `MemPtr` / `RegionToken` の field contract を共有した後も、Resource IR の place 構築に `index: 0/1` と `offset: 0/4` の直書きが残り、raw cell tracking / owner extent comparison が古い layout 仮定へ戻り得たこと。
+- `compiler_memory_place.rs` を追加し、compiler memory field place は TypeCtx の証明済み memory identity、`CompilerMemoryFieldSpec`、`aggregate_fields_with_offsets` の typed layout から生成するようにした。
+- `lower_raw_address_place.rs` と `initialized_summary_indirect_release.rs` の重複 raw field helper を削除し、`MemPtr.raw` / `RegionToken.raw` / `RegionToken.size` の projection は shared helper に一本化した。
+- `RegionToken.raw` から size sibling へ変換する owner extent 処理も shared field spec から導出し、責務検査で direct projection の再導入を禁止した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core compiler_memory_field_place --lib -- --nocapture`
+  - `cargo test -p nepl-core region_token_size_sibling --lib -- --nocapture`
+  - `cargo test -p nepl-core compiler_memory_type_field_specs_are_kind_owned --lib -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR place 構築も、source proof / typed registration / shared field spec / typed layout に接続した。
+
 # 2026-05-17 Agent 1 owner token raw leaf の CompilerMemoryFieldSpec 接続
 
 - `ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194` を追加し、fixed / resolved にした。

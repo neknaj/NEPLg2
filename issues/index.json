@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T07:36:35.600Z",
+  "generated_at": "2026-05-17T07:51:45.184Z",
   "counts": {
-    "total": 925,
+    "total": 926,
     "open": 5,
-    "resolved": 920,
+    "resolved": 921,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -57,9 +57,9 @@
         "resolved": 5
       },
       "compiler/resource-ir": {
-        "total": 1,
+        "total": 2,
         "open": 0,
-        "resolved": 1
+        "resolved": 2
       },
       "core/resource": {
         "total": 1,
@@ -1038,6 +1038,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194.md"
+    },
+    {
+      "id": "ISS-20260517T074003907Z-RESOURCE-MEMORY-FIELD-PLACE-CONSTRUC-5EF34F4F",
+      "title": "Resource memory field place construction duplicates compiler memory layout",
+      "area": "compiler/resource-ir",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/place_utils.rs; nepl-core/src/resource/lower_raw_address_place.rs; nepl-core/src/resource/initialized_summary_indirect_release.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T074003907Z-RESOURCE-MEMORY-FIELD-PLACE-CONSTRUC-5EF34F4F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

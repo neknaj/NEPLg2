@@ -23,6 +23,7 @@ mod cell_state_raw_range_merge;
 mod cell_state_raw_range_model;
 mod cell_state_raw_range_value;
 mod cell_state_raw_range_value_alias;
+mod compiler_memory_place;
 mod condition_fact;
 mod coverage;
 mod coverage_hir;

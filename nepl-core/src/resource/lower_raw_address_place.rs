@@ -2,9 +2,9 @@ use crate::hir::{HirExpr, HirExprKind};
 use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+use super::compiler_memory_place::{mem_ptr_raw_field_place, region_token_raw_field_place};
 use super::lower::LoweringEnvironment;
 use super::model::{Place, PlaceProjection};
-use super::place_utils::mem_ptr_raw_field_place;
 
 pub(super) fn raw_address_place_from_actual_argument(
     expr: &HirExpr,
@@ -12,15 +12,15 @@ pub(super) fn raw_address_place_from_actual_argument(
     env: &LoweringEnvironment,
 ) -> Place {
     if type_is_raw_pointer(env.types, place.ty) {
-        mem_ptr_raw_field_place(place, env.types.i32())
+        mem_ptr_raw_field_place(env.types, place, env.types.i32())
     } else if type_is_owner_token(env.types, place.ty) {
-        region_token_raw_field_place(place, env.types.i32())
+        region_token_raw_field_place(env.types, place, env.types.i32())
     } else if let Some(target_ty) = reference_target_type(env.types, place.ty) {
         let target = borrowed_source_place(expr, place, target_ty);
         if type_is_raw_pointer(env.types, target_ty) {
-            mem_ptr_raw_field_place(&target, env.types.i32())
+            mem_ptr_raw_field_place(env.types, &target, env.types.i32())
         } else if type_is_owner_token(env.types, target_ty) {
-            region_token_raw_field_place(&target, env.types.i32())
+            region_token_raw_field_place(env.types, &target, env.types.i32())
         } else {
             place.clone()
         }
@@ -46,22 +46,12 @@ pub(super) fn region_token_place_from_actual_arg(
 
 pub(super) fn raw_address_alias_target(output: &Place, env: &LoweringEnvironment) -> Place {
     if type_is_raw_pointer(env.types, output.ty) {
-        mem_ptr_raw_field_place(output, env.types.i32())
+        mem_ptr_raw_field_place(env.types, output, env.types.i32())
     } else if type_is_owner_token(env.types, output.ty) {
-        region_token_raw_field_place(output, env.types.i32())
+        region_token_raw_field_place(env.types, output, env.types.i32())
     } else {
         output.clone()
     }
-}
-
-pub(super) fn region_token_raw_field_place(token: &Place, raw_ty: TypeId) -> Place {
-    token.clone().with_projection(
-        PlaceProjection::Field {
-            index: 0,
-            offset_bytes: 0,
-        },
-        raw_ty,
-    )
 }
 
 fn borrowed_source_place(expr: &HirExpr, reference_place: &Place, target_ty: TypeId) -> Place {
