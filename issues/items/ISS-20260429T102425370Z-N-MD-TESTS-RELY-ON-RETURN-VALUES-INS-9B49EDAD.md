@@ -1376,3 +1376,20 @@ runtime 検証を妨げる compile-time blocker は `ISS-20260517T132644394Z-SEL
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_module_graph.n.md --no-tree -o tmp\agent1-neplg2-module-graph-report-metadata.json -j 1 --dist web\dist --assert-io`: total=3, passed=3
 
 この issue はまだ open のまま継続する。`neplg2_module_graph` は移行済みだが、他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。
+
+## 2026-05-18 selfhost stdlib_map stdout report metadata migration
+
+`ISS-20260517T193057449Z-SELFHOST-STDLIB-MAP-DOCTESTS-STILL-U-320C9452` として、`tests/stdlib/neplg2_stdlib_map.n.md` の3件を canonical stdout fixture へ移行した。
+
+移行内容:
+
+- 3件とも既に `checks_print_report` / `checks_exit_code` を呼んでいたため、テスト本体の検査ロジックは変更せず、manifest だけを `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ更新した。
+- stdlib path resolution 成功系8 assertion、stdlib/user root graph 成功系9 assertion、relative escape診断系1 assertionを stdout expectation と source policy で固定した。
+- `nodesrc/test_selfhost_stdlib_map_report_contract.js` を追加し、`ret:` 不使用、stdout report、`exit_code: 0`、report出力順を検査するようにした。
+
+検証:
+
+- `node nodesrc/test_selfhost_stdlib_map_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_stdlib_map.n.md -n 1 --assert-io --dist web\dist`: ResourceIR owner summary compile diagnostic で fail
+
+runtime 検証を妨げる compiler blocker は `ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A` として分離した。この issue はまだ open のまま継続する。`neplg2_stdlib_map` は metadata contract 移行済みだが、他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。

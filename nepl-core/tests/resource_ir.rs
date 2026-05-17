@@ -20051,3 +20051,64 @@ fn main <()* >i32> ():
     compile_resource_source_with_target(source, CompileTarget::Wasi)
         .expect("Vec.get<str> must copy the element value without moving the Vec storage owner");
 }
+
+#[test]
+fn resource_ir_owner_variant_reservation_ignores_copy_payload_sources() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+struct SpanLike:
+    file_id <i32>
+    start <i32>
+    end <i32>
+
+impl Clone for SpanLike:
+    fn clone <(&SpanLike)->SpanLike> (self):
+        *self
+
+impl Copy for SpanLike:
+    fn copy_mark <(SpanLike)->SpanLike> (self):
+        self
+
+fn maybe_span <(SpanLike,bool)*>Result<i32,SpanLike>> (span, ok):
+    if:
+        ok
+        then:
+            Result<i32,SpanLike>::Ok 1
+        else:
+            Result<i32,SpanLike>::Err span
+
+fn maybe_text <(str,bool)*>Result<i32,str>> (text, ok):
+    if:
+        ok
+        then:
+            Result<i32,str>::Ok 1
+        else:
+            Result<i32,str>::Err text
+
+fn main <()*>i32> ():
+    let span <SpanLike> SpanLike 0 10 14
+    let text <str> "alpha"
+    let span_ok <bool> match maybe_span span true:
+        Result::Ok _:
+            eq span.start 10
+        Result::Err _:
+            false
+    let text_ok <bool> match maybe_text text true:
+        Result::Ok _:
+            str_eq text "alpha"
+        Result::Err _:
+            false
+    if and span_ok text_ok 0 1
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasi).expect(
+        "Copy payload sources inside unresolved Result variants must not be owner-reserved",
+    );
+}

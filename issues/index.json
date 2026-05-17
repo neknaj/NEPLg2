@@ -1,20 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T19:27:42.583Z",
+  "generated_at": "2026-05-17T20:27:24.325Z",
   "counts": {
-    "total": 965,
-    "open": 5,
-    "resolved": 960,
+    "total": 968,
+    "open": 6,
+    "resolved": 962,
     "by_area": {
+      "CORE": {
+        "total": 3,
+        "open": 1,
+        "resolved": 2
+      },
       "stdlib": {
         "total": 262,
         "open": 3,
         "resolved": 259
       },
       "TEST": {
-        "total": 36,
+        "total": 37,
         "open": 1,
-        "resolved": 35
+        "resolved": 36
       },
       "selfhost": {
         "total": 69,
@@ -30,11 +35,6 @@
         "total": 496,
         "open": 0,
         "resolved": 496
-      },
-      "CORE": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
       },
       "resource": {
         "total": 3,
@@ -129,6 +129,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A",
+      "title": "ResourceIR owner summary still treats copied str views as moved across stdlib_map resolution",
+      "area": "CORE",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource, stdlib/neplg2/core/module/stdlib_map.nepl, stdlib/std/test/report.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -593,6 +608,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T100329630Z-RAW-ADDRESS-VIEW-SOURCE-PROOF-GRANTS-A2AEFF8E.md"
+    },
+    {
+      "id": "ISS-20260517T201648863Z-RESOURCEIR-VARIANT-OWNER-RESERVATION-F28E5200",
+      "title": "ResourceIR variant owner reservation treats Copy payloads as reserved linear owners",
+      "area": "CORE",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T201648863Z-RESOURCEIR-VARIANT-OWNER-RESERVATION-F28E5200.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",
@@ -12143,6 +12173,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T192149542Z-SELFHOST-MODULE-GRAPH-DOCTESTS-HIDE--49E6BC64.md"
+    },
+    {
+      "id": "ISS-20260517T193057449Z-SELFHOST-STDLIB-MAP-DOCTESTS-STILL-U-320C9452",
+      "title": "selfhost stdlib map doctests still use ret metadata and hide reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "tests/stdlib/neplg2_stdlib_map.n.md, nodesrc/test_selfhost_stdlib_map_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T193057449Z-SELFHOST-STDLIB-MAP-DOCTESTS-STILL-U-320C9452.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
