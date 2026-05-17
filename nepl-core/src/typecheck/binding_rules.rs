@@ -222,14 +222,8 @@ pub(super) fn detect_field_accessor_fn(def: &FnDef) -> Option<FieldAccessorKind>
         _ => return None,
     };
     match expr.items.as_slice() {
-        [PrefixItem::Intrinsic(intrin, _)] if intrin.name == "get_field" => {
-            Some(FieldAccessorKind::Get)
-        }
-        [PrefixItem::Intrinsic(intrin, _)] if intrin.name == "get_field_ref" => {
-            Some(FieldAccessorKind::GetRef)
-        }
-        [PrefixItem::Intrinsic(intrin, _)] if intrin.name == "set_field" => {
-            Some(FieldAccessorKind::Put)
+        [PrefixItem::Intrinsic(intrin, _)] => {
+            FieldAccessorKind::from_intrinsic_name(intrin.name.as_str())
         }
         _ => None,
     }

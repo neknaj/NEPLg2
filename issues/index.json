@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T05:01:48.457Z",
+  "generated_at": "2026-05-17T05:09:39.840Z",
   "counts": {
-    "total": 910,
+    "total": 911,
     "open": 5,
-    "resolved": 905,
+    "resolved": 906,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 460,
+        "total": 461,
         "open": 0,
-        "resolved": 460
+        "resolved": 461
       },
       "CORE": {
         "total": 1,
@@ -6943,6 +6943,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T045756082Z-RAW-BODY-BACKEND-INTRINSIC-PURITY-IS-C82FFD7B.md"
+    },
+    {
+      "id": "ISS-20260517T050529675Z-FIELD-ACCESSOR-INTRINSIC-DETECTION-D-D864665B",
+      "title": "field accessor intrinsic detection duplicates string spelling outside FieldAccessorKind",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/binding_rules.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T050529675Z-FIELD-ACCESSOR-INTRINSIC-DETECTION-D-D864665B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

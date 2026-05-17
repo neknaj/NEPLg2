@@ -64,12 +64,51 @@ pub(super) enum FieldAccessorKind {
     Put,
 }
 
+impl FieldAccessorKind {
+    pub(super) fn from_intrinsic_name(name: &str) -> Option<Self> {
+        match name {
+            "get_field" => Some(Self::Get),
+            "get_field_ref" => Some(Self::GetRef),
+            "set_field" => Some(Self::Put),
+            _ => None,
+        }
+    }
+
+    pub(super) const fn intrinsic_name(self) -> &'static str {
+        match self {
+            Self::Get => "get_field",
+            Self::GetRef => "get_field_ref",
+            Self::Put => "set_field",
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(super) enum AssignKind {
     Let,
     Set,
     AddrOf(bool),
     Deref,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FieldAccessorKind;
+
+    #[test]
+    fn field_accessor_intrinsic_names_round_trip_through_kind() {
+        for kind in [
+            FieldAccessorKind::Get,
+            FieldAccessorKind::GetRef,
+            FieldAccessorKind::Put,
+        ] {
+            assert_eq!(
+                FieldAccessorKind::from_intrinsic_name(kind.intrinsic_name()),
+                Some(kind)
+            );
+        }
+        assert_eq!(FieldAccessorKind::from_intrinsic_name("get"), None);
+    }
 }
 
 #[derive(Debug, Clone)]

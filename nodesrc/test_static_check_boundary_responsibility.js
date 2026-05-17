@@ -291,6 +291,10 @@ const typecheckModel = assertFile(
     path.join(TYPECHECK_DIR, 'model.rs'),
     'typecheck/model.rs',
 );
+const typecheckBindingRules = assertFile(
+    path.join(TYPECHECK_DIR, 'binding_rules.rs'),
+    'typecheck/binding_rules.rs',
+);
 const typecheckDriver = assertFile(
     path.join(TYPECHECK_DIR, 'driver.rs'),
     'typecheck/driver.rs',
@@ -359,6 +363,31 @@ for (const moduleName of [
 }
 
 assertContains(typecheckRoot, 'pub use driver::{typecheck, TypeCheckResult};', 'typecheck.rs');
+assertContains(
+    typecheckModel,
+    'fn from_intrinsic_name',
+    'typecheck/model.rs must keep field accessor intrinsic spelling on FieldAccessorKind',
+);
+assertContains(
+    typecheckBindingRules,
+    'FieldAccessorKind::from_intrinsic_name',
+    'typecheck/binding_rules.rs must use typed field accessor intrinsic classification',
+);
+assertNotContains(
+    typecheckBindingRules,
+    'intrin.name == "get_field"',
+    'typecheck/binding_rules.rs must not duplicate get_field spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    typecheckBindingRules,
+    'intrin.name == "get_field_ref"',
+    'typecheck/binding_rules.rs must not duplicate get_field_ref spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    typecheckBindingRules,
+    'intrin.name == "set_field"',
+    'typecheck/binding_rules.rs must not duplicate set_field spelling outside FieldAccessorKind',
+);
 assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
 assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');
 assertContains(typecheckSyntaxHelpers, 'fn split_qualified_name', 'typecheck/syntax_helpers.rs');

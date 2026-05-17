@@ -65,7 +65,7 @@ impl<'a> BlockChecker<'a> {
                 expr: HirExpr {
                     ty: f_ty,
                     kind: HirExprKind::Intrinsic {
-                        name: "get_field".to_string(),
+                        name: FieldAccessorKind::Get.intrinsic_name().to_string(),
                         type_args: Vec::new(),
                         args: vec![obj, idx.clone()],
                     },
@@ -82,7 +82,7 @@ impl<'a> BlockChecker<'a> {
                 expr: HirExpr {
                     ty: ref_ty,
                     kind: HirExprKind::Intrinsic {
-                        name: "get_field_ref".to_string(),
+                        name: FieldAccessorKind::GetRef.intrinsic_name().to_string(),
                         type_args: Vec::new(),
                         args: vec![obj, idx.clone()],
                     },
