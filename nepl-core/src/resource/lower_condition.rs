@@ -1,13 +1,11 @@
-extern crate alloc;
-
-use alloc::vec;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 
 use crate::hir::{HirExpr, HirExprKind};
 
 use super::lower::{place_from_expr_skeleton, LoweringContext};
 use super::lower_call::func_ref_base_name;
 use super::model::{Place, PlaceRoot, ResourceConditionFact, ResourceI32RelationOp};
+use super::scalar_primitive::{BooleanPrimitive, I32ComparisonPrimitive};
 
 pub(super) fn resource_condition_fact(
     cond: &HirExpr,
@@ -21,50 +19,16 @@ pub(super) fn resource_condition_fact(
     let [left, right] = args.as_slice() else {
         return None;
     };
-    match comparison {
-        "or" => binary_condition_fact(left, right, ctx, ResourceConditionFact::Any),
-        "and" => binary_condition_fact(left, right, ctx, ResourceConditionFact::All),
-        "eq" => zero_comparison_fact(left, right, ctx, |place| ResourceConditionFact::EqZero {
-            place,
-        })
-        .or_else(|| relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Eq)),
-        "ne" => zero_comparison_fact(left, right, ctx, |place| ResourceConditionFact::NeZero {
-            place,
-        })
-        .or_else(|| relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Ne)),
-        "lt" if literal_i32_is_zero(left) => {
-            condition_place(right, ctx).map(|place| ResourceConditionFact::Positive { place })
-        }
-        "lt" if literal_i32_is_zero(right) => {
-            condition_place(left, ctx).map(|place| ResourceConditionFact::Negative { place })
-        }
-        "lt" if literal_i32_is_one(right) => {
-            condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
-        }
-        "le" if literal_i32_is_zero(right) => {
-            condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
-        }
-        "le" if literal_i32_is_zero(left) => {
-            condition_place(right, ctx).map(|place| ResourceConditionFact::NonNegative { place })
-        }
-        "gt" if literal_i32_is_zero(left) => {
-            condition_place(right, ctx).map(|place| ResourceConditionFact::Negative { place })
-        }
-        "gt" if literal_i32_is_zero(right) => {
-            condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
-        }
-        "ge" if literal_i32_is_one(right) => {
-            condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
-        }
-        "ge" if literal_i32_is_zero(right) => {
-            condition_place(left, ctx).map(|place| ResourceConditionFact::NonNegative { place })
-        }
-        "lt" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Lt),
-        "le" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Le),
-        "gt" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Gt),
-        "ge" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Ge),
-        _ => None,
+    if let Some(boolean) = BooleanPrimitive::from_base_name(comparison) {
+        let fact = match boolean {
+            BooleanPrimitive::Or => ResourceConditionFact::Any,
+            BooleanPrimitive::And => ResourceConditionFact::All,
+        };
+        return binary_condition_fact(left, right, ctx, fact);
     }
+    let comparison = I32ComparisonPrimitive::from_base_name(comparison)?;
+    comparison_value_condition_fact(comparison, left, right, ctx)
+        .or_else(|| relation_condition_fact(left, right, ctx, comparison.relation_op()))
 }
 
 fn binary_condition_fact(
@@ -79,18 +43,26 @@ fn binary_condition_fact(
 }
 
 fn zero_comparison_fact(
+    comparison: I32ComparisonPrimitive,
     left: &HirExpr,
     right: &HirExpr,
     ctx: &LoweringContext,
-    fact: fn(Place) -> ResourceConditionFact,
 ) -> Option<ResourceConditionFact> {
-    if literal_i32_is_zero(left) {
-        condition_place(right, ctx).map(fact)
+    let place = if literal_i32_is_zero(left) {
+        condition_place(right, ctx)?
     } else if literal_i32_is_zero(right) {
-        condition_place(left, ctx).map(fact)
+        condition_place(left, ctx)?
     } else {
-        None
-    }
+        return None;
+    };
+    Some(match comparison {
+        I32ComparisonPrimitive::Eq => ResourceConditionFact::EqZero { place },
+        I32ComparisonPrimitive::Ne => ResourceConditionFact::NeZero { place },
+        I32ComparisonPrimitive::Lt
+        | I32ComparisonPrimitive::Le
+        | I32ComparisonPrimitive::Gt
+        | I32ComparisonPrimitive::Ge => return None,
+    })
 }
 
 fn relation_condition_fact(
@@ -104,6 +76,50 @@ fn relation_condition_fact(
     Some(ResourceConditionFact::I32Relation { left, op, right })
 }
 
+fn comparison_value_condition_fact(
+    comparison: I32ComparisonPrimitive,
+    left: &HirExpr,
+    right: &HirExpr,
+    ctx: &LoweringContext,
+) -> Option<ResourceConditionFact> {
+    match comparison {
+        I32ComparisonPrimitive::Eq | I32ComparisonPrimitive::Ne => {
+            zero_comparison_fact(comparison, left, right, ctx)
+        }
+        I32ComparisonPrimitive::Lt if literal_i32_is_zero(left) => {
+            condition_place(right, ctx).map(|place| ResourceConditionFact::Positive { place })
+        }
+        I32ComparisonPrimitive::Lt if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::Negative { place })
+        }
+        I32ComparisonPrimitive::Lt if matches!(right.kind, HirExprKind::LiteralI32(1)) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
+        }
+        I32ComparisonPrimitive::Le if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
+        }
+        I32ComparisonPrimitive::Le if literal_i32_is_zero(left) => {
+            condition_place(right, ctx).map(|place| ResourceConditionFact::NonNegative { place })
+        }
+        I32ComparisonPrimitive::Gt if literal_i32_is_zero(left) => {
+            condition_place(right, ctx).map(|place| ResourceConditionFact::Negative { place })
+        }
+        I32ComparisonPrimitive::Gt if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
+        }
+        I32ComparisonPrimitive::Ge if matches!(right.kind, HirExprKind::LiteralI32(1)) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
+        }
+        I32ComparisonPrimitive::Ge if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::NonNegative { place })
+        }
+        I32ComparisonPrimitive::Lt
+        | I32ComparisonPrimitive::Le
+        | I32ComparisonPrimitive::Gt
+        | I32ComparisonPrimitive::Ge => None,
+    }
+}
+
 fn condition_place(expr: &HirExpr, ctx: &LoweringContext) -> Option<Place> {
     let place = place_from_expr_skeleton(expr, ctx);
     (!matches!(place.root, PlaceRoot::Unknown)).then_some(place)
@@ -111,10 +127,6 @@ fn condition_place(expr: &HirExpr, ctx: &LoweringContext) -> Option<Place> {
 
 fn literal_i32_is_zero(expr: &HirExpr) -> bool {
     matches!(expr.kind, HirExprKind::LiteralI32(0))
-}
-
-fn literal_i32_is_one(expr: &HirExpr) -> bool {
-    matches!(expr.kind, HirExprKind::LiteralI32(1))
 }
 
 fn condition_value_expr(expr: &HirExpr) -> Option<&HirExpr> {

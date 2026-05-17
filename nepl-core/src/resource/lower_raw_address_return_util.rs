@@ -8,6 +8,7 @@ use super::lower_call::func_ref_base_name;
 use super::lower_raw_address::{i32_const_from_actual_arg, i32_const_from_size_of_call};
 use super::lower_raw_address_source::RawAddressOffset;
 use super::model::Place;
+use super::scalar_primitive::I32ArithmeticPrimitive;
 
 pub(super) fn raw_address_offset_from_return_expr(
     expr: &HirExpr,
@@ -100,14 +101,9 @@ fn i32_const_from_return_named_expr(
     if args.len() != 2 {
         return None;
     }
-    match helper_base_name(name) {
-        "add" => i32_const_from_return_expr(&args[0], function, hir_args, env)?.checked_add(
-            i32_const_from_return_expr(&args[1], function, hir_args, env)?,
-        ),
-        "sub" => i32_const_from_return_expr(&args[0], function, hir_args, env)?.checked_sub(
-            i32_const_from_return_expr(&args[1], function, hir_args, env)?,
-        ),
-        "mul" => {
+    let op = I32ArithmeticPrimitive::from_symbol(name)?;
+    match op {
+        I32ArithmeticPrimitive::Mul => {
             let left = i32_const_from_return_expr(&args[0], function, hir_args, env);
             if matches!(left, Some(0)) {
                 return Some(0);
@@ -118,6 +114,9 @@ fn i32_const_from_return_named_expr(
             }
             left?.checked_mul(right?)
         }
-        _ => None,
+        I32ArithmeticPrimitive::Add | I32ArithmeticPrimitive::Sub => op.checked_i64(
+            i32_const_from_return_expr(&args[0], function, hir_args, env)?,
+            i32_const_from_return_expr(&args[1], function, hir_args, env)?,
+        ),
     }
 }

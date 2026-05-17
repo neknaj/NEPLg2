@@ -20,6 +20,7 @@ use super::lower_raw_address_return_util::{
 };
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
 use super::model::{Place, ResourceOp};
+use super::scalar_primitive::I32ArithmeticPrimitive;
 
 pub(super) fn push_transparent_raw_address_return_projection(
     callee: &FuncRef,
@@ -218,55 +219,75 @@ fn raw_address_source_from_return_named_call(
         }
         _ => {}
     }
-    match helper_base_name(name) {
-        "add" if args.len() == 2 => raw_address_source_from_return_operand_expr(
+    if let Some(source) = raw_address_source_from_return_arithmetic_expr(
+        name, args, function, hir_args, arg_places, env,
+    ) {
+        return Some(source);
+    }
+    let base_name = helper_base_name(name);
+    if matches!(base_name, "get" | "get_field")
+        && args.len() >= 2
+        && literal_field_name(env, &args[1]) == Some("raw")
+        && type_is_raw_pointer(env.types, args[0].ty)
+    {
+        return raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
+        );
+    }
+    if matches!(base_name, "get" | "get_field")
+        && args.len() >= 2
+        && type_is_owner_token(env.types, args[0].ty)
+        && matches!(
+            env.types.get_ref(
+                env.types
+                    .resolve_named_type_id(env.types.resolve_id(return_ty))
+            ),
+            TypeKind::I32
         )
-        .map(|source| {
-            source.with_added_offset(raw_address_offset_from_return_expr(
-                &args[1], function, hir_args, arg_places, env,
-            ))
-        })
-        .or_else(|| {
-            let offset = i32_const_from_return_expr(&args[0], function, hir_args, env)?;
-            raw_address_source_from_return_operand_expr(
-                &args[1], function, hir_args, arg_places, env,
-            )
-            .map(|source| source.with_added_offset(RawAddressOffset::Known(offset)))
-        }),
-        "sub" if args.len() == 2 => raw_address_source_from_return_operand_expr(
+        && literal_field_name(env, &args[1]).is_none_or(|field_name| field_name == "raw")
+    {
+        return raw_address_source_from_region_token_raw_expr(
             &args[0], function, hir_args, arg_places, env,
-        )
-        .map(|source| {
-            source.with_subtracted_offset(raw_address_offset_from_return_expr(
-                &args[1], function, hir_args, arg_places, env,
-            ))
-        }),
-        "get" | "get_field"
-            if args.len() >= 2
-                && literal_field_name(env, &args[1]) == Some("raw")
-                && type_is_raw_pointer(env.types, args[0].ty) =>
-        {
+        );
+    }
+    None
+}
+
+fn raw_address_source_from_return_arithmetic_expr(
+    name: &str,
+    args: &[HirExpr],
+    function: &HirFunction,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> Option<RawAddressSource> {
+    match I32ArithmeticPrimitive::from_symbol(name) {
+        Some(I32ArithmeticPrimitive::Add) if args.len() == 2 => {
             raw_address_source_from_return_operand_expr(
                 &args[0], function, hir_args, arg_places, env,
             )
-        }
-        "get" | "get_field"
-            if args.len() >= 2
-                && type_is_owner_token(env.types, args[0].ty)
-                && matches!(
-                    env.types.get_ref(
-                        env.types
-                            .resolve_named_type_id(env.types.resolve_id(return_ty))
-                    ),
-                    TypeKind::I32
+            .map(|source| {
+                source.with_added_offset(raw_address_offset_from_return_expr(
+                    &args[1], function, hir_args, arg_places, env,
+                ))
+            })
+            .or_else(|| {
+                let offset = i32_const_from_return_expr(&args[0], function, hir_args, env)?;
+                raw_address_source_from_return_operand_expr(
+                    &args[1], function, hir_args, arg_places, env,
                 )
-                && literal_field_name(env, &args[1])
-                    .is_none_or(|field_name| field_name == "raw") =>
-        {
-            raw_address_source_from_region_token_raw_expr(
+                .map(|source| source.with_added_offset(RawAddressOffset::Known(offset)))
+            })
+        }
+        Some(I32ArithmeticPrimitive::Sub) if args.len() == 2 => {
+            raw_address_source_from_return_operand_expr(
                 &args[0], function, hir_args, arg_places, env,
             )
+            .map(|source| {
+                source.with_subtracted_offset(raw_address_offset_from_return_expr(
+                    &args[1], function, hir_args, arg_places, env,
+                ))
+            })
         }
         _ => None,
     }

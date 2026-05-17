@@ -1,3 +1,23 @@
+# 2026-05-17 Agent 1 Resource scalar primitive proof classifier 集約
+
+- `ISS-20260517T062207552Z-RESOURCE-SCALAR-PRIMITIVE-PROOFS-DUP-30D2A64C` を追加し、fixed / resolved にした。
+- 根本原因は、Resource IR の reference address projection、raw address offset propagation、i32 fact、condition fact が `add` / `sub` / `mul` / comparison helper の spelling を各 consumer で重複分類し、静的検査 proof の分類 authority が分散していたこと。
+- `resource/scalar_primitive.rs` を追加し、`I32ArithmeticPrimitive` / `I32ComparisonPrimitive` / `BooleanPrimitive` を Resource IR scalar primitive domain として定義した。
+- `address_projection.rs` は `I32ArithmeticPrimitive` から address projection primitive を導出するようにし、coverage / lowering / raw-address return / i32 facts / condition facts は typed enum を `match` して処理する形にした。
+- `resource_ir` の condition fact regression は `core/math` import を明示し、`lt` 未解決で regression 自体が落ちる stale fixture を修正した。
+- `nodesrc/test_resource_checker_responsibility.js` に scalar primitive module と旧 local string classifier 再導入禁止を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core i32_call_facts --lib -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_nonzero_i32_relation_condition_fact -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_loop_i32_relation_condition_fact -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_symbolic_mem_ptr_add_offset -- --exact --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の compiler-core proof classifier を、consumer 側の文字列分岐から shared enum domain へ寄せた。
+
 # 2026-05-17 Agent 1 Resource effect identity / pointer alias 責務分離
 
 - `ISS-20260517T041202356Z-EFFECT-IDENTITY-MIXES-POINTER-ALIAS--1E03D438` を追加し、fixed / resolved にした。

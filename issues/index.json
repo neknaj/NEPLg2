@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T06:16:07.129Z",
+  "generated_at": "2026-05-17T06:40:36.130Z",
   "counts": {
-    "total": 919,
+    "total": 920,
     "open": 5,
-    "resolved": 914,
+    "resolved": 915,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 469,
+        "total": 470,
         "open": 0,
-        "resolved": 469
+        "resolved": 470
       },
       "CORE": {
         "total": 1,
@@ -7078,6 +7078,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T061045507Z-RESOURCE-FIELD-ACCESSOR-INTRINSIC-PR-9951F2BE.md"
+    },
+    {
+      "id": "ISS-20260517T062207552Z-RESOURCE-SCALAR-PRIMITIVE-PROOFS-DUP-30D2A64C",
+      "title": "Resource scalar primitive proofs duplicate call spellings",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/scalar_primitive.rs, nepl-core/src/resource/address_projection.rs, nepl-core/src/resource/i32_call_facts.rs, nepl-core/src/resource/lower_condition.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T062207552Z-RESOURCE-SCALAR-PRIMITIVE-PROOFS-DUP-30D2A64C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

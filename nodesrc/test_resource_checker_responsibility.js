@@ -320,6 +320,7 @@ for (const moduleName of [
     'lower_condition.rs',
     'lower_layout_intrinsic.rs',
     'model.rs',
+    'scalar_primitive.rs',
     'owner_control.rs',
     'owner_drop_scope.rs',
     'owner_state.rs',
@@ -534,6 +535,7 @@ for (const moduleDecl of [
     'mod lower_condition;',
     'mod lower_layout_intrinsic;',
     'mod model;',
+    'mod scalar_primitive;',
     'mod owner_control;',
     'mod owner_drop_scope;',
     'mod owner_state;',
@@ -571,6 +573,7 @@ const effectSummary = readResource('effect_summary.rs');
 const effectSummaryIdentity = readResource('effect_summary_identity.rs');
 const resourceDump = readResource('dump.rs');
 const addressProjection = readResource('address_projection.rs');
+const scalarPrimitive = readResource('scalar_primitive.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
 const coverageHirPlace = readResource('coverage_hir_place.rs');
@@ -597,6 +600,7 @@ const lowerCall = readResource('lower_call.rs');
 const lowerAggregate = readResource('lower_aggregate.rs');
 const lowerAggregateProjection = readResource('lower_aggregate_projection.rs');
 const lowerAggregateSelector = readResource('lower_aggregate_selector.rs');
+const lowerCondition = readResource('lower_condition.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
@@ -609,6 +613,7 @@ const initializedAliasRelation = readResource('initialized_alias_relation.rs');
 const initializedAliasRelationFlow = readResource('initialized_alias_relation_flow.rs');
 const initializedAliasRelationOp = readResource('initialized_alias_relation_op.rs');
 const initializedAliasScalar = readResource('initialized_alias_scalar.rs');
+const i32CallFacts = readResource('i32_call_facts.rs');
 const initializedAliasFlowValueProjection = readResource(
     'initialized_alias_flow_value_projection.rs',
 );
@@ -656,6 +661,12 @@ assertNotContains(
 );
 assertNotContains(coverageHirRaw, 'is_named_struct_type', 'coverage_hir_raw.rs');
 assertContains(addressProjection, 'enum AddressProjectionPrimitive', 'address_projection.rs');
+assertContains(addressProjection, 'I32ArithmeticPrimitive::from_symbol', 'address_projection.rs');
+assertContains(
+    addressProjection,
+    'I32ArithmeticPrimitive::from_base_name',
+    'address_projection.rs',
+);
 assertContains(
     addressProjection,
     'pub(super) fn compiler_field_address_base_and_offset',
@@ -675,6 +686,26 @@ assertContains(
     addressProjection,
     'pub(super) fn storage_offset_base_and_offset',
     'address_projection.rs',
+);
+assertContains(
+    scalarPrimitive,
+    'pub(super) enum I32ArithmeticPrimitive',
+    'scalar_primitive.rs',
+);
+assertContains(
+    scalarPrimitive,
+    'pub(super) enum I32ComparisonPrimitive',
+    'scalar_primitive.rs',
+);
+assertContains(
+    scalarPrimitive,
+    'pub(super) enum BooleanPrimitive',
+    'scalar_primitive.rs',
+);
+assertContains(
+    scalarPrimitive,
+    'pub(super) fn from_resource_call_target',
+    'scalar_primitive.rs',
 );
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
@@ -705,8 +736,28 @@ assertContains(
 );
 assertContains(
     coverageHirProjection,
-    'super::address_projection::compiler_field_address_base_and_offset',
+    'super::address_projection::{',
     'coverage_hir_projection.rs must share field address projection classifier with lowering',
+);
+assertContains(
+    coverageHirProjection,
+    'compiler_field_address_base_and_offset, AddressProjectionPrimitive',
+    'coverage_hir_projection.rs must share field address projection classifier with lowering',
+);
+assertContains(
+    coverageHirProjection,
+    'AddressProjectionPrimitive::from_base_name',
+    'coverage_hir_projection.rs must use typed address projection classification',
+);
+assertNotContains(
+    coverageHirProjection,
+    'Some("add" | "sub")',
+    'coverage_hir_projection.rs must not classify reference address arithmetic locally',
+);
+assertNotContains(
+    coverageHirProjection,
+    'matches!(name, Some("add"))',
+    'coverage_hir_projection.rs must not classify reference field arithmetic locally',
 );
 assertNotContains(
     coverageHirProjection,
@@ -986,6 +1037,16 @@ assertContains(
     'lower_aggregate.rs must use the shared address projection classifier',
 );
 assertContains(
+    lowerAggregate,
+    'AddressProjectionPrimitive::from_symbol',
+    'lower_aggregate.rs must use typed address projection classification',
+);
+assertNotContains(
+    lowerAggregate,
+    'helper_base_name(name) != "add"',
+    'lower_aggregate.rs must not classify reference field arithmetic locally',
+);
+assertContains(
     lower,
     'storage_offset_base_and_offset(expr)',
     'lower.rs place skeleton must use the shared address projection classifier',
@@ -1020,6 +1081,63 @@ assertNotContains(
     'callee_base_name',
     'lower_aggregate_selector.rs must not reimplement call-head address projection classification',
 );
+assertContains(
+    lowerRawAddress,
+    'I32ArithmeticPrimitive::from_symbol',
+    'lower_raw_address.rs must use typed scalar arithmetic classification',
+);
+assertContains(
+    lowerRawAddressReturn,
+    'I32ArithmeticPrimitive::from_symbol',
+    'lower_raw_address_return.rs must use typed scalar arithmetic classification',
+);
+assertContains(
+    lowerRawAddressReturnUtil,
+    'I32ArithmeticPrimitive::from_symbol',
+    'lower_raw_address_return_util.rs must use typed scalar arithmetic classification',
+);
+assertNotContains(
+    lowerRawAddress,
+    'match helper_base_name(name) {',
+    'lower_raw_address.rs must not classify scalar arithmetic by local helper-base string match',
+);
+assertNotContains(
+    lowerRawAddressReturn,
+    'match helper_base_name(name) {',
+    'lower_raw_address_return.rs must not classify scalar arithmetic by local helper-base string match',
+);
+assertNotContains(
+    lowerRawAddressReturnUtil,
+    'match helper_base_name(name) {',
+    'lower_raw_address_return_util.rs must not classify scalar arithmetic by local helper-base string match',
+);
+assertContains(
+    i32CallFacts,
+    'I32ArithmeticPrimitive::from_resource_call_target',
+    'i32_call_facts.rs must use typed scalar arithmetic classification',
+);
+assertNotContains(
+    i32CallFacts,
+    'resource_call_target_base_name',
+    'i32_call_facts.rs must not classify scalar facts by local call-target strings',
+);
+assertContains(
+    lowerCondition,
+    'BooleanPrimitive::from_base_name',
+    'lower_condition.rs must use typed boolean primitive classification',
+);
+assertContains(
+    lowerCondition,
+    'I32ComparisonPrimitive::from_base_name',
+    'lower_condition.rs must use typed comparison primitive classification',
+);
+for (const conditionHelperBranch of ['"or" =>', '"and" =>', '"eq" =>', '"ne" =>', '"lt" =>']) {
+    assertNotContains(
+        lowerCondition,
+        conditionHelperBranch,
+        'lower_condition.rs must not classify condition helpers by local string match',
+    );
+}
 assertUsesResourceModuleSymbol(
     borrowSummary,
     'borrow_check',
@@ -1467,7 +1585,7 @@ const maxLines = new Map([
     ['lower_aggregate.rs', 320],
     ['lower_aggregate_projection.rs', 180],
     ['lower_aggregate_selector.rs', 100],
-    ['lower_condition.rs', 140],
+    ['lower_condition.rs', 150],
     ['lower_layout_intrinsic.rs', 80],
     ['lower_match.rs', 100],
     ['lower_raw_address.rs', 620],
@@ -1548,6 +1666,7 @@ const maxLines = new Map([
     ['initialized_summary_variant_unique.rs', 80],
     ['initialized_variant.rs', 500],
     ['model.rs', 590],
+    ['scalar_primitive.rs', 120],
     ['owner_control.rs', 680],
     ['owner_drop_scope.rs', 260],
     ['owner_state.rs', 400],

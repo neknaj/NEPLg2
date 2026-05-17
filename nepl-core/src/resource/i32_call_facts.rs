@@ -1,9 +1,6 @@
-extern crate alloc;
-
-use crate::runtime_helpers::helper_base_name;
-
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceCallTarget};
+use super::scalar_primitive::I32ArithmeticPrimitive;
 
 pub(super) fn record_direct_call_i32_facts(
     raw_aliases: &mut RawCellAddressAliases,
@@ -29,14 +26,10 @@ fn record_i32_constant_result(
     else {
         return;
     };
-    let Some(value) = (match resource_call_target_base_name(target) {
-        Some("add") => Some(left.wrapping_add(right)),
-        Some("sub") => Some(left.wrapping_sub(right)),
-        Some("mul") => Some(left.wrapping_mul(right)),
-        _ => None,
-    }) else {
+    let Some(op) = I32ArithmeticPrimitive::from_resource_call_target(target) else {
         return;
     };
+    let value = op.wrapping_i32(left, right);
     raw_aliases.set_i32_value(output, value);
 }
 
@@ -46,7 +39,9 @@ fn record_i32_scale_result(
     output: &Place,
     args: &[Place],
 ) {
-    if resource_call_target_base_name(target) != Some("mul") {
+    if I32ArithmeticPrimitive::from_resource_call_target(target)
+        != Some(I32ArithmeticPrimitive::Mul)
+    {
         return;
     }
     let [left, right] = args else {
@@ -65,22 +60,15 @@ fn record_i32_difference_result(
     output: &Place,
     args: &[Place],
 ) {
-    if resource_call_target_base_name(target) != Some("sub") {
+    if I32ArithmeticPrimitive::from_resource_call_target(target)
+        != Some(I32ArithmeticPrimitive::Sub)
+    {
         return;
     }
     let [minuend, subtrahend] = args else {
         return;
     };
     raw_aliases.add_i32_difference(minuend, subtrahend, output);
-}
-
-fn resource_call_target_base_name(target: &ResourceCallTarget) -> Option<&str> {
-    match target {
-        ResourceCallTarget::Builtin { name } | ResourceCallTarget::User { name, .. } => {
-            Some(helper_base_name(name))
-        }
-        ResourceCallTarget::Trait { method, .. } => Some(helper_base_name(method.as_str())),
-    }
 }
 
 fn positive_i32_value_as_usize(
