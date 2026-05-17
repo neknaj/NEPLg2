@@ -9,6 +9,7 @@ use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol, Visibil
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
+use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
@@ -17,7 +18,10 @@ use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
 use super::traits::TraitId;
 use super::type_expr::type_from_expr;
-use super::{AssignKind, BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
+use super::{
+    AssignKind, BlockChecker, FieldAccessorKind, FieldIdx, ScalarIntrinsicKind,
+    ScalarIntrinsicType, StackEntry,
+};
 
 fn prefix_check_dump_enabled() -> bool {
     #[cfg(target_os = "none")]
@@ -52,6 +56,61 @@ macro_rules! prefix_check_dump {
 }
 
 impl<'a> BlockChecker<'a> {
+    fn scalar_intrinsic_type_id(&mut self, scalar_type: ScalarIntrinsicType) -> TypeId {
+        match scalar_type {
+            ScalarIntrinsicType::I32 => self.ctx.i32(),
+            ScalarIntrinsicType::I64 => self.ctx.lookup_named("i64").unwrap_or_else(|| {
+                self.ctx
+                    .register_named("i64".to_string(), TypeKind::Named("i64".to_string()))
+            }),
+            ScalarIntrinsicType::U8 => self.ctx.u8(),
+            ScalarIntrinsicType::U32 => self.ctx.lookup_named("u32").unwrap_or_else(|| {
+                self.ctx
+                    .register_named("u32".to_string(), TypeKind::Named("u32".to_string()))
+            }),
+            ScalarIntrinsicType::U64 => self.ctx.lookup_named("u64").unwrap_or_else(|| {
+                self.ctx
+                    .register_named("u64".to_string(), TypeKind::Named("u64".to_string()))
+            }),
+            ScalarIntrinsicType::F32 => self.ctx.f32(),
+            ScalarIntrinsicType::Char => self.ctx.char(),
+            ScalarIntrinsicType::Str => self.ctx.str(),
+        }
+    }
+
+    fn validate_scalar_intrinsic_args(
+        &mut self,
+        scalar_intrinsic: ScalarIntrinsicKind,
+        args: &[HirExpr],
+        span: Span,
+    ) {
+        let expected_arg_count = scalar_intrinsic.argument_count();
+        if args.len() != expected_arg_count {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                format!(
+                    "{} expects {} arguments",
+                    scalar_intrinsic.intrinsic_name(),
+                    expected_arg_count
+                ),
+                span,
+            ));
+            return;
+        }
+
+        let expected = self.scalar_intrinsic_type_id(scalar_intrinsic.input_type());
+        if let Err(_) = self.ctx.unify(args[0].ty, expected) {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                format!(
+                    "intrinsic argument type mismatch (expected {})",
+                    self.ctx.type_to_string(expected)
+                ),
+                span,
+            ));
+        }
+    }
+
     pub(super) fn check_prefix(
         &mut self,
         expr: &PrefixExpr,
@@ -1108,6 +1167,8 @@ impl<'a> BlockChecker<'a> {
 
                     let field_accessor_intrinsic =
                         FieldAccessorKind::from_intrinsic_name(intrin.name.as_str());
+                    let scalar_intrinsic =
+                        ScalarIntrinsicKind::from_intrinsic_name(intrin.name.as_str());
                     let ty = if intrin.name == "size_of" || intrin.name == "align_of" {
                         self.ctx.i32()
                     } else if intrin.name == "load" {
@@ -1138,49 +1199,8 @@ impl<'a> BlockChecker<'a> {
                         }
                     } else if intrin.name == "unreachable" {
                         self.ctx.never()
-                    } else if intrin.name == "i32_to_f32" {
-                        self.ctx.f32()
-                    } else if intrin.name == "i32_to_u8" {
-                        self.ctx.u8()
-                    } else if intrin.name == "i32_to_u32" {
-                        self.ctx.lookup_named("u32").unwrap_or_else(|| {
-                            self.ctx.register_named(
-                                "u32".to_string(),
-                                TypeKind::Named("u32".to_string()),
-                            )
-                        })
-                    } else if intrin.name == "f32_to_i32" {
-                        self.ctx.i32()
-                    } else if intrin.name == "u8_to_i32" {
-                        self.ctx.i32()
-                    } else if intrin.name == "char_to_i32" {
-                        self.ctx.i32()
-                    } else if intrin.name == "i32_to_char" {
-                        self.ctx.char()
-                    } else if intrin.name == "u32_to_i32" {
-                        self.ctx.i32()
-                    } else if intrin.name == "i64_to_u64" {
-                        self.ctx.lookup_named("u64").unwrap_or_else(|| {
-                            self.ctx.register_named(
-                                "u64".to_string(),
-                                TypeKind::Named("u64".to_string()),
-                            )
-                        })
-                    } else if intrin.name == "u64_to_i64" {
-                        self.ctx.lookup_named("i64").unwrap_or_else(|| {
-                            self.ctx.register_named(
-                                "i64".to_string(),
-                                TypeKind::Named("i64".to_string()),
-                            )
-                        })
-                    } else if intrin.name == "reinterpret_i32_f32" {
-                        self.ctx.f32()
-                    } else if intrin.name == "reinterpret_f32_i32" {
-                        self.ctx.i32()
-                    } else if intrin.name == "str_addr" {
-                        self.ctx.i32()
-                    } else if intrin.name == "str_from_addr_unchecked" {
-                        self.ctx.str()
+                    } else if let Some(scalar_intrinsic) = scalar_intrinsic {
+                        self.scalar_intrinsic_type_id(scalar_intrinsic.output_type())
                     } else {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::IntrinsicUnknown,
@@ -1383,142 +1403,8 @@ impl<'a> BlockChecker<'a> {
                         }
                     }
 
-                    // Validate intrinsic argument types for known cast/bitcast intrinsics
-                    if intrin.name == "i32_to_f32"
-                        || intrin.name == "reinterpret_i32_f32"
-                        || intrin.name == "i32_to_u8"
-                        || intrin.name == "i32_to_u32"
-                        || intrin.name == "i32_to_char"
-                    {
-                        if args.len() != 1 {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ));
-                        } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.i32()) {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
-                                "intrinsic argument type mismatch (expected i32)",
-                                *sp,
-                            ));
-                        }
-                    } else if intrin.name == "char_to_i32" {
-                        if args.len() != 1 {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ));
-                        } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.char()) {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
-                                "intrinsic argument type mismatch (expected char)",
-                                *sp,
-                            ));
-                        }
-                    } else if intrin.name == "f32_to_i32" || intrin.name == "reinterpret_f32_i32" {
-                        if args.len() != 1 {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ));
-                        } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.f32()) {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
-                                "intrinsic argument type mismatch (expected f32)",
-                                *sp,
-                            ));
-                        }
-                    } else if intrin.name == "u8_to_i32" || intrin.name == "u32_to_i32" {
-                        if args.len() != 1 {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ));
-                        } else {
-                            let expected = if intrin.name == "u8_to_i32" {
-                                self.ctx.u8()
-                            } else {
-                                self.ctx.lookup_named("u32").unwrap_or_else(|| {
-                                    self.ctx.register_named(
-                                        "u32".to_string(),
-                                        TypeKind::Named("u32".to_string()),
-                                    )
-                                })
-                            };
-                            if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(type_error(
-                                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
-                                    format!(
-                                        "intrinsic argument type mismatch (expected {})",
-                                        self.ctx.type_to_string(expected)
-                                    ),
-                                    *sp,
-                                ));
-                            }
-                        }
-                    } else if intrin.name == "i64_to_u64" || intrin.name == "u64_to_i64" {
-                        if args.len() != 1 {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ));
-                        } else {
-                            let expected = if intrin.name == "i64_to_u64" {
-                                self.ctx.lookup_named("i64").unwrap_or_else(|| {
-                                    self.ctx.register_named(
-                                        "i64".to_string(),
-                                        TypeKind::Named("i64".to_string()),
-                                    )
-                                })
-                            } else {
-                                self.ctx.lookup_named("u64").unwrap_or_else(|| {
-                                    self.ctx.register_named(
-                                        "u64".to_string(),
-                                        TypeKind::Named("u64".to_string()),
-                                    )
-                                })
-                            };
-                            if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(type_error(
-                                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
-                                    format!(
-                                        "intrinsic argument type mismatch (expected {})",
-                                        self.ctx.type_to_string(expected)
-                                    ),
-                                    *sp,
-                                ));
-                            }
-                        }
-                    } else if intrin.name == "str_addr" || intrin.name == "str_from_addr_unchecked"
-                    {
-                        if args.len() != 1 {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ));
-                        } else {
-                            let expected = if intrin.name == "str_addr" {
-                                self.ctx.str()
-                            } else {
-                                self.ctx.i32()
-                            };
-                            if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(type_error(
-                                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
-                                    format!(
-                                        "intrinsic argument type mismatch (expected {})",
-                                        self.ctx.type_to_string(expected)
-                                    ),
-                                    *sp,
-                                ));
-                            }
-                        }
+                    if let Some(scalar_intrinsic) = scalar_intrinsic {
+                        self.validate_scalar_intrinsic_args(scalar_intrinsic, &args, *sp);
                     }
 
                     stack.push(StackEntry {

@@ -40363,3 +40363,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+
+## 2026-05-17 Agent 1 scalar intrinsic signature kind 分類修正
+
+- `ISS-20260517T053109277Z-SCALAR-INTRINSIC-SIGNATURES-STILL-US-9E38B5AF` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`prefix_check.rs` が scalar / cast / string intrinsic の result type と argument validation を別々の `intrin.name` string if-chain で管理しており、spelling / arity / input type / output type が 1 つの型付き contract になっていなかったことだった。
+- 修正後は `ScalarIntrinsicKind` と `ScalarIntrinsicType` を追加し、prefix checker は `ScalarIntrinsicKind::from_intrinsic_name` を 1 回だけ計算して result type と argument validation の両方で同じ enum-owned signature を消費するようにした。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core scalar_intrinsic --lib -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test neplg2 intrinsic_arg_type_mismatch_has_type_code -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only

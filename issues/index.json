@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T05:28:16.825Z",
+  "generated_at": "2026-05-17T05:37:16.286Z",
   "counts": {
-    "total": 913,
+    "total": 914,
     "open": 5,
-    "resolved": 908,
+    "resolved": 909,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 463,
+        "total": 464,
         "open": 0,
-        "resolved": 463
+        "resolved": 464
       },
       "CORE": {
         "total": 1,
@@ -6988,6 +6988,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T052246957Z-FIELD-ACCESSOR-INTRINSIC-ARITY-CAN-P-CA712F19.md"
+    },
+    {
+      "id": "ISS-20260517T053109277Z-SCALAR-INTRINSIC-SIGNATURES-STILL-US-9E38B5AF",
+      "title": "scalar intrinsic signatures still use duplicated string classifiers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/prefix_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T053109277Z-SCALAR-INTRINSIC-SIGNATURES-STILL-US-9E38B5AF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
