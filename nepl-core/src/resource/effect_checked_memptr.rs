@@ -5,9 +5,8 @@ use crate::span::Span;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_diagnostic::ResourceEffectBoundaryDiagnostic;
-use super::effect_identity::{
-    raw_memory_op_produces_identity, RawIdentityTable, RawPointerAliasTable,
-};
+use super::effect_identity::{raw_memory_op_produces_identity, RawIdentityTable};
+use super::effect_pointer_alias::RawPointerAliasTable;
 use super::model::{EffectOp, Place, PlaceRoot};
 use super::place_utils::{checked_mem_ptr_wrapper_arg_indices, mem_ptr_raw_field_place};
 

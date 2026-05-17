@@ -1,3 +1,18 @@
+# 2026-05-17 Agent 1 Resource effect identity / pointer alias 責務分離
+
+- `ISS-20260517T041202356Z-EFFECT-IDENTITY-MIXES-POINTER-ALIAS--1E03D438` を追加し、fixed / resolved にした。
+- 根本原因は、`effect_identity.rs` が raw identity group と pointer alias table の両方を保持し、Resource IR の raw identity proof と non-owning pointer alias proof の監査単位が混在していたこと。
+- `RawPointerAliasTable` を `effect_pointer_alias.rs` へ分離し、利用側は `effect_identity` 経由ではなく `effect_pointer_alias` から明示的に import する形にした。
+- identity / pointer alias の双方が使う prefix replacement / suffix extraction / unique place append は `effect_place_prefix.rs` へ分離し、pointer alias 実装が identity 実装へ循環依存しない構造にした。
+- `nodesrc/test_resource_checker_responsibility.js` に `effect_place_prefix.rs` / `effect_pointer_alias.rs` を登録し、責務分割と行数上限で再肥大化を検出する。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR effect identity / pointer alias 責務境界を明確化した。
+
 # 2026-05-17 Agent 1 memory_safety owner aggregate fixture 更新
 
 - `ISS-20260517T040636489Z-MEMORY-SAFETY-OWNER-AGGREGATE-FIXTUR-968B23FB` を追加し、fixed / resolved にした。

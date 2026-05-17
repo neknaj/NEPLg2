@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T04:09:04.598Z",
+  "generated_at": "2026-05-17T04:20:23.712Z",
   "counts": {
-    "total": 906,
+    "total": 907,
     "open": 5,
-    "resolved": 901,
+    "resolved": 902,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 456,
+        "total": 457,
         "open": 0,
-        "resolved": 456
+        "resolved": 457
       },
       "CORE": {
         "total": 1,
@@ -6883,6 +6883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T025208836Z-RESOURCE-IR-RAW-ADDRESS-HELPER-PROOF-DAB3E3C8.md"
+    },
+    {
+      "id": "ISS-20260517T041202356Z-EFFECT-IDENTITY-MIXES-POINTER-ALIAS--1E03D438",
+      "title": "effect_identity mixes pointer alias table with raw identity table",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/effect_identity.rs, nepl-core/src/resource/effect_pointer_alias.rs, nepl-core/src/resource/effect_place_prefix.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T041202356Z-EFFECT-IDENTITY-MIXES-POINTER-ALIAS--1E03D438.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

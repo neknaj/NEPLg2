@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 
-use super::effect_identity::{push_unique_origins, RawIdentityOrigin, RawPointerAliasTable};
+use super::effect_identity::{push_unique_origins, RawIdentityOrigin};
+use super::effect_pointer_alias::RawPointerAliasTable;
 use super::model::Place;
 
 #[derive(Debug, Clone, Default)]
