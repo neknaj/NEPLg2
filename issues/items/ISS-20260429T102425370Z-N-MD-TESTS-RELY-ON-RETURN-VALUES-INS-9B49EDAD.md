@@ -1303,3 +1303,22 @@ runtime 検証を妨げる compile-time blocker は `ISS-20260517T132644394Z-SEL
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-neplg2-type-arena-report-metadata.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
 
 この issue はまだ open のまま継続する。selfhost type arena は移行済みだが、他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。
+
+## 2026-05-18 selfhost parser stdout report metadata migration
+
+`ISS-20260517T180445599Z-SELFHOST-PARSER-DOCTEST-STILL-USES-R-6B2C918C` として、`tests/stdlib/neplg2_parser.n.md::doctest#1` を canonical stdout fixture へ移行した。
+
+移行内容:
+
+- `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ変更した。
+- 既に呼んでいた `checks_print_report` / `checks_exit_code` の実行順は維持し、manifest から `ret:` を削除した。
+- parser doctest の report は 21 assertion であり、stdout expectation と source policy の両方で固定した。
+- `nodesrc/test_selfhost_parser_report_contract.js` を追加し、selfhost parser doctest が quiet exit-code-only metadata へ戻らないことを source policy にした。
+
+検証:
+
+- `node nodesrc/test_selfhost_parser_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i tests\\stdlib\\neplg2_parser.n.md -n 1 --dist web\\dist`: pass
+- `node nodesrc/tests.js -i tests\\stdlib\\neplg2_parser.n.md --no-tree -o tmp\\agent1-neplg2-parser-report-metadata.json -j 1 --dist web\\dist --assert-io`: total=1, passed=1
+
+`node nodesrc/run_source_policy_regressions.js` は別件の `nodesrc/test_resource_checker_responsibility.js` stale policy で失敗したため、`ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40` として分離した。この issue はまだ open のまま継続する。他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。
