@@ -13,6 +13,7 @@ mod compiler_memory_type;
 mod constructor_apply;
 mod context;
 mod control_apply;
+mod control_special;
 mod copy_capability;
 mod diagnostics;
 mod driver;
