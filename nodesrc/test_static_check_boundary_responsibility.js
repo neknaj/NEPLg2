@@ -14,7 +14,9 @@ const LAYOUT = path.join(CORE_SRC, 'layout.rs');
 const WASM_SHARED = path.join(CORE_SRC, 'wasm_shared.rs');
 const CODEGEN_WASM = path.join(CORE_SRC, 'codegen_wasm.rs');
 const CODEGEN_LLVM = path.join(CORE_SRC, 'codegen_llvm.rs');
+const CODEGEN_LLVM_SCALAR_INTRINSIC = path.join(CORE_SRC, 'codegen_llvm', 'scalar_intrinsic.rs');
 const CODEGEN_LLVM_TYPE_MAP = path.join(CORE_SRC, 'codegen_llvm', 'type_map.rs');
+const CODEGEN_PRECHECK = path.join(CORE_SRC, 'passes', 'codegen_precheck.rs');
 const TYPES_RS = path.join(CORE_SRC, 'types.rs');
 const TYPECHECK_ROOT = path.join(CORE_SRC, 'typecheck.rs');
 const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
@@ -361,7 +363,12 @@ const layout = assertFile(LAYOUT, 'layout.rs');
 const wasmShared = assertFile(WASM_SHARED, 'wasm_shared.rs');
 const codegenWasm = assertFile(CODEGEN_WASM, 'codegen_wasm.rs');
 const codegenLlvm = assertFile(CODEGEN_LLVM, 'codegen_llvm.rs');
+const codegenLlvmScalarIntrinsic = assertFile(
+    CODEGEN_LLVM_SCALAR_INTRINSIC,
+    'codegen_llvm/scalar_intrinsic.rs',
+);
 const codegenLlvmTypeMap = assertFile(CODEGEN_LLVM_TYPE_MAP, 'codegen_llvm/type_map.rs');
+const codegenPrecheck = assertFile(CODEGEN_PRECHECK, 'passes/codegen_precheck.rs');
 const typesRs = assertFile(TYPES_RS, 'types.rs');
 const typecheckMatchCheck = assertFile(
     path.join(TYPECHECK_DIR, 'match_check.rs'),
@@ -596,14 +603,24 @@ assertContains(
     'FieldAccessorKind must expose core/field source member spelling for round-trip tests',
 );
 assertContains(
-    typecheckModel,
-    'pub(super) enum ScalarIntrinsicKind',
-    'typecheck/model.rs must keep scalar intrinsic signatures in a typed enum domain',
+    intrinsicKinds,
+    'pub(crate) enum ScalarIntrinsicKind',
+    'intrinsic_kinds.rs must keep scalar intrinsic signatures in a shared typed enum domain',
 );
 assertContains(
-    typecheckModel,
-    'pub(super) enum ScalarIntrinsicType',
-    'typecheck/model.rs must keep scalar intrinsic types in a typed enum domain',
+    intrinsicKinds,
+    'pub(crate) enum ScalarIntrinsicType',
+    'intrinsic_kinds.rs must keep scalar intrinsic types in a shared typed enum domain',
+);
+assertContains(
+    intrinsicKinds,
+    'pub(crate) enum ScalarIntrinsicBackendOp',
+    'intrinsic_kinds.rs must keep scalar intrinsic backend semantics in a typed enum domain',
+);
+assertContains(
+    intrinsicKinds,
+    'pub(crate) const fn backend_op',
+    'ScalarIntrinsicKind must own backend lowering semantics',
 );
 assertContains(
     intrinsicKinds,
@@ -629,6 +646,16 @@ assertNotContains(
     typecheckModel,
     'enum CoreIntrinsicResultKind',
     'typecheck/model.rs must not re-localize shared core intrinsic result classification',
+);
+assertNotContains(
+    typecheckModel,
+    'enum ScalarIntrinsicKind',
+    'typecheck/model.rs must not re-localize shared scalar intrinsic classification',
+);
+assertNotContains(
+    typecheckModel,
+    'enum ScalarIntrinsicType',
+    'typecheck/model.rs must not re-localize shared scalar intrinsic type classification',
 );
 assertContains(
     typecheckBindingRules,
@@ -705,6 +732,41 @@ assertContains(
     'validate_scalar_intrinsic_args',
     'typecheck/prefix_check.rs must validate scalar intrinsic arguments through ScalarIntrinsicKind',
 );
+assertContains(
+    wasmShared,
+    'ScalarIntrinsicKind::from_intrinsic_name',
+    'wasm_shared.rs must derive wasm scalar intrinsic support from ScalarIntrinsicKind',
+);
+assertContains(
+    codegenPrecheck,
+    'ScalarIntrinsicKind::from_intrinsic_name',
+    'codegen_precheck.rs must derive llvm scalar intrinsic support from ScalarIntrinsicKind',
+);
+assertContains(
+    codegenWasm,
+    'ScalarIntrinsicKind::from_intrinsic_name',
+    'codegen_wasm.rs must lower scalar intrinsics through ScalarIntrinsicKind',
+);
+assertContains(
+    codegenWasm,
+    'kind.backend_op()',
+    'codegen_wasm.rs must consume ScalarIntrinsicKind backend_op instead of scalar spelling branches',
+);
+assertContains(
+    codegenLlvm,
+    'ScalarIntrinsicKind::from_intrinsic_name',
+    'codegen_llvm.rs must route scalar intrinsics through ScalarIntrinsicKind',
+);
+assertContains(
+    codegenLlvm,
+    'scalar_intrinsic::lower_scalar_intrinsic',
+    'codegen_llvm.rs must delegate scalar intrinsic lowering to the typed scalar intrinsic module',
+);
+assertContains(
+    codegenLlvmScalarIntrinsic,
+    'kind.backend_op()',
+    'codegen_llvm/scalar_intrinsic.rs must consume ScalarIntrinsicKind backend_op',
+);
 for (const scalarIntrinsicName of [
     'i32_to_f32',
     'reinterpret_i32_f32',
@@ -726,6 +788,19 @@ for (const scalarIntrinsicName of [
         `intrin.name == "${scalarIntrinsicName}"`,
         `typecheck/prefix_check.rs must not duplicate ${scalarIntrinsicName} branch spelling outside ScalarIntrinsicKind`,
     );
+    for (const [label, source] of [
+        ['wasm_shared.rs', wasmShared],
+        ['passes/codegen_precheck.rs', codegenPrecheck],
+        ['codegen_wasm.rs', codegenWasm],
+        ['codegen_llvm.rs', codegenLlvm],
+        ['codegen_llvm/scalar_intrinsic.rs', codegenLlvmScalarIntrinsic],
+    ]) {
+        assertNotContains(
+            source,
+            `"${scalarIntrinsicName}"`,
+            `${label} must not duplicate ${scalarIntrinsicName} spelling outside ScalarIntrinsicKind`,
+        );
+    }
 }
 assertContains(coreLib, 'mod backend_scalar_type;', 'lib.rs');
 assertLineLimit(BACKEND_SCALAR_TYPE, 'backend_scalar_type.rs', 160);

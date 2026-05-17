@@ -40,12 +40,13 @@ mod trait_call_apply;
 mod trait_check;
 mod traits;
 mod type_expr;
-use crate::intrinsic_kinds::{CoreIntrinsicKind, CoreIntrinsicResultKind, FieldAccessorKind};
+use crate::intrinsic_kinds::{
+    CoreIntrinsicKind, CoreIntrinsicResultKind, FieldAccessorKind, ScalarIntrinsicKind,
+    ScalarIntrinsicType,
+};
 use context::BlockChecker;
 use function_check::check_function;
-use model::{
-    AssignKind, FieldIdx, ScalarIntrinsicKind, ScalarIntrinsicType, ScalarMatchKind, StackEntry,
-};
+use model::{AssignKind, FieldIdx, ScalarMatchKind, StackEntry};
 use traits::BoundEnv;
 
 pub use driver::{typecheck, TypeCheckResult};
