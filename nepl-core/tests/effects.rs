@@ -191,6 +191,8 @@ fn raw_body_memory_operations_are_typed_by_backend() {
         lines: vec![
             String::from("i32.load"),
             String::from("i64.store"),
+            String::from("i32.reload"),
+            String::from("custom.loadx"),
             String::from("memory.grow"),
             String::from("memory.copy"),
             String::from("data.drop"),
@@ -214,6 +216,7 @@ fn raw_body_memory_operations_are_typed_by_backend() {
             String::from("%v = load i32, ptr %p"),
             String::from("store i32 1, ptr %p"),
             String::from("fence seq_cst"),
+            String::from("call void @llvm.memcpy_like(ptr %p, ptr %q, i64 4, i1 false)"),
             String::from("call void @llvm.memcpy.p0.p0.i64(ptr %p, ptr %q, i64 4, i1 false)"),
         ],
         span: Span::dummy(),

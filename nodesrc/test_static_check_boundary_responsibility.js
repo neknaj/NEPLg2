@@ -1339,6 +1339,61 @@ assertContains(effects, 'pub enum RawBodyBackend', 'effects.rs');
 assertContains(effects, 'RawBodyDirectCallee::BackendIntrinsic', 'effects.rs');
 assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum LlvmRawBodyMemoryOp', 'effects.rs');
+assertContains(
+    effects,
+    'fn from_opcode(op: &str) -> Option<Self>',
+    'WasmRawBodyMemoryOp must own WASM raw-body memory opcode classification',
+);
+assertContains(
+    effects,
+    'fn from_instruction_opcode(op: &str) -> Option<Self>',
+    'LlvmRawBodyMemoryOp must own LLVM instruction opcode classification',
+);
+assertContains(
+    effects,
+    'fn from_intrinsic_callee(callee: &str) -> Option<Self>',
+    'LlvmRawBodyMemoryOp must own LLVM memory intrinsic callee classification',
+);
+assertContains(
+    effects,
+    'WasmRawBodyMemoryOp::from_opcode(op)',
+    'raw_body_memory_operations must consume typed WASM raw-body memory opcode classification',
+);
+assertContains(
+    effects,
+    'LlvmRawBodyMemoryOp::from_intrinsic_callee(&callee)',
+    'raw_body_memory_operations must consume typed LLVM memory intrinsic classification',
+);
+assertContains(
+    effects,
+    'LlvmRawBodyMemoryOp::from_instruction_opcode(op)',
+    'raw_body_memory_operations must consume typed LLVM instruction opcode classification',
+);
+assertNotContains(
+    effects,
+    'op.contains(".load")',
+    'effects.rs must not classify WASM loads through substring checks outside the enum domain',
+);
+assertNotContains(
+    effects,
+    'op.contains(".store")',
+    'effects.rs must not classify WASM stores through substring checks outside the enum domain',
+);
+assertNotContains(
+    effects,
+    'callee.starts_with("llvm.memcpy")',
+    'effects.rs must not classify LLVM memcpy with an unbounded prefix branch outside the enum domain',
+);
+assertNotContains(
+    effects,
+    'callee.starts_with("llvm.memmove")',
+    'effects.rs must not classify LLVM memmove with an unbounded prefix branch outside the enum domain',
+);
+assertNotContains(
+    effects,
+    'callee.starts_with("llvm.memset")',
+    'effects.rs must not classify LLVM memset with an unbounded prefix branch outside the enum domain',
+);
 assertContains(effects, 'pub enum RawMemoryHelper', 'effects.rs');
 assertContains(effects, 'impl RawMemoryHelper', 'effects.rs');
 assertContains(effects, 'pub fn from_name(name: &str) -> Option<Self>', 'effects.rs');
