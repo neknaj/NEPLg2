@@ -1,3 +1,27 @@
+# 2026-05-17 Agent 1 compiler memory field proof と owner field proof の分離
+
+- `ISS-20260517T090028643Z-COMPILER-MEMORY-FIELD-PROOF-IS-GRANT-4EB3DABF` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`OwnerAggregateFieldBoundary` と `CompilerMemoryFieldBoundary` が別 `SourceCapabilityUseSite` であるにもかかわらず、`OwnerAggregateCapabilityEvidence::FieldAccessor` から両方を同時に発行していたこと。
+- `CompilerMemoryField` / `CompilerMemoryFieldEvidence` を追加し、compiler memory field proof を `raw` / `size` selector 付きの typed proof artifact にした。
+- source proof は `core/field` 由来または field intrinsic 由来の `get` / `get_ref` が compiler memory representation field selector を使う場合だけ `CompilerMemoryFieldBoundary { field, span }` を発行する。`put` や通常の aggregate field selector では発行しない。
+- typecheck は direct `MemPtr.raw` など base type 自身が compiler memory type の field access でのみ compiler memory field proof を消費する。`PtrHolder.ptr` のように aggregate payload が `MemPtr<T>` であるだけの projection は、compiler-owned source でも `type.raw_pointer.field_access_restricted` として拒否する。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、owner aggregate field evidence arm が compiler memory field proof を発行しないこと、compiler memory field proof が別 typed domain であることを監視する policy を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core compiler_memory_field_boundary_requires_representation_field_selector --lib -- --nocapture`
+  - `cargo test -p nepl-core source_map::tests --lib -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_compiler_owned_aggregate_mem_ptr_payload_field_access -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_region_token_field_access_with_owner_field_boundary -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_field_access_outside_compiler_memory_field_boundary -- --exact --nocapture`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/core/mem/internal.nepl --no-tree -o tmp/agent1-compiler-memory-field-core-mem-internal.json -j 1` (`total=4`, `passed=4`, `failed=0`, `errored=0`)
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-compiler-memory-field-move-effect.json -j 1` (`total=115`, `passed=115`, `failed=0`, `errored=0`)
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「source evidence と typed proof artifact を混線させず、stdlib module allowlist ではなく source fact + typecheck で性質を証明する」方針に沿って、owner aggregate field 操作と compiler memory representation access を分離した。
+
 # 2026-05-17 Agent 1 shadow warning の hardcoded stdlib allowlist 削除
 
 - `ISS-20260517T083417129Z-SHADOW-WARNINGS-DEPEND-ON-HARDCODED--58058C13` を追加し、fixed / resolved にした。`plan.md` は変更していない。

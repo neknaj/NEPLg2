@@ -101,6 +101,7 @@ pub enum SourceCapabilityUseSite {
         span: SourceCapabilitySpan,
     },
     CompilerMemoryFieldBoundary {
+        field: CompilerMemoryField,
         span: SourceCapabilitySpan,
     },
     CompilerMemoryTypeDefinition {
@@ -113,6 +114,22 @@ pub enum SourceCapabilityUseSite {
 pub enum CompilerMemoryType {
     RawPointer,
     OwnerToken,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum CompilerMemoryField {
+    Raw,
+    Size,
+}
+
+impl CompilerMemoryField {
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "raw" => Some(Self::Raw),
+            "size" => Some(Self::Size),
+            _ => None,
+        }
+    }
 }
 
 /// Compiler-owned privileges proven from source for one file.
@@ -188,8 +205,13 @@ impl SourceCapabilities {
         })
     }
 
-    pub fn allows_compiler_memory_field_boundary_at(&self, span: Span) -> bool {
+    pub fn allows_compiler_memory_field_boundary_at(
+        &self,
+        field: CompilerMemoryField,
+        span: Span,
+    ) -> bool {
         self.allows_use_site(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
+            field,
             span: SourceCapabilitySpan::from_span(span),
         })
     }
@@ -279,9 +301,13 @@ impl SourceMap {
             .allows_owner_aggregate_field_boundary_at(span)
     }
 
-    pub fn compiler_memory_field_boundary_allowed_at(&self, span: Span) -> bool {
+    pub fn compiler_memory_field_boundary_allowed_at(
+        &self,
+        field: CompilerMemoryField,
+        span: Span,
+    ) -> bool {
         self.capabilities(span.file_id)
-            .allows_compiler_memory_field_boundary_at(span)
+            .allows_compiler_memory_field_boundary_at(field, span)
     }
 
     pub fn compiler_memory_type_definition_allowed_at(
@@ -362,8 +388,8 @@ mod tests {
     use crate::span::{FileId, Span};
 
     use super::{
-        CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite,
-        SourceMap,
+        CompilerMemoryField, CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan,
+        SourceCapabilityUseSite, SourceMap,
     };
 
     fn use_site_capabilities(use_site: SourceCapabilityUseSite) -> SourceCapabilities {
@@ -426,16 +452,23 @@ mod tests {
         assert!(owner_field.allows_owner_aggregate_field_boundary_at(proven));
         assert!(!owner_field.allows_owner_aggregate_field_boundary_at(other));
         assert!(!owner_field.allows_owner_aggregate_constructor_boundary_at("Vec", proven));
-        assert!(!owner_field.allows_compiler_memory_field_boundary_at(proven));
+        assert!(
+            !owner_field.allows_compiler_memory_field_boundary_at(CompilerMemoryField::Raw, proven)
+        );
         assert!(!owner_field.allows_raw_memory_structural_boundary_at(proven));
         assert!(!owner_field.allows_raw_address_view_boundary_at(proven));
 
         let compiler_field =
             use_site_capabilities(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
+                field: CompilerMemoryField::Raw,
                 span: SourceCapabilitySpan::from_span(proven),
             });
-        assert!(compiler_field.allows_compiler_memory_field_boundary_at(proven));
-        assert!(!compiler_field.allows_compiler_memory_field_boundary_at(other));
+        assert!(compiler_field
+            .allows_compiler_memory_field_boundary_at(CompilerMemoryField::Raw, proven));
+        assert!(!compiler_field
+            .allows_compiler_memory_field_boundary_at(CompilerMemoryField::Raw, other));
+        assert!(!compiler_field
+            .allows_compiler_memory_field_boundary_at(CompilerMemoryField::Size, proven));
         assert!(!compiler_field.allows_owner_aggregate_field_boundary_at(proven));
 
         let address_view = use_site_capabilities(SourceCapabilityUseSite::RawAddressViewBoundary {

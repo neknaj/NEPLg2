@@ -1,6 +1,7 @@
 use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, StructDef, Symbol};
 use crate::hir::HirBody;
 use crate::source_capability::constructor_position::explicit_constructor_symbol;
+use crate::source_capability::field_selector::field_selector_after_call_head;
 use crate::source_capability::prefix_call::{call_head_symbol, PrefixCallHead};
 use crate::source_capability::scope::SourceCapabilityScope;
 use crate::span::Span;
@@ -34,6 +35,7 @@ pub(super) trait SourceCapabilityObserver {
         &mut self,
         _symbol: &str,
         _span: Span,
+        _selector: Option<&str>,
         _scope: &SourceCapabilityScope,
     ) {
     }
@@ -46,7 +48,14 @@ pub(super) trait SourceCapabilityObserver {
     ) {
     }
 
-    fn observe_intrinsic(&mut self, _name: &str, _span: Span, _scope: &SourceCapabilityScope) {}
+    fn observe_intrinsic(
+        &mut self,
+        _name: &str,
+        _args: &[PrefixExpr],
+        _span: Span,
+        _scope: &SourceCapabilityScope,
+    ) {
+    }
 
     fn observe_raw_body(&mut self, _body: HirBody, _span: Span) {}
 }
@@ -151,6 +160,8 @@ fn walk_expr_capability_evidence(
     for (index, item) in expr.items.iter().enumerate() {
         observe_call_head_item(
             item,
+            index,
+            &expr.items,
             call_head.current_item_can_start_call() || expr.items.get(index + 1).is_some(),
             scope,
             observer,
@@ -163,13 +174,20 @@ fn walk_expr_capability_evidence(
 
 fn observe_call_head_item(
     item: &PrefixItem,
+    index: usize,
+    items: &[PrefixItem],
     can_start_call: bool,
     scope: &SourceCapabilityScope,
     observer: &mut impl SourceCapabilityObserver,
 ) {
     if can_start_call {
         if let Some(symbol) = call_head_symbol(item) {
-            observer.observe_call_head_symbol(symbol, prefix_item_span(item), scope);
+            observer.observe_call_head_symbol(
+                symbol,
+                prefix_item_span(item),
+                field_selector_after_call_head(index, items),
+                scope,
+            );
         }
     }
 }
@@ -193,7 +211,7 @@ fn walk_prefix_item_capability_evidence(
 ) {
     match item {
         PrefixItem::Intrinsic(intrinsic, span) => {
-            observer.observe_intrinsic(intrinsic.name.as_str(), *span, scope);
+            observer.observe_intrinsic(intrinsic.name.as_str(), &intrinsic.args, *span, scope);
             for expr in &intrinsic.args {
                 walk_expr_capability_evidence(expr, scope, observer);
             }

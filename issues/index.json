@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T08:51:00.179Z",
+  "generated_at": "2026-05-17T09:25:59.350Z",
   "counts": {
-    "total": 931,
+    "total": 932,
     "open": 5,
-    "resolved": 926,
+    "resolved": 927,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 477,
+        "total": 478,
         "open": 0,
-        "resolved": 477
+        "resolved": 478
       },
       "CORE": {
         "total": 1,
@@ -7248,6 +7248,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T083417129Z-SHADOW-WARNINGS-DEPEND-ON-HARDCODED--58058C13.md"
+    },
+    {
+      "id": "ISS-20260517T090028643Z-COMPILER-MEMORY-FIELD-PROOF-IS-GRANT-4EB3DABF",
+      "title": "Compiler memory field proof is granted by generic owner field evidence",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/proof_builder.rs, nepl-core/src/source_capability/proof.rs, nepl-core/src/source_map.rs, nepl-core/src/typecheck/field_access.rs, nepl-core/src/loader.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_static_check_boundary_responsibility.js, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T090028643Z-COMPILER-MEMORY-FIELD-PROOF-IS-GRANT-4EB3DABF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

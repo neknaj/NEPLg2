@@ -5,7 +5,9 @@
 //! later typecheck phase still proves the typed shape at each privileged use.
 
 mod binding;
+mod compiler_memory_field;
 mod constructor_position;
+mod field_selector;
 mod memory_type_definition;
 mod owner_aggregate;
 mod prefix_call;

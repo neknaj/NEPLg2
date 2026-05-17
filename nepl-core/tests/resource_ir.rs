@@ -12561,6 +12561,38 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_rejects_compiler_owned_aggregate_mem_ptr_payload_field_access() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/field" as field
+
+struct PtrHolder:
+    ptr <MemPtr<u8>>
+
+fn reveal_ptr <(PtrHolder)->MemPtr<u8>> (holder):
+    field::get holder "ptr"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let err = compile_resource_source_as_compiler_owned(source, CompileTarget::Wasm)
+        .expect_err("compiler-owned owner field proof must not allow MemPtr payload extraction");
+    let nepl_core::CoreError::Diagnostics(diagnostics) = err else {
+        panic!("expected diagnostics error");
+    };
+    assert!(
+        diagnostics.iter().any(
+            |diagnostic| diagnostic.code.as_str() == "type.raw_pointer.field_access_restricted"
+        ),
+        "expected raw pointer field access restriction, diagnostics: {diagnostics:#?}"
+    );
+}
+
+#[test]
 fn typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary() {
     let source = r#"
 #entry main

@@ -53,10 +53,20 @@ const SOURCE_CAPABILITY_BINDING = path.join(
     'source_capability',
     'binding.rs',
 );
+const SOURCE_CAPABILITY_COMPILER_MEMORY_FIELD = path.join(
+    CORE_SRC,
+    'source_capability',
+    'compiler_memory_field.rs',
+);
 const SOURCE_CAPABILITY_CONSTRUCTOR_POSITION = path.join(
     CORE_SRC,
     'source_capability',
     'constructor_position.rs',
+);
+const SOURCE_CAPABILITY_FIELD_SELECTOR = path.join(
+    CORE_SRC,
+    'source_capability',
+    'field_selector.rs',
 );
 const SOURCE_CAPABILITY_PREFIX_CALL = path.join(
     CORE_SRC,
@@ -241,9 +251,17 @@ const sourceCapabilityBinding = assertFile(
     SOURCE_CAPABILITY_BINDING,
     'source_capability/binding.rs',
 );
+const sourceCapabilityCompilerMemoryField = assertFile(
+    SOURCE_CAPABILITY_COMPILER_MEMORY_FIELD,
+    'source_capability/compiler_memory_field.rs',
+);
 const sourceCapabilityConstructorPosition = assertFile(
     SOURCE_CAPABILITY_CONSTRUCTOR_POSITION,
     'source_capability/constructor_position.rs',
+);
+const sourceCapabilityFieldSelector = assertFile(
+    SOURCE_CAPABILITY_FIELD_SELECTOR,
+    'source_capability/field_selector.rs',
 );
 const sourceCapabilityPrefixCall = assertFile(
     SOURCE_CAPABILITY_PREFIX_CALL,
@@ -893,8 +911,13 @@ assertMatches(
 );
 assertContains(
     typecheckFieldAccess,
-    'compiler_memory_field_boundary_allowed_at(span)',
-    'typecheck/field_access.rs raw pointer projection must require exact field-access source proof',
+    'compiler_memory_field_boundary_allowed_at(field, span)',
+    'typecheck/field_access.rs raw pointer projection must require exact field-specific source proof',
+);
+assertContains(
+    typecheckFieldAccess,
+    'compiler_memory_field_for_restricted_access',
+    'typecheck/field_access.rs raw pointer projection must derive compiler-memory field identity from typed selector proof',
 );
 assertMatches(
     typecheckFieldAccess,
@@ -1019,6 +1042,7 @@ assertLineLimit(
     'source_capability/constructor_position.rs',
     80,
 );
+assertLineLimit(SOURCE_CAPABILITY_FIELD_SELECTOR, 'source_capability/field_selector.rs', 60);
 assertLineLimit(SOURCE_CAPABILITY_PREFIX_CALL, 'source_capability/prefix_call.rs', 80);
 assertLineLimit(
     SOURCE_CAPABILITY_RAW_EVIDENCE_GATE,
@@ -1114,6 +1138,8 @@ assertContains(sourceMap, 'CompilerMemoryTypeDefinition {', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateConstructorBoundary {', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateFieldBoundary', 'source_map.rs');
 assertContains(sourceMap, 'CompilerMemoryFieldBoundary', 'source_map.rs');
+assertContains(sourceMap, 'pub enum CompilerMemoryField', 'source_map.rs');
+assertContains(sourceMap, 'field: CompilerMemoryField', 'source_map.rs');
 assertContains(sourceMap, 'pub enum SourceCapabilityUseSite', 'source_map.rs');
 assertContains(sourceMap, 'pub struct SourceCapabilitySpan', 'source_map.rs');
 assertContains(sourceMap, 'raw_memory_operation_boundary_allowed_at', 'source_map.rs');
@@ -1209,8 +1235,23 @@ assertContains(
 );
 assertContains(
     sourceCapability,
+    'mod compiler_memory_field;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
     'mod constructor_position;',
     'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'mod field_selector;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapabilityFieldSelector,
+    'field_selector_after_call_head',
+    'compiler memory field source proof must keep selector extraction in a bounded helper',
 );
 assertContains(
     sourceCapability,
@@ -1550,6 +1591,35 @@ assertContains(
     'compiler memory field projection must use exact field-access source proof',
 );
 assertContains(
+    sourceCapabilityProofBuilder,
+    'insert_compiler_memory_field_evidence',
+    'compiler memory field projection must not be inserted through owner aggregate evidence',
+);
+const ownerAggregateFieldEvidenceArm = sourceCapabilityProofBuilder.match(
+    /Some\(OwnerAggregateCapabilityEvidence::FieldAccessor\) => \{[\s\S]*?\n            \}/,
+);
+assert(ownerAggregateFieldEvidenceArm, 'source_capability/proof_builder.rs owner field arm');
+assertNotContains(
+    ownerAggregateFieldEvidenceArm[0],
+    'CompilerMemoryFieldBoundary',
+    'owner aggregate field evidence must not grant compiler memory field proof',
+);
+assertContains(
+    sourceCapabilityCompilerMemoryField,
+    'enum CompilerMemoryFieldEvidence',
+    'compiler memory field evidence must be a typed source proof domain',
+);
+assertContains(
+    sourceCapabilityCompilerMemoryField,
+    'FieldAccessorKind::Get | FieldAccessorKind::GetRef',
+    'compiler memory field evidence must use exhaustive field accessor classification',
+);
+assertContains(
+    sourceCapabilityCompilerMemoryField,
+    'CompilerMemoryField::from_name',
+    'compiler memory field evidence must classify representation fields through typed field domain',
+);
+assertContains(
     sourceCapabilityProof,
     'fn observe_intrinsic',
     'owner aggregate source capability must inspect intrinsic field access evidence through the shared proof walker',
@@ -1703,6 +1773,16 @@ assertContains(
     loader,
     'fn owner_aggregate_boundary_rejects_set_field_intrinsic_evidence()',
     'loader.rs owner aggregate write intrinsic evidence rejection regression',
+);
+assertContains(
+    loader,
+    'fn compiler_memory_field_boundary_requires_representation_field_selector()',
+    'loader.rs compiler memory field selector regression',
+);
+assertContains(
+    resourceIrTests,
+    'typecheck_rejects_compiler_owned_aggregate_mem_ptr_payload_field_access',
+    'resource_ir.rs compiler-owned aggregate MemPtr payload field access regression',
 );
 assertContains(
     loader,

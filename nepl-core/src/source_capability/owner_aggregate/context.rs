@@ -2,6 +2,7 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 
 use crate::ast::{Block, FnBody, Module, Stmt};
+use crate::intrinsic_kinds::FieldAccessorKind;
 
 use super::field_imports::CoreFieldAccessorImports;
 
@@ -26,7 +27,14 @@ impl OwnerAggregateEvidenceContext {
     }
 
     pub(in crate::source_capability) fn is_core_field_accessor_symbol(&self, symbol: &str) -> bool {
-        self.field_imports.accepts_symbol(symbol)
+        self.core_field_accessor_kind(symbol).is_some()
+    }
+
+    pub(in crate::source_capability) fn core_field_accessor_kind(
+        &self,
+        symbol: &str,
+    ) -> Option<FieldAccessorKind> {
+        self.field_imports.accessor_kind(symbol)
     }
 
     fn collect_block(&mut self, block: &Block) {
