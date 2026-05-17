@@ -18,5 +18,4 @@ mod scope;
 mod top_level_raw_calls;
 mod walk;
 
-pub(crate) use crate::resource_primitives::compiler_memory_type_from_constructor_name;
 pub(crate) use proof::module_source_capabilities;

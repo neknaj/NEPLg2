@@ -1,3 +1,20 @@
+# 2026-05-17 Agent 1 compiler memory type shape spec 集約
+
+- `ISS-20260517T071912004Z-COMPILER-MEMORY-TYPE-DEFINITION-SHAP-EE5DF0E2` を追加し、fixed / resolved にした。
+- 根本原因は、`MemPtr` / `RegionToken` definition の `raw` / `size` field contract が source capability AST proof と typecheck typed proof の 2 箇所に重複し、compiler memory representation の変更時に drift し得たこと。
+- `resource_primitives.rs` に `CompilerMemoryFieldSpec::{RawI32, SizeI32}` と `compiler_memory_type_field_specs` を追加し、field 名・順序・型要求を shared typed spec に集約した。
+- `source_capability/memory_type_definition.rs` は per-memory-type checker を削除し、`compiler_memory_type_field_specs(memory_type)` を消費して AST shape を検査する。
+- `typecheck/compiler_memory_type.rs` も同じ spec を消費して typed field shape を検査し、`raw` / `size` spelling の local duplicate を削除した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core compiler_memory_type --lib -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_requires_struct_shape_for_compiler_memory_type_registration -- --exact --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の compiler memory type shape proof を shared enum-owned contract へ寄せた。
+
 # 2026-05-17 Agent 1 core/field source accessor spelling の FieldAccessorKind 集約
 
 - `ISS-20260517T071123948Z-CORE-FIELD-SOURCE-ACCESSOR-SPELLING--C753D74B` を追加し、fixed / resolved にした。

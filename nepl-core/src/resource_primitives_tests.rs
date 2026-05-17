@@ -24,6 +24,26 @@ fn register_memory_struct(types: &mut TypeCtx, name: &str, field_names: &[&str])
 }
 
 #[test]
+fn compiler_memory_type_field_specs_are_kind_owned() {
+    let raw_pointer_fields = compiler_memory_type_field_specs(CompilerMemoryType::RawPointer);
+    assert_eq!(raw_pointer_fields, &[CompilerMemoryFieldSpec::RawI32]);
+    assert_eq!(raw_pointer_fields[0].name(), "raw");
+    assert!(raw_pointer_fields[0].requires_i32());
+
+    let owner_token_fields = compiler_memory_type_field_specs(CompilerMemoryType::OwnerToken);
+    assert_eq!(
+        owner_token_fields,
+        &[
+            CompilerMemoryFieldSpec::RawI32,
+            CompilerMemoryFieldSpec::SizeI32
+        ]
+    );
+    assert_eq!(owner_token_fields[0].name(), "raw");
+    assert_eq!(owner_token_fields[1].name(), "size");
+    assert!(owner_token_fields.iter().all(|field| field.requires_i32()));
+}
+
+#[test]
 fn compiler_memory_type_classifies_base_and_applied_types() {
     let mut types = TypeCtx::new();
     let mem_ptr = register_memory_struct(&mut types, RAW_POINTER_TYPE_NAME, &["raw"]);
