@@ -10,6 +10,7 @@ use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
+use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -1360,7 +1361,9 @@ impl<'a> BlockChecker<'a> {
                                             HirExpr {
                                                 ty: self.ctx.i32(),
                                                 kind: HirExprKind::Intrinsic {
-                                                    name: "add".to_string(),
+                                                    name: I32ArithmeticPrimitive::Add
+                                                        .base_name()
+                                                        .to_string(),
                                                     type_args: vec![self.ctx.i32()],
                                                     args: vec![
                                                         obj,
@@ -1379,7 +1382,9 @@ impl<'a> BlockChecker<'a> {
                                         let hexpr = HirExpr {
                                             ty: self.ctx.unit(),
                                             kind: HirExprKind::Intrinsic {
-                                                name: "store".to_string(),
+                                                name: CoreIntrinsicKind::Store
+                                                    .intrinsic_name()
+                                                    .to_string(),
                                                 type_args: vec![f_ty],
                                                 args: vec![addr_expr, val],
                                             },

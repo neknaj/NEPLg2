@@ -41142,3 +41142,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_module_loader.n.md -n 1 --dist web\dist`: passed
   - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_module_loader.n.md -n 2 --dist web\dist`: passed
   - `node nodesrc/tests.js -i tests\stdlib\neplg2_module_loader.n.md --no-tree -o tmp\agent1-neplg2-module-loader-report-metadata.json -j 1 --dist web\dist --assert-io`: total=2, passed=2
+
+## 2026-05-18 Agent 1 synthetic HIR intrinsic typed domain 修正
+
+- `ISS-20260517T185446545Z-SYNTHETIC-HIR-RAW-AND-ADDRESS-INTRIN-0E618808` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR / effect / prefix checker consumer の intrinsic 判定を `CoreIntrinsicKind` / `I32ArithmeticPrimitive` へ移していた一方で、typecheck と drop insertion の合成HIR producerが `add` / `load` / `store` を直接文字列生成していたことだった。consumerだけをenum化しても、producerがtyped domainを迂回するとchecker自体のstatic proofがdriftし得る。
+- 修正後は arithmetic source spelling を `I32ArithmeticPrimitive::base_name` が所有し、raw load/store spelling は `CoreIntrinsicKind::intrinsic_name` から生成する。dotted field read、field put、prefix assignment、enum payload drop elaborationはいずれも同じtyped domainからHIR intrinsicを合成する。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、合成HIR producerへ `name: "add/load/store".to_string()` が戻ることを拒否するsource policyを追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 6 compiler-core の進捗として追記した。
+- focused verification:
+  - `rg -n 'name: "add"\.to_string\(\)|name: "load"\.to_string\(\)|name: "store"\.to_string\(\)' nepl-core\src -g '*.rs'`: no matches
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core i32_arithmetic_source_spellings_round_trip -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core field_accessor_intrinsic -- --nocapture`: passed
+  - `cargo test -p nepl-core drop --test drop -- --nocapture`: 18 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only

@@ -12,11 +12,13 @@ use crate::hir::{
     FuncRef, HirBlock, HirExpr, HirExprKind, HirFunction, HirLine, HirMatchArm, HirMatchPattern,
     HirModule, HirTraitApplication, HirTraitMethodId,
 };
+use crate::intrinsic_kinds::CoreIntrinsicKind;
 use crate::layout::{extend_type_mapping, mapped_type_id};
 use crate::resource::{
     ResourceAutoDropKind, ResourceDropElaborationDrop, ResourceDropElaborationFunction,
     ResourceDropElaborationPlan, ResourceDropRequirement,
 };
+use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -390,7 +392,7 @@ impl<'a> DropInsertionContext<'a> {
                     value: Box::new(HirExpr {
                         ty,
                         kind: HirExprKind::Intrinsic {
-                            name: "load".to_string(),
+                            name: CoreIntrinsicKind::Load.intrinsic_name().to_string(),
                             type_args: vec![ty],
                             args: vec![self.place_addr_expr(
                                 owner_name.to_string(),
@@ -436,7 +438,7 @@ impl<'a> DropInsertionContext<'a> {
         HirExpr {
             ty: self.types.i32(),
             kind: HirExprKind::Intrinsic {
-                name: "add".to_string(),
+                name: I32ArithmeticPrimitive::Add.base_name().to_string(),
                 type_args: vec![self.types.i32()],
                 args: vec![
                     HirExpr {
@@ -605,7 +607,7 @@ fn drop_field_call_expr(
         HirExpr {
             ty: ref_ty,
             kind: HirExprKind::Intrinsic {
-                name: "add".to_string(),
+                name: I32ArithmeticPrimitive::Add.base_name().to_string(),
                 type_args: vec![types.i32()],
                 args: vec![
                     HirExpr {
