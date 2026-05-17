@@ -40958,6 +40958,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js`: passed
   - `git diff --check`: CRLF warnings only
 
+## 2026-05-18 Agent 1 selfhost import spec std/test report metadata 修正
+
+- `ISS-20260517T191427404Z-SELFHOST-IMPORT-SPEC-DOCTESTS-HIDE-S-3E0A657F` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/neplg2_import_spec.n.md` の3件が `checks_print_report` で deterministic report を出しているのに、manifest が `ret: 0` のまま残っていたこと。これでは import spec parser の成功系・診断系 assertion 数や順序がfixtureで固定されない。
+- 修正後は 3 件を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + `stdout:` に統一した。テスト本文の検査ロジックは変更していない。
+- `nodesrc/test_selfhost_import_spec_report_contract.js` を追加し、`ret:` 不使用、stdout report、`exit_code: 0`、report出力順を検査する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_selfhost_import_spec_report_contract.js`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_import_spec.n.md -n 1 --assert-io --dist web\dist`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_import_spec.n.md -n 2 --assert-io --dist web\dist`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_import_spec.n.md -n 3 --assert-io --dist web\dist`: passed
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\agent1-neplg2-import-spec-report-metadata.json -j 1 --dist web\dist --assert-io`: total=3, passed=3
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `git diff --check`: CRLF warnings only
+
 ## 2026-05-17 Agent 1 Resource layout intrinsic proof 共有化
 
 - `ISS-20260517T064500300Z-RESOURCE-LAYOUT-INTRINSIC-PROOFS-DUP-81984703` を追加して fixed にした。`plan.md` は変更していない。
