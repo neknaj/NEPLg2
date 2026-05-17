@@ -39,6 +39,7 @@ const RESOURCE_PLACE_UTILS = path.join(CORE_SRC, 'resource', 'place_utils.rs');
 const COMPILER = path.join(CORE_SRC, 'compiler.rs');
 const EFFECTS = path.join(CORE_SRC, 'effects.rs');
 const INTRINSIC_KINDS = path.join(CORE_SRC, 'intrinsic_kinds.rs');
+const SCALAR_PRIMITIVES = path.join(CORE_SRC, 'scalar_primitives.rs');
 const LOADER = path.join(CORE_SRC, 'loader.rs');
 const SOURCE_MAP = path.join(CORE_SRC, 'source_map.rs');
 const RESOURCE_PRIMITIVES = path.join(CORE_SRC, 'resource_primitives.rs');
@@ -261,6 +262,7 @@ const resourcePlaceUtils = assertFile(RESOURCE_PLACE_UTILS, 'resource/place_util
 const compiler = assertFile(COMPILER, 'compiler.rs');
 const effects = assertFile(EFFECTS, 'effects.rs');
 const intrinsicKinds = assertFile(INTRINSIC_KINDS, 'intrinsic_kinds.rs');
+const scalarPrimitives = assertFile(SCALAR_PRIMITIVES, 'scalar_primitives.rs');
 const loader = assertFile(LOADER, 'loader.rs');
 const sourceMap = assertFile(SOURCE_MAP, 'source_map.rs');
 const sourceCapability = assertFile(SOURCE_CAPABILITY, 'source_capability.rs');
@@ -622,6 +624,23 @@ assertContains(
     'pub(crate) const fn backend_op',
     'ScalarIntrinsicKind must own backend lowering semantics',
 );
+assertContains(coreLib, 'mod scalar_primitives;', 'lib.rs');
+assertLineLimit(SCALAR_PRIMITIVES, 'scalar_primitives.rs', 200);
+assertContains(
+    scalarPrimitives,
+    'pub(crate) enum I32ArithmeticPrimitive',
+    'scalar_primitives.rs must expose shared i32 arithmetic primitive classification',
+);
+assertContains(
+    scalarPrimitives,
+    'pub(crate) fn from_codegen_intrinsic_name',
+    'scalar_primitives.rs must own backend i32 arithmetic intrinsic spelling',
+);
+assertContains(
+    scalarPrimitives,
+    'pub(crate) const fn codegen_argument_count',
+    'scalar_primitives.rs must own backend i32 arithmetic arity',
+);
 assertContains(
     intrinsicKinds,
     'pub(crate) enum CoreIntrinsicKind',
@@ -738,14 +757,29 @@ assertContains(
     'wasm_shared.rs must derive wasm scalar intrinsic support from ScalarIntrinsicKind',
 );
 assertContains(
+    wasmShared,
+    'I32ArithmeticPrimitive::from_codegen_intrinsic_name',
+    'wasm_shared.rs must derive i32 arithmetic intrinsic support from the shared primitive domain',
+);
+assertContains(
     codegenPrecheck,
     'ScalarIntrinsicKind::from_intrinsic_name',
     'codegen_precheck.rs must derive llvm scalar intrinsic support from ScalarIntrinsicKind',
 );
 assertContains(
+    codegenPrecheck,
+    'I32ArithmeticPrimitive::from_codegen_intrinsic_name',
+    'codegen_precheck.rs must derive llvm i32 arithmetic intrinsic support from the shared primitive domain',
+);
+assertContains(
     codegenWasm,
     'ScalarIntrinsicKind::from_intrinsic_name',
     'codegen_wasm.rs must lower scalar intrinsics through ScalarIntrinsicKind',
+);
+assertContains(
+    codegenWasm,
+    'I32ArithmeticPrimitive::from_codegen_intrinsic_name',
+    'codegen_wasm.rs must route i32 arithmetic intrinsics through the shared primitive domain',
 );
 assertContains(
     codegenWasm,
@@ -756,6 +790,11 @@ assertContains(
     codegenLlvm,
     'ScalarIntrinsicKind::from_intrinsic_name',
     'codegen_llvm.rs must route scalar intrinsics through ScalarIntrinsicKind',
+);
+assertContains(
+    codegenLlvm,
+    'I32ArithmeticPrimitive::from_codegen_intrinsic_name',
+    'codegen_llvm.rs must route i32 arithmetic intrinsics through the shared primitive domain',
 );
 assertContains(
     codegenLlvm,
@@ -801,6 +840,18 @@ for (const scalarIntrinsicName of [
             `${label} must not duplicate ${scalarIntrinsicName} spelling outside ScalarIntrinsicKind`,
         );
     }
+}
+for (const [label, source] of [
+    ['wasm_shared.rs', wasmShared],
+    ['passes/codegen_precheck.rs', codegenPrecheck],
+    ['codegen_wasm.rs', codegenWasm],
+    ['codegen_llvm.rs', codegenLlvm],
+]) {
+    assertNotContains(
+        source,
+        'name == "add"',
+        `${label} must not classify backend add intrinsic with a direct string guard`,
+    );
 }
 assertContains(coreLib, 'mod backend_scalar_type;', 'lib.rs');
 assertLineLimit(BACKEND_SCALAR_TYPE, 'backend_scalar_type.rs', 160);

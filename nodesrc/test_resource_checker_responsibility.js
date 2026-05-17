@@ -583,6 +583,7 @@ const effectSummaryIdentity = readResource('effect_summary_identity.rs');
 const resourceDump = readResource('dump.rs');
 const addressProjection = readResource('address_projection.rs');
 const scalarPrimitive = readResource('scalar_primitive.rs');
+const scalarPrimitives = readCoreSrc('scalar_primitives.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
 const coverageHirPlace = readResource('coverage_hir_place.rs');
@@ -730,22 +731,32 @@ assertContains(
 );
 assertContains(
     scalarPrimitive,
-    'pub(super) enum I32ArithmeticPrimitive',
+    'pub(super) use crate::scalar_primitives',
     'scalar_primitive.rs',
 );
 assertContains(
-    scalarPrimitive,
-    'pub(super) enum I32ComparisonPrimitive',
-    'scalar_primitive.rs',
+    scalarPrimitives,
+    'pub(crate) enum I32ArithmeticPrimitive',
+    'scalar_primitives.rs',
 );
 assertContains(
-    scalarPrimitive,
-    'pub(super) enum BooleanPrimitive',
-    'scalar_primitive.rs',
+    scalarPrimitives,
+    'pub(crate) enum I32ComparisonPrimitive',
+    'scalar_primitives.rs',
+);
+assertContains(
+    scalarPrimitives,
+    'pub(crate) enum BooleanPrimitive',
+    'scalar_primitives.rs',
 );
 assertContains(
     scalarPrimitive,
     'pub(super) fn from_resource_call_target',
+    'scalar_primitive.rs',
+);
+assertContains(
+    scalarPrimitive,
+    'pub(super) const fn relation_op',
     'scalar_primitive.rs',
 );
 assertContains(
@@ -1836,7 +1847,7 @@ const maxLines = new Map([
     ['compiler_memory_place.rs', 120],
     ['compiler_memory_place_tests.rs', 140],
     ['model.rs', 590],
-    ['scalar_primitive.rs', 120],
+    ['scalar_primitive.rs', 80],
     ['owner_control.rs', 680],
     ['owner_drop_scope.rs', 260],
     ['owner_state.rs', 400],

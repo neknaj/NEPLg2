@@ -28,6 +28,7 @@ use crate::llvm_ir::{
     collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
 };
 use crate::runtime_helpers::{helper_base_name, helper_candidates, RuntimeHelperKind};
+use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::target_precheck::{self, ActiveRawBody};
@@ -1660,6 +1661,62 @@ fn predeclare_block_locals(types: &TypeCtx, ctx: &mut LowerCtx<'_>, block: &HirB
     }
 }
 
+fn lower_i32_arithmetic_intrinsic(
+    types: &TypeCtx,
+    ctx: &mut LowerCtx<'_>,
+    kind: I32ArithmeticPrimitive,
+    args: &[HirExpr],
+) -> Result<Option<LlValue>, LlvmCodegenError> {
+    let Some(expected) = kind.codegen_argument_count() else {
+        llvm_codegen_bail!(
+            "internal compiler error: unsupported i32 arithmetic intrinsic in '{}'",
+            ctx.function_name
+        );
+    };
+    if args.len() != expected {
+        llvm_codegen_bail!(
+            "internal compiler error: i32 arithmetic intrinsic expects {} arguments in '{}'",
+            expected,
+            ctx.function_name
+        );
+    }
+    let Some(a) = lower_hir_expr(types, ctx, &args[0])? else {
+        llvm_codegen_bail!(
+            "internal compiler error: i32 arithmetic intrinsic lhs must produce a value in '{}'",
+            ctx.function_name
+        );
+    };
+    let Some(b) = lower_hir_expr(types, ctx, &args[1])? else {
+        llvm_codegen_bail!(
+            "internal compiler error: i32 arithmetic intrinsic rhs must produce a value in '{}'",
+            ctx.function_name
+        );
+    };
+    if a.ty != LlTy::I32 || b.ty != LlTy::I32 {
+        llvm_codegen_bail!(
+            "internal compiler error: i32 arithmetic intrinsic supports i32 only in '{}' ({:?}, {:?})",
+            ctx.function_name,
+            a.ty,
+            b.ty
+        );
+    }
+    let op = match kind {
+        I32ArithmeticPrimitive::Add => "add",
+        I32ArithmeticPrimitive::Sub | I32ArithmeticPrimitive::Mul => {
+            llvm_codegen_bail!(
+                "internal compiler error: unsupported i32 arithmetic intrinsic in '{}'",
+                ctx.function_name
+            );
+        }
+    };
+    let out = ctx.next_tmp();
+    ctx.push_line(&format!("  {} = {} i32 {}, {}", out, op, a.repr, b.repr));
+    Ok(Some(LlValue {
+        ty: LlTy::I32,
+        repr: out,
+    }))
+}
+
 fn lower_hir_expr(
     types: &TypeCtx,
     ctx: &mut LowerCtx<'_>,
@@ -3235,37 +3292,8 @@ fn lower_hir_expr(
                 ));
                 return Ok(None);
             }
-            if name == "add" {
-                if args.len() != 2 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic add expects two arguments in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(a) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic add lhs must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                let Some(b) = lower_hir_expr(types, ctx, &args[1])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic add rhs must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if a.ty != LlTy::I32 || b.ty != LlTy::I32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic add supports i32 only in '{}' ({:?}, {:?})",
-                        ctx.function_name, a.ty, b.ty
-                    );
-                }
-                let out = ctx.next_tmp();
-                ctx.push_line(&format!("  {} = add i32 {}, {}", out, a.repr, b.repr));
-                return Ok(Some(LlValue {
-                    ty: LlTy::I32,
-                    repr: out,
-                }));
+            if let Some(kind) = I32ArithmeticPrimitive::from_codegen_intrinsic_name(name) {
+                return lower_i32_arithmetic_intrinsic(types, ctx, kind, args);
             }
             if let Some(kind) = ScalarIntrinsicKind::from_intrinsic_name(name) {
                 return scalar_intrinsic::lower_scalar_intrinsic(types, ctx, kind, args);

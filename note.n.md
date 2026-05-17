@@ -1,3 +1,23 @@
+# 2026-05-17 Agent 1 backend add intrinsic arithmetic primitive domain 化
+
+- `ISS-20260517T112957906Z-BACKEND-ADD-INTRINSIC-BYPASSES-SHARE-42BA501F` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR には `I32ArithmeticPrimitive` が存在する一方で、WASM/LLVM backend support と lowering が backend 専用 `add` intrinsic を `name == "add"` で別管理していたこと。
+- `scalar_primitives.rs` を crate-level に追加し、`I32ArithmeticPrimitive` / `I32ComparisonPrimitive` / `BooleanPrimitive` を compiler 共通の typed primitive domain とした。
+- `resource/scalar_primitive.rs` は Resource IR の `ResourceCallTarget` / `ResourceI32RelationOp` への adapter だけに縮小し、enum 本体は持たない形にした。
+- `wasm_shared.rs`、`passes/codegen_precheck.rs`、`codegen_wasm.rs`、`codegen_llvm.rs` は `I32ArithmeticPrimitive::from_codegen_intrinsic_name` を消費し、backend consumer 側の `name == "add"` 判定を削除した。
+- `nodesrc/test_static_check_boundary_responsibility.js` と `nodesrc/test_resource_checker_responsibility.js` に shared primitive domain、backend consumer、resource adapter の責務境界を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core scalar_primitives --lib -- --nocapture`
+  - `cargo test -p nepl-core wasm_intrinsic_support_uses_i32_arithmetic_codegen_subset --lib -- --nocapture`
+  - `cargo test -p nepl-core llvm_intrinsic_support_uses_i32_arithmetic_codegen_subset --lib -- --nocapture`
+  - `cargo test -p nepl-core --test neplg2 llvm_reference_aggregate_addr_of_lowers -- --exact --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「proof / backend boundary の分類を文字列ではなく typed enum domain に接続し、検査プログラム自体の drift を policy で発見可能にする」方針に沿って、i32 arithmetic backend intrinsic を shared primitive domain へ接続した。
+
 # 2026-05-17 Agent 1 backend scalar type domain 化
 
 - `ISS-20260517T105019127Z-BACKEND-NAMED-SCALAR-TYPES-ARE-DUPLI-830FA07E` を追加し、fixed / resolved にした。`plan.md` は変更していない。
