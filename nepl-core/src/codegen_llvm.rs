@@ -19,6 +19,7 @@ use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
 };
+use crate::intrinsic_kinds::ScalarIntrinsicKind;
 use crate::layout::{
     enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
     storage_align_bytes, storage_size_bytes,
@@ -33,6 +34,7 @@ use crate::target_precheck::{self, ActiveRawBody};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 mod aggregate;
+mod scalar_intrinsic;
 mod type_map;
 
 use aggregate::aggregate_field_layout;
@@ -3265,217 +3267,8 @@ fn lower_hir_expr(
                     repr: out,
                 }));
             }
-            if name == "f32_to_i32" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic f32_to_i32 expects one argument in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic f32_to_i32 value must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::F32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic f32_to_i32 expects f32 in '{}' (got {:?})",
-                        ctx.function_name, v.ty
-                    );
-                }
-                let out = ctx.next_tmp();
-                ctx.push_line(&format!("  {} = fptosi float {} to i32", out, v.repr));
-                return Ok(Some(LlValue {
-                    ty: LlTy::I32,
-                    repr: out,
-                }));
-            }
-            if name == "i32_to_u8" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i32_to_u8 expects one argument in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i32_to_u8 value must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i32_to_u8 expects i32 in '{}' (got {:?})",
-                        ctx.function_name, v.ty
-                    );
-                }
-                let out = ctx.next_tmp();
-                ctx.push_line(&format!("  {} = and i32 {}, 255", out, v.repr));
-                return Ok(Some(LlValue {
-                    ty: LlTy::I32,
-                    repr: out,
-                }));
-            }
-            if name == "i32_to_u32" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i32_to_u32 expects one argument in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i32_to_u32 value must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i32_to_u32 expects i32 in '{}' (got {:?})",
-                        ctx.function_name, v.ty
-                    );
-                }
-                return Ok(Some(v));
-            }
-            if name == "u8_to_i32" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u8_to_i32 expects one argument in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u8_to_i32 value must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u8_to_i32 expects i32 in '{}' (got {:?})",
-                        ctx.function_name, v.ty
-                    );
-                }
-                let out = ctx.next_tmp();
-                ctx.push_line(&format!("  {} = and i32 {}, 255", out, v.repr));
-                return Ok(Some(LlValue {
-                    ty: LlTy::I32,
-                    repr: out,
-                }));
-            }
-            if name == "char_to_i32" || name == "i32_to_char" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic {} expects one argument in '{}'",
-                        name,
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic {} value must produce a value in '{}'",
-                        name,
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic {} expects i32 representation in '{}' (got {:?})",
-                        name,
-                        ctx.function_name,
-                        v.ty
-                    );
-                }
-                return Ok(Some(v));
-            }
-            if name == "u32_to_i32" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u32_to_i32 expects one argument in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u32_to_i32 value must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u32_to_i32 expects i32 in '{}' (got {:?})",
-                        ctx.function_name, v.ty
-                    );
-                }
-                return Ok(Some(v));
-            }
-            if name == "i64_to_u64" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i64_to_u64 expects one argument in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i64_to_u64 value must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I64 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic i64_to_u64 expects i64 in '{}' (got {:?})",
-                        ctx.function_name, v.ty
-                    );
-                }
-                return Ok(Some(v));
-            }
-            if name == "u64_to_i64" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u64_to_i64 expects one argument in '{}'",
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u64_to_i64 value must produce a value in '{}'",
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I64 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic u64_to_i64 expects i64 in '{}' (got {:?})",
-                        ctx.function_name, v.ty
-                    );
-                }
-                return Ok(Some(v));
-            }
-            if name == "str_addr" || name == "str_from_addr_unchecked" {
-                if args.len() != 1 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic {} expects one argument in '{}'",
-                        name,
-                        ctx.function_name
-                    );
-                }
-                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic {} value must produce a value in '{}'",
-                        name,
-                        ctx.function_name
-                    );
-                };
-                if v.ty != LlTy::I32 {
-                    llvm_codegen_bail!(
-                        "internal compiler error: intrinsic {} expects i32 representation in '{}' (got {:?})",
-                        name,
-                        ctx.function_name,
-                        v.ty
-                    );
-                }
-                return Ok(Some(v));
+            if let Some(kind) = ScalarIntrinsicKind::from_intrinsic_name(name) {
+                return scalar_intrinsic::lower_scalar_intrinsic(types, ctx, kind, args);
             }
             Err(llvm_codegen_error(
                 format!(

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T11:05:25.397Z",
+  "generated_at": "2026-05-17T11:23:30.741Z",
   "counts": {
-    "total": 938,
+    "total": 939,
     "open": 5,
-    "resolved": 933,
+    "resolved": 934,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 484,
+        "total": 485,
         "open": 0,
-        "resolved": 484
+        "resolved": 485
       },
       "CORE": {
         "total": 1,
@@ -7353,6 +7353,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T105019127Z-BACKEND-NAMED-SCALAR-TYPES-ARE-DUPLI-830FA07E.md"
+    },
+    {
+      "id": "ISS-20260517T111300558Z-SCALAR-INTRINSIC-BACKEND-LOWERING-DU-DEB6C1B2",
+      "title": "Scalar intrinsic backend lowering duplicates typecheck-only signature domain",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/intrinsic_kinds.rs, nepl-core/src/typecheck/model.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/passes/codegen_precheck.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T111300558Z-SCALAR-INTRINSIC-BACKEND-LOWERING-DU-DEB6C1B2.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

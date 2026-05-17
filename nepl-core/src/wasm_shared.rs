@@ -10,6 +10,7 @@ use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{BackendDiagnosticCode, DiagnosticCode, WasmDiagnosticCode};
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction, HirModule, HirParam};
+use crate::intrinsic_kinds::{CoreIntrinsicKind, FieldAccessorKind, ScalarIntrinsicKind};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 use wasm_encoder::{Instruction, MemArg, ValType};
 
@@ -353,33 +354,10 @@ pub(crate) fn collect_wasm_signature_set(
 }
 
 pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
-    matches!(
-        name,
-        "size_of"
-            | "align_of"
-            | "load"
-            | "store"
-            | "get_field"
-            | "get_field_ref"
-            | "set_field"
-            | "callsite_span"
-            | "i32_to_f32"
-            | "i32_to_u8"
-            | "i32_to_u32"
-            | "f32_to_i32"
-            | "u8_to_i32"
-            | "char_to_i32"
-            | "i32_to_char"
-            | "u32_to_i32"
-            | "i64_to_u64"
-            | "u64_to_i64"
-            | "reinterpret_i32_f32"
-            | "reinterpret_f32_i32"
-            | "str_addr"
-            | "str_from_addr_unchecked"
-            | "add"
-            | "unreachable"
-    )
+    CoreIntrinsicKind::from_intrinsic_name(name).is_some()
+        || FieldAccessorKind::from_intrinsic_name(name).is_some()
+        || ScalarIntrinsicKind::from_intrinsic_name(name).is_some()
+        || name == "add"
 }
 
 fn parse_local<F>(text: &str, lookup_local: &mut F) -> Option<u32>

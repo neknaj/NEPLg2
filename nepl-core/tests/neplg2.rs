@@ -376,6 +376,46 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn llvm_scalar_intrinsics_use_shared_backend_lowering() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+fn to_f32 <(i32)->f32> (v):
+    #intrinsic "i32_to_f32" <> (v)
+
+fn bits_to_f32 <(i32)->f32> (v):
+    #intrinsic "reinterpret_i32_f32" <> (v)
+
+fn f32_bits <(f32)->i32> (v):
+    #intrinsic "reinterpret_f32_i32" <> (v)
+
+fn main <()->i32> ():
+    let f <f32> to_f32 7;
+    let bits <f32> bits_to_f32 1065353216;
+    let a <i32> f32_bits f;
+    let b <i32> f32_bits bits;
+    a
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+        Some(&loaded.source_map),
+    )
+    .expect("shared scalar intrinsic backend lowering should emit LLVM IR");
+    assert!(ll.contains("sitofp i32"));
+    assert!(ll.contains("bitcast i32"));
+    assert!(ll.contains("bitcast float"));
+    assert!(!ll.contains("i32_to_f32"));
+    assert!(!ll.contains("reinterpret_i32_f32"));
+    assert!(!ll.contains("reinterpret_f32_i32"));
+}
+
+#[test]
 fn llvm_allocator_helper_is_emitted_for_codegen_inserted_alloc() {
     let src = r#"
 #entry main

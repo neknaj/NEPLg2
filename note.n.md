@@ -40725,6 +40725,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
 
+## 2026-05-17 Agent 1 scalar intrinsic backend domain 修正
+
+- `ISS-20260517T111300558Z-SCALAR-INTRINSIC-BACKEND-LOWERING-DU-DEB6C1B2` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`ScalarIntrinsicKind` / `ScalarIntrinsicType` が `typecheck/model.rs` 内に閉じており、WASM/LLVM lowering と codegen precheck が scalar intrinsic の spelling と backend 表現を文字列で再分類していたことだった。
+- 修正後は scalar intrinsic domain を crate-level `intrinsic_kinds.rs` へ移し、`ScalarIntrinsicBackendOp` を追加した。typecheck、WASM support 判定、LLVM support 判定、WASM lowering、LLVM lowering は同じ `ScalarIntrinsicKind` と `backend_op()` を消費する。
+- LLVM 側は typecheck が認めていた `i32_to_f32` / reinterpret 系 scalar intrinsic も lower できるようにし、typecheck と backend support list の drift を解消した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core intrinsic_kinds::tests --lib -- --nocapture`: 9 passed
+  - `cargo test -p nepl-core --test neplg2 llvm_scalar_intrinsics_use_shared_backend_lowering -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test codegen_diagnostics llvm_precheck_reports_unknown_intrinsic_type_code -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test intrinsic -- --nocapture`: 4 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `trunk build`: passed
+  - `git diff --check`: CRLF warnings only
+
 ## 2026-05-17 Agent 1 host effect enum 列挙元修正
 
 - `ISS-20260517T054640694Z-IMPURE-HOST-EFFECT-MARKERS-DUPLICATE-3783BAA7` を追加して fixed にした。`plan.md` は変更していない。

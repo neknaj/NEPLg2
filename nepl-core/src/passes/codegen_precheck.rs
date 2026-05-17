@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirModule};
+use crate::intrinsic_kinds::{CoreIntrinsicKind, FieldAccessorKind, ScalarIntrinsicKind};
 use crate::types::TypeCtx;
 use crate::wasm_shared;
 use wasm_encoder::ValType;
@@ -14,28 +15,18 @@ use wasm_encoder::ValType;
 use crate::diagnostic_codes::{BackendDiagnosticCode, TypeDiagnosticCode, WasmDiagnosticCode};
 
 type WasmSig = (Vec<ValType>, Vec<ValType>);
-const LLVM_SUPPORTED_INTRINSICS: &[&str] = &[
-    "size_of",
-    "align_of",
-    "load",
-    "store",
-    "get_field",
-    "get_field_ref",
-    "set_field",
-    "unreachable",
-    "add",
-    "f32_to_i32",
-    "i32_to_u8",
-    "i32_to_u32",
-    "u8_to_i32",
-    "char_to_i32",
-    "i32_to_char",
-    "u32_to_i32",
-    "i64_to_u64",
-    "u64_to_i64",
-    "str_addr",
-    "str_from_addr_unchecked",
-];
+
+fn is_supported_llvm_intrinsic(name: &str) -> bool {
+    match CoreIntrinsicKind::from_intrinsic_name(name) {
+        Some(CoreIntrinsicKind::CallsiteSpan) => false,
+        Some(_) => true,
+        None => {
+            FieldAccessorKind::from_intrinsic_name(name).is_some()
+                || ScalarIntrinsicKind::from_intrinsic_name(name).is_some()
+                || name == "add"
+        }
+    }
+}
 
 fn wasm_error(
     code: WasmDiagnosticCode,
@@ -151,10 +142,7 @@ fn precheck_llvm_expr_tree(block: &HirBlock, out: &mut Vec<Diagnostic>) {
 fn check_llvm_expr(expr: &HirExpr, out: &mut Vec<Diagnostic>) {
     match &expr.kind {
         HirExprKind::Intrinsic { name, args, .. } => {
-            if !LLVM_SUPPORTED_INTRINSICS
-                .iter()
-                .any(|n| *n == name.as_str())
-            {
+            if !is_supported_llvm_intrinsic(name) {
                 out.push(type_error(
                     TypeDiagnosticCode::IntrinsicUnknown,
                     "unknown codegen intrinsic for llvm",

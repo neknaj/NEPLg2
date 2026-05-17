@@ -22,6 +22,7 @@ use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::*;
+use crate::intrinsic_kinds::{ScalarIntrinsicBackendOp, ScalarIntrinsicKind};
 use crate::layout::{
     enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
     storage_align_bytes, storage_size_bytes, tuple_field_layouts_by_result,
@@ -942,6 +943,61 @@ fn gen_if_else_chain(
     Ok(result_ty)
 }
 
+fn gen_scalar_intrinsic(
+    ctx: &TypeCtx,
+    kind: ScalarIntrinsicKind,
+    args: &[HirExpr],
+    span: Span,
+    name_map: &BTreeMap<String, u32>,
+    sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
+    strings: &StringDataLayout,
+    locals: &mut LocalMap,
+    insts: &mut Vec<Instruction<'static>>,
+) -> LowerResult<Option<ValType>> {
+    let expected = kind.argument_count();
+    if args.len() != expected {
+        return Err(codegen_error(
+            format!(
+                "intrinsic {} expects {} arguments",
+                kind.intrinsic_name(),
+                expected
+            ),
+            span,
+            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicArityMismatch,
+            )),
+        ));
+    }
+
+    gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
+    Ok(match kind.backend_op() {
+        ScalarIntrinsicBackendOp::I32ToF32 => {
+            insts.push(Instruction::F32ConvertI32S);
+            Some(ValType::F32)
+        }
+        ScalarIntrinsicBackendOp::I32ToU8 => {
+            insts.push(Instruction::I32Const(255));
+            insts.push(Instruction::I32And);
+            Some(ValType::I32)
+        }
+        ScalarIntrinsicBackendOp::U8ToI32 => Some(ValType::I32),
+        ScalarIntrinsicBackendOp::F32ToI32 => {
+            insts.push(Instruction::I32TruncF32S);
+            Some(ValType::I32)
+        }
+        ScalarIntrinsicBackendOp::I32Identity => Some(ValType::I32),
+        ScalarIntrinsicBackendOp::I64Identity => Some(ValType::I64),
+        ScalarIntrinsicBackendOp::ReinterpretI32AsF32 => {
+            insts.push(Instruction::F32ReinterpretI32);
+            Some(ValType::F32)
+        }
+        ScalarIntrinsicBackendOp::ReinterpretF32AsI32 => {
+            insts.push(Instruction::I32ReinterpretF32);
+            Some(ValType::I32)
+        }
+    })
+}
+
 fn gen_expr(
     ctx: &TypeCtx,
     expr: &HirExpr,
@@ -1655,52 +1711,10 @@ fn gen_expr(
 
                 insts.push(Instruction::LocalGet(ptr_local));
                 Some(ValType::I32)
-            } else if name == "i32_to_f32" {
-                // signed convert i32 -> f32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                insts.push(Instruction::F32ConvertI32S);
-                Some(ValType::F32)
-            } else if name == "i32_to_u8" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                insts.push(Instruction::I32Const(255));
-                insts.push(Instruction::I32And);
-                Some(ValType::I32)
-            } else if name == "i32_to_u32" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                Some(ValType::I32)
-            } else if name == "f32_to_i32" {
-                // signed trunc f32 -> i32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                insts.push(Instruction::I32TruncF32S);
-                Some(ValType::I32)
-            } else if name == "u8_to_i32" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                Some(ValType::I32)
-            } else if name == "char_to_i32" || name == "i32_to_char" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                Some(ValType::I32)
-            } else if name == "u32_to_i32" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                Some(ValType::I32)
-            } else if name == "i64_to_u64" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                Some(ValType::I64)
-            } else if name == "u64_to_i64" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                Some(ValType::I64)
-            } else if name == "reinterpret_i32_f32" {
-                // bitcast i32 -> f32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                insts.push(Instruction::F32ReinterpretI32);
-                Some(ValType::F32)
-            } else if name == "reinterpret_f32_i32" {
-                // bitcast f32 -> i32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                insts.push(Instruction::I32ReinterpretF32);
-                Some(ValType::I32)
-            } else if name == "str_addr" || name == "str_from_addr_unchecked" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                Some(ValType::I32)
+            } else if let Some(kind) = ScalarIntrinsicKind::from_intrinsic_name(name) {
+                gen_scalar_intrinsic(
+                    ctx, kind, args, expr.span, name_map, sig_map, strings, locals, insts,
+                )?
             } else if name == "add" {
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
