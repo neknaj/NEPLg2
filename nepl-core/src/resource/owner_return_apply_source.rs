@@ -10,6 +10,7 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::instantiate_owner_extent_summary;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_with_suffix;
 use super::storage_origin::StorageOriginTable;
@@ -102,6 +103,24 @@ impl ResourceOwnerCheckEngine<'_> {
         true
     }
 
+    pub(super) fn try_copy_parameter_view_return(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        source: &Place,
+        output: &Place,
+    ) -> bool {
+        if !self.place_is_copy_owner_view(owners, raw_aliases, source) {
+            return false;
+        }
+        raw_aliases.copy_alias_if_tracked(source, output);
+        raw_views.copy(source, output);
+        storage_origins.copy_origin(source, output);
+        true
+    }
+
     fn consume_summary_argument_owner(
         &mut self,
         owners: &mut OwnerTable,
@@ -124,6 +143,9 @@ impl ResourceOwnerCheckEngine<'_> {
             arg,
             span,
         );
+        if self.place_is_copy_owner_view(owners, raw_aliases, arg) {
+            return;
+        }
         let requirement = requirements
             .iter()
             .find(|requirement| &requirement.owner == source);
@@ -149,6 +171,19 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
         }
+    }
+
+    pub(super) fn place_is_copy_owner_view(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+    ) -> bool {
+        self.types.is_copy(place.ty)
+            && !self.has_transferable_owner(owners, raw_aliases, place)
+            && owner_leaf_places(self.types, place)
+                .iter()
+                .any(|leaf| leaf.place == *place)
     }
 }
 
