@@ -25,6 +25,7 @@ const RESOURCE_OWNER_RAW_ADDRESS = path.join(CORE_SRC, 'resource', 'owner_raw_ad
 const RESOURCE_PLACE_UTILS = path.join(CORE_SRC, 'resource', 'place_utils.rs');
 const COMPILER = path.join(CORE_SRC, 'compiler.rs');
 const EFFECTS = path.join(CORE_SRC, 'effects.rs');
+const INTRINSIC_KINDS = path.join(CORE_SRC, 'intrinsic_kinds.rs');
 const LOADER = path.join(CORE_SRC, 'loader.rs');
 const SOURCE_MAP = path.join(CORE_SRC, 'source_map.rs');
 const RESOURCE_PRIMITIVES = path.join(CORE_SRC, 'resource_primitives.rs');
@@ -207,6 +208,7 @@ const resourceOwnerRawAddress = assertFile(
 const resourcePlaceUtils = assertFile(RESOURCE_PLACE_UTILS, 'resource/place_utils.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
 const effects = assertFile(EFFECTS, 'effects.rs');
+const intrinsicKinds = assertFile(INTRINSIC_KINDS, 'intrinsic_kinds.rs');
 const loader = assertFile(LOADER, 'loader.rs');
 const sourceMap = assertFile(SOURCE_MAP, 'source_map.rs');
 const sourceCapability = assertFile(SOURCE_CAPABILITY, 'source_capability.rs');
@@ -323,6 +325,14 @@ const typecheckSyntaxHelpers = assertFile(
     path.join(TYPECHECK_DIR, 'syntax_helpers.rs'),
     'typecheck/syntax_helpers.rs',
 );
+const resourceCoverageHirProjection = assertFile(
+    path.join(CORE_SRC, 'resource', 'coverage_hir_projection.rs'),
+    'resource/coverage_hir_projection.rs',
+);
+const resourceLowerAggregate = assertFile(
+    path.join(CORE_SRC, 'resource', 'lower_aggregate.rs'),
+    'resource/lower_aggregate.rs',
+);
 
 assertLineLimit(TYPECHECK_ROOT, 'typecheck.rs', 90);
 
@@ -368,14 +378,14 @@ for (const moduleName of [
 
 assertContains(typecheckRoot, 'pub use driver::{typecheck, TypeCheckResult};', 'typecheck.rs');
 assertContains(
-    typecheckModel,
+    intrinsicKinds,
     'fn from_intrinsic_name',
-    'typecheck/model.rs must keep field accessor intrinsic spelling on FieldAccessorKind',
+    'intrinsic_kinds.rs must keep field accessor intrinsic spelling on FieldAccessorKind',
 );
 assertContains(
-    typecheckModel,
+    intrinsicKinds,
     'const fn argument_count',
-    'typecheck/model.rs must keep field accessor intrinsic arity on FieldAccessorKind',
+    'intrinsic_kinds.rs must keep field accessor intrinsic arity on FieldAccessorKind',
 );
 assertContains(
     typecheckModel,
@@ -421,6 +431,16 @@ assertContains(
     typecheckPrefixCheck,
     'FieldAccessorKind::from_intrinsic_name',
     'typecheck/prefix_check.rs must use typed field accessor intrinsic classification',
+);
+assertContains(
+    resourceCoverageHirProjection,
+    'FieldAccessorKind::from_intrinsic_name',
+    'resource/coverage_hir_projection.rs must use shared field accessor intrinsic classification',
+);
+assertContains(
+    resourceLowerAggregate,
+    'FieldAccessorKind::from_intrinsic_name',
+    'resource/lower_aggregate.rs must use shared field accessor intrinsic classification',
 );
 assertContains(
     typecheckPrefixCheck,
@@ -502,6 +522,26 @@ assertNotContains(
     typecheckPrefixCheck,
     'intrin.name == "set_field"',
     'typecheck/prefix_check.rs must not duplicate set_field branch spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    resourceCoverageHirProjection,
+    'helper_base_name(name) != "get_field"',
+    'resource/coverage_hir_projection.rs must not duplicate get_field spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    resourceCoverageHirProjection,
+    'helper_base_name(name) != "get_field_ref"',
+    'resource/coverage_hir_projection.rs must not duplicate get_field_ref spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    resourceLowerAggregate,
+    'helper_base_name(name) != "get_field"',
+    'resource/lower_aggregate.rs must not duplicate get_field spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    resourceLowerAggregate,
+    'helper_base_name(name) != "get_field_ref"',
+    'resource/lower_aggregate.rs must not duplicate get_field_ref spelling outside FieldAccessorKind',
 );
 assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
 assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');

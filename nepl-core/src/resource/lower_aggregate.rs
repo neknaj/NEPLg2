@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
+use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::TypeId;
 
@@ -97,7 +98,9 @@ pub(super) fn lower_get_field_intrinsic_source(
     ctx: &mut LoweringContext,
     env: &LoweringEnvironment,
 ) -> Option<Place> {
-    if helper_base_name(name) != "get_field" {
+    if FieldAccessorKind::from_intrinsic_name(helper_base_name(name))
+        != Some(FieldAccessorKind::Get)
+    {
         return None;
     }
     let owner = args.first()?;
@@ -131,7 +134,9 @@ pub(super) fn lower_get_field_ref_intrinsic_source(
     ctx: &mut LoweringContext,
     env: &LoweringEnvironment,
 ) -> Option<Place> {
-    if helper_base_name(name) != "get_field_ref" {
+    if FieldAccessorKind::from_intrinsic_name(helper_base_name(name))
+        != Some(FieldAccessorKind::GetRef)
+    {
         return None;
     }
     field_get_ref_source(args, ref_ty, ops, ctx, env)
