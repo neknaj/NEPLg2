@@ -145,6 +145,7 @@ for (const moduleName of [
     'owner_summary_i32_condition_leaf.rs',
     'owner_summary_i32_leaf.rs',
     'owner_summary_owner_token_leaf.rs',
+    'owner_summary_owner_token_leaf_tests.rs',
     'owner_summary_owner_token_type.rs',
     'owner_summary_parameters.rs',
     'owner_summary_raw_alias.rs',
@@ -627,8 +628,28 @@ assertContains(ownerCheck, 'struct ResourceOwnerCheckEngine', 'owner_check.rs');
 assertContains(effectCheck, 'struct ResourceEffectBoundaryEngine', 'effect_check.rs');
 assertContains(
     ownerSummaryOwnerTokenLeaf,
+    'compiler_memory_type_field_index(',
+    'owner_summary_owner_token_leaf.rs must derive owner-token raw identity from shared compiler memory field specs',
+);
+assertContains(
+    ownerSummaryOwnerTokenLeaf,
+    'CompilerMemoryType::OwnerToken',
+    'owner_summary_owner_token_leaf.rs must use the owner-token memory type proof for raw owner leaves',
+);
+assertContains(
+    ownerSummaryOwnerTokenLeaf,
+    'CompilerMemoryFieldSpec::RawI32',
+    'owner_summary_owner_token_leaf.rs must use the typed raw field spec for raw owner leaves',
+);
+assertContains(
+    ownerSummaryOwnerTokenLeaf,
+    'type_is_owner_token(types, ty)',
+    'owner_summary_owner_token_leaf.rs must reject same-shape structs without owner-token identity proof',
+);
+assertNotContains(
+    ownerSummaryOwnerTokenLeaf,
     'field_name == "raw"',
-    'owner_summary_owner_token_leaf.rs must identify owner-token raw identity by field name, not by field order',
+    'owner_summary_owner_token_leaf.rs must not duplicate compiler memory field spelling',
 );
 assertContains(
     ownerSummaryRawI32Leaf,
@@ -1534,6 +1555,7 @@ const maxLines = new Map([
     ['owner_summary_i32_condition_leaf.rs', 180],
     ['owner_summary_i32_leaf.rs', 220],
     ['owner_summary_owner_token_leaf.rs', 100],
+    ['owner_summary_owner_token_leaf_tests.rs', 80],
     ['owner_summary_owner_token_type.rs', 120],
     ['owner_summary_parameters.rs', 100],
     ['owner_summary_raw_alias.rs', 140],

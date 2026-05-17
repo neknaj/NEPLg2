@@ -41,6 +41,27 @@ fn compiler_memory_type_field_specs_are_kind_owned() {
     assert_eq!(owner_token_fields[0].name(), "raw");
     assert_eq!(owner_token_fields[1].name(), "size");
     assert!(owner_token_fields.iter().all(|field| field.requires_i32()));
+    assert_eq!(
+        compiler_memory_type_field_index(
+            CompilerMemoryType::OwnerToken,
+            CompilerMemoryFieldSpec::RawI32
+        ),
+        Some(0)
+    );
+    assert_eq!(
+        compiler_memory_type_field_index(
+            CompilerMemoryType::OwnerToken,
+            CompilerMemoryFieldSpec::SizeI32
+        ),
+        Some(1)
+    );
+    assert_eq!(
+        compiler_memory_type_field_index(
+            CompilerMemoryType::RawPointer,
+            CompilerMemoryFieldSpec::SizeI32
+        ),
+        None
+    );
 }
 
 #[test]

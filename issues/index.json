@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T07:23:56.613Z",
+  "generated_at": "2026-05-17T07:36:35.600Z",
   "counts": {
-    "total": 924,
+    "total": 925,
     "open": 5,
-    "resolved": 919,
+    "resolved": 920,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -55,6 +55,11 @@
         "total": 5,
         "open": 0,
         "resolved": 5
+      },
+      "compiler/resource-ir": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "core/resource": {
         "total": 1,
@@ -1018,6 +1023,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T153348188Z-PUBLIC-MEM-PTR-ADD-BYPASSES-REGION-B-F82F9BBB.md"
+    },
+    {
+      "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",
+      "title": "Owner token leaf summary duplicates compiler memory field contract",
+      "area": "compiler/resource-ir",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/owner_summary_owner_token_leaf.rs; nepl-core/src/resource_primitives.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",
