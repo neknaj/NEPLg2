@@ -40303,3 +40303,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 修正後は `alloc_raw`、`mem_size`、`memset_u8`、`fill_i32` を ordinary doctest から直接使う例を `compile_fail` に変更し、`resource.raw.memory_outside_boundary` を期待 diag として固定した。検査を緩めず、ドキュメント側を Stage 6 の public/internal 境界に合わせた。
 - focused verification:
   - `node nodesrc/tests.js -i stdlib/core/mem --no-tree -o tmp/core-mem-raw-doctest-boundary-after.json -j 1`: 33 passed
+
+## 2026-05-17 Agent 1 raw body direct callee typed proof 修正
+
+- `ISS-20260517T044649993Z-RAW-BODY-DIRECT-CALLEE-PROOF-IS-RECL-FF4BD50E` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw body 内の `call` を `raw_body_direct_callees` が callee 文字列として返し、source capability proof と typecheck effect gate がそれぞれ `raw_memory_op_from_name(&callee)` で再分類していたことだった。
+- 修正後は `RawBodyDirectCallee` enum を追加し、raw body parser が `RawMemory { callee, operation }` / `Other(callee)` を typed artifact として返す。source capability / typecheck は enum を `match` して消費するため、consumer ごとの分類 drift を防ぐ。
+- focused verification:
+  - `cargo test -p nepl-core --test effects raw_body -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core raw_body --lib -- --nocapture`: 0 matched / passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed

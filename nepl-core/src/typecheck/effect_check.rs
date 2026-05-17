@@ -3,8 +3,9 @@ use alloc::format;
 use crate::ast::{Block, Effect, Stmt};
 use crate::diagnostic_codes::EffectDiagnosticCode;
 use crate::effects::{
-    intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callees,
-    raw_body_memory_operations, raw_memory_op_from_name, RawBodyMemoryOp, RawMemoryOp,
+    intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callee_effects,
+    raw_body_memory_operations, raw_memory_op_from_name, RawBodyDirectCallee, RawBodyMemoryOp,
+    RawMemoryOp,
 };
 use crate::hir::HirBody;
 use crate::span::Span;
@@ -33,25 +34,28 @@ impl<'a> BlockChecker<'a> {
                 ));
                 return false;
             }
-            for callee in raw_body_direct_callees(body) {
-                if let Some(operation) = raw_memory_op_from_name(&callee) {
-                    if !self.raw_memory_operation_allowed(operation, span) {
-                        self.diagnostics.push(effect_error(
-                            EffectDiagnosticCode::PureCallsImpure,
-                            format!("pure raw body cannot call raw memory helper '{}'", callee),
-                            span,
-                        ));
-                        return false;
+            for callee in raw_body_direct_callee_effects(body) {
+                match callee {
+                    RawBodyDirectCallee::RawMemory { callee, operation } => {
+                        if !self.raw_memory_operation_allowed(operation, span) {
+                            self.diagnostics.push(effect_error(
+                                EffectDiagnosticCode::PureCallsImpure,
+                                format!("pure raw body cannot call raw memory helper '{}'", callee),
+                                span,
+                            ));
+                            return false;
+                        }
                     }
-                    continue;
-                }
-                if self.raw_callee_is_impure(&callee) {
-                    self.diagnostics.push(effect_error(
-                        EffectDiagnosticCode::PureCallsImpure,
-                        "pure context cannot call impure function",
-                        span,
-                    ));
-                    return false;
+                    RawBodyDirectCallee::Other(callee) => {
+                        if self.raw_callee_is_impure(&callee) {
+                            self.diagnostics.push(effect_error(
+                                EffectDiagnosticCode::PureCallsImpure,
+                                "pure context cannot call impure function",
+                                span,
+                            ));
+                            return false;
+                        }
+                    }
                 }
             }
         }
