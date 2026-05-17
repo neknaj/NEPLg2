@@ -60,8 +60,6 @@ pub const IMPURE_IO_EFFECT_MARKERS: &[&str] = &[
     "environ_sizes_get",
 ];
 
-pub const RAW_MEMORY_INTRINSIC_EFFECT_MARKERS: &[&str] = &["load", "store"];
-
 pub const RAW_MEMORY_HELPER_EFFECT_MARKERS: &[&str] = &[
     "__nepl_rt_alloc",
     "__nepl_rt_dealloc",
@@ -390,9 +388,7 @@ pub fn intrinsic_internal_effect(name: &str) -> InternalEffect {
 }
 
 pub fn intrinsic_is_raw_memory_effect(name: &str) -> bool {
-    RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
-        .iter()
-        .any(|marker| *marker == name)
+    raw_memory_intrinsic_op_from_name(name).is_some()
 }
 
 pub fn raw_callee_internal_effect(name: &str) -> Option<InternalEffect> {
@@ -430,6 +426,15 @@ pub fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
         "fill_i32" => RawMemoryOp::Fill,
         "mem_size" => RawMemoryOp::MemorySize,
         "mem_grow" => RawMemoryOp::MemoryGrow,
+        _ => return None,
+    };
+    Some(operation)
+}
+
+pub fn raw_memory_intrinsic_op_from_name(name: &str) -> Option<RawMemoryOp> {
+    let operation = match name {
+        "load" => RawMemoryOp::Load,
+        "store" => RawMemoryOp::Store,
         _ => return None,
     };
     Some(operation)
@@ -501,9 +506,6 @@ fn raw_memory_base_is_known(base: &str) -> bool {
     RAW_MEMORY_HELPER_EFFECT_MARKERS
         .iter()
         .any(|marker| *marker == base)
-        || RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
-            .iter()
-            .any(|marker| *marker == base)
 }
 
 pub fn internal_effect_surface_fold(effect: &InternalEffect) -> Option<Effect> {

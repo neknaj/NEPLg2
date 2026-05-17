@@ -4,9 +4,9 @@ use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::effects::{
     external_io_op_from_name, internal_effect_surface_fold, intrinsic_effect, nondet_op_from_name,
     raw_body_direct_callee_effects, raw_body_memory_operations, raw_callee_internal_effect,
-    raw_memory_callee_internal_effect, raw_memory_op_from_name, ExternalIoOp, InternalEffect,
-    LlvmRawBodyMemoryOp, NondetOp, RawBodyBackend, RawBodyDirectCallee, RawBodyMemoryOp,
-    RawMemoryOp, WasmRawBodyMemoryOp,
+    raw_memory_callee_internal_effect, raw_memory_intrinsic_op_from_name, raw_memory_op_from_name,
+    ExternalIoOp, InternalEffect, LlvmRawBodyMemoryOp, NondetOp, RawBodyBackend,
+    RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp,
 };
 use nepl_core::error::CoreError;
 use nepl_core::hir::HirBody;
@@ -114,6 +114,15 @@ fn internal_effect_classifies_raw_memory_and_surface_fold() {
     ));
     assert_eq!(internal_effect_surface_fold(&store), None);
     assert_eq!(intrinsic_effect("load"), Effect::Impure);
+    assert_eq!(
+        raw_memory_intrinsic_op_from_name("load"),
+        Some(RawMemoryOp::Load)
+    );
+    assert_eq!(
+        raw_memory_intrinsic_op_from_name("store"),
+        Some(RawMemoryOp::Store)
+    );
+    assert_eq!(raw_memory_intrinsic_op_from_name("load_i32"), None);
 
     let io = raw_callee_internal_effect("fd_write").expect("io effect");
     assert!(matches!(
@@ -144,15 +153,15 @@ fn all_impure_io_effect_markers_have_typed_operations() {
 
 #[test]
 fn all_raw_memory_effect_markers_have_typed_operations() {
-    for marker in nepl_core::effects::RAW_MEMORY_HELPER_EFFECT_MARKERS
-        .iter()
-        .chain(nepl_core::effects::RAW_MEMORY_INTRINSIC_EFFECT_MARKERS.iter())
-    {
+    for marker in nepl_core::effects::RAW_MEMORY_HELPER_EFFECT_MARKERS.iter() {
         assert!(
             raw_memory_op_from_name(marker).is_some(),
             "raw memory marker '{}' must map to RawMemoryOp",
             marker
         );
+    }
+    for (intrinsic, expected) in [("load", RawMemoryOp::Load), ("store", RawMemoryOp::Store)] {
+        assert_eq!(raw_memory_intrinsic_op_from_name(intrinsic), Some(expected));
     }
 }
 
