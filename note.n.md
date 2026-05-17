@@ -1,3 +1,20 @@
+# 2026-05-17 Agent 1 raw address return proof の field accessor / raw field 集約
+
+- `ISS-20260517T075612588Z-RAW-ADDRESS-RETURN-PROOF-DUPLICATES--E5A6AE6F` を追加し、fixed / resolved にした。
+- 根本原因は、transparent raw-address return proof が `get` / `get_field` / `raw` を local string branch で分類し、既に shared enum へ寄せた `FieldAccessorKind` と `CompilerMemoryFieldSpec` を消費していなかったこと。
+- `FieldAccessorKind::from_call_base_name` を追加し、source member spelling と intrinsic spelling を同じ enum query で分類できるようにした。
+- `lower_raw_address_return.rs` は `FieldAccessorKind::Get` と `CompilerMemoryFieldSpec::RawI32.name()` を使うようにし、direct `matches!(base_name, "get" | "get_field")` と literal `"raw"` 判定を削除した。
+- `nodesrc/test_resource_checker_responsibility.js` に policy を追加し、transparent raw-address return proof に direct string branch が戻らないようにした。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core field_accessor_call_base_name --lib -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の raw-address return proof も shared field accessor / compiler memory field enum に接続した。
+
 # 2026-05-17 Agent 1 Resource compiler memory field place 集約
 
 - `ISS-20260517T074003907Z-RESOURCE-MEMORY-FIELD-PLACE-CONSTRUC-5EF34F4F` を追加し、fixed / resolved にした。

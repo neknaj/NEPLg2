@@ -27,6 +27,10 @@ impl FieldAccessorKind {
         }
     }
 
+    pub(crate) fn from_call_base_name(name: &str) -> Option<Self> {
+        Self::from_intrinsic_name(name).or_else(|| Self::from_core_field_member_name(name))
+    }
+
     #[cfg(test)]
     pub(crate) const fn core_field_member_name(self) -> &'static str {
         match self {
@@ -163,6 +167,27 @@ mod tests {
         assert_eq!(FieldAccessorKind::Get.argument_count(), 2);
         assert_eq!(FieldAccessorKind::GetRef.argument_count(), 2);
         assert_eq!(FieldAccessorKind::Put.argument_count(), 3);
+    }
+
+    #[test]
+    fn field_accessor_call_base_name_accepts_member_and_intrinsic_spelling() {
+        assert_eq!(
+            FieldAccessorKind::from_call_base_name(FieldAccessorKind::Get.core_field_member_name()),
+            Some(FieldAccessorKind::Get)
+        );
+        assert_eq!(
+            FieldAccessorKind::from_call_base_name(FieldAccessorKind::Get.intrinsic_name()),
+            Some(FieldAccessorKind::Get)
+        );
+        assert_eq!(
+            FieldAccessorKind::from_call_base_name(FieldAccessorKind::Put.core_field_member_name()),
+            Some(FieldAccessorKind::Put)
+        );
+        assert_eq!(
+            FieldAccessorKind::from_call_base_name("get_field_ref"),
+            Some(FieldAccessorKind::GetRef)
+        );
+        assert_eq!(FieldAccessorKind::from_call_base_name("unknown"), None);
     }
 
     #[test]
