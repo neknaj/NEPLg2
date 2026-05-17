@@ -1,3 +1,20 @@
+# 2026-05-18 Agent 1 resource checker source policy drift 修正
+
+- `ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR field projection proof から ordinary direct call 名ベースの `FieldAccessorKind::from_call_base_name` を削除した後も、`nodesrc/test_resource_checker_responsibility.js` が古い classifier の存在を要求していたこと。
+- policy を反転し、`from_call_base_name` の再導入禁止、`RawAddressReturnCalleeEvidence::{OrdinaryCall, Intrinsic}` による proof evidence 分離、`OrdinaryCall => None` / `Intrinsic => FieldAccessorKind::from_intrinsic_name(...)` の固定を確認するようにした。
+- 同じ policy 実行で `lower.rs` が責務分割上限を超えていることも露出したため、inline regression tests を `nepl-core/src/resource/lower_tests.rs` へ分離し、`lower.rs` 本体を 1082 行まで戻した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 6 proof policy 同期として追記した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core --tests`
+  - `cargo test -p nepl-core resource::lower::tests -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/run_source_policy_regressions.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR proof 方針に合わせ、policy 側も ordinary call 名の推測ではなく typed proof evidence を監視するようにした。
+
 # 2026-05-18 Agent 1 selfhost parser stdout report metadata 固定
 
 - `ISS-20260517T180445599Z-SELFHOST-PARSER-DOCTEST-STILL-USES-R-6B2C918C` を追加し、fixed / resolved にした。`plan.md` は変更していない。
