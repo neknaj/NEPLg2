@@ -40404,3 +40404,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+
+## 2026-05-17 Agent 1 raw memory helper kind 分類修正
+
+- `ISS-20260517T055606243Z-RAW-MEMORY-HELPER-EFFECT-MARKERS-DUP-617FE309` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`effects.rs` が raw memory helper spelling を `RAW_MEMORY_HELPER_EFFECT_MARKERS` に保持し、`raw_memory_op_from_name` が別の `match` で同じ spelling を `RawMemoryOp` へ再分類していたことだった。
+- 修正後は `RawMemoryHelper` enum を追加し、runtime ABI helper と core/mem raw helper の base spelling と `RawMemoryOp` mapping を `base_name()` / `operation()` / `from_name()` に集約した。`raw_memory_op_from_name` は typed helper domain を読むだけになった。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects raw_memory_helper -- --nocapture`: 4 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only

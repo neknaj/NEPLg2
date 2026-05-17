@@ -11,29 +11,6 @@ use crate::runtime_helpers::{
     helper_base_name, ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI,
 };
 
-pub const RAW_MEMORY_HELPER_EFFECT_MARKERS: &[&str] = &[
-    "__nepl_rt_alloc",
-    "__nepl_rt_dealloc",
-    "__nepl_rt_realloc",
-    "alloc_raw",
-    "dealloc_raw",
-    "realloc_raw",
-    "mem_size",
-    "mem_grow",
-    "load",
-    "store",
-    "load_i32",
-    "store_i32",
-    "load_u8",
-    "store_u8",
-    "mem_copy",
-    "mem_move",
-    "memset_u8",
-    "fill_u8",
-    "fill_i32",
-    "mem_fill",
-];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RawMemoryOp {
     Alloc,
@@ -70,6 +47,136 @@ impl RawMemoryOp {
 impl fmt::Display for RawMemoryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum RawMemoryHelper {
+    RuntimeAlloc,
+    RuntimeDealloc,
+    RuntimeRealloc,
+    AllocRaw,
+    DeallocRaw,
+    ReallocRaw,
+    MemSize,
+    MemGrow,
+    Load,
+    Store,
+    LoadI32,
+    StoreI32,
+    LoadU8,
+    StoreU8,
+    MemCopy,
+    MemMove,
+    MemsetU8,
+    FillU8,
+    FillI32,
+    MemFill,
+}
+
+impl RawMemoryHelper {
+    pub const ALL: &'static [Self] = &[
+        Self::RuntimeAlloc,
+        Self::RuntimeDealloc,
+        Self::RuntimeRealloc,
+        Self::AllocRaw,
+        Self::DeallocRaw,
+        Self::ReallocRaw,
+        Self::MemSize,
+        Self::MemGrow,
+        Self::Load,
+        Self::Store,
+        Self::LoadI32,
+        Self::StoreI32,
+        Self::LoadU8,
+        Self::StoreU8,
+        Self::MemCopy,
+        Self::MemMove,
+        Self::MemsetU8,
+        Self::FillU8,
+        Self::FillI32,
+        Self::MemFill,
+    ];
+
+    pub const fn base_name(self) -> &'static str {
+        match self {
+            RawMemoryHelper::RuntimeAlloc => ALLOC_RUNTIME_ABI,
+            RawMemoryHelper::RuntimeDealloc => DEALLOC_RUNTIME_ABI,
+            RawMemoryHelper::RuntimeRealloc => REALLOC_RUNTIME_ABI,
+            RawMemoryHelper::AllocRaw => "alloc_raw",
+            RawMemoryHelper::DeallocRaw => "dealloc_raw",
+            RawMemoryHelper::ReallocRaw => "realloc_raw",
+            RawMemoryHelper::MemSize => "mem_size",
+            RawMemoryHelper::MemGrow => "mem_grow",
+            RawMemoryHelper::Load => "load",
+            RawMemoryHelper::Store => "store",
+            RawMemoryHelper::LoadI32 => "load_i32",
+            RawMemoryHelper::StoreI32 => "store_i32",
+            RawMemoryHelper::LoadU8 => "load_u8",
+            RawMemoryHelper::StoreU8 => "store_u8",
+            RawMemoryHelper::MemCopy => "mem_copy",
+            RawMemoryHelper::MemMove => "mem_move",
+            RawMemoryHelper::MemsetU8 => "memset_u8",
+            RawMemoryHelper::FillU8 => "fill_u8",
+            RawMemoryHelper::FillI32 => "fill_i32",
+            RawMemoryHelper::MemFill => "mem_fill",
+        }
+    }
+
+    pub const fn operation(self) -> RawMemoryOp {
+        match self {
+            RawMemoryHelper::RuntimeAlloc | RawMemoryHelper::AllocRaw => RawMemoryOp::Alloc,
+            RawMemoryHelper::RuntimeDealloc | RawMemoryHelper::DeallocRaw => RawMemoryOp::Dealloc,
+            RawMemoryHelper::RuntimeRealloc | RawMemoryHelper::ReallocRaw => RawMemoryOp::Realloc,
+            RawMemoryHelper::Load | RawMemoryHelper::LoadI32 | RawMemoryHelper::LoadU8 => {
+                RawMemoryOp::Load
+            }
+            RawMemoryHelper::Store | RawMemoryHelper::StoreI32 | RawMemoryHelper::StoreU8 => {
+                RawMemoryOp::Store
+            }
+            RawMemoryHelper::MemCopy => RawMemoryOp::BulkCopy,
+            RawMemoryHelper::MemMove => RawMemoryOp::BulkMove,
+            RawMemoryHelper::MemsetU8 | RawMemoryHelper::FillU8 | RawMemoryHelper::MemFill => {
+                RawMemoryOp::FillBytes
+            }
+            RawMemoryHelper::FillI32 => RawMemoryOp::Fill,
+            RawMemoryHelper::MemSize => RawMemoryOp::MemorySize,
+            RawMemoryHelper::MemGrow => RawMemoryOp::MemoryGrow,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        let base = helper_base_name(name);
+        let helper = match base {
+            ALLOC_RUNTIME_ABI => RawMemoryHelper::RuntimeAlloc,
+            DEALLOC_RUNTIME_ABI => RawMemoryHelper::RuntimeDealloc,
+            REALLOC_RUNTIME_ABI => RawMemoryHelper::RuntimeRealloc,
+            "alloc_raw" => RawMemoryHelper::AllocRaw,
+            "dealloc_raw" => RawMemoryHelper::DeallocRaw,
+            "realloc_raw" => RawMemoryHelper::ReallocRaw,
+            "mem_size" => RawMemoryHelper::MemSize,
+            "mem_grow" => RawMemoryHelper::MemGrow,
+            "load" => RawMemoryHelper::Load,
+            "store" => RawMemoryHelper::Store,
+            "load_i32" => RawMemoryHelper::LoadI32,
+            "store_i32" => RawMemoryHelper::StoreI32,
+            "load_u8" => RawMemoryHelper::LoadU8,
+            "store_u8" => RawMemoryHelper::StoreU8,
+            "mem_copy" => RawMemoryHelper::MemCopy,
+            "mem_move" => RawMemoryHelper::MemMove,
+            "memset_u8" => RawMemoryHelper::MemsetU8,
+            "fill_u8" => RawMemoryHelper::FillU8,
+            "fill_i32" => RawMemoryHelper::FillI32,
+            "mem_fill" => RawMemoryHelper::MemFill,
+            _ => return None,
+        };
+        Some(helper)
+    }
+}
+
+impl fmt::Display for RawMemoryHelper {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.base_name())
     }
 }
 
@@ -409,25 +516,7 @@ pub fn raw_callee_is_raw_memory_effect(name: &str) -> bool {
 }
 
 pub fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
-    let base = helper_base_name(name);
-    if !raw_memory_base_is_known(base) {
-        return None;
-    }
-    let operation = match base {
-        ALLOC_RUNTIME_ABI | "alloc_raw" => RawMemoryOp::Alloc,
-        DEALLOC_RUNTIME_ABI | "dealloc_raw" => RawMemoryOp::Dealloc,
-        REALLOC_RUNTIME_ABI | "realloc_raw" => RawMemoryOp::Realloc,
-        "load" | "load_i32" | "load_u8" => RawMemoryOp::Load,
-        "store" | "store_i32" | "store_u8" => RawMemoryOp::Store,
-        "mem_copy" => RawMemoryOp::BulkCopy,
-        "mem_move" => RawMemoryOp::BulkMove,
-        "memset_u8" | "fill_u8" | "mem_fill" => RawMemoryOp::FillBytes,
-        "fill_i32" => RawMemoryOp::Fill,
-        "mem_size" => RawMemoryOp::MemorySize,
-        "mem_grow" => RawMemoryOp::MemoryGrow,
-        _ => return None,
-    };
-    Some(operation)
+    RawMemoryHelper::from_name(name).map(RawMemoryHelper::operation)
 }
 
 pub fn raw_memory_intrinsic_op_from_name(name: &str) -> Option<RawMemoryOp> {
@@ -499,12 +588,6 @@ pub fn nondet_op_from_name(name: &str) -> Option<NondetOp> {
         _ => return None,
     };
     Some(operation)
-}
-
-fn raw_memory_base_is_known(base: &str) -> bool {
-    RAW_MEMORY_HELPER_EFFECT_MARKERS
-        .iter()
-        .any(|marker| *marker == base)
 }
 
 pub fn internal_effect_surface_fold(effect: &InternalEffect) -> Option<Effect> {

@@ -6,7 +6,7 @@ use nepl_core::effects::{
     raw_body_direct_callee_effects, raw_body_memory_operations, raw_callee_internal_effect,
     raw_memory_callee_internal_effect, raw_memory_intrinsic_op_from_name, raw_memory_op_from_name,
     ExternalIoOp, InternalEffect, LlvmRawBodyMemoryOp, NondetOp, RawBodyBackend,
-    RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp,
+    RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryHelper, RawMemoryOp, WasmRawBodyMemoryOp,
 };
 use nepl_core::error::CoreError;
 use nepl_core::hir::HirBody;
@@ -164,14 +164,22 @@ fn host_effect_operation_domains_round_trip_through_typed_classifiers() {
 }
 
 #[test]
-fn all_raw_memory_effect_markers_have_typed_operations() {
-    for marker in nepl_core::effects::RAW_MEMORY_HELPER_EFFECT_MARKERS.iter() {
-        assert!(
-            raw_memory_op_from_name(marker).is_some(),
-            "raw memory marker '{}' must map to RawMemoryOp",
-            marker
+fn raw_memory_helper_domain_round_trips_through_typed_classifier() {
+    for &helper in RawMemoryHelper::ALL {
+        assert_eq!(
+            RawMemoryHelper::from_name(helper.base_name()),
+            Some(helper),
+            "raw memory helper '{}' must map back to RawMemoryHelper",
+            helper
+        );
+        assert_eq!(
+            raw_memory_op_from_name(helper.base_name()),
+            Some(helper.operation()),
+            "raw memory helper '{}' must map to its RawMemoryOp",
+            helper
         );
     }
+
     for (intrinsic, expected) in [("load", RawMemoryOp::Load), ("store", RawMemoryOp::Store)] {
         assert_eq!(raw_memory_intrinsic_op_from_name(intrinsic), Some(expected));
     }
