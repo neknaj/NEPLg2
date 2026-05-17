@@ -139,7 +139,6 @@ fn mem_ptr_type(types: &mut TypeCtx) -> TypeId {
     types.register_named(
         String::from("MemPtr"),
         TypeKind::Struct {
-            doc: None,
             name: String::from("MemPtr"),
             type_params: vec![],
             fields: vec![raw],

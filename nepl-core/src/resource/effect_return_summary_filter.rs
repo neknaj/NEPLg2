@@ -176,7 +176,6 @@ mod tests {
         let mem_ptr_ty = types.register_named(
             "MemPtr".to_string(),
             TypeKind::Struct {
-                doc: None,
                 name: "MemPtr".to_string(),
                 type_params: vec![],
                 fields: vec![i32_ty],
@@ -225,7 +224,6 @@ mod tests {
         let region_token_ty = types.register_named(
             "RegionToken".to_string(),
             TypeKind::Struct {
-                doc: None,
                 name: "RegionToken".to_string(),
                 type_params: vec![],
                 fields: vec![i32_ty],

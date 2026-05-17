@@ -48,6 +48,16 @@ pub(super) fn copy_pointer_alias(
     pointer_aliases.copy_alias(source, target);
 }
 
+pub(super) fn move_pointer_alias(
+    pointer_aliases: &mut RawPointerAliasTable,
+    raw_memory_identities: &mut RawMemoryIdentityTable,
+    source: &Place,
+    target: &Place,
+) {
+    raw_memory_identities.move_place(source, target);
+    pointer_aliases.move_alias(source, target);
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct RawIdentityTable {
     groups: Vec<RawIdentityGroup>,
@@ -156,6 +166,21 @@ impl RawIdentityTable {
         let groups = self.groups_with_replaced_prefix(source, target, true);
         self.clear(target);
         for group in groups {
+            self.union_group(&group.places, &group.origins);
+        }
+    }
+
+    pub(super) fn move_identity(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        let groups = self.groups_with_replaced_prefix(source, target, true);
+        self.clear(target);
+        self.clear(source);
+        for mut group in groups {
+            group
+                .places
+                .retain(|place| !place_has_prefix(place, source));
             self.union_group(&group.places, &group.origins);
         }
     }

@@ -12,7 +12,6 @@ fn register_memory_struct(types: &mut TypeCtx, name: &str, field_names: &[&str])
     let ty = types.register_named(
         name.to_string(),
         TypeKind::Struct {
-            doc: None,
             name: name.to_string(),
             type_params: vec![type_param],
             fields,
@@ -124,7 +123,6 @@ fn same_name_structs_are_not_memory_types_without_proven_identity() {
     let fake_mem_ptr = types.register_named(
         RAW_POINTER_TYPE_NAME.to_string(),
         TypeKind::Struct {
-            doc: None,
             name: RAW_POINTER_TYPE_NAME.to_string(),
             type_params: vec![type_param],
             fields: vec![i32_ty],

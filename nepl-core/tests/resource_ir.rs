@@ -1282,7 +1282,6 @@ fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_stored_in_aggregate
     let wrapper_ty = types.register_named(
         "PtrBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "PtrBox".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -1396,7 +1395,6 @@ fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_fields_across_aggre
     let wrapper_ty = types.register_named(
         "PtrBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "PtrBox".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -1881,7 +1879,6 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_read_from_constructed_aggre
     let box_ty = types.register_named(
         "RawBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "RawBox".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -1967,7 +1964,6 @@ fn resource_ir_effect_check_preserves_raw_identity_fields_across_aggregate_copy(
     let box_ty = types.register_named(
         "RawBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "RawBox".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -2135,6 +2131,99 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_identity_call() {
     };
 
     let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn typed_resource_ir_effect_check_keeps_i32_raw_identity_parameter_summary() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let param = Place::local("p".to_string(), i32_ty);
+    let size = Place::temporary(ResourceId(0), i32_ty);
+    let raw = Place::temporary(ResourceId(1), i32_ty);
+    let forwarded = Place::temporary(ResourceId(2), i32_ty);
+    let module = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "raw_id".to_string(),
+                origin_name: "raw_id".to_string(),
+                params: vec![nepl_core::resource::ResourceLocal {
+                    name: "p".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: param.clone(),
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(param),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                params: vec![],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::Literal,
+                            output: size.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: raw.clone(),
+                            args: vec![size],
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: forwarded.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "raw_id".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![raw],
+                            effect: EffectOp::UserCall {
+                                name: "raw_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(forwarded),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries_typed(&module, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
@@ -2608,7 +2697,6 @@ fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field(
     let wrapper_ty = types.register_named(
         "CallbackBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "CallbackBox".to_string(),
             type_params: vec![],
             fields: vec![fn_ty],
@@ -3177,7 +3265,6 @@ fn resource_ir_effect_check_rejects_mem_ptr_return_identity_escape() {
     let mem_ptr_ty = types.register_named(
         "MemPtr".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "MemPtr".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -3608,7 +3695,6 @@ fn resource_ir_lowering_treats_compiler_field_load_as_field_read() {
     let pair_ty = types.register_named(
         "Pair".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Pair".to_string(),
             type_params: vec![],
             fields: vec![i32_ty, i32_ty],
@@ -3723,7 +3809,6 @@ fn resource_ir_lowering_projects_raw_aggregate_field_without_whole_load() {
     let holder_ty = types.register_named(
         "Holder".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Holder".to_string(),
             type_params: vec![],
             fields: vec![i32_ty, i32_ty],
@@ -5829,7 +5914,6 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
     let mem_ptr_ty = types.register_named(
         "MemPtr".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "MemPtr".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -5839,7 +5923,6 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
     let vec_ty = types.register_named(
         "VecLike".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "VecLike".to_string(),
             type_params: vec![],
             fields: vec![i32_ty, i32_ty, mem_ptr_ty],
@@ -5957,7 +6040,6 @@ fn resource_ir_cell_check_tracks_external_non_copy_raw_load_after_first_move() {
     let token_ty = types.register_named(
         "ExternalToken".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "ExternalToken".to_string(),
             type_params: vec![],
             fields: vec![types.i32()],
@@ -8081,7 +8163,6 @@ fn resource_ir_cell_check_preserves_raw_address_stored_in_aggregate_field() {
     let wrapper_ty = types.register_named(
         "PtrBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "PtrBox".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -8566,7 +8647,6 @@ fn resource_ir_cell_check_allows_field_read_from_constructed_aggregate() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![owned_ty],
@@ -8624,7 +8704,6 @@ fn resource_ir_cell_check_reports_return_after_field_move() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![owned_ty],
@@ -8709,7 +8788,6 @@ fn resource_ir_cell_check_reports_field_read_after_aggregate_move() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![owned_ty],
@@ -9226,7 +9304,6 @@ fn resource_ir_owner_check_reports_assign_over_aggregate_field_owner_leak() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -10024,7 +10101,6 @@ fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_allo
     let wrapper_ty = types.register_named(
         "CallbackBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "CallbackBox".to_string(),
             type_params: vec![],
             fields: vec![fn_ty],
@@ -10138,7 +10214,6 @@ fn resource_ir_owner_check_transfers_aggregate_owner_returned_by_function_value(
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -10433,7 +10508,6 @@ fn resource_ir_owner_check_moves_owner_into_constructed_aggregate() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -10492,7 +10566,6 @@ fn resource_ir_owner_check_moves_aggregate_owner_projection() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -10577,7 +10650,6 @@ fn resource_ir_owner_check_reports_aggregate_owner_return_leak_in_caller() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -10682,7 +10754,6 @@ fn resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_hel
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -12785,7 +12856,6 @@ fn resource_ir_owner_check_uses_proven_region_token_identity_for_construct_exten
     let fake_region = types.register_named(
         "RegionToken".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "RegionToken".to_string(),
             type_params: vec![],
             fields: vec![i32_ty, i32_ty],
@@ -16252,7 +16322,6 @@ fn resource_ir_borrow_check_rejects_assign_over_borrowed_field_projection() {
     let wrapper_ty = types.register_named(
         "Wrapper".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Wrapper".to_string(),
             type_params: vec![],
             fields: vec![i32_ty],
@@ -19487,7 +19556,6 @@ fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let owned_ty = types.register_named(
         "Owned".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "Owned".to_string(),
             type_params: vec![],
             fields: vec![],

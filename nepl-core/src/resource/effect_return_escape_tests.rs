@@ -23,7 +23,6 @@ fn owner_carrier_types() -> (TypeCtx, OwnerCarrierTypes) {
     let region_base = types.register_named(
         "RegionToken".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "RegionToken".to_string(),
             type_params: vec![item_param],
             fields: vec![i32_ty, i32_ty],
@@ -34,7 +33,6 @@ fn owner_carrier_types() -> (TypeCtx, OwnerCarrierTypes) {
     let owner_ty = types.register_named(
         "OwnerBox".to_string(),
         TypeKind::Struct {
-            doc: None,
             name: "OwnerBox".to_string(),
             type_params: vec![],
             fields: vec![i32_ty, region_ty],
@@ -44,7 +42,6 @@ fn owner_carrier_types() -> (TypeCtx, OwnerCarrierTypes) {
     let result_base = types.register_named(
         "Result".to_string(),
         TypeKind::Enum {
-            doc: None,
             name: "Result".to_string(),
             type_params: vec![result_ok_param, result_err_param],
             variants: vec![

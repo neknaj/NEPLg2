@@ -383,7 +383,6 @@ mod tests {
         let pair = types.register_named(
             "Pair".to_string(),
             TypeKind::Struct {
-                doc: None,
                 name: "Pair".to_string(),
                 type_params: vec![],
                 fields: vec![types.i32(), types.i32()],

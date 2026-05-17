@@ -8,22 +8,18 @@ use super::effect_counts::ResourceEffectCounts;
 use super::effect_diagnostic::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 use super::effect_identity::{
     construct_pointer_alias_fields, construct_raw_identity_fields, copy_pointer_alias,
-    raw_memory_op_produces_identity, RawIdentityOrigin, RawIdentityTable,
+    move_pointer_alias, raw_memory_op_produces_identity, RawIdentityOrigin, RawIdentityTable,
 };
 use super::effect_match::copy_match_payload_bind_identity;
 use super::effect_pointer_alias::RawPointerAliasTable;
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
-use super::effect_return_escape::raw_identity_return_projection_is_escape;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    EffectOp, Place, RawAddressViewKind, RawMemoryOp, ResourceBlock, ResourceCallTarget,
-    ResourceExprKind, ResourceFunction, ResourceOp, ResourceTerminator,
+    EffectOp, Place, RawAddressViewKind, RawMemoryOp, ResourceBlock, ResourceExprKind,
+    ResourceFunction, ResourceOp, ResourceTerminator,
 };
-use super::place_utils::{
-    place_suffix_after_prefix, place_with_suffix, raw_address_view_candidate_bases,
-    reference_target_place,
-};
+use super::place_utils::{raw_address_view_candidate_bases, reference_target_place};
 
 pub(super) struct ResourceEffectBoundaryEngine<'a> {
     pub(super) function: &'a str,
@@ -32,6 +28,7 @@ pub(super) struct ResourceEffectBoundaryEngine<'a> {
     pub(super) pointer_summaries: &'a RawPointerReturnSummaryIndex<'a>,
     pub(super) types: Option<&'a TypeCtx>,
     pub(super) track_alloc_identities: bool,
+    pub(super) propagate_return_provenance: bool,
     pub(super) diagnostics: Vec<ResourceEffectBoundaryDiagnostic>,
     pub(super) counts: ResourceEffectCounts,
 }
@@ -69,47 +66,8 @@ impl ResourceEffectBoundaryEngine<'_> {
             &block.ops,
         );
         match &block.terminator {
-            ResourceTerminator::Return { value, span } => {
-                if matches!(self.effect, Effect::Pure) {
-                    if let Some(place) = value {
-                        self.report_internal_alloc_identity_return(identities, place, *span);
-                    }
-                }
-            }
+            ResourceTerminator::Return { .. } => {}
             ResourceTerminator::Unreachable { .. } | ResourceTerminator::RawBody { .. } => {}
-        }
-    }
-
-    fn report_internal_alloc_identity_return(
-        &mut self,
-        identities: &RawIdentityTable,
-        place: &Place,
-        span: Span,
-    ) {
-        let mut reported = Vec::new();
-        for (suffix, ty, origins) in identities.projection_origins_under(place) {
-            if !raw_identity_return_projection_is_escape(self.types, place, &suffix, ty) {
-                continue;
-            }
-            let escaped_place = place_with_suffix(place, &suffix, ty);
-            if reported
-                .iter()
-                .any(|prefix| place_suffix_after_prefix(&escaped_place, prefix).is_some())
-            {
-                continue;
-            }
-            for origin in origins {
-                self.diagnostics.push(
-                    ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
-                        function: String::from(self.function),
-                        operation: origin.operation,
-                        place: escaped_place.clone(),
-                        origin_span: origin.span,
-                        span,
-                    },
-                );
-            }
-            reported.push(escaped_place);
         }
     }
 
@@ -140,6 +98,10 @@ impl ResourceEffectBoundaryEngine<'_> {
         raw_memory_identities: &mut RawMemoryIdentityTable,
         op: &ResourceOp,
     ) {
+        if !self.propagate_return_provenance {
+            self.check_op_without_raw_provenance(op);
+            return;
+        }
         match op {
             ResourceOp::CallEffect { effect, span } => self.check_effect(effect, *span),
             ResourceOp::RawMemory {
@@ -174,9 +136,19 @@ impl ResourceEffectBoundaryEngine<'_> {
                     function_aliases.copy_alias(initializer, place);
                 }
             }
-            ResourceOp::Read { source, output, .. } | ResourceOp::Move { source, output, .. } => {
+            ResourceOp::Read { source, output, .. } => {
                 identities.copy_identity(source, output);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
+                function_aliases.copy_alias(source, output);
+            }
+            ResourceOp::Move { source, output, .. } => {
+                if self.types.is_some_and(|types| types.is_copy(source.ty)) {
+                    identities.copy_identity(source, output);
+                    copy_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
+                } else {
+                    identities.move_identity(source, output);
+                    move_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
+                }
                 function_aliases.copy_alias(source, output);
             }
             ResourceOp::Borrow { source, output, .. } => {
@@ -440,73 +412,60 @@ impl ResourceEffectBoundaryEngine<'_> {
         }
     }
 
-    fn copy_call_return_pointer_alias(
-        &self,
-        pointer_aliases: &mut RawPointerAliasTable,
-        raw_memory_identities: &mut RawMemoryIdentityTable,
-        output: &Place,
-        target: &ResourceCallTarget,
-        args: &[Place],
-    ) {
-        let ResourceCallTarget::User { name, .. } = target else {
-            return;
-        };
-        let Some(summary) = self.pointer_summaries.get(name) else {
-            return;
-        };
-        for parameter_return in &summary.parameter_returns {
-            let Some(arg) = args.get(parameter_return.parameter_index) else {
-                continue;
-            };
-            let source = place_with_suffix(
-                arg,
-                &parameter_return.source_projections,
-                parameter_return.source_ty,
-            );
-            let target = place_with_suffix(
-                output,
-                &parameter_return.return_projections,
-                parameter_return.return_ty,
-            );
-            copy_pointer_alias(pointer_aliases, raw_memory_identities, &source, &target);
-        }
-    }
-
-    fn copy_indirect_call_return_pointer_alias(
-        &self,
-        pointer_aliases: &mut RawPointerAliasTable,
-        raw_memory_identities: &mut RawMemoryIdentityTable,
-        output: &Place,
-        callee: &Place,
-        args: &[Place],
-        function_aliases: &FunctionAliasTable,
-    ) {
-        let functions = function_aliases.functions(callee);
-        if functions.is_empty() {
-            for arg in args {
-                copy_pointer_alias(pointer_aliases, raw_memory_identities, arg, output);
+    fn check_op_without_raw_provenance(&mut self, op: &ResourceOp) {
+        match op {
+            ResourceOp::CallEffect { effect, span } => self.check_effect(effect, *span),
+            ResourceOp::RawMemory {
+                operation, span, ..
+            } => {
+                self.report_raw_memory_boundary_use(*operation, *span);
             }
-            return;
-        }
-        for function in functions {
-            if let Some(summary) = self.pointer_summaries.get(function) {
-                for parameter_return in &summary.parameter_returns {
-                    let Some(arg) = args.get(parameter_return.parameter_index) else {
-                        continue;
-                    };
-                    let source = place_with_suffix(
-                        arg,
-                        &parameter_return.source_projections,
-                        parameter_return.source_ty,
-                    );
-                    let target = place_with_suffix(
-                        output,
-                        &parameter_return.return_projections,
-                        parameter_return.return_ty,
-                    );
-                    copy_pointer_alias(pointer_aliases, raw_memory_identities, &source, &target);
+            ResourceOp::RawAddressView { kind, span, .. } => {
+                self.report_raw_address_view_boundary_use(*kind, *span);
+            }
+            ResourceOp::Branch {
+                then_ops, else_ops, ..
+            } => {
+                for op in then_ops {
+                    self.check_op_without_raw_provenance(op);
+                }
+                for op in else_ops {
+                    self.check_op_without_raw_provenance(op);
                 }
             }
+            ResourceOp::Loop {
+                condition_ops,
+                body_ops,
+                ..
+            } => {
+                for op in condition_ops {
+                    self.check_op_without_raw_provenance(op);
+                }
+                for op in body_ops {
+                    self.check_op_without_raw_provenance(op);
+                }
+            }
+            ResourceOp::Match { arms, .. } => {
+                for arm in arms {
+                    for op in &arm.ops {
+                        self.check_op_without_raw_provenance(op);
+                    }
+                }
+            }
+            ResourceOp::Call { .. }
+            | ResourceOp::IndirectCall { .. }
+            | ResourceOp::Expr { .. }
+            | ResourceOp::DeclareLocal { .. }
+            | ResourceOp::Read { .. }
+            | ResourceOp::Assign { .. }
+            | ResourceOp::Borrow { .. }
+            | ResourceOp::Move { .. }
+            | ResourceOp::Drop { .. }
+            | ResourceOp::EndScope { .. }
+            | ResourceOp::FunctionValue { .. }
+            | ResourceOp::RawAddressAlias { .. }
+            | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::Construct { .. } => {}
         }
     }
 

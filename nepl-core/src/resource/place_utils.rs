@@ -271,6 +271,25 @@ pub(super) fn place_with_suffix(base: &Place, suffix: &[PlaceProjection], ty: Ty
     out
 }
 
+pub(super) fn place_with_checked_suffix(
+    types: Option<&TypeCtx>,
+    base: &Place,
+    suffix: &[PlaceProjection],
+    fallback_ty: TypeId,
+) -> Option<Place> {
+    let Some(types) = types else {
+        return Some(place_with_suffix(base, suffix, fallback_ty));
+    };
+    let mut out = base.clone();
+    let mut current_ty = base.ty;
+    for projection in suffix {
+        current_ty = projection_result_type(types, current_ty, projection)?;
+        out.projections.push(projection.clone());
+        out.ty = current_ty;
+    }
+    Some(out)
+}
+
 pub(super) fn projected_place_with_concrete_type(
     types: &TypeCtx,
     base: &Place,

@@ -9,21 +9,29 @@ use super::effect_summary::{
     RawIdentityReturnSummary, RawIdentityReturnSummaryIndex, RawPointerParameterReturn,
     RawPointerReturnSummary, RawPointerReturnSummaryIndex,
 };
+use super::effect_summary_pointer_filter::filter_raw_pointer_return_summary;
+use super::effect_summary_pointer_seed::summary_seed_can_carry_raw_pointer;
 use super::effect_summary_seed::parameter_summary_seed_places;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
+use super::raw_pointer_type::type_can_seed_non_owning_raw_pointer_alias;
 use super::summary_worklist::SummaryWorklist;
+use crate::types::TypeCtx;
 
 pub(super) fn compute_raw_pointer_return_summaries(
     module: &ResourceModule,
+    types: Option<&TypeCtx>,
 ) -> Vec<RawPointerReturnSummary> {
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
     while let Some(function_index) = worklist.pop() {
         let summary_index = RawPointerReturnSummaryIndex::new(&summaries);
-        let summary =
-            function_raw_pointer_return_summary(&module.functions[function_index], &summary_index);
+        let summary = function_raw_pointer_return_summary(
+            &module.functions[function_index],
+            &summary_index,
+            types,
+        );
         if update_raw_pointer_return_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
         }
@@ -42,7 +50,16 @@ pub(super) fn compute_raw_pointer_return_summaries(
 fn function_raw_pointer_return_summary(
     function: &ResourceFunction,
     summary_index: &RawPointerReturnSummaryIndex<'_>,
+    types: Option<&TypeCtx>,
 ) -> RawPointerReturnSummary {
+    if types
+        .is_some_and(|types| !type_can_seed_non_owning_raw_pointer_alias(types, function.result))
+    {
+        return RawPointerReturnSummary {
+            function: function.name.clone(),
+            parameter_returns: Vec::new(),
+        };
+    }
     let mut parameter_returns = Vec::new();
     for (index, param) in function.params.iter().enumerate() {
         push_parameter_pointer_returns(
@@ -51,12 +68,15 @@ fn function_raw_pointer_return_summary(
             function,
             &param.place,
             summary_index,
+            types,
         );
     }
-    RawPointerReturnSummary {
+    let mut summary = RawPointerReturnSummary {
         function: function.name.clone(),
         parameter_returns,
-    }
+    };
+    filter_raw_pointer_return_summary(&mut summary, function, types);
+    summary
 }
 
 fn update_raw_pointer_return_summary(
@@ -91,8 +111,12 @@ fn push_parameter_pointer_returns(
     function: &ResourceFunction,
     parameter: &Place,
     pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
+    types: Option<&TypeCtx>,
 ) {
     for seed in parameter_summary_seed_places(function, parameter) {
+        if !summary_seed_can_carry_raw_pointer(types, parameter, &seed) {
+            continue;
+        }
         let mut pointer_aliases = RawPointerAliasTable::default();
         pointer_aliases.mark(&seed);
         for returned in function_returned_pointer_alias_projections(
@@ -100,6 +124,7 @@ fn push_parameter_pointer_returns(
             &seed,
             pointer_aliases,
             pointer_summaries,
+            types,
         ) {
             let source_projections =
                 place_suffix_after_prefix(&seed, parameter).unwrap_or_default();
@@ -122,6 +147,7 @@ fn function_returned_pointer_alias_projections(
     seed: &Place,
     mut pointer_aliases: RawPointerAliasTable,
     pointer_summaries: &RawPointerReturnSummaryIndex<'_>,
+    types: Option<&TypeCtx>,
 ) -> Vec<(Vec<super::model::PlaceProjection>, crate::types::TypeId)> {
     let empty_identity_summaries: &[RawIdentityReturnSummary] = &[];
     let empty_identity_summary_index = RawIdentityReturnSummaryIndex::new(empty_identity_summaries);
@@ -130,8 +156,9 @@ fn function_returned_pointer_alias_projections(
         effect: function.effect,
         summaries: &empty_identity_summary_index,
         pointer_summaries,
-        types: None,
+        types,
         track_alloc_identities: false,
+        propagate_return_provenance: true,
         diagnostics: Vec::new(),
         counts: ResourceEffectCounts::default(),
     };

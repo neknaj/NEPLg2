@@ -55,7 +55,6 @@ mod tests {
         let result_ty = types.register_named(
             "Result".to_string(),
             TypeKind::Enum {
-                doc: None,
                 name: "Result".to_string(),
                 type_params: Vec::new(),
                 variants: vec![crate::types::EnumVariantInfo {

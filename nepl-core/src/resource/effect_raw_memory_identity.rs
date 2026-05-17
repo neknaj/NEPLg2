@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 
 use super::effect_identity::{push_unique_origins, RawIdentityOrigin};
+use super::effect_place_prefix::replace_place_prefix;
 use super::effect_pointer_alias::RawPointerAliasTable;
 use super::model::Place;
 
@@ -61,6 +62,22 @@ impl RawMemoryIdentityTable {
             group
                 .places
                 .retain(|existing| !place_has_prefix(existing, place));
+        }
+        self.pointer_groups.retain(|group| !group.places.is_empty());
+    }
+
+    pub(super) fn move_place(&mut self, source: &Place, target: &Place) {
+        for group in &mut self.pointer_groups {
+            let mut mapped = Vec::new();
+            for place in &group.places {
+                if let Some(replacement) = replace_place_prefix(place, source, target) {
+                    push_unique_places(&mut mapped, &[replacement]);
+                }
+            }
+            group.places.retain(|existing| {
+                !place_has_prefix(existing, source) && !place_has_prefix(existing, target)
+            });
+            push_unique_places(&mut group.places, &mapped);
         }
         self.pointer_groups.retain(|group| !group.places.is_empty());
     }
