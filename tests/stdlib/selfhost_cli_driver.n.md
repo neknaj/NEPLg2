@@ -2,8 +2,12 @@
 
 ## selfhost_cli_driver_success_vfs_returns_zero
 
-neplg2:test[normalize_newlines]
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: mlstr:
+##: Checked [ok,ok]
+##: [0] ok
+##: [1] ok
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -47,7 +51,8 @@ fn main <()*>i32> ():
                         checks_new
                         |> checks_push assert_eq_i32 0 exit_code
                         |> checks_push assert_eq_i32 0 diag_len
-                    checks_exit_code checks
+                    let shown checks_print_report checks;
+                    checks_exit_code shown
 ```
 
 ## selfhost_cli_driver_missing_input_writes_json_diagnostic
@@ -88,8 +93,12 @@ fn main <()*>i32> ():
 
 ## selfhost_cli_driver_missing_file_returns_loader_diagnostic
 
-neplg2:test[normalize_newlines]
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: mlstr:
+##: Checked [ok,ok]
+##: [0] ok
+##: [1] ok
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -132,5 +141,6 @@ fn main <()*>i32> ():
                         checks_new
                         |> checks_push assert_eq_i32 1 exit_code
                         |> checks_push assert_str_eq "[{\"severity\":\"error\",\"code\":\"loader.source.file_not_found\",\"message\":\"source file is not registered in self-host VFS\",\"primary_label\":null,\"note\":\"missing.nepl\"}]" json
-                    checks_exit_code checks
+                    let shown checks_print_report checks;
+                    checks_exit_code shown
 ```

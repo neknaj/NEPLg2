@@ -1230,3 +1230,21 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/run_doctest.js -i tests/stdlib/features_tui.n.md -n 4 --dist web/dist`: pass
 
 この issue はまだ open のまま継続する。`features_tui` の std/test report 省略ケースは移行済みだが、他 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-17 selfhost_cli_driver stdout report migration
+
+`ISS-20260517T125745927Z-SELFHOST-CLI-DRIVER-DOCTESTS-HIDE-ST-15DDEDC6` として、`tests/stdlib/selfhost_cli_driver.n.md::doctest#1` と `doctest#3` を canonical stdout fixture へ移行した。
+
+移行内容:
+
+- 2 件の std/test assertion を持つ doctest に `neplg2:test[stdio, normalize_newlines]`、`stdout: mlstr:`、`exit_code: 0` を追加した。
+- `checks_print_report checks` の結果を `shown` に束縛してから `checks_exit_code shown` を返す形にした。
+- `nodesrc/test_selfhost_cli_driver_report_contract.js` を追加し、この fixture が `ret:` へ戻らないことを source policy にした。
+
+検証:
+
+- `node nodesrc/test_selfhost_cli_driver_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/agent1-selfhost-cli-driver-report-tests.json -j 1 --dist web/dist --assert-io`: compile timeout 60000ms x 3
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='300000'; node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/agent1-selfhost-cli-driver-report-tests-long.json -j 1 --dist web/dist --assert-io`: compile timeout 300000ms x 3
+
+runtime 検証を妨げる compile-time blocker は `ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91` として分離した。この親 issue はまだ open のまま継続する。

@@ -97,6 +97,7 @@ const checks = [
     "nodesrc/test_selfhost_cli_args_types_split.js",
     "nodesrc/test_selfhost_cli_args_no_owner_field_reads.js",
     "nodesrc/test_selfhost_cli_driver_boundary.js",
+    "nodesrc/test_selfhost_cli_driver_report_contract.js",
     "nodesrc/test_selfhost_cli_file_io_boundary.js",
     "nodesrc/test_selfhost_cli_reporter_boundary.js",
     "nodesrc/test_selfhost_diag_code_enum.js",

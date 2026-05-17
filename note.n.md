@@ -1,3 +1,20 @@
+# 2026-05-17 Agent 1 selfhost_cli_driver stdout report 固定
+
+- `ISS-20260517T125745927Z-SELFHOST-CLI-DRIVER-DOCTESTS-HIDE-ST-15DDEDC6` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/selfhost_cli_driver.n.md::doctest#1/#3` が `std/test` の `checks` を作っているのに、`checks_print_report` を呼ばず `ret: 0` だけで成功を表していたこと。
+- 対象 doctest を `neplg2:test[stdio, normalize_newlines]` に変更し、2 assertion の `stdout: mlstr:` と `exit_code: 0` を固定した。
+- 末尾は `let shown checks_print_report checks; checks_exit_code shown` にし、report 表示と終了 code を分離した。
+- `nodesrc/test_selfhost_cli_driver_report_contract.js` を追加し、対象 fixture が `ret:` に戻らないことと stdout report を維持することを source policy にした。
+- focused runtime run は `tests/stdlib/selfhost_cli_driver.n.md` 全3件が compile timeout になった。通常 60000ms だけでなく `NEPL_TEST_CASE_TIMEOUT_MS=300000` でも timeout したため、`ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91` として分離した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に今回の進捗を追記した。この親 issue は他 fixture と一般 lint 強化が残るため open のまま。
+- 検証:
+  - `node nodesrc/test_selfhost_cli_driver_report_contract.js`
+  - `git diff --check`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/agent1-selfhost-cli-driver-report-tests.json -j 1 --dist web/dist --assert-io`: compile timeout
+  - `$env:NEPL_TEST_CASE_TIMEOUT_MS='300000'; node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/agent1-selfhost-cli-driver-report-tests-long.json -j 1 --dist web/dist --assert-io`: compile timeout
+- plan.md との差異:
+  - plan.md は変更していない。selfhost の検証 fixture が stdout report を固定するようにしたが、selfhost CLI driver doctest の compile-time blocker は別 issue で継続する。
+
 # 2026-05-17 Agent 1 WASM codegen LocalMap responsibility split
 
 - `ISS-20260517T124911215Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-49B83608` を追加し、fixed / resolved にした。`plan.md` は変更していない。
