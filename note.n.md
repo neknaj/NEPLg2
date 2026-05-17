@@ -1,3 +1,21 @@
+# 2026-05-17 Agent 1 source capability import module enum 化
+
+- `ISS-20260517T104130208Z-SOURCE-CAPABILITY-CORE-FIELD-IMPORT--DAE2B054` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、owner aggregate field accessor proof が `core/field` import を `field_imports.rs` 内の `.nepl` strip + 文字列比較で直接判定しており、proof-relevant import module の分類 domain が存在しなかったこと。
+- `source_capability/import_path.rs` を追加し、`SourceCapabilityImportModule::CoreField` と `from_path` が import path 正規化と分類を所有するようにした。
+- `from_path` は slash 正規化、`.` / `..` component 正規化、`.nepl` / `.n.md` extension 正規化を行う。
+- `owner_aggregate/field_imports.rs` は `SourceCapabilityImportModule::from_path(path)` を消費するだけにし、局所的な `strip_suffix(".nepl").unwrap_or(path) == "core/field"` 判定を削除した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に import path module、enum、from_path、extension normalization、field_imports 側の consumer、旧 path string check 禁止を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core source_capability::import_path::tests --lib -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary_accepts_field --lib -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「source proof の条件を局所文字列分岐ではなく typed proof domain に寄せる」方針に沿って、proof-relevant import module classification を enum 化した。
+
 # 2026-05-17 Agent 1 typecheck unit-like struct shape domain 化
 
 - `ISS-20260517T102052427Z-TYPECHECK-UNIT-LIKE-STRUCT-SHAPE-IS--F13DA6CD` を追加し、fixed / resolved にした。`plan.md` は変更していない。

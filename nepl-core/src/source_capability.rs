@@ -9,6 +9,7 @@ mod compiler_memory_field;
 mod constructor_position;
 mod fact;
 mod field_selector;
+mod import_path;
 mod memory_type_definition;
 mod owner_aggregate;
 mod prefix_call;
