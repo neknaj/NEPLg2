@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T03:30:39.992Z",
+  "generated_at": "2026-05-17T03:43:29.385Z",
   "counts": {
-    "total": 903,
+    "total": 904,
     "open": 5,
-    "resolved": 898,
+    "resolved": 899,
     "by_area": {
       "stdlib": {
-        "total": 260,
+        "total": 261,
         "open": 3,
-        "resolved": 257
+        "resolved": 258
       },
       "TEST": {
         "total": 25,
@@ -10783,6 +10783,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T032727149Z-CORE-MEM-RAW-DOCTESTS-CALL-RAW-APIS--057347FB.md"
+    },
+    {
+      "id": "ISS-20260517T033712430Z-WASIX-TTY-RAW-MODE-EXPOSES-RAW-I32-S-45184629",
+      "title": "WASIX TTY raw mode exposes raw i32 state owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "stdlib/platforms/wasix/tui/tty.nepl, nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T033712430Z-WASIX-TTY-RAW-MODE-EXPOSES-RAW-I32-S-45184629.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

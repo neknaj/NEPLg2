@@ -106,8 +106,14 @@ for (const submodule of ['storage', 'wrap', 'present']) {
     );
 }
 assert.doesNotMatch(bufferCode, /\b(fn|struct|enum)\s+\w+/, 'wasix tui buffer facade must not regain implementation bodies');
-assert.match(ttyCode, /fn\s+get_tty_state_result\s+<\(\)\*>Result<i32,i32>>\s+\(\):[\s\S]*Result<i32,i32>::Ok\s+ptr[\s\S]*Result<i32,i32>::Err\s+errno/, 'TTY state acquisition must return Result instead of a freed-pointer sentinel');
+assert.match(ttyCode, /pub\s+struct\s+TtyState:[\s\S]*region\s+<RegionToken<u8>>/, 'TTY state must carry its free obligation as a RegionToken owner');
+assert.match(ttyCode, /fn\s+get_tty_state_result\s+<\(\)\*>Result<TtyState,i32>>\s+\(\):[\s\S]*alloc_region_bytes<u8>\s+24[\s\S]*Result<TtyState,i32>::Ok\s+state[\s\S]*Result<TtyState,i32>::Err\s+errno/, 'TTY state acquisition must return a typed owner instead of a raw pointer sentinel');
+assert.match(ttyCode, /fn\s+tty_state_raw\s+<\(&TtyState\)->i32>\s+\(state\):\s+mem_ptr_addr\s+tty_state_ptr\s+state/, 'TTY raw address extraction must stay inside the TTY boundary helper');
+assert.match(ttyCode, /pub\s+fn\s+enter_raw_mode\s+<\(\)\*>Result<TtyState,i32>>\s+\(\):/, 'enter_raw_mode must return a typed TtyState owner on success');
+assert.match(ttyCode, /pub\s+fn\s+restore_mode\s+<\(TtyState\)\*>i32>\s+\(old_state\):/, 'restore_mode must consume the typed TtyState owner');
+assert.doesNotMatch(ttyCode, /\b(?:alloc_raw|dealloc_raw)\b/, 'TTY state owner allocation must not use raw i32 allocation APIs');
 assert.doesNotMatch(ttyCode, /fn\s+get_tty_state\s+<\(\)\*>i32>/, 'TTY state acquisition must not return raw i32 sentinel values');
+assert.doesNotMatch(ttyCode, /pub\s+fn\s+enter_raw_mode\s+<\(\)\*>i32>|pub\s+fn\s+restore_mode\s+<\(i32\)\*>/, 'TTY raw mode APIs must not expose raw i32 state owners');
 assert.match(ansiCode, /fn\s+set_fg_color\s+<\(AnsiColor\)\*>\(\)>\s+\(color\):[\s\S]*print\s+ansi_color_code\s+color/, 'set_fg_color must use typed AnsiColor conversion');
 assert.match(ansiCode, /fn\s+set_bg_color\s+<\(AnsiColor\)\*>\(\)>\s+\(color\):[\s\S]*print\s+ansi_background_color_code\s+color/, 'set_bg_color must use typed AnsiColor conversion');
 assert.match(styleCode, /fn\s+style_text\s+<\(AnsiTextStyle,str\)\*>str>\s+\(style,\s*s\):[\s\S]*ansi_text_style_code\s+style[\s\S]*ansi_reset_code/, 'style_text must use typed AnsiTextStyle conversion');

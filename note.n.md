@@ -1,3 +1,17 @@
+# 2026-05-17 Agent 1 WASIX TTY state owner 境界修正
+
+- `ISS-20260517T033712430Z-WASIX-TTY-RAW-MODE-EXPOSES-RAW-I32-S-45184629` を追加し、fixed / resolved にした。
+- 根本原因は、`stdlib/platforms/wasix/tui/tty.nepl` が WASIX TTY state buffer の free obligation を raw `i32` pointer と sentinel `0` で表し、`enter_raw_mode` / `restore_mode` の public API へ raw owner を露出していたこと。
+- `TtyState` を追加し、TTY state buffer の owner を `RegionToken<u8>` として保持する形にした。raw address 変換は `tty_state_raw` helper に閉じ、`MemPtr<u8>` は non-owning view としてだけ使う。
+- `get_tty_state_result` は private helper に戻し、`enter_raw_mode` は `Result<TtyState,i32>`、`restore_mode` は consuming `TtyState` API に変更した。`alloc_raw` / `dealloc_raw` は TTY state owner path から除去した。
+- `nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js` は、`TtyState` owner、`alloc_region_bytes<u8> 24`、public raw-mode API の typed owner contract、raw allocation API 再導入禁止を監視するように更新した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/wasix-tui-tty-region-state-after.json -j 1`: 5/5 passed
+  - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の `MemPtr = non-owning pointer` / `RegionToken = free obligation owner` 境界を WASIX TTY state owner に適用した。
+
 # 2026-05-17 Agent 1 SourceMap file-level capability query 廃止
 
 - `ISS-20260517T021245721Z-SOURCEMAP-STILL-EXPOSES-FILE-LEVEL-S-D2E7D025` を追加し、fixed / resolved にした。

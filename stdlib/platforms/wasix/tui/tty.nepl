@@ -3,10 +3,10 @@
 //:
 //: ### 目的
 //: - WASIX の `tty_get` / `tty_set` ABI 境界をこの module に集約します。
-//: - TTY state pointer の所有と解放契約を `Result` で表し、失敗時 sentinel `0` と有効 pointer を同じ raw `i32` へ混ぜないようにします。
+//: - TTY state の所有と解放契約を `TtyState` / `Result` で表し、失敗時 sentinel `0` と有効 pointer を同じ raw `i32` へ混ぜないようにします。
 //:
 //: ### 注意
-//: - `enter_raw_mode` が返す pointer は `restore_mode` に渡して復元・解放してください。
+//: - `enter_raw_mode` が返す `TtyState` は `restore_mode` に渡して復元・解放してください。
 //: - `get_tty_state_result` は内部境界向け helper です。通常は `get_terminal_size` / `enter_raw_mode` を使います。
 
 #indent 4
@@ -18,9 +18,10 @@
 
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/allocator" as *
+#import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/result" as *
+#import "core/field" as field
 
 //: TerminalSize: 端末の列数と行数
 //:
@@ -33,87 +34,164 @@ pub struct TerminalSize:
     cols <i32>
     rows <i32>
 
+//: TtyState: WASIX TTY state の owner
+//:
+//: [目的/もくてき]:
+//: - `tty_get` / `tty_set` に渡す 24 byte state buffer の free obligation を `RegionToken<u8>` として保持します。
+//: - public API が raw `i32` pointer を所有権として返さないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `enter_raw_mode` で得た値は必ず `restore_mode` に渡してください。
+pub struct TtyState:
+    region <RegionToken<u8>>
+
+//: tty_state_region_ref: TTY state の region owner を借用する
+//:
+//: [目的/もくてき]:
+//: - ABI raw address を作るときだけ、`TtyState` 内部の `RegionToken<u8>` を借用します。
+fn tty_state_region_ref <(&TtyState)->&RegionToken<u8>> (state):
+    field::get_ref state "region"
+
+//: tty_state_region: TTY state の region owner を取り出す
+//:
+//: [目的/もくてき]:
+//: - `restore_mode` や cleanup が free obligation を消費できるように、`TtyState` から `RegionToken<u8>` を move します。
+fn tty_state_region <(TtyState)->RegionToken<u8>> (state):
+    field::get state "region"
+
+//: tty_state_ptr: TTY state buffer の non-owning pointer view を得る
+//:
+//: [目的/もくてき]:
+//: - `TtyState` が保持する owner から `MemPtr<u8>` view を作ります。free obligation は `TtyState` 側に残します。
+fn tty_state_ptr <(&TtyState)->MemPtr<u8>> (state):
+    region_ptr tty_state_region_ref state
+
+//: tty_state_raw: WASIX ABI に渡す raw address を得る
+//:
+//: [目的/もくてき]:
+//: - `tty_get` / `tty_set` の ABI 境界だけで `MemPtr<u8>` view を raw `i32` address へ落とします。
+fn tty_state_raw <(&TtyState)->i32> (state):
+    mem_ptr_addr tty_state_ptr state
+
+//: tty_state_free: TTY state owner を解放する
+//:
+//: [目的/もくてき]:
+//: - `TtyState` が持つ `RegionToken<u8>` を消費し、24 byte state buffer の free obligation を閉じます。
+fn tty_state_free <(TtyState)*>Result<(),str>> (state):
+    dealloc_region<u8> tty_state_region state
+
+//: tty_copy_state: TTY state buffer を byte 単位で複製する
+//:
+//: [目的/もくてき]:
+//: - raw mode へ切り替える前に、復元用の state buffer へ WASIX ABI layout をそのままコピーします。
+fn tty_copy_state <(&TtyState,&TtyState)*>()> (dst, src):
+    let dst_raw <i32> tty_state_raw dst
+    let src_raw <i32> tty_state_raw src
+    let mut i <i32> 0;
+    while lt i 24:
+        do:
+            store_u8 add dst_raw i load_u8 add src_raw i;
+            set i add i 1;
+
 //: get_tty_state_result: WASIX TTY 状態を取得する
 //:
 //: [目的/もくてき]:
-//: - 成功時の raw state pointer と失敗時 errno を `Result` で分け、解放済み pointer と `0` sentinel を同じ `i32` へ混ぜないようにします。
+//: - 成功時の state owner と失敗時 errno を `Result` で分け、解放済み pointer と `0` sentinel を同じ `i32` へ混ぜないようにします。
 //:
 //: [注意/ちゅうい]:
-//: - `Result::Ok ptr` の `ptr` は呼び出し側が 24 bytes として `dealloc_raw` する必要があります。
-pub fn get_tty_state_result <()*>Result<i32,i32>> ():
-    let ptr <i32> alloc_raw 24;
-    let errno <i32> wasix_tty_get ptr;
-    if:
-        eq errno 0
-        then:
-            Result<i32,i32>::Ok ptr
-        else:
-            dealloc_raw ptr 24;
-            Result<i32,i32>::Err errno
+//: - `Result::Ok state` の owner は呼び出し側が `restore_mode` または内部 cleanup で閉じます。
+fn get_tty_state_result <()*>Result<TtyState,i32>> ():
+    match alloc_region_bytes<u8> 24:
+        Result::Ok region:
+            let state <TtyState> TtyState region
+            let errno <i32> wasix_tty_get tty_state_raw &state
+            if:
+                eq errno 0
+                then:
+                    Result<TtyState,i32>::Ok state
+                else:
+                    match tty_state_free state:
+                        Result::Ok _:
+                            Result<TtyState,i32>::Err errno
+                        Result::Err _:
+                            Result<TtyState,i32>::Err errno
+        Result::Err _:
+            Result<TtyState,i32>::Err -1
 
-pub fn set_tty_state <(i32)*>i32> (ptr):
-    wasix_tty_set ptr
+fn set_tty_state <(&TtyState)*>i32> (state):
+    wasix_tty_set tty_state_raw state
 
-pub fn get_cols <(i32)*>i32> (ptr):
-    load_i32 ptr
+fn get_cols <(&TtyState)*>i32> (state):
+    load_i32 tty_state_raw state
 
-pub fn get_rows <(i32)*>i32> (ptr):
-    load_i32 add ptr 4
+fn get_rows <(&TtyState)*>i32> (state):
+    load_i32 add tty_state_raw state 4
 
-pub fn set_echo <(i32,bool)*>()> (ptr, enable):
+fn set_echo <(&TtyState,bool)*>()> (state, enable):
     let v <i32> if enable 1 0;
-    store_u8 add ptr 19 v
+    store_u8 add tty_state_raw state 19 v
 
-pub fn set_line_buffered <(i32,bool)*>()> (ptr, enable):
+fn set_line_buffered <(&TtyState,bool)*>()> (state, enable):
     let v <i32> if enable 1 0;
-    store_u8 add ptr 20 v
+    store_u8 add tty_state_raw state 20 v
 
 //: enter_raw_mode: ターミナルを RAW モードにする
 //:
 //: 目的:
 //: - echo と line_buffered を無効化します。
-//: - 成功時は以前の TtyState ポインタを返します。
+//: - 成功時は以前の TTY state owner を返します。
 //:
 //: 注意(重要):
-//: - 返されたポインタは restore_mode に渡して解放する必要があります。
-pub fn enter_raw_mode <()*>i32> ():
+//: - 返された `TtyState` は restore_mode に渡して解放する必要があります。
+pub fn enter_raw_mode <()*>Result<TtyState,i32>> ():
     match get_tty_state_result:
         Result::Ok state:
-            let old_state <i32> alloc_raw 24;
-            // 復元用に WASIX TTY state の ABI layout をそのまま保存します。
-            let mut i <i32> 0;
-            while lt i 24:
-                do:
-                    store_u8 add old_state i load_u8 add state i;
-                    set i add i 1;
-
-            set_echo state false;
-            set_line_buffered state false;
-            let errno <i32> set_tty_state state;
-            dealloc_raw state 24;
-            if:
-                eq errno 0
-                then:
-                    old_state
-                else:
-                    dealloc_raw old_state 24;
-                    0
-        Result::Err _errno:
-            0
+            match alloc_region_bytes<u8> 24:
+                Result::Ok old_region:
+                    let old_state <TtyState> TtyState old_region
+                    // 復元用に WASIX TTY state の ABI layout をそのまま保存します。
+                    tty_copy_state &old_state &state
+                    set_echo &state false;
+                    set_line_buffered &state false;
+                    let errno <i32> set_tty_state &state;
+                    match tty_state_free state:
+                        Result::Ok _:
+                            if:
+                                eq errno 0
+                                then:
+                                    Result<TtyState,i32>::Ok old_state
+                                else:
+                                    match tty_state_free old_state:
+                                        Result::Ok _:
+                                            Result<TtyState,i32>::Err errno
+                                        Result::Err _:
+                                            Result<TtyState,i32>::Err errno
+                        Result::Err _:
+                            match tty_state_free old_state:
+                                Result::Ok _:
+                                    Result<TtyState,i32>::Err -1
+                                Result::Err _:
+                                    Result<TtyState,i32>::Err -1
+                Result::Err _:
+                    match tty_state_free state:
+                        Result::Ok _:
+                            Result<TtyState,i32>::Err -1
+                        Result::Err _:
+                            Result<TtyState,i32>::Err -1
+        Result::Err errno:
+            Result<TtyState,i32>::Err errno
 
 //: restore_mode: ターミナルの状態を元に戻す
 //:
 //: 目的:
 //: - enter_raw_mode で保存した状態を復元します。
-pub fn restore_mode <(i32)*>i32> (old_state):
-    if:
-        ne old_state 0
-        then:
-            let errno <i32> set_tty_state old_state;
-            dealloc_raw old_state 24;
+pub fn restore_mode <(TtyState)*>i32> (old_state):
+    let errno <i32> set_tty_state &old_state;
+    match tty_state_free old_state:
+        Result::Ok _:
             errno
-        else:
-            -1
+        Result::Err _:
+            if eq errno 0 -1 errno
 
 //: get_terminal_size: ターミナルのサイズを取得する
 //:
@@ -128,9 +206,9 @@ pub fn restore_mode <(i32)*>i32> (old_state):
 pub fn get_terminal_size <()*>TerminalSize> ():
     match get_tty_state_result:
         Result::Ok state:
-            let c <i32> get_cols state;
-            let r <i32> get_rows state;
-            dealloc_raw state 24;
+            let c <i32> get_cols &state;
+            let r <i32> get_rows &state;
+            tty_state_free state;
             TerminalSize c r
         Result::Err _errno:
             TerminalSize 0 0

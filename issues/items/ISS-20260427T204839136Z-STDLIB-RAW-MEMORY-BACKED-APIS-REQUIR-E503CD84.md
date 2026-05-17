@@ -617,3 +617,11 @@ root facade の `cliarg_get` は既に負 index を拒否していたが、raw b
 Stage 6 では raw memory operation は compiler-owned raw-memory boundary の source proof がある場所だけで許可される。doctest entry は通常利用者 source として扱われるため、`alloc_raw`、`mem_size`、`memset_u8`、`fill_i32` の直接呼び出しを成功例にするのは設計と矛盾していた。修正後はこれらを `compile_fail` の境界回帰テストにし、raw boundary を緩めずに `stdlib/core/mem` focused doctest を通す。
 
 この親 issue は引き続き open とする。今回閉じたのは raw module docs の stale executable fixture であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-17 Agent 1 WASIX TTY state owner 境界追記
+
+`ISS-20260517T033712430Z-WASIX-TTY-RAW-MODE-EXPOSES-RAW-I32-S-45184629` で、`platforms/wasix/tui/tty.nepl` の raw mode state owner が public raw `i32` として露出していた問題を分離して修正した。
+
+以前の `enter_raw_mode` / `restore_mode` は、WASIX TTY state buffer の free obligation を raw `i32` pointer と sentinel `0` で表していた。修正後は `TtyState` が `RegionToken<u8>` owner を保持し、public raw-mode API は `Result<TtyState,i32>` を返して `restore_mode` が `TtyState` を消費する。`tty_get` / `tty_set` に必要な raw address 変換は TTY module 内の helper に閉じ、`alloc_raw` / `dealloc_raw` を public state owner contract から取り除いた。
+
+この親 issue は引き続き open とする。今回閉じたのは WASIX TTY の raw state owner 漏れであり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
