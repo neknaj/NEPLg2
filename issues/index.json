@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T19:03:16.754Z",
+  "generated_at": "2026-05-17T19:12:16.320Z",
   "counts": {
-    "total": 962,
+    "total": 963,
     "open": 5,
-    "resolved": 957,
+    "resolved": 958,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -12,9 +12,9 @@
         "resolved": 259
       },
       "TEST": {
-        "total": 33,
+        "total": 34,
         "open": 1,
-        "resolved": 32
+        "resolved": 33
       },
       "selfhost": {
         "total": 69,
@@ -12098,6 +12098,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T182028980Z-SELFHOST-MODULE-LOADER-DOCTESTS-STIL-FFD594CB.md"
+    },
+    {
+      "id": "ISS-20260517T190658373Z-SELFHOST-DIAG-OUTCOME-DOCTESTS-HIDE--A0C5B813",
+      "title": "selfhost diag outcome doctests hide std/test reports in metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/neplg2_diag_outcome.n.md, nodesrc/test_selfhost_diag_outcome_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T190658373Z-SELFHOST-DIAG-OUTCOME-DOCTESTS-HIDE--A0C5B813.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
