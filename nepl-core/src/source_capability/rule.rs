@@ -8,12 +8,15 @@ use crate::source_capability::binding::SourceCapabilityBindingKind;
 use crate::source_capability::compiler_memory_field::{
     compiler_memory_field_intrinsic_evidence, compiler_memory_field_symbol_evidence,
 };
+use crate::source_capability::fact::{
+    compiler_memory_field_proof_fact, owner_aggregate_proof_fact,
+};
 use crate::source_capability::memory_type_definition::compiler_memory_type_from_struct_def;
 use crate::source_capability::owner_aggregate::{
     owner_aggregate_explicit_constructor_evidence, owner_aggregate_intrinsic_evidence,
     owner_aggregate_symbol_evidence, OwnerAggregateEvidenceContext,
 };
-use crate::source_capability::proof_builder::SourceCapabilityProof;
+use crate::source_capability::proof_builder::{SourceCapabilityProof, SourceCapabilityProofFact};
 use crate::source_capability::raw_evidence_gate::raw_symbol_shadow_allows_evidence;
 use crate::source_capability::raw_memory::{RawAddressViewEvidence, RawMemoryStructuralEvidence};
 use crate::source_capability::raw_operation_proof::RawOperationBoundaryContract;
@@ -82,16 +85,24 @@ pub(in crate::source_capability) fn dispatch_source_capability_proof_event(
         } => collect_owner_aggregate_explicit_constructor_evidence(sink, symbol, span, scope),
         SourceCapabilityProofEvent::StructDefinition { def } => {
             if let Some(memory_type) = compiler_memory_type_from_struct_def(def) {
-                sink.proof_mut()
-                    .insert_compiler_memory_type_definition(memory_type, def.name.span);
+                sink.proof_mut().insert_fact(
+                    SourceCapabilityProofFact::CompilerMemoryTypeDefinition(memory_type),
+                    def.name.span,
+                );
             }
         }
         SourceCapabilityProofEvent::Intrinsic { name, args, span } => {
             collect_raw_builtin_evidence(sink, name, span);
-            sink.proof_mut()
-                .insert_owner_aggregate_evidence(owner_aggregate_intrinsic_evidence(name), span);
-            sink.proof_mut().insert_compiler_memory_field_evidence(
-                compiler_memory_field_intrinsic_evidence(name, args),
+            insert_proof_fact(
+                sink,
+                owner_aggregate_proof_fact(owner_aggregate_intrinsic_evidence(name)),
+                span,
+            );
+            insert_proof_fact(
+                sink,
+                compiler_memory_field_proof_fact(compiler_memory_field_intrinsic_evidence(
+                    name, args,
+                )),
                 span,
             );
         }
@@ -135,28 +146,36 @@ fn collect_raw_builtin_evidence(
     span: Span,
 ) {
     if RawMemoryStructuralEvidence::from_symbol(symbol).is_some() {
-        sink.proof_mut().insert_raw_memory_structural_boundary(span);
+        sink.proof_mut()
+            .insert_fact(SourceCapabilityProofFact::RawMemoryStructuralBoundary, span);
     }
     if RawAddressViewEvidence::from_symbol(symbol).is_some() {
-        sink.proof_mut().insert_raw_address_view_boundary(span);
+        sink.proof_mut()
+            .insert_fact(SourceCapabilityProofFact::RawAddressViewBoundary, span);
     }
     if let Some(operation) = raw_memory_op_from_name(symbol) {
-        sink.proof_mut()
-            .insert_raw_memory_operation_boundary(operation, span);
+        sink.proof_mut().insert_fact(
+            SourceCapabilityProofFact::RawMemoryOperationBoundary(operation),
+            span,
+        );
         sink.record_raw_operation_evidence(operation);
     }
 }
 
 fn collect_raw_body_evidence(sink: &mut impl SourceCapabilityProofSink, body: HirBody, span: Span) {
     for operation in raw_body_memory_operations(&body) {
-        sink.proof_mut()
-            .insert_raw_body_memory_operation_boundary(operation, span);
+        sink.proof_mut().insert_fact(
+            SourceCapabilityProofFact::RawBodyMemoryOperationBoundary(operation),
+            span,
+        );
         sink.record_raw_body_operation_evidence(operation);
     }
     for callee in raw_body_direct_callee_effects(&body) {
         if let RawBodyDirectCallee::RawMemory { operation, .. } = callee {
-            sink.proof_mut()
-                .insert_raw_memory_operation_boundary(operation, span);
+            sink.proof_mut().insert_fact(
+                SourceCapabilityProofFact::RawMemoryOperationBoundary(operation),
+                span,
+            );
             sink.record_raw_operation_evidence(operation);
         }
     }
@@ -169,8 +188,7 @@ fn collect_owner_aggregate_symbol_evidence(
     scope: &SourceCapabilityScope,
 ) {
     let observed = owner_aggregate_symbol_evidence(symbol, scope, sink.owner_context());
-    sink.proof_mut()
-        .insert_owner_aggregate_evidence(observed, span);
+    insert_proof_fact(sink, owner_aggregate_proof_fact(observed), span);
 }
 
 fn collect_owner_aggregate_explicit_constructor_evidence(
@@ -181,8 +199,7 @@ fn collect_owner_aggregate_explicit_constructor_evidence(
 ) {
     let observed =
         owner_aggregate_explicit_constructor_evidence(symbol, scope, sink.owner_context());
-    sink.proof_mut()
-        .insert_owner_aggregate_evidence(observed, span);
+    insert_proof_fact(sink, owner_aggregate_proof_fact(observed), span);
 }
 
 fn collect_compiler_memory_field_symbol_evidence(
@@ -194,6 +211,15 @@ fn collect_compiler_memory_field_symbol_evidence(
 ) {
     let observed =
         compiler_memory_field_symbol_evidence(symbol, selector, scope, sink.owner_context());
-    sink.proof_mut()
-        .insert_compiler_memory_field_evidence(observed, span);
+    insert_proof_fact(sink, compiler_memory_field_proof_fact(observed), span);
+}
+
+fn insert_proof_fact(
+    sink: &mut impl SourceCapabilityProofSink,
+    fact: Option<SourceCapabilityProofFact>,
+    span: Span,
+) {
+    if let Some(fact) = fact {
+        sink.proof_mut().insert_fact(fact, span);
+    }
 }

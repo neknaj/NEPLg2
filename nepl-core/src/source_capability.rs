@@ -7,6 +7,7 @@
 mod binding;
 mod compiler_memory_field;
 mod constructor_position;
+mod fact;
 mod field_selector;
 mod memory_type_definition;
 mod owner_aggregate;

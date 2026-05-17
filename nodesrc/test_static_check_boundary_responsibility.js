@@ -58,6 +58,11 @@ const SOURCE_CAPABILITY_COMPILER_MEMORY_FIELD = path.join(
     'source_capability',
     'compiler_memory_field.rs',
 );
+const SOURCE_CAPABILITY_FACT = path.join(
+    CORE_SRC,
+    'source_capability',
+    'fact.rs',
+);
 const SOURCE_CAPABILITY_CONSTRUCTOR_POSITION = path.join(
     CORE_SRC,
     'source_capability',
@@ -255,6 +260,10 @@ const sourceCapabilityBinding = assertFile(
 const sourceCapabilityCompilerMemoryField = assertFile(
     SOURCE_CAPABILITY_COMPILER_MEMORY_FIELD,
     'source_capability/compiler_memory_field.rs',
+);
+const sourceCapabilityFact = assertFile(
+    SOURCE_CAPABILITY_FACT,
+    'source_capability/fact.rs',
 );
 const sourceCapabilityConstructorPosition = assertFile(
     SOURCE_CAPABILITY_CONSTRUCTOR_POSITION,
@@ -1595,14 +1604,60 @@ assertContains(
     'source_capability.rs',
 );
 assertContains(
+    sourceCapability,
+    'mod fact;',
+    'source_capability.rs must keep evidence-to-fact conversion in a separate module',
+);
+assertLineLimit(SOURCE_CAPABILITY_FACT, 'source_capability/fact.rs', 80);
+assertContains(
     sourceCapabilityRule,
     'owner_aggregate_symbol_evidence',
     'source_capability/rule.rs',
 );
 assertContains(
-    sourceCapabilityRule,
-    'insert_owner_aggregate_evidence',
-    'source_capability/rule.rs must store owner aggregate evidence as exact use-site proof',
+    sourceCapabilityProofBuilder,
+    'pub(in crate::source_capability) enum SourceCapabilityProofFact',
+    'source_capability/proof_builder.rs must represent source proof output as typed facts',
+);
+assertContains(
+    sourceCapabilityProofBuilder,
+    'pub(in crate::source_capability) fn insert_fact',
+    'source_capability/proof_builder.rs must route proof facts through one insert path',
+);
+assertContains(
+    sourceCapabilityProofBuilder,
+    'match fact',
+    'source_capability/proof_builder.rs must map proof facts through an exhaustive match',
+);
+for (const oldProofInsert of [
+    'fn insert_raw_memory_structural_boundary',
+    'fn insert_raw_address_view_boundary',
+    'fn insert_raw_memory_operation_boundary',
+    'fn insert_raw_body_memory_operation_boundary',
+    'fn insert_owner_aggregate_evidence',
+    'fn insert_compiler_memory_field_evidence',
+    'fn insert_compiler_memory_type_definition',
+]) {
+    assertNotContains(
+        sourceCapabilityProofBuilder,
+        oldProofInsert,
+        'source_capability/proof_builder.rs must not expose per-domain proof insert APIs',
+    );
+}
+assertContains(
+    sourceCapabilityFact,
+    'SourceCapabilityProofFact::OwnerAggregateConstructorBoundary',
+    'source_capability/fact.rs must store owner aggregate evidence as exact typed proof facts',
+);
+assertContains(
+    sourceCapabilityFact,
+    'owner_aggregate_proof_fact',
+    'source_capability/fact.rs must map owner aggregate evidence to proof facts',
+);
+assertContains(
+    sourceCapabilityFact,
+    'compiler_memory_field_proof_fact',
+    'source_capability/fact.rs must map compiler memory field evidence to proof facts',
 );
 assertContains(
     sourceCapabilityOwnerAggregateEvidence,
@@ -1638,13 +1693,13 @@ assertContains(
 );
 assertContains(
     sourceCapabilityProofBuilder,
-    'insert_compiler_memory_field_evidence',
+    'SourceCapabilityProofFact::CompilerMemoryFieldBoundary',
     'compiler memory field projection must not be inserted through owner aggregate evidence',
 );
-const ownerAggregateFieldEvidenceArm = sourceCapabilityProofBuilder.match(
-    /Some\(OwnerAggregateCapabilityEvidence::FieldAccessor\) => \{[\s\S]*?\n            \}/,
+const ownerAggregateFieldEvidenceArm = sourceCapabilityFact.match(
+    /Some\(OwnerAggregateCapabilityEvidence::FieldAccessor\) => \{[\s\S]*?SourceCapabilityProofFact::OwnerAggregateFieldBoundary[\s\S]*?\n        \}/,
 );
-assert(ownerAggregateFieldEvidenceArm, 'source_capability/proof_builder.rs owner field arm');
+assert(ownerAggregateFieldEvidenceArm, 'source_capability/fact.rs owner field fact arm');
 assertNotContains(
     ownerAggregateFieldEvidenceArm[0],
     'CompilerMemoryFieldBoundary',

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T09:40:38.037Z",
+  "generated_at": "2026-05-17T09:56:18.781Z",
   "counts": {
-    "total": 933,
+    "total": 934,
     "open": 5,
-    "resolved": 928,
+    "resolved": 929,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 479,
+        "total": 480,
         "open": 0,
-        "resolved": 479
+        "resolved": 480
       },
       "CORE": {
         "total": 1,
@@ -7278,6 +7278,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T093306644Z-SOURCE-CAPABILITY-PROOF-COLLECTOR-DI-429F5FD2.md"
+    },
+    {
+      "id": "ISS-20260517T094754743Z-SOURCE-CAPABILITY-PROOF-BUILDER-EXPO-C06F3A22",
+      "title": "Source capability proof builder exposes per-domain insert APIs",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/proof_builder.rs, nepl-core/src/source_capability/rule.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T094754743Z-SOURCE-CAPABILITY-PROOF-BUILDER-EXPO-C06F3A22.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
