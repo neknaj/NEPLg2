@@ -71,14 +71,6 @@ fn io_bytebuf_empty_region <()->RegionToken<u8>> ():
 pub fn io_bytebuf_empty <()->ByteBuf> ():
     ByteBuf io_bytebuf_empty_region 0
 
-pub fn io_bytebuf_from_owned_ptr <(MemPtr<u8>,i32)->ByteBuf> (ptr, byte_len):
-    if:
-        le byte_len 0
-        then:
-            io_bytebuf_empty
-        else:
-            ByteBuf region_new ptr byte_len byte_len
-
 pub fn io_bytebuf_len <(&ByteBuf)->i32> (buf):
     *get_ref buf "len"
 

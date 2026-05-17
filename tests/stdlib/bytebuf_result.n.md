@@ -60,11 +60,11 @@ fn main <()*>i32> ():
     test_report_exit_code shown
 ```
 
-## io_bytebuf_to_str_result_reports_allocation_failure
+## io_bytebuf_to_str_result_reports_invalid_utf8
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"io_bytebuf_to_str_result_reports_allocation_failure\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"huge bytebuf reports out of memory\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"io_bytebuf_to_str_result_reports_invalid_utf8\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"invalid utf8 reports error\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -73,21 +73,30 @@ stdout: "test_report name=\"io_bytebuf_to_str_result_reports_allocation_failure\
 #import "alloc/diag/error" as *
 #import "alloc/io" as *
 #import "alloc/string" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
 #import "core/result" as *
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;
-    let ok <bool> match io_bytebuf_to_str_result huge:
-        Result::Ok text:
-            false
+    let ok <bool> match byte_builder_new:
+        Result::Ok b0:
+            match byte_builder_push_u8 b0 255:
+                Result::Ok b1:
+                    match byte_builder_finish b1:
+                        Result::Ok bytes:
+                            match io_bytebuf_to_str_result bytes:
+                                Result::Ok _text:
+                                    false
+                                Result::Err kind:
+                                    str_eq std_error_kind_str kind "InvalidUtf8"
+                        Result::Err _e:
+                            false
+                Result::Err _e:
+                    false
         Result::Err kind:
-            str_eq std_error_kind_str kind "OutOfMemory"
+            false
     let report:
-        test_report_new "io_bytebuf_to_str_result_reports_allocation_failure"
-        |> test_report_push assert "huge bytebuf reports out of memory" ok
+        test_report_new "io_bytebuf_to_str_result_reports_invalid_utf8"
+        |> test_report_push assert "invalid utf8 reports error" ok
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```
@@ -127,11 +136,50 @@ fn main <()*>i32> ():
     test_report_exit_code shown
 ```
 
-## fs_bytes_to_string_result_reports_allocation_failure
+## fs_bytes_to_string_result_reports_invalid_utf8
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"fs_bytes_to_string_result_reports_allocation_failure\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"fs huge bytebuf reports nomem\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"fs_bytes_to_string_result_reports_invalid_utf8\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fs invalid utf8 reports ilseq\" expected=\"84\" actual=\"84\" message=\"\"\n"
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io" as *
+#import "std/fs" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let errno <i32> match byte_builder_new:
+        Result::Ok b0:
+            match byte_builder_push_u8 b0 255:
+                Result::Ok b1:
+                    match byte_builder_finish b1:
+                        Result::Ok bytes:
+                            match fs_bytes_to_string_result bytes:
+                                Result::Ok _text:
+                                    0
+                                Result::Err e:
+                                    e
+                        Result::Err _e:
+                            0
+                Result::Err _e:
+                    0
+        Result::Err _e:
+            0
+    let report:
+        test_report_new "fs_bytes_to_string_result_reports_invalid_utf8"
+        |> test_report_push assert_eq_i32 "fs invalid utf8 reports ilseq" 84 errno
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
+```
+
+## io_bytebuf_rejects_raw_memptr_ownership_forging
+
+neplg2:test[compile_fail]
+diag_codes: resolve.identifier.undefined
 ```neplg2
 #entry main
 #indent 4
@@ -140,23 +188,10 @@ stdout: "test_report name=\"fs_bytes_to_string_result_reports_allocation_failure
 #import "alloc/io" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
-#import "std/fs" as *
-#import "core/math" as *
-#import "core/result" as *
-#import "std/test" as *
 
 fn main <()*>i32> ():
-    let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;
-    let ok <bool> match fs_bytes_to_string_result huge:
-        Result::Ok text:
-            false
-        Result::Err errno:
-            eq errno 12
-    let report:
-        test_report_new "fs_bytes_to_string_result_reports_allocation_failure"
-        |> test_report_push assert "fs huge bytebuf reports nomem" ok
-    let shown test_report_print_stdout report
-    test_report_exit_code shown
+    let _buf <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 1
+    0
 ```
 
 ## stream_bytes_result_roundtrip_preserves_bytes

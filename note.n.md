@@ -1,3 +1,20 @@
+# 2026-05-17 Agent 1 ByteBuf/ByteBuilder raw MemPtr owner 偽造入口削除
+
+- `ISS-20260517T034837136Z-BYTEBUF-PUBLIC-API-CAN-FORGE-OWNERSH-16F30AE5` を追加し、fixed / resolved にした。
+- 根本原因は、`ByteBuf` / `ByteBuilder` が `MemPtr<u8>` を受け取って `RegionToken<u8>` owner に包む public helper を持ち、`MemPtr = non-owning pointer` / `RegionToken = free obligation owner` の境界を stdlib 利用側から迂回できたこと。
+- `io_bytebuf_from_owned_ptr` と `byte_builder_from_owned_ptr` を削除し、owner-bearing byte storage は `alloc_region_bytes` / `RegionToken` finalization / checked constructor 経由だけで作る形に寄せた。
+- `tests/stdlib/bytebuf_result.n.md` の巨大 ByteBuf 偽造テストは、ByteBuilder 経由で正当に作った invalid UTF-8 buffer の error propagation と、raw MemPtr owner 生成 helper が解決できない compile_fail 回帰テストへ置き換えた。
+- `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` は、raw MemPtr ingestion helper と `region_new ptr ...` wrapper の再導入を禁止する source policy を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-result-no-raw-owner-forge.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl --no-tree -o tmp/alloc-io-bytebuf-module-no-raw-owner-forge.json -j 1`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuilder.nepl --no-tree -o tmp/alloc-io-bytebuilder-module-no-raw-owner-forge.json -j 1`: 1/1 passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の owner boundary を stdlib byte buffer API に適用した。
+
 # 2026-05-17 Agent 1 WASIX TTY state owner 境界修正
 
 - `ISS-20260517T033712430Z-WASIX-TTY-RAW-MODE-EXPOSES-RAW-I32-S-45184629` を追加し、fixed / resolved にした。

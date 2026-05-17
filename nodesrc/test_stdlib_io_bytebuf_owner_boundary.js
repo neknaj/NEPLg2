@@ -94,10 +94,28 @@ assert.match(
     'ByteBuf typed empty constructor must remain public',
 );
 
-assert.match(
+assert.doesNotMatch(
     code,
-    /\bfn\s+io_bytebuf_from_owned_ptr\s+<\(MemPtr<u8>,i32\)->ByteBuf>/,
-    'legacy raw pointer ingestion must be centralized before RegionToken ownership is formed',
+    /\b(?:pub\s+)?fn\s+io_bytebuf_from_owned_ptr\b/,
+    'ByteBuf must not provide a raw MemPtr ownership-forging helper',
+);
+
+assert.doesNotMatch(
+    byteBuilderCode,
+    /\b(?:pub\s+)?fn\s+byte_builder_from_owned_ptr\b/,
+    'ByteBuilder must not provide a raw MemPtr ownership-forging helper',
+);
+
+assert.doesNotMatch(
+    code,
+    /\bregion_new\s+ptr\s+byte_len\b/,
+    'ByteBuf must not wrap caller-provided MemPtr values into RegionToken owners',
+);
+
+assert.doesNotMatch(
+    byteBuilderCode,
+    /\bregion_new\s+ptr\s+cap0\b/,
+    'ByteBuilder must not wrap caller-provided MemPtr values into RegionToken owners',
 );
 
 assert.match(

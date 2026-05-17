@@ -96,7 +96,8 @@ NEPLg2 の stdlib に置く `//:` documentation comment は、利用者向け説
 
 不足:
 
-- `io_bytebuf_empty`、`io_bytebuf_from_owned_ptr`、`io_bytebuf_len`、`io_bytebuf_ptr_ref`、`io_bytebuf_storage_size`、`io_bytebuf_byte_at`、`io_bytebuf_free` などの public helper は、薄い説明または declaration doc 欠落がある。
+- `io_bytebuf_empty`、`io_bytebuf_len`、`io_bytebuf_ptr_ref`、`io_bytebuf_storage_size`、`io_bytebuf_byte_at`、`io_bytebuf_free` などの public helper は、薄い説明または declaration doc 欠落がある。
+- raw `MemPtr` から owner を作る public helper は置かない。`MemPtr` は non-owning view、`RegionToken` / `ByteBuf` / `ByteBuilder` が free obligation owner であり、documentation もこの責務分離を前提に書く。
 - public helper は小さくても、owner を消費するか borrowed observer か、空 buffer sentinel を返すか、計算量が何かを必ず書く。
 
 #### `stdlib/alloc/collections/*`

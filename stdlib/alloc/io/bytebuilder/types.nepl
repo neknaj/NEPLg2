@@ -69,9 +69,6 @@ pub fn byte_builder_empty <()->ByteBuilder> ():
 pub fn byte_builder_from_owned_region <(RegionToken<u8>,i32,i32)->ByteBuilder> (region, len0, cap0):
     ByteBuilder region len0 cap0
 
-pub fn byte_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->ByteBuilder> (ptr, len0, cap0):
-    byte_builder_from_owned_region region_new ptr cap0 len0 cap0
-
 //: byte_builder_with_len: builder の storage owner を保ったまま length だけ更新する
 //:
 //: [目的/もくてき]:

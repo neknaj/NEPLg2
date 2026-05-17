@@ -625,3 +625,11 @@ Stage 6 では raw memory operation は compiler-owned raw-memory boundary の s
 以前の `enter_raw_mode` / `restore_mode` は、WASIX TTY state buffer の free obligation を raw `i32` pointer と sentinel `0` で表していた。修正後は `TtyState` が `RegionToken<u8>` owner を保持し、public raw-mode API は `Result<TtyState,i32>` を返して `restore_mode` が `TtyState` を消費する。`tty_get` / `tty_set` に必要な raw address 変換は TTY module 内の helper に閉じ、`alloc_raw` / `dealloc_raw` を public state owner contract から取り除いた。
 
 この親 issue は引き続き open とする。今回閉じたのは WASIX TTY の raw state owner 漏れであり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-17 Agent 1 ByteBuf/ByteBuilder raw MemPtr owner 偽造入口追記
+
+`ISS-20260517T034837136Z-BYTEBUF-PUBLIC-API-CAN-FORGE-OWNERSH-16F30AE5` で、`ByteBuf` / `ByteBuilder` が caller supplied `MemPtr<u8>` を `RegionToken<u8>` owner に包む helper を持っていた問題を分離して修正した。
+
+`MemPtr<u8>` は non-owning view であり、free obligation owner は `RegionToken<u8>` / `ByteBuf` / `ByteBuilder` 側に集約する必要がある。`io_bytebuf_from_owned_ptr` と `byte_builder_from_owned_ptr` はこの境界を public source から迂回でき、doctest でも fake huge ByteBuf を作る fixture に使われていた。修正後は raw `MemPtr` ingestion helper を削除し、ByteBuf/ByteBuilder owner は checked allocation / `RegionToken` finalization からだけ作る。
+
+この親 issue は引き続き open とする。今回閉じたのは byte buffer API の raw MemPtr owner forging entry であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
