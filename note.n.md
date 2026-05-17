@@ -41112,3 +41112,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+
+## 2026-05-18 Agent 1 Resource IR test warning boundary 修正
+
+- `ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`nepl-core/tests/resource_ir.rs` の `typecheck_resource_source_with_target` が warning を含む全 diagnostic を fatal として扱い、現行の shadow warning 方針と矛盾していたことだった。
+- 修正後は error severity の diagnostic だけを typecheck failure とし、warning は表示可能なまま Resource IR focused test を継続できる。
+- focused verification:
+  - `cargo test -p nepl-core resource_ir_cell_check_preserves_direct_arithmetic_external_raw_load -- --nocapture`: passed

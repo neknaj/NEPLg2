@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T18:18:07.478Z",
+  "generated_at": "2026-05-17T18:32:30.511Z",
   "counts": {
-    "total": 958,
+    "total": 959,
     "open": 5,
-    "resolved": 953,
+    "resolved": 954,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -105,6 +105,11 @@
         "total": 10,
         "open": 0,
         "resolved": 10
+      },
+      "tests": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "tools": {
         "total": 3,
@@ -12048,6 +12053,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40.md"
+    },
+    {
+      "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
+      "title": "Resource IR tests still treat nonfatal warnings as typecheck failures",
+      "area": "tests",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",
