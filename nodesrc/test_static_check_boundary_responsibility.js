@@ -98,6 +98,7 @@ const SOURCE_CAPABILITY_RAW_OPERATION_PROOF = path.join(
     'source_capability',
     'raw_operation_proof.rs',
 );
+const SOURCE_CAPABILITY_RULE = path.join(CORE_SRC, 'source_capability', 'rule.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
     CORE_SRC,
@@ -287,6 +288,7 @@ const sourceCapabilityRawOperationProof = assertFile(
     SOURCE_CAPABILITY_RAW_OPERATION_PROOF,
     'source_capability/raw_operation_proof.rs',
 );
+const sourceCapabilityRule = assertFile(SOURCE_CAPABILITY_RULE, 'source_capability/rule.rs');
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
     'source_capability/raw_memory.rs',
@@ -1054,6 +1056,7 @@ assertLineLimit(
     'source_capability/raw_operation_proof.rs',
     80,
 );
+assertLineLimit(SOURCE_CAPABILITY_RULE, 'source_capability/rule.rs', 240);
 assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 260);
 assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 320);
 assertLineLimit(SOURCE_CAPABILITY_PROOF_BUILDER, 'source_capability/proof_builder.rs', 120);
@@ -1409,6 +1412,44 @@ assertContains(
     'source capability proof must classify compiler memory type definitions through the unified proof collector',
 );
 assertContains(
+    sourceCapabilityRule,
+    'enum SourceCapabilityProofEvent',
+    'source capability proof events must be a typed enum',
+);
+assertContains(
+    sourceCapabilityRule,
+    'pub(in crate::source_capability) fn dispatch_source_capability_proof_event',
+    'source capability proof domains must be applied through one typed dispatcher',
+);
+assertContains(
+    sourceCapabilityRule,
+    'match event',
+    'source capability proof dispatcher must use exhaustive event matching',
+);
+for (const eventVariant of [
+    'SourceCapabilityProofEvent::Symbol',
+    'SourceCapabilityProofEvent::ExplicitConstructor',
+    'SourceCapabilityProofEvent::StructDefinition',
+    'SourceCapabilityProofEvent::Intrinsic',
+    'SourceCapabilityProofEvent::RawBody',
+]) {
+    assertContains(
+        sourceCapabilityRule,
+        eventVariant,
+        'source capability proof dispatcher must cover every observer event variant',
+    );
+}
+assertContains(
+    sourceCapabilityProof,
+    'dispatch_source_capability_proof_event',
+    'source capability observer callbacks must route through the typed proof dispatcher',
+);
+assertNotContains(
+    sourceCapabilityProof,
+    'fn collect_raw_symbol_evidence',
+    'source capability collector must not keep per-domain symbol dispatch methods',
+);
+assertContains(
     sourceCapability,
     'mod memory_type_definition;',
     'source_capability.rs',
@@ -1417,6 +1458,11 @@ assertContains(
     sourceCapability,
     'mod proof_builder;',
     'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'mod rule;',
+    'source_capability.rs must route source proof events through a typed rule dispatcher',
 );
 assertContains(
     sourceCapability,
@@ -1429,9 +1475,9 @@ assertNotContains(
     'source_capability.rs must not re-export compiler memory primitive classifiers',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'compiler_memory_type_from_struct_def',
-    'source_capability/proof.rs',
+    'source_capability/rule.rs',
 );
 assertContains(
     resourcePrimitives,
@@ -1549,14 +1595,14 @@ assertContains(
     'source_capability.rs',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'owner_aggregate_symbol_evidence',
-    'source_capability/proof.rs',
+    'source_capability/rule.rs',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'insert_owner_aggregate_evidence',
-    'source_capability/proof.rs must store owner aggregate evidence as exact use-site proof',
+    'source_capability/rule.rs must store owner aggregate evidence as exact use-site proof',
 );
 assertContains(
     sourceCapabilityOwnerAggregateEvidence,
@@ -1840,29 +1886,29 @@ assertNotContains(
     'source capability scope must not treat type definitions as value-level shadows',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'raw_memory_op_from_name',
-    'source_capability/proof.rs',
+    'source_capability/rule.rs',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'raw_body_direct_callee_effects',
-    'source_capability/proof.rs must consume typed raw body direct-callee evidence',
+    'source_capability/rule.rs must consume typed raw body direct-callee evidence',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'RawBodyDirectCallee::RawMemory',
-    'source_capability/proof.rs must match typed raw body raw-memory callees',
+    'source_capability/rule.rs must match typed raw body raw-memory callees',
 );
 assertNotContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'raw_body_direct_callees',
-    'source_capability/proof.rs must not consume untyped raw body callee strings',
+    'source_capability/rule.rs must not consume untyped raw body callee strings',
 );
 assertNotContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'raw_memory_op_from_name(&callee)',
-    'source_capability/proof.rs must not reclassify raw body callees at the consumer',
+    'source_capability/rule.rs must not reclassify raw body callees at the consumer',
 );
 assertContains(
     sourceCapabilityProof,
@@ -1915,12 +1961,12 @@ assertContains(
     'source_capability/proof.rs must classify raw helper boundary contracts before worklist propagation',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'scope.shadow_kind_symbol_or_qualifier(symbol)',
     'raw memory source evidence must reject shadowed qualified helper-looking symbols',
 );
 assertContains(
-    sourceCapabilityProof,
+    sourceCapabilityRule,
     'raw_symbol_shadow_allows_evidence',
     'raw helper wrappers must prove same-name raw primitive evidence without allowing local shadowing',
 );

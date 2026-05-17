@@ -2,25 +2,16 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{Module, PrefixExpr, StructDef};
-use crate::effects::{
-    raw_body_direct_callee_effects, raw_body_memory_operations, raw_memory_op_from_name,
-    RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
-};
+use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
 use crate::hir::HirBody;
-use crate::source_capability::binding::SourceCapabilityBindingKind;
-use crate::source_capability::compiler_memory_field::{
-    compiler_memory_field_intrinsic_evidence, compiler_memory_field_symbol_evidence,
-};
-use crate::source_capability::memory_type_definition::compiler_memory_type_from_struct_def;
-use crate::source_capability::owner_aggregate::{
-    owner_aggregate_explicit_constructor_evidence, owner_aggregate_intrinsic_evidence,
-    owner_aggregate_symbol_evidence, OwnerAggregateEvidenceContext,
-};
+use crate::source_capability::owner_aggregate::OwnerAggregateEvidenceContext;
 use crate::source_capability::proof_builder::SourceCapabilityProof;
-use crate::source_capability::raw_evidence_gate::raw_symbol_shadow_allows_evidence;
-use crate::source_capability::raw_memory::{RawAddressViewEvidence, RawMemoryStructuralEvidence};
 use crate::source_capability::raw_operation_proof::{
     RawOperationBoundaryContract, RawOperationFunctionEvidence,
+};
+use crate::source_capability::rule::{
+    dispatch_source_capability_proof_event, raw_memory_boundary_contract_from_function_name,
+    SourceCapabilityProofEvent, SourceCapabilityProofSink,
 };
 use crate::source_capability::scope::SourceCapabilityScope;
 use crate::source_capability::top_level_raw_calls::{
@@ -67,6 +58,33 @@ struct SourceCapabilityProofCollector<'a> {
 }
 
 impl SourceCapabilityProofCollector<'_> {
+    fn finish_raw_operation_function_frame(&mut self, frame: RawOperationFunctionFrame) {
+        self.completed_raw_operation_function_frames
+            .push(RawOperationFunctionProof {
+                name: frame.name,
+                span: frame.span,
+                boundary_contract: frame.boundary_contract,
+                evidence: frame.evidence,
+                top_level_raw_calls: frame.top_level_raw_calls,
+            });
+    }
+}
+
+impl SourceCapabilityProofSink for SourceCapabilityProofCollector<'_> {
+    fn proof_mut(&mut self) -> &mut SourceCapabilityProof {
+        &mut self.proof
+    }
+
+    fn owner_context(&self) -> &OwnerAggregateEvidenceContext {
+        self.owner_context
+    }
+
+    fn current_raw_operation_function_name(&self) -> Option<&str> {
+        self.raw_operation_function_frames
+            .last()
+            .map(|frame| frame.name.as_str())
+    }
+
     fn record_raw_operation_evidence(&mut self, operation: RawMemoryOp) {
         if let Some(frame) = self.raw_operation_function_frames.last_mut() {
             frame.evidence.insert_operation(operation);
@@ -92,118 +110,6 @@ impl SourceCapabilityProofCollector<'_> {
                 span,
             });
         }
-    }
-
-    fn collect_symbol_evidence(
-        &mut self,
-        symbol: &str,
-        span: Span,
-        selector: Option<&str>,
-        scope: &SourceCapabilityScope,
-    ) {
-        self.collect_raw_symbol_evidence(symbol, span, scope);
-        self.collect_owner_aggregate_symbol_evidence(symbol, span, scope);
-        self.collect_compiler_memory_field_symbol_evidence(symbol, selector, span, scope);
-    }
-
-    fn collect_raw_symbol_evidence(
-        &mut self,
-        symbol: &str,
-        span: Span,
-        scope: &SourceCapabilityScope,
-    ) {
-        if let Some(kind) = scope.shadow_kind_symbol_or_qualifier(symbol) {
-            let current_function = self
-                .raw_operation_function_frames
-                .last()
-                .map(|frame| frame.name.as_str());
-            if !raw_symbol_shadow_allows_evidence(symbol, kind, current_function) {
-                if matches!(kind, SourceCapabilityBindingKind::TopLevelCallable) {
-                    if let Some(operation) = raw_memory_op_from_name(symbol) {
-                        self.record_top_level_raw_call_evidence(symbol, operation, span);
-                    }
-                }
-                return;
-            }
-        }
-        self.collect_raw_builtin_evidence(symbol, span);
-    }
-
-    fn collect_raw_builtin_evidence(&mut self, symbol: &str, span: Span) {
-        if RawMemoryStructuralEvidence::from_symbol(symbol).is_some() {
-            self.proof.insert_raw_memory_structural_boundary(span);
-        }
-        if RawAddressViewEvidence::from_symbol(symbol).is_some() {
-            self.proof.insert_raw_address_view_boundary(span);
-        }
-        if let Some(operation) = raw_memory_op_from_name(symbol) {
-            self.proof
-                .insert_raw_memory_operation_boundary(operation, span);
-            self.record_raw_operation_evidence(operation);
-        }
-    }
-
-    fn collect_raw_body_evidence(&mut self, body: HirBody, span: Span) {
-        for operation in raw_body_memory_operations(&body) {
-            self.proof
-                .insert_raw_body_memory_operation_boundary(operation, span);
-            self.record_raw_body_operation_evidence(operation);
-        }
-        for callee in raw_body_direct_callee_effects(&body) {
-            if let RawBodyDirectCallee::RawMemory { operation, .. } = callee {
-                self.proof
-                    .insert_raw_memory_operation_boundary(operation, span);
-                self.record_raw_operation_evidence(operation);
-            }
-        }
-    }
-
-    fn finish_raw_operation_function_frame(&mut self, frame: RawOperationFunctionFrame) {
-        self.completed_raw_operation_function_frames
-            .push(RawOperationFunctionProof {
-                name: frame.name,
-                span: frame.span,
-                boundary_contract: frame.boundary_contract,
-                evidence: frame.evidence,
-                top_level_raw_calls: frame.top_level_raw_calls,
-            });
-    }
-
-    fn collect_owner_aggregate_symbol_evidence(
-        &mut self,
-        symbol: &str,
-        span: Span,
-        scope: &SourceCapabilityScope,
-    ) {
-        self.proof.insert_owner_aggregate_evidence(
-            owner_aggregate_symbol_evidence(symbol, scope, self.owner_context),
-            span,
-        );
-    }
-
-    fn collect_compiler_memory_field_symbol_evidence(
-        &mut self,
-        symbol: &str,
-        selector: Option<&str>,
-        span: Span,
-        scope: &SourceCapabilityScope,
-    ) {
-        self.proof.insert_compiler_memory_field_evidence(
-            compiler_memory_field_symbol_evidence(symbol, selector, scope, self.owner_context),
-            span,
-        );
-    }
-
-    fn collect_owner_aggregate_explicit_constructor_evidence(
-        &mut self,
-        symbol: &str,
-        span: Span,
-        scope: &SourceCapabilityScope,
-    ) {
-        self.proof.insert_owner_aggregate_evidence(
-            owner_aggregate_explicit_constructor_evidence(symbol, scope, self.owner_context),
-            span,
-        );
     }
 }
 
@@ -236,14 +142,22 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
     }
 
     fn observe_fn_alias_target(&mut self, symbol: &str, span: Span, scope: &SourceCapabilityScope) {
-        self.collect_symbol_evidence(symbol, span, None, scope);
+        dispatch_source_capability_proof_event(
+            self,
+            SourceCapabilityProofEvent::Symbol {
+                symbol,
+                span,
+                selector: None,
+                scope,
+            },
+        );
     }
 
     fn observe_struct_definition(&mut self, def: &StructDef) {
-        if let Some(memory_type) = compiler_memory_type_from_struct_def(def) {
-            self.proof
-                .insert_compiler_memory_type_definition(memory_type, def.name.span);
-        }
+        dispatch_source_capability_proof_event(
+            self,
+            SourceCapabilityProofEvent::StructDefinition { def },
+        );
     }
 
     fn observe_call_head_symbol(
@@ -253,7 +167,15 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
         selector: Option<&str>,
         scope: &SourceCapabilityScope,
     ) {
-        self.collect_symbol_evidence(symbol, span, selector, scope);
+        dispatch_source_capability_proof_event(
+            self,
+            SourceCapabilityProofEvent::Symbol {
+                symbol,
+                span,
+                selector,
+                scope,
+            },
+        );
     }
 
     fn observe_explicit_constructor_symbol(
@@ -262,7 +184,14 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
         span: Span,
         scope: &SourceCapabilityScope,
     ) {
-        self.collect_owner_aggregate_explicit_constructor_evidence(symbol, span, scope);
+        dispatch_source_capability_proof_event(
+            self,
+            SourceCapabilityProofEvent::ExplicitConstructor {
+                symbol,
+                span,
+                scope,
+            },
+        );
     }
 
     fn observe_intrinsic(
@@ -272,22 +201,16 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
         span: Span,
         _scope: &SourceCapabilityScope,
     ) {
-        self.collect_raw_builtin_evidence(name, span);
-        self.proof
-            .insert_owner_aggregate_evidence(owner_aggregate_intrinsic_evidence(name), span);
-        self.proof.insert_compiler_memory_field_evidence(
-            compiler_memory_field_intrinsic_evidence(name, args),
-            span,
+        dispatch_source_capability_proof_event(
+            self,
+            SourceCapabilityProofEvent::Intrinsic { name, args, span },
         );
     }
 
     fn observe_raw_body(&mut self, body: HirBody, span: Span) {
-        self.collect_raw_body_evidence(body, span);
+        dispatch_source_capability_proof_event(
+            self,
+            SourceCapabilityProofEvent::RawBody { body, span },
+        );
     }
-}
-
-fn raw_memory_boundary_contract_from_function_name(name: &str) -> RawOperationBoundaryContract {
-    raw_memory_op_from_name(name)
-        .map(RawOperationBoundaryContract::RawMemoryOperation)
-        .unwrap_or(RawOperationBoundaryContract::None)
 }

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T09:25:59.350Z",
+  "generated_at": "2026-05-17T09:40:38.037Z",
   "counts": {
-    "total": 932,
+    "total": 933,
     "open": 5,
-    "resolved": 927,
+    "resolved": 928,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 478,
+        "total": 479,
         "open": 0,
-        "resolved": 478
+        "resolved": 479
       },
       "CORE": {
         "total": 1,
@@ -7263,6 +7263,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T090028643Z-COMPILER-MEMORY-FIELD-PROOF-IS-GRANT-4EB3DABF.md"
+    },
+    {
+      "id": "ISS-20260517T093306644Z-SOURCE-CAPABILITY-PROOF-COLLECTOR-DI-429F5FD2",
+      "title": "Source capability proof collector dispatch remains domain-specific",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/proof.rs, nepl-core/src/source_capability/proof_builder.rs, nepl-core/src/source_capability/rule.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T093306644Z-SOURCE-CAPABILITY-PROOF-COLLECTOR-DI-429F5FD2.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
