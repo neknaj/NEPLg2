@@ -58,11 +58,12 @@ fn main <()->i32> ():
 #indent 4
 #target core
 
-#import "core/math" as *
-
 fn main <()->i32> ():
-    let add 5;
-    add
+    let outer_value 5;
+    let result <i32> block:
+        let outer_value 6;
+        outer_value
+    result
 `;
         const shadowResult = api.analyze_semantics(shadowSource);
         assert.equal(!!shadowResult?.ok, true, 'shadowing source should still compile');
@@ -71,10 +72,10 @@ fn main <()->i32> ():
             (d) =>
                 d?.severity === 'warning' &&
                 typeof d?.message === 'string' &&
-                d.message.includes('important') &&
-                d.message.includes('add')
+                d?.code === 'resolve.shadow.outer_definition' &&
+                d.message.includes('outer_value')
         );
-        assert.ok(shadowWarn, 'important shadowing warning should be emitted by typecheck');
+        assert.ok(shadowWarn, 'outer definition shadow warning should be emitted by typecheck');
 
         return { checked: 14, expr_count: exprs.length, token_sem_count: tokenSem.length };
     },

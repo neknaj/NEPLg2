@@ -1,3 +1,28 @@
+# 2026-05-17 Agent 1 shadow warning の hardcoded stdlib allowlist 削除
+
+- `ISS-20260517T083417129Z-SHADOW-WARNINGS-DEPEND-ON-HARDCODED--58058C13` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、core typecheck、nepl-language、nepl-web が `print` / `add` / `map` / `len` などの important stdlib symbol allowlist を別々に持ち、実際の outer binding evidence ではなく名前の列挙で shadow warning を分類していたこと。
+- 修正後は core の shadow warning が `Env::lookup_outer_defined` による実際の外側束縛だけを根拠にし、editor analysis も existing outer definition list がある場合だけ warning にする。outer binding がない名前に対する speculative warning は出さない。
+- editor analysis では同一スコープの再定義と外側スコープの shadow を分け、warning は実際に外側スコープの定義を隠す場合に限定した。同一スコープの重複は shadow trace の info event として残す。
+- diagnostic は `ShadowImportantSymbol` / `resolve.shadow.important_symbol` から `ShadowOuterDefinition` / `resolve.shadow.outer_definition` へ改名した。後方互換の古い id は残していない。
+- nepl-language / nepl-web の option と policy は `warn_important_shadow` から `warn_shadow` へ改名した。旧 option の互換読み取りは入れていない。
+- `nodesrc/test_static_check_boundary_responsibility.js` に old allowlist / old diagnostic id の再導入禁止 policy を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo fmt -p nepl-language --check`
+  - `cargo check -p nepl-core`
+  - `cargo check -p nepl-language`
+  - `cargo check --manifest-path nepl-web/Cargo.toml`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `trunk build`
+  - `node tests/compiler/tree/run.js` (`total=20`, `passed=20`, `failed=0`, `errored=0`)
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --no-tree -o tmp/agent1-shadowing-tests.json -j 1` (`total=27`, `passed=27`, `failed=0`, `errored=0`)
+  - `node nodesrc/issues.js index --dir issues`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「stdlib 名 allowlist ではなく source fact / typed evidence で証明する」方針に沿って、shadow warning も実際の binding graph に基づく診断へ寄せた。
+
 # 2026-05-17 Agent 1 region_ptr_at の Result payload projection typed enum 化
 
 - `ISS-20260517T082244329Z-RESOURCE-IR-REGION-PTR-AT-LOWERING-H-F552468A` を追加し、fixed / resolved にした。`plan.md` は変更していない。

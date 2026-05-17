@@ -66,14 +66,12 @@ pub struct LexAnalysis {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NameResolutionOptions {
-    pub warn_important_shadow: bool,
+    pub warn_shadow: bool,
 }
 
 impl Default for NameResolutionOptions {
     fn default() -> Self {
-        Self {
-            warn_important_shadow: true,
-        }
+        Self { warn_shadow: true }
     }
 }
 
@@ -121,7 +119,7 @@ pub struct NameIndexEntry {
 pub struct NameResolutionPolicy {
     pub selection: &'static str,
     pub hoist: &'static str,
-    pub warn_important_shadow: bool,
+    pub warn_shadow: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -251,17 +249,17 @@ struct NameResolutionTrace {
     refs: Vec<NameRefTrace>,
     shadows: Vec<NameShadowTrace>,
     scopes: Vec<BTreeMap<String, Vec<usize>>>,
-    warn_important_shadow: bool,
+    warn_shadow: bool,
 }
 
 impl NameResolutionTrace {
-    fn new_with_options(warn_important_shadow: bool) -> Self {
+    fn new_with_options(warn_shadow: bool) -> Self {
         Self {
             defs: Vec::new(),
             refs: Vec::new(),
             shadows: Vec::new(),
             scopes: vec![BTreeMap::new()],
-            warn_important_shadow,
+            warn_shadow,
         }
     }
 
@@ -299,21 +297,26 @@ impl NameResolutionTrace {
         });
 
         if !existing_candidates.is_empty() {
-            let severity = if self.warn_important_shadow
-                && is_important_shadow_symbol(&name)
-                && is_variable_def_kind(kind)
+            let has_outer_definition = existing_candidates.iter().copied().any(|candidate_id| {
+                self.defs
+                    .get(candidate_id)
+                    .map_or(false, |definition| definition.scope_depth < depth)
+            });
+            let severity = if self.warn_shadow && has_outer_definition && is_variable_def_kind(kind)
             {
                 "warning"
             } else {
                 "info"
             };
             let message = if severity == "warning" {
-                format!(
-                    "important symbol '{}' is shadowed by {} definition",
-                    name, kind
-                )
-            } else {
+                format!("symbol '{}' shadows an outer {} definition", name, kind)
+            } else if has_outer_definition {
                 format!("'{}' shadows an outer definition", name)
+            } else {
+                format!(
+                    "'{}' redefines an existing definition in the same scope",
+                    name
+                )
             };
             self.shadows.push(NameShadowTrace {
                 name: name.clone(),
@@ -324,20 +327,6 @@ impl NameResolutionTrace {
                 shadowed_def_ids: existing_candidates,
                 severity,
                 message,
-            });
-        } else if self.warn_important_shadow
-            && is_important_shadow_symbol(&name)
-            && is_variable_def_kind(kind)
-        {
-            self.shadows.push(NameShadowTrace {
-                name: name.clone(),
-                event_kind: "important_name",
-                span,
-                scope_depth: depth,
-                selected_def_id: Some(id),
-                shadowed_def_ids: Vec::new(),
-                severity: "warning",
-                message: format!("definition '{}' may shadow important stdlib symbol", name),
             });
         }
 
@@ -438,7 +427,7 @@ pub fn analyze_name_resolution(
     let parse_result = parse_tokens(file_id, lex_result);
     match parse_result.module {
         Some(module) => {
-            let mut trace = NameResolutionTrace::new_with_options(options.warn_important_shadow);
+            let mut trace = NameResolutionTrace::new_with_options(options.warn_shadow);
             trace_block(&mut trace, &module.root);
             name_resolution_to_editor(
                 source,
@@ -456,7 +445,7 @@ pub fn analyze_name_resolution(
             None,
             false,
             &parse_result.diagnostics,
-            options.warn_important_shadow,
+            options.warn_shadow,
         ),
     }
 }
@@ -466,7 +455,7 @@ pub fn analyze_loaded_name_resolution(
     loaded: &LoadResult,
     options: NameResolutionOptions,
 ) -> NameResolutionAnalysis {
-    let mut trace = NameResolutionTrace::new_with_options(options.warn_important_shadow);
+    let mut trace = NameResolutionTrace::new_with_options(options.warn_shadow);
     trace_block(&mut trace, &loaded.module.root);
     name_resolution_to_editor(source, Some(&loaded.source_map), true, &[], &trace)
 }
@@ -856,7 +845,7 @@ fn empty_name_resolution(
     source_map: Option<&SourceMap>,
     ok: bool,
     diagnostics: &[Diagnostic],
-    warn_important_shadow: bool,
+    warn_shadow: bool,
 ) -> NameResolutionAnalysis {
     NameResolutionAnalysis {
         ok,
@@ -869,7 +858,7 @@ fn empty_name_resolution(
         policy: NameResolutionPolicy {
             selection: "nearest_scope_first",
             hoist: "fn and non-mut let",
-            warn_important_shadow,
+            warn_shadow,
         },
     }
 }
@@ -936,7 +925,7 @@ fn name_resolution_to_editor(
         policy: NameResolutionPolicy {
             selection: "nearest_scope_first",
             hoist: "fn and non-mut let",
-            warn_important_shadow: trace.warn_important_shadow,
+            warn_shadow: trace.warn_shadow,
         },
     }
 }
@@ -1179,27 +1168,6 @@ fn token_value(kind: &TokenKind) -> Option<String> {
 
 fn is_layout_marker(name: &str) -> bool {
     matches!(name, "cond" | "then" | "else" | "do" | "block")
-}
-
-fn is_important_shadow_symbol(name: &str) -> bool {
-    matches!(
-        name,
-        "print"
-            | "println"
-            | "print_i32"
-            | "println_i32"
-            | "add"
-            | "sub"
-            | "mul"
-            | "div"
-            | "eq"
-            | "lt"
-            | "le"
-            | "gt"
-            | "ge"
-            | "map"
-            | "len"
-    )
 }
 
 fn is_variable_def_kind(kind: &str) -> bool {
@@ -1726,13 +1694,10 @@ fn main <()->i32> ():
             "#target wasm\n#target wasi\n#no_prelude\nfn main <()->i32> ():\n    0\n",
         );
         assert!(
-            duplicate
-                .diagnostics
-                .iter()
-                .any(|diagnostic| {
-                    diagnostic.code == "loader.target.multiple_directive"
-                        && diagnostic.code_message == "multiple #target directives are not allowed"
-                }),
+            duplicate.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "loader.target.multiple_directive"
+                    && diagnostic.code_message == "multiple #target directives are not allowed"
+            }),
             "{:?}",
             duplicate.diagnostics
         );

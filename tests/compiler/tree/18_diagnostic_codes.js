@@ -29,7 +29,7 @@ fn main <()->i32> ():
             '/virtual/missing.nepl',
             '#entry main\n#indent 4\n#target core\n#import \"missing/module\" as *\nfn main <()->i32> (): 0\n',
             {},
-            { warn_important_shadow: true }
+            { warn_shadow: true }
         );
         assert.equal(!!missing?.ok, false, 'missing module should fail');
         const missingDs = Array.isArray(missing?.diagnostics) ? missing.diagnostics : [];
