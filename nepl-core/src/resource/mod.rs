@@ -5,6 +5,7 @@
 
 extern crate alloc;
 
+mod address_projection;
 mod borrow_call;
 mod borrow_check;
 mod borrow_scope;

@@ -109,6 +109,7 @@ const typecheckDriver = readCoreSrc(path.join('typecheck', 'driver.rs'));
 assertMissing('check.rs');
 
 for (const moduleName of [
+    'address_projection.rs',
     'initialized.rs',
     'borrow_check.rs',
     'borrow_summary.rs',
@@ -327,6 +328,7 @@ for (const moduleName of [
 }
 
 for (const moduleDecl of [
+    'mod address_projection;',
     'mod initialized;',
     'mod borrow_check;',
     'mod borrow_summary;',
@@ -564,6 +566,7 @@ const effectReturnSummaryFilter = readResource('effect_return_summary_filter.rs'
 const effectSummary = readResource('effect_summary.rs');
 const effectSummaryIdentity = readResource('effect_summary_identity.rs');
 const resourceDump = readResource('dump.rs');
+const addressProjection = readResource('address_projection.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
 const coverageHirProjection = readResource('coverage_hir_projection.rs');
@@ -647,6 +650,17 @@ assertNotContains(
     'initialized_drop_scope.rs',
 );
 assertNotContains(coverageHirRaw, 'is_named_struct_type', 'coverage_hir_raw.rs');
+assertContains(addressProjection, 'enum AddressProjectionPrimitive', 'address_projection.rs');
+assertContains(
+    addressProjection,
+    'pub(super) fn compiler_field_address_base_and_offset',
+    'address_projection.rs',
+);
+assertContains(
+    addressProjection,
+    'pub(super) fn non_negative_i32_literal',
+    'address_projection.rs',
+);
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
 assertContains(
@@ -664,6 +678,11 @@ assertContains(
     'raw_memory_op_from_callee(callee), Some(RawMemoryOp::Load)',
     'coverage_hir_projection.rs raw load coverage classifier',
 );
+assertContains(
+    coverageHirProjection,
+    'super::address_projection::compiler_field_address_base_and_offset',
+    'coverage_hir_projection.rs must share field address projection classifier with lowering',
+);
 assertNotContains(
     coverageHirProjection,
     'name == "load"',
@@ -678,6 +697,16 @@ assertContains(
     coverageHirProjectionAggregate,
     'pub(super) fn aggregate_field_exists',
     'coverage_hir_projection_aggregate.rs',
+);
+assertNotContains(
+    coverageHirProjectionAggregate,
+    'name == "add"',
+    'coverage_hir_projection_aggregate.rs must not classify field address add locally',
+);
+assertNotContains(
+    coverageHirProjectionAggregate,
+    'callee_base_name',
+    'coverage_hir_projection_aggregate.rs must not reimplement call-head address projection classification',
 );
 assertContains(
     coverageHirProjectionAggregate,
@@ -927,6 +956,11 @@ assertContains(
     'lower_aggregate.rs',
 );
 assertContains(
+    lowerAggregate,
+    'super::address_projection::{',
+    'lower_aggregate.rs must use the shared address projection classifier',
+);
+assertContains(
     lowerAggregateProjection,
     'pub(super) fn aggregate_field_projection_by_name',
     'lower_aggregate_projection.rs',
@@ -935,6 +969,21 @@ assertContains(
     lowerAggregateSelector,
     'pub(super) fn aggregate_field_selector',
     'lower_aggregate_selector.rs',
+);
+assertContains(
+    lowerAggregateSelector,
+    'super::address_projection::non_negative_i32_literal',
+    'lower_aggregate_selector.rs must share selector literal handling',
+);
+assertNotContains(
+    lowerAggregateSelector,
+    'name == "add"',
+    'lower_aggregate_selector.rs must not classify field address add locally',
+);
+assertNotContains(
+    lowerAggregateSelector,
+    'callee_base_name',
+    'lower_aggregate_selector.rs must not reimplement call-head address projection classification',
 );
 assertUsesResourceModuleSymbol(
     borrowSummary,
@@ -1228,6 +1277,7 @@ for (const resourceFileName of fs.readdirSync(RESOURCE_DIR)) {
 }
 
 const maxLines = new Map([
+    ['address_projection.rs', 80],
     ['effect.rs', 160],
     ['effect_checked_memptr.rs', 120],
     ['effect_counts.rs', 80],

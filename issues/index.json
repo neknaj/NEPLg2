@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T00:26:48.615Z",
+  "generated_at": "2026-05-17T00:35:16.093Z",
   "counts": {
-    "total": 892,
+    "total": 893,
     "open": 5,
-    "resolved": 887,
+    "resolved": 888,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 448,
+        "total": 449,
         "open": 0,
-        "resolved": 448
+        "resolved": 449
       },
       "CORE": {
         "total": 1,
@@ -6763,6 +6763,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T002115786Z-RESOURCE-LOWERING-COVERAGE-CLASSIFIE-EAB61912.md"
+    },
+    {
+      "id": "ISS-20260517T002958580Z-RESOURCE-FIELD-ADDRESS-PROJECTION-CL-A7B732C5",
+      "title": "Resource field address projection classifier is duplicated between coverage and lowering",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/coverage_hir_projection_aggregate.rs, nepl-core/src/resource/lower_aggregate_selector.rs, nepl-core/src/resource/address_projection.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T002958580Z-RESOURCE-FIELD-ADDRESS-PROJECTION-CL-A7B732C5.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

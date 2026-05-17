@@ -2,9 +2,8 @@ extern crate alloc;
 
 use alloc::string::String;
 
-use crate::hir::{FuncRef, HirExpr, HirExprKind};
+use crate::hir::{HirExpr, HirExprKind};
 use crate::layout::aggregate_fields_with_offsets;
-use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::type_pattern::field_type_matches_result;
@@ -14,28 +13,6 @@ pub(super) fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeI
     match types.get_ref(resolved) {
         TypeKind::Reference(target, _) => Some(*target),
         _ => None,
-    }
-}
-
-pub(super) fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, usize)> {
-    match &expr.kind {
-        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() == 2 => {
-            let offset = match args[1].kind {
-                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
-                _ => return None,
-            };
-            Some((&args[0], offset))
-        }
-        HirExprKind::Call { callee, args }
-            if callee_base_name(callee).is_some_and(|name| name == "add") && args.len() == 2 =>
-        {
-            let offset = match args[1].kind {
-                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
-                _ => return None,
-            };
-            Some((&args[0], offset))
-        }
-        _ => Some((expr, 0)),
     }
 }
 
@@ -109,12 +86,5 @@ fn is_aggregate_projection_owner(types: &TypeCtx, ty: TypeId) -> bool {
             )
         }
         _ => false,
-    }
-}
-
-fn callee_base_name(callee: &FuncRef) -> Option<&str> {
-    match callee {
-        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
-        FuncRef::Trait { .. } => None,
     }
 }

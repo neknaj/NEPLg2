@@ -7,9 +7,9 @@ use crate::resource_primitives::MemoryHelperPrimitive;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+use super::address_projection::compiler_field_address_base_and_offset;
 use super::coverage_hir_projection_aggregate::{
-    aggregate_field_exists, aggregate_field_matches_selector,
-    compiler_field_address_base_and_offset, reference_target_type,
+    aggregate_field_exists, aggregate_field_matches_selector, reference_target_type,
 };
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::RawMemoryOp;

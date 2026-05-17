@@ -1,3 +1,20 @@
+# 2026-05-17 Agent 1 Resource field address projection classifier 共通化
+
+- `ISS-20260517T002958580Z-RESOURCE-FIELD-ADDRESS-PROJECTION-CL-A7B732C5` を追加し、fixed / resolved にした。
+- 根本原因は、Resource IR lowering と HIR coverage がそれぞれ `add(base, literal_offset)` の field address projection classifier を持ち、検査 gate と実 lowering の証明プログラムが独立していたこと。
+- `resource/address_projection.rs` を追加し、`AddressProjectionPrimitive::Add`、`non_negative_i32_literal`、`compiler_field_address_base_and_offset` を共有 classifier とした。
+- `lower_aggregate.rs` と `coverage_hir_projection.rs` は共有 classifier を使うようにし、`coverage_hir_projection_aggregate.rs` / `lower_aggregate_selector.rs` から local `add` / `callee_base_name` 分類を削除した。
+- `nodesrc/test_resource_checker_responsibility.js` で新 module の存在、line limit、共有 classifier 使用、local `add` classifier 再導入禁止を監視する。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_treats_compiler_field_load_as_field_read -- --exact --nocapture`
+  - `cargo check -p nepl-core`
+  - `cargo fmt -p nepl-core --check`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR coverage/lowering 境界を、重複文字列分類ではなく共有 enum classifier へ寄せた。
+
 # 2026-05-17 Agent 1 Resource lowering coverage raw load 分類修正
 
 - `ISS-20260517T002115786Z-RESOURCE-LOWERING-COVERAGE-CLASSIFIE-EAB61912` を追加し、fixed / resolved にした。
