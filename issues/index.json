@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T07:58:36.797Z",
+  "generated_at": "2026-05-17T08:02:48.789Z",
   "counts": {
-    "total": 927,
+    "total": 928,
     "open": 5,
-    "resolved": 922,
+    "resolved": 923,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -57,9 +57,9 @@
         "resolved": 5
       },
       "compiler/resource-ir": {
-        "total": 3,
+        "total": 4,
         "open": 0,
-        "resolved": 3
+        "resolved": 4
       },
       "core/resource": {
         "total": 1,
@@ -11808,6 +11808,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37.md"
+    },
+    {
+      "id": "ISS-20260517T080107274Z-RESOURCE-LOWER-DIRECT-CALL-RECURSION-F0DB469F",
+      "title": "Resource lower direct call recursion duplicates field accessor spelling",
+      "area": "compiler/resource-ir",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/lower.rs; nepl-core/src/intrinsic_kinds.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T080107274Z-RESOURCE-LOWER-DIRECT-CALL-RECURSION-F0DB469F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",

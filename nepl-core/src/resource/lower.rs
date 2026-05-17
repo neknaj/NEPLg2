@@ -10,6 +10,7 @@ use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
     HirParam,
 };
+use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::layout::aggregate_fields_with_offsets;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -999,10 +1000,9 @@ fn is_simple_direct_call_tree(expr: &HirExpr) -> bool {
 }
 
 fn direct_call_needs_recursive_lowering(callee: &FuncRef) -> bool {
-    matches!(
-        func_ref_base_name(callee),
-        Some("get") | Some("get_ref") | Some("get_field") | Some("get_field_ref")
-    )
+    func_ref_base_name(callee)
+        .and_then(FieldAccessorKind::from_call_base_name)
+        .is_some_and(|kind| matches!(kind, FieldAccessorKind::Get | FieldAccessorKind::GetRef))
 }
 
 fn push_direct_call_skeleton(
