@@ -126,6 +126,7 @@ const checks = [
     "nodesrc/test_stdlib_string_report_contract.js",
     "nodesrc/test_stdlib_btreemap_report_contract.js",
     "nodesrc/test_stdlib_cliarg_report_contract.js",
+    "nodesrc/test_stdlib_collections_diag_report_contract.js",
     "nodesrc/test_llvm_runner_return_value.js",
     "nodesrc/test_stdlib_builder_owner_boundary.js",
     "nodesrc/test_stdlib_io_bytebuf_owner_boundary.js",

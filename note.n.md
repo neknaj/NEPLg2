@@ -1,3 +1,18 @@
+# 2026-05-17 Agent 1 collections_diag stdout report 固定
+
+- `ISS-20260517T123036015Z-COLLECTIONS-DIAG-DOCTESTS-PRINT-REPO-CF717FA0` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/collections_diag.n.md` の 4 doctest が `checks_print_report checks` で stdout report を出しているにもかかわらず、manifest に `stdout:` と `exit_code:` がなく、report の内容が fixture として比較されていなかったこと。
+- 4 件を `neplg2:test[stdio, normalize_newlines]` に変更し、`stdout: "Checked [ok]\n[0] ok\n"` と `exit_code: 0` を追加した。
+- `nodesrc/test_stdlib_collections_diag_report_contract.js` を追加し、同 file が `ret:` に戻らないこと、stdout report を固定すること、`checks_print_report` の後で `checks_exit_code` を返すことを source policy で監視する。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に今回の進捗を追記した。この親 issue は他 fixture と一般 lint 強化が残るため open のまま。
+- 検証:
+  - `node nodesrc/test_stdlib_collections_diag_report_contract.js`
+  - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent1-collections-diag-report-tests.json -j 2 --assert-io --dist web/dist`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。selfhost と Rust runner で `.n.md` を共有するため、exit code だけでなく stdout assertion report も契約として固定する方針へ進めた。
+
 # 2026-05-17 Agent 1 fullreview static-check resource doc 現状同期
 
 - `ISS-20260517T122212012Z-FULLREVIEW-STATIC-CHECK-RESOURCE-DOC-B3C83DCC` を追加し、fixed / resolved にした。`plan.md` は変更していない。

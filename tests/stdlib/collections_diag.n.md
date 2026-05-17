@@ -11,7 +11,9 @@
 [何/なに]を[確/たし]かめるか:
 - key [欠落/けつらく]は `StdErrorKind::KeyNotFound` として[報告/ほうこく]される。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok]\n[0] ok\n"
+exit_code: 0
 ```neplg2
 #target std
 #entry main
@@ -44,7 +46,9 @@ fn main <()*>i32> ():
 [何/なに]を[確/たし]かめるか:
 - key [欠落/けつらく]は `StdErrorKind::KeyNotFound` として[報告/ほうこく]される。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok]\n[0] ok\n"
+exit_code: 0
 ```neplg2
 #target std
 #entry main
@@ -77,7 +81,9 @@ fn main <()*>i32> ():
 [何/なに]を[確/たし]かめるか:
 - [想定内/そうていない]の[不在/ふざい]は `Diag` ではなく `Option` で[表現/ひょうげん]される。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok]\n[0] ok\n"
+exit_code: 0
 ```neplg2
 #target std
 #entry main
@@ -108,7 +114,9 @@ fn main <()*>i32> ():
 [何/なに]を[確/たし]かめるか:
 - [想定内/そうていない]の[不在/ふざい]は `Diag` ではなく `Option` で[表現/ひょうげん]される。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok]\n[0] ok\n"
+exit_code: 0
 ```neplg2
 #target std
 #entry main
