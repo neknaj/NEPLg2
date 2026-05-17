@@ -40324,3 +40324,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo test -p nepl-core --test effects raw_body -- --nocapture`: 3 passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+
+## 2026-05-17 Agent 1 field accessor intrinsic kind 分類修正
+
+- `ISS-20260517T050529675Z-FIELD-ACCESSOR-INTRINSIC-DETECTION-D-D864665B` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`FieldAccessorKind` enum があるにもかかわらず、`detect_field_accessor_fn` が `get_field` / `get_field_ref` / `set_field` の spelling を `binding_rules.rs` 内で直接 match していたことだった。
+- 修正後は `FieldAccessorKind::from_intrinsic_name` / `intrinsic_name` に spelling 対応を集約し、binding rules と field accessor HIR 生成が typed classifier を読むようにした。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core field_accessor_intrinsic_names_round_trip_through_kind --lib -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
