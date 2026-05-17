@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T12:11:49.951Z",
+  "generated_at": "2026-05-17T12:18:39.361Z",
   "counts": {
-    "total": 943,
+    "total": 944,
     "open": 5,
-    "resolved": 938,
+    "resolved": 939,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 489,
+        "total": 490,
         "open": 0,
-        "resolved": 489
+        "resolved": 490
       },
       "CORE": {
         "total": 1,
@@ -7428,6 +7428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T120443246Z-RAW-BODY-BACKEND-INTRINSIC-CLASSIFIE-4A602A92.md"
+    },
+    {
+      "id": "ISS-20260517T121456312Z-TOP-LEVEL-RAW-CALL-PROPAGATION-BYPAS-35B3CCC0",
+      "title": "Top-level raw call propagation bypasses source capability proof event dispatcher",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/top_level_raw_calls.rs, nepl-core/src/source_capability/proof.rs, nepl-core/src/source_capability/rule.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T121456312Z-TOP-LEVEL-RAW-CALL-PROPAGATION-BYPAS-35B3CCC0.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

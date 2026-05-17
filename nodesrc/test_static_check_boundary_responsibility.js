@@ -1947,6 +1947,7 @@ for (const eventVariant of [
     'SourceCapabilityProofEvent::StructDefinition',
     'SourceCapabilityProofEvent::Intrinsic',
     'SourceCapabilityProofEvent::RawBody',
+    'SourceCapabilityProofEvent::PropagatedRawOperation',
 ]) {
     assertContains(
         sourceCapabilityRule,
@@ -2498,8 +2499,23 @@ assertContains(
 );
 assertContains(
     sourceCapabilityTopLevelRawCalls,
-    'apply_top_level_raw_call_evidence',
-    'top-level raw helper calls must be resolved by a shared proof propagation pass',
+    'collect_top_level_raw_call_evidence',
+    'top-level raw helper calls must be resolved by a shared proof propagation pass that returns typed evidence',
+);
+assertContains(
+    sourceCapabilityProof,
+    'SourceCapabilityProofEvent::PropagatedRawOperation',
+    'top-level raw helper propagation must feed evidence back through the typed proof dispatcher',
+);
+assertNotContains(
+    sourceCapabilityTopLevelRawCalls,
+    'SourceCapabilityProofFact',
+    'top-level raw helper propagation must not insert source capability proof facts directly',
+);
+assertNotContains(
+    sourceCapabilityTopLevelRawCalls,
+    'SourceCapabilityProof,',
+    'top-level raw helper propagation must not depend on the proof builder mutation API',
 );
 assertContains(
     sourceCapabilityTopLevelRawCalls,

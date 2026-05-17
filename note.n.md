@@ -1,3 +1,21 @@
+# 2026-05-17 Agent 1 top-level raw call propagation event 化
+
+- `ISS-20260517T121456312Z-TOP-LEVEL-RAW-CALL-PROPAGATION-BYPAS-35B3CCC0` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`source_capability/top_level_raw_calls.rs` が propagation worklist の計算だけでなく `SourceCapabilityProofFact` の挿入まで担当し、`SourceCapabilityProofEvent` dispatcher の外側に proof emission path を作っていたこと。
+- `collect_top_level_raw_call_evidence` を導入し、top-level raw helper call propagation は `PropagatedRawOperationEvidence` の計算だけを返すようにした。
+- `SourceCapabilityProofEvent::PropagatedRawOperation` を追加し、propagation 後の raw operation proof fact 挿入を `dispatch_source_capability_proof_event` の exhaustive `match event` に戻した。
+- `top_level_raw_calls.rs` から `SourceCapabilityProof` / `SourceCapabilityProofFact` 依存を削除し、policy で再導入を禁止した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core raw_memory_boundary_accepts_proven_top_level_raw_helper_call_evidence --lib -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary_rejects_unproven_top_level_raw_helper_call_evidence --lib -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary_accepts_raw_helper_definition_evidence --lib -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary_keeps_raw_helper_body_evidence_function_scoped --lib -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「個別 module ごとの proof machine ではなく、typed event / fact pipeline に集約し、検査プログラム自体も enum/match で監査可能にする」方針に沿って、top-level raw call propagation の fact emission を dispatcher へ戻した。
+
 # 2026-05-17 Agent 1 raw body backend intrinsic semantic domain 化
 
 - `ISS-20260517T120443246Z-RAW-BODY-BACKEND-INTRINSIC-CLASSIFIE-4A602A92` を追加し、fixed / resolved にした。`plan.md` は変更していない。
