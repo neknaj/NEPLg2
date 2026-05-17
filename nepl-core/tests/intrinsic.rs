@@ -1,6 +1,6 @@
 mod harness;
 
-use harness::run_main_i32;
+use harness::{run_main_i32, run_main_wasi_i32_raw_memory_boundary};
 
 #[test]
 fn intrinsic_size_and_align_direct() {
@@ -31,7 +31,7 @@ fn main <()->i32> ():
 #[test]
 fn intrinsic_load_store_i64() {
     let src = r#"
-#target wasm
+#target wasi
 #entry main
 #indent 4
 #import "core/math" as *
@@ -50,13 +50,13 @@ fn main <()->i32> ():
     dealloc_raw p 8;
     if eq got v 0 1
 "#;
-    assert_eq!(run_main_i32(src), 0);
+    assert_eq!(run_main_wasi_i32_raw_memory_boundary(src), 0);
 }
 
 #[test]
 fn intrinsic_load_store_f64() {
     let src = r#"
-#target wasm
+#target wasi
 #entry main
 #indent 4
 #import "core/math" as *
@@ -73,7 +73,7 @@ fn main <()->i32> ():
     dealloc_raw p 8;
     if eq got v 0 1
 "#;
-    assert_eq!(run_main_i32(src), 0);
+    assert_eq!(run_main_wasi_i32_raw_memory_boundary(src), 0);
 }
 
 #[test]

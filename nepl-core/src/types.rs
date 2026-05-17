@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ast::Effect;
+use crate::backend_scalar_type::BackendScalarType;
 use crate::source_map::CompilerMemoryType;
 
 macro_rules! type_log {
@@ -863,11 +864,6 @@ impl TypeCtx {
             | TypeKind::Bool
             | TypeKind::Char
             | TypeKind::Str => self.has_copy_impl_target(resolved),
-            TypeKind::Named(name)
-                if matches!(name.as_str(), "i64" | "i128" | "u64" | "u128" | "f64") =>
-            {
-                self.has_copy_impl_target(resolved)
-            }
             TypeKind::Named(_) => self.has_copy_impl_target(resolved),
             TypeKind::Tuple { items } => items.iter().all(|t| self.is_copy(*t)),
             TypeKind::Struct { .. } | TypeKind::Enum { .. } => self.has_copy_impl_target(resolved),
@@ -1019,7 +1015,7 @@ impl TypeCtx {
                 if allow_opaque_named {
                     true
                 } else {
-                    matches!(name.as_str(), "i64" | "f64")
+                    BackendScalarType::from_name(name.as_str()).is_some()
                 }
             }
         };

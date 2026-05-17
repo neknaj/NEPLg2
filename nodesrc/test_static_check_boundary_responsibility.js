@@ -8,6 +8,14 @@ const CORE_SRC = path.join(ROOT, 'nepl-core', 'src');
 const NEPL_LANGUAGE_LIB = path.join(ROOT, 'nepl-language', 'src', 'lib.rs');
 const NEPL_WEB_LIB = path.join(ROOT, 'nepl-web', 'src', 'lib.rs');
 const DIAGNOSTIC_CODES = path.join(CORE_SRC, 'diagnostic_codes.rs');
+const CORE_LIB = path.join(CORE_SRC, 'lib.rs');
+const BACKEND_SCALAR_TYPE = path.join(CORE_SRC, 'backend_scalar_type.rs');
+const LAYOUT = path.join(CORE_SRC, 'layout.rs');
+const WASM_SHARED = path.join(CORE_SRC, 'wasm_shared.rs');
+const CODEGEN_WASM = path.join(CORE_SRC, 'codegen_wasm.rs');
+const CODEGEN_LLVM = path.join(CORE_SRC, 'codegen_llvm.rs');
+const CODEGEN_LLVM_TYPE_MAP = path.join(CORE_SRC, 'codegen_llvm', 'type_map.rs');
+const TYPES_RS = path.join(CORE_SRC, 'types.rs');
 const TYPECHECK_ROOT = path.join(CORE_SRC, 'typecheck.rs');
 const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
 const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
@@ -347,6 +355,14 @@ const neplg2Tests = assertFile(NEPLG2_TESTS, 'nepl-core/tests/neplg2.rs');
 const neplLanguageLib = assertFile(NEPL_LANGUAGE_LIB, 'nepl-language/src/lib.rs');
 const neplWebLib = assertFile(NEPL_WEB_LIB, 'nepl-web/src/lib.rs');
 const diagnosticCodes = assertFile(DIAGNOSTIC_CODES, 'diagnostic_codes.rs');
+const coreLib = assertFile(CORE_LIB, 'lib.rs');
+const backendScalarType = assertFile(BACKEND_SCALAR_TYPE, 'backend_scalar_type.rs');
+const layout = assertFile(LAYOUT, 'layout.rs');
+const wasmShared = assertFile(WASM_SHARED, 'wasm_shared.rs');
+const codegenWasm = assertFile(CODEGEN_WASM, 'codegen_wasm.rs');
+const codegenLlvm = assertFile(CODEGEN_LLVM, 'codegen_llvm.rs');
+const codegenLlvmTypeMap = assertFile(CODEGEN_LLVM_TYPE_MAP, 'codegen_llvm/type_map.rs');
+const typesRs = assertFile(TYPES_RS, 'types.rs');
 const typecheckMatchCheck = assertFile(
     path.join(TYPECHECK_DIR, 'match_check.rs'),
     'typecheck/match_check.rs',
@@ -711,6 +727,103 @@ for (const scalarIntrinsicName of [
         `typecheck/prefix_check.rs must not duplicate ${scalarIntrinsicName} branch spelling outside ScalarIntrinsicKind`,
     );
 }
+assertContains(coreLib, 'mod backend_scalar_type;', 'lib.rs');
+assertLineLimit(BACKEND_SCALAR_TYPE, 'backend_scalar_type.rs', 160);
+assertContains(
+    backendScalarType,
+    'pub(crate) enum BackendScalarType',
+    'backend_scalar_type.rs must represent backend named scalars as a typed enum domain',
+);
+assertContains(
+    backendScalarType,
+    'pub(crate) fn from_name',
+    'backend_scalar_type.rs must classify backend scalar spelling once',
+);
+assertContains(
+    backendScalarType,
+    'pub(crate) fn from_type_kind',
+    'backend_scalar_type.rs must classify TypeKind through the same scalar domain',
+);
+assertContains(
+    backendScalarType,
+    'pub(crate) fn from_type_expr',
+    'backend_scalar_type.rs must classify TypeExpr through the same scalar domain',
+);
+assertContains(
+    backendScalarType,
+    'storage_size_bytes',
+    'backend_scalar_type.rs must own backend scalar storage size semantics',
+);
+assertContains(
+    backendScalarType,
+    'storage_align_bytes',
+    'backend_scalar_type.rs must own backend scalar storage alignment semantics',
+);
+assertContains(
+    layout,
+    'BackendScalarType::from_name(name.as_str())',
+    'layout.rs must consume BackendScalarType for named scalar layout',
+);
+assertNotContains(
+    layout,
+    'name == "i64" || name == "u64" || name == "f64"',
+    'layout.rs must not duplicate backend scalar spelling',
+);
+assertContains(
+    wasmShared,
+    'BackendScalarType::from_type_kind(kind)',
+    'wasm_shared.rs must lower named scalar signatures through BackendScalarType',
+);
+assertContains(
+    codegenWasm,
+    'BackendScalarType::from_type_kind(kind)',
+    'codegen_wasm.rs must lower named scalar locals through BackendScalarType',
+);
+assertContains(
+    codegenLlvmTypeMap,
+    'BackendScalarType::from_name(name.as_str())',
+    'codegen_llvm/type_map.rs must lower named scalar TypeKind through BackendScalarType',
+);
+assertContains(
+    codegenLlvm,
+    'BackendScalarType::from_type_expr(ty)',
+    'codegen_llvm.rs must lower named scalar TypeExpr through BackendScalarType',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'BackendScalarType::I64.type_id(self.ctx)',
+    'typecheck/prefix_check.rs must derive i64 scalar intrinsic ids through BackendScalarType',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'BackendScalarType::U32.type_id(self.ctx)',
+    'typecheck/prefix_check.rs must derive u32 scalar intrinsic ids through BackendScalarType',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'BackendScalarType::U64.type_id(self.ctx)',
+    'typecheck/prefix_check.rs must derive u64 scalar intrinsic ids through BackendScalarType',
+);
+assertNotContains(
+    typecheckPrefixCheck,
+    'lookup_named("i64")',
+    'typecheck/prefix_check.rs must not manually look up named scalar ids',
+);
+assertNotContains(
+    typecheckPrefixCheck,
+    'register_named("u64"',
+    'typecheck/prefix_check.rs must not manually register named scalar ids',
+);
+assertContains(
+    typesRs,
+    'BackendScalarType::from_name(name.as_str()).is_some()',
+    'types.rs must derive named scalar Copy eligibility from BackendScalarType',
+);
+assertNotContains(
+    typesRs,
+    'matches!(name.as_str(), "i64" | "f64")',
+    'types.rs must not duplicate backend scalar Copy eligibility strings',
+);
 for (const coreIntrinsicName of [
     'size_of',
     'align_of',

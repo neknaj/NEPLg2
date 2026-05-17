@@ -1,3 +1,25 @@
+# 2026-05-17 Agent 1 backend scalar type domain 化
+
+- `ISS-20260517T105019127Z-BACKEND-NAMED-SCALAR-TYPES-ARE-DUPLI-830FA07E` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`i64` / `u64` / `f64` / `u32` が TypeCtx 上は named type として流れる一方で、layout、WASM signature、WASM local lowering、LLVM type map、scalar intrinsic type lookup が各所で spelling を直接判定していたこと。
+- `backend_scalar_type.rs` を追加し、`BackendScalarType::{U32, I64, U64, F64}` が source spelling、TypeCtx 登録、TypeKind / TypeExpr 分類、storage size / align、backend value category を所有するようにした。
+- `layout.rs`、`wasm_shared.rs`、`codegen_wasm.rs`、`codegen_llvm.rs`、`codegen_llvm/type_map.rs`、`typecheck/prefix_check.rs` を `BackendScalarType` 消費に揃えた。
+- `types.rs` の named scalar Copy eligibility も同じ enum domain から導出し、backend scalar の追加・変更時に copy eligibility だけが drift しない形にした。
+- `nepl-core/tests/intrinsic.rs` の i64/f64 raw load/store regression は、現在の source capability 設計に合わせて compiler-owned raw boundary helper で実行するようにした。raw operation を user source から許可せず、backend scalar の load/store regression だけを保持する。
+- `nodesrc/test_static_check_boundary_responsibility.js` に `BackendScalarType`、consumer 接続、旧 direct string branch 禁止を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core backend_scalar_type::tests --lib -- --nocapture`
+  - `cargo test -p nepl-core --test layout -- --nocapture`
+  - `cargo test -p nepl-core scalar_intrinsic --lib -- --nocapture`
+  - `cargo test -p nepl-core --test intrinsic -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `trunk build`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「compiler 内の semantic classification を typed enum domain に寄せ、検査自体も match / source policy で監視しやすくする」方針に沿って、named scalar backend semantics を一元化した。
+
 # 2026-05-17 Agent 1 source capability import module enum 化
 
 - `ISS-20260517T104130208Z-SOURCE-CAPABILITY-CORE-FIELD-IMPORT--DAE2B054` を追加し、fixed / resolved にした。`plan.md` は変更していない。

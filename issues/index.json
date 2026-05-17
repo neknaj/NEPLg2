@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T10:45:24.630Z",
+  "generated_at": "2026-05-17T11:05:25.397Z",
   "counts": {
-    "total": 937,
+    "total": 938,
     "open": 5,
-    "resolved": 932,
+    "resolved": 933,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 483,
+        "total": 484,
         "open": 0,
-        "resolved": 483
+        "resolved": 484
       },
       "CORE": {
         "total": 1,
@@ -7338,6 +7338,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T104130208Z-SOURCE-CAPABILITY-CORE-FIELD-IMPORT--DAE2B054.md"
+    },
+    {
+      "id": "ISS-20260517T105019127Z-BACKEND-NAMED-SCALAR-TYPES-ARE-DUPLI-830FA07E",
+      "title": "backend named scalar types are duplicated as strings across typecheck layout and codegen",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/backend_scalar_type.rs, nepl-core/src/types.rs, nepl-core/src/layout.rs, nepl-core/src/wasm_shared.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/codegen_llvm/type_map.rs, nepl-core/src/typecheck/prefix_check.rs, nepl-core/tests/intrinsic.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T105019127Z-BACKEND-NAMED-SCALAR-TYPES-ARE-DUPLI-830FA07E.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

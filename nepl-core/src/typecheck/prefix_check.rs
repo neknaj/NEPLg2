@@ -6,6 +6,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol, Visibility};
+use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
@@ -89,19 +90,10 @@ impl<'a> BlockChecker<'a> {
     fn scalar_intrinsic_type_id(&mut self, scalar_type: ScalarIntrinsicType) -> TypeId {
         match scalar_type {
             ScalarIntrinsicType::I32 => self.ctx.i32(),
-            ScalarIntrinsicType::I64 => self.ctx.lookup_named("i64").unwrap_or_else(|| {
-                self.ctx
-                    .register_named("i64".to_string(), TypeKind::Named("i64".to_string()))
-            }),
+            ScalarIntrinsicType::I64 => BackendScalarType::I64.type_id(self.ctx),
             ScalarIntrinsicType::U8 => self.ctx.u8(),
-            ScalarIntrinsicType::U32 => self.ctx.lookup_named("u32").unwrap_or_else(|| {
-                self.ctx
-                    .register_named("u32".to_string(), TypeKind::Named("u32".to_string()))
-            }),
-            ScalarIntrinsicType::U64 => self.ctx.lookup_named("u64").unwrap_or_else(|| {
-                self.ctx
-                    .register_named("u64".to_string(), TypeKind::Named("u64".to_string()))
-            }),
+            ScalarIntrinsicType::U32 => BackendScalarType::U32.type_id(self.ctx),
+            ScalarIntrinsicType::U64 => BackendScalarType::U64.type_id(self.ctx),
             ScalarIntrinsicType::F32 => self.ctx.f32(),
             ScalarIntrinsicType::Char => self.ctx.char(),
             ScalarIntrinsicType::Str => self.ctx.str(),
