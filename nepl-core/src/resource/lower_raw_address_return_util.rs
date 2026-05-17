@@ -5,7 +5,10 @@ use crate::runtime_helpers::helper_base_name;
 
 use super::lower::LoweringEnvironment;
 use super::lower_call::func_ref_base_name;
-use super::lower_raw_address::{i32_const_from_actual_arg, i32_const_from_size_of_call};
+use super::lower_layout_intrinsic::{
+    layout_intrinsic_i64_value, layout_intrinsic_i64_value_from_callee,
+};
+use super::lower_raw_address::i32_const_from_actual_arg;
 use super::lower_raw_address_source::RawAddressOffset;
 use super::model::Place;
 use super::scalar_primitive::I32ArithmeticPrimitive;
@@ -69,24 +72,14 @@ pub(super) fn i32_const_from_return_expr(
             hir_args,
             env,
         )
-        .or_else(|| i32_const_from_size_of_call(callee, env)),
+        .or_else(|| layout_intrinsic_i64_value_from_callee(callee, env)),
         HirExprKind::Intrinsic {
             name,
             type_args,
             args,
-        } => {
-            if helper_base_name(name) == "size_of" && type_args.len() == 1 {
-                i64::try_from(crate::layout::storage_size_bytes(env.types, type_args[0])).ok()
-            } else {
-                i32_const_from_return_named_expr(
-                    helper_base_name(name),
-                    args,
-                    function,
-                    hir_args,
-                    env,
-                )
-            }
-        }
+        } => layout_intrinsic_i64_value(name, type_args, env).or_else(|| {
+            i32_const_from_return_named_expr(helper_base_name(name), args, function, hir_args, env)
+        }),
         _ => None,
     }
 }

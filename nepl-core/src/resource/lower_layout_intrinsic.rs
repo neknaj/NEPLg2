@@ -1,5 +1,5 @@
 use crate::hir::{FuncRef, HirBody, HirExprKind};
-use crate::layout::{storage_align_bytes, storage_size_bytes};
+use crate::intrinsic_kinds::CoreIntrinsicKind;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::TypeId;
 
@@ -16,17 +16,22 @@ pub(super) fn layout_intrinsic_i32_value_from_callee(
     }
 }
 
+pub(super) fn layout_intrinsic_i64_value_from_callee(
+    callee: &FuncRef,
+    env: &LoweringEnvironment,
+) -> Option<i64> {
+    layout_intrinsic_i32_value_from_callee(callee, env).map(i64::from)
+}
+
 pub(super) fn layout_intrinsic_i32_value(
     name: &str,
     type_args: &[TypeId],
     env: &LoweringEnvironment,
 ) -> Option<i32> {
-    if type_args.len() == 1 {
-        return match helper_base_name(name) {
-            "size_of" => i32::try_from(storage_size_bytes(env.types, type_args[0])).ok(),
-            "align_of" => i32::try_from(storage_align_bytes(env.types, type_args[0])).ok(),
-            _ => None,
-        };
+    if let Some(value) = CoreIntrinsicKind::from_intrinsic_name(helper_base_name(name))
+        .and_then(|kind| kind.layout_i32_value(env.types, type_args))
+    {
+        return Some(value);
     }
     let function = env.function(name)?;
     let HirBody::Block(block) = &function.body else {
@@ -42,4 +47,12 @@ pub(super) fn layout_intrinsic_i32_value(
         return None;
     };
     layout_intrinsic_i32_value(name, type_args, env)
+}
+
+pub(super) fn layout_intrinsic_i64_value(
+    name: &str,
+    type_args: &[TypeId],
+    env: &LoweringEnvironment,
+) -> Option<i64> {
+    layout_intrinsic_i32_value(name, type_args, env).map(i64::from)
 }

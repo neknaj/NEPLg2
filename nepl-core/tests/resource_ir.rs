@@ -501,6 +501,43 @@ fn resource_ir_lowering_uses_declared_local_type_for_drop() {
 }
 
 #[test]
+fn resource_ir_layout_intrinsics_use_shared_core_intrinsic_kind() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/math" as *
+#import "core/mem" as *
+
+struct Pair:
+    left <i32>
+    right <i32>
+
+fn pair_size <()->i32> ():
+    size_of<Pair>
+
+fn main <()->i32> ():
+    let size <i32> pair_size
+    let align <i32> align_of<Pair>
+    add size align
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let dump = resource.dump_text();
+    assert!(
+        dump.contains("expr LiteralI32(8)"),
+        "size_of<Pair> wrapper call must lower to a Resource IR scalar fact:\n{}",
+        dump
+    );
+    assert!(
+        dump.contains("expr LiteralI32(4)"),
+        "align_of<Pair> intrinsic must lower to a Resource IR scalar fact:\n{}",
+        dump
+    );
+}
+
+#[test]
 fn resource_ir_lowering_preserves_raw_memory_operations() {
     let unit_ty = TypeId(0);
     let i32_ty = TypeId(1);
