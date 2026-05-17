@@ -57,6 +57,7 @@ assert(
 
 assertLineLimit("nepl-core/src/parser.rs", 4234);
 assertLineLimit("nepl-core/src/codegen_wasm.rs", 2525);
+assertLineLimit("nepl-core/src/codegen_wasm/local_map.rs", 120);
 assertLineLimit("nepl-core/src/codegen_wasm/string_data.rs", 80);
 assertLineLimit("nepl-core/src/codegen_wasm/aggregate.rs", 40);
 assertLineLimit("nepl-core/src/codegen_llvm.rs", 4188);
@@ -67,8 +68,14 @@ assertLineLimit("nepl-core/src/monomorphize/trait_identity.rs", 45);
 assertLineLimit("nepl-core/src/monomorphize/trait_lookup.rs", 90);
 
 const wasmRoot = read(path.join(CORE_SRC, "codegen_wasm.rs"));
+assertContains(wasmRoot, "mod local_map;", "wasm backend root");
 assertContains(wasmRoot, "mod string_data;", "wasm backend root");
 assertContains(wasmRoot, "mod aggregate;", "wasm backend root");
+assertContains(
+    read(path.join(CORE_SRC, "codegen_wasm", "local_map.rs")),
+    "pub(super) struct LocalMap",
+    "wasm local map module",
+);
 assertContains(
     read(path.join(CORE_SRC, "codegen_wasm", "string_data.rs")),
     "pub(super) struct StringDataLayout",

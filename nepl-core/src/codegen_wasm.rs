@@ -33,9 +33,11 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 mod aggregate;
+mod local_map;
 mod string_data;
 
 use aggregate::aggregate_field_layout;
+use local_map::LocalMap;
 use string_data::{lower_strings, StringDataLayout};
 
 macro_rules! wasm_log {
@@ -434,7 +436,7 @@ fn emit_inline_alloc(locals: &mut LocalMap, insts: &mut Vec<Instruction<'static>
 }
 
 fn emit_alloc_call(locals: &mut LocalMap, insts: &mut Vec<Instruction<'static>>) {
-    if let Some(idx) = locals.alloc_helper_idx {
+    if let Some(idx) = locals.alloc_helper_idx() {
         insts.push(Instruction::Call(idx));
     } else {
         emit_inline_alloc(locals, insts);
@@ -534,9 +536,9 @@ fn lower_user(
 ) -> LowerResult<Function> {
     let mut locals = LocalMap::new();
     for p in &func.params {
-        locals.register_param(p.name.clone(), p.ty, ctx);
+        locals.register_param(p.name.clone(), valtype(&ctx.get(ctx.resolve_id(p.ty))));
     }
-    locals.alloc_helper_idx = find_alloc_index(name_map, &func.name);
+    locals.set_alloc_helper_idx(find_alloc_index(name_map, &func.name));
 
     let mut insts: Vec<Instruction<'static>> = Vec::new();
 
@@ -653,7 +655,7 @@ fn gen_block(
 fn predeclare_block_locals(ctx: &TypeCtx, block: &HirBlock, locals: &mut LocalMap) {
     for line in &block.lines {
         if let HirExprKind::Let { name, value, .. } = &line.expr.kind {
-            let _ = locals.ensure_local(name.clone(), value.ty, ctx);
+            let _ = locals.ensure_local(name.clone(), valtype(&ctx.get(value.ty)));
         }
     }
 }
@@ -2131,7 +2133,8 @@ fn gen_expr(
                             enum_variant_payload(ctx, enum_match_ty.unwrap(), variant)
                         {
                             let bind_ty = arm.bind_ty.unwrap_or(payload_ty);
-                            let lidx = locals.ensure_local(bind.clone(), bind_ty, ctx);
+                            let lidx =
+                                locals.ensure_local(bind.clone(), valtype(&ctx.get(bind_ty)));
                             let payload_offset = enum_payload_offset_bytes() as i32;
                             if type_is_reference(ctx, bind_ty) {
                                 emit_linear_addr_from_local(scrut_local, payload_offset, insts);
@@ -2248,7 +2251,7 @@ fn gen_expr(
             result_ty
         }
         HirExprKind::Let { name, value, .. } => {
-            let idx = locals.ensure_local(name.clone(), value.ty, ctx);
+            let idx = locals.ensure_local(name.clone(), valtype(&ctx.get(value.ty)));
             gen_expr(ctx, value, name_map, sig_map, strings, locals, insts)?;
             if valtype(&ctx.get(value.ty)).is_some() {
                 insts.push(Instruction::LocalSet(idx));
@@ -2396,112 +2399,6 @@ fn gen_expr(
             }
         }
     })
-}
-
-// ---------------------------------------------------------------------
-// Locals
-// ---------------------------------------------------------------------
-
-#[derive(Debug)]
-struct LocalMap {
-    map: BTreeMap<String, Vec<u32>>,
-    scopes: Vec<Vec<String>>,
-    next_idx: u32,
-    decls: Vec<ValType>,
-    alloc_helper_idx: Option<u32>,
-}
-
-impl LocalMap {
-    fn new() -> Self {
-        Self {
-            map: BTreeMap::new(),
-            scopes: vec![Vec::new()],
-            next_idx: 0,
-            decls: Vec::new(),
-            alloc_helper_idx: None,
-        }
-    }
-
-    fn register_param(&mut self, name: String, ty: TypeId, ctx: &TypeCtx) {
-        let idx = if valtype(&ctx.get(ctx.resolve_id(ty))).is_some() {
-            let idx = self.next_idx;
-            self.next_idx += 1;
-            idx
-        } else {
-            0
-        };
-        self.bind_name(name, idx);
-    }
-
-    fn ensure_local(&mut self, name: String, ty: TypeId, ctx: &TypeCtx) -> u32 {
-        if let Some(idx) = self.lookup_current(&name) {
-            idx
-        } else {
-            let vt = valtype(&ctx.get(ty));
-            let idx = if let Some(vt) = vt {
-                let idx = self.next_idx;
-                self.next_idx += 1;
-                self.decls.push(vt);
-                idx
-            } else {
-                // Zero-sized/unit locals do not need a wasm local slot.
-                0
-            };
-            self.bind_name(name, idx);
-            idx
-        }
-    }
-
-    fn alloc_temp(&mut self, vt: ValType) -> u32 {
-        let idx = self.next_idx;
-        self.next_idx += 1;
-        self.decls.push(vt);
-        idx
-    }
-
-    fn lookup(&self, name: &str) -> Option<u32> {
-        self.map.get(name).and_then(|stack| stack.last().copied())
-    }
-
-    fn local_decls(&self) -> Vec<(u32, ValType)> {
-        self.decls.iter().map(|v| (1u32, *v)).collect()
-    }
-
-    fn begin_scope(&mut self) {
-        self.scopes.push(Vec::new());
-    }
-
-    fn end_scope(&mut self) {
-        if let Some(names) = self.scopes.pop() {
-            for name in names {
-                let remove_entry = if let Some(stack) = self.map.get_mut(&name) {
-                    stack.pop();
-                    stack.is_empty()
-                } else {
-                    false
-                };
-                if remove_entry {
-                    self.map.remove(&name);
-                }
-            }
-        }
-    }
-
-    fn lookup_current(&self, name: &str) -> Option<u32> {
-        let current = self.scopes.last()?;
-        if current.iter().any(|n| n == name) {
-            self.lookup(name)
-        } else {
-            None
-        }
-    }
-
-    fn bind_name(&mut self, name: String, idx: u32) {
-        self.map.entry(name.clone()).or_default().push(idx);
-        if let Some(scope) = self.scopes.last_mut() {
-            scope.push(name);
-        }
-    }
 }
 
 // ---------------------------------------------------------------------

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T12:45:36.382Z",
+  "generated_at": "2026-05-17T12:53:52.532Z",
   "counts": {
-    "total": 948,
+    "total": 949,
     "open": 5,
-    "resolved": 943,
+    "resolved": 944,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 491,
+        "total": 492,
         "open": 0,
-        "resolved": 491
+        "resolved": 492
       },
       "CORE": {
         "total": 1,
@@ -7458,6 +7458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T123624102Z-SOURCECAPABILITIES-INSERT-USE-SITE-L-7F2B23E5.md"
+    },
+    {
+      "id": "ISS-20260517T124911215Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-49B83608",
+      "title": "WASM codegen responsibility freeze regressed after backend enum work",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/codegen_wasm.rs, nodesrc/test_parser_backend_responsibility_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T124911215Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-49B83608.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
