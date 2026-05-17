@@ -1,4 +1,5 @@
-use super::effect_identity::{copy_pointer_alias, RawIdentityTable, RawPointerAliasTable};
+use super::effect_identity::{copy_pointer_alias, RawIdentityTable};
+use super::effect_pointer_alias::RawPointerAliasTable;
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceMatchArm};

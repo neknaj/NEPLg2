@@ -57,6 +57,8 @@ mod effect_counts_raw;
 mod effect_diagnostic;
 mod effect_identity;
 mod effect_match;
+mod effect_place_prefix;
+mod effect_pointer_alias;
 mod effect_raw_memory_identity;
 mod effect_return_escape;
 #[cfg(test)]

@@ -1,19 +1,17 @@
 extern crate alloc;
 
-use alloc::string::String;
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 
-use crate::ast::Effect;
-use crate::span::Span;
-use crate::types::TypeCtx;
+use crate::{ast::Effect, span::Span, types::TypeCtx};
 
 use super::effect_counts::ResourceEffectCounts;
 use super::effect_diagnostic::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
 use super::effect_identity::{
     construct_pointer_alias_fields, construct_raw_identity_fields, copy_pointer_alias,
-    raw_memory_op_produces_identity, RawIdentityOrigin, RawIdentityTable, RawPointerAliasTable,
+    raw_memory_op_produces_identity, RawIdentityOrigin, RawIdentityTable,
 };
 use super::effect_match::copy_match_payload_bind_identity;
+use super::effect_pointer_alias::RawPointerAliasTable;
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::effect_return_escape::raw_identity_return_projection_is_escape;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};

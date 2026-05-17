@@ -2,7 +2,8 @@ use alloc::vec::Vec;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_counts::ResourceEffectCounts;
-use super::effect_identity::{push_unique_origins, RawIdentityTable, RawPointerAliasTable};
+use super::effect_identity::{push_unique_origins, RawIdentityTable};
+use super::effect_pointer_alias::RawPointerAliasTable;
 use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::effect_return_summary_filter::raw_identity_return_projection_requires_summary;
 use super::effect_summary::{
