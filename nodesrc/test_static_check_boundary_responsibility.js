@@ -1316,6 +1316,11 @@ assertContains(
     'enum OwnerAggregateCapabilityEvidence',
     'source_capability/owner_aggregate/evidence.rs',
 );
+assertContains(
+    sourceCapabilityOwnerAggregateEvidence,
+    'FieldAccessorKind::from_intrinsic_name',
+    'owner aggregate intrinsic field evidence must use shared FieldAccessorKind classification',
+);
 assertContains(sourceCapabilityOwnerAggregate, 'mod evidence;', 'source_capability/owner_aggregate.rs');
 assertContains(sourceCapabilityOwnerAggregate, 'mod context;', 'source_capability/owner_aggregate.rs');
 assertContains(
@@ -1393,6 +1398,21 @@ assertNotContains(
     '"get" | "get_ref" | "put" | "get_field" | "get_field_ref"',
     'owner aggregate field evidence must not accept broad helper names without import proof',
 );
+assertNotContains(
+    sourceCapabilityOwnerAggregateEvidence,
+    '"get_field" | "get_field_ref"',
+    'owner aggregate intrinsic field evidence must not duplicate field accessor spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateEvidence,
+    '"get_field"',
+    'owner aggregate intrinsic field evidence must not duplicate get_field spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateEvidence,
+    '"get_field_ref"',
+    'owner aggregate intrinsic field evidence must not duplicate get_field_ref spelling outside FieldAccessorKind',
+);
 assertContains(
     sourceCapabilityOwnerAggregateEvidence,
     'crate::qualified_name::member_tail(symbol) != symbol',
@@ -1452,6 +1472,11 @@ assertContains(
     loader,
     'fn owner_aggregate_boundary_accepts_intrinsic_field_evidence()',
     'loader.rs owner aggregate intrinsic field evidence regression',
+);
+assertContains(
+    loader,
+    'fn owner_aggregate_boundary_rejects_set_field_intrinsic_evidence()',
+    'loader.rs owner aggregate write intrinsic evidence rejection regression',
 );
 assertContains(
     loader,

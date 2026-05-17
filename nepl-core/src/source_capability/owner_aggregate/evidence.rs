@@ -1,5 +1,6 @@
 use alloc::string::String;
 
+use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::runtime_helpers::helper_base_name;
 use crate::source_capability::scope::SourceCapabilityScope;
 
@@ -39,9 +40,12 @@ pub(in crate::source_capability) fn owner_aggregate_explicit_constructor_evidenc
 pub(in crate::source_capability) fn owner_aggregate_intrinsic_evidence(
     symbol: &str,
 ) -> Option<OwnerAggregateCapabilityEvidence> {
-    match helper_base_name(symbol) {
-        "get_field" | "get_field_ref" => Some(OwnerAggregateCapabilityEvidence::FieldAccessor),
-        _ => None,
+    let field_accessor = FieldAccessorKind::from_intrinsic_name(helper_base_name(symbol))?;
+    match field_accessor {
+        FieldAccessorKind::Get | FieldAccessorKind::GetRef => {
+            Some(OwnerAggregateCapabilityEvidence::FieldAccessor)
+        }
+        FieldAccessorKind::Put => None,
     }
 }
 

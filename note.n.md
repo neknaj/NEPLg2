@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 owner aggregate intrinsic evidence の FieldAccessorKind 接続
+
+- `ISS-20260517T070337891Z-OWNER-AGGREGATE-INTRINSIC-EVIDENCE-D-4A69BCFB` を追加し、fixed / resolved にした。
+- 根本原因は、`FieldAccessorKind` を shared intrinsic domain に移した後も、owner aggregate source proof の intrinsic evidence だけが `get_field` / `get_field_ref` spelling を直接 match し、typecheck / Resource IR と source capability proof の field accessor contract が drift し得たこと。
+- `owner_aggregate_intrinsic_evidence` は `FieldAccessorKind::from_intrinsic_name` を使い、`Get` / `GetRef` / `Put` を `match` で網羅する形にした。既存仕様どおり field boundary evidence は read/ref 系だけに限定し、`Put` は intrinsic evidence としては拒否する。
+- `loader.rs` に `set_field` intrinsic が owner aggregate field boundary evidence にならない regression を追加し、`nodesrc/test_static_check_boundary_responsibility.js` に source policy を追加して direct `get_field` / `get_field_ref` spelling の再導入も拒否する。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core owner_aggregate_boundary_accepts_intrinsic_field_evidence --lib -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary_rejects_set_field_intrinsic_evidence --lib -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source capability proof を、consumer ごとの文字列分岐ではなく shared enum classifier へ寄せた。
+
 # 2026-05-17 Agent 1 Resource scalar primitive proof classifier 集約
 
 - `ISS-20260517T062207552Z-RESOURCE-SCALAR-PRIMITIVE-PROOFS-DUP-30D2A64C` を追加し、fixed / resolved にした。
