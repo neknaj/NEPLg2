@@ -4,6 +4,7 @@ use alloc::string::String;
 use crate::ast::{Directive, ImportClause, ImportItem};
 use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::qualified_name::split_leading_qualifier;
+use crate::source_capability::import_path::SourceCapabilityImportModule;
 
 #[derive(Debug, Default)]
 pub(super) struct CoreFieldAccessorImports {
@@ -17,7 +18,9 @@ impl CoreFieldAccessorImports {
         let Directive::Import { path, clause, .. } = directive else {
             return;
         };
-        if !is_core_field_import_path(path) {
+        if SourceCapabilityImportModule::from_path(path)
+            != Some(SourceCapabilityImportModule::CoreField)
+        {
             return;
         }
         match clause {
@@ -75,8 +78,4 @@ impl CoreFieldAccessorImports {
         }
         self.field_unqualified_members.get(symbol).copied()
     }
-}
-
-fn is_core_field_import_path(path: &str) -> bool {
-    path.strip_suffix(".nepl").unwrap_or(path) == "core/field"
 }

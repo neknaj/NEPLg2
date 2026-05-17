@@ -73,6 +73,11 @@ const SOURCE_CAPABILITY_FIELD_SELECTOR = path.join(
     'source_capability',
     'field_selector.rs',
 );
+const SOURCE_CAPABILITY_IMPORT_PATH = path.join(
+    CORE_SRC,
+    'source_capability',
+    'import_path.rs',
+);
 const SOURCE_CAPABILITY_PREFIX_CALL = path.join(
     CORE_SRC,
     'source_capability',
@@ -272,6 +277,10 @@ const sourceCapabilityConstructorPosition = assertFile(
 const sourceCapabilityFieldSelector = assertFile(
     SOURCE_CAPABILITY_FIELD_SELECTOR,
     'source_capability/field_selector.rs',
+);
+const sourceCapabilityImportPath = assertFile(
+    SOURCE_CAPABILITY_IMPORT_PATH,
+    'source_capability/import_path.rs',
 );
 const sourceCapabilityPrefixCall = assertFile(
     SOURCE_CAPABILITY_PREFIX_CALL,
@@ -1147,8 +1156,29 @@ assertNotContains(
 assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
 assertContains(
     sourceCapability,
+    'mod import_path;',
+    'source_capability.rs must keep source capability import module classification in a separate module',
+);
+assertContains(
+    sourceCapability,
     'mod raw_operation_proof;',
     'source_capability.rs must keep raw operation proof types in a separate module',
+);
+assertLineLimit(SOURCE_CAPABILITY_IMPORT_PATH, 'source_capability/import_path.rs', 100);
+assertContains(
+    sourceCapabilityImportPath,
+    'pub(in crate::source_capability) enum SourceCapabilityImportModule',
+    'source_capability/import_path.rs must represent proof-relevant import modules as an enum',
+);
+assertContains(
+    sourceCapabilityImportPath,
+    'pub(in crate::source_capability) fn from_path',
+    'source_capability/import_path.rs must own import path classification',
+);
+assertContains(
+    sourceCapabilityImportPath,
+    'strip_supported_source_extension',
+    'source_capability/import_path.rs must normalize supported source file extensions',
 );
 assertLineLimit(
     SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
@@ -1852,6 +1882,16 @@ assertContains(
     sourceCapabilityOwnerAggregateContext,
     'CoreFieldAccessorImports',
     'owner aggregate context must depend on the dedicated core/field import proof',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'SourceCapabilityImportModule::from_path(path)',
+    'owner aggregate field import evidence must consume typed source capability import module classification',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'strip_suffix(".nepl").unwrap_or(path) == "core/field"',
+    'owner aggregate field import evidence must not classify core/field imports with local path string checks',
 );
 assertContains(
     sourceCapabilityOwnerAggregateFieldImports,

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T10:26:49.705Z",
+  "generated_at": "2026-05-17T10:45:24.630Z",
   "counts": {
-    "total": 936,
+    "total": 937,
     "open": 5,
-    "resolved": 931,
+    "resolved": 932,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 482,
+        "total": 483,
         "open": 0,
-        "resolved": 482
+        "resolved": 483
       },
       "CORE": {
         "total": 1,
@@ -7323,6 +7323,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T102052427Z-TYPECHECK-UNIT-LIKE-STRUCT-SHAPE-IS--F13DA6CD.md"
+    },
+    {
+      "id": "ISS-20260517T104130208Z-SOURCE-CAPABILITY-CORE-FIELD-IMPORT--DAE2B054",
+      "title": "source capability core field import proof uses ad hoc path string matching",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/owner_aggregate/field_imports.rs, nepl-core/src/source_capability.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T104130208Z-SOURCE-CAPABILITY-CORE-FIELD-IMPORT--DAE2B054.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
