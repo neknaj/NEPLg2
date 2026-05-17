@@ -4,7 +4,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::span::Span;
-use crate::types::TypeId;
+use crate::types::{TypeCtx, TypeId};
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceMatchPattern};
@@ -112,7 +112,8 @@ impl PendingVariantOwnerEffects {
         operation: ResourceOwnerOperation,
         span: Span,
     ) -> bool {
-        let Some(source) = self.reserved_source_for(owners, raw_aliases, place) else {
+        let Some(source) = self.reserved_source_for(engine.types, owners, raw_aliases, place)
+        else {
             return false;
         };
         let state = reserved_owner_state(owners, &source);
@@ -653,6 +654,7 @@ impl PendingVariantOwnerEffects {
 
     fn reserved_source_for(
         &self,
+        types: &TypeCtx,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
         place: &Place,
@@ -661,6 +663,9 @@ impl PendingVariantOwnerEffects {
         for entry in &self.consumptions {
             let source = pending_consumption_source(entry, raw_aliases);
             let resolved_source = resolve_owner_alias_place(owners, raw_aliases, &source);
+            if types.is_copy(resolved_source.ty) {
+                continue;
+            }
             if places_overlap(&resolved_place, &resolved_source) {
                 return Some(resolved_source);
             }
@@ -670,6 +675,9 @@ impl PendingVariantOwnerEffects {
                 continue;
             };
             let resolved_source = resolve_owner_alias_place(owners, raw_aliases, &source);
+            if types.is_copy(resolved_source.ty) {
+                continue;
+            }
             if places_overlap(&resolved_place, &resolved_source) {
                 return Some(resolved_source);
             }

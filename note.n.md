@@ -1,3 +1,19 @@
+# 2026-05-18 Agent 1 selfhost stdlib_map stdout report metadata / ResourceIR Copy reservation
+
+- `ISS-20260517T193057449Z-SELFHOST-STDLIB-MAP-DOCTESTS-STILL-U-320C9452` を fixed / resolved にした。`plan.md` は変更していない。
+- `tests/stdlib/neplg2_stdlib_map.n.md` の3件を `ret: 0` 代用から `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic stdout report へ移行した。
+- `nodesrc/test_selfhost_stdlib_map_report_contract.js` を追加し、stdout report、`exit_code: 0`、`ret:` 不使用、`checks_print_report` から `checks_exit_code` への順序を source policy にした。
+- 実行確認中に、`PendingVariantOwnerEffects` が Copy payload source まで未解決 variant owner として予約する誤検出を確認したため、`ISS-20260517T201648863Z-RESOURCEIR-VARIANT-OWNER-RESERVATION-F28E5200` として修正した。`TypeCtx::is_copy` を使って Copy source の reservation だけを除外し、non-Copy owner reservation は維持している。
+- 残る stdlib_map relative path resolution の `str` view use_after_move は、`ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A` として分離した。stdlib 名 allowlist ではなく、Copy capability、storage origin、ResourceIR owner token、aggregate projection から一般的に証明する必要がある。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core resource_ir_owner_variant_reservation_ignores_copy_payload_sources --test resource_ir -- --nocapture`
+  - `node nodesrc/test_selfhost_stdlib_map_report_contract.js`
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_stdlib_map.n.md -n 1 --assert-io --dist web\dist`: ResourceIR owner summary diagnostic で fail
+- plan.md との差異:
+  - plan.md は変更していない。selfhost `.n.md` report contract を固定し、静的検査大規模修正 Stage 6 の ResourceIR owner summary 残件を分離した。
+
 # 2026-05-18 Agent 1 resource checker source policy drift 修正
 
 - `ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40` を fixed / resolved にした。`plan.md` は変更していない。
