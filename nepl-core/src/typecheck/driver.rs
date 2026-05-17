@@ -32,6 +32,7 @@ use super::signature::{
     mangle_function_symbol_for_def, mangle_impl_method, push_unique_type, same_function_signature,
     type_contains_unbound_var,
 };
+use super::struct_shape::StructConstructorShape;
 use super::syntax_helpers::gate_allows;
 use super::traits::{
     collect_type_params, insert_substitution_mapping, BoundEnv, ImplInfo, ImplKind,
@@ -446,20 +447,13 @@ pub fn typecheck(
                     ctx.mark_compiler_memory_type(ty, memory_type);
                 }
 
-                let is_tag_unit_struct = fs.len() == 1
-                    && f_names.len() == 1
-                    && f_names[0] == "tag"
-                    && matches!(ctx.get(ctx.resolve_id(fs[0])), TypeKind::Unit);
+                let constructor_shape = StructConstructorShape::classify(&ctx, &fs, &f_names);
                 let ret_ty = if tps.is_empty() {
                     ty
                 } else {
                     ctx.apply(ty, tps.clone())
                 };
-                let constructor_params = if is_tag_unit_struct {
-                    Vec::new()
-                } else {
-                    fs.clone()
-                };
+                let constructor_params = constructor_shape.constructor_params(&fs);
                 let constructor_ty =
                     ctx.function(tps.clone(), constructor_params, ret_ty, Effect::Pure);
                 env.insert_global(Binding {
@@ -474,7 +468,7 @@ pub fn typecheck(
                         def_id: DefId::from_span(s.name.span),
                         symbol: s.name.name.clone(),
                         effect: Effect::Pure,
-                        arity: if is_tag_unit_struct { 0 } else { fs.len() },
+                        arity: constructor_shape.constructor_arity(fs.len()),
                         builtin: None,
                         field_accessor: None,
                         type_param_bounds: BoundEnv::new(),
@@ -491,6 +485,7 @@ pub fn typecheck(
                         type_params: tps,
                         fields: fs,
                         field_names: f_names,
+                        constructor_shape,
                         constructor_policy: struct_constructor_policy(compiler_memory_type),
                     },
                 );

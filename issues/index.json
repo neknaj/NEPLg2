@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T10:06:00.444Z",
+  "generated_at": "2026-05-17T10:26:49.705Z",
   "counts": {
-    "total": 935,
+    "total": 936,
     "open": 5,
-    "resolved": 930,
+    "resolved": 931,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 481,
+        "total": 482,
         "open": 0,
-        "resolved": 481
+        "resolved": 482
       },
       "CORE": {
         "total": 1,
@@ -7308,6 +7308,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T100117040Z-TYPECHECK-CONTROL-SPECIAL-FUNCTIONS--D04B8CA1.md"
+    },
+    {
+      "id": "ISS-20260517T102052427Z-TYPECHECK-UNIT-LIKE-STRUCT-SHAPE-IS--F13DA6CD",
+      "title": "typecheck unit-like struct shape is duplicated by string checks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/driver.rs, nepl-core/src/typecheck/constructor_apply.rs, nepl-core/src/typecheck/model.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T102052427Z-TYPECHECK-UNIT-LIKE-STRUCT-SHAPE-IS--F13DA6CD.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
