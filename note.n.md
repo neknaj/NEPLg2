@@ -40364,6 +40364,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
 
+## 2026-05-17 Agent 1 raw memory intrinsic effect kind 分類修正
+
+- `ISS-20260517T053938813Z-RAW-MEMORY-INTRINSIC-EFFECT-STILL-US-63EAEAFB` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`effects.rs` が `#intrinsic "load"` / `"store"` の raw memory effect を `RAW_MEMORY_INTRINSIC_EFFECT_MARKERS` string list で持ち、typecheck 側がその marker と `raw_memory_op_from_name` を組み合わせていたことだった。
+- 修正後は `raw_memory_intrinsic_op_from_name` が intrinsic name から直接 `RawMemoryOp::Load` / `Store` を返し、`intrinsic_is_raw_memory_effect` と `raw_memory_intrinsic_allowed` は typed operation classifier を消費するようにした。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects raw_memory_intrinsic -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test effects raw_memory -- --nocapture`: 17 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only
+
 ## 2026-05-17 Agent 1 scalar intrinsic signature kind 分類修正
 
 - `ISS-20260517T053109277Z-SCALAR-INTRINSIC-SIGNATURES-STILL-US-9E38B5AF` を追加して fixed にした。`plan.md` は変更していない。

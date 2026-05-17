@@ -729,6 +729,26 @@ assertNotContains(
     'starts_with("llvm.")',
     'typecheck/effect_check.rs must not hard-code backend intrinsic purity with string prefixes',
 );
+assertContains(
+    effects,
+    'pub fn raw_memory_intrinsic_op_from_name',
+    'effects.rs must classify raw-memory intrinsics as typed RawMemoryOp values',
+);
+assertNotContains(
+    effects,
+    'RAW_MEMORY_INTRINSIC_EFFECT_MARKERS',
+    'effects.rs must not keep raw-memory intrinsic effect classification as a string marker list',
+);
+assertContains(
+    typecheckEffectCheck,
+    'raw_memory_intrinsic_op_from_name',
+    'typecheck/effect_check.rs must consume typed raw-memory intrinsic operation evidence',
+);
+assertNotContains(
+    typecheckEffectCheck,
+    'intrinsic_is_raw_memory_effect',
+    'typecheck/effect_check.rs must not combine marker-list intrinsic checks with operation reclassification',
+);
 assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
 assertContains(
     sourceCapability,

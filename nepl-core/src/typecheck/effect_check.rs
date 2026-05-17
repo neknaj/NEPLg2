@@ -3,9 +3,8 @@ use alloc::format;
 use crate::ast::{Block, Effect, Stmt};
 use crate::diagnostic_codes::EffectDiagnosticCode;
 use crate::effects::{
-    intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callee_effects,
-    raw_body_memory_operations, raw_memory_op_from_name, RawBodyDirectCallee, RawBodyMemoryOp,
-    RawMemoryOp,
+    intrinsic_effect, raw_body_direct_callee_effects, raw_body_memory_operations,
+    raw_memory_intrinsic_op_from_name, RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
 };
 use crate::hir::HirBody;
 use crate::span::Span;
@@ -107,9 +106,8 @@ impl<'a> BlockChecker<'a> {
     }
 
     pub(super) fn raw_memory_intrinsic_allowed(&self, name: &str, span: Span) -> bool {
-        intrinsic_is_raw_memory_effect(name)
-            && raw_memory_op_from_name(name)
-                .is_some_and(|operation| self.raw_memory_operation_allowed(operation, span))
+        raw_memory_intrinsic_op_from_name(name)
+            .is_some_and(|operation| self.raw_memory_operation_allowed(operation, span))
     }
 
     pub(super) fn raw_callee_is_impure(&self, callee: &str) -> bool {
