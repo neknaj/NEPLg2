@@ -59,9 +59,9 @@ impl<'a> BlockChecker<'a> {
 
         // General call or let/set
         if let HirExprKind::Var(name) | HirExprKind::FnValue(name) = &func.expr.kind {
-            if crate::log::is_verbose() && name.contains("Result") {
+            if crate::log::is_verbose() {
                 function_apply_log!(
-                    "apply_function debug: callee={} type={} args=[{}] explicit_type_args=[{}]",
+                    "apply_function: callee={} type={} args=[{}] explicit_type_args=[{}]",
                     name,
                     self.ctx.type_to_string(func.ty),
                     args.iter()

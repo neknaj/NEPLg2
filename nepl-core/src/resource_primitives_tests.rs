@@ -1,4 +1,6 @@
 use super::*;
+use crate::source_map::CompilerMemoryType;
+use crate::types::{TypeCtx, TypeId, TypeKind};
 use alloc::string::ToString;
 use alloc::vec;
 

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T08:02:48.789Z",
+  "generated_at": "2026-05-17T08:18:42.632Z",
   "counts": {
-    "total": 928,
+    "total": 929,
     "open": 5,
-    "resolved": 923,
+    "resolved": 924,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 474,
+        "total": 475,
         "open": 0,
-        "resolved": 474
+        "resolved": 475
       },
       "CORE": {
         "total": 1,
@@ -7203,6 +7203,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T071912004Z-COMPILER-MEMORY-TYPE-DEFINITION-SHAP-EE5DF0E2.md"
+    },
+    {
+      "id": "ISS-20260517T080907212Z-TYPECHECK-VERBOSE-LOGGING-STILL-USES-A2497472",
+      "title": "typecheck verbose logging still uses stale symbol allowlists",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/{call_reduction,prefix_check,constructor_apply,driver,function_check,function_apply}.rs; nepl-core/src/resource_primitives/{compiler_memory,memory_helper}.rs; nodesrc/test_static_check_boundary_responsibility.js; doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T080907212Z-TYPECHECK-VERBOSE-LOGGING-STILL-USES-A2497472.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

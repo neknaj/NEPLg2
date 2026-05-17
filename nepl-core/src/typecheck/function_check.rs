@@ -302,7 +302,7 @@ pub(super) fn check_function(
         span: f.name.span,
     };
     resolve_type_ids_in_function(ctx, &mut function);
-    if crate::log::is_verbose() && function.name.contains("partition") {
+    if crate::log::is_verbose() {
         let block_ty = match &function.body {
             HirBody::Block(block) => ctx.type_to_string(block.ty),
             _ => String::from("<non-block>"),
@@ -316,7 +316,7 @@ pub(super) fn check_function(
             _ => String::from("<non-block>"),
         };
         function_check_log!(
-            "check_function result debug: name={} result={} block_ty={} tail_ty={} func_ty={}",
+            "check_function result: name={} result={} block_ty={} tail_ty={} func_ty={}",
             function.name,
             ctx.type_to_string(function.result),
             block_ty,

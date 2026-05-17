@@ -103,7 +103,9 @@ function assertUsesResourceModuleSymbol(text, moduleName, symbolName, source) {
 }
 
 const mod = assertFile('mod.rs');
-const resourcePrimitives = readCoreSrc('resource_primitives.rs');
+const resourcePrimitivesCompilerMemory = readCoreSrc(
+    path.join('resource_primitives', 'compiler_memory.rs'),
+);
 const typeCtxSource = readCoreSrc('types.rs');
 const typecheckDriver = readCoreSrc(path.join('typecheck', 'driver.rs'));
 assertMissing('check.rs');
@@ -1007,14 +1009,14 @@ assertContains(
     'typecheck driver must attach proven compiler memory type identity to TypeCtx',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'TypeKind::Struct { .. } => types.compiler_memory_type(resolved)',
-    'resource_primitives.rs must query proven TypeCtx identity for compiler memory structs',
+    'resource_primitives/compiler_memory.rs must query proven TypeCtx identity for compiler memory structs',
 );
 assertContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'types.compiler_memory_type(base)',
-    'resource_primitives.rs must preserve proven compiler memory identity through type application',
+    'resource_primitives/compiler_memory.rs must preserve proven compiler memory identity through type application',
 );
 assertNotContains(
     lowerRawAddressReturn,
@@ -1037,9 +1039,9 @@ assertContains(
     'owner_flow.rs must query proven TypeCtx identity for owner-token construct extent handling',
 );
 assertNotContains(
-    resourcePrimitives,
+    resourcePrimitivesCompilerMemory,
     'TypeKind::Struct { name, .. } => compiler_memory_type_from_constructor_name(name)',
-    'resource_primitives.rs must not infer compiler memory type identity from struct names',
+    'resource_primitives/compiler_memory.rs must not infer compiler memory type identity from struct names',
 );
 assertContains(
     lowerTemporaryScope,

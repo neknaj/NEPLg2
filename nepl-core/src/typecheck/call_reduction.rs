@@ -246,10 +246,6 @@ impl<'a> BlockChecker<'a> {
             func_entry.ty = inst_ty;
             func_entry.expr.ty = inst_ty;
             let explicit_type_args = func_entry.type_args.clone();
-            let debug_name = match &func_entry.expr.kind {
-                HirExprKind::Var(name) => Some(name.clone()),
-                _ => None,
-            };
             if crate::log::is_verbose() {
                 call_reduction_log!(
                     "    Reducing {}: {} at pos {} with {} args, assign={:?}",
@@ -259,21 +255,7 @@ impl<'a> BlockChecker<'a> {
                     params.len(),
                     func_entry.assign
                 );
-                if label == "reduce_calls_guarded"
-                    && matches!(
-                        debug_name.as_deref(),
-                        Some(
-                            "get"
-                                | "is_none"
-                                | "must_hm"
-                                | "make_hm"
-                                | "new"
-                                | "DefaultHash32"
-                                | "A"
-                                | "use_a"
-                        )
-                    )
-                {
+                if label == "reduce_calls_guarded" {
                     let before = stack
                         .iter()
                         .map(|e| self.ctx.type_to_string(e.ty))
@@ -293,22 +275,7 @@ impl<'a> BlockChecker<'a> {
             );
 
             if let Some(val) = applied {
-                if crate::log::is_verbose()
-                    && label == "reduce_calls_guarded"
-                    && matches!(
-                        debug_name.as_deref(),
-                        Some(
-                            "get"
-                                | "is_none"
-                                | "must_hm"
-                                | "make_hm"
-                                | "new"
-                                | "DefaultHash32"
-                                | "A"
-                                | "use_a"
-                        )
-                    )
-                {
+                if crate::log::is_verbose() && label == "reduce_calls_guarded" {
                     call_reduction_log!("      guarded result {}", self.ctx.type_to_string(val.ty));
                 }
                 stack.insert(func_pos, val);
