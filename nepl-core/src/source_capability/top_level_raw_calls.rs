@@ -2,7 +2,10 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::effects::{raw_memory_op_from_name, RawMemoryOp};
+use crate::effects::RawMemoryOp;
+use crate::source_capability::raw_operation_proof::{
+    RawOperationBoundaryContract, RawOperationFunctionEvidence,
+};
 use crate::source_map::{SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite};
 use crate::span::Span;
 
@@ -17,7 +20,8 @@ pub(in crate::source_capability) struct TopLevelRawCallSite {
 pub(in crate::source_capability) struct RawOperationFunctionProof {
     pub(in crate::source_capability) name: String,
     pub(in crate::source_capability) span: Span,
-    pub(in crate::source_capability) has_direct_raw_evidence: bool,
+    pub(in crate::source_capability) boundary_contract: RawOperationBoundaryContract,
+    pub(in crate::source_capability) evidence: RawOperationFunctionEvidence,
     pub(in crate::source_capability) top_level_raw_calls: Vec<TopLevelRawCallSite>,
 }
 
@@ -28,10 +32,10 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
     let mut proven_functions: BTreeMap<String, BTreeSet<RawMemoryOp>> = BTreeMap::new();
 
     for frame in frames {
-        if !frame.has_direct_raw_evidence {
+        if !frame.evidence.has_direct_raw_evidence() {
             continue;
         }
-        if let Some(operation) = raw_memory_op_from_name(&frame.name) {
+        if let Some(operation) = frame.boundary_contract.operation() {
             proven_functions
                 .entry(frame.name.clone())
                 .or_default()
@@ -61,7 +65,7 @@ pub(in crate::source_capability) fn apply_top_level_raw_call_evidence(
                 }
             }
 
-            if let Some(operation) = raw_memory_op_from_name(&frame.name) {
+            if let Some(operation) = frame.boundary_contract.operation() {
                 let operations = proven_functions.entry(frame.name.clone()).or_default();
                 if operations.insert(operation) {
                     insert_raw_memory_operation(capabilities, operation, frame.span);

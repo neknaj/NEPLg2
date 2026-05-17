@@ -69,6 +69,11 @@ const SOURCE_CAPABILITY_RAW_EVIDENCE_GATE = path.join(
     'source_capability',
     'raw_evidence_gate.rs',
 );
+const SOURCE_CAPABILITY_RAW_OPERATION_PROOF = path.join(
+    CORE_SRC,
+    'source_capability',
+    'raw_operation_proof.rs',
+);
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
     CORE_SRC,
@@ -236,6 +241,10 @@ const sourceCapabilityProofBuilder = assertFile(
 const sourceCapabilityRawEvidenceGate = assertFile(
     SOURCE_CAPABILITY_RAW_EVIDENCE_GATE,
     'source_capability/raw_evidence_gate.rs',
+);
+const sourceCapabilityRawOperationProof = assertFile(
+    SOURCE_CAPABILITY_RAW_OPERATION_PROOF,
+    'source_capability/raw_operation_proof.rs',
 );
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
@@ -564,6 +573,11 @@ assertNotContains(
 assertNotContains(effects, 'fn wasm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 assertNotContains(effects, 'fn llvm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
+assertContains(
+    sourceCapability,
+    'mod raw_operation_proof;',
+    'source_capability.rs must keep raw operation proof types in a separate module',
+);
 assertLineLimit(
     SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
     'source_capability/memory_type_definition.rs',
@@ -580,6 +594,11 @@ assertLineLimit(
     SOURCE_CAPABILITY_RAW_EVIDENCE_GATE,
     'source_capability/raw_evidence_gate.rs',
     60,
+);
+assertLineLimit(
+    SOURCE_CAPABILITY_RAW_OPERATION_PROOF,
+    'source_capability/raw_operation_proof.rs',
+    80,
 );
 assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 260);
 assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 320);
@@ -1241,9 +1260,29 @@ assertContains(
     'top-level raw helper propagation must start only from functions with source evidence',
 );
 assertContains(
+    sourceCapabilityRawOperationProof,
+    'RawOperationBoundaryContract',
+    'top-level raw helper propagation must use an explicit typed boundary contract',
+);
+assertContains(
+    sourceCapabilityRawOperationProof,
+    'RawOperationFunctionEvidence',
+    'top-level raw helper propagation must carry typed source-derived function evidence',
+);
+assertContains(
     sourceCapabilityTopLevelRawCalls,
     'proven_functions',
     'top-level raw helper propagation must use proven helper summaries instead of file-level authority',
+);
+assertNotContains(
+    sourceCapabilityTopLevelRawCalls,
+    'raw_memory_op_from_name',
+    'top-level raw helper propagation must not re-query helper spellings inside the proof worklist',
+);
+assertContains(
+    sourceCapabilityProof,
+    'raw_memory_boundary_contract_from_function_name(name)',
+    'source_capability/proof.rs must classify raw helper boundary contracts before worklist propagation',
 );
 assertContains(
     sourceCapabilityProof,

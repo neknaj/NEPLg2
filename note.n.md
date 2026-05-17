@@ -40216,6 +40216,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt -p nepl-core --check`: passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
 
+## 2026-05-17 Agent 1 source capability raw helper proof contract 修正
+
+- `ISS-20260517T043232914Z-SOURCE-CAPABILITY-RAW-HELPER-PROPAGA-E03A6529` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、exact use-site proof へ移行した後も top-level raw helper propagation の worklist が `raw_memory_op_from_name(frame.name)` で helper 名を再分類しており、direct source evidence と外部へ露出できる raw operation contract が型として分離されていなかったことだった。
+- 修正後は `source_capability/raw_operation_proof.rs` に `RawOperationBoundaryContract` と `RawOperationFunctionEvidence` を分離し、`top_level_raw_calls.rs` は typed proof object だけを消費する。worklist 内で helper spelling を再照合しないことを source policy に固定した。
+- focused verification:
+  - `cargo test -p nepl-core raw_memory_boundary_ --lib`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo check -p nepl-core`: passed
+
 ## 2026-05-17 Agent 1 source capability use-site proof 設計監査
 
 - 静的検査 proof 設計を確認し、調査報告を Discord に送った。`plan.md` は変更していない。

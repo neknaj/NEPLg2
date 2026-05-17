@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T04:20:23.712Z",
+  "generated_at": "2026-05-17T04:40:53.177Z",
   "counts": {
-    "total": 907,
+    "total": 908,
     "open": 5,
-    "resolved": 902,
+    "resolved": 903,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 457,
+        "total": 458,
         "open": 0,
-        "resolved": 457
+        "resolved": 458
       },
       "CORE": {
         "total": 1,
@@ -6898,6 +6898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T041202356Z-EFFECT-IDENTITY-MIXES-POINTER-ALIAS--1E03D438.md"
+    },
+    {
+      "id": "ISS-20260517T043232914Z-SOURCE-CAPABILITY-RAW-HELPER-PROPAGA-E03A6529",
+      "title": "source capability raw helper propagation still exposes operation authority from helper name",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/top_level_raw_calls.rs; nepl-core/src/source_capability/proof.rs; nepl-core/src/loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T043232914Z-SOURCE-CAPABILITY-RAW-HELPER-PROPAGA-E03A6529.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
