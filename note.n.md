@@ -40313,3 +40313,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test effects raw_body -- --nocapture`: 3 passed
   - `cargo test -p nepl-core raw_body --lib -- --nocapture`: 0 matched / passed
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+
+## 2026-05-17 Agent 1 raw body backend intrinsic typed proof 修正
+
+- `ISS-20260517T045756082Z-RAW-BODY-BACKEND-INTRINSIC-PURITY-IS-C82FFD7B` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw body direct callee を typed 化した後も、`typecheck/effect_check.rs` が `callee.starts_with("llvm.")` の consumer-side string prefix で LLVM intrinsic purity を決めていたことだった。
+- 修正後は `RawBodyBackend` と `RawBodyDirectCallee::BackendIntrinsic` を追加し、LLVM backend intrinsic の分類を `effects.rs` 側へ移した。typecheck は enum branch を match するだけになった。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects raw_body -- --nocapture`: 3 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed

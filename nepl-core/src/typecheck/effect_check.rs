@@ -46,6 +46,7 @@ impl<'a> BlockChecker<'a> {
                             return false;
                         }
                     }
+                    RawBodyDirectCallee::BackendIntrinsic { .. } => {}
                     RawBodyDirectCallee::Other(callee) => {
                         if self.raw_callee_is_impure(&callee) {
                             self.diagnostics.push(effect_error(
@@ -112,9 +113,6 @@ impl<'a> BlockChecker<'a> {
     }
 
     pub(super) fn raw_callee_is_impure(&self, callee: &str) -> bool {
-        if callee.starts_with("llvm.") {
-            return false;
-        }
         if let Some(effect) = self.raw_callee_declared_effect(callee) {
             return matches!(effect, Effect::Impure);
         }

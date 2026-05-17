@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T04:53:13.103Z",
+  "generated_at": "2026-05-17T05:01:48.457Z",
   "counts": {
-    "total": 909,
+    "total": 910,
     "open": 5,
-    "resolved": 904,
+    "resolved": 905,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 459,
+        "total": 460,
         "open": 0,
-        "resolved": 459
+        "resolved": 460
       },
       "CORE": {
         "total": 1,
@@ -6928,6 +6928,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T044649993Z-RAW-BODY-DIRECT-CALLEE-PROOF-IS-RECL-FF4BD50E.md"
+    },
+    {
+      "id": "ISS-20260517T045756082Z-RAW-BODY-BACKEND-INTRINSIC-PURITY-IS-C82FFD7B",
+      "title": "raw body backend intrinsic purity is hard-coded in typecheck",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/effect_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T045756082Z-RAW-BODY-BACKEND-INTRINSIC-PURITY-IS-C82FFD7B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
