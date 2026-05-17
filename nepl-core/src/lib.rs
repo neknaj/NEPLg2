@@ -20,6 +20,7 @@ pub mod error;
 pub mod span;
 
 pub mod ast;
+mod backend_scalar_type;
 pub mod builtins;
 pub mod codegen_llvm;
 pub mod codegen_wasm;

@@ -5,6 +5,7 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
+use crate::backend_scalar_type::BackendScalarType;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 pub const ENUM_TAG_SIZE_BYTES: usize = 4;
@@ -72,7 +73,9 @@ pub fn storage_size_bytes_mapped(
     match types.get_ref(ty) {
         TypeKind::Unit | TypeKind::Never => 0,
         TypeKind::U8 => 1,
-        TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
+        TypeKind::Named(name) => BackendScalarType::from_name(name.as_str())
+            .map(BackendScalarType::storage_size_bytes)
+            .unwrap_or(4),
         TypeKind::Struct { fields, .. } => fields
             .iter()
             .map(|field| storage_size_bytes_mapped(types, *field, mapping))
@@ -108,7 +111,9 @@ fn storage_align_bytes_mapped(
     match types.get_ref(ty) {
         TypeKind::Unit | TypeKind::Never => 1,
         TypeKind::U8 => 1,
-        TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
+        TypeKind::Named(name) => BackendScalarType::from_name(name.as_str())
+            .map(BackendScalarType::storage_align_bytes)
+            .unwrap_or(4),
         TypeKind::Struct { fields, .. } => fields
             .iter()
             .map(|field| storage_align_bytes_mapped(types, *field, mapping))

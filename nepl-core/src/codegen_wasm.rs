@@ -18,6 +18,7 @@ use wasm_encoder::{
     ValType,
 };
 
+use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::*;
@@ -368,10 +369,10 @@ fn valtype(kind: &TypeKind) -> Option<ValType> {
         TypeKind::Reference(_, _) | TypeKind::Box(_) => Some(ValType::I32),
         TypeKind::Function { .. } => Some(ValType::I32),
         TypeKind::Var(_) => Some(ValType::I32),
-        TypeKind::Named(name) => match name.as_str() {
-            "i64" | "u64" => Some(ValType::I64),
-            "f64" => Some(ValType::F64),
-            _ => Some(ValType::I32),
+        TypeKind::Named(_) => match BackendScalarType::from_type_kind(kind) {
+            Some(scalar) if scalar.is_wasm_i64() => Some(ValType::I64),
+            Some(scalar) if scalar.is_wasm_f64() => Some(ValType::F64),
+            Some(_) | None => Some(ValType::I32),
         },
         TypeKind::Apply { .. } => {
             // std::eprintln!("valtype: Apply is Some(I32)");

@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Directive;
 use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, Stmt, TypeExpr};
+use crate::backend_scalar_type::BackendScalarType;
 use crate::compiler::{self, BuildProfile, CompileTarget, PreparedLlvmProgram};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
@@ -352,13 +353,15 @@ fn llty_for_type_expr(ty: &TypeExpr) -> Option<LlTy> {
             Some(LlTy::I32)
         }
         TypeExpr::F32 => Some(LlTy::F32),
-        TypeExpr::Named(name) if name == "i64" || name == "u64" => Some(LlTy::I64),
-        TypeExpr::Named(name) if name == "f64" => Some(LlTy::F64),
+        TypeExpr::Named(_) => match BackendScalarType::from_type_expr(ty) {
+            Some(scalar) if scalar.is_wasm_i64() => Some(LlTy::I64),
+            Some(scalar) if scalar.is_wasm_f64() => Some(LlTy::F64),
+            Some(_) | None => Some(LlTy::I32),
+        },
         TypeExpr::Reference(_, _)
         | TypeExpr::Boxed(_)
         | TypeExpr::Tuple(_)
         | TypeExpr::Apply(_, _)
-        | TypeExpr::Named(_)
         | TypeExpr::Label(_) => Some(LlTy::I32),
         TypeExpr::Function { .. } => Some(LlTy::I32),
         TypeExpr::Spanned(inner, _) => llty_for_type_expr(inner),
