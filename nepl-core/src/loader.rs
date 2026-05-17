@@ -1025,6 +1025,27 @@ mod tests {
     }
 
     #[test]
+    fn owner_aggregate_boundary_rejects_set_field_intrinsic_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "types.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <.T> <(&RegionToken<.T>,i32)->()> (token,value):\n",
+                "    #intrinsic \"set_field\" <> (token,\"raw\",value)\n",
+            ),
+        );
+        assert!(
+            !capabilities.allows_owner_aggregate_field_boundary(),
+            "write intrinsics must not prove owner aggregate field read/reference boundary"
+        );
+    }
+
+    #[test]
     fn owner_aggregate_boundary_accepts_constructor_syntax_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(
