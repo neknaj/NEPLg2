@@ -10,21 +10,22 @@ use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_effect_boundaries, check_resource_effect_boundaries_typed,
     check_resource_initialized_moves, check_resource_owner_obligations,
-    compare_hir_resource_lowering, compute_resource_drop_elaboration_plan,
-    compute_resource_drop_plan, lower_hir_module, lower_hir_module_skeleton,
-    resolve_resource_drop_point_assignment, resolve_resource_drop_point_end_scope,
-    resolve_resource_drop_point_path, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
-    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawAddressViewKind,
-    RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
-    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
-    ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError, ResourceDropPoint,
-    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
-    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
-    ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceI32RelationOp, ResourceId,
-    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator, StorageOrigin, UnknownEffectReason,
+    compare_hir_resource_lowering, compare_hir_resource_lowering_typed,
+    compute_resource_drop_elaboration_plan, compute_resource_drop_plan, lower_hir_module,
+    lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
+    resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
+    BorrowKind, BorrowState, CellState, EffectOp, ExternalIoOp, NondetOp, OwnerState, Place,
+    PlaceProjection, PlaceRoot, RawAddressViewKind, RawMemoryOp, ResourceAutoDrop,
+    ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
+    ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred, ResourceCheckDiagnostic,
+    ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact, ResourceCoverageDiagnostic,
+    ResourceCoverageKind, ResourceCoveragePlaceOperation, ResourceDropElaborationHirBridgeError,
+    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
+    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
+    ResourceFunctionCheck, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule,
+    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
+    ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
 use nepl_core::source_map::{CompilerMemoryType, SourceCapabilities, SourceCapability};
 use nepl_core::span::{FileId, Span};
@@ -3600,6 +3601,8 @@ fn resource_ir_lowering_treats_compiler_field_load_as_field_read() {
     };
 
     let resource = lower_hir_module(&module, &types);
+    let coverage = compare_hir_resource_lowering_typed(&module, &resource, &types);
+    assert_eq!(coverage.diagnostics, vec![]);
     let ops = &resource.functions[0].blocks[0].ops;
 
     assert!(ops.iter().any(|op| matches!(

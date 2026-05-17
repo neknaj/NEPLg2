@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T00:15:45.725Z",
+  "generated_at": "2026-05-17T00:26:48.615Z",
   "counts": {
-    "total": 891,
+    "total": 892,
     "open": 5,
-    "resolved": 886,
+    "resolved": 887,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 447,
+        "total": 448,
         "open": 0,
-        "resolved": 447
+        "resolved": 448
       },
       "CORE": {
         "total": 1,
@@ -6748,6 +6748,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T000913110Z-SOURCE-CAPABILITY-RAW-PROOF-TREATS-I-23B11FA9.md"
+    },
+    {
+      "id": "ISS-20260517T002115786Z-RESOURCE-LOWERING-COVERAGE-CLASSIFIE-EAB61912",
+      "title": "Resource lowering coverage classifies raw load projections by literal name",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource/coverage_hir_projection.rs, nepl-core/src/resource/coverage_hir_place.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T002115786Z-RESOURCE-LOWERING-COVERAGE-CLASSIFIE-EAB61912.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

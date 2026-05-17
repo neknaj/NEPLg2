@@ -655,6 +655,26 @@ assertContains(
     'coverage_hir_projection.rs',
 );
 assertContains(
+    coverageHirProjection,
+    'raw_memory_op_from_intrinsic(name), Some(RawMemoryOp::Load)',
+    'coverage_hir_projection.rs raw load coverage classifier',
+);
+assertContains(
+    coverageHirProjection,
+    'raw_memory_op_from_callee(callee), Some(RawMemoryOp::Load)',
+    'coverage_hir_projection.rs raw load coverage classifier',
+);
+assertNotContains(
+    coverageHirProjection,
+    'name == "load"',
+    'coverage_hir_projection.rs must not classify raw load coverage by literal helper spelling',
+);
+assertNotContains(
+    coverageHirProjection,
+    'starts_with("load_")',
+    'coverage_hir_projection.rs must not classify raw load coverage by helper name prefix',
+);
+assertContains(
     coverageHirProjectionAggregate,
     'pub(super) fn aggregate_field_exists',
     'coverage_hir_projection_aggregate.rs',

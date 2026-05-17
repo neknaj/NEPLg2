@@ -1,3 +1,17 @@
+# 2026-05-17 Agent 1 Resource lowering coverage raw load 分類修正
+
+- `ISS-20260517T002115786Z-RESOURCE-LOWERING-COVERAGE-CLASSIFIE-EAB61912` を追加し、fixed / resolved にした。
+- 根本原因は、Resource IR lowering / effect 側が raw memory operation を `RawMemoryOp` enum で扱っているのに、HIR coverage の projection helper だけが `"load"` と `starts_with("load_")` で raw load を再分類していたこと。
+- `coverage_hir_projection.rs` は intrinsic / direct call のどちらも `lower_raw_memory` の中央 classifier を使い、`RawMemoryOp::Load` だけを raw load projection source として扱うようにした。
+- `callee_is_raw_load` を削除し、literal helper spelling / prefix 判定の再導入は `nodesrc/test_resource_checker_responsibility.js` で拒否する。
+- `resource_ir_lowering_treats_compiler_field_load_as_field_read` は lowering 結果だけでなく typed coverage gate も確認するようにした。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_treats_compiler_field_load_as_field_read -- --exact --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の compiler-core 検査プログラムを、文字列分類ではなく enum classifier に寄せた。
+
 # 2026-05-17 Agent 1 adjacency_matrix create doctest TestReport 化
 
 - `ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9` を fixed / resolved にした。

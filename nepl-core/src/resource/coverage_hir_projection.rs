@@ -11,6 +11,8 @@ use super::coverage_hir_projection_aggregate::{
     aggregate_field_exists, aggregate_field_matches_selector,
     compiler_field_address_base_and_offset, reference_target_type,
 };
+use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
+use super::model::RawMemoryOp;
 
 pub(super) fn field_get_call_owner<'a>(
     callee: &FuncRef,
@@ -65,8 +67,16 @@ pub(super) fn get_field_ref_intrinsic_owner<'a>(
 
 pub(super) fn raw_load_address_expr(expr: &HirExpr) -> Option<&HirExpr> {
     match &expr.kind {
-        HirExprKind::Intrinsic { name, args, .. } if name == "load" => args.first(),
-        HirExprKind::Call { callee, args } if callee_is_raw_load(callee) => args.first(),
+        HirExprKind::Intrinsic { name, args, .. }
+            if matches!(raw_memory_op_from_intrinsic(name), Some(RawMemoryOp::Load)) =>
+        {
+            args.first()
+        }
+        HirExprKind::Call { callee, args }
+            if matches!(raw_memory_op_from_callee(callee), Some(RawMemoryOp::Load)) =>
+        {
+            args.first()
+        }
         _ => None,
     }
 }
@@ -111,7 +121,7 @@ pub(super) fn compiler_field_load_base_and_offset<'a>(
     field_ty: TypeId,
     types: &TypeCtx,
 ) -> Option<(&'a HirExpr, usize)> {
-    if name != "load" {
+    if !matches!(raw_memory_op_from_intrinsic(name), Some(RawMemoryOp::Load)) {
         return None;
     }
     let address = args.first()?;
@@ -169,16 +179,6 @@ fn callee_base_name(callee: &FuncRef) -> Option<&str> {
     match callee {
         FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
         FuncRef::Trait { .. } => None,
-    }
-}
-
-fn callee_is_raw_load(callee: &FuncRef) -> bool {
-    match callee {
-        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => {
-            let base = helper_base_name(name);
-            base == "load" || base.starts_with("load_")
-        }
-        FuncRef::Trait { .. } => false,
     }
 }
 
