@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 region_ptr_at の Result payload projection typed enum 化
+
+- `ISS-20260517T082244329Z-RESOURCE-IR-REGION-PTR-AT-LOWERING-H-F552468A` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`lower_raw_address.rs` の `RegionPtrAt` lowering が Result success payload を得るために `"Ok"` を直接 `enum_payload_type` と `PlaceProjection::EnumPayload` に渡していたこと。Result payload contract が個別 Resource IR consumer に散っていた。
+- `resource/result_variant.rs` を追加し、`ResultVariant::Ok` が success variant spelling と payload projection construction を所有するようにした。`lower_raw_address.rs` は `ResultVariant::Ok.payload_place` を消費し、direct `"Ok"` projection を持たない。
+- `nodesrc/test_resource_checker_responsibility.js` に `result_variant.rs`、`ResultVariant` enum、`payload_place`、および `lower_raw_address.rs` の direct `"Ok"` projection 禁止 policy を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core result_variant --lib -- --nocapture`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR consumer から個別文字列 projection を減らし、Result payload contract を typed enum domain に寄せた。
+
 # 2026-05-17 Agent 1 typecheck verbose trace の個別 symbol filter 削除
 
 - `ISS-20260517T080907212Z-TYPECHECK-VERBOSE-LOGGING-STILL-USES-A2497472` を追加し、fixed / resolved にした。`plan.md` は変更していない。

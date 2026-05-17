@@ -1,4 +1,3 @@
-use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
@@ -22,7 +21,8 @@ use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, Raw
 use super::model::{
     Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp, StorageOrigin,
 };
-use super::place_utils::{enum_payload_type, reference_target_place};
+use super::place_utils::reference_target_place;
+use super::result_variant::ResultVariant;
 use super::scalar_primitive::I32ArithmeticPrimitive;
 
 pub(super) fn push_core_mem_wrapper_semantics(
@@ -113,21 +113,15 @@ pub(super) fn push_core_mem_wrapper_semantics(
             else {
                 return false;
             };
-            let Some(payload_ty) = enum_payload_type(env.types, output.ty, "Ok") else {
-                return false;
-            };
             let source = source
                 .with_added_offset(raw_address_offset_from_actual_arg(
                     1, hir_args, arg_places, env,
                 ))
                 .into_non_owning_view()
                 .into_place_and_view(env.types.i32());
-            let ok_payload = output.clone().with_projection(
-                PlaceProjection::EnumPayload {
-                    variant: String::from("Ok"),
-                },
-                payload_ty,
-            );
+            let Some(ok_payload) = ResultVariant::Ok.payload_place(env.types, output) else {
+                return false;
+            };
             push_raw_address_op(
                 source.place,
                 mem_ptr_raw_field_place(env.types, &ok_payload, env.types.i32()),

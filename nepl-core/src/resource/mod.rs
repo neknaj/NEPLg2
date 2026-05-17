@@ -238,6 +238,7 @@ mod owner_variant_value_condition;
 mod place_utils;
 mod raw_realloc;
 mod report;
+mod result_variant;
 mod scalar_primitive;
 mod shadow;
 mod storage_origin;

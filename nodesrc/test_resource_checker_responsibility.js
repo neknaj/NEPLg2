@@ -191,6 +191,7 @@ for (const moduleName of [
     'owner_variant_source_list.rs',
     'owner_variant_utils.rs',
     'owner_variant_value_condition.rs',
+    'result_variant.rs',
     'variant_name.rs',
     'summary.rs',
     'summary_dependency.rs',
@@ -409,6 +410,7 @@ for (const moduleDecl of [
     'mod owner_variant_source_list;',
     'mod owner_variant_utils;',
     'mod owner_variant_value_condition;',
+    'mod result_variant;',
     'mod variant_name;',
     'mod summary;',
     'mod effect;',
@@ -613,6 +615,7 @@ const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawAddressReturnUtil = readResource('lower_raw_address_return_util.rs');
+const resultVariant = readResource('result_variant.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
 const lowerTemporaryScope = readResource('lower_temporary_scope.rs');
 const initializedDropRequirement = readResource('initialized_drop_requirement.rs');
@@ -952,6 +955,31 @@ assertMatches(
     lowerRawAddress,
     /Some\(MemoryHelperPrimitive::MemPtrAdd\)\s*=>\s*\{[\s\S]*RawAddressViewKind::MemPtrOffset[\s\S]*push_raw_address_op/,
     'lower_raw_address.rs mem_ptr_add offset boundary policy',
+);
+assertContains(
+    lowerRawAddress,
+    'ResultVariant::Ok.payload_place',
+    'lower_raw_address.rs must consume typed Result success projection',
+);
+assertNotContains(
+    lowerRawAddress,
+    'enum_payload_type(env.types, output.ty, "Ok")',
+    'lower_raw_address.rs must not hardcode Result success payload spelling',
+);
+assertNotContains(
+    lowerRawAddress,
+    'variant: String::from("Ok")',
+    'lower_raw_address.rs must not construct Result success payload projection by raw string',
+);
+assertContains(
+    resultVariant,
+    'pub(super) enum ResultVariant',
+    'result_variant.rs must own Resource IR Result payload variant spelling',
+);
+assertContains(
+    resultVariant,
+    'pub(super) fn payload_place',
+    'result_variant.rs must own Result payload projection construction',
 );
 assertContains(
     lowerRawAddressPlace,
@@ -1670,6 +1698,7 @@ const maxLines = new Map([
     ['owner_variant_source_list.rs', 80],
     ['owner_variant_utils.rs', 220],
     ['owner_variant_value_condition.rs', 220],
+    ['result_variant.rs', 100],
     ['variant_name.rs', 80],
     ['summary_dependency.rs', 220],
     ['summary_index.rs', 80],
