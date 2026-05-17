@@ -41129,3 +41129,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/static_check_complexity_reduction_plan.md` に Stage 4 initialized cell proof の進捗として追記した。
 - focused verification:
   - `cargo test -p nepl-core resource_ir_cell_check_preserves_nested_copy_field_after_raw_aggregate_load -- --nocapture`: passed
+
+## 2026-05-18 Agent 1 selfhost module loader std/test report metadata 修正
+
+- `ISS-20260517T182028980Z-SELFHOST-MODULE-LOADER-DOCTESTS-STIL-FFD594CB` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、selfhost module loader doctest が `checks_print_report` で決定的な stdout report を出している一方で、manifest が `ret: 0` のみを検証していたことだった。これでは report の行数や表示順、`checks_print_report` と `checks_exit_code` の責務分離が退行しても検出できない。
+- 修正後は 2 件の doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + `stdout:` に統一し、`nodesrc/test_selfhost_module_loader_report_contract.js` が `ret:` への退行、stdout report 省略、report 件数不一致、exit code 前の report 出力漏れを拒否する。
+- 作業中に表面化した `item.span.file_id` の Resource IR 初期化証明不足は、先行して `ISS-20260517T182739351Z-RESOURCE-IR-REJECTS-INITIALIZED-NEST-1388C7B5` で compiler 側を修正済み。
+- focused verification:
+  - `trunk build`: passed
+  - `node nodesrc/test_selfhost_module_loader_report_contract.js`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_module_loader.n.md -n 1 --dist web\dist`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_module_loader.n.md -n 2 --dist web\dist`: passed
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_module_loader.n.md --no-tree -o tmp\agent1-neplg2-module-loader-report-metadata.json -j 1 --dist web\dist --assert-io`: total=2, passed=2
