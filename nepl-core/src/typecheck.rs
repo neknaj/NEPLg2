@@ -40,7 +40,10 @@ mod traits;
 mod type_expr;
 use context::BlockChecker;
 use function_check::check_function;
-use model::{AssignKind, FieldAccessorKind, FieldIdx, ScalarMatchKind, StackEntry};
+use model::{
+    AssignKind, FieldAccessorKind, FieldIdx, ScalarIntrinsicKind, ScalarIntrinsicType,
+    ScalarMatchKind, StackEntry,
+};
 use traits::BoundEnv;
 
 pub use driver::{typecheck, TypeCheckResult};

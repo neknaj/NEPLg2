@@ -378,6 +378,16 @@ assertContains(
     'typecheck/model.rs must keep field accessor intrinsic arity on FieldAccessorKind',
 );
 assertContains(
+    typecheckModel,
+    'pub(super) enum ScalarIntrinsicKind',
+    'typecheck/model.rs must keep scalar intrinsic signatures in a typed enum domain',
+);
+assertContains(
+    typecheckModel,
+    'pub(super) enum ScalarIntrinsicType',
+    'typecheck/model.rs must keep scalar intrinsic types in a typed enum domain',
+);
+assertContains(
     typecheckBindingRules,
     'FieldAccessorKind::from_intrinsic_name',
     'typecheck/binding_rules.rs must use typed field accessor intrinsic classification',
@@ -407,6 +417,43 @@ assertContains(
     'field_accessor.argument_count()',
     'typecheck/prefix_check.rs must validate field accessor arity through FieldAccessorKind',
 );
+assertContains(
+    typecheckPrefixCheck,
+    'ScalarIntrinsicKind::from_intrinsic_name',
+    'typecheck/prefix_check.rs must use typed scalar intrinsic classification',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'scalar_intrinsic.output_type()',
+    'typecheck/prefix_check.rs must derive scalar intrinsic result types from ScalarIntrinsicKind',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'validate_scalar_intrinsic_args',
+    'typecheck/prefix_check.rs must validate scalar intrinsic arguments through ScalarIntrinsicKind',
+);
+for (const scalarIntrinsicName of [
+    'i32_to_f32',
+    'reinterpret_i32_f32',
+    'i32_to_u8',
+    'i32_to_u32',
+    'i32_to_char',
+    'char_to_i32',
+    'f32_to_i32',
+    'reinterpret_f32_i32',
+    'u8_to_i32',
+    'u32_to_i32',
+    'i64_to_u64',
+    'u64_to_i64',
+    'str_addr',
+    'str_from_addr_unchecked',
+]) {
+    assertNotContains(
+        typecheckPrefixCheck,
+        `intrin.name == "${scalarIntrinsicName}"`,
+        `typecheck/prefix_check.rs must not duplicate ${scalarIntrinsicName} branch spelling outside ScalarIntrinsicKind`,
+    );
+}
 assertNotContains(
     typecheckPrefixCheck,
     'intrin.name == "get_field"',
