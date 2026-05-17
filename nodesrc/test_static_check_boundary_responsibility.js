@@ -1337,6 +1337,28 @@ assertContains(effects, 'pub enum RawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum RawBodyDirectCallee', 'effects.rs');
 assertContains(effects, 'pub enum RawBodyBackend', 'effects.rs');
 assertContains(effects, 'RawBodyDirectCallee::BackendIntrinsic', 'effects.rs');
+assertContains(effects, 'pub enum RawBodyBackendIntrinsic', 'effects.rs');
+assertContains(effects, 'pub enum LlvmRawBodyIntrinsic', 'effects.rs');
+assertContains(
+    effects,
+    'fn from_callee(backend: RawBodyBackend, callee: &str) -> Option<Self>',
+    'RawBodyBackendIntrinsic must own raw-body backend intrinsic classification',
+);
+assertContains(
+    effects,
+    'fn from_callee(callee: &str) -> Option<Self>',
+    'LlvmRawBodyIntrinsic must own LLVM intrinsic semantic classification',
+);
+assertContains(
+    effects,
+    'RawBodyBackendIntrinsic::from_callee(backend, &callee)',
+    'raw body direct callee parser must consume typed backend intrinsic classification',
+);
+assertNotContains(
+    effects,
+    'callee.starts_with("llvm.")',
+    'effects.rs must not classify every llvm.* callee as a pure backend intrinsic',
+);
 assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum LlvmRawBodyMemoryOp', 'effects.rs');
 assertContains(
@@ -1444,6 +1466,21 @@ assertContains(
     'RawBodyDirectCallee::BackendIntrinsic',
     'typecheck/effect_check.rs must match typed backend intrinsic callees',
 );
+assertContains(
+    typecheckEffectCheck,
+    'intrinsic.memory_operation()',
+    'typecheck/effect_check.rs must gate memory backend intrinsics through raw body memory operation proof',
+);
+assertContains(
+    typecheckEffectCheck,
+    'intrinsic.surface_effect()',
+    'typecheck/effect_check.rs must consume backend intrinsic effect semantics from the enum domain',
+);
+assertContains(
+    typecheckEffectCheck,
+    'raw_callee_is_proven_pure',
+    'typecheck/effect_check.rs must require a positive pure proof for ordinary raw body callees',
+);
 assertNotContains(
     typecheckEffectCheck,
     'raw_body_direct_callees',
@@ -1458,6 +1495,11 @@ assertNotContains(
     typecheckEffectCheck,
     'starts_with("llvm.")',
     'typecheck/effect_check.rs must not hard-code backend intrinsic purity with string prefixes',
+);
+assertNotContains(
+    typecheckEffectCheck,
+    'raw_callee_is_impure',
+    'typecheck/effect_check.rs must not default unknown raw body callees to pure by asking only whether they are known impure',
 );
 assertContains(
     effects,
