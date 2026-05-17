@@ -2,8 +2,27 @@
 
 ## lexes_directive_function_signature_and_integer
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
+    ##: [13] ok
+    ##: [14] ok
+    ##: [15] ok
+    ##: [16] ok
 ```neplg2
 #entry main
 #target std
@@ -57,8 +76,27 @@ fn main <()*>i32> ():
 
 ## emits_nested_indent_dedent
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
+    ##: [13] ok
+    ##: [14] ok
+    ##: [15] ok
+    ##: [16] ok
 ```neplg2
 #entry main
 #target std
@@ -112,8 +150,12 @@ fn main <()*>i32> ():
 
 ## lex_all_with_file_id_sets_token_and_error_spans
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 #entry main
 #target std
@@ -160,8 +202,21 @@ fn main <()*>i32> ():
 
 ## honors_indent_directive_width
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
 ```neplg2
 #entry main
 #target std
@@ -212,8 +267,13 @@ fn main <()*>i32> ():
 
 ## reports_indent_level_mismatch
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -251,8 +311,13 @@ fn main <()*>i32> ():
 
 ## reports_indent_width_mismatch
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -290,8 +355,13 @@ fn main <()*>i32> ():
 
 ## skips_comments_and_reports_unexpected_character
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -329,8 +399,13 @@ fn main <()*>i32> ():
 
 ## reports_unterminated_string
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -368,8 +443,14 @@ fn main <()*>i32> ():
 
 ## lexes_char_literal
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #target std
@@ -413,8 +494,13 @@ fn main <()*>i32> ():
 
 ## reports_unterminated_char
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -451,8 +537,51 @@ fn main <()*>i32> ():
 
 ## matches_rust_token_names_for_directives_keywords_and_literals
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
+    ##: [13] ok
+    ##: [14] ok
+    ##: [15] ok
+    ##: [16] ok
+    ##: [17] ok
+    ##: [18] ok
+    ##: [19] ok
+    ##: [20] ok
+    ##: [21] ok
+    ##: [22] ok
+    ##: [23] ok
+    ##: [24] ok
+    ##: [25] ok
+    ##: [26] ok
+    ##: [27] ok
+    ##: [28] ok
+    ##: [29] ok
+    ##: [30] ok
+    ##: [31] ok
+    ##: [32] ok
+    ##: [33] ok
+    ##: [34] ok
+    ##: [35] ok
+    ##: [36] ok
+    ##: [37] ok
+    ##: [38] ok
+    ##: [39] ok
+    ##: [40] ok
 ```neplg2
 #entry main
 #target std
@@ -517,8 +646,19 @@ fn main <()*>i32> ():
 
 ## lexes_doc_comment_and_mlstr_tokens
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
 ```neplg2
 #entry main
 #target std
@@ -567,8 +707,29 @@ fn main <()*>i32> ():
 
 ## lexes_raw_wasm_and_llvmir_block_text
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
+    ##: [13] ok
+    ##: [14] ok
+    ##: [15] ok
+    ##: [16] ok
+    ##: [17] ok
+    ##: [18] ok
 ```neplg2
 #entry main
 #target std

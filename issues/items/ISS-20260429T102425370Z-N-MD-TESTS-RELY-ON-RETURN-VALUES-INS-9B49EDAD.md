@@ -1265,3 +1265,22 @@ runtime 検証を妨げる compile-time blocker は `ISS-20260517T132644394Z-SEL
 - `node nodesrc/tests.js -i tutorials/getting_started/02_test_harness.n.md -i tutorials/getting_started/03_values_and_types.n.md -i tutorials/getting_started/04_prefix_calls.n.md -i tutorials/getting_started/05_functions_and_blocks.n.md -i tutorials/getting_started/06_if_and_match.n.md -i tutorials/getting_started/07_option.n.md -i tutorials/getting_started/08_result.n.md -i tutorials/getting_started/09_validation_project.n.md -i tutorials/getting_started/10_string_and_text.n.md -i tutorials/getting_started/11_bytebuf_and_text_io.n.md -i tutorials/getting_started/12_char_and_ascii.n.md -i tutorials/getting_started/14_collection_reads.n.md -i tutorials/getting_started/16_drop_and_cleanup.n.md -i tutorials/getting_started/17_imports_and_modules.n.md -i tutorials/getting_started/18_generics.n.md -i tutorials/getting_started/19_traits_and_bounds.n.md -i tutorials/getting_started/20_namespace_and_methods.n.md -i tutorials/getting_started/21_project_fizzbuzz.n.md -i tutorials/getting_started/22_project_parser_small.n.md -i tutorials/getting_started/23_project_config_validator.n.md -i tutorials/getting_started/24_project_byte_output.n.md --no-tree -o tmp/agent1-getting-started-report-metadata.json -j 2 --dist web/dist --assert-io`: total=21, passed=21
 
 この issue はまだ open のまま継続する。getting_started の stdout report 付き std/test doctest は移行済みだが、他の `.n.md` / stdlib doc-comment fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 selfhost lexer stdout report metadata migration
+
+`ISS-20260517T165922465Z-SELFHOST-LEXER-DOCTESTS-HIDE-STD-TES-88C4711E` として、`tests/stdlib/neplg2_lexer.n.md` の 13 件を canonical stdout fixture へ移行した。
+
+移行内容:
+
+- 13 件すべてを `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ変更した。
+- 既に呼んでいた `checks_print_report` / `checks_exit_code` の実行順は維持し、manifest から `ret:` を削除した。
+- `nodesrc/test_selfhost_lexer_report_contract.js` を追加し、self-host lexer doctest が quiet exit-code-only metadata へ戻らないことを source policy にした。
+
+検証:
+
+- `node nodesrc/test_selfhost_lexer_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-neplg2-lexer-report-metadata.json -j 1 --dist web/dist --assert-io`: total=13, passed=13
+
+実行時間は約 7.5 分で、各 doctest の compile が約 31-35 秒かかる。今回は timeout や runtime hang ではなく、selfhost lexer fixture 13 件を個別 compile していることが支配的だった。必要なら後続で grouped fixture 化や compile cache の設計 issue として分離する。
+
+この issue はまだ open のまま継続する。selfhost lexer は移行済みだが、他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。

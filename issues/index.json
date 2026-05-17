@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T16:47:46.434Z",
+  "generated_at": "2026-05-17T17:09:14.507Z",
   "counts": {
-    "total": 952,
+    "total": 953,
     "open": 5,
-    "resolved": 947,
+    "resolved": 948,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -17,9 +17,9 @@
         "resolved": 29
       },
       "selfhost": {
-        "total": 67,
+        "total": 68,
         "open": 1,
-        "resolved": 66
+        "resolved": 67
       },
       "cli": {
         "total": 19,
@@ -8568,6 +8568,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T190700987Z-SELF-HOST-CLI-ARGS-PARSER-READS-VEC--5193AE7F.md"
+    },
+    {
+      "id": "ISS-20260517T165922465Z-SELFHOST-LEXER-DOCTESTS-HIDE-STD-TES-88C4711E",
+      "title": "selfhost lexer doctests hide std/test reports behind ret metadata",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T165922465Z-SELFHOST-LEXER-DOCTESTS-HIDE-STD-TES-88C4711E.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

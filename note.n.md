@@ -41034,3 +41034,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_tutorial_getting_started_current_style.js`: passed
   - `node nodesrc/tests.js -i tutorials/getting_started/02_test_harness.n.md -i tutorials/getting_started/03_values_and_types.n.md -i tutorials/getting_started/04_prefix_calls.n.md -i tutorials/getting_started/05_functions_and_blocks.n.md -i tutorials/getting_started/06_if_and_match.n.md -i tutorials/getting_started/07_option.n.md -i tutorials/getting_started/08_result.n.md -i tutorials/getting_started/09_validation_project.n.md -i tutorials/getting_started/10_string_and_text.n.md -i tutorials/getting_started/11_bytebuf_and_text_io.n.md -i tutorials/getting_started/12_char_and_ascii.n.md -i tutorials/getting_started/14_collection_reads.n.md -i tutorials/getting_started/16_drop_and_cleanup.n.md -i tutorials/getting_started/17_imports_and_modules.n.md -i tutorials/getting_started/18_generics.n.md -i tutorials/getting_started/19_traits_and_bounds.n.md -i tutorials/getting_started/20_namespace_and_methods.n.md -i tutorials/getting_started/21_project_fizzbuzz.n.md -i tutorials/getting_started/22_project_parser_small.n.md -i tutorials/getting_started/23_project_config_validator.n.md -i tutorials/getting_started/24_project_byte_output.n.md --no-tree -o tmp/agent1-getting-started-report-metadata.json -j 2 --dist web/dist --assert-io`: total=21, passed=21
+
+## 2026-05-18 Agent 1 selfhost lexer std/test report metadata 修正
+
+- `ISS-20260517T165922465Z-SELFHOST-LEXER-DOCTESTS-HIDE-STD-TES-88C4711E` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、selfhost lexer doctest 13 件が `checks_print_report` を呼んで stdout report を出している一方で、manifest が `ret: 0` のまま残り、stdout report が fixture として比較されていなかったことだった。
+- 修正後は 13 件すべてを `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + `stdout:` に統一し、`nodesrc/test_selfhost_lexer_report_contract.js` が report 件数と metadata の退行を拒否する。
+- focused verification:
+  - `node nodesrc/test_selfhost_lexer_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-neplg2-lexer-report-metadata.json -j 1 --dist web/dist --assert-io`: total=13, passed=13
