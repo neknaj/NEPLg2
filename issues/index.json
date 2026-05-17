@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T12:38:35.219Z",
+  "generated_at": "2026-05-17T12:45:36.382Z",
   "counts": {
-    "total": 947,
+    "total": 948,
     "open": 5,
-    "resolved": 942,
+    "resolved": 943,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -12,9 +12,9 @@
         "resolved": 259
       },
       "TEST": {
-        "total": 27,
+        "total": 28,
         "open": 1,
-        "resolved": 26
+        "resolved": 27
       },
       "selfhost": {
         "total": 67,
@@ -11898,6 +11898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T123036015Z-COLLECTIONS-DIAG-DOCTESTS-PRINT-REPO-CF717FA0.md"
+    },
+    {
+      "id": "ISS-20260517T124048715Z-FEATURES-TUI-BOX-HELPER-DOCTEST-HIDE-22D23F90",
+      "title": "features_tui box helper doctest hides std/test report behind ret",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T124048715Z-FEATURES-TUI-BOX-HELPER-DOCTEST-HIDE-22D23F90.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

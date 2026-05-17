@@ -85,8 +85,25 @@ fn main <()*>i32> ():
 - `line_top` / `line_bottom` / `line_box` / `line_box_styled` が `cols` 0, 1, 2, 3 を内部で安全に扱うことを固定します。
 - 本文が内側幅より長いときも、呼び出し側が事前に clip しなくてよいことを確かめます。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: mlstr:
+##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+##: [0] ok
+##: [1] ok
+##: [2] ok
+##: [3] ok
+##: [4] ok
+##: [5] ok
+##: [6] ok
+##: [7] ok
+##: [8] ok
+##: [9] ok
+##: [10] ok
+##: [11] ok
+##: [12] ok
+##: [13] ok
+##: [14] ok
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -115,7 +132,8 @@ fn main <()*>i32> ():
         |> checks_push assert_str_eq "│ab│" tui::line_box "abcd" 4
         |> checks_push assert_str_eq "││" tui::line_box_styled box_style "abc" 2
         |> checks_push assert_str_eq "│\x1b[31m\x1b[44ma\x1b[0m│" tui::line_box_styled box_style "abc" 3
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## features_tui_color_helpers_use_typed_ansi_style
