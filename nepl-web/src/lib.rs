@@ -877,7 +877,7 @@ struct NameResolutionTrace {
     refs: Vec<NameRefTrace>,
     shadows: Vec<NameShadowTrace>,
     scopes: Vec<BTreeMap<String, Vec<usize>>>,
-    warn_important_shadow: bool,
+    warn_shadow: bool,
 }
 
 impl NameResolutionTrace {
@@ -885,13 +885,13 @@ impl NameResolutionTrace {
         Self::new_with_options(true)
     }
 
-    fn new_with_options(warn_important_shadow: bool) -> Self {
+    fn new_with_options(warn_shadow: bool) -> Self {
         Self {
             defs: Vec::new(),
             refs: Vec::new(),
             shadows: Vec::new(),
             scopes: vec![BTreeMap::new()],
-            warn_important_shadow,
+            warn_shadow,
         }
     }
 
@@ -924,21 +924,23 @@ impl NameResolutionTrace {
         });
 
         if !existing_candidates.is_empty() {
-            let severity = if self.warn_important_shadow
-                && is_important_shadow_symbol(&name)
-                && is_variable_def_kind(kind)
+            let has_outer_definition = existing_candidates.iter().copied().any(|candidate_id| {
+                self.defs
+                    .get(candidate_id)
+                    .map_or(false, |definition| definition.scope_depth < depth)
+            });
+            let severity = if self.warn_shadow && has_outer_definition && is_variable_def_kind(kind)
             {
                 "warning"
             } else {
                 "info"
             };
             let message = if severity == "warning" {
-                format!(
-                    "important symbol '{}' is shadowed by {} definition",
-                    name, kind
-                )
-            } else {
+                format!("symbol '{}' shadows an outer {} definition", name, kind)
+            } else if has_outer_definition {
                 format!("'{}' shadows an outer definition", name)
+            } else {
+                format!("'{}' redefines an existing definition in the same scope", name)
             };
             self.shadows.push(NameShadowTrace {
                 name: name.clone(),
@@ -949,23 +951,6 @@ impl NameResolutionTrace {
                 shadowed_def_ids: existing_candidates,
                 severity,
                 message,
-            });
-        } else if self.warn_important_shadow
-            && is_important_shadow_symbol(&name)
-            && is_variable_def_kind(kind)
-        {
-            self.shadows.push(NameShadowTrace {
-                name: name.clone(),
-                event_kind: "important_name",
-                span,
-                scope_depth: depth,
-                selected_def_id: Some(id),
-                shadowed_def_ids: Vec::new(),
-                severity: "warning",
-                message: format!(
-                    "definition '{}' may shadow important stdlib symbol",
-                    name
-                ),
             });
         }
 
@@ -1016,27 +1001,6 @@ impl NameResolutionTrace {
 
 fn is_layout_marker(name: &str) -> bool {
     matches!(name, "cond" | "then" | "else" | "do" | "block")
-}
-
-fn is_important_shadow_symbol(name: &str) -> bool {
-    matches!(
-        name,
-        "print"
-            | "println"
-            | "print_i32"
-            | "println_i32"
-            | "add"
-            | "sub"
-            | "mul"
-            | "div"
-            | "eq"
-            | "lt"
-            | "le"
-            | "gt"
-            | "ge"
-            | "map"
-            | "len"
-    )
 }
 
 fn is_variable_def_kind(kind: &str) -> bool {
@@ -1396,8 +1360,8 @@ fn name_resolution_payload_to_js(
     );
     let _ = Reflect::set(
         &policy,
-        &JsValue::from_str("warn_important_shadow"),
-        &JsValue::from_bool(trace.warn_important_shadow),
+        &JsValue::from_str("warn_shadow"),
+        &JsValue::from_bool(trace.warn_shadow),
     );
 
     let _ = Reflect::set(&payload, &JsValue::from_str("definitions"), &defs);
@@ -2125,7 +2089,7 @@ pub fn analyze_name_resolution_with_options(source: &str, options: JsValue) -> J
     let lex_result = lex(file_id, source);
     let parse_result = parse_tokens(file_id, lex_result);
     let diagnostics = diagnostics_to_js(source, &parse_result.diagnostics);
-    let warn_important_shadow = Reflect::get(&options, &JsValue::from_str("warn_important_shadow"))
+    let warn_shadow = Reflect::get(&options, &JsValue::from_str("warn_shadow"))
         .ok()
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
@@ -2139,7 +2103,7 @@ pub fn analyze_name_resolution_with_options(source: &str, options: JsValue) -> J
     let _ = Reflect::set(&out, &JsValue::from_str("diagnostics"), &diagnostics);
 
     if let Some(module) = parse_result.module {
-        let mut trace = NameResolutionTrace::new_with_options(warn_important_shadow);
+        let mut trace = NameResolutionTrace::new_with_options(warn_shadow);
         trace_block(&mut trace, &module.root);
         let payload = name_resolution_payload_to_js(source, None, &trace);
         let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(true));
@@ -2167,8 +2131,8 @@ pub fn analyze_name_resolution_with_options(source: &str, options: JsValue) -> J
         let policy = js_sys::Object::new();
         let _ = Reflect::set(
             &policy,
-            &JsValue::from_str("warn_important_shadow"),
-            &JsValue::from_bool(warn_important_shadow),
+            &JsValue::from_str("warn_shadow"),
+            &JsValue::from_bool(warn_shadow),
         );
         let _ = Reflect::set(&out, &JsValue::from_str("policy"), &policy);
     }
@@ -2184,7 +2148,7 @@ pub fn analyze_name_resolution_with_vfs(
     vfs: JsValue,
     options: JsValue,
 ) -> JsValue {
-    let warn_important_shadow = Reflect::get(&options, &JsValue::from_str("warn_important_shadow"))
+    let warn_shadow = Reflect::get(&options, &JsValue::from_str("warn_shadow"))
         .ok()
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
@@ -2214,7 +2178,7 @@ pub fn analyze_name_resolution_with_vfs(
 
     match loaded {
         Ok(loaded) => {
-            let mut trace = NameResolutionTrace::new_with_options(warn_important_shadow);
+            let mut trace = NameResolutionTrace::new_with_options(warn_shadow);
             trace_block(&mut trace, &loaded.module.root);
             let payload = name_resolution_payload_to_js(source, Some(&loaded.source_map), &trace);
             let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(true));
@@ -2280,8 +2244,8 @@ pub fn analyze_name_resolution_with_vfs(
             let policy = js_sys::Object::new();
             let _ = Reflect::set(
                 &policy,
-                &JsValue::from_str("warn_important_shadow"),
-                &JsValue::from_bool(warn_important_shadow),
+                &JsValue::from_str("warn_shadow"),
+                &JsValue::from_bool(warn_shadow),
             );
             let _ = Reflect::set(&out, &JsValue::from_str("policy"), &policy);
         }

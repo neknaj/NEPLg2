@@ -14,25 +14,6 @@ use super::env::{Binding, BindingKind, Env};
 use super::signature::same_function_signature;
 use super::FieldAccessorKind;
 
-pub(super) fn is_important_shadow_symbol(name: &str) -> bool {
-    matches!(
-        name,
-        "print"
-            | "println"
-            | "print_i32"
-            | "println_i32"
-            | "add"
-            | "sub"
-            | "mul"
-            | "div"
-            | "eq"
-            | "lt"
-            | "le"
-            | "gt"
-            | "ge"
-    )
-}
-
 pub(super) fn emit_shadow_warning(
     diagnostics: &mut Vec<Diagnostic>,
     env: &Env,
@@ -41,25 +22,13 @@ pub(super) fn emit_shadow_warning(
     kind: &str,
 ) {
     if let Some(shadowed) = env.lookup_outer_defined(name) {
-        if !is_important_shadow_symbol(name) {
-            return;
-        }
-        let message = format!("important symbol '{}' is shadowed by local {}", name, kind);
-        let mut diag = resolve_warning(ResolveDiagnosticCode::ShadowImportantSymbol, message, span);
+        let message = format!("symbol '{}' shadows an outer {}", name, kind);
+        let mut diag = resolve_warning(ResolveDiagnosticCode::ShadowOuterDefinition, message, span);
         diag = diag.with_secondary_label(
             shadowed.span,
             Some(String::from("shadowed definition is here")),
         );
         diagnostics.push(diag);
-    } else if is_important_shadow_symbol(name) {
-        diagnostics.push(resolve_warning(
-            ResolveDiagnosticCode::ShadowImportantSymbol,
-            format!(
-                "definition '{}' may shadow important stdlib symbol ({})",
-                name, kind
-            ),
-            span,
-        ));
     }
 }
 

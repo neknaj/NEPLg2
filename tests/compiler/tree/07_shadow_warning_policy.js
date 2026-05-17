@@ -13,44 +13,42 @@ module.exports = {
         const warnSource = `#entry main
 #indent 4
 #target core
-#import "core/math" as *
 
 fn main <()->i32> ():
-    let print 1;
-    add print 2
+    let outer_value 1;
+    let result <i32> block:
+        let outer_value 2;
+        outer_value
+    result
 `;
         const warnResult = api.analyze_name_resolution(warnSource);
         assert.equal(!!warnResult?.ok, true, 'name resolution should succeed for warnSource');
         const warned = warningNames(warnResult);
         assert.ok(
-            warned.includes('print'),
-            "shadowing important stdlib-like symbol 'print' must emit warning"
+            warned.includes('outer_value'),
+            "shadowing an actual outer symbol 'outer_value' must emit warning"
         );
 
         const noWarnSource = `#entry main
 #indent 4
 #target core
-#import "core/cast" as *
-
-fn cast_i32 <(i32)->i32> (x):
-    cast x
 
 fn main <()->i32> ():
-    let cast 10;
-    add cast 1
+    let local_value 10;
+    local_value
 `;
         const noWarnResult = api.analyze_name_resolution(noWarnSource);
         assert.equal(!!noWarnResult?.ok, true, 'name resolution should succeed for noWarnSource');
         const noWarned = warningNames(noWarnResult);
         assert.ok(
-            !noWarned.includes('cast'),
-            "shadowing non-important symbol 'cast' must not emit important-shadow warning"
+            !noWarned.includes('local_value'),
+            "defining a fresh local symbol must not emit shadow warning"
         );
 
         if (typeof api.analyze_name_resolution_with_options === 'function') {
             const suppressedResult = api.analyze_name_resolution_with_options(
                 warnSource,
-                { warn_important_shadow: false }
+                { warn_shadow: false }
             );
             assert.equal(
                 !!suppressedResult?.ok,
@@ -59,8 +57,8 @@ fn main <()->i32> ():
             );
             const suppressedWarnings = warningNames(suppressedResult);
             assert.ok(
-                !suppressedWarnings.includes('print'),
-                "important shadow warning for 'print' must be suppressible by option"
+                !suppressedWarnings.includes('outer_value'),
+                "shadow warning for 'outer_value' must be suppressible by option"
             );
         }
 

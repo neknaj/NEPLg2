@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T08:28:16.468Z",
+  "generated_at": "2026-05-17T08:51:00.179Z",
   "counts": {
-    "total": 930,
+    "total": 931,
     "open": 5,
-    "resolved": 925,
+    "resolved": 926,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 476,
+        "total": 477,
         "open": 0,
-        "resolved": 476
+        "resolved": 477
       },
       "CORE": {
         "total": 1,
@@ -7233,6 +7233,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T082244329Z-RESOURCE-IR-REGION-PTR-AT-LOWERING-H-F552468A.md"
+    },
+    {
+      "id": "ISS-20260517T083417129Z-SHADOW-WARNINGS-DEPEND-ON-HARDCODED--58058C13",
+      "title": "shadow warnings depend on hardcoded important stdlib symbol list",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/binding_rules.rs; nepl-language/src/lib.rs; nepl-web/src/lib.rs; tests/compiler/tree/07_shadow_warning_policy.js; nodesrc/test_static_check_boundary_responsibility.js; doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T083417129Z-SHADOW-WARNINGS-DEPEND-ON-HARDCODED--58058C13.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

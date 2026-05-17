@@ -5,6 +5,9 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const CORE_SRC = path.join(ROOT, 'nepl-core', 'src');
+const NEPL_LANGUAGE_LIB = path.join(ROOT, 'nepl-language', 'src', 'lib.rs');
+const NEPL_WEB_LIB = path.join(ROOT, 'nepl-web', 'src', 'lib.rs');
+const DIAGNOSTIC_CODES = path.join(CORE_SRC, 'diagnostic_codes.rs');
 const TYPECHECK_ROOT = path.join(CORE_SRC, 'typecheck.rs');
 const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
 const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
@@ -303,6 +306,9 @@ const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
 const resourceIrTests = assertFile(RESOURCE_IR_TESTS, 'nepl-core/tests/resource_ir.rs');
 const testHarness = assertFile(TEST_HARNESS, 'nepl-core/tests/harness.rs');
 const neplg2Tests = assertFile(NEPLG2_TESTS, 'nepl-core/tests/neplg2.rs');
+const neplLanguageLib = assertFile(NEPL_LANGUAGE_LIB, 'nepl-language/src/lib.rs');
+const neplWebLib = assertFile(NEPL_WEB_LIB, 'nepl-web/src/lib.rs');
+const diagnosticCodes = assertFile(DIAGNOSTIC_CODES, 'diagnostic_codes.rs');
 const typecheckMatchCheck = assertFile(
     path.join(TYPECHECK_DIR, 'match_check.rs'),
     'typecheck/match_check.rs',
@@ -662,6 +668,42 @@ for (const { source, forbidden, label } of staleTypecheckVerboseNameFilters) {
         `${label} must not filter typecheck verbose diagnostics by stale concrete symbol names`,
     );
 }
+for (const { source, label } of [
+    { source: typecheckBindingRules, label: 'typecheck/binding_rules.rs' },
+    { source: neplLanguageLib, label: 'nepl-language/src/lib.rs' },
+    { source: neplWebLib, label: 'nepl-web/src/lib.rs' },
+]) {
+    assertNotContains(
+        source,
+        'is_important_shadow_symbol',
+        `${label} must not classify shadow warnings through a hardcoded stdlib-name allowlist`,
+    );
+    assertNotContains(
+        source,
+        'important stdlib symbol',
+        `${label} must not warn from important stdlib-name allowlists`,
+    );
+    assertNotMatches(
+        source,
+        /matches!\(\s*name,[\s\S]{0,1000}"print"/,
+        `${label} must not keep print in a shadow-warning allowlist`,
+    );
+}
+assertContains(
+    typecheckBindingRules,
+    'env.lookup_outer_defined(name)',
+    'typecheck shadow warnings must be based on actual outer binding evidence',
+);
+assertContains(
+    diagnosticCodes,
+    'ShadowOuterDefinition',
+    'diagnostic registry must expose source-derived outer shadow warning code',
+);
+assertNotContains(
+    diagnosticCodes,
+    'ShadowImportantSymbol',
+    'diagnostic registry must not keep the old important-shadow diagnostic id',
+);
 assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
 assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');
 assertContains(typecheckSyntaxHelpers, 'fn split_qualified_name', 'typecheck/syntax_helpers.rs');

@@ -17,7 +17,7 @@ fn main <()->i32> ():
             '/virtual/main.nepl',
             source,
             {},
-            { warn_important_shadow: true }
+            { warn_shadow: true }
         );
         assert.equal(result?.stage, 'name_resolution', 'stage must be name_resolution');
         assert.equal(!!result?.ok, true, 'name resolution should be ok');

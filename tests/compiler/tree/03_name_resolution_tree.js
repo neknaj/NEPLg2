@@ -6,13 +6,12 @@ module.exports = {
         const source = `#entry main
 #indent 4
 #target core
-#import "core/math" as *
-
 fn main <()->i32> ():
     let x 1;
-    let x 2;
-    let add 10;
-    add x 3
+    let y <i32> block:
+        let x 2;
+        x
+    y
 `;
 
         const result = api.analyze_name_resolution(source);
@@ -72,12 +71,12 @@ fn main <()->i32> ():
         );
         assert.ok(xShadow, 'x shadow event should include hidden candidates');
 
-        const importantWarn = shadowDiags.find(
+        const xShadowWarn = shadowDiags.find(
             (s) =>
-                s?.name === 'add' &&
+                s?.name === 'x' &&
                 s?.severity === 'warning'
         );
-        assert.ok(importantWarn, 'important stdlib-like symbol shadow warning should be present');
+        assert.ok(xShadowWarn, 'actual outer definition shadow warning should be present');
 
         return {
             checked: 14,

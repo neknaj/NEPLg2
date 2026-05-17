@@ -54,7 +54,7 @@ pub enum ResolveDiagnosticCode {
     IdentifierUndefined,
     ShadowNoShadowViolation,
     ShadowNoShadowConflict,
-    ShadowImportantSymbol,
+    ShadowOuterDefinition,
     ShadowSameSignatureCallable,
     ItemNameConflict,
     AliasTargetNotFound,
@@ -300,7 +300,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::RawBlockInvalidPlacement),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowViolation),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowConflict),
-    DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowImportantSymbol),
+    DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowOuterDefinition),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable),
     DiagnosticCode::Type(TypeDiagnosticCode::FunctionValueCapturingUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::IndirectCallRequiresFunctionValue),
@@ -667,7 +667,7 @@ impl ResolveDiagnosticCode {
             ResolveDiagnosticCode::IdentifierUndefined => "resolve.identifier.undefined",
             ResolveDiagnosticCode::ShadowNoShadowViolation => "resolve.shadow.no_shadow_violation",
             ResolveDiagnosticCode::ShadowNoShadowConflict => "resolve.shadow.no_shadow_conflict",
-            ResolveDiagnosticCode::ShadowImportantSymbol => "resolve.shadow.important_symbol",
+            ResolveDiagnosticCode::ShadowOuterDefinition => "resolve.shadow.outer_definition",
             ResolveDiagnosticCode::ShadowSameSignatureCallable => {
                 "resolve.shadow.same_signature_callable"
             }
@@ -685,7 +685,7 @@ impl ResolveDiagnosticCode {
             ResolveDiagnosticCode::IdentifierUndefined => "undefined identifier",
             ResolveDiagnosticCode::ShadowNoShadowViolation => "cannot shadow non-shadowable symbol",
             ResolveDiagnosticCode::ShadowNoShadowConflict => "noshadow declaration conflicts",
-            ResolveDiagnosticCode::ShadowImportantSymbol => "important symbol is shadowed",
+            ResolveDiagnosticCode::ShadowOuterDefinition => "definition shadows outer symbol",
             ResolveDiagnosticCode::ShadowSameSignatureCallable => {
                 "same signature callable is redefined"
             }
@@ -1350,7 +1350,7 @@ mod tests {
             DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
                 WasmDiagnosticCode::ValidationFailed,
             )),
-            DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowImportantSymbol),
+            DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowOuterDefinition),
             DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable),
         ];
         for code in codes {
