@@ -228,7 +228,7 @@ impl SourceMap {
         self.files.get(id.0 as usize).map(|file| &file.path)
     }
 
-    pub fn capabilities(&self, id: FileId) -> SourceCapabilities {
+    pub(crate) fn capabilities(&self, id: FileId) -> SourceCapabilities {
         self.files
             .get(id.0 as usize)
             .map(|file| file.capabilities.clone())

@@ -40180,3 +40180,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core source_map::tests -- --nocapture`: passed
   - `cargo test -p nepl-core raw_identity --test resource_ir -- --nocapture`: passed
   - `cargo fmt -p nepl-core --check`: passed
+
+## 2026-05-17 Agent 1 SourceMap file-level capability accessor 封鎖
+
+- `ISS-20260517T024243699Z-SOURCEMAP-EXPOSES-FILE-LEVEL-SOURCEC-AEFA0421` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、exact use-site proof へ production gate を移した後も `SourceMap::capabilities(file_id)` が `pub` のまま残り、crate 外から file-level `SourceCapabilities` 集合を直接取り出せたことだった。
+- 修正後は `SourceMap::capabilities` を crate-internal に閉じた。integration test は `SourceCapabilities` aggregate を取得せず、対象 file の `FileId` から exact probe span を作り、`SourceMap::raw_memory_structural_boundary_allowed_at` / `raw_memory_operation_boundary_allowed_at` だけを使う。
+- `nodesrc/test_static_check_boundary_responsibility.js` に `pub fn capabilities(` の再導入拒否を追加し、SourceMap が file-level authority export へ戻る退行を検出する。
+- focused verification:
+  - `cargo fmt -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core source_map::tests -- --nocapture`: passed
+  - `cargo test -p nepl-core loader_does_not_mark_configured_stdlib_core_mem_facade_as_raw_memory_boundary --test effects -- --nocapture`: passed
+  - `cargo test -p nepl-core loader_does_not_mark_configured_stdlib_alloc_string_facade_as_raw_memory_boundary --test effects -- --nocapture`: passed
+  - `cargo test -p nepl-core loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary --test effects -- --nocapture`: passed

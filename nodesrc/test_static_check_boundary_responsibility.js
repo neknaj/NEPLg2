@@ -640,6 +640,11 @@ assertNotContains(
     'self.allows(SourceCapability::',
     'source_map.rs file-level SourceCapability query',
 );
+assertNotMatches(
+    sourceMap,
+    /pub fn capabilities\s*\(/,
+    'source_map.rs must not expose the per-file SourceCapabilities accessor publicly',
+);
 assertContains(sourceMap, 'RawMemoryStructuralBoundary', 'source_map.rs');
 assertContains(sourceMap, 'RawAddressViewBoundary', 'source_map.rs');
 assertContains(sourceMap, 'RawMemoryOperationBoundary {', 'source_map.rs');

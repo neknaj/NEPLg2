@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T02:35:54.689Z",
+  "generated_at": "2026-05-17T02:42:43.854Z",
   "counts": {
-    "total": 898,
-    "open": 5,
+    "total": 899,
+    "open": 6,
     "resolved": 893,
     "by_area": {
+      "core": {
+        "total": 455,
+        "open": 1,
+        "resolved": 454
+      },
       "stdlib": {
         "total": 257,
         "open": 3,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 454,
-        "open": 0,
-        "resolved": 454
       },
       "CORE": {
         "total": 1,
@@ -119,6 +119,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260517T024243699Z-SOURCEMAP-EXPOSES-FILE-LEVEL-SOURCEC-AEFA0421",
+      "title": "SourceMap exposes file-level SourceCapabilities after exact use-site proof",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_map.rs; nepl-core/tests/effects.rs; nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T024243699Z-SOURCEMAP-EXPOSES-FILE-LEVEL-SOURCEC-AEFA0421.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",

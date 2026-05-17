@@ -10,7 +10,7 @@ use nepl_core::effects::{
 use nepl_core::error::CoreError;
 use nepl_core::hir::HirBody;
 use nepl_core::loader::Loader;
-use nepl_core::source_map::{SourceCapabilities, SourceMap};
+use nepl_core::source_map::SourceMap;
 use nepl_core::span::{FileId, Span};
 use nepl_core::{
     ast::{LlvmIrBlock, WasmBlock},
@@ -83,20 +83,18 @@ fn assert_has_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
     }
 }
 
-fn source_capabilities_for_suffix(source_map: &SourceMap, suffix: &str) -> SourceCapabilities {
+fn source_file_id_for_suffix(source_map: &SourceMap, suffix: &str) -> FileId {
     source_map
         .iter_paths()
         .find_map(|(file_id, path)| {
             let normalized = path.as_str().replace('\\', "/");
-            normalized
-                .ends_with(suffix)
-                .then(|| source_map.capabilities(file_id))
+            normalized.ends_with(suffix).then_some(file_id)
         })
         .unwrap_or_else(|| panic!("source suffix not loaded: {suffix}"))
 }
 
-fn source_capability_probe_span() -> Span {
-    Span::new(FileId(0), 0, 8)
+fn source_capability_probe_span(file_id: FileId) -> Span {
+    Span::new(file_id, 0, 8)
 }
 
 #[test]
@@ -692,11 +690,15 @@ fn main <()->i32> ():
 
     let mut loader = Loader::new(stdlib_root);
     let loaded = loader.load(&entry).expect("load");
-    let capabilities = source_capabilities_for_suffix(&loaded.source_map, "stdlib/core/mem.nepl");
-    let probe = source_capability_probe_span();
+    let file_id = source_file_id_for_suffix(&loaded.source_map, "stdlib/core/mem.nepl");
+    let probe = source_capability_probe_span(file_id);
     assert!(
-        !capabilities.allows_raw_memory_structural_boundary_at(probe)
-            && !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Store, probe),
+        !loaded
+            .source_map
+            .raw_memory_structural_boundary_allowed_at(probe)
+            && !loaded
+                .source_map
+                .raw_memory_operation_boundary_allowed_at(probe, RawMemoryOp::Store),
         "core/mem facade without raw source evidence must not receive raw memory capability"
     );
     check_module_with_source_map(
@@ -742,12 +744,15 @@ fn main <()->i32> ():
 
     let mut loader = Loader::new(stdlib_root);
     let loaded = loader.load(&entry).expect("load");
-    let capabilities =
-        source_capabilities_for_suffix(&loaded.source_map, "stdlib/alloc/string.nepl");
-    let probe = source_capability_probe_span();
+    let file_id = source_file_id_for_suffix(&loaded.source_map, "stdlib/alloc/string.nepl");
+    let probe = source_capability_probe_span(file_id);
     assert!(
-        !capabilities.allows_raw_memory_structural_boundary_at(probe)
-            && !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Store, probe),
+        !loaded
+            .source_map
+            .raw_memory_structural_boundary_allowed_at(probe)
+            && !loaded
+                .source_map
+                .raw_memory_operation_boundary_allowed_at(probe, RawMemoryOp::Store),
         "alloc/string facade without raw source evidence must not receive raw memory capability"
     );
     check_module_with_source_map(
@@ -1187,12 +1192,15 @@ fn main <()->i32> ():
         let mut loader = Loader::new(stdlib_root);
         let loaded = loader.load(&entry).expect("load");
         let expected_suffix = format!("stdlib/{import_spec}.nepl");
-        let capabilities =
-            source_capabilities_for_suffix(&loaded.source_map, expected_suffix.as_str());
-        let probe = source_capability_probe_span();
+        let file_id = source_file_id_for_suffix(&loaded.source_map, expected_suffix.as_str());
+        let probe = source_capability_probe_span(file_id);
         assert!(
-            !capabilities.allows_raw_memory_structural_boundary_at(probe)
-                && !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Store, probe),
+            !loaded
+                .source_map
+                .raw_memory_structural_boundary_allowed_at(probe)
+                && !loaded
+                    .source_map
+                    .raw_memory_operation_boundary_allowed_at(probe, RawMemoryOp::Store),
             "{import_spec} without raw source evidence must not receive raw memory capability"
         );
         check_module_with_source_map(
