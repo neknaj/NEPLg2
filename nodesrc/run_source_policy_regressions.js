@@ -105,6 +105,7 @@ const checks = [
     "nodesrc/test_selfhost_parser_report_contract.js",
     "nodesrc/test_selfhost_module_loader_report_contract.js",
     "nodesrc/test_selfhost_diag_outcome_report_contract.js",
+    "nodesrc/test_selfhost_import_spec_report_contract.js",
     "nodesrc/test_selfhost_diag_code_enum.js",
     "nodesrc/test_selfhost_model_no_numeric_kind_tags.js",
     "nodesrc/test_selfhost_builtin_signature_payload.js",
