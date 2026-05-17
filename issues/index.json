@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T09:56:18.781Z",
+  "generated_at": "2026-05-17T10:06:00.444Z",
   "counts": {
-    "total": 934,
+    "total": 935,
     "open": 5,
-    "resolved": 929,
+    "resolved": 930,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 480,
+        "total": 481,
         "open": 0,
-        "resolved": 480
+        "resolved": 481
       },
       "CORE": {
         "total": 1,
@@ -7293,6 +7293,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T094754743Z-SOURCE-CAPABILITY-PROOF-BUILDER-EXPO-C06F3A22.md"
+    },
+    {
+      "id": "ISS-20260517T100117040Z-TYPECHECK-CONTROL-SPECIAL-FUNCTIONS--D04B8CA1",
+      "title": "typecheck control special functions use direct string branches",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/typecheck/control_apply.rs, nepl-core/src/typecheck/prefix_check.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T100117040Z-TYPECHECK-CONTROL-SPECIAL-FUNCTIONS--D04B8CA1.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

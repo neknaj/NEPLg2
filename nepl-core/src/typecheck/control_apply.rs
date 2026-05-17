@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 
+use super::control_special::ControlSpecialFunction;
 use super::diagnostics::type_error;
 use super::{BlockChecker, StackEntry};
 
@@ -19,8 +20,11 @@ impl<'a> BlockChecker<'a> {
         args: &[StackEntry],
     ) -> SpecialApplyResult {
         match &func.expr.kind {
-            HirExprKind::Var(name) if name == "if" => self.apply_if_function(func, args),
-            HirExprKind::Var(name) if name == "while" => self.apply_while_function(func, args),
+            HirExprKind::Var(name) => match ControlSpecialFunction::from_name(name) {
+                Some(ControlSpecialFunction::If) => self.apply_if_function(func, args),
+                Some(ControlSpecialFunction::While) => self.apply_while_function(func, args),
+                None => SpecialApplyResult::NotHandled,
+            },
             _ => SpecialApplyResult::NotHandled,
         }
     }

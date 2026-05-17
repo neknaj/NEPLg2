@@ -366,6 +366,14 @@ const typecheckConstructorApply = assertFile(
     path.join(TYPECHECK_DIR, 'constructor_apply.rs'),
     'typecheck/constructor_apply.rs',
 );
+const typecheckControlApply = assertFile(
+    path.join(TYPECHECK_DIR, 'control_apply.rs'),
+    'typecheck/control_apply.rs',
+);
+const typecheckControlSpecial = assertFile(
+    path.join(TYPECHECK_DIR, 'control_special.rs'),
+    'typecheck/control_special.rs',
+);
 const typecheckCallReduction = assertFile(
     path.join(TYPECHECK_DIR, 'call_reduction.rs'),
     'typecheck/call_reduction.rs',
@@ -413,6 +421,7 @@ for (const moduleName of [
     'constructor_apply',
     'context',
     'control_apply',
+    'control_special',
     'driver',
     'driver_entry',
     'effect_check',
@@ -440,6 +449,58 @@ for (const moduleName of [
     assertFile(path.join(TYPECHECK_DIR, `${moduleName}.rs`), `typecheck/${moduleName}.rs`);
     assertContains(typecheckRoot, `mod ${moduleName};`, 'typecheck.rs');
 }
+
+assertLineLimit(path.join(TYPECHECK_DIR, 'control_special.rs'), 'typecheck/control_special.rs', 80);
+assertContains(
+    typecheckControlSpecial,
+    'pub(super) enum ControlSpecialFunction',
+    'typecheck/control_special.rs must own control special spelling',
+);
+assertContains(
+    typecheckControlSpecial,
+    'pub(super) fn from_name',
+    'typecheck/control_special.rs must classify control special names once',
+);
+assertContains(
+    typecheckControlSpecial,
+    'pub(super) const fn name',
+    'typecheck/control_special.rs must expose canonical control special names',
+);
+assertContains(
+    typecheckControlApply,
+    'ControlSpecialFunction::from_name(name)',
+    'typecheck/control_apply.rs must dispatch control specials through the enum classifier',
+);
+assertContains(
+    typecheckControlApply,
+    'Some(ControlSpecialFunction::If)',
+    'typecheck/control_apply.rs must exhaustively match the if special form',
+);
+assertContains(
+    typecheckControlApply,
+    'Some(ControlSpecialFunction::While)',
+    'typecheck/control_apply.rs must exhaustively match the while special form',
+);
+assertNotContains(
+    typecheckControlApply,
+    'name == "if"',
+    'typecheck/control_apply.rs must not use direct if string guards',
+);
+assertNotContains(
+    typecheckControlApply,
+    'name == "while"',
+    'typecheck/control_apply.rs must not use direct while string guards',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'ControlSpecialFunction::If.name()',
+    'typecheck/prefix_check.rs must construct if special vars through ControlSpecialFunction',
+);
+assertContains(
+    typecheckPrefixCheck,
+    'ControlSpecialFunction::While.name()',
+    'typecheck/prefix_check.rs must construct while special vars through ControlSpecialFunction',
+);
 
 assertContains(typecheckRoot, 'pub use driver::{typecheck, TypeCheckResult};', 'typecheck.rs');
 assertContains(

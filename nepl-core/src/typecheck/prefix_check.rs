@@ -13,6 +13,7 @@ use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
+use super::control_special::ControlSpecialFunction;
 use super::diagnostics::{effect_error, resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
@@ -1122,7 +1123,9 @@ impl<'a> BlockChecker<'a> {
                             ty: func_ty,
                             expr: HirExpr {
                                 ty: func_ty,
-                                kind: HirExprKind::Var("if".to_string()),
+                                kind: HirExprKind::Var(
+                                    ControlSpecialFunction::If.name().to_string(),
+                                ),
                                 span: *sp,
                             },
                             type_args: Vec::new(),
@@ -1144,7 +1147,9 @@ impl<'a> BlockChecker<'a> {
                             ty: func_ty,
                             expr: HirExpr {
                                 ty: func_ty,
-                                kind: HirExprKind::Var("while".to_string()),
+                                kind: HirExprKind::Var(
+                                    ControlSpecialFunction::While.name().to_string(),
+                                ),
                                 span: *sp,
                             },
                             type_args: Vec::new(),

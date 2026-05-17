@@ -1,3 +1,21 @@
+# 2026-05-17 Agent 1 typecheck control special enum 化
+
+- `ISS-20260517T100117040Z-TYPECHECK-CONTROL-SPECIAL-FUNCTIONS--D04B8CA1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`prefix_check.rs` が `if` / `while` keyword から直接 `"if"` / `"while"` の `HirExprKind::Var` を作り、`control_apply.rs` が同じ文字列を direct guard で再判定していたこと。
+- `typecheck/control_special.rs` を追加し、`ControlSpecialFunction::{If, While}` が typecheck 内の control special spelling と `from_name` classifier を所有するようにした。
+- `prefix_check.rs` は `ControlSpecialFunction::If.name()` / `ControlSpecialFunction::While.name()` から HIR の control special var を構築する。
+- `control_apply.rs` は `ControlSpecialFunction::from_name(name)` で分類し、enum の `match` で `if` / `while` 特殊適用へ dispatch する。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、`control_special.rs`、enum、canonical name/from_name、direct string guard 禁止、prefix 側の enum 使用を監視する policy を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core --test if -- --nocapture`
+  - `cargo test -p nepl-core --test block_if_semantics -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_returns_concrete_unit_place_for_while -- --exact --nocapture`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「checker 内の control-flow special form も文字列分岐ではなく enum / match で管理する」方針に沿って、typecheck の制御構文特殊適用を typed domain へ寄せた。
+
 # 2026-05-17 Agent 1 source capability proof fact 集約
 
 - `ISS-20260517T094754743Z-SOURCE-CAPABILITY-PROOF-BUILDER-EXPO-C06F3A22` を追加し、fixed / resolved にした。`plan.md` は変更していない。
