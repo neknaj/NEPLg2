@@ -1,3 +1,14 @@
+# 2026-05-17 Agent 1 memory_safety owner aggregate fixture 更新
+
+- `ISS-20260517T040636489Z-MEMORY-SAFETY-OWNER-AGGREGATE-FIXTUR-968B23FB` を追加し、fixed / resolved にした。
+- 根本原因は、`tests/stdlib/memory_safety.n.md` の owner aggregate constructor / field access compile-fail regression が、`Vec` の `OwnedBuffer` field 化後も旧 layout を使っていたこと。
+- constructor regression は `Vec<i32> (OwnedBuffer<i32> 0 1 (VecStorage<i32>::Owned region))` へ更新し、現在の owner aggregate constructor restriction に直接到達するようにした。
+- field access regression は削除済みの `Vec.storage` ではなく、現在の `Vec.buffer` field を `field::get_ref` で読む形へ更新した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-ownedbuffer-regression.json -j 1`: 41/41 passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の回帰テストが現在の `OwnedBuffer` 設計を検査するように更新した。
+
 # 2026-05-17 Agent 1 ByteBuf/ByteBuilder raw MemPtr owner 偽造入口削除
 
 - `ISS-20260517T034837136Z-BYTEBUF-PUBLIC-API-CAN-FORGE-OWNERSH-16F30AE5` を追加し、fixed / resolved にした。

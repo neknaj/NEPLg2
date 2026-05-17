@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T03:59:30.757Z",
+  "generated_at": "2026-05-17T04:09:04.598Z",
   "counts": {
-    "total": 905,
+    "total": 906,
     "open": 5,
-    "resolved": 900,
+    "resolved": 901,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -12,9 +12,9 @@
         "resolved": 259
       },
       "TEST": {
-        "total": 25,
+        "total": 26,
         "open": 1,
-        "resolved": 24
+        "resolved": 25
       },
       "selfhost": {
         "total": 67,
@@ -11278,6 +11278,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T042051521Z-BTREEMAP-FOCUSED-DOCTESTS-STILL-HIDE-87F9DD7B.md"
+    },
+    {
+      "id": "ISS-20260517T040636489Z-MEMORY-SAFETY-OWNER-AGGREGATE-FIXTUR-968B23FB",
+      "title": "memory_safety owner aggregate fixtures still use old Vec layout",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T040636489Z-MEMORY-SAFETY-OWNER-AGGREGATE-FIXTUR-968B23FB.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",
