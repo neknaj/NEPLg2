@@ -141,13 +141,25 @@ fn internal_effect_classifies_raw_memory_and_surface_fold() {
 }
 
 #[test]
-fn all_impure_io_effect_markers_have_typed_operations() {
-    for marker in nepl_core::effects::IMPURE_IO_EFFECT_MARKERS {
-        assert!(
-            external_io_op_from_name(marker).is_some() || nondet_op_from_name(marker).is_some(),
-            "impure host marker '{}' must map to ExternalIoOp or NondetOp",
-            marker
+fn host_effect_operation_domains_round_trip_through_typed_classifiers() {
+    for &operation in ExternalIoOp::ALL {
+        assert_eq!(
+            external_io_op_from_name(operation.as_str()),
+            Some(operation),
+            "external IO operation '{}' must map back to ExternalIoOp",
+            operation
         );
+        assert_eq!(nondet_op_from_name(operation.as_str()), None);
+    }
+
+    for &operation in NondetOp::ALL {
+        assert_eq!(
+            nondet_op_from_name(operation.as_str()),
+            Some(operation),
+            "nondeterministic operation '{}' must map back to NondetOp",
+            operation
+        );
+        assert_eq!(external_io_op_from_name(operation.as_str()), None);
     }
 }
 

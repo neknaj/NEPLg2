@@ -11,55 +11,6 @@ use crate::runtime_helpers::{
     helper_base_name, ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI,
 };
 
-pub const IMPURE_IO_EFFECT_MARKERS: &[&str] = &[
-    "fd_read",
-    "fd_write",
-    "path_open",
-    "path_create_directory",
-    "path_filestat_get",
-    "path_filestat_set_times",
-    "path_link",
-    "path_readlink",
-    "path_remove_directory",
-    "path_rename",
-    "path_symlink",
-    "path_unlink_file",
-    "fd_advise",
-    "fd_allocate",
-    "fd_close",
-    "fd_datasync",
-    "fd_fdstat_get",
-    "fd_fdstat_set_flags",
-    "fd_fdstat_set_rights",
-    "fd_filestat_get",
-    "fd_filestat_set_size",
-    "fd_filestat_set_times",
-    "fd_pread",
-    "fd_prestat_get",
-    "fd_prestat_dir_name",
-    "fd_pwrite",
-    "fd_readdir",
-    "fd_renumber",
-    "fd_seek",
-    "fd_sync",
-    "fd_tell",
-    "poll_oneoff",
-    "proc_exit",
-    "proc_raise",
-    "sched_yield",
-    "random_get",
-    "sock_accept",
-    "sock_recv",
-    "sock_send",
-    "sock_shutdown",
-    "clock_time_get",
-    "clock_res_get",
-    "args_get",
-    "args_sizes_get",
-    "environ_get",
-    "environ_sizes_get",
-];
-
 pub const RAW_MEMORY_HELPER_EFFECT_MARKERS: &[&str] = &[
     "__nepl_rt_alloc",
     "__nepl_rt_dealloc",
@@ -280,6 +231,52 @@ pub enum ExternalIoOp {
 }
 
 impl ExternalIoOp {
+    pub const ALL: &'static [Self] = &[
+        Self::FdRead,
+        Self::FdWrite,
+        Self::PathOpen,
+        Self::PathCreateDirectory,
+        Self::PathFilestatGet,
+        Self::PathFilestatSetTimes,
+        Self::PathLink,
+        Self::PathReadlink,
+        Self::PathRemoveDirectory,
+        Self::PathRename,
+        Self::PathSymlink,
+        Self::PathUnlinkFile,
+        Self::FdAdvise,
+        Self::FdAllocate,
+        Self::FdClose,
+        Self::FdDatasync,
+        Self::FdFdstatGet,
+        Self::FdFdstatSetFlags,
+        Self::FdFdstatSetRights,
+        Self::FdFilestatGet,
+        Self::FdFilestatSetSize,
+        Self::FdFilestatSetTimes,
+        Self::FdPread,
+        Self::FdPrestatGet,
+        Self::FdPrestatDirName,
+        Self::FdPwrite,
+        Self::FdReaddir,
+        Self::FdRenumber,
+        Self::FdSeek,
+        Self::FdSync,
+        Self::FdTell,
+        Self::PollOneoff,
+        Self::ProcExit,
+        Self::ProcRaise,
+        Self::SchedYield,
+        Self::SockAccept,
+        Self::SockRecv,
+        Self::SockSend,
+        Self::SockShutdown,
+        Self::ArgsGet,
+        Self::ArgsSizesGet,
+        Self::EnvironGet,
+        Self::EnvironSizesGet,
+    ];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             ExternalIoOp::FdRead => "fd_read",
@@ -343,6 +340,8 @@ pub enum NondetOp {
 }
 
 impl NondetOp {
+    pub const ALL: &'static [Self] = &[Self::RandomGet, Self::ClockTimeGet, Self::ClockResGet];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             NondetOp::RandomGet => "random_get",
