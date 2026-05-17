@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 raw body memory operation classifier domain 化
+
+- `ISS-20260517T115530657Z-RAW-BODY-MEMORY-OPERATION-PARSING-OV-18BEA5D1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、raw body memory effect の抽出が WASM 側では `op.contains(".load")` / `.store`、LLVM 側では `llvm.memcpy` などの unbounded prefix branch に依存し、backend opcode / intrinsic spelling の意味境界が enum domain の外側に漏れていたこと。
+- `WasmRawBodyMemoryOp::from_opcode` を追加し、WASM memory access opcode の分類を enum 側に集約した。`i32.load` / `i64.store` のような実 opcode は受け入れるが、`i32.reload` や `custom.loadx` のような substring overmatch は memory operation として扱わない。
+- `LlvmRawBodyMemoryOp::{from_instruction_opcode, from_intrinsic_callee}` を追加し、LLVM instruction opcode と memory intrinsic callee の分類を enum 側に集約した。`llvm.memcpy.p0.p0.i64` のような dot-suffixed intrinsic variant は受け入れるが、`llvm.memcpy_like` は memory intrinsic として扱わない。
+- `nodesrc/test_static_check_boundary_responsibility.js` に typed classifier の存在、consumer 接続、旧 substring / unbounded prefix branch 禁止を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --test effects raw_body -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「raw body proof / backend boundary の分類を typed enum domain に移し、検査プログラム自体の drift を policy で発見可能にする」方針に沿って、memory operation 分類を enum-owned classifier に移した。
+
 # 2026-05-17 Agent 1 typecheck extern import module domain 化
 
 - `ISS-20260517T114805544Z-WASI-EXTERN-TARGET-GATE-HARDCODES-IM-26DFA510` を追加し、fixed / resolved にした。`plan.md` は変更していない。

@@ -247,12 +247,44 @@ impl WasmRawBodyMemoryOp {
             WasmRawBodyMemoryOp::Memory => "wasm.memory",
         }
     }
+
+    fn from_opcode(op: &str) -> Option<Self> {
+        if wasm_opcode_has_memory_access_segment(op, "load") {
+            return Some(Self::Load);
+        }
+        if wasm_opcode_has_memory_access_segment(op, "store") {
+            return Some(Self::Store);
+        }
+        let operation = match op {
+            "memory.size" => Self::MemorySize,
+            "memory.grow" => Self::MemoryGrow,
+            "memory.copy" => Self::MemoryCopy,
+            "memory.fill" => Self::MemoryFill,
+            "memory.init" => Self::MemoryInit,
+            "data.drop" => Self::DataDrop,
+            _ if op.starts_with("memory.") => Self::Memory,
+            _ => return None,
+        };
+        Some(operation)
+    }
 }
 
 impl fmt::Display for WasmRawBodyMemoryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
+}
+
+fn wasm_opcode_has_memory_access_segment(op: &str, prefix: &str) -> bool {
+    op.split('.').skip(1).any(|segment| {
+        if segment == prefix {
+            return true;
+        }
+        let Some(rest) = segment.strip_prefix(prefix) else {
+            return false;
+        };
+        rest.chars().next().is_some_and(|ch| ch.is_ascii_digit())
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -282,12 +314,57 @@ impl LlvmRawBodyMemoryOp {
             LlvmRawBodyMemoryOp::Memset => "llvm.memset",
         }
     }
+
+    fn from_instruction_opcode(op: &str) -> Option<Self> {
+        let operation = match op {
+            "alloca" => Self::Alloca,
+            "load" => Self::Load,
+            "store" => Self::Store,
+            "atomicrmw" => Self::AtomicRmw,
+            "cmpxchg" => Self::Cmpxchg,
+            "fence" => Self::Fence,
+            _ => return None,
+        };
+        Some(operation)
+    }
+
+    fn from_intrinsic_callee(callee: &str) -> Option<Self> {
+        for operation in [Self::Memcpy, Self::Memmove, Self::Memset] {
+            if let Some(base) = operation.llvm_intrinsic_base_name() {
+                if llvm_intrinsic_callee_matches(callee, base) {
+                    return Some(operation);
+                }
+            }
+        }
+        None
+    }
+
+    const fn llvm_intrinsic_base_name(self) -> Option<&'static str> {
+        match self {
+            Self::Memcpy => Some("llvm.memcpy"),
+            Self::Memmove => Some("llvm.memmove"),
+            Self::Memset => Some("llvm.memset"),
+            Self::Alloca
+            | Self::Load
+            | Self::Store
+            | Self::AtomicRmw
+            | Self::Cmpxchg
+            | Self::Fence => None,
+        }
+    }
 }
 
 impl fmt::Display for LlvmRawBodyMemoryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
+}
+
+fn llvm_intrinsic_callee_matches(callee: &str, base: &str) -> bool {
+    callee == base
+        || callee
+            .strip_prefix(base)
+            .is_some_and(|suffix| suffix.starts_with('.'))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -682,27 +759,7 @@ fn strip_wasm_comment(line: &str) -> &str {
 fn wasm_memory_operation(line: &str) -> Option<RawBodyMemoryOp> {
     let code = strip_wasm_comment(line).trim();
     let op = code.split_whitespace().next()?;
-    wasm_memory_op_from_opcode(op).map(RawBodyMemoryOp::Wasm)
-}
-
-fn wasm_memory_op_from_opcode(op: &str) -> Option<WasmRawBodyMemoryOp> {
-    if op.contains(".load") {
-        return Some(WasmRawBodyMemoryOp::Load);
-    }
-    if op.contains(".store") {
-        return Some(WasmRawBodyMemoryOp::Store);
-    }
-    let operation = match op {
-        "memory.size" => WasmRawBodyMemoryOp::MemorySize,
-        "memory.grow" => WasmRawBodyMemoryOp::MemoryGrow,
-        "memory.copy" => WasmRawBodyMemoryOp::MemoryCopy,
-        "memory.fill" => WasmRawBodyMemoryOp::MemoryFill,
-        "memory.init" => WasmRawBodyMemoryOp::MemoryInit,
-        "data.drop" => WasmRawBodyMemoryOp::DataDrop,
-        _ if op.starts_with("memory.") => WasmRawBodyMemoryOp::Memory,
-        _ => return None,
-    };
-    Some(operation)
+    WasmRawBodyMemoryOp::from_opcode(op).map(RawBodyMemoryOp::Wasm)
 }
 
 fn llvm_direct_callee(line: &str) -> Option<String> {
@@ -736,12 +793,12 @@ fn llvm_memory_operation(line: &str) -> Option<RawBodyMemoryOp> {
         return None;
     }
     if let Some(callee) = llvm_direct_callee(line) {
-        if let Some(operation) = llvm_memory_op_from_callee(&callee) {
+        if let Some(operation) = LlvmRawBodyMemoryOp::from_intrinsic_callee(&callee) {
             return Some(RawBodyMemoryOp::Llvm(operation));
         }
     }
     let op = llvm_instruction_opcode(code)?;
-    llvm_memory_op_from_opcode(op).map(RawBodyMemoryOp::Llvm)
+    LlvmRawBodyMemoryOp::from_instruction_opcode(op).map(RawBodyMemoryOp::Llvm)
 }
 
 fn llvm_instruction_opcode(code: &str) -> Option<&str> {
@@ -750,32 +807,6 @@ fn llvm_instruction_opcode(code: &str) -> Option<&str> {
         text = text[(eq_idx + 1)..].trim_start();
     }
     text.split_whitespace().next()
-}
-
-fn llvm_memory_op_from_opcode(op: &str) -> Option<LlvmRawBodyMemoryOp> {
-    let operation = match op {
-        "alloca" => LlvmRawBodyMemoryOp::Alloca,
-        "load" => LlvmRawBodyMemoryOp::Load,
-        "store" => LlvmRawBodyMemoryOp::Store,
-        "atomicrmw" => LlvmRawBodyMemoryOp::AtomicRmw,
-        "cmpxchg" => LlvmRawBodyMemoryOp::Cmpxchg,
-        "fence" => LlvmRawBodyMemoryOp::Fence,
-        _ => return None,
-    };
-    Some(operation)
-}
-
-fn llvm_memory_op_from_callee(callee: &str) -> Option<LlvmRawBodyMemoryOp> {
-    if callee.starts_with("llvm.memcpy") {
-        return Some(LlvmRawBodyMemoryOp::Memcpy);
-    }
-    if callee.starts_with("llvm.memmove") {
-        return Some(LlvmRawBodyMemoryOp::Memmove);
-    }
-    if callee.starts_with("llvm.memset") {
-        return Some(LlvmRawBodyMemoryOp::Memset);
-    }
-    None
 }
 
 fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
