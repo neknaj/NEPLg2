@@ -20112,3 +20112,103 @@ fn main <()*>i32> ():
         "Copy payload sources inside unresolved Result variants must not be owner-reserved",
     );
 }
+
+#[test]
+fn resource_ir_owner_summary_keeps_copy_str_views_after_selfhost_path_resolution() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/stdlib_map" as *
+
+fn main <()*>i32> ():
+    let map <SelfhostModulePathMap> selfhost_module_path_map_new "user" "stdlib"
+    let span <SelfhostSourceSpan> source_span_empty 0 0
+    let current_path <str> "user/app/main.nepl"
+    let resolved_ok <bool> match selfhost_module_path_resolve_import &map current_path span "./util":
+        Result::Ok resolved:
+            str_eq resolved.path "user/app/util.nepl"
+        Result::Err _diag:
+            false
+    let current_still_available <bool> str_eq current_path "user/app/main.nepl"
+    if and resolved_ok current_still_available 0 1
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("selfhost_module_path_") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "selfhost path resolution must not consume Copy str view arguments in owner summaries: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasi).expect(
+        "selfhost path resolution must not consume Copy str view arguments in owner summaries",
+    );
+}
+
+#[test]
+fn resource_ir_owner_summary_returns_branch_report_with_copy_str_payloads() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/result" as *
+#import "std/test" as *
+
+fn push_err <(TestReport,bool)*>TestReport> (checks, ok):
+    if:
+        ok
+        then:
+            checks_push checks check true
+        else:
+            checks_push checks Result<(),str>::Err "bad"
+
+fn main <()*>i32> ():
+    let checks <TestReport> checks_new
+    let shown <TestReport> checks_print_report push_err checks false
+    checks_exit_code shown
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("push_err__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "branching std/test report flow must return active report owners and ignore inactive Copy str payload reservations: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasi).expect(
+        "branching std/test report flow must return active report owners and ignore inactive Copy str payload reservations",
+    );
+}

@@ -1,3 +1,24 @@
+# 2026-05-18 Agent 1 ResourceIR owner summary Copy str view / owner-backed str 分離
+
+- `ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、ResourceIR owner summary application が `str` の Copy capability だけを見て、non-owning view と owner-backed `str` storage を同一視していたこと。
+- `TypeCtx::is_copy` と owner leaf 構造に加え、`OwnerTable` / raw alias 解決後に transferable owner がない場合だけ Copy view facts を copy するようにした。`Live` / `MaybeFreed` の owner-backed `str` は通常の owner transfer に残す。
+- return 値が外側 storage origin を保持する場合、origin source owner も return-value operation で move out するようにし、copied view return と owner escape の整合を取った。
+- stdlib module 名や helper 名の allowlist は追加していない。判断材料は型の Copy capability、owner leaf、owner table state、raw alias、storage origin に限定している。
+- `tests/stdlib/neplg2_stdlib_map.n.md` 全3件の確認では `doctest#1/#3` が pass し、`doctest#2` は default 60000ms compile timeout になった。300000ms 枠では pass し、`compile_ms=74772`, `run_ms=29` だったため、生成 wasm ではなく compiler/static-check cost の別問題として `ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E` を追加した。
+- 回帰:
+  - `resource_ir_owner_summary_keeps_copy_str_views_after_selfhost_path_resolution`
+  - `resource_ir_owner_summary_returns_branch_report_with_copy_str_payloads`
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - 上記2件の focused cargo tests
+  - ResourceIR owner summary / variant / raw owner focused regressions 8件
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_stdlib_map.n.md -n 1 --assert-io --dist web\dist`: pass, stdout report 8 assertion
+  - `$env:NEPL_TEST_CASE_TIMEOUT_MS='300000'; node nodesrc\run_doctest.js -i tests\stdlib\neplg2_stdlib_map.n.md -n 2 --assert-io --dist web\dist`: pass, stdout report 9 assertion, compile 約74.8秒
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の ResourceIR owner summary が、Copy view と owner-backed storage を所有状態に基づいて分離できるようになった。
+
 # 2026-05-18 Agent 1 selfhost stdlib_map stdout report metadata / ResourceIR Copy reservation
 
 - `ISS-20260517T193057449Z-SELFHOST-STDLIB-MAP-DOCTESTS-STILL-U-320C9452` を fixed / resolved にした。`plan.md` は変更していない。

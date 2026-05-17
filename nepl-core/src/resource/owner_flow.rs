@@ -1,4 +1,5 @@
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::resource_primitives::type_is_owner_token;
 use crate::span::Span;
@@ -374,6 +375,49 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
                 OwnerState::NoFreeObligation => {}
             }
+        }
+    }
+
+    pub(super) fn move_return_storage_origin_owners_out(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        storage_origins: &mut StorageOriginTable,
+        value: &Place,
+        span: Span,
+    ) {
+        let mut sources = storage_origins
+            .entries_under(value)
+            .into_iter()
+            .filter_map(|entry| {
+                let source = storage_origins
+                    .origin_source(&entry.place)
+                    .unwrap_or(entry.place);
+                (!places_overlap(&source, value)).then_some(source)
+            })
+            .collect::<Vec<_>>();
+        sources.sort_by_key(|source| source.projections.len());
+
+        let mut moved_sources: Vec<Place> = Vec::new();
+        for source in sources {
+            if moved_sources
+                .iter()
+                .any(|moved| places_overlap(moved, &source))
+            {
+                continue;
+            }
+            if !self.has_transferable_owner(owners, raw_aliases, &source) {
+                continue;
+            }
+            self.move_owner_out(
+                owners,
+                raw_aliases,
+                storage_origins,
+                &source,
+                ResourceOwnerOperation::ReturnValue,
+                span,
+            );
+            moved_sources.push(source);
         }
     }
 

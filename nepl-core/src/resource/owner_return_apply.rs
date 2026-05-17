@@ -64,6 +64,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 transferred = true;
                 break;
             }
+            if self.try_copy_parameter_view_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
             if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, arg) {
                 if !self.summary_return_extent_requirement_holds(
                     owners,
@@ -114,6 +125,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
             if self.try_copy_non_owning_parameter_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source_place,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
+            if self.try_copy_parameter_view_return(
                 owners,
                 raw_aliases,
                 raw_views,
@@ -274,6 +296,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 transferred = true;
                 break;
             }
+            if self.try_copy_parameter_view_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
             if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, arg) {
                 if !self.summary_return_extent_requirement_holds(
                     owners,
@@ -324,6 +357,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
             if self.try_copy_non_owning_parameter_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source_place,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
+            if self.try_copy_parameter_view_return(
                 owners,
                 raw_aliases,
                 raw_views,

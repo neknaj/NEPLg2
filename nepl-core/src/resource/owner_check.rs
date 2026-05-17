@@ -108,6 +108,13 @@ impl ResourceOwnerCheckEngine<'_> {
                             ResourceOwnerOperation::ReturnValue,
                             *span,
                         );
+                        self.move_return_storage_origin_owners_out(
+                            owners,
+                            raw_aliases,
+                            storage_origins,
+                            value,
+                            *span,
+                        );
                     }
                 }
             }

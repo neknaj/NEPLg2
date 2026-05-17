@@ -35,6 +35,9 @@ pub(super) fn consume_pending_variant_owner(
     source: &Place,
     span: Span,
 ) -> bool {
+    if engine.place_is_copy_owner_view(owners, raw_aliases, source) {
+        return false;
+    }
     if let Some(requirement) = &entry.extent {
         if !engine.ensure_owner_extent_matches_summary(
             owners,
@@ -102,6 +105,7 @@ pub(super) fn apply_pending_variant_owner_return(
             if owners.has_transferable_owner(&target) {
                 if !places_overlap(&source, &target)
                     && engine.has_transferable_owner(owners, raw_aliases, &source)
+                    && !engine.place_is_copy_owner_view(owners, raw_aliases, &source)
                 {
                     engine.move_owner_out(
                         owners,
@@ -136,6 +140,16 @@ pub(super) fn apply_pending_variant_owner_return(
                 }
             }
             raw_aliases.copy_scalar_facts_if_tracked(&source, &target);
+            if engine.try_copy_parameter_view_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source,
+                &target,
+            ) {
+                return Some(source);
+            }
             engine.transfer_owner_from_summary_effect(
                 owners,
                 raw_aliases,

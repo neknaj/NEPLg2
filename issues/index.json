@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T20:27:24.325Z",
+  "generated_at": "2026-05-17T21:24:39.203Z",
   "counts": {
-    "total": 968,
+    "total": 969,
     "open": 6,
-    "resolved": 962,
+    "resolved": 963,
     "by_area": {
       "CORE": {
-        "total": 3,
+        "total": 4,
         "open": 1,
-        "resolved": 2
+        "resolved": 3
       },
       "stdlib": {
         "total": 262,
@@ -130,19 +130,19 @@
   },
   "issues": [
     {
-      "id": "ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A",
-      "title": "ResourceIR owner summary still treats copied str views as moved across stdlib_map resolution",
+      "id": "ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E",
+      "title": "selfhost stdlib_map graph doctest exceeds default compile timeout",
       "area": "CORE",
       "status": "open",
       "resolved": false,
-      "priority": "P0",
-      "type": "architecture",
+      "priority": "P1",
+      "type": "performance",
       "created": "2026-05-17",
       "updated": "2026-05-17",
-      "target": "nepl-core/src/resource, stdlib/neplg2/core/module/stdlib_map.nepl, stdlib/std/test/report.nepl",
+      "target": "tests/stdlib/neplg2_stdlib_map.n.md, nepl-core/src/resource",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A.md"
+      "file": "items/ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -608,6 +608,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T100329630Z-RAW-ADDRESS-VIEW-SOURCE-PROOF-GRANTS-A2AEFF8E.md"
+    },
+    {
+      "id": "ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A",
+      "title": "ResourceIR owner summary still treats copied str views as moved across stdlib_map resolution",
+      "area": "CORE",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource, stdlib/neplg2/core/module/stdlib_map.nepl, stdlib/std/test/report.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A.md"
     },
     {
       "id": "ISS-20260517T201648863Z-RESOURCEIR-VARIANT-OWNER-RESERVATION-F28E5200",
