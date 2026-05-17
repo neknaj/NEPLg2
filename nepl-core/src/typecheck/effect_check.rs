@@ -62,14 +62,14 @@ impl<'a> BlockChecker<'a> {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        source_map.raw_memory_structural_boundary_allowed(span.file_id)
+        source_map.raw_memory_structural_boundary_allowed_at(span)
     }
 
     pub(super) fn raw_memory_operation_allowed(&self, operation: RawMemoryOp, span: Span) -> bool {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        source_map.raw_memory_operation_boundary_allowed(span.file_id, operation)
+        source_map.raw_memory_operation_boundary_allowed_at(span, operation)
     }
 
     pub(super) fn raw_body_memory_operation_allowed(
@@ -80,7 +80,7 @@ impl<'a> BlockChecker<'a> {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        source_map.raw_body_memory_operation_boundary_allowed(span.file_id, operation)
+        source_map.raw_body_memory_operation_boundary_allowed_at(span, operation)
     }
 
     pub(super) fn owner_aggregate_constructor_boundary_allowed(
@@ -91,14 +91,14 @@ impl<'a> BlockChecker<'a> {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        source_map.owner_aggregate_constructor_boundary_allowed(span.file_id, name)
+        source_map.owner_aggregate_constructor_boundary_allowed_at(span, name)
     }
 
     pub(super) fn owner_aggregate_field_boundary_allowed(&self, span: Span) -> bool {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        source_map.owner_aggregate_field_boundary_allowed(span.file_id)
+        source_map.owner_aggregate_field_boundary_allowed_at(span)
     }
 
     pub(super) fn raw_memory_intrinsic_allowed(&self, name: &str, span: Span) -> bool {

@@ -1,3 +1,23 @@
+# 2026-05-17 Agent 1 source capability exact use-site proof 実装
+
+- `ISS-20260517T004939361Z-SOURCE-CAPABILITY-PROOF-IS-STILL-CON-C609583C` を fixed / resolved にした。
+- 根本原因は、source capability の evidence collection は shared traversal / single proof collector に統合済みだったが、proof の消費時に `SourceCapabilities` の file-level enum set へ畳み込まれ、compiler/typecheck/resource gate が `span.file_id` と operation だけで raw / owner / compiler-memory boundary を許可していたこと。
+- `SourceCapabilityUseSite` と `SourceCapabilitySpan` を導入し、raw memory structural、raw address view、raw operation、raw body operation、owner aggregate constructor/field、compiler memory type definition、compiler memory field projection を exact use site proof として保持するようにした。
+- `SourceCapabilityProofCollector` は broad `SourceCapability` を組み立てず、shared source traversal の callback から exact span 付き use-site proof を挿入する。`compiler.rs` / `typecheck/effect_check.rs` / `typecheck/field_access.rs` / `typecheck/compiler_memory_type.rs` は `*_allowed_at(span, ...)` を使い、`*_allowed_at` は旧 file-level capability に fallback しない。
+- `MemPtr.raw` の projection は owner aggregate field proof とは別の `CompilerMemoryFieldBoundary` use-site proof に分離した。`#wasm` / `#llvmir` raw body proof は typecheck diagnostic と同じ function-name span に揃えた。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core source_map::tests -- --nocapture`
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary -- --nocapture`
+  - `cargo test -p nepl-core resource_effect_gate -- --nocapture`
+  - `cargo test -p nepl-core compiler_memory_type -- --nocapture`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source capability proof 消費を、file-level authority から exact use-site authority へ移した。
+
 # 2026-05-17 Agent 1 Resource place skeleton address projection classifier 接続
 
 - `ISS-20260517T003825703Z-RESOURCE-PLACE-SKELETON-STILL-CLASSI-5ED30216` を追加し、fixed / resolved にした。

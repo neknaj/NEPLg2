@@ -730,8 +730,35 @@ mod tests {
         ResourceCheckOperation, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
         ResourceId, ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
     };
-    use crate::source_map::{SourceCapabilities, SourceCapability, SourceMap};
+    use crate::source_map::{
+        SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite, SourceMap,
+    };
     use alloc::boxed::Box;
+
+    fn use_site_capabilities(use_site: SourceCapabilityUseSite) -> SourceCapabilities {
+        let mut capabilities = SourceCapabilities::none();
+        capabilities.insert_use_site(use_site);
+        capabilities
+    }
+
+    fn raw_memory_structural_capabilities(span: Span) -> SourceCapabilities {
+        use_site_capabilities(SourceCapabilityUseSite::RawMemoryStructuralBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    fn raw_memory_operation_capabilities(operation: RawMemoryOp, span: Span) -> SourceCapabilities {
+        use_site_capabilities(SourceCapabilityUseSite::RawMemoryOperationBoundary {
+            operation,
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    fn raw_address_view_capabilities(span: Span) -> SourceCapabilities {
+        use_site_capabilities(SourceCapabilityUseSite::RawAddressViewBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
 
     #[test]
     fn resource_cell_gate_maps_cell_diagnostics_to_cell_code() {
@@ -980,16 +1007,14 @@ mod tests {
     fn resource_effect_gate_allows_raw_identity_escape_inside_raw_boundary() {
         let types = crate::types::TypeCtx::new();
         let mut source_map = SourceMap::new();
-        let raw_file = source_map.add_with_capabilities(
-            "stdlib/core/mem/allocator.nepl",
-            String::new(),
-            SourceCapabilities::raw_memory_boundary(),
-        );
+        let raw_file = source_map.add("stdlib/core/mem/allocator.nepl", String::new());
+        let span = Span::new(raw_file, 0, 1);
+        source_map.set_capabilities(raw_file, raw_memory_structural_capabilities(span));
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function: String::from("alloc_raw"),
             operation: RawMemoryOp::Alloc,
             place: Place::temporary(ResourceId(0), types.i32()),
-            span: Span::new(raw_file, 0, 1),
+            span,
         };
 
         assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
@@ -1002,32 +1027,30 @@ mod tests {
     fn resource_effect_gate_allows_raw_alloc_identity_with_alloc_capability() {
         let types = crate::types::TypeCtx::new();
         let mut source_map = SourceMap::new();
-        let alloc_file = source_map.add_with_capabilities(
-            "stdlib/core/mem/allocator.nepl",
-            String::new(),
-            SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
-                RawMemoryOp::Alloc,
-            )),
+        let alloc_file = source_map.add("stdlib/core/mem/allocator.nepl", String::new());
+        let store_file = source_map.add("stdlib/core/mem/store.nepl", String::new());
+        let alloc_span = Span::new(alloc_file, 0, 1);
+        let store_span = Span::new(store_file, 0, 1);
+        source_map.set_capabilities(
+            alloc_file,
+            raw_memory_operation_capabilities(RawMemoryOp::Alloc, alloc_span),
         );
-        let store_file = source_map.add_with_capabilities(
-            "stdlib/core/mem/store.nepl",
-            String::new(),
-            SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
-                RawMemoryOp::Store,
-            )),
+        source_map.set_capabilities(
+            store_file,
+            raw_memory_operation_capabilities(RawMemoryOp::Store, store_span),
         );
         let place = Place::temporary(ResourceId(0), types.i32());
         let alloc_escape = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function: String::from("alloc_raw"),
             operation: RawMemoryOp::Alloc,
             place: place.clone(),
-            span: Span::new(alloc_file, 0, 1),
+            span: alloc_span,
         };
         let store_escape = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function: String::from("alloc_raw"),
             operation: RawMemoryOp::Alloc,
             place,
-            span: Span::new(store_file, 0, 1),
+            span: store_span,
         };
 
         assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
@@ -1119,15 +1142,16 @@ mod tests {
     #[test]
     fn resource_effect_gate_allows_raw_memory_inside_raw_boundary() {
         let mut source_map = SourceMap::new();
-        let raw_file = source_map.add_with_capabilities(
-            "stdlib/core/mem/raw.nepl",
-            String::new(),
-            SourceCapabilities::raw_memory_boundary(),
+        let raw_file = source_map.add("stdlib/core/mem/raw.nepl", String::new());
+        let span = Span::new(raw_file, 0, 1);
+        source_map.set_capabilities(
+            raw_file,
+            raw_memory_operation_capabilities(RawMemoryOp::Store, span),
         );
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
             function: String::from("store_raw"),
             operation: RawMemoryOp::Store,
-            span: Span::new(raw_file, 0, 1),
+            span,
         };
 
         assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
@@ -1139,15 +1163,13 @@ mod tests {
     #[test]
     fn resource_effect_gate_allows_raw_address_view_inside_raw_boundary() {
         let mut source_map = SourceMap::new();
-        let raw_file = source_map.add_with_capabilities(
-            "stdlib/core/mem/pointer/view.nepl",
-            String::new(),
-            SourceCapabilities::with(SourceCapability::RawAddressViewBoundary),
-        );
+        let raw_file = source_map.add("stdlib/core/mem/pointer/view.nepl", String::new());
+        let span = Span::new(raw_file, 0, 1);
+        source_map.set_capabilities(raw_file, raw_address_view_capabilities(span));
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
             function: String::from("mem_ptr_add"),
             kind: RawAddressViewKind::MemPtrOffset,
-            span: Span::new(raw_file, 0, 1),
+            span,
         };
 
         assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
@@ -1159,22 +1181,21 @@ mod tests {
     #[test]
     fn resource_effect_gate_requires_matching_raw_operation_capability() {
         let mut source_map = SourceMap::new();
-        let raw_file = source_map.add_with_capabilities(
-            "stdlib/core/mem/raw_store.nepl",
-            String::new(),
-            SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
-                RawMemoryOp::Store,
-            )),
+        let raw_file = source_map.add("stdlib/core/mem/raw_store.nepl", String::new());
+        let span = Span::new(raw_file, 0, 1);
+        source_map.set_capabilities(
+            raw_file,
+            raw_memory_operation_capabilities(RawMemoryOp::Store, span),
         );
         let store = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
             function: String::from("store_raw"),
             operation: RawMemoryOp::Store,
-            span: Span::new(raw_file, 0, 1),
+            span,
         };
         let load = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
             function: String::from("load_raw"),
             operation: RawMemoryOp::Load,
-            span: Span::new(raw_file, 0, 1),
+            span,
         };
 
         assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
@@ -1273,7 +1294,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_operation_boundary_allowed(span.file_id, *operation))
+                .map(|map| map.raw_memory_operation_boundary_allowed_at(span, *operation))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
@@ -1284,7 +1305,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_operation_boundary_allowed(span.file_id, *operation))
+                .map(|map| map.raw_memory_operation_boundary_allowed_at(span, *operation))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
@@ -1294,7 +1315,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 return false;
             };
             source_map
-                .map(|map| map.raw_address_view_boundary_allowed(span.file_id))
+                .map(|map| map.raw_address_view_boundary_allowed_at(span))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
@@ -1305,7 +1326,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_operation_boundary_allowed(span.file_id, *operation))
+                .map(|map| map.raw_memory_operation_boundary_allowed_at(span, *operation))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
@@ -1325,11 +1346,11 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
 }
 
 fn raw_identity_escape_allowed(operation: RawMemoryOp, span: Span, source_map: &SourceMap) -> bool {
-    if source_map.raw_memory_structural_boundary_allowed(span.file_id) {
+    if source_map.raw_memory_structural_boundary_allowed_at(span) {
         return true;
     }
     matches!(operation, RawMemoryOp::Alloc | RawMemoryOp::Realloc)
-        && source_map.raw_memory_operation_boundary_allowed(span.file_id, operation)
+        && source_map.raw_memory_operation_boundary_allowed_at(span, operation)
 }
 
 fn resource_effect_boundary_diagnostic_to_error(

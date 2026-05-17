@@ -779,6 +779,7 @@ mod tests {
     use super::*;
 
     use crate::effects::RawMemoryOp;
+    use crate::span::Span;
 
     fn test_loader() -> Loader {
         Loader::new(PathBuf::from("C:/nepl-test/stdlib"))
@@ -1391,10 +1392,12 @@ mod tests {
             })
             .expect("RegionToken struct is imported");
 
-        assert!(loaded.source_map.compiler_memory_type_definition_allowed(
-            region_token.name.span.file_id,
-            crate::source_map::CompilerMemoryType::OwnerToken,
-        ));
+        assert!(loaded
+            .source_map
+            .compiler_memory_type_definition_allowed_at(
+                region_token.name.span,
+                crate::source_map::CompilerMemoryType::OwnerToken,
+            ));
     }
 
     #[test]
@@ -1548,14 +1551,23 @@ mod tests {
             &loader.stdlib_root,
             &["core", "mem", "pointer", "scalar.nepl"],
         ));
-        let capabilities = load_source_capabilities(
-            &loader,
-            path,
-            "pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):\n    let raw <i32> mem_ptr_addr p;\n    Option<i32>::Some load_u8 raw\n",
-        );
+        let src = "pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):\n    let raw <i32> mem_ptr_addr p;\n    Option<i32>::Some load_u8 raw\n";
+        let capabilities = load_source_capabilities(&loader, path, src);
+        let call_start = src.rfind("load_u8 raw").expect("raw helper call") as u32;
+        let call_span = Span::new(FileId(0), call_start, call_start + "load_u8".len() as u32);
+        let unrelated_span = Span::new(FileId(0), call_span.end + 1, call_span.end + 8);
         assert!(
             capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
             "a raw primitive call used as a constructor payload must remain source evidence"
+        );
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, call_span),
+            "source proof must attach raw operation authority to the raw helper call site"
+        );
+        assert!(
+            !capabilities
+                .allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, unrelated_span),
+            "raw operation authority must not spread to another span in the same file"
         );
     }
 

@@ -16,7 +16,7 @@ pub(super) fn compiler_memory_type_definition_allowed(
     let memory_type = compiler_memory_type_from_constructor_name(def.name.name.as_str())?;
     let source_allows_definition = source_map
         .map(|source_map| {
-            source_map.compiler_memory_type_definition_allowed(def.name.span.file_id, memory_type)
+            source_map.compiler_memory_type_definition_allowed_at(def.name.span, memory_type)
         })
         .unwrap_or(false);
     if !source_allows_definition

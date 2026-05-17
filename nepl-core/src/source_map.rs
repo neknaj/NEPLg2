@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::effects::{LlvmRawBodyMemoryOp, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
-use crate::span::FileId;
+use crate::span::{FileId, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SourcePath {
@@ -70,7 +70,56 @@ pub enum SourceCapability {
     RawBodyMemoryOperationBoundary(RawBodyMemoryOp),
     OwnerAggregateConstructorBoundary(String),
     OwnerAggregateFieldBoundary,
+    CompilerMemoryFieldBoundary,
     CompilerMemoryTypeDefinition(CompilerMemoryType),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SourceCapabilitySpan {
+    start: u32,
+    end: u32,
+}
+
+impl SourceCapabilitySpan {
+    pub fn from_span(span: Span) -> Self {
+        Self {
+            start: span.start,
+            end: span.end,
+        }
+    }
+}
+
+/// Compiler-owned privilege proven for one syntactic use site.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SourceCapabilityUseSite {
+    RawMemoryStructuralBoundary {
+        span: SourceCapabilitySpan,
+    },
+    RawAddressViewBoundary {
+        span: SourceCapabilitySpan,
+    },
+    RawMemoryOperationBoundary {
+        operation: RawMemoryOp,
+        span: SourceCapabilitySpan,
+    },
+    RawBodyMemoryOperationBoundary {
+        operation: RawBodyMemoryOp,
+        span: SourceCapabilitySpan,
+    },
+    OwnerAggregateConstructorBoundary {
+        name: String,
+        span: SourceCapabilitySpan,
+    },
+    OwnerAggregateFieldBoundary {
+        span: SourceCapabilitySpan,
+    },
+    CompilerMemoryFieldBoundary {
+        span: SourceCapabilitySpan,
+    },
+    CompilerMemoryTypeDefinition {
+        memory_type: CompilerMemoryType,
+        span: SourceCapabilitySpan,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -118,12 +167,14 @@ const ALL_RAW_BODY_MEMORY_OPS: &[RawBodyMemoryOp] = &[
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SourceCapabilities {
     capabilities: BTreeSet<SourceCapability>,
+    use_sites: BTreeSet<SourceCapabilityUseSite>,
 }
 
 impl SourceCapabilities {
     pub fn none() -> Self {
         Self {
             capabilities: BTreeSet::new(),
+            use_sites: BTreeSet::new(),
         }
     }
 
@@ -157,45 +208,179 @@ impl SourceCapabilities {
     pub fn with(capability: SourceCapability) -> Self {
         let mut capabilities = BTreeSet::new();
         capabilities.insert(capability);
-        Self { capabilities }
+        Self {
+            capabilities,
+            use_sites: BTreeSet::new(),
+        }
     }
 
     pub fn insert(&mut self, capability: SourceCapability) {
         self.capabilities.insert(capability);
     }
 
+    pub(crate) fn insert_use_site(&mut self, use_site: SourceCapabilityUseSite) {
+        self.use_sites.insert(use_site);
+    }
+
     pub fn allows(&self, capability: SourceCapability) -> bool {
         self.capabilities.contains(&capability)
     }
 
+    fn allows_use_site(&self, use_site: SourceCapabilityUseSite) -> bool {
+        self.use_sites.contains(&use_site)
+    }
+
     pub fn allows_raw_memory_structural_boundary(&self) -> bool {
         self.allows(SourceCapability::RawMemoryStructuralBoundary)
+            || self.use_sites.iter().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::RawMemoryStructuralBoundary { .. }
+                )
+            })
     }
 
     pub fn allows_raw_address_view_boundary(&self) -> bool {
         self.allows(SourceCapability::RawAddressViewBoundary)
+            || self
+                .use_sites
+                .iter()
+                .any(|site| matches!(site, SourceCapabilityUseSite::RawAddressViewBoundary { .. }))
     }
 
     pub fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool {
         self.allows(SourceCapability::RawMemoryOperationBoundary(operation))
+            || self.use_sites.iter().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::RawMemoryOperationBoundary { operation: site_op, .. }
+                        if *site_op == operation
+                )
+            })
     }
 
     pub fn allows_raw_body_memory_operation_boundary(&self, operation: RawBodyMemoryOp) -> bool {
         self.allows(SourceCapability::RawBodyMemoryOperationBoundary(operation))
+            || self.use_sites.iter().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::RawBodyMemoryOperationBoundary {
+                        operation: site_op,
+                        ..
+                    } if *site_op == operation
+                )
+            })
     }
 
     pub fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool {
         self.allows(SourceCapability::OwnerAggregateConstructorBoundary(
             String::from(name),
-        ))
+        )) || self.use_sites.iter().any(|site| {
+            matches!(
+                site,
+                SourceCapabilityUseSite::OwnerAggregateConstructorBoundary {
+                    name: site_name,
+                    ..
+                } if site_name == name
+            )
+        })
     }
 
     pub fn allows_owner_aggregate_field_boundary(&self) -> bool {
         self.allows(SourceCapability::OwnerAggregateFieldBoundary)
+            || self.use_sites.iter().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::OwnerAggregateFieldBoundary { .. }
+                )
+            })
+    }
+
+    pub fn allows_compiler_memory_field_boundary(&self) -> bool {
+        self.allows(SourceCapability::CompilerMemoryFieldBoundary)
+            || self.use_sites.iter().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::CompilerMemoryFieldBoundary { .. }
+                )
+            })
     }
 
     pub fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool {
         self.allows(SourceCapability::CompilerMemoryTypeDefinition(memory_type))
+            || self.use_sites.iter().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::CompilerMemoryTypeDefinition {
+                        memory_type: site_type,
+                        ..
+                    } if *site_type == memory_type
+                )
+            })
+    }
+
+    pub fn allows_raw_memory_structural_boundary_at(&self, span: Span) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::RawMemoryStructuralBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_raw_address_view_boundary_at(&self, span: Span) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::RawAddressViewBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_raw_memory_operation_boundary_at(
+        &self,
+        operation: RawMemoryOp,
+        span: Span,
+    ) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
+            operation,
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_raw_body_memory_operation_boundary_at(
+        &self,
+        operation: RawBodyMemoryOp,
+        span: Span,
+    ) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::RawBodyMemoryOperationBoundary {
+            operation,
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_owner_aggregate_constructor_boundary_at(&self, name: &str, span: Span) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::OwnerAggregateConstructorBoundary {
+            name: String::from(name),
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_owner_aggregate_field_boundary_at(&self, span: Span) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::OwnerAggregateFieldBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_compiler_memory_field_boundary_at(&self, span: Span) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_compiler_memory_type_definition_at(
+        &self,
+        memory_type: CompilerMemoryType,
+        span: Span,
+    ) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::CompilerMemoryTypeDefinition {
+            memory_type,
+            span: SourceCapabilitySpan::from_span(span),
+        })
     }
 }
 
@@ -271,6 +456,11 @@ impl SourceMap {
             .allows_owner_aggregate_field_boundary()
     }
 
+    pub fn compiler_memory_field_boundary_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id)
+            .allows_compiler_memory_field_boundary()
+    }
+
     pub fn compiler_memory_type_definition_allowed(
         &self,
         id: FileId,
@@ -278,6 +468,58 @@ impl SourceMap {
     ) -> bool {
         self.capabilities(id)
             .allows_compiler_memory_type_definition(memory_type)
+    }
+
+    pub fn raw_memory_structural_boundary_allowed_at(&self, span: Span) -> bool {
+        self.capabilities(span.file_id)
+            .allows_raw_memory_structural_boundary_at(span)
+    }
+
+    pub fn raw_address_view_boundary_allowed_at(&self, span: Span) -> bool {
+        self.capabilities(span.file_id)
+            .allows_raw_address_view_boundary_at(span)
+    }
+
+    pub fn raw_memory_operation_boundary_allowed_at(
+        &self,
+        span: Span,
+        operation: RawMemoryOp,
+    ) -> bool {
+        self.capabilities(span.file_id)
+            .allows_raw_memory_operation_boundary_at(operation, span)
+    }
+
+    pub fn raw_body_memory_operation_boundary_allowed_at(
+        &self,
+        span: Span,
+        operation: RawBodyMemoryOp,
+    ) -> bool {
+        self.capabilities(span.file_id)
+            .allows_raw_body_memory_operation_boundary_at(operation, span)
+    }
+
+    pub fn owner_aggregate_constructor_boundary_allowed_at(&self, span: Span, name: &str) -> bool {
+        self.capabilities(span.file_id)
+            .allows_owner_aggregate_constructor_boundary_at(name, span)
+    }
+
+    pub fn owner_aggregate_field_boundary_allowed_at(&self, span: Span) -> bool {
+        self.capabilities(span.file_id)
+            .allows_owner_aggregate_field_boundary_at(span)
+    }
+
+    pub fn compiler_memory_field_boundary_allowed_at(&self, span: Span) -> bool {
+        self.capabilities(span.file_id)
+            .allows_compiler_memory_field_boundary_at(span)
+    }
+
+    pub fn compiler_memory_type_definition_allowed_at(
+        &self,
+        span: Span,
+        memory_type: CompilerMemoryType,
+    ) -> bool {
+        self.capabilities(span.file_id)
+            .allows_compiler_memory_type_definition_at(memory_type, span)
     }
 
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {
@@ -346,8 +588,12 @@ mod tests {
     use alloc::string::String;
 
     use crate::effects::RawMemoryOp;
+    use crate::span::Span;
 
-    use super::{CompilerMemoryType, SourceCapabilities, SourceCapability, SourceMap};
+    use super::{
+        CompilerMemoryType, SourceCapabilities, SourceCapability, SourceCapabilitySpan,
+        SourceCapabilityUseSite, SourceMap,
+    };
 
     #[test]
     fn source_capabilities_are_enum_keyed() {
@@ -385,8 +631,14 @@ mod tests {
         let owner_field = SourceCapabilities::owner_aggregate_field_boundary();
         assert!(owner_field.allows_owner_aggregate_field_boundary());
         assert!(!owner_field.allows_owner_aggregate_constructor_boundary("Vec"));
+        assert!(!owner_field.allows_compiler_memory_field_boundary());
         assert!(!owner_field.allows_raw_memory_structural_boundary());
         assert!(!owner_field.allows_raw_address_view_boundary());
+
+        let compiler_field =
+            SourceCapabilities::with(SourceCapability::CompilerMemoryFieldBoundary);
+        assert!(compiler_field.allows_compiler_memory_field_boundary());
+        assert!(!compiler_field.allows_owner_aggregate_field_boundary());
 
         let address_view = SourceCapabilities::with(SourceCapability::RawAddressViewBoundary);
         assert!(address_view.allows_raw_address_view_boundary());
@@ -424,5 +676,36 @@ mod tests {
             .compiler_memory_type_definition_allowed(plain, CompilerMemoryType::RawPointer));
         assert!(!source_map
             .compiler_memory_type_definition_allowed(raw, CompilerMemoryType::RawPointer));
+    }
+
+    #[test]
+    fn source_capabilities_keep_source_proof_at_exact_use_site() {
+        let mut source_map = SourceMap::new();
+        let file = source_map.add("core/mem/pointer/scalar.nepl", String::from(""));
+        let proven = Span::new(file, 12, 20);
+        let unproven = Span::new(file, 32, 40);
+        let mut capabilities = SourceCapabilities::none();
+        capabilities.insert_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
+            operation: RawMemoryOp::Load,
+            span: SourceCapabilitySpan::from_span(proven),
+        });
+        source_map.set_capabilities(file, capabilities);
+
+        assert!(source_map.raw_memory_operation_boundary_allowed_at(proven, RawMemoryOp::Load));
+        assert!(!source_map.raw_memory_operation_boundary_allowed_at(unproven, RawMemoryOp::Load));
+        assert!(!source_map.raw_memory_operation_boundary_allowed_at(proven, RawMemoryOp::Store));
+
+        let broad = source_map.add_with_capabilities(
+            "test/raw_boundary_fixture.nepl",
+            String::from(""),
+            SourceCapabilities::with(SourceCapability::RawMemoryOperationBoundary(
+                RawMemoryOp::Load,
+            )),
+        );
+        assert!(source_map.raw_memory_operation_boundary_allowed(broad, RawMemoryOp::Load));
+        assert!(!source_map.raw_memory_operation_boundary_allowed_at(
+            Span::new(broad, 100, 108),
+            RawMemoryOp::Load,
+        ));
     }
 }

@@ -67,16 +67,18 @@ impl<'a> BlockChecker<'a> {
         match restricted {
             RestrictedStructConstructor::OwnerToken => {
                 self.owner_aggregate_field_boundary_allowed(span)
-                    || source_map.compiler_memory_type_definition_allowed(
-                        span.file_id,
+                    || source_map.compiler_memory_type_definition_allowed_at(
+                        span,
                         CompilerMemoryType::OwnerToken,
                     )
             }
-            RestrictedStructConstructor::RawPointer => source_map
-                .compiler_memory_type_definition_allowed(
-                    span.file_id,
-                    CompilerMemoryType::RawPointer,
-                ),
+            RestrictedStructConstructor::RawPointer => {
+                source_map.compiler_memory_field_boundary_allowed_at(span)
+                    || source_map.compiler_memory_type_definition_allowed_at(
+                        span,
+                        CompilerMemoryType::RawPointer,
+                    )
+            }
         }
     }
 

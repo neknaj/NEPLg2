@@ -141,6 +141,10 @@ function assertMatches(text, pattern, label) {
     assert(pattern.test(text), `${label} must match ${pattern}`);
 }
 
+function assertNotMatches(text, pattern, label) {
+    assert(!pattern.test(text), `${label} must not match ${pattern}`);
+}
+
 function assertLineLimit(filePath, label, limit) {
     const lines = lineCount(assertFile(filePath, label));
     assert(lines <= limit, `${label} has ${lines} lines; responsibility split limit is ${limit}`);
@@ -350,8 +354,8 @@ assertContains(
 );
 assertContains(
     typecheckCompilerMemoryType,
-    'source_map.compiler_memory_type_definition_allowed(def.name.span.file_id, memory_type)',
-    'typecheck/compiler_memory_type.rs must still require SourceMap source proof',
+    'source_map.compiler_memory_type_definition_allowed_at(def.name.span, memory_type)',
+    'typecheck/compiler_memory_type.rs must require exact SourceMap source proof',
 );
 assertContains(
     typecheckCompilerMemoryType,
@@ -496,13 +500,18 @@ assertMatches(
 );
 assertMatches(
     typecheckFieldAccess,
-    /RestrictedStructConstructor::OwnerToken\s*=>\s*\{\s*self\.owner_aggregate_field_boundary_allowed\(span\)\s*\|\|\s*source_map\.compiler_memory_type_definition_allowed\(\s*span\.file_id,\s*CompilerMemoryType::OwnerToken,\s*\)/,
+    /RestrictedStructConstructor::OwnerToken\s*=>\s*\{\s*self\.owner_aggregate_field_boundary_allowed\(span\)\s*\|\|\s*source_map\s*\.compiler_memory_type_definition_allowed_at\(\s*span,\s*CompilerMemoryType::OwnerToken,\s*\)/,
     'typecheck/field_access.rs owner token field projection must accept proven field-boundary source',
 );
 assertMatches(
     typecheckFieldAccess,
     /RestrictedStructConstructor::RawPointer[\s\S]*CompilerMemoryType::RawPointer/,
     'typecheck/field_access.rs raw pointer definition capability branch',
+);
+assertContains(
+    typecheckFieldAccess,
+    'compiler_memory_field_boundary_allowed_at(span)',
+    'typecheck/field_access.rs raw pointer projection must require exact field-access source proof',
 );
 assertMatches(
     typecheckFieldAccess,
@@ -552,8 +561,8 @@ assertLineLimit(
     'source_capability/raw_evidence_gate.rs',
     60,
 );
-assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 170);
-assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 240);
+assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 260);
+assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 320);
 assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 170);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 40);
 assertLineLimit(
@@ -590,6 +599,30 @@ assertContains(sourceMap, 'RawBodyMemoryOperationBoundary(RawBodyMemoryOp)', 'so
 assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateConstructorBoundary(String)', 'source_map.rs');
 assertContains(sourceMap, 'OwnerAggregateFieldBoundary', 'source_map.rs');
+assertContains(sourceMap, 'CompilerMemoryFieldBoundary', 'source_map.rs');
+assertContains(sourceMap, 'pub enum SourceCapabilityUseSite', 'source_map.rs');
+assertContains(sourceMap, 'pub struct SourceCapabilitySpan', 'source_map.rs');
+assertContains(sourceMap, 'raw_memory_operation_boundary_allowed_at', 'source_map.rs');
+assertContains(sourceMap, 'raw_body_memory_operation_boundary_allowed_at', 'source_map.rs');
+assertContains(sourceMap, 'raw_address_view_boundary_allowed_at', 'source_map.rs');
+assertContains(sourceMap, 'owner_aggregate_constructor_boundary_allowed_at', 'source_map.rs');
+assertContains(sourceMap, 'compiler_memory_field_boundary_allowed_at', 'source_map.rs');
+assertContains(sourceMap, 'compiler_memory_type_definition_allowed_at', 'source_map.rs');
+assertContains(
+    sourceMap,
+    'fn source_capabilities_keep_source_proof_at_exact_use_site()',
+    'source_map.rs exact source proof regression',
+);
+assertContains(
+    sourceMap,
+    'assert!(!source_map.raw_memory_operation_boundary_allowed_at(',
+    'source_map.rs exact source proof regression must reject broad file capability at exact query',
+);
+assertNotMatches(
+    sourceMap,
+    /pub fn allows_[a-z_]+_at[\s\S]*?self\.allows\(SourceCapability::/,
+    'source_map.rs exact use-site queries must not fall back to file-level SourceCapability',
+);
 assertContains(sourceMap, 'pub enum CompilerMemoryType', 'source_map.rs');
 assertContains(sourceMap, 'RawPointer', 'source_map.rs');
 assertContains(sourceMap, 'OwnerToken', 'source_map.rs');
@@ -870,8 +903,8 @@ assertContains(
 );
 assertContains(
     sourceCapabilityProof,
-    'OwnerAggregateProofEvidence',
-    'source_capability/proof.rs',
+    'insert_owner_aggregate_evidence',
+    'source_capability/proof.rs must store owner aggregate evidence as exact use-site proof',
 );
 assertContains(
     sourceCapabilityOwnerAggregateEvidence,
@@ -892,8 +925,13 @@ assertContains(
 );
 assertContains(
     sourceCapabilityProof,
-    'constructors: BTreeSet<String>',
-    'owner aggregate constructor evidence must be tracked by constructor name',
+    'SourceCapabilityUseSite::OwnerAggregateConstructorBoundary',
+    'owner aggregate constructor evidence must be tracked by constructor name and exact span',
+);
+assertContains(
+    sourceCapabilityProof,
+    'SourceCapabilityUseSite::CompilerMemoryFieldBoundary',
+    'compiler memory field projection must use exact field-access source proof',
 );
 assertContains(
     sourceCapabilityProof,
@@ -1293,6 +1331,11 @@ assertContains(
 );
 assertContains(
     loader,
+    'allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, call_span)',
+    'loader.rs raw helper constructor-payload regression must assert exact use-site proof',
+);
+assertContains(
+    loader,
     'fn raw_memory_boundary_rejects_local_shadow_inside_same_name_raw_helper()',
     'loader.rs same-name raw helper local shadow regression',
 );
@@ -1383,17 +1426,17 @@ assertNotContains(
 );
 assertMatches(
     compiler,
-    /ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_operation_boundary_allowed\(span\.file_id, \*operation\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    /ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_operation_boundary_allowed_at\(span, \*operation\)\)\s*\.unwrap_or\(false\)\s*\}/,
     'compiler.rs unsafe memory suppression must require the exact raw-memory operation capability',
 );
 assertMatches(
     compiler,
-    /ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_operation_boundary_allowed\(span\.file_id, \*operation\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    /ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary\s*\{\s*operation,\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_operation_boundary_allowed_at\(span, \*operation\)\)\s*\.unwrap_or\(false\)\s*\}/,
     'compiler.rs raw memory outside-boundary suppression must require the exact raw-memory operation capability',
 );
 assertMatches(
     compiler,
-    /ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary\s*\{\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_address_view_boundary_allowed\(span\.file_id\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    /ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary\s*\{\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_address_view_boundary_allowed_at\(span\)\)\s*\.unwrap_or\(false\)\s*\}/,
     'compiler.rs raw address view suppression must require the raw-address-view capability',
 );
 assertMatches(
