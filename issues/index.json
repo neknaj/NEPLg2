@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T00:04:24.460Z",
+  "generated_at": "2026-05-17T00:15:45.725Z",
   "counts": {
-    "total": 890,
+    "total": 891,
     "open": 5,
-    "resolved": 885,
+    "resolved": 886,
     "by_area": {
       "stdlib": {
         "total": 257,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 446,
+        "total": 447,
         "open": 0,
-        "resolved": 446
+        "resolved": 447
       },
       "CORE": {
         "total": 1,
@@ -6733,6 +6733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T234310403Z-SOURCE-CAPABILITY-PROOF-MISSES-RAW-C-489C7267.md"
+    },
+    {
+      "id": "ISS-20260517T000913110Z-SOURCE-CAPABILITY-RAW-PROOF-TREATS-I-23B11FA9",
+      "title": "source capability raw proof treats impl method names as raw helper evidence",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_capability/scope.rs, nepl-core/src/source_capability/raw_evidence_gate.rs, nepl-core/src/loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T000913110Z-SOURCE-CAPABILITY-RAW-PROOF-TREATS-I-23B11FA9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

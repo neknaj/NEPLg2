@@ -1501,6 +1501,29 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_ignores_impl_method_raw_helper_names() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "safe_impl_method_shadow.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "impl i32:\n",
+                "    fn load_i32 <()->i32> ():\n",
+                "        load_i32\n",
+            ),
+        );
+        assert!(
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "impl method names that match raw helpers are not source evidence"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_accepts_same_name_raw_helper_wrapper_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

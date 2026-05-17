@@ -40042,3 +40042,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - stdout report は `Checked [ok,ok,ok]` と 3 件の `ok` 行を維持し、`Vec.push` 失敗時に `VecPushError` へ戻る owner は `vec_push_error_vec` で回収して `free` するようにした。
 - `nodesrc/test_tutorial_vec_basics_report_contract.js` を追加し、`ret:` への退行、stdout report 欠落、`checks_print_report` より前に exit code を返す退行、push error path の owner cleanup 欠落を検出するようにした。
 - 親 issue はまだ open のまま継続する。tutorial 以外にも `ret:` 依存 fixture と report 省略検出 policy の残件がある。
+
+## 2026-05-17 Agent 1 source capability impl method raw proof 修正
+
+- `ISS-20260517T000913110Z-SOURCE-CAPABILITY-RAW-PROOF-TREATS-I-23B11FA9` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、source capability proof の scope が top-level function / alias と local value だけを区別し、`impl` method 名を raw helper 名の shadow として扱っていなかったことだった。
+- 修正後は `source_capability/binding.rs` で `TopLevelCallable` / `ImplMethod` / `LocalValue` を enum 管理する。raw helper と同名の top-level wrapper は body evidence により自己証明できるが、同名 `impl` method は raw operation evidence にならない。
+- focused verification:
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary_ignores_impl_method_raw_helper_names -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary_accepts_same_name_raw_helper_wrapper_evidence -- --exact --nocapture`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed

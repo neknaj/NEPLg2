@@ -1,6 +1,6 @@
 use crate::effects::raw_memory_op_from_name;
+use crate::source_capability::binding::SourceCapabilityBindingKind;
 use crate::source_capability::raw_memory::{RawAddressViewEvidence, RawMemoryStructuralEvidence};
-use crate::source_capability::scope::SourceCapabilityBindingKind;
 
 pub(super) fn raw_symbol_shadow_allows_evidence(
     symbol: &str,

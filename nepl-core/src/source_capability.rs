@@ -4,6 +4,7 @@
 //! are attached only when the parsed source contains structured evidence. The
 //! later typecheck phase still proves the typed shape at each privileged use.
 
+mod binding;
 mod constructor_position;
 mod memory_type_definition;
 mod owner_aggregate;

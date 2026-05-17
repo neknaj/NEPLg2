@@ -63,5 +63,5 @@ fn constructor_evidence_name(
 }
 
 fn source_symbol_shadowed(symbol: &str, scope: &SourceCapabilityScope) -> bool {
-    scope.shadows_symbol_or_qualifier(symbol)
+    scope.shadow_kind_symbol_or_qualifier(symbol).is_some()
 }

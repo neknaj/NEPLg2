@@ -33,6 +33,11 @@ const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     'source_capability',
     'memory_type_definition.rs',
 );
+const SOURCE_CAPABILITY_BINDING = path.join(
+    CORE_SRC,
+    'source_capability',
+    'binding.rs',
+);
 const SOURCE_CAPABILITY_CONSTRUCTOR_POSITION = path.join(
     CORE_SRC,
     'source_capability',
@@ -187,6 +192,10 @@ const sourceCapability = assertFile(SOURCE_CAPABILITY, 'source_capability.rs');
 const sourceCapabilityMemoryTypeDefinition = assertFile(
     SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
     'source_capability/memory_type_definition.rs',
+);
+const sourceCapabilityBinding = assertFile(
+    SOURCE_CAPABILITY_BINDING,
+    'source_capability/binding.rs',
 );
 const sourceCapabilityConstructorPosition = assertFile(
     SOURCE_CAPABILITY_CONSTRUCTOR_POSITION,
@@ -531,6 +540,7 @@ assertLineLimit(
     'source_capability/memory_type_definition.rs',
     100,
 );
+assertLineLimit(SOURCE_CAPABILITY_BINDING, 'source_capability/binding.rs', 60);
 assertLineLimit(
     SOURCE_CAPABILITY_CONSTRUCTOR_POSITION,
     'source_capability/constructor_position.rs',
@@ -602,6 +612,11 @@ assertContains(
     sourceCapabilityRawMemoryEvidence,
     'enum RawAddressViewEvidence',
     'source_capability/raw_memory/evidence.rs',
+);
+assertContains(
+    sourceCapability,
+    'mod binding;',
+    'source_capability.rs',
 );
 assertContains(
     sourceCapability,
@@ -1006,17 +1021,22 @@ assertContains(
     'source_capability/scope.rs',
 );
 assertContains(
-    sourceCapabilityScope,
+    sourceCapabilityBinding,
     'enum SourceCapabilityBindingKind',
     'source capability scope must distinguish top-level callable and local shadow kinds',
 );
 assertContains(
-    sourceCapabilityScope,
+    sourceCapabilityBinding,
     'TopLevelCallable',
     'source capability scope must represent top-level callable shadows separately',
 );
 assertContains(
-    sourceCapabilityScope,
+    sourceCapabilityBinding,
+    'ImplMethod',
+    'source capability scope must represent impl method names without granting raw helper proof',
+);
+assertContains(
+    sourceCapabilityBinding,
     'LocalValue',
     'source capability scope must represent local/parameter shadows separately',
 );
@@ -1032,7 +1052,7 @@ assertContains(
 );
 assertContains(
     sourceCapabilityScope,
-    'shadows_symbol_or_qualifier',
+    'shadow_kind_symbol_or_qualifier',
     'source capability scope must centralize qualified shadowing',
 );
 assertContains(

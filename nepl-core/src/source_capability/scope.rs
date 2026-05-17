@@ -3,16 +3,11 @@ use alloc::string::String;
 
 use crate::ast::{Ident, MatchPattern, Module, PrefixItem, Stmt, Symbol};
 use crate::qualified_name::split_leading_qualifier;
+use crate::source_capability::binding::{bind_symbol_kind, SourceCapabilityBindingKind};
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct SourceCapabilityScope {
     shadowed_symbols: BTreeMap<String, SourceCapabilityBindingKind>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum SourceCapabilityBindingKind {
-    TopLevelCallable,
-    LocalValue,
 }
 
 impl SourceCapabilityScope {
@@ -51,10 +46,6 @@ impl SourceCapabilityScope {
         }
     }
 
-    pub(super) fn shadows_symbol_or_qualifier(&self, symbol: &str) -> bool {
-        self.shadow_kind_symbol_or_qualifier(symbol).is_some()
-    }
-
     pub(super) fn shadow_kind_symbol_or_qualifier(
         &self,
         symbol: &str,
@@ -77,13 +68,17 @@ impl SourceCapabilityScope {
                 &alias.name.name,
                 SourceCapabilityBindingKind::TopLevelCallable,
             ),
+            Stmt::Impl(def) => {
+                for method in &def.methods {
+                    self.bind_kind(&method.name.name, SourceCapabilityBindingKind::ImplMethod);
+                }
+            }
             Stmt::Directive(_)
             | Stmt::StructDef(_)
             | Stmt::EnumDef(_)
             | Stmt::Trait(_)
             | Stmt::Wasm(_)
             | Stmt::LlvmIr(_)
-            | Stmt::Impl(_)
             | Stmt::Expr(_)
             | Stmt::ExprSemi(_, _) => {}
         }
@@ -94,6 +89,6 @@ impl SourceCapabilityScope {
     }
 
     fn bind_kind(&mut self, name: &str, kind: SourceCapabilityBindingKind) {
-        self.shadowed_symbols.insert(String::from(name), kind);
+        bind_symbol_kind(&mut self.shadowed_symbols, name, kind);
     }
 }
