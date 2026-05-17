@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T18:00:06.000Z",
+  "generated_at": "2026-05-17T18:08:22.736Z",
   "counts": {
-    "total": 956,
-    "open": 5,
-    "resolved": 951,
+    "total": 958,
+    "open": 6,
+    "resolved": 952,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -12,9 +12,9 @@
         "resolved": 259
       },
       "TEST": {
-        "total": 30,
-        "open": 1,
-        "resolved": 29
+        "total": 32,
+        "open": 2,
+        "resolved": 30
       },
       "selfhost": {
         "total": 69,
@@ -168,6 +168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40",
+      "title": "resource checker source policy still expects removed field accessor name classifier",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/lower.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -12018,6 +12033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91.md"
+    },
+    {
+      "id": "ISS-20260517T180445599Z-SELFHOST-PARSER-DOCTEST-STILL-USES-R-6B2C918C",
+      "title": "selfhost parser doctest still uses ret metadata for stdout report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "tests/stdlib/neplg2_parser.n.md, nodesrc/test_selfhost_parser_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T180445599Z-SELFHOST-PARSER-DOCTEST-STILL-USES-R-6B2C918C.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

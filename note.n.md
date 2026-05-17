@@ -1,3 +1,20 @@
+# 2026-05-18 Agent 1 selfhost parser stdout report metadata 固定
+
+- `ISS-20260517T180445599Z-SELFHOST-PARSER-DOCTEST-STILL-USES-R-6B2C918C` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/neplg2_parser.n.md::doctest#1` が `checks_print_report` で deterministic stdout report を出しているのに、manifest が `ret: 0` のままで、`.n.md` contract 上は exit-code-only test と区別できなかったこと。
+- 対象 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + `stdout: mlstr:` へ移行し、21 assertion の `std/test` report を固定した。
+- `nodesrc/test_selfhost_parser_report_contract.js` を追加し、この fixture が `ret:` へ戻らないこと、stdout report / tag / report-to-exit-code flow を維持することを source policy にした。
+- `nodesrc/run_source_policy_regressions.js` に parser report contract を登録した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に今回の進捗を追記した。この親 issue は他 fixture と一般 lint 強化が残るため open のまま。
+- `node nodesrc/run_source_policy_regressions.js` は別件の `nodesrc/test_resource_checker_responsibility.js` stale policy で失敗したため、`ISS-20260517T180734291Z-RESOURCE-CHECKER-SOURCE-POLICY-STILL-8BAE7A40` として分離した。
+- 検証:
+  - `node nodesrc/test_selfhost_parser_report_contract.js`
+  - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_parser.n.md -n 1 --dist web\dist`
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_parser.n.md --no-tree -o tmp\agent1-neplg2-parser-report-metadata.json -j 1 --dist web\dist --assert-io`: total=1, passed=1
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。`.n.md` を Rust runner / selfhost runner の共通仕様資産にするため、selfhost parser の stdout report contract を固定した。
+
 # 2026-05-17 Agent 1 selfhost_cli_driver compile timeout 根本修正
 
 - `ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91` を fixed / resolved にした。`plan.md` は変更していない。
