@@ -1027,9 +1027,12 @@ fn push_direct_call_skeleton(
         effect: effect.clone(),
         span: expr.span,
     });
-    push_core_mem_wrapper_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
-    if let Some(name) = func_ref_base_name(callee) {
-        push_named_raw_address_semantics(name, args, &arg_places, &output, ops, env, expr.span);
+    let lowered_core_mem_wrapper =
+        push_core_mem_wrapper_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
+    if !lowered_core_mem_wrapper {
+        if let Some(name) = func_ref_base_name(callee) {
+            push_named_raw_address_semantics(name, args, &arg_places, &output, ops, env, expr.span);
+        }
     }
     push_transparent_raw_address_return_projection(
         callee,

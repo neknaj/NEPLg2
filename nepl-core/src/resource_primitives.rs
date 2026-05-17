@@ -84,8 +84,21 @@ impl MemoryHelperPrimitive {
         }
     }
 
+    pub(crate) const fn has_resource_call_lowering(self) -> bool {
+        matches!(
+            self,
+            Self::MemPtrWrap
+                | Self::MemPtrAddr
+                | Self::MemPtrAdd
+                | Self::RegionNew
+                | Self::RegionPtr
+                | Self::RegionPtrAt
+                | Self::RegionTokenRawRef
+        )
+    }
+
     pub(crate) const fn has_dedicated_raw_address_lowering(self) -> bool {
-        matches!(self, Self::MemPtrAddr | Self::RegionPtr)
+        self.has_resource_call_lowering()
     }
 
     pub(crate) const fn returns_non_owning_address_view(self) -> bool {

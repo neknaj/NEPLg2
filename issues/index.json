@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T02:42:43.854Z",
+  "generated_at": "2026-05-17T02:59:12.312Z",
   "counts": {
-    "total": 899,
-    "open": 6,
-    "resolved": 893,
+    "total": 900,
+    "open": 5,
+    "resolved": 895,
     "by_area": {
-      "core": {
-        "total": 455,
-        "open": 1,
-        "resolved": 454
-      },
       "stdlib": {
         "total": 257,
         "open": 3,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 456,
+        "open": 0,
+        "resolved": 456
       },
       "CORE": {
         "total": 1,
@@ -119,21 +119,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260517T024243699Z-SOURCEMAP-EXPOSES-FILE-LEVEL-SOURCEC-AEFA0421",
-      "title": "SourceMap exposes file-level SourceCapabilities after exact use-site proof",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-17",
-      "updated": "2026-05-17",
-      "target": "nepl-core/src/source_map.rs; nepl-core/tests/effects.rs; nodesrc/test_static_check_boundary_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260517T024243699Z-SOURCEMAP-EXPOSES-FILE-LEVEL-SOURCEC-AEFA0421.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -6868,6 +6853,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T022637369Z-RAW-IDENTITY-ESCAPE-SUPPRESSION-USES-0DD1EDAA.md"
+    },
+    {
+      "id": "ISS-20260517T024243699Z-SOURCEMAP-EXPOSES-FILE-LEVEL-SOURCEC-AEFA0421",
+      "title": "SourceMap exposes file-level SourceCapabilities after exact use-site proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/source_map.rs; nepl-core/tests/effects.rs; nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T024243699Z-SOURCEMAP-EXPOSES-FILE-LEVEL-SOURCEC-AEFA0421.md"
+    },
+    {
+      "id": "ISS-20260517T025208836Z-RESOURCE-IR-RAW-ADDRESS-HELPER-PROOF-DAB3E3C8",
+      "title": "Resource IR raw address helper proof has overlapping lowering authorities",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/resource_primitives.rs; nepl-core/src/resource/lower.rs; nepl-core/src/resource/lower_raw_address.rs; nepl-core/src/resource/lower_raw_address_return.rs; nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T025208836Z-RESOURCE-IR-RAW-ADDRESS-HELPER-PROOF-DAB3E3C8.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

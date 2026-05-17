@@ -99,3 +99,16 @@ fn memory_helper_primitive_separates_address_view_boundary_evidence() {
     assert!(MemoryHelperPrimitive::StrFromAddrUnchecked.is_raw_address_view_boundary_evidence());
     assert!(!MemoryHelperPrimitive::RegionNew.is_raw_address_view_boundary_evidence());
 }
+
+#[test]
+fn memory_helper_primitive_marks_single_resource_lowering_authority() {
+    assert!(MemoryHelperPrimitive::MemPtrWrap.has_resource_call_lowering());
+    assert!(MemoryHelperPrimitive::MemPtrAddr.has_resource_call_lowering());
+    assert!(MemoryHelperPrimitive::MemPtrAdd.has_resource_call_lowering());
+    assert!(MemoryHelperPrimitive::RegionNew.has_resource_call_lowering());
+    assert!(MemoryHelperPrimitive::RegionPtr.has_resource_call_lowering());
+    assert!(MemoryHelperPrimitive::RegionPtrAt.has_resource_call_lowering());
+    assert!(MemoryHelperPrimitive::RegionTokenRawRef.has_resource_call_lowering());
+    assert!(!MemoryHelperPrimitive::StrAddr.has_resource_call_lowering());
+    assert!(!MemoryHelperPrimitive::StrFromAddrUnchecked.has_resource_call_lowering());
+}

@@ -2397,6 +2397,50 @@ fn main <(i32)->i32> (len):
 }
 
 #[test]
+fn resource_ir_lowers_dedicated_memory_helpers_once_per_call() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+
+fn main <()->i32> ():
+    let p <MemPtr<u8>> mem_ptr_wrap<u8> 16
+    let q <MemPtr<u8>> mem_ptr_add<u8> p 1
+    let token <RegionToken<u8>> region_new<u8> q 8
+    let view <MemPtr<u8>> region_ptr<u8> &token
+    let raw_ref <&i32> region_token_raw_ref<u8> &token
+    0
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main resource function");
+    let raw_address_facts = main
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .filter(|op| {
+            matches!(
+                op,
+                ResourceOp::RawAddressAlias { .. } | ResourceOp::RawAddressView { .. }
+            )
+        })
+        .count();
+    assert_eq!(
+        raw_address_facts,
+        5,
+        "each dedicated memory helper call must emit exactly one raw-address fact:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_lowering_preserves_symbolic_mem_ptr_add_offset() {
     let source = r#"
 #entry main

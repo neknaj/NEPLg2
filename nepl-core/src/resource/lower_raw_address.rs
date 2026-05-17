@@ -29,21 +29,22 @@ pub(super) fn push_core_mem_wrapper_semantics(
     ops: &mut Vec<ResourceOp>,
     env: &LoweringEnvironment,
     span: Span,
-) {
+) -> bool {
     match func_ref_base_name(callee).and_then(MemoryHelperPrimitive::from_base_name) {
         Some(MemoryHelperPrimitive::MemPtrWrap) => {
             let Some(raw) = arg_places.first() else {
-                return;
+                return false;
             };
             ops.push(ResourceOp::RawAddressAlias {
                 source: raw.clone(),
                 target: mem_ptr_raw_field_place(output, env.types.i32()),
                 span,
             });
+            true
         }
         Some(MemoryHelperPrimitive::MemPtrAddr) => {
             let Some(ptr) = arg_places.first() else {
-                return;
+                return false;
             };
             push_raw_address_op(
                 mem_ptr_raw_field_place(ptr, output.ty),
@@ -52,10 +53,11 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 ops,
                 span,
             );
+            true
         }
         Some(MemoryHelperPrimitive::MemPtrAdd) => {
             let Some(ptr) = arg_places.first() else {
-                return;
+                return false;
             };
             let mut raw = mem_ptr_raw_field_place(ptr, env.types.i32());
             let view_kind = Some(RawAddressViewKind::MemPtrOffset);
@@ -71,10 +73,11 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 ops,
                 span,
             );
+            true
         }
         Some(MemoryHelperPrimitive::RegionNew) => {
             let Some(ptr) = arg_places.first() else {
-                return;
+                return false;
             };
             let target = region_token_raw_field_place(output, env.types.i32());
             ops.push(ResourceOp::RawAddressAlias {
@@ -82,12 +85,13 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 target,
                 span,
             });
+            true
         }
         Some(MemoryHelperPrimitive::RegionPtr) => {
             let Some(source) =
                 region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
             else {
-                return;
+                return false;
             };
             let source = source.into_place_and_view(env.types.i32());
             push_raw_address_op(
@@ -97,15 +101,16 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 ops,
                 span,
             );
+            true
         }
         Some(MemoryHelperPrimitive::RegionPtrAt) => {
             let Some(source) =
                 region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
             else {
-                return;
+                return false;
             };
             let Some(payload_ty) = enum_payload_type(env.types, output.ty, "Ok") else {
-                return;
+                return false;
             };
             let source = source
                 .with_added_offset(raw_address_offset_from_actual_arg(
@@ -126,15 +131,16 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 ops,
                 span,
             );
+            true
         }
         Some(MemoryHelperPrimitive::RegionTokenRawRef) => {
             let Some(source) =
                 region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
             else {
-                return;
+                return false;
             };
             let Some(target_ty) = reference_target_type(env.types, output.ty) else {
-                return;
+                return false;
             };
             push_raw_address_op(
                 source.base,
@@ -143,8 +149,9 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 ops,
                 span,
             );
+            true
         }
-        _ => {}
+        _ => false,
     }
 }
 

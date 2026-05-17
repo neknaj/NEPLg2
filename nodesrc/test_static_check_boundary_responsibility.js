@@ -8,6 +8,7 @@ const CORE_SRC = path.join(ROOT, 'nepl-core', 'src');
 const TYPECHECK_ROOT = path.join(CORE_SRC, 'typecheck.rs');
 const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
 const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
+const RESOURCE_LOWER = path.join(CORE_SRC, 'resource', 'lower.rs');
 const RESOURCE_LOWER_RAW_ADDRESS = path.join(CORE_SRC, 'resource', 'lower_raw_address.rs');
 const RESOURCE_LOWER_RAW_ADDRESS_PLACE = path.join(
     CORE_SRC,
@@ -180,6 +181,7 @@ function walkRustFiles(dir) {
 const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const resourcePrimitives = assertFile(RESOURCE_PRIMITIVES, 'resource_primitives.rs');
+const resourceLower = assertFile(RESOURCE_LOWER, 'resource/lower.rs');
 const resourceLowerRawAddress = assertFile(
     RESOURCE_LOWER_RAW_ADDRESS,
     'resource/lower_raw_address.rs',
@@ -967,6 +969,11 @@ assertContains(
     'memory helper primitive roles must distinguish raw address view evidence from owner-token construction',
 );
 assertContains(
+    resourcePrimitives,
+    'has_resource_call_lowering',
+    'memory helper primitive roles must expose dedicated Resource IR call-lowering authority',
+);
+assertContains(
     sourceCapabilityMemoryTypeDefinition,
     'compiler_memory_type_from_constructor_name(def.name.name.as_str())',
     'source_capability/memory_type_definition.rs must use central compiler memory type classification',
@@ -1334,6 +1341,16 @@ assertContains(
     resourceLowerRawAddress,
     'MemoryHelperPrimitive::from_symbol',
     'resource/lower_raw_address.rs must use central helper classification for named calls',
+);
+assertContains(
+    resourceLower,
+    'let lowered_core_mem_wrapper',
+    'resource/lower.rs must remember when dedicated memory helper lowering handled a call',
+);
+assertContains(
+    resourceLower,
+    'if !lowered_core_mem_wrapper',
+    'resource/lower.rs must not also run generic raw-address named proof for dedicated memory helper calls',
 );
 assertContains(
     resourceLowerRawAddressReturn,

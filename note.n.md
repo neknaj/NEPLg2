@@ -40195,3 +40195,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core loader_does_not_mark_configured_stdlib_core_mem_facade_as_raw_memory_boundary --test effects -- --nocapture`: passed
   - `cargo test -p nepl-core loader_does_not_mark_configured_stdlib_alloc_string_facade_as_raw_memory_boundary --test effects -- --nocapture`: passed
   - `cargo test -p nepl-core loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary --test effects -- --nocapture`: passed
+
+## 2026-05-17 Agent 1 Resource IR memory helper lowering authority 修正
+
+- `ISS-20260517T025208836Z-RESOURCE-IR-RAW-ADDRESS-HELPER-PROOF-DAB3E3C8` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`MemPtr` / `RegionToken` wrapper call の dedicated lowering と generic named raw-address proof が同じ call-site へ同時に走り、raw-address fact の authority が二重化していたことだった。
+- 修正後は `MemoryHelperPrimitive::has_resource_call_lowering` を中央 enum registry にし、`push_core_mem_wrapper_semantics` が処理済みかを返す。`lower.rs` は dedicated lowering 済み call では generic named proof を走らせず、transparent return projection の dedicated classifier も同じ role 判定に揃えた。
+- focused verification:
+  - `cargo fmt -p nepl-core`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo test -p nepl-core resource_ir_lowers_dedicated_memory_helpers_once_per_call --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-core memory_helper_primitive_marks_single_resource_lowering_authority -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
