@@ -1,3 +1,19 @@
+# 2026-05-17 Agent 1 features_tui stdout report 固定
+
+- `ISS-20260517T124048715Z-FEATURES-TUI-BOX-HELPER-DOCTEST-HIDE-22D23F90` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/features_tui.n.md::doctest#4` が `std/test` の `checks` を作っているのに、`checks_print_report` を呼ばず `ret: 0` だけで成功を表していたこと。
+- 対象 doctest を `neplg2:test[stdio, normalize_newlines]` に変更し、15 assertion の `stdout: mlstr:` と `exit_code: 0` を固定した。
+- 末尾は `let shown checks_print_report checks; checks_exit_code shown` にし、report 表示と終了 code を分離した。
+- `nodesrc/test_features_tui_report_contract.js` を追加し、対象 fixture が `ret:` に戻らないことと stdout report を維持することを source policy にした。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に今回の進捗を追記した。この親 issue は他 fixture と一般 lint 強化が残るため open のまま。
+- 検証:
+  - `node nodesrc/test_features_tui_report_contract.js`
+  - `node nodesrc/run_doctest.js -i tests/stdlib/features_tui.n.md -n 4 --dist web/dist`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- plan.md との差異:
+  - plan.md は変更していない。`.n.md` を selfhost と Rust runner の共通仕様資産にするため、std/test を使う fixture の stdout report を固定した。
+
 # 2026-05-17 Agent 1 SourceCapabilities insert_use_site production policy
 
 - `ISS-20260517T123624102Z-SOURCECAPABILITIES-INSERT-USE-SITE-L-7F2B23E5` を追加し、fixed / resolved にした。`plan.md` は変更していない。

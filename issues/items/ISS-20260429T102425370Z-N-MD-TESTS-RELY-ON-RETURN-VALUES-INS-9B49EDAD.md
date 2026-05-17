@@ -1213,3 +1213,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent1-collections-diag-report-tests.json -j 2 --assert-io --dist web/dist`: pass
 
 この issue はまだ open のまま継続する。`collections_diag` は移行済みだが、他の `std/test` report 出力済み・stdout 未固定 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-17 features_tui box helper stdout report migration
+
+`ISS-20260517T124048715Z-FEATURES-TUI-BOX-HELPER-DOCTEST-HIDE-22D23F90` として、`tests/stdlib/features_tui.n.md::doctest#4` を canonical stdout fixture へ移行した。
+
+移行内容:
+
+- `features_tui_box_helpers_clamp_narrow_widths` に `neplg2:test[stdio, normalize_newlines]`、`stdout: mlstr:`、`exit_code: 0` を追加した。
+- 15 件の box helper assertion を `checks_print_report checks` で stdout に出し、`checks_exit_code shown` で終了 code を返す形にした。
+- `nodesrc/test_features_tui_report_contract.js` を追加し、この fixture が `ret:` へ戻らず report stdout を固定することを source policy にした。
+
+検証:
+
+- `node nodesrc/test_features_tui_report_contract.js`: pass
+- `node nodesrc/run_doctest.js -i tests/stdlib/features_tui.n.md -n 4 --dist web/dist`: pass
+
+この issue はまだ open のまま継続する。`features_tui` の std/test report 省略ケースは移行済みだが、他 fixture と report 省略検出 policy の一般化が残っている。
