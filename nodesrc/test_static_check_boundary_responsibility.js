@@ -374,6 +374,10 @@ const typecheckControlSpecial = assertFile(
     path.join(TYPECHECK_DIR, 'control_special.rs'),
     'typecheck/control_special.rs',
 );
+const typecheckStructShape = assertFile(
+    path.join(TYPECHECK_DIR, 'struct_shape.rs'),
+    'typecheck/struct_shape.rs',
+);
 const typecheckCallReduction = assertFile(
     path.join(TYPECHECK_DIR, 'call_reduction.rs'),
     'typecheck/call_reduction.rs',
@@ -439,6 +443,7 @@ for (const moduleName of [
     'prefix_check',
     'selected_call_apply',
     'signature',
+    'struct_shape',
     'syntax_helpers',
     'trait_bound_apply',
     'trait_call_apply',
@@ -500,6 +505,48 @@ assertContains(
     typecheckPrefixCheck,
     'ControlSpecialFunction::While.name()',
     'typecheck/prefix_check.rs must construct while special vars through ControlSpecialFunction',
+);
+
+assertLineLimit(path.join(TYPECHECK_DIR, 'struct_shape.rs'), 'typecheck/struct_shape.rs', 140);
+assertContains(
+    typecheckStructShape,
+    'pub(super) enum StructConstructorShape',
+    'typecheck/struct_shape.rs must own struct constructor shape classification',
+);
+assertContains(
+    typecheckStructShape,
+    'fn from_name',
+    'typecheck/struct_shape.rs must classify unit-like struct tag spelling once',
+);
+assertContains(
+    typecheckModel,
+    'constructor_shape: StructConstructorShape',
+    'StructInfo must store the classified constructor shape',
+);
+assertContains(
+    typecheckDriver,
+    'StructConstructorShape::classify(&ctx, &fs, &f_names)',
+    'typecheck/driver.rs must classify struct constructor shape once',
+);
+assertContains(
+    typecheckDriver,
+    'constructor_shape.constructor_params(&fs)',
+    'typecheck/driver.rs must derive constructor params from StructConstructorShape',
+);
+assertContains(
+    typecheckConstructorApply,
+    'StructConstructorShape::UnitLikeTag',
+    'typecheck/constructor_apply.rs must lower unit-like structs from StructConstructorShape',
+);
+assertNotContains(
+    typecheckDriver,
+    'f_names[0] == "tag"',
+    'typecheck/driver.rs must not classify unit-like structs with direct tag indexing',
+);
+assertNotContains(
+    typecheckConstructorApply,
+    'field_names[0] == "tag"',
+    'typecheck/constructor_apply.rs must not reclassify unit-like structs with direct tag indexing',
 );
 
 assertContains(typecheckRoot, 'pub use driver::{typecheck, TypeCheckResult};', 'typecheck.rs');

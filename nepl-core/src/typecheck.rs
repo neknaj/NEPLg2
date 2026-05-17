@@ -33,6 +33,7 @@ mod overload_selection;
 mod prefix_check;
 mod selected_call_apply;
 mod signature;
+mod struct_shape;
 mod syntax_helpers;
 mod trait_bound_apply;
 mod trait_call_apply;

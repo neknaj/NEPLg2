@@ -6,11 +6,12 @@ use alloc::vec::Vec;
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
-use crate::types::{TypeId, TypeKind};
+use crate::types::TypeId;
 
 use super::copy_capability::target_contains_owner_backed_aggregate;
 use super::diagnostics::type_error;
 use super::model::{RestrictedStructConstructor, StructConstructorPolicy};
+use super::struct_shape::StructConstructorShape;
 use super::syntax_helpers::split_qualified_name;
 use super::{BlockChecker, StackEntry};
 
@@ -165,8 +166,7 @@ impl<'a> BlockChecker<'a> {
         };
         let constructor_policy = info.constructor_policy;
         let struct_ty = info.ty;
-        let fields = info.fields.clone();
-        let field_names = info.field_names.clone();
+        let constructor_shape = info.constructor_shape;
 
         match constructor_policy {
             StructConstructorPolicy::Public => {}
@@ -222,18 +222,15 @@ impl<'a> BlockChecker<'a> {
             ));
             return Some(None);
         }
-        let is_tag_unit_struct = fields.len() == 1
-            && field_names.len() == 1
-            && field_names[0] == "tag"
-            && matches!(self.ctx.get(self.ctx.resolve_id(fields[0])), TypeKind::Unit);
-        let field_exprs = if is_tag_unit_struct && args.is_empty() {
-            vec![HirExpr {
-                ty: self.ctx.unit(),
-                kind: HirExprKind::Unit,
-                span,
-            }]
-        } else {
-            args.iter().map(|a| a.expr.clone()).collect()
+        let field_exprs = match constructor_shape {
+            StructConstructorShape::UnitLikeTag => {
+                vec![HirExpr {
+                    ty: self.ctx.unit(),
+                    kind: HirExprKind::Unit,
+                    span,
+                }]
+            }
+            StructConstructorShape::FieldList => args.iter().map(|a| a.expr.clone()).collect(),
         };
         Some(Some(StackEntry {
             ty: applied_ty,

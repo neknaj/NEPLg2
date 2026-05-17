@@ -6,6 +6,8 @@ use crate::diagnostic::Diagnostic;
 use crate::hir::{HirExpr, HirFunction};
 use crate::types::{EnumVariantInfo, TypeId};
 
+use super::struct_shape::StructConstructorShape;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum StructConstructorPolicy {
     Public,
@@ -48,6 +50,7 @@ pub(super) struct StructInfo {
     pub(super) type_params: Vec<TypeId>,
     pub(super) fields: Vec<TypeId>,
     pub(super) field_names: Vec<String>,
+    pub(super) constructor_shape: StructConstructorShape,
     pub(super) constructor_policy: StructConstructorPolicy,
 }
 

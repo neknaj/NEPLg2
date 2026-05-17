@@ -1,3 +1,24 @@
+# 2026-05-17 Agent 1 typecheck unit-like struct shape domain 化
+
+- `ISS-20260517T102052427Z-TYPECHECK-UNIT-LIKE-STRUCT-SHAPE-IS--F13DA6CD` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`tag <()>` の unit-like struct 判定が `driver.rs` の constructor 関数登録と `constructor_apply.rs` の HIR field 補完に重複し、同じ shape を文字列と添字で再判定していたこと。
+- `typecheck/struct_shape.rs` を追加し、`StructConstructorShape::{UnitLikeTag, FieldList}` が struct constructor shape を一度だけ分類するようにした。
+- `StructInfo` に `constructor_shape` を保持し、driver は constructor params / arity を shape から導出し、constructor application は同じ shape fact の `match` で unit field を補完するようにした。
+- `nodesrc/test_static_check_boundary_responsibility.js` に `struct_shape.rs`、`StructInfo::constructor_shape`、driver / constructor_apply の typed shape 使用、旧 direct tag indexing 禁止を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core typecheck::struct_shape::tests --lib -- --nocapture`
+  - `cargo test -p nepl-core --test overload unit_like_struct_constructor_is_a_value -- --exact --nocapture`
+  - `cargo test -p nepl-core --test overload grouped_argument_overload_uses_later_items_before_reduction -- --exact --nocapture`
+  - `cargo test -p nepl-core --test neplg2 generic_trait_impl_method_resolves_by_trait_args -- --exact --nocapture`
+  - `cargo test -p nepl-core --test neplg2 stdlib_reimported_definition_does_not_warn_same_signature_shadow -- --exact --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `trunk build`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「checker 内の暗黙構造判定も typed fact / enum match へ移す」方針に沿って、unit-like struct constructor shape を共通 fact 化した。
+
 # 2026-05-17 Agent 1 typecheck control special enum 化
 
 - `ISS-20260517T100117040Z-TYPECHECK-CONTROL-SPECIAL-FUNCTIONS--D04B8CA1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
