@@ -3,8 +3,8 @@ use alloc::vec::Vec;
 
 use crate::ast::{Module, StructDef};
 use crate::effects::{
-    raw_body_direct_callees, raw_body_memory_operations, raw_memory_op_from_name, RawBodyMemoryOp,
-    RawMemoryOp,
+    raw_body_direct_callee_effects, raw_body_memory_operations, raw_memory_op_from_name,
+    RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
 };
 use crate::hir::HirBody;
 use crate::source_capability::binding::SourceCapabilityBindingKind;
@@ -139,8 +139,8 @@ impl SourceCapabilityProofCollector<'_> {
                 .insert_raw_body_memory_operation_boundary(operation, span);
             self.record_raw_body_operation_evidence(operation);
         }
-        for callee in raw_body_direct_callees(&body) {
-            if let Some(operation) = raw_memory_op_from_name(&callee) {
+        for callee in raw_body_direct_callee_effects(&body) {
+            if let RawBodyDirectCallee::RawMemory { operation, .. } = callee {
                 self.proof
                     .insert_raw_memory_operation_boundary(operation, span);
                 self.record_raw_operation_evidence(operation);

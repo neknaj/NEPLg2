@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T04:40:53.177Z",
+  "generated_at": "2026-05-17T04:53:13.103Z",
   "counts": {
-    "total": 908,
+    "total": 909,
     "open": 5,
-    "resolved": 903,
+    "resolved": 904,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 458,
+        "total": 459,
         "open": 0,
-        "resolved": 458
+        "resolved": 459
       },
       "CORE": {
         "total": 1,
@@ -6913,6 +6913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T043232914Z-SOURCE-CAPABILITY-RAW-HELPER-PROPAGA-E03A6529.md"
+    },
+    {
+      "id": "ISS-20260517T044649993Z-RAW-BODY-DIRECT-CALLEE-PROOF-IS-RECL-FF4BD50E",
+      "title": "raw body direct callee proof is reclassified from strings by consumers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T044649993Z-RAW-BODY-DIRECT-CALLEE-PROOF-IS-RECL-FF4BD50E.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

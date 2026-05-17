@@ -3,9 +3,10 @@ use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::effects::{
     external_io_op_from_name, internal_effect_surface_fold, intrinsic_effect, nondet_op_from_name,
-    raw_body_memory_operations, raw_callee_internal_effect, raw_memory_callee_internal_effect,
-    raw_memory_op_from_name, ExternalIoOp, InternalEffect, LlvmRawBodyMemoryOp, NondetOp,
-    RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp,
+    raw_body_direct_callee_effects, raw_body_memory_operations, raw_callee_internal_effect,
+    raw_memory_callee_internal_effect, raw_memory_op_from_name, ExternalIoOp, InternalEffect,
+    LlvmRawBodyMemoryOp, NondetOp, RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
+    WasmRawBodyMemoryOp,
 };
 use nepl_core::error::CoreError;
 use nepl_core::hir::HirBody;
@@ -196,6 +197,47 @@ fn raw_body_memory_operations_are_typed_by_backend() {
             RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Store),
             RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Fence),
             RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Memcpy),
+        ]
+    );
+}
+
+#[test]
+fn raw_body_direct_callee_effects_are_typed_before_consumers() {
+    let wasm = HirBody::Wasm(WasmBlock {
+        lines: vec![
+            String::from("call $load_i32"),
+            String::from("call $fd_write"),
+            String::from("call $custom_helper"),
+        ],
+        span: Span::dummy(),
+    });
+    assert_eq!(
+        raw_body_direct_callee_effects(&wasm),
+        vec![
+            RawBodyDirectCallee::RawMemory {
+                callee: String::from("load_i32"),
+                operation: RawMemoryOp::Load,
+            },
+            RawBodyDirectCallee::Other(String::from("fd_write")),
+            RawBodyDirectCallee::Other(String::from("custom_helper")),
+        ]
+    );
+
+    let llvm = HirBody::LlvmIr(LlvmIrBlock {
+        lines: vec![
+            String::from("call void @store_i32(i32 0, i32 1)"),
+            String::from("call i32 @fd_read(i32 0)"),
+        ],
+        span: Span::dummy(),
+    });
+    assert_eq!(
+        raw_body_direct_callee_effects(&llvm),
+        vec![
+            RawBodyDirectCallee::RawMemory {
+                callee: String::from("store_i32"),
+                operation: RawMemoryOp::Store,
+            },
+            RawBodyDirectCallee::Other(String::from("fd_read")),
         ]
     );
 }

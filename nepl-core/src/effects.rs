@@ -145,6 +145,15 @@ impl fmt::Display for RawBodyMemoryOp {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RawBodyDirectCallee {
+    RawMemory {
+        callee: String,
+        operation: RawMemoryOp,
+    },
+    Other(String),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum WasmRawBodyMemoryOp {
     Load,
@@ -500,7 +509,7 @@ pub fn internal_effect_untrusted_surface(effect: &InternalEffect) -> Effect {
     internal_effect_surface_fold(effect).unwrap_or(Effect::Impure)
 }
 
-pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {
+pub fn raw_body_direct_callee_effects(body: &HirBody) -> Vec<RawBodyDirectCallee> {
     let lines = match body {
         HirBody::Wasm(w) => &w.lines,
         HirBody::LlvmIr(l) => &l.lines,
@@ -514,7 +523,11 @@ pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {
             HirBody::Block(_) => None,
         };
         if let Some(callee) = callee {
-            out.push(callee);
+            let effect = match raw_memory_op_from_name(&callee) {
+                Some(operation) => RawBodyDirectCallee::RawMemory { callee, operation },
+                None => RawBodyDirectCallee::Other(callee),
+            };
+            out.push(effect);
         }
     }
     out

@@ -299,6 +299,10 @@ const typecheckCompilerMemoryType = assertFile(
     path.join(TYPECHECK_DIR, 'compiler_memory_type.rs'),
     'typecheck/compiler_memory_type.rs',
 );
+const typecheckEffectCheck = assertFile(
+    path.join(TYPECHECK_DIR, 'effect_check.rs'),
+    'typecheck/effect_check.rs',
+);
 const typecheckConstructorApply = assertFile(
     path.join(TYPECHECK_DIR, 'constructor_apply.rs'),
     'typecheck/constructor_apply.rs',
@@ -558,6 +562,7 @@ assertNotContains(
     'typecheck/field_access.rs',
 );
 assertContains(effects, 'pub enum RawBodyMemoryOp', 'effects.rs');
+assertContains(effects, 'pub enum RawBodyDirectCallee', 'effects.rs');
 assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum LlvmRawBodyMemoryOp', 'effects.rs');
 assertContains(
@@ -570,8 +575,38 @@ assertNotContains(
     'pub fn raw_body_memory_operations(body: &HirBody) -> Vec<String>',
     'effects.rs',
 );
+assertContains(
+    effects,
+    'pub fn raw_body_direct_callee_effects(body: &HirBody) -> Vec<RawBodyDirectCallee>',
+    'effects.rs',
+);
+assertNotContains(
+    effects,
+    'pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String>',
+    'effects.rs',
+);
 assertNotContains(effects, 'fn wasm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 assertNotContains(effects, 'fn llvm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
+assertContains(
+    typecheckEffectCheck,
+    'raw_body_direct_callee_effects',
+    'typecheck/effect_check.rs must consume typed raw body direct-callee evidence',
+);
+assertContains(
+    typecheckEffectCheck,
+    'RawBodyDirectCallee::RawMemory',
+    'typecheck/effect_check.rs must match typed raw body raw-memory callees',
+);
+assertNotContains(
+    typecheckEffectCheck,
+    'raw_body_direct_callees',
+    'typecheck/effect_check.rs must not consume untyped raw body callee strings',
+);
+assertNotContains(
+    typecheckEffectCheck,
+    'raw_memory_op_from_name(&callee)',
+    'typecheck/effect_check.rs must not reclassify raw body callees at the consumer',
+);
 assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
 assertContains(
     sourceCapability,
@@ -1233,6 +1268,26 @@ assertContains(
     sourceCapabilityProof,
     'raw_memory_op_from_name',
     'source_capability/proof.rs',
+);
+assertContains(
+    sourceCapabilityProof,
+    'raw_body_direct_callee_effects',
+    'source_capability/proof.rs must consume typed raw body direct-callee evidence',
+);
+assertContains(
+    sourceCapabilityProof,
+    'RawBodyDirectCallee::RawMemory',
+    'source_capability/proof.rs must match typed raw body raw-memory callees',
+);
+assertNotContains(
+    sourceCapabilityProof,
+    'raw_body_direct_callees',
+    'source_capability/proof.rs must not consume untyped raw body callee strings',
+);
+assertNotContains(
+    sourceCapabilityProof,
+    'raw_memory_op_from_name(&callee)',
+    'source_capability/proof.rs must not reclassify raw body callees at the consumer',
 );
 assertContains(
     sourceCapabilityProof,
