@@ -41053,3 +41053,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_selfhost_type_arena_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-neplg2-type-arena-report-metadata.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+
+## 2026-05-18 Agent 1 Resource IR field accessor proof boundary 修正
+
+- `ISS-20260517T173445922Z-RESOURCE-IR-FIELD-PROJECTION-PROOF-A-7ABBA4D1` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR lowering / coverage が ordinary `FuncRef` の base name `get` / `get_ref` を field accessor projection proof として消費していたことだった。これは source capability と typecheck が field accessor として証明した typed HIR / intrinsic evidence を迂回する。
+- 修正後は ordinary direct call を Resource IR では call として扱い、field projection は `get_field` / `get_field_ref` intrinsic など typecheck 済み evidence だけから構築する。source-level `core/field` member spelling は owner aggregate source proof の責務に限定し、Resource IR の semantic proof からは外した。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource::lower::tests::ordinary_get_direct_call_is_not_field_projection -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed

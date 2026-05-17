@@ -17,25 +17,6 @@ use super::coverage_hir_projection_aggregate::{
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::RawMemoryOp;
 
-pub(super) fn field_get_call_owner<'a>(
-    callee: &FuncRef,
-    args: &'a [HirExpr],
-    field_ty: TypeId,
-    types: &TypeCtx,
-    string_literals: &[String],
-) -> Option<&'a HirExpr> {
-    let name = match callee {
-        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => helper_base_name(name),
-        FuncRef::Trait { .. } => return None,
-    };
-    if FieldAccessorKind::from_core_field_member_name(name) != Some(FieldAccessorKind::Get) {
-        return None;
-    }
-    let owner = args.first()?;
-    aggregate_field_matches_selector(types, owner.ty, args.get(1)?, field_ty, string_literals)
-        .then_some(owner)
-}
-
 pub(super) fn get_field_intrinsic_owner<'a>(
     name: &str,
     args: &'a [HirExpr],

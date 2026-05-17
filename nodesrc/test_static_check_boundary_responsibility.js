@@ -754,15 +754,20 @@ assertContains(
     'FieldAccessorKind::from_intrinsic_name',
     'resource/lower_aggregate.rs must use shared field accessor intrinsic classification',
 );
-assertContains(
+assertNotContains(
     resourceCoverageHirProjection,
     'FieldAccessorKind::from_core_field_member_name',
-    'resource/coverage_hir_projection.rs must use shared core/field source member classification',
+    'resource/coverage_hir_projection.rs must not treat ordinary direct calls named get/get_ref as field projections',
 );
-assertContains(
+assertNotContains(
     resourceLowerAggregate,
     'FieldAccessorKind::from_core_field_member_name',
-    'resource/lower_aggregate.rs must use shared core/field source member classification',
+    'resource/lower_aggregate.rs must not treat ordinary direct calls named get/get_ref as field projections',
+);
+assertNotContains(
+    resourceLower,
+    'FieldAccessorKind::from_call_base_name',
+    'resource/lower.rs direct call recursion must not classify field access from callee spelling',
 );
 assertContains(
     typecheckPrefixCheck,

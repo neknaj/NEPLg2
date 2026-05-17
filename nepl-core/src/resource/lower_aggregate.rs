@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::hir::{FuncRef, HirExpr, HirExprKind};
+use crate::hir::{HirExpr, HirExprKind};
 use crate::intrinsic_kinds::FieldAccessorKind;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::TypeId;
@@ -16,7 +16,6 @@ use super::lower::{
 use super::lower_aggregate_projection::{
     aggregate_field_projection, aggregate_field_projection_by_selector, reference_target_type,
 };
-use super::lower_call::func_ref_base_name;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
@@ -45,55 +44,6 @@ pub(super) fn lower_compiler_field_load_source(
         base = lower_expr_skeleton(base_expr, ops, ctx, env);
     }
     Some(base.with_projection(projection, field_ty))
-}
-
-pub(super) fn lower_field_get_call_source(
-    callee: &FuncRef,
-    args: &[HirExpr],
-    field_ty: TypeId,
-    ops: &mut Vec<ResourceOp>,
-    ctx: &mut LoweringContext,
-    env: &LoweringEnvironment,
-) -> Option<Place> {
-    if FieldAccessorKind::from_core_field_member_name(func_ref_base_name(callee)?)
-        != Some(FieldAccessorKind::Get)
-    {
-        return None;
-    }
-    let owner = args.first()?;
-    let projection = aggregate_field_projection_by_selector(
-        env.types,
-        owner.ty,
-        args.get(1)?,
-        field_ty,
-        env.string_literals,
-    )?;
-    if let Some(source) =
-        lower_raw_aggregate_field_source(owner, projection.clone(), field_ty, ops, ctx, env)
-    {
-        return Some(source);
-    }
-    let mut base = place_from_expr_skeleton(owner, ctx);
-    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
-        base = lower_expr_skeleton(owner, ops, ctx, env);
-    }
-    Some(base.with_projection(projection, field_ty))
-}
-
-pub(super) fn lower_field_get_ref_call_source(
-    callee: &FuncRef,
-    args: &[HirExpr],
-    ref_ty: TypeId,
-    ops: &mut Vec<ResourceOp>,
-    ctx: &mut LoweringContext,
-    env: &LoweringEnvironment,
-) -> Option<Place> {
-    if FieldAccessorKind::from_core_field_member_name(func_ref_base_name(callee)?)
-        != Some(FieldAccessorKind::GetRef)
-    {
-        return None;
-    }
-    field_get_ref_source(args, ref_ty, ops, ctx, env)
 }
 
 pub(super) fn lower_get_field_intrinsic_source(
