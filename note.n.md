@@ -1,3 +1,22 @@
+# 2026-05-17 Agent 1 core/field source accessor spelling の FieldAccessorKind 集約
+
+- `ISS-20260517T071123948Z-CORE-FIELD-SOURCE-ACCESSOR-SPELLING--C753D74B` を追加し、fixed / resolved にした。
+- 根本原因は、`FieldAccessorKind` が field accessor の semantic domain になっている一方で、source-level `core/field` member 名は Resource IR の `get` / `get_ref` direct branch と owner aggregate source proof の private `CoreFieldAccessorMember` に分散していたこと。
+- `FieldAccessorKind::from_core_field_member_name` と `core_field_member_name` を追加し、`get` / `get_ref` / `put` の source member spelling も同じ enum が所有する形にした。
+- Resource IR aggregate coverage / lowering は source-level field accessor call の分類に `FieldAccessorKind::from_core_field_member_name` を使うようにした。
+- owner aggregate field import proof は private `CoreFieldAccessorMember` を削除し、selective / alias / open import の member 判定を shared `FieldAccessorKind` に接続した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core field_accessor --lib -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary_accepts_field_alias_import_call_head --lib -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_treats_compiler_field_load_as_field_read -- --exact --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の field accessor proof domain を、source member と intrinsic の両方で shared enum classifier に揃えた。
+
 # 2026-05-17 Agent 1 owner aggregate intrinsic evidence の FieldAccessorKind 接続
 
 - `ISS-20260517T070337891Z-OWNER-AGGREGATE-INTRINSIC-EVIDENCE-D-4A69BCFB` を追加し、fixed / resolved にした。

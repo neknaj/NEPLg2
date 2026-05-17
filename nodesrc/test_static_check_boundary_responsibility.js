@@ -388,6 +388,16 @@ assertContains(
     'intrinsic_kinds.rs must keep field accessor intrinsic arity on FieldAccessorKind',
 );
 assertContains(
+    intrinsicKinds,
+    'from_core_field_member_name',
+    'FieldAccessorKind must own core/field source member spelling',
+);
+assertContains(
+    intrinsicKinds,
+    'core_field_member_name',
+    'FieldAccessorKind must expose core/field source member spelling for round-trip tests',
+);
+assertContains(
     typecheckModel,
     'pub(super) enum ScalarIntrinsicKind',
     'typecheck/model.rs must keep scalar intrinsic signatures in a typed enum domain',
@@ -456,6 +466,16 @@ assertContains(
     resourceLowerAggregate,
     'FieldAccessorKind::from_intrinsic_name',
     'resource/lower_aggregate.rs must use shared field accessor intrinsic classification',
+);
+assertContains(
+    resourceCoverageHirProjection,
+    'FieldAccessorKind::from_core_field_member_name',
+    'resource/coverage_hir_projection.rs must use shared core/field source member classification',
+);
+assertContains(
+    resourceLowerAggregate,
+    'FieldAccessorKind::from_core_field_member_name',
+    'resource/lower_aggregate.rs must use shared core/field source member classification',
 );
 assertContains(
     typecheckPrefixCheck,
@@ -557,6 +577,21 @@ assertNotContains(
     resourceLowerAggregate,
     'helper_base_name(name) != "get_field_ref"',
     'resource/lower_aggregate.rs must not duplicate get_field_ref spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    resourceCoverageHirProjection,
+    'name != "get"',
+    'resource/coverage_hir_projection.rs must not duplicate core/field get spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    resourceLowerAggregate,
+    'func_ref_base_name(callee)? != "get"',
+    'resource/lower_aggregate.rs must not duplicate core/field get spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    resourceLowerAggregate,
+    'func_ref_base_name(callee)? != "get_ref"',
+    'resource/lower_aggregate.rs must not duplicate core/field get_ref spelling outside FieldAccessorKind',
 );
 assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
 assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');
@@ -1375,11 +1410,6 @@ assertContains(
 );
 assertContains(
     sourceCapabilityOwnerAggregateFieldImports,
-    'enum CoreFieldAccessorMember',
-    'owner aggregate field accessor names must be represented as an enum domain',
-);
-assertContains(
-    sourceCapabilityOwnerAggregateFieldImports,
     'ImportClause::Open',
     'owner aggregate field evidence must prove open core/field imports',
 );
@@ -1392,6 +1422,31 @@ assertContains(
     sourceCapabilityOwnerAggregateFieldImports,
     'split_leading_qualifier',
     'owner aggregate field evidence must check qualified import aliases',
+);
+assertContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'FieldAccessorKind::from_core_field_member_name',
+    'owner aggregate field import evidence must use shared core/field source member classification',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    'enum CoreFieldAccessorMember',
+    'owner aggregate field import evidence must not keep a local field accessor enum',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    '"get" =>',
+    'owner aggregate field import evidence must not duplicate core/field get spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    '"get_ref" =>',
+    'owner aggregate field import evidence must not duplicate core/field get_ref spelling outside FieldAccessorKind',
+);
+assertNotContains(
+    sourceCapabilityOwnerAggregateFieldImports,
+    '"put" =>',
+    'owner aggregate field import evidence must not duplicate core/field put spelling outside FieldAccessorKind',
 );
 assertNotContains(
     sourceCapabilityOwnerAggregateEvidence,
