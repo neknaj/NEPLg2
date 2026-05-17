@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 
+use crate::layout::aggregate_fields_with_offsets;
 use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state_raw_range::{
@@ -7,10 +8,10 @@ use super::cell_state_raw_range::{
 };
 use super::cell_state_raw_range_merge::merge_initialized_raw_byte_ranges_with_raw_aliases;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{CellState, CellStateEntry, Place, PlaceProjection};
+use super::model::{CellState, CellStateEntry, Place, PlaceProjection, ResourceOffset};
 use super::place_utils::{
-    place_suffix_after_prefix, place_with_suffix, push_unique_place, raw_memory_cell_place,
-    should_track,
+    place_suffix_after_prefix, place_with_suffix, projection_result_type, push_unique_place,
+    raw_memory_cell_place, should_track,
 };
 use super::type_pattern::type_pattern_matches;
 
@@ -32,7 +33,7 @@ impl CellTable {
     }
 
     pub(super) fn availability_state(&self, place: &Place) -> CellState {
-        self.availability_state_by(place, &|left, right| left == right)
+        self.availability_state_by(place, None, &|left, right| left == right)
     }
 
     pub(super) fn availability_state_with_types(
@@ -40,7 +41,7 @@ impl CellTable {
         types: &TypeCtx,
         place: &Place,
     ) -> CellState {
-        self.availability_state_by(place, &|left, right| {
+        self.availability_state_by(place, Some(types), &|left, right| {
             type_pattern_matches(types, left, right)
         })
     }
@@ -48,6 +49,7 @@ impl CellTable {
     fn availability_state_by(
         &self,
         place: &Place,
+        types: Option<&TypeCtx>,
         type_matches: &impl Fn(TypeId, TypeId) -> bool,
     ) -> CellState {
         if let Some(state) = self.state(place) {
@@ -82,7 +84,7 @@ impl CellTable {
         }
         for entry in &self.cells {
             if let CellState::Initialized(ty) = entry.state {
-                if initialized_state_flows_to_by(&entry.place, place, ty, type_matches) {
+                if initialized_state_flows_to_by(&entry.place, place, ty, types, type_matches) {
                     return CellState::Initialized(place.ty);
                 }
             }
@@ -340,6 +342,7 @@ fn initialized_state_flows_to_by(
     prefix: &Place,
     place: &Place,
     initialized_ty: TypeId,
+    types: Option<&TypeCtx>,
     type_matches: &impl Fn(TypeId, TypeId) -> bool,
 ) -> bool {
     let Some(suffix) = place_suffix_after_prefix(place, prefix)
@@ -351,7 +354,9 @@ fn initialized_state_flows_to_by(
         .iter()
         .any(|projection| matches!(projection, PlaceProjection::Deref))
     {
-        return false;
+        return types.is_some_and(|types| {
+            initialized_storage_view_flows_to(types, initialized_ty, place.ty, &suffix)
+        });
     }
     if suffix.is_empty()
         && prefix
@@ -362,6 +367,41 @@ fn initialized_state_flows_to_by(
         return type_matches(initialized_ty, place.ty);
     }
     true
+}
+
+fn initialized_storage_view_flows_to(
+    types: &TypeCtx,
+    initialized_ty: TypeId,
+    query_ty: TypeId,
+    suffix: &[PlaceProjection],
+) -> bool {
+    if !types.is_copy(query_ty) {
+        return false;
+    }
+    let [PlaceProjection::StorageOffset(ResourceOffset::Known(offset_bytes)), PlaceProjection::Deref, rest @ ..] =
+        suffix
+    else {
+        return false;
+    };
+    let Some(field) = aggregate_fields_with_offsets(types, initialized_ty)
+        .into_iter()
+        .find(|field| field.offset == *offset_bytes)
+    else {
+        return false;
+    };
+    let Some(projected_ty) = rest.iter().try_fold(field.ty, |ty, projection| {
+        if matches!(
+            projection,
+            PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
+        ) {
+            None
+        } else {
+            projection_result_type(types, ty, projection)
+        }
+    }) else {
+        return false;
+    };
+    type_pattern_matches(types, projected_ty, query_ty)
 }
 
 fn cell_descendant_state_flows(prefix: &Place, place: &Place) -> bool {

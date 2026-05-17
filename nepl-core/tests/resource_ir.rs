@@ -19013,6 +19013,75 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_nested_copy_field_after_raw_aggregate_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+
+struct Span:
+    file_id <i32>
+    start <i32>
+
+impl Clone for Span:
+    fn clone <(&Span)->Span> (self):
+        *self
+
+impl Copy for Span:
+    fn copy_mark <(Span)->Span> (self):
+        self
+
+struct Item:
+    kind <i32>
+    span <Span>
+
+impl Clone for Item:
+    fn clone <(&Item)->Item> (self):
+        *self
+
+impl Copy for Item:
+    fn copy_mark <(Item)->Item> (self):
+        self
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<Item> p Item 7 Span 42 3
+    let item <Item> load<Item> p
+    let got <i32> item.span.file_id
+    got
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "nested Copy field read from a raw-loaded aggregate must inherit initialized cell evidence: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+
+    compile_resource_source_with_raw_boundary(source, CompileTarget::Wasm)
+        .expect("nested Copy field read from raw-loaded aggregate should pass Resource IR checks");
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_external_raw_address_field_load() {
     let source = r#"
 #entry main
