@@ -601,3 +601,11 @@ root facade の `cliarg_get` は既に負 index を拒否していたが、raw b
 実装上は `stdlib/core/mem/pointer/alloc.nepl` が削除済みであり、safe facade だけでなく direct import でも `MemPtr<T>` allocation owner API へ戻れない。文書もこれに合わせ、scratch storage は `RegionToken` owner と `region_ptr` 由来の non-owning ABI view に分ける方針へ同期した。
 
 この親 issue は引き続き open とする。今回閉じたのは設計文書の stale guidance であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件である。
+
+## 2026-05-17 Agent 1 RegionToken raw identity helper 境界追記
+
+`ISS-20260517T031453210Z-REGIONTOKEN-RAW-IDENTITY-REFERENCE-R-BB2D917B` で、`region_token_raw_ref` が safe `core/mem` facade から見えていた問題を分離して修正した。
+
+`RegionToken.raw` の direct field projection は `type.owner_token.field_access_restricted` で拒否していたが、同じ raw free-obligation identity を `region_token_raw_ref` 経由で通常 source が読める状態では、Stage 6 の public/internal 境界として不十分だった。修正後は `region_token_raw_ref` を `mem/internal` に閉じ、safe `core/mem` facade には `region_size` / `region_in_bounds` のような metadata observer だけを残す。
+
+この親 issue は引き続き open とする。今回閉じたのは RegionToken raw identity の public observer 漏れであり、forgeable `RegionToken` を compiler-issued owner token / `OwnedBuffer<T>` / initialized prefix / collection drop traversal へ移す作業は継続する。

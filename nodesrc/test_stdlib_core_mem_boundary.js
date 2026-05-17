@@ -64,6 +64,7 @@ assertNoMatch(types, /pub\s+struct\s+RegionToken<\.T>:[\s\S]*\bptr\s+<MemPtr<\.T
 assertNoMatch(types, /pub\s+fn\s+mem_ptr_wrap\b/, "mem/types must not expose raw MemPtr construction helper");
 assertNoMatch(types, /pub\s+fn\s+mem_ptr_addr\b/, "mem/types must not expose raw MemPtr address helper");
 assertNoMatch(types, /pub\s+fn\s+region_new\b/, "mem/types must not expose owner token construction helper");
+assertNoMatch(types, /pub\s+fn\s+region_token_raw_ref\b/, "mem/types must not expose RegionToken raw owner identity helper");
 assertMatch(layout, /pub\s+fn\s+align8\b/, "mem/layout must own public alignment helper");
 assertMatch(layout, /pub\s+fn\s+max_alloc_payload_bytes\b/, "mem/layout must define allocator payload upper bound");
 assertMatch(layout, /pub\s+fn\s+alloc_payload_fits\b/, "mem/layout must define allocator payload fit predicate");
@@ -71,6 +72,7 @@ assertMatch(layout, /pub\s+fn\s+size_of\b/, "mem/layout must own public size_of"
 assertMatch(layout, /pub\s+fn\s+align_of\b/, "mem/layout must own public align_of");
 assertMatch(internal, /pub\s+fn\s+mem_ptr_wrap\b/, "mem/internal must own MemPtr construction helper");
 assertMatch(internal, /pub\s+fn\s+mem_ptr_addr\b/, "mem/internal must own MemPtr raw address helper");
+assertMatch(internal, /pub\s+fn\s+region_token_raw_ref\b/, "mem/internal must own RegionToken raw owner identity helper");
 assertMatch(internal, /pub\s+fn\s+region_new\b/, "mem/internal must own RegionToken construction helper");
 assertMatch(raw, /pub\s+fn\s+load\s+<\.T>\s+<\(i32\)->\.T>/, "mem/raw must own generic raw load");
 assertMatch(raw, /#intrinsic\s+"store"/, "mem/raw must own generic raw store intrinsic");

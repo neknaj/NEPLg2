@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T03:10:04.017Z",
+  "generated_at": "2026-05-17T03:17:14.902Z",
   "counts": {
-    "total": 901,
+    "total": 902,
     "open": 5,
-    "resolved": 896,
+    "resolved": 897,
     "by_area": {
       "stdlib": {
-        "total": 258,
+        "total": 259,
         "open": 3,
-        "resolved": 255
+        "resolved": 256
       },
       "TEST": {
         "total": 25,
@@ -10753,6 +10753,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T030536827Z-DEQUE-POP-DROPS-UPDATED-OWNER-INSTEA-2B452BAF.md"
+    },
+    {
+      "id": "ISS-20260517T031453210Z-REGIONTOKEN-RAW-IDENTITY-REFERENCE-R-BB2D917B",
+      "title": "RegionToken raw identity reference remains on public mem facade",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "stdlib/core/mem/types.nepl; stdlib/core/mem/internal.nepl; stdlib/core/mem/pointer/region.nepl; tests/stdlib/memory_safety.n.md; nodesrc/test_stdlib_core_mem_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T031453210Z-REGIONTOKEN-RAW-IDENTITY-REFERENCE-R-BB2D917B.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

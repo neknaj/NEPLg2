@@ -40218,3 +40218,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i stdlib/tests/deque.n.md -n 2`: passed
   - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/deque/index.nepl -n 3`: passed
   - `node nodesrc/tests.js -i stdlib/tests/deque.n.md --no-tree -o tmp/deque-tests.json -j 1`: passed
+
+## 2026-05-17 Agent 1 RegionToken raw identity helper 境界修正
+
+- `ISS-20260517T031453210Z-REGIONTOKEN-RAW-IDENTITY-REFERENCE-R-BB2D917B` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`RegionToken.raw` の direct field projection を compiler が拒否している一方で、`region_token_raw_ref` が public `mem/types` にあり safe `core/mem` facade から再公開されていたことだった。これにより通常 source が raw free-obligation identity を helper 経由で観測できた。
+- 修正後は `region_token_raw_ref` を `mem/internal` に移し、safe facade には `region_size` / `region_in_bounds` の metadata observer だけを残した。`region_ptr` / `region_ptr_at` は internal helper 経由で従来どおり raw identity を借用する。
+- focused verification:
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 30`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem/pointer/region.nepl -n 1`: passed

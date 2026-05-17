@@ -66,6 +66,18 @@ pub fn mem_ptr_wrap <.T> <(i32)->MemPtr<.T>> (raw):
 pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
     get p "raw"
 
+//: region_token_raw_ref: RegionToken の raw owner identity を内部境界で借用する
+//:
+//: 目的:
+//: - `RegionToken` の free obligation identity を、checked projection / dealloc / realloc の内部実装だけで参照します。
+//: - safe `core/mem` facade からは公開せず、通常利用者が raw owner identity を観測できないようにします。
+//:
+//: 注意(重要):
+//: - 返される参照は non-owning raw view の構築や owner-consuming raw boundary へ渡すための内部表現です。
+//: - caller はこの raw identity を public API result として返してはいけません。
+pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
+    #intrinsic "get_field_ref" <> (token,"raw")
+
 //: region_new: RegionToken を構築する
 //:
 //: 目的:

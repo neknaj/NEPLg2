@@ -784,6 +784,24 @@ fn main <()->i32> ():
     0
 ```
 
+## core/mem facade は RegionToken raw identity helper を公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+
+fn reveal_region_raw_ref <(&RegionToken<u8>)->i32> (token):
+    *region_token_raw_ref token
+
+fn main <()->i32> ():
+    0
+```
+
 ## helper が返した region_ptr は owner token にできない
 
 neplg2:test[compile_fail]
