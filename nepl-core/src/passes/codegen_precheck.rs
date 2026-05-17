@@ -8,6 +8,7 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirModule};
 use crate::intrinsic_kinds::{CoreIntrinsicKind, FieldAccessorKind, ScalarIntrinsicKind};
+use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::types::TypeCtx;
 use crate::wasm_shared;
 use wasm_encoder::ValType;
@@ -23,8 +24,25 @@ fn is_supported_llvm_intrinsic(name: &str) -> bool {
         None => {
             FieldAccessorKind::from_intrinsic_name(name).is_some()
                 || ScalarIntrinsicKind::from_intrinsic_name(name).is_some()
-                || name == "add"
+                || I32ArithmeticPrimitive::from_codegen_intrinsic_name(name).is_some()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_supported_llvm_intrinsic;
+    use crate::scalar_primitives::I32ArithmeticPrimitive;
+
+    #[test]
+    fn llvm_intrinsic_support_uses_i32_arithmetic_codegen_subset() {
+        assert!(is_supported_llvm_intrinsic(
+            I32ArithmeticPrimitive::Add
+                .codegen_intrinsic_name()
+                .expect("add is a backend intrinsic")
+        ));
+        assert!(!is_supported_llvm_intrinsic("sub"));
+        assert!(!is_supported_llvm_intrinsic("mul"));
     }
 }
 

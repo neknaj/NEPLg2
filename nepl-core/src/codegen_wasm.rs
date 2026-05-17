@@ -28,6 +28,7 @@ use crate::layout::{
     storage_align_bytes, storage_size_bytes, tuple_field_layouts_by_result,
 };
 use crate::runtime_helpers::{self, RuntimeHelperKind};
+use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -998,6 +999,57 @@ fn gen_scalar_intrinsic(
     })
 }
 
+fn gen_i32_arithmetic_intrinsic(
+    ctx: &TypeCtx,
+    kind: I32ArithmeticPrimitive,
+    args: &[HirExpr],
+    span: Span,
+    name_map: &BTreeMap<String, u32>,
+    sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
+    strings: &StringDataLayout,
+    locals: &mut LocalMap,
+    insts: &mut Vec<Instruction<'static>>,
+) -> LowerResult<Option<ValType>> {
+    let Some(expected) = kind.codegen_argument_count() else {
+        return Err(codegen_error(
+            "unsupported i32 arithmetic codegen intrinsic",
+            span,
+            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicUnknown,
+            )),
+        ));
+    };
+    if args.len() != expected {
+        return Err(codegen_error(
+            format!(
+                "intrinsic {} expects {} arguments",
+                kind.codegen_intrinsic_name().unwrap_or("i32_arithmetic"),
+                expected
+            ),
+            span,
+            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicArityMismatch,
+            )),
+        ));
+    }
+
+    gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
+    gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
+    match kind {
+        I32ArithmeticPrimitive::Add => insts.push(Instruction::I32Add),
+        I32ArithmeticPrimitive::Sub | I32ArithmeticPrimitive::Mul => {
+            return Err(codegen_error(
+                "unsupported i32 arithmetic codegen intrinsic",
+                span,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                    crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicUnknown,
+                )),
+            ));
+        }
+    }
+    Ok(Some(ValType::I32))
+}
+
 fn gen_expr(
     ctx: &TypeCtx,
     expr: &HirExpr,
@@ -1715,11 +1767,10 @@ fn gen_expr(
                 gen_scalar_intrinsic(
                     ctx, kind, args, expr.span, name_map, sig_map, strings, locals, insts,
                 )?
-            } else if name == "add" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
-                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
-                insts.push(Instruction::I32Add);
-                Some(ValType::I32)
+            } else if let Some(kind) = I32ArithmeticPrimitive::from_codegen_intrinsic_name(name) {
+                gen_i32_arithmetic_intrinsic(
+                    ctx, kind, args, expr.span, name_map, sig_map, strings, locals, insts,
+                )?
             } else if name == "unreachable" {
                 insts.push(Instruction::Unreachable);
                 None

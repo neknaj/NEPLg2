@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T11:23:30.741Z",
+  "generated_at": "2026-05-17T11:41:28.074Z",
   "counts": {
-    "total": 939,
+    "total": 940,
     "open": 5,
-    "resolved": 934,
+    "resolved": 935,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 485,
+        "total": 486,
         "open": 0,
-        "resolved": 485
+        "resolved": 486
       },
       "CORE": {
         "total": 1,
@@ -7368,6 +7368,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T111300558Z-SCALAR-INTRINSIC-BACKEND-LOWERING-DU-DEB6C1B2.md"
+    },
+    {
+      "id": "ISS-20260517T112957906Z-BACKEND-ADD-INTRINSIC-BYPASSES-SHARE-42BA501F",
+      "title": "Backend add intrinsic bypasses shared arithmetic primitive domain",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-17",
+      "target": "nepl-core/src/scalar_primitives.rs, nepl-core/src/resource/scalar_primitive.rs, nepl-core/src/wasm_shared.rs, nepl-core/src/passes/codegen_precheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T112957906Z-BACKEND-ADD-INTRINSIC-BYPASSES-SHARE-42BA501F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

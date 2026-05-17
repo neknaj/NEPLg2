@@ -44,6 +44,7 @@ pub mod resolve;
 pub mod resource;
 mod resource_primitives;
 pub mod runtime_helpers;
+mod scalar_primitives;
 mod source_capability;
 pub mod source_map;
 pub mod target_gate;
