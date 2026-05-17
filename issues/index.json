@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T17:25:00.072Z",
+  "generated_at": "2026-05-17T17:47:19.265Z",
   "counts": {
-    "total": 954,
+    "total": 955,
     "open": 5,
-    "resolved": 949,
+    "resolved": 950,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 492,
+        "total": 493,
         "open": 0,
-        "resolved": 492
+        "resolved": 493
       },
       "CORE": {
         "total": 1,
@@ -7473,6 +7473,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T124911215Z-WASM-CODEGEN-RESPONSIBILITY-FREEZE-R-49B83608.md"
+    },
+    {
+      "id": "ISS-20260517T173445922Z-RESOURCE-IR-FIELD-PROJECTION-PROOF-A-7ABBA4D1",
+      "title": "Resource IR field projection proof accepts ordinary get direct calls",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/lower_aggregate.rs, nepl-core/src/resource/coverage_hir*.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T173445922Z-RESOURCE-IR-FIELD-PROJECTION-PROOF-A-7ABBA4D1.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

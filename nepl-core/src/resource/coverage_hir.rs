@@ -13,9 +13,8 @@ use super::coverage_hir_place::{
 };
 use super::coverage_hir_projection::{
     callee_projects_reference_address, callee_projects_reference_field,
-    compiler_field_load_base_and_offset, field_get_call_owner, get_field_intrinsic_owner,
-    get_field_ref_intrinsic_owner, intrinsic_projects_reference_address,
-    intrinsic_projects_reference_field,
+    compiler_field_load_base_and_offset, get_field_intrinsic_owner, get_field_ref_intrinsic_owner,
+    intrinsic_projects_reference_address, intrinsic_projects_reference_field,
 };
 use super::coverage_hir_raw::should_count_raw_memory_call;
 use super::coverage_hir_scope::HirCoverageContext;
@@ -87,13 +86,6 @@ impl HirCoverageContext {
                 counts.function_values += 1;
             }
             HirExprKind::Call { callee, args } => {
-                if let Some(owner) =
-                    field_get_call_owner(callee, args, expr.ty, types, string_literals)
-                {
-                    counts.reads += 1;
-                    hir_field_projection_source_coverage(owner, counts, types, string_literals);
-                    return;
-                }
                 if callee_projects_reference_field(callee, args, expr.ty, types) {
                     counts.borrows += 1;
                     counts.deref_projections += 1;
