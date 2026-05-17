@@ -2,8 +2,21 @@
 
 ## stores_primitive_types_with_stable_ids
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
 ```neplg2
 #entry main
 #target std
@@ -28,20 +41,20 @@ fn main <()*>i32> ():
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
                 Result::Ok alloc1:
-                    let unit_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
+                    let unit_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc1 SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
-                            let bool_id <SelfhostTypeId> alloc2.type_id
-                            match selfhost_type_arena_add_primitive alloc2.arena SelfhostPrimitiveTypeKind::F32:
+                            let bool_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc2
+                            match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc2 SelfhostPrimitiveTypeKind::F32:
                                 Result::Ok alloc3:
-                                    let f32_id <SelfhostTypeId> alloc3.type_id
-                                    match selfhost_type_arena_add_primitive alloc3.arena SelfhostPrimitiveTypeKind::F64:
+                                    let f32_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc3
+                                    match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc3 SelfhostPrimitiveTypeKind::F64:
                                         Result::Ok alloc4:
-                                            let f64_id <SelfhostTypeId> alloc4.type_id
-                                            match selfhost_type_arena_add_primitive alloc4.arena SelfhostPrimitiveTypeKind::Never:
+                                            let f64_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc4
+                                            match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc4 SelfhostPrimitiveTypeKind::Never:
                                                 Result::Ok alloc5:
-                                                    let never_id <SelfhostTypeId> alloc5.type_id
-                                                    let arena5 <SelfhostTypeArena> alloc5.arena
+                                                    let never_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc5
+                                                    let arena5 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena alloc5
                                                     let checks1 checks_push checks0 check_eq_i32 0 selfhost_type_id_index unit_id
                                                     let checks2 checks_push checks1 check_eq_i32 1 selfhost_type_id_index bool_id
                                                     let checks3 checks_push checks2 check_eq_i32 2 selfhost_type_id_index f32_id
@@ -84,8 +97,16 @@ fn main <()*>i32> ():
 
 ## stores_function_type_arguments_and_result
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
 ```neplg2
 #entry main
 #target std
@@ -117,20 +138,20 @@ fn main <()*>i32> ():
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok alloc1:
-                    let i32_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
+                    let i32_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc1 SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
-                            let bool_id <SelfhostTypeId> alloc2.type_id
+                            let bool_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc2
                             match new<SelfhostTypeId>:
                                 Result::Ok params0:
                                     match push<SelfhostTypeId> params0 i32_id:
                                         Result::Ok params1:
                                             match push<SelfhostTypeId> params1 bool_id:
                                                 Result::Ok params2:
-                                                    match selfhost_type_arena_add_function alloc2.arena params2 bool_id:
+                                                    match selfhost_type_arena_add_function selfhost_type_arena_alloc_into_arena alloc2 params2 bool_id:
                                                         Result::Ok alloc3:
-                                                            let fn_id <SelfhostTypeId> alloc3.type_id
-                                                            let arena3 <SelfhostTypeArena> alloc3.arena
+                                                            let fn_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc3
+                                                            let arena3 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena alloc3
                                                             let checks1 checks_push checks0 check_eq_i32 3 selfhost_type_arena_len &arena3
                                                             let checks2 checks_push checks1 check_eq_i32 2 selfhost_type_arena_function_arg_len &arena3
                                                             let checks3 check_i32_option checks2 (selfhost_type_arena_function_arg_count &arena3 fn_id) 2
@@ -147,19 +168,19 @@ fn main <()*>i32> ():
                                                 Result::Err _e:
                                                     let returned <Vec<SelfhostTypeId>> vec_push_error_vec<SelfhostTypeId> _e
                                                     free<SelfhostTypeId> returned
-                                                    selfhost_type_arena_free alloc2.arena
+                                                    selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
                                                     let checks1 checks_push checks0 Result<(),str>::Err "second param push failed"
                                                     let shown checks_print_report checks1
                                                     checks_exit_code shown
                                         Result::Err _e:
                                             let returned <Vec<SelfhostTypeId>> vec_push_error_vec<SelfhostTypeId> _e
                                             free<SelfhostTypeId> returned
-                                            selfhost_type_arena_free alloc2.arena
+                                            selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
                                             let checks1 checks_push checks0 Result<(),str>::Err "first param push failed"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
-                                    selfhost_type_arena_free alloc2.arena
+                                    selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
                                     let checks1 checks_push checks0 Result<(),str>::Err "param vector allocation failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
@@ -179,8 +200,14 @@ fn main <()*>i32> ():
 
 ## returns_none_for_invalid_and_non_function_access
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #target std
@@ -198,8 +225,8 @@ fn main <()*>i32> ():
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Bool:
                 Result::Ok alloc1:
-                    let bool_id <SelfhostTypeId> alloc1.type_id
-                    let arena1 <SelfhostTypeArena> alloc1.arena
+                    let bool_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc1
+                    let arena1 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena alloc1
                     let invalid_id <SelfhostTypeId> selfhost_type_id_new -1
                     let checks1 checks_push checks0 check is_none<SelfhostTypeRecord> selfhost_type_arena_get_record &arena1 invalid_id
                     let checks2 checks_push checks1 check is_none<i32> selfhost_type_arena_function_arg_count &arena1 bool_id
@@ -220,8 +247,12 @@ fn main <()*>i32> ():
 
 ## compares_function_type_shapes_structurally
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 #entry main
 #target std
@@ -255,17 +286,17 @@ fn main <()*>i32> ():
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok alloc1:
-                    let i32_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
+                    let i32_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc1 SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
-                            let bool_id <SelfhostTypeId> alloc2.type_id
-                            match add_one_arg_function alloc2.arena i32_id bool_id:
+                            let bool_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc2
+                            match add_one_arg_function selfhost_type_arena_alloc_into_arena alloc2 i32_id bool_id:
                                 Result::Ok alloc3:
-                                    let fn1_id <SelfhostTypeId> alloc3.type_id
-                                    match add_one_arg_function alloc3.arena i32_id bool_id:
+                                    let fn1_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc3
+                                    match add_one_arg_function selfhost_type_arena_alloc_into_arena alloc3 i32_id bool_id:
                                         Result::Ok alloc4:
-                                            let fn2_id <SelfhostTypeId> alloc4.type_id
-                                            let arena4 <SelfhostTypeArena> alloc4.arena
+                                            let fn2_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc4
+                                            let arena4 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena alloc4
                                             let checks1 checks_push checks0 check not selfhost_type_id_eq fn1_id fn2_id
                                             let checks2 checks_push checks1 check selfhost_type_arena_types_equal &arena4 fn1_id fn2_id
                                             selfhost_type_arena_free arena4
@@ -295,8 +326,14 @@ fn main <()*>i32> ():
 
 ## rejects_mismatched_function_type_shapes
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #target std
@@ -338,23 +375,23 @@ fn main <()*>i32> ():
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok alloc1:
-                    let i32_id <SelfhostTypeId> alloc1.type_id
-                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostPrimitiveTypeKind::Bool:
+                    let i32_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc1 SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
-                            let bool_id <SelfhostTypeId> alloc2.type_id
-                            match add_one_arg_function alloc2.arena i32_id bool_id:
+                            let bool_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc2
+                            match add_one_arg_function selfhost_type_arena_alloc_into_arena alloc2 i32_id bool_id:
                                 Result::Ok alloc3:
-                                    let fn1_id <SelfhostTypeId> alloc3.type_id
-                                    match add_one_arg_function alloc3.arena bool_id bool_id:
+                                    let fn1_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc3
+                                    match add_one_arg_function selfhost_type_arena_alloc_into_arena alloc3 bool_id bool_id:
                                         Result::Ok alloc4:
-                                            let fn_arg_mismatch <SelfhostTypeId> alloc4.type_id
-                                            match add_one_arg_function alloc4.arena i32_id i32_id:
+                                            let fn_arg_mismatch <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc4
+                                            match add_one_arg_function selfhost_type_arena_alloc_into_arena alloc4 i32_id i32_id:
                                                 Result::Ok alloc5:
-                                                    let fn_result_mismatch <SelfhostTypeId> alloc5.type_id
-                                                    match add_zero_arg_function alloc5.arena bool_id:
+                                                    let fn_result_mismatch <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc5
+                                                    match add_zero_arg_function selfhost_type_arena_alloc_into_arena alloc5 bool_id:
                                                         Result::Ok alloc6:
-                                                            let fn_arity_mismatch <SelfhostTypeId> alloc6.type_id
-                                                            let arena6 <SelfhostTypeArena> alloc6.arena
+                                                            let fn_arity_mismatch <SelfhostTypeId> selfhost_type_arena_alloc_type_id &alloc6
+                                                            let arena6 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena alloc6
                                                             let invalid_id <SelfhostTypeId> selfhost_type_id_new -1
                                                             let checks1 checks_push checks0 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_arg_mismatch
                                                             let checks2 checks_push checks1 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_result_mismatch

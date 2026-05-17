@@ -1284,3 +1284,22 @@ runtime 検証を妨げる compile-time blocker は `ISS-20260517T132644394Z-SEL
 実行時間は約 7.5 分で、各 doctest の compile が約 31-35 秒かかる。今回は timeout や runtime hang ではなく、selfhost lexer fixture 13 件を個別 compile していることが支配的だった。必要なら後続で grouped fixture 化や compile cache の設計 issue として分離する。
 
 この issue はまだ open のまま継続する。selfhost lexer は移行済みだが、他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。
+
+## 2026-05-18 selfhost type arena accessor and stdout report migration
+
+`ISS-20260517T171239067Z-SELFHOST-TYPE-ARENA-DOCTESTS-HIDE-ST-F725D758` として、`tests/stdlib/neplg2_type_arena.n.md` の compile blocker と report metadata を修正した。
+
+移行内容:
+
+- focused run で 5 件すべてが `type.owner_aggregate.field_access_restricted` により compile failure になることを確認した。原因は `SelfhostTypeArenaAlloc` の `arena` / `type_id` direct field access だった。
+- `stdlib/neplg2/core/ty/ty.nepl` に `selfhost_type_arena_alloc_type_id` と `selfhost_type_arena_alloc_into_arena` を追加し、Copy な id 読み取りと arena owner 取り出しを public API として分離した。
+- doctest と `selfhost_ty_stage0` は direct field access をやめ、accessor 経由にした。
+- 5 件すべてを `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ変更した。
+- `nodesrc/test_selfhost_type_arena_report_contract.js` を追加し、owner-backed field access と `ret:` metadata への退行を source policy にした。
+
+検証:
+
+- `node nodesrc/test_selfhost_type_arena_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-neplg2-type-arena-report-metadata.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+
+この issue はまだ open のまま継続する。selfhost type arena は移行済みだが、他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。

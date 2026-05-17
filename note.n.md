@@ -41043,3 +41043,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_selfhost_lexer_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-neplg2-lexer-report-metadata.json -j 1 --dist web/dist --assert-io`: total=13, passed=13
+
+## 2026-05-18 Agent 1 selfhost type arena accessor / report metadata 修正
+
+- `ISS-20260517T171239067Z-SELFHOST-TYPE-ARENA-DOCTESTS-HIDE-ST-F725D758` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`SelfhostTypeArenaAlloc` が arena owner を含む owner-backed aggregate であるにもかかわらず、doctest が `alloc1.arena` / `alloc1.type_id` の direct field access を使っていたことだった。現行の静的検査ではこれは `type.owner_aggregate.field_access_restricted` として正しく拒否される。
+- 修正後は `selfhost_type_arena_alloc_type_id` と `selfhost_type_arena_alloc_into_arena` を public API として追加し、Copy な id 読み取りと arena owner 取り出しを分離した。doctest と `selfhost_ty_stage0` は direct field access を使わない。
+- 5 件の doctest は `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + `stdout:` に統一し、`nodesrc/test_selfhost_type_arena_report_contract.js` が owner-backed field access と `ret:` metadata への退行を拒否する。
+- focused verification:
+  - `node nodesrc/test_selfhost_type_arena_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-neplg2-type-arena-report-metadata.json -j 1 --dist web/dist --assert-io`: total=5, passed=5

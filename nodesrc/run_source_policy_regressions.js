@@ -106,6 +106,7 @@ const checks = [
     "nodesrc/test_selfhost_model_no_numeric_kind_tags.js",
     "nodesrc/test_selfhost_builtin_signature_payload.js",
     "nodesrc/test_selfhost_type_record_payload.js",
+    "nodesrc/test_selfhost_type_arena_report_contract.js",
     "nodesrc/test_selfhost_hir_range_payload.js",
     "nodesrc/test_selfhost_mono_instance_absence.js",
     "nodesrc/test_selfhost_hir_expr_id_absence.js",
