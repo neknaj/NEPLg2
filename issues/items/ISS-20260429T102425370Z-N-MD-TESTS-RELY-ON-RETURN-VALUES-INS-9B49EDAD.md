@@ -1196,3 +1196,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md --no-tree -o tmp/agent1-btreemap-report-tests.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
 
 この issue はまだ open のまま継続する。BTreeMap focused doctest は移行済みだが、他の `checks_exit_code` / `ret:` 依存 fixture と report 省略検出 policy の拡充が残っている。
+
+## 2026-05-17 collections_diag stdout report migration
+
+`ISS-20260517T123036015Z-COLLECTIONS-DIAG-DOCTESTS-PRINT-REPO-CF717FA0` として、`tests/stdlib/collections_diag.n.md` の 4 件を canonical stdout fixture へ移行した。
+
+移行内容:
+
+- `hashmap_remove_missing_key_returns_diag`、`hashset_remove_missing_key_returns_diag`、`queue_pop_empty_returns_none`、`ringbuffer_pop_empty_returns_none` に `neplg2:test[stdio, normalize_newlines]`、`stdout:`、`exit_code: 0` を追加した。
+- 4 件とも既に `checks_print_report checks` を呼んでいたため、report 表示順序は維持し、fixture 側で `Checked [ok]\n[0] ok\n` を比較する形にした。
+- `nodesrc/test_stdlib_collections_diag_report_contract.js` を追加し、同 file の doctest が `ret:` に戻らず stdout report を固定することを source policy にした。
+
+検証:
+
+- `node nodesrc/test_stdlib_collections_diag_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent1-collections-diag-report-tests.json -j 2 --assert-io --dist web/dist`: pass
+
+この issue はまだ open のまま継続する。`collections_diag` は移行済みだが、他の `std/test` report 出力済み・stdout 未固定 fixture と report 省略検出 policy の一般化が残っている。
