@@ -388,6 +388,10 @@ const typecheckDriver = assertFile(
     path.join(TYPECHECK_DIR, 'driver.rs'),
     'typecheck/driver.rs',
 );
+const typecheckExternImport = assertFile(
+    path.join(TYPECHECK_DIR, 'extern_import.rs'),
+    'typecheck/extern_import.rs',
+);
 const typecheckCompilerMemoryType = assertFile(
     path.join(TYPECHECK_DIR, 'compiler_memory_type.rs'),
     'typecheck/compiler_memory_type.rs',
@@ -464,6 +468,7 @@ for (const moduleName of [
     'driver_entry',
     'effect_check',
     'env',
+    'extern_import',
     'field_access',
     'field_apply',
     'function_apply',
@@ -539,6 +544,33 @@ assertContains(
     typecheckPrefixCheck,
     'ControlSpecialFunction::While.name()',
     'typecheck/prefix_check.rs must construct while special vars through ControlSpecialFunction',
+);
+
+assertLineLimit(path.join(TYPECHECK_DIR, 'extern_import.rs'), 'typecheck/extern_import.rs', 90);
+assertContains(
+    typecheckExternImport,
+    'pub(super) enum ExternImportModule',
+    'typecheck/extern_import.rs must own host extern import module classification',
+);
+assertContains(
+    typecheckExternImport,
+    'pub(super) const fn is_allowed_for_target',
+    'typecheck/extern_import.rs must own host extern target gates',
+);
+assertContains(
+    typecheckDriver,
+    'ExternImportModule::from_module_name(m)',
+    'typecheck/driver.rs must classify extern import modules through ExternImportModule',
+);
+assertContains(
+    typecheckDriver,
+    'module.is_allowed_for_target(target)',
+    'typecheck/driver.rs must ask ExternImportModule for target allowance',
+);
+assertNotContains(
+    typecheckDriver,
+    'm == "wasi_snapshot_preview1"',
+    'typecheck/driver.rs must not hardcode the WASI module spelling in target gates',
 );
 
 assertLineLimit(path.join(TYPECHECK_DIR, 'struct_shape.rs'), 'typecheck/struct_shape.rs', 140);
