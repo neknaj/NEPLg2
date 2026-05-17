@@ -2,8 +2,8 @@
 
 小さな project では、純粋な判定関数を先に作り、I/O は最後に分けます。ここでは `str` を返す関数として FizzBuzz をテストします。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok]
     ##: [0] ok

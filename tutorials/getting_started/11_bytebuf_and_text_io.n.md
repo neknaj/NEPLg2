@@ -2,8 +2,8 @@
 
 binary data は `ByteBuf` のまま扱い、text として読むときだけ UTF-8 検証付き API で `str` に変換します。外部入力を検証なしで `str` にする書き方は避けます。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok]
     ##: [0] ok

@@ -2,8 +2,8 @@
 
 NEPLg2 の基本値は式として扱います。型注釈は必要な場所だけに置き、読みやすさと型推論の確認に使います。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok]
     ##: [0] ok

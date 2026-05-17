@@ -2,8 +2,8 @@
 
 `if` も `match` も値を返す式です。列挙値や literal の分岐は、深い `if` のネストより `match` を優先します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok,ok]
     ##: [0] ok

@@ -2,8 +2,8 @@
 
 binary output を組み立てるときは `ByteBuilder` を使い、最後に `ByteBuf` として取り出します。text として確認する場合は UTF-8 検証付きで `str` に戻します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok]
     ##: [0] ok

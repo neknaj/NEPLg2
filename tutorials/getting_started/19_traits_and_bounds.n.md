@@ -2,8 +2,8 @@
 
 trait は「その型が持つ能力」を表します。generic 関数に bound を付けると、その能力を持つ型だけを受け取れます。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok]
     ##: [0] ok

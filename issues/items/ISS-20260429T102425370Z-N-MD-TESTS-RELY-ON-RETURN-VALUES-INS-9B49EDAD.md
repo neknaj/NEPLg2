@@ -1248,3 +1248,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `$env:NEPL_TEST_CASE_TIMEOUT_MS='300000'; node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/agent1-selfhost-cli-driver-report-tests-long.json -j 1 --dist web/dist --assert-io`: compile timeout 300000ms x 3
 
 runtime 検証を妨げる compile-time blocker は `ISS-20260517T132644394Z-SELFHOST-CLI-DRIVER-DOCTESTS-EXCEED--5B706A91` として分離した。この親 issue はまだ open のまま継続する。
+
+## 2026-05-18 getting_started std/test report metadata migration
+
+`ISS-20260517T164243934Z-GETTING-STARTED-STD-TEST-TUTORIALS-K-00E8CD95` として、`tutorials/getting_started` の `std/test` stdout report 付き doctest 21 件を `ret: 0` 代用から `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `02_test_harness` から `24_project_byte_output` までの対象 doctest を `neplg2:test[stdio, normalize_newlines]` に揃えた。
+- 既存の deterministic stdout report は維持し、`ret:` を削除して process exit-code metadata を `exit_code:` に分離した。
+- `nodesrc/test_tutorial_getting_started_current_style.js` に parser-level policy を追加し、getting_started の `std/test` doctest が `ret:` へ戻ること、stdout report を固定しないこと、report を出さずに exit code だけ返すことを拒否するようにした。
+
+検証:
+
+- `node nodesrc/test_tutorial_getting_started_current_style.js`: pass
+- `node nodesrc/tests.js -i tutorials/getting_started/02_test_harness.n.md -i tutorials/getting_started/03_values_and_types.n.md -i tutorials/getting_started/04_prefix_calls.n.md -i tutorials/getting_started/05_functions_and_blocks.n.md -i tutorials/getting_started/06_if_and_match.n.md -i tutorials/getting_started/07_option.n.md -i tutorials/getting_started/08_result.n.md -i tutorials/getting_started/09_validation_project.n.md -i tutorials/getting_started/10_string_and_text.n.md -i tutorials/getting_started/11_bytebuf_and_text_io.n.md -i tutorials/getting_started/12_char_and_ascii.n.md -i tutorials/getting_started/14_collection_reads.n.md -i tutorials/getting_started/16_drop_and_cleanup.n.md -i tutorials/getting_started/17_imports_and_modules.n.md -i tutorials/getting_started/18_generics.n.md -i tutorials/getting_started/19_traits_and_bounds.n.md -i tutorials/getting_started/20_namespace_and_methods.n.md -i tutorials/getting_started/21_project_fizzbuzz.n.md -i tutorials/getting_started/22_project_parser_small.n.md -i tutorials/getting_started/23_project_config_validator.n.md -i tutorials/getting_started/24_project_byte_output.n.md --no-tree -o tmp/agent1-getting-started-report-metadata.json -j 2 --dist web/dist --assert-io`: total=21, passed=21
+
+この issue はまだ open のまま継続する。getting_started の stdout report 付き std/test doctest は移行済みだが、他の `.n.md` / stdlib doc-comment fixture と report 省略検出 policy の一般化が残っている。
