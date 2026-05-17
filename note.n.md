@@ -40417,3 +40417,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+
+## 2026-05-17 Agent 1 core intrinsic kind result typing 修正
+
+- `ISS-20260517T060320513Z-PREFIX-CORE-INTRINSIC-RESULT-TYPING--0B7AACB4` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`prefix_check.rs` が `size_of` / `align_of` / `load` / `store` / `callsite_span` / `unreachable` の result type を `intrin.name` direct string branch で決めており、scalar / field accessor intrinsic と違って typed enum domain の外に残っていたことだった。
+- 修正後は `CoreIntrinsicKind` と `CoreIntrinsicResultKind` を追加し、prefix checker は `core_intrinsic_type_id` の exhaustive match で result type と `callsite_span` type arg diagnostic を導出するようにした。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core core_intrinsic --lib -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 callsite_span_type_arg_arity_has_type_code -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test intrinsic intrinsic_size_and_align_direct -- --nocapture`: 1 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only

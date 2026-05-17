@@ -41,8 +41,8 @@ mod type_expr;
 use context::BlockChecker;
 use function_check::check_function;
 use model::{
-    AssignKind, FieldAccessorKind, FieldIdx, ScalarIntrinsicKind, ScalarIntrinsicType,
-    ScalarMatchKind, StackEntry,
+    AssignKind, CoreIntrinsicKind, CoreIntrinsicResultKind, FieldAccessorKind, FieldIdx,
+    ScalarIntrinsicKind, ScalarIntrinsicType, ScalarMatchKind, StackEntry,
 };
 use traits::BoundEnv;
 

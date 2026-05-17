@@ -19,8 +19,8 @@ use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
 use super::traits::TraitId;
 use super::type_expr::type_from_expr;
 use super::{
-    AssignKind, BlockChecker, FieldAccessorKind, FieldIdx, ScalarIntrinsicKind,
-    ScalarIntrinsicType, StackEntry,
+    AssignKind, BlockChecker, CoreIntrinsicKind, CoreIntrinsicResultKind, FieldAccessorKind,
+    FieldIdx, ScalarIntrinsicKind, ScalarIntrinsicType, StackEntry,
 };
 
 fn prefix_check_dump_enabled() -> bool {
@@ -56,6 +56,35 @@ macro_rules! prefix_check_dump {
 }
 
 impl<'a> BlockChecker<'a> {
+    fn core_intrinsic_type_id(
+        &mut self,
+        core_intrinsic: CoreIntrinsicKind,
+        type_args: &[TypeId],
+        span: Span,
+    ) -> TypeId {
+        match core_intrinsic.result_kind() {
+            CoreIntrinsicResultKind::I32 => self.ctx.i32(),
+            CoreIntrinsicResultKind::Unit => self.ctx.unit(),
+            CoreIntrinsicResultKind::Never => self.ctx.never(),
+            CoreIntrinsicResultKind::FirstTypeArgOrUnit => type_args
+                .first()
+                .copied()
+                .unwrap_or_else(|| self.ctx.unit()),
+            CoreIntrinsicResultKind::FirstTypeArgOrDiagnostic => {
+                if let [ty] = type_args {
+                    *ty
+                } else {
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::IntrinsicTypeArgArityMismatch,
+                        format!("{} expects 1 type arg", core_intrinsic.intrinsic_name()),
+                        span,
+                    ));
+                    self.ctx.unit()
+                }
+            }
+        }
+    }
+
     fn scalar_intrinsic_type_id(&mut self, scalar_type: ScalarIntrinsicType) -> TypeId {
         match scalar_type {
             ScalarIntrinsicType::I32 => self.ctx.i32(),
@@ -1165,31 +1194,14 @@ impl<'a> BlockChecker<'a> {
                         }
                     }
 
+                    let core_intrinsic =
+                        CoreIntrinsicKind::from_intrinsic_name(intrin.name.as_str());
                     let field_accessor_intrinsic =
                         FieldAccessorKind::from_intrinsic_name(intrin.name.as_str());
                     let scalar_intrinsic =
                         ScalarIntrinsicKind::from_intrinsic_name(intrin.name.as_str());
-                    let ty = if intrin.name == "size_of" || intrin.name == "align_of" {
-                        self.ctx.i32()
-                    } else if intrin.name == "load" {
-                        if type_args.len() == 1 {
-                            type_args[0]
-                        } else {
-                            self.ctx.unit()
-                        }
-                    } else if intrin.name == "store" {
-                        self.ctx.unit()
-                    } else if intrin.name == "callsite_span" {
-                        if type_args.len() == 1 {
-                            type_args[0]
-                        } else {
-                            self.diagnostics.push(type_error(
-                                TypeDiagnosticCode::IntrinsicTypeArgArityMismatch,
-                                "callsite_span expects 1 type arg",
-                                *sp,
-                            ));
-                            self.ctx.unit()
-                        }
+                    let ty = if let Some(core_intrinsic) = core_intrinsic {
+                        self.core_intrinsic_type_id(core_intrinsic, &type_args, *sp)
                     } else if let Some(field_accessor) = field_accessor_intrinsic {
                         match field_accessor {
                             FieldAccessorKind::Get | FieldAccessorKind::GetRef => {
@@ -1197,8 +1209,6 @@ impl<'a> BlockChecker<'a> {
                             }
                             FieldAccessorKind::Put => self.ctx.unit(),
                         }
-                    } else if intrin.name == "unreachable" {
-                        self.ctx.never()
                     } else if let Some(scalar_intrinsic) = scalar_intrinsic {
                         self.scalar_intrinsic_type_id(scalar_intrinsic.output_type())
                     } else {
