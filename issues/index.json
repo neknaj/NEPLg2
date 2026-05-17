@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T19:19:00.108Z",
+  "generated_at": "2026-05-17T19:27:42.583Z",
   "counts": {
-    "total": 964,
+    "total": 965,
     "open": 5,
-    "resolved": 959,
+    "resolved": 960,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -12,9 +12,9 @@
         "resolved": 259
       },
       "TEST": {
-        "total": 35,
+        "total": 36,
         "open": 1,
-        "resolved": 34
+        "resolved": 35
       },
       "selfhost": {
         "total": 69,
@@ -12128,6 +12128,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T191427404Z-SELFHOST-IMPORT-SPEC-DOCTESTS-HIDE-S-3E0A657F.md"
+    },
+    {
+      "id": "ISS-20260517T192149542Z-SELFHOST-MODULE-GRAPH-DOCTESTS-HIDE--49E6BC64",
+      "title": "selfhost module graph doctests hide std/test reports in metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/neplg2_module_graph.n.md, nodesrc/test_selfhost_module_graph_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T192149542Z-SELFHOST-MODULE-GRAPH-DOCTESTS-HIDE--49E6BC64.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
