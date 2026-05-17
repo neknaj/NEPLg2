@@ -1,3 +1,22 @@
+# 2026-05-17 Agent 1 source capability proof event dispatcher 化
+
+- `ISS-20260517T093306644Z-SOURCE-CAPABILITY-PROOF-COLLECTOR-DI-429F5FD2` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`SourceCapabilityUseSite` は typed exact use-site proof になっている一方で、proof collector が raw memory / owner aggregate / compiler memory field の個別 collector method を直接呼んでおり、新しい proof domain や observer event の配線漏れを Rust の型で発見しにくかったこと。
+- `source_capability/rule.rs` を追加し、`SourceCapabilityProofEvent` と `dispatch_source_capability_proof_event` によって、call-head symbol、explicit constructor、struct definition、intrinsic、raw body を typed event として集約した。
+- `SourceCapabilityProofSink` を collector state への最小 interface とし、raw helper function frame / top-level raw call propagation は既存の証明状態を保ったまま dispatcher から更新する。
+- observer callback は各 event を dispatcher へ渡すだけになった。domain-specific evidence 判定は各 module に残すが、どの構文イベントにどの proof rule を適用するかは `match event` の網羅性で確認できる。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、`rule.rs`、`SourceCapabilityProofEvent`、dispatcher、observer から dispatcher への経路、旧 per-domain symbol collector method の再導入禁止を監視する policy を追加した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `cargo test -p nepl-core raw_memory_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core compiler_memory_field_boundary --lib -- --nocapture`
+  - `cargo test -p nepl-core source_map::tests --lib -- --nocapture`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の「個別モジュールごとに証明器を増やすのではなく、汎用的な証明器で適用漏れを防ぐ」方針に沿って、source capability proof の event dispatch を typed enum + exhaustive match へ寄せた。
+
 # 2026-05-17 Agent 1 compiler memory field proof と owner field proof の分離
 
 - `ISS-20260517T090028643Z-COMPILER-MEMORY-FIELD-PROOF-IS-GRANT-4EB3DABF` を追加し、fixed / resolved にした。`plan.md` は変更していない。
