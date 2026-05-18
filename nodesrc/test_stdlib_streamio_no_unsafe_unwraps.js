@@ -327,7 +327,7 @@ assert.doesNotMatch(
 
 assert.match(
     code,
-    /fn\s+append_str_impl\s+<\(StreamWriter,str\)\*>StreamWriter>\s+\(w,\s*s\):[\s\S]*while\s+lt\s+i\s+n:[\s\S]*string_byte_at_unchecked\s+s\s+i[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch/,
+    /fn\s+append_str_impl\s+<\(StreamWriter,str\)\*>StreamWriter>\s+\(w,\s*s\):[\s\S]*while\s+lt\s+i\s+n:[\s\S]*string_byte_at_checked_or_unreachable\s+s\s+i[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch/,
     'append_str_impl must stream through the alloc/string byte boundary and push_u8_impl',
 );
 

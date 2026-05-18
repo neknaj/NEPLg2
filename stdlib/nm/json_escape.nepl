@@ -30,7 +30,7 @@
 #indent 4
 
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "core/math" as *
 
 //: json_escape_byte_into: JSON 文字列用に 1 byte を builder へ追加する
@@ -79,7 +79,7 @@ pub fn json_escape_into <(StringBuilder,str)->StringBuilder> (sb, s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> string_byte_at_unchecked s i;
+            let ch <i32> string_byte_at_checked_or_unreachable s i;
             set out json_escape_byte_into out ch;
             set i add i 1;
     out

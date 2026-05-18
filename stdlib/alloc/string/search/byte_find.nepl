@@ -12,7 +12,7 @@
 
 #import "core/math" as *
 #import "alloc/string/access" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 
 //: str_match_at: split/search 用の位置一致判定
 //:
@@ -33,8 +33,8 @@ pub fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
     while lt i sep_len:
         do:
             let rd_off <i32> add pos i;
-            let bs <i32> string_byte_at_unchecked s rd_off;
-            let bp <i32> string_byte_at_unchecked sep i;
+            let bs <i32> string_byte_at_checked_or_unreachable s rd_off;
+            let bp <i32> string_byte_at_checked_or_unreachable sep i;
             if:
                 eq bs bp
                 then set i <i32> add i 1

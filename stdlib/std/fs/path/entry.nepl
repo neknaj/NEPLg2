@@ -8,7 +8,7 @@
 #indent 4
 
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "alloc/string/storage" as *
 #import "alloc/string/utf8" as *
 #import "alloc/collections/vec" as v
@@ -42,8 +42,8 @@ pub fn fs_str_lt <(str,str)->bool> (a, b):
     let mut answer <bool> false
     while and not done lt i n:
         do:
-            let ba <i32> string_byte_at_unchecked a i
-            let bb <i32> string_byte_at_unchecked b i
+            let ba <i32> string_byte_at_checked_or_unreachable a i
+            let bb <i32> string_byte_at_checked_or_unreachable b i
             if:
                 lt ba bb
                 then:

@@ -12,7 +12,7 @@
 
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
@@ -46,7 +46,7 @@ pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
             Result<StringBuilder,i32>::Err fs_errno_notcapable
         else:
             if:
-                and gt path_len 0 eq string_byte_at_unchecked path 0 47
+                and gt path_len 0 eq string_byte_at_checked_or_unreachable path 0 47
                 then:
                     Result<StringBuilder,i32>::Err fs_errno_notcapable
                 else:

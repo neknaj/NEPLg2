@@ -1,7 +1,7 @@
 #indent 4
 
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "core/field" as *
 #import "core/math" as *
 #import "core/result" as *
@@ -108,7 +108,7 @@ pub fn selfhost_cli_parse_emit_set_value <(str)->Result<SelfhostCliEmitSet,Selfh
                             then:
                                 true
                             else:
-                                eq string_byte_at_unchecked value i ','
+                                eq string_byte_at_checked_or_unreachable value i ','
                     if:
                         split
                         then:

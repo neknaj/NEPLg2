@@ -667,3 +667,11 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 この親 issue は引き続き open とする。今回閉じたのは scanner module の不要な unchecked public reader であり、root `alloc/string/access` 側の広範な `string_byte_at_unchecked` 利用整理や、compiler-issued owner token / initialized prefix は Stage 6 残件として継続する。
 
 同じ監査で、root `alloc/string` facade から見える `string_byte_at_unchecked` は stdlib / selfhost の多数の範囲証明済みループで使われており、単純な private 化ではなく bounded-index proof / checked helper migration が必要であることを確認した。この大きな設計残件は `ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1` として分離し、この親 issue の Stage 6 残件に含める。
+
+## 2026-05-18 Agent 1 alloc/string byte index witness 化追記
+
+`ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1` を解決した。一次修正で隔離していた `alloc/string/unchecked_access` は proof を型に持たない public unchecked boundary だったため削除し、`alloc/string/byte_index` の private `StringByteIndex` witness に置き換えた。
+
+`checked_string_byte_index` は `0 <= idx < len(s)` を確認した場合だけ witness を返し、raw layout reader `string_byte_at_checked` はこの witness を要求する。既存 stdlib / selfhost hot path は `string_byte_at_checked_or_unreachable` へ移行したが、この helper も checked factory を必ず通るため、範囲外 index が raw read に届かない。root facade / access / byte_index の public unchecked reader、public constructor、任意 `i32` からの checked reader 呼び出しは source policy と memory safety doctest で固定した。
+
+この親 issue は引き続き open とする。今回閉じたのは string byte reader の public unchecked surface であり、`RegionToken` の compiler-issued owner token 化、`OwnedStringRegion` / `OwnedBuffer<T>`、initialized prefix / collection drop traversal は Stage 6 残件として継続する。

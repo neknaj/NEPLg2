@@ -22,14 +22,14 @@
 #import "alloc/hash/hash32" as *
 #import "alloc/hash/fnv1a32" as *
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 
 pub fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
     if:
         ge idx n
         then h
         else:
-            let b <i32> string_byte_at_unchecked s idx
+            let b <i32> string_byte_at_checked_or_unreachable s idx
             let next_idx <i32> add idx 1
             let next_h <Fnv1a32> fnv1a32_update h b
             hashkey_bytes_loop s n next_idx next_h

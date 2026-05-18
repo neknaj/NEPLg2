@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T07:48:22.124Z",
+  "generated_at": "2026-05-18T08:12:29.259Z",
   "counts": {
-    "total": 988,
+    "total": 989,
     "open": 6,
-    "resolved": 982,
+    "resolved": 983,
     "by_area": {
       "stdlib": {
-        "total": 268,
+        "total": 269,
         "open": 4,
-        "resolved": 264
+        "resolved": 265
       },
       "TEST": {
         "total": 41,
@@ -160,19 +160,19 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
-      "id": "ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1",
-      "title": "alloc string public unchecked byte access needs safe boundary redesign",
+      "id": "ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20",
+      "title": "sha256 doctest blocked by owner aggregate field access boundary",
       "area": "stdlib",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "architecture",
+      "type": "bug",
       "created": "2026-05-18",
       "updated": "2026-05-18",
-      "target": "stdlib/alloc/string/access.nepl, stdlib/**, tests/stdlib/memory_safety.n.md",
+      "target": "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256/api.nepl, nepl-core/src/source_capability/owner_aggregate",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1.md"
+      "file": "items/ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -11768,6 +11768,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25.md"
+    },
+    {
+      "id": "ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1",
+      "title": "alloc string public unchecked byte access needs safe boundary redesign",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/string/access.nepl, stdlib/alloc/string/byte_index.nepl, stdlib/**, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

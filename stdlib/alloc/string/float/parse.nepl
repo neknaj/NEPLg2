@@ -16,7 +16,7 @@
 #import "core/cast" as *
 #import "core/char" as *
 #import "alloc/string/access" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
@@ -85,7 +85,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
         then:
             set ok 0;
         else:
-            let first <i32> string_byte_at_unchecked s 0;
+            let first <i32> string_byte_at_checked_or_unreachable s 0;
             if:
                 eq first '-'
                 then:
@@ -105,7 +105,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                     if:
                         lt i n
                         then:
-                            let b <i32> string_byte_at_unchecked s i;
+                            let b <i32> string_byte_at_checked_or_unreachable s i;
                             let d <i32> sub b '0';
                             if:
                                 and ge d 0 le d 9
@@ -125,7 +125,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
             if:
                 and eq ok 1 lt i n
                 then:
-                    let dot <i32> string_byte_at_unchecked s i;
+                    let dot <i32> string_byte_at_checked_or_unreachable s i;
                     if:
                         eq dot '.'
                         then:
@@ -145,7 +145,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                             if:
                                 lt i n
                                 then:
-                                    let b <i32> string_byte_at_unchecked s i;
+                                    let b <i32> string_byte_at_checked_or_unreachable s i;
                                     let d <i32> sub b '0';
                                     if:
                                         and ge d 0 le d 9
@@ -171,7 +171,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
             if:
                 and eq ok 1 lt i n
                 then:
-                    let eb <i32> string_byte_at_unchecked s i;
+                    let eb <i32> string_byte_at_checked_or_unreachable s i;
                     if:
                         or eq eb 'e' eq eb 'E'
                         then:
@@ -188,7 +188,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                     if:
                         lt i n
                         then:
-                            let sb <i32> string_byte_at_unchecked s i;
+                            let sb <i32> string_byte_at_checked_or_unreachable s i;
                             if:
                                 eq sb '-'
                                 then:
@@ -211,7 +211,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                             if:
                                 lt i n
                                 then:
-                                    let b <i32> string_byte_at_unchecked s i;
+                                    let b <i32> string_byte_at_checked_or_unreachable s i;
                                     let d <i32> sub b '0';
                                     if:
                                         and ge d 0 le d 9

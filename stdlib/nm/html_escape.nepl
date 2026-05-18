@@ -29,7 +29,7 @@
 #indent 4
 
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "core/math" as *
 
 //: HtmlEscapeKind: HTML text escape の分類
@@ -82,7 +82,7 @@ pub fn escape_html <(str)->str> (s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> string_byte_at_unchecked s i;
+            let ch <i32> string_byte_at_checked_or_unreachable s i;
             match html_escape_kind ch:
                 HtmlEscapeKind::Amp:
                     set sb sb_append sb "&amp;"

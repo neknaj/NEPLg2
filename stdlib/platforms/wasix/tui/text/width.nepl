@@ -14,7 +14,7 @@
 #import "core/math" as *
 #import "core/traits/copy" as *
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 
 //: TuiTextByteKind: TUI text scan が扱う UTF-8 先頭 byte の分類
 //:
@@ -36,7 +36,7 @@ impl Copy for TuiTextByteKind:
         kind
 
 pub fn str_byte_at <(str,i32)*>i32> (s, i):
-    string_byte_at_unchecked s i
+    string_byte_at_checked_or_unreachable s i
 
 //: tui_text_byte_kind: 1 byte を UTF-8 先頭 byte として分類する
 //:

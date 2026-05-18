@@ -169,12 +169,12 @@ assert.match(pathNormalizeCode, /normalize_build::fs_normalize_build_ranges_buil
 assert.doesNotMatch(pathNormalizeCode, /\bfn\s+fs_path_has_forbidden_host_byte\b/, 'std/fs/path/normalize root must not inline host-path byte validation');
 assert.doesNotMatch(pathNormalizeCode, /\bfn\s+fs_normalize_range_push\b/, 'std/fs/path/normalize root must not inline range-stack mutation');
 assert.doesNotMatch(pathNormalizeCode, /\bfn\s+fs_normalize_build_ranges_builder\b/, 'std/fs/path/normalize root must not inline range-stack output construction');
-assert.match(pathNormalizeValidateCode, /\bfn\s+fs_path_has_forbidden_host_byte\b[\s\S]*\bstring_byte_at_unchecked\b/, 'host-path byte validation must stay in normalize/validate');
+assert.match(pathNormalizeValidateCode, /\bfn\s+fs_path_has_forbidden_host_byte\b[\s\S]*\bstring_byte_at_checked_or_unreachable\b/, 'host-path byte validation must stay in normalize/validate');
 assert.match(pathNormalizeRangeStackCode, /\bfn\s+fs_normalize_range_push\b[\s\S]*\bv::push<i32>\s+stack\s+start[\s\S]*\bv::push<i32>\s+with_start\s+end/, 'range-stack push must stay in normalize/range_stack');
 assert.match(pathNormalizeRangeStackCode, /\bfn\s+fs_normalize_range_pop\b[\s\S]*\bv::pop<i32>\s+stack[\s\S]*\bfield::get\s+popped_end\s+"vec"[\s\S]*\bv::pop<i32>\s+without_end[\s\S]*\bfield::get\s+popped_start\s+"vec"/, 'range-stack pop must stay in normalize/range_stack');
 assert.match(pathNormalizeBuildCode, /\bfn\s+fs_normalize_build_ranges_builder\b[\s\S]*\bsb_append_slice_result\s+with_sep\s+path\s+part_start\s+part_end/, 'range-stack output construction must stay in normalize/build');
 assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative\s+<\(str\)->Result<str,i32>>\s+\(path\):[\s\S]*fs_normalize_relative_builder\s+path[\s\S]*sb_build_result\s+sb/, 'fs_normalize_relative must delegate through the builder boundary');
-assert.match(pathEntryCode, /\bfn\s+fs_str_lt\b[\s\S]*\bstring_byte_at_unchecked\b/, 'directory entry comparison must stay in std/fs/path/entry');
+assert.match(pathEntryCode, /\bfn\s+fs_str_lt\b[\s\S]*\bstring_byte_at_checked_or_unreachable\b/, 'directory entry comparison must stay in std/fs/path/entry');
 assert.match(pathEntryCode, /\bfn\s+fs_sort_strings\s+<\(&Vec<str>\)\*>Result<\(\),i32>>\s+\(entries\):[\s\S]*\bv::get<str>\s+entries\s+i[\s\S]*\bv::replace<str>\s+entries\s+j\s+key/, 'directory entry sort must use Vec public get/replace boundary with an explicit mutation effect');
 assert.doesNotMatch(pathEntryCode, /\bfn\s+fs_sort_strings\s+<\(i32,i32\)/, 'directory entry sort must not accept raw Vec storage pointers');
 assert.doesNotMatch(pathEntryCode, /\b(?:load<str>|store<str>|mem_ptr_addr)\b/, 'directory entry helpers must not sort Vec<str> through raw str storage');

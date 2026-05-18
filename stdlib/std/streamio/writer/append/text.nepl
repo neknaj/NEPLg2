@@ -8,7 +8,7 @@
 #indent 4
 
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "std/streamio/writer/state" as *
 #import "core/math" as *
 
@@ -24,7 +24,7 @@ pub fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> string_byte_at_unchecked s i;
+            let ch <i32> string_byte_at_checked_or_unreachable s i;
             set ww push_u8_impl ww ch;
             set i add i 1;
     ww

@@ -75,7 +75,7 @@ assert.match(
 const nmJsonEscapeIntoBlock = functionBlock(nmJsonEscapeFile, 'json_escape_into');
 assert.match(
     nmJsonEscapeIntoBlock,
-    /string_byte_at_unchecked\s+s\s+i/,
+    /string_byte_at_checked_or_unreachable\s+s\s+i/,
     'json_escape_into must read string bytes through the alloc/string access boundary'
 );
 assert.match(

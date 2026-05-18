@@ -15,7 +15,7 @@
 #import "core/char" as *
 #import "core/field" as *
 #import "alloc/string/access" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "alloc/string/search" as *
 #import "alloc/string/utf8" as *
 #import "alloc/string/char_offsets" as *
@@ -54,7 +54,7 @@ pub fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index
                 then:
                     Result<CharUtf8Step,str>::Err "string.char invalid utf8 boundary"
                 else:
-                    let b0 <i32> string_byte_at_unchecked s byte_index
+                    let b0 <i32> string_byte_at_checked_or_unreachable s byte_index
                     if:
                         le b0 0x7F
                         then:
@@ -69,7 +69,7 @@ pub fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index
                                         then:
                                             Result<CharUtf8Step,str>::Err "string.char truncated utf8"
                                         else:
-                                            let b1 <i32> string_byte_at_unchecked s add byte_index 1
+                                            let b1 <i32> string_byte_at_checked_or_unreachable s add byte_index 1
                                             if:
                                                 string_utf8_is_continuation b1
                                                 then:
@@ -84,8 +84,8 @@ pub fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index
                                         then:
                                             Result<CharUtf8Step,str>::Err "string.char truncated utf8"
                                         else:
-                                            let b1 <i32> string_byte_at_unchecked s add byte_index 1
-                                            let b2 <i32> string_byte_at_unchecked s add byte_index 2
+                                            let b1 <i32> string_byte_at_checked_or_unreachable s add byte_index 1
+                                            let b2 <i32> string_byte_at_checked_or_unreachable s add byte_index 2
                                             let first_ok <bool>:
                                                 if:
                                                     eq b0 0xE0
@@ -113,9 +113,9 @@ pub fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index
                                         then:
                                             Result<CharUtf8Step,str>::Err "string.char truncated utf8"
                                         else:
-                                            let b1 <i32> string_byte_at_unchecked s add byte_index 1
-                                            let b2 <i32> string_byte_at_unchecked s add byte_index 2
-                                            let b3 <i32> string_byte_at_unchecked s add byte_index 3
+                                            let b1 <i32> string_byte_at_checked_or_unreachable s add byte_index 1
+                                            let b2 <i32> string_byte_at_checked_or_unreachable s add byte_index 2
+                                            let b3 <i32> string_byte_at_checked_or_unreachable s add byte_index 3
                                             let first_ok <bool>:
                                                 if:
                                                     eq b0 0xF0

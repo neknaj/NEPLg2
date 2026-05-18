@@ -15,6 +15,7 @@ neplg2:test
 #import "std/test" as *
 #import "alloc/collections/vec" as *
 #import "alloc/string/access" as string
+#import "alloc/string/byte_index" as string_byte_index
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -27,7 +28,7 @@ fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (
     let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
     while and lt cursor n not failed:
         do:
-            let b <i32> string::string_byte_at_unchecked text cursor
+            let b <i32> string_byte_index::string_byte_at_checked_or_unreachable text cursor
             match sha256_update current b:
                 Result::Err e:
                     set failure get e "error"

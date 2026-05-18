@@ -12,7 +12,7 @@
 
 #import "core/math" as *
 #import "alloc/string/access" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "alloc/string/utf8" as *
 
 //: str_utf8_is_boundary: byte index が UTF-8 文字境界か判定する
@@ -52,4 +52,4 @@ pub fn str_utf8_is_boundary <(str,i32)->bool> (s, idx):
                                 then:
                                     false
                                 else:
-                                    not string_utf8_is_continuation string_byte_at_unchecked s idx
+                                    not string_utf8_is_continuation string_byte_at_checked_or_unreachable s idx

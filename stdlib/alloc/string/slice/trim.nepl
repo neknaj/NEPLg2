@@ -12,7 +12,7 @@
 
 #import "core/math" as *
 #import "alloc/string/access" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "alloc/string/search" as *
 #import "./byte" as *
 
@@ -47,7 +47,7 @@
 pub fn str_trim_suffix_cr <(str)->str> (s):
     let n <i32> len s
     if:
-        and gt n 0 eq string_byte_at_unchecked s sub n 1 '\r'
+        and gt n 0 eq string_byte_at_checked_or_unreachable s sub n 1 '\r'
         then str_slice s 0 sub n 1
         else s
 
@@ -81,7 +81,7 @@ pub fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
         then set e0 n
         else ()
     if:
-        and gt e0 s0 eq string_byte_at_unchecked s sub e0 1 '\r'
+        and gt e0 s0 eq string_byte_at_checked_or_unreachable s sub e0 1 '\r'
         then str_slice s s0 sub e0 1
         else str_slice s s0 e0
 
@@ -110,7 +110,7 @@ pub fn str_trim <(str)->str> (s):
             if:
                 lt start end
                 then:
-                    let b <i32> string_byte_at_unchecked s start;
+                    let b <i32> string_byte_at_checked_or_unreachable s start;
                     if:
                         str_is_space b
                         then set start <i32> add start 1
@@ -124,7 +124,7 @@ pub fn str_trim <(str)->str> (s):
                 lt start end
                 then:
                     let idx <i32> sub end 1;
-                    let b <i32> string_byte_at_unchecked s idx;
+                    let b <i32> string_byte_at_checked_or_unreachable s idx;
                     if:
                         str_is_space b
                         then set end <i32> sub end 1

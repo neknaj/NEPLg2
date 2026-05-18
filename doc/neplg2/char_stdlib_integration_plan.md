@@ -74,7 +74,7 @@ NEPLg2 に `'a'` 形式の char literal と `char` primitive type を追加す�
 - `len s` の意味は変えない。byte length のままとする。
 - `str_slice_result` は byte index API のままとする。
 - `str_utf8_is_boundary` は `str_slice_chars_result` の下位 API として維持する。
-- 既存 `string_byte_at_unchecked` などの byte API は binary / low-level 用として残すが、doc に「文字ではなく byte」と明記する。
+- byte API は binary / low-level 用として残すが、doc に「文字ではなく byte」と明記する。通常利用は checked `byte_at` を使い、内部 hot path の raw layout read は `alloc/string/byte_index` の private `StringByteIndex` witness または checked-or-unreachable helper を必ず通す。旧 `string_byte_at_unchecked` は public API として残さない。
 - NEPLg2 の旧 tuple type は廃止済みなので、decode step は `(char,i32)` ではなく `CharUtf8Step { value, next }` の名前付き struct で返す。
 
 ## `StringBuilder` / `ByteBuilder` 連携

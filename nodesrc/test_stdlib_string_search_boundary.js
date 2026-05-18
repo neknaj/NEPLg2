@@ -71,7 +71,7 @@ assert.match(
 );
 assert.match(
     boundaryCode,
-    /fn\s+str_utf8_is_boundary[\s\S]*string_utf8_is_continuation\s+string_byte_at_unchecked\s+s\s+idx/,
+    /fn\s+str_utf8_is_boundary[\s\S]*string_utf8_is_continuation\s+string_byte_at_checked_or_unreachable\s+s\s+idx/,
     'str_utf8_is_boundary must classify continuation bytes through UTF-8 helpers',
 );
 assert.ok(implementationLineCount(searchSrc) <= 35, `${searchRelPath} should stay as a small facade`);

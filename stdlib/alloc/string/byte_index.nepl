@@ -1,0 +1,114 @@
+//: # string/byte_index
+//: checked byte index witness による string byte access 境界
+//:
+//: [目的/もくてき]:
+//: - `str` の byte index が `0 <= idx < len(s)` を満たすことを、private `StringByteIndex` witness として表します。
+//: - raw string layout read は、この witness を受け取る関数だけに閉じます。
+//: - root `alloc/string` facade からは再公開せず、通常利用者は `byte_at` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - `StringByteIndex` の constructor は private です。caller は `checked_string_byte_index` の結果を match してだけ witness を得られます。
+//: - `string_byte_at_checked_or_unreachable` は既存 scanner / parser hot path の移行用 helper です。範囲外なら raw read の前に unreachable で停止します。
+
+#indent 4
+
+#import "alloc/string/access" as string_access
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem/raw" as *
+#import "core/option" as *
+
+//: StringByteIndex: `str` の範囲内 byte index であることを表す private witness
+//:
+//: [目的/もくてき]:
+//: - raw layout read に渡す index が、checked factory を通った値であることを型で表します。
+//:
+//: [注意/ちゅうい]:
+//: - public にしません。外部 module は constructor も field も直接使えません。
+struct StringByteIndex:
+    value <i32>
+
+//: checked_string_byte_index: byte index の範囲証明を作る
+//:
+//: [目的/もくてき]:
+//: - `idx` が `0 <= idx < len(s)` を満たす場合だけ `StringByteIndex` witness を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_byte_index_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"byte 0\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"byte 1\" expected=\"90\" actual=\"90\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"idx 2 rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/byte_index" as *
+//:| #import "core/option" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let rejected <bool> match checked_string_byte_index "AZ" 2:
+//:         Option::Some proof:
+//:             false
+//:         Option::None:
+//:             true
+//:     let report:
+//:         test_report_new "string_byte_index_doc"
+//:         |> test_report_push assert_eq_i32 "byte 0" 'A' string_byte_at_checked_or_unreachable "AZ" 0
+//:         |> test_report_push assert_eq_i32 "byte 1" 'Z' string_byte_at_checked_or_unreachable "AZ" 1
+//:         |> test_report_push assert "idx 2 rejected" rejected
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+pub fn checked_string_byte_index <(str,i32)->Option<StringByteIndex>> (s, idx):
+    let n <i32> string_access::len s
+    if:
+        lt idx 0
+        then:
+            none<StringByteIndex>
+        else:
+            if:
+                le n idx
+                then:
+                    none<StringByteIndex>
+                else:
+                    some<StringByteIndex> StringByteIndex idx
+
+//: string_byte_index_value: private witness から byte index を取り出す
+//:
+//: [目的/もくてき]:
+//: - raw read 実装だけが、証明済み index の数値表現を取り出せるようにします。
+fn string_byte_index_value <(StringByteIndex)->i32> (idx):
+    field::get idx "value"
+
+//: string_byte_access_addr: `str` の内部アドレスを byte index module 内部で取り出す
+//:
+//: [目的/もくてき]:
+//: - witness を受け取った byte reader だけが、`str` の基底 raw address を使えるようにします。
+fn string_byte_access_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+//: string_byte_at_checked: witness で証明済みの byte index を読む
+//:
+//: [目的/もくてき]:
+//: - `checked_string_byte_index` が返した witness を要求し、任意の `i32` index から raw read できないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn string_byte_at_checked <(str,StringByteIndex)->i32> (s, idx):
+    let raw_idx <i32> string_byte_index_value idx
+    load_u8 <i32> add string_byte_access_addr s <i32> add 4 raw_idx
+
+//: string_byte_at_checked_or_unreachable: 範囲外なら raw read の前に停止する byte reader
+//:
+//: [目的/もくてき]:
+//: - 既に loop invariant で範囲内であることが分かっている既存 hot path を、public unchecked raw reader なしで移行します。
+//: - 実装上も必ず `checked_string_byte_index` の witness を経由するため、範囲外 index で raw read へ進みません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn string_byte_at_checked_or_unreachable <(str,i32)->i32> (s, idx):
+    match checked_string_byte_index s idx:
+        Option::Some proof:
+            string_byte_at_checked s proof
+        Option::None:
+            #intrinsic "unreachable" <> ()

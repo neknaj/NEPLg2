@@ -41535,3 +41535,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-string-unchecked-access-boundary-memory-safety.json -j 1 --dist web\dist --assert-io`: total=49, passed=49
   - `node nodesrc/tests.js -i stdlib\alloc\string\access.nepl -i stdlib\alloc\string\unchecked_access.nepl --no-tree -o tmp\agent1-string-unchecked-access-boundary-docs.json -j 1 --dist web\dist --assert-io`: total=1, passed=1
   - `node nodesrc/tests.js -i stdlib\tests\string.n.md --no-tree -o tmp\agent1-string-unchecked-access-boundary-string-tests.json -j 1 --dist web\dist --assert-io`: total=9, passed=9
+
+## 2026-05-18 Agent 1 alloc/string byte index witness 化
+
+- `ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1` を resolved にした。`plan.md` は変更していない。
+- 一次修正の `alloc/string/unchecked_access` は root facade から accidental exposure を閉じただけで、direct import すれば任意 `i32` を unchecked raw reader へ渡せる過渡境界だった。
+- `unchecked_access.nepl` を削除し、`alloc/string/byte_index.nepl` の private `StringByteIndex` witness に置き換えた。`checked_string_byte_index` が `0 <= idx < len(s)` を確認した場合だけ witness を作り、`string_byte_at_checked` は witness なしに呼べない。
+- 既存 stdlib / selfhost の範囲証明済み hot path は `string_byte_at_checked_or_unreachable` へ移行した。この helper も checked factory を必ず通るため、範囲外 index で raw read へ進まない。
+- `tests/stdlib/memory_safety.n.md` に、`alloc/string/byte_index` 直 import から任意 `i32` を `string_byte_at_checked` へ渡せない regression と、`StringByteIndex` constructor が見えない regression を追加した。
+- `stdlib/tests/hash.n.md` を新 API へ追従させる過程で、SHA256 owner aggregate field access による既存の別失敗を確認した。これは今回の byte-index 変更ではないため、`ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20` として切り分けた。
+- focused verification:
+  - `node nodesrc/test_stdlib_string_access_boundary.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_search_boundary.js`: passed
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/tests.js -i stdlib\alloc\string\access.nepl -i stdlib\alloc\string\byte_index.nepl --no-tree -o tmp\agent1-string-byte-index-proof-docs.json -j 1 --dist web\dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib\alloc\hash\hash32.nepl -i stdlib\core\traits\hash.nepl -i stdlib\core\traits\hash_key.nepl --no-tree -o tmp\agent1-string-byte-index-proof-hash-modules.json -j 1 --dist web\dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-string-byte-index-proof-memory-safety.json -j 1 --dist web\dist --assert-io`: total=52, passed=52
+  - `node nodesrc/tests.js -i stdlib\tests\string.n.md --no-tree -o tmp\agent1-string-byte-index-proof-string-tests.json -j 1 --dist web\dist --assert-io`: total=9, passed=9
+- 切り分け済み失敗:
+  - `node nodesrc/tests.js -i stdlib\tests\string.n.md -i stdlib\tests\hash.n.md --no-tree -o tmp\agent1-string-byte-index-proof-string-hash.json -j 1 --dist web\dist --assert-io`: total=10, passed=9, failed=1。失敗は `stdlib/tests/hash.n.md::doctest#1` の `type.owner_aggregate.field_access_restricted` で、SHA256 `ctx.buffer` / update error `ctx` field access の別 issue。

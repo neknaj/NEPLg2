@@ -3,7 +3,7 @@
 #import "core/math" as *
 #import "core/result" as *
 #import "alloc/string" as *
-#import "alloc/string/unchecked_access" as *
+#import "alloc/string/byte_index" as *
 #import "std/test/types" as *
 
 //: # test/assertion
@@ -33,8 +33,8 @@ pub fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,total,i):
         then:
             true
         else:
-            let ba <i32> string_byte_at_unchecked a i
-            let bb <i32> string_byte_at_unchecked b i
+            let ba <i32> string_byte_at_checked_or_unreachable a i
+            let bb <i32> string_byte_at_checked_or_unreachable b i
             if:
                 eq ba bb
                 then:

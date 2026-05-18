@@ -1210,6 +1210,21 @@ fn main <()*>i32> ():
     scanner_string_byte_at_unchecked "abc" 99
 ```
 
+## string scanner の checked-or-unreachable byte reader も公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/scanner" as *
+
+fn main <()*>i32> ():
+    scanner_string_byte_at_checked_or_unreachable "abc" 99
+```
+
 ## alloc/string facade は unchecked byte reader を公開しない
 
 neplg2:test[compile_fail]
@@ -1223,6 +1238,36 @@ diag_code: resolve.identifier.undefined
 
 fn main <()*>i32> ():
     string_byte_at_unchecked "abc" 99
+```
+
+## alloc/string/byte_index は任意の i32 を raw byte reader に渡せない
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/byte_index" as *
+
+fn main <()*>i32> ():
+    string_byte_at_checked "abc" 99
+```
+
+## alloc/string/byte_index の witness constructor は公開されない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/byte_index" as *
+
+fn main <()*>i32> ():
+    let idx StringByteIndex 0
+    string_byte_at_checked "abc" idx
 ```
 
 ## alloc/string/access は unchecked byte reader を公開しない
