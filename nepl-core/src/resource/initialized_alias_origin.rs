@@ -22,10 +22,13 @@ impl RawValueOrigins {
         self.set(target, &origin);
     }
 
-    pub(super) fn copy_stable_origin(&mut self, source: &Place, target: &Place) {
-        if !value_origin_copy_is_relevant(source, target) {
-            return;
+    pub(super) fn record_stable_origin(&mut self, place: &Place, origin: &Place) {
+        if value_origin_place_is_stable(origin) {
+            self.set(place, origin);
         }
+    }
+
+    pub(super) fn copy_stable_origin(&mut self, source: &Place, target: &Place) {
         let resolved_origin = self.origin_for(source);
         let origin = if value_origin_place_is_stable(&resolved_origin) {
             Some(resolved_origin)
@@ -103,13 +106,34 @@ impl RawValueOrigins {
     }
 }
 
-fn value_origin_copy_is_relevant(source: &Place, target: &Place) -> bool {
-    value_origin_place_is_stable(source) || value_origin_place_is_stable(target)
-}
-
 fn value_origin_place_is_stable(place: &Place) -> bool {
     matches!(
         place.root,
         PlaceRoot::Local(_) | PlaceRoot::I32Constant(_) | PlaceRoot::Return | PlaceRoot::Storage(_)
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+
+    use crate::types::TypeId;
+
+    use super::super::model::{Place, PlaceProjection, ResourceId};
+    use super::RawValueOrigins;
+
+    #[test]
+    fn copy_stable_origin_follows_temporary_source_origin() {
+        let ty = TypeId(1);
+        let source = Place::local(String::from("data_len"), ty);
+        let temporary = Place::temporary(ResourceId(1), ty);
+        let raw_cell =
+            Place::temporary(ResourceId(2), ty).with_projection(PlaceProjection::Deref, ty);
+        let mut origins = RawValueOrigins::default();
+
+        origins.copy_stable_origin(&source, &temporary);
+        origins.copy_stable_origin(&temporary, &raw_cell);
+
+        assert_eq!(origins.origin_for(&raw_cell), source);
+    }
 }

@@ -2,19 +2,21 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::TypeCtx;
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    BorrowKind, EffectOp, OwnerStateEntry, Place, ResourceBlock, ResourceFunction, ResourceOp,
-    ResourceTerminator,
+    BorrowKind, EffectOp, OwnerStateEntry, Place, ResourceBlock, ResourceFunction, ResourceLocal,
+    ResourceOp, ResourceTerminator,
 };
 use super::owner_check_utils::{direct_raw_memory_effect, raw_owner_alias_moves_into_wrapper};
 use super::owner_extent::PendingOwnerExtentRequirement;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_summary_parameters::seed_owner_check_parameter_raw_address_aliases;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{
     call_uses_checked_mem_ptr_wrapper, reference_target_place,
@@ -23,7 +25,7 @@ use super::place_utils::{
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{ResourceOwnerCheckDeferred, ResourceOwnerDiagnostic, ResourceOwnerOperation};
 use super::storage_origin::StorageOriginTable;
-use super::summary::OwnerReturnSummaryIndex;
+use super::summary::{OwnerHostMemorySpanRequirement, OwnerReturnSummaryIndex};
 
 pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) function: &'a str,
@@ -32,6 +34,8 @@ pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) diagnostics: Vec<ResourceOwnerDiagnostic>,
     pub(super) deferred: ResourceOwnerCheckDeferred,
     pub(super) owner_extent_requirements: Vec<PendingOwnerExtentRequirement>,
+    pub(super) host_memory_span_requirements: Vec<OwnerHostMemorySpanRequirement>,
+    pub(super) params: &'a [ResourceLocal],
 }
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -43,6 +47,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut storage_origins = StorageOriginTable::default();
         let mut pending_reallocs = PendingRawReallocs::default();
         let mut variant_owner_effects = PendingVariantOwnerEffects::default();
+        seed_owner_check_parameter_raw_address_aliases(self.types, function, &mut raw_aliases);
         for block in &function.blocks {
             self.check_block(
                 &mut owners,
@@ -221,6 +226,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             } => {
                 let source_is_copy = self.types.is_copy(source.ty);
+                let source_is_raw_pointer = type_is_raw_pointer(self.types, source.ty);
                 variant_owner_effects.reject_reserved_source_use(
                     self,
                     owners,
@@ -231,16 +237,21 @@ impl ResourceOwnerCheckEngine<'_> {
                 );
                 if !source_is_copy {
                     raw_aliases.copy_scalar_facts_if_tracked(source, output);
-                    self.transfer_owner(
-                        owners,
-                        raw_aliases,
-                        raw_views,
-                        storage_origins,
-                        source,
-                        output,
-                        ResourceOwnerOperation::Read,
-                        *span,
-                    );
+                    if source_is_raw_pointer {
+                        raw_aliases.copy_alias_if_tracked(source, output);
+                        storage_origins.copy_origin(source, output);
+                    } else {
+                        self.transfer_owner(
+                            owners,
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            source,
+                            output,
+                            ResourceOwnerOperation::Read,
+                            *span,
+                        );
+                    }
                 } else {
                     if structural_i32_projection_preserves_raw_address(self.types, source, output) {
                         raw_aliases.copy_explicit_raw_address_alias(source, output);
@@ -258,7 +269,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
-                if !source_is_copy {
+                if !source_is_copy && !source_is_raw_pointer {
                     raw_views.clear(source);
                 }
                 pending_reallocs.copy_result(source, output);

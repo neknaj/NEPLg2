@@ -30,6 +30,15 @@ impl ResourceOwnerCheckEngine<'_> {
         summary: &OwnerReturnSummary,
         span: Span,
     ) {
+        if !self.apply_owner_host_memory_span_requirements(
+            owners,
+            raw_aliases,
+            args,
+            &summary.host_memory_span_requirements,
+            span,
+        ) {
+            return;
+        }
         let mut transferred = false;
         for (parameter_index, arg) in summary
             .parameter_indices

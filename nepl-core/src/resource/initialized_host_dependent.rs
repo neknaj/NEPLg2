@@ -1,5 +1,6 @@
 use super::cell_state::CellTable;
 use super::cell_state_raw_range::InitializedRawRangeUnit;
+use super::host_memory_address::host_memory_address_place;
 use super::host_memory_contract::HostMemoryDirection;
 use super::host_size_contract::{HostDependentLength, HostDependentMemorySpan, HostSizeOutput};
 use super::initialized::ResourceCheckEngine;
@@ -17,7 +18,7 @@ impl ResourceCheckEngine<'_> {
         let Some(address) = args.get(output.address_arg) else {
             return;
         };
-        let address = raw_aliases.canonicalize(address);
+        let address = host_memory_address_place(self.types, raw_aliases, address);
         let cell = raw_memory_cell_place(&address, self.types.i32());
         raw_aliases.set_host_size_kind(&cell, output.kind);
     }
@@ -35,7 +36,7 @@ impl ResourceCheckEngine<'_> {
         if contract.direction != HostMemoryDirection::Output {
             return;
         }
-        let address = raw_aliases.canonicalize(address);
+        let address = host_memory_address_place(self.types, raw_aliases, address);
         match contract.length {
             HostDependentLength::HostSize(kind) => {
                 for count in raw_aliases.host_size_places(kind) {

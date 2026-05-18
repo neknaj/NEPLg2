@@ -15,17 +15,23 @@ pub(super) fn iov_buffer_pointer_cells(
     raw_ty: TypeId,
 ) -> Vec<Place> {
     let mut cells = Vec::new();
-    push_unique_place(&mut cells, &raw_memory_cell_place(iovs, raw_ty));
+    let iov_aliases = raw_aliases.aliases_for(iovs);
     for place in raw_aliases.tracked_places() {
         if !raw_aliases.value_is_known_raw_address(&place) {
             continue;
         }
-        let Some(suffix) = raw_cell_suffix_after_address(&place, iovs) else {
-            continue;
-        };
-        if iov_buffer_cell_suffix_offset(&suffix).is_some() {
-            push_unique_place(&mut cells, &place);
+        for iov_alias in &iov_aliases {
+            let Some(suffix) = raw_cell_suffix_after_address(&place, iov_alias) else {
+                continue;
+            };
+            if iov_buffer_cell_suffix_offset(&suffix).is_some() {
+                push_unique_place(&mut cells, &place);
+                break;
+            }
         }
+    }
+    if cells.is_empty() {
+        push_unique_place(&mut cells, &raw_memory_cell_place(iovs, raw_ty));
     }
     cells
 }

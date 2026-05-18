@@ -17,6 +17,7 @@ pub(super) fn canonicalize_owner_return_summary(summary: &mut OwnerReturnSummary
     canonicalize_ord_vec(&mut summary.consumed_parameter_indices);
     canonicalize_ord_vec(&mut summary.consumed_parameter_sources);
     canonicalize_consumed_extent_requirements(&mut summary.consumed_extent_requirements);
+    canonicalize_ord_vec(&mut summary.host_memory_span_requirements);
     canonicalize_ord_vec(&mut summary.variant_consumed_parameter_indices);
     canonicalize_ord_vec(&mut summary.variant_consumed_parameter_sources);
     canonicalize_variant_consumed_extent_requirements(

@@ -175,7 +175,9 @@ impl RawCellAddressAliases {
             .marked
             .iter()
             .filter(|marked| owner_alias_place_has_raw_projection(marked, source))
-            .filter_map(|marked| replace_place_prefix(marked, source, target))
+            .filter_map(|marked| {
+                replace_place_prefix(marked, source, target).map(|moved| (moved, marked.clone()))
+            })
             .collect::<Vec<_>>();
         let moved_facts = self.i32_facts.facts_with_replaced_prefix(source, target);
         let moved_differences = self
@@ -204,9 +206,10 @@ impl RawCellAddressAliases {
         self.clear(source);
         push_unique_place(&mut self.marked, target);
         self.union_group(core::slice::from_ref(target));
-        for moved in moved_marks {
+        for (moved, origin) in moved_marks {
             push_unique_place(&mut self.marked, &moved);
             self.union_group(core::slice::from_ref(&moved));
+            self.raw_view_origins.record_stable_origin(&moved, &origin);
         }
         self.i32_facts.extend(moved_facts);
         self.i32_differences.extend(moved_differences);

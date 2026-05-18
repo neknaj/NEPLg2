@@ -1,11 +1,12 @@
 use alloc::vec::Vec;
 
+use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::TypeCtx;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, ResourceFunction};
 use super::owner_state::OwnerTable;
-use super::owner_summary_i32_leaf::i32_leaf_places;
+use super::owner_summary_i32_leaf::{i32_leaf_places, raw_i32_owner_leaf_places};
 use super::owner_summary_leaf::owner_seed_leaf_places;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::storage_origin::StorageOriginTable;
@@ -25,6 +26,7 @@ pub(super) fn seed_owner_summary_parameters(
     let mut parameter_storage_sources = Vec::new();
     let mut parameter_condition_sources = Vec::new();
     for (index, param) in function.params.iter().enumerate() {
+        seed_raw_pointer_parameter_alias(types, &param.place, raw_aliases);
         for leaf in i32_leaf_places(types, &param.place) {
             parameter_condition_sources.push(OwnerParameterConditionSource {
                 source: OwnerProjectionSource {
@@ -53,4 +55,27 @@ pub(super) fn seed_owner_summary_parameters(
         }
     }
     (parameter_storage_sources, parameter_condition_sources)
+}
+
+pub(super) fn seed_owner_check_parameter_raw_address_aliases(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    raw_aliases: &mut RawCellAddressAliases,
+) {
+    for param in &function.params {
+        seed_raw_pointer_parameter_alias(types, &param.place, raw_aliases);
+    }
+}
+
+fn seed_raw_pointer_parameter_alias(
+    types: &TypeCtx,
+    place: &super::model::Place,
+    raw_aliases: &mut RawCellAddressAliases,
+) {
+    if !type_is_raw_pointer(types, place.ty) {
+        return;
+    }
+    for leaf in raw_i32_owner_leaf_places(types, place) {
+        raw_aliases.mark(&leaf.place);
+    }
 }

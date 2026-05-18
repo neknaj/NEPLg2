@@ -7,7 +7,9 @@ use crate::span::Span;
 use super::external_io_iov_layout::{
     iov_buffer_pointer_cells, iov_length_cell, raw_cell_is_under_any_address,
 };
+use super::host_memory_address::host_memory_address_place;
 use super::host_memory_contract::host_memory_spans;
+use super::host_memory_contract::HostMemoryDirection;
 use super::host_size_contract::dependent_host_memory_spans;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, OwnerStorageExtent, Place};
@@ -58,16 +60,30 @@ impl ResourceOwnerCheckEngine<'_> {
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
         iovs: Option<&Place>,
+        iov_count: Option<&Place>,
+        direction: HostMemoryDirection,
         span: Span,
     ) -> bool {
-        let Some(iovs) = iovs else {
+        let (Some(iovs), Some(iov_count)) = (iovs, iov_count) else {
             return true;
         };
-        let iovs = raw_aliases.canonicalize(iovs);
+        let iovs = host_memory_address_place(self.types, raw_aliases, iovs);
         let iov_aliases = raw_aliases.aliases_for(&iovs);
         let mut available = true;
         for buffer_cell in iov_buffer_pointer_cells(raw_aliases, &iovs, self.types.i32()) {
             let Some(length_cell) = iov_length_cell(&buffer_cell, self.types.i32()) else {
+                if self.try_record_deferred_host_memory_span_requirement(
+                    raw_aliases,
+                    &super::host_memory_contract::HostMemorySpan::IovPayload {
+                        iovs_arg: 0,
+                        iov_count_arg: 1,
+                        transferred_count_arg: None,
+                        direction,
+                    },
+                    &[iovs.clone(), iov_count.clone()],
+                ) {
+                    continue;
+                }
                 self.push_unavailable(
                     ResourceOwnerOperation::ExternalIoPayloadExtent,
                     &buffer_cell,
@@ -81,6 +97,18 @@ impl ResourceOwnerCheckEngine<'_> {
             let payload_buffers =
                 iov_payload_buffer_aliases(raw_aliases, &buffer_cell, &iov_aliases);
             if payload_buffers.is_empty() {
+                if self.try_record_deferred_host_memory_span_requirement(
+                    raw_aliases,
+                    &super::host_memory_contract::HostMemorySpan::IovPayload {
+                        iovs_arg: 0,
+                        iov_count_arg: 1,
+                        transferred_count_arg: None,
+                        direction,
+                    },
+                    &[iovs.clone(), iov_count.clone()],
+                ) {
+                    continue;
+                }
                 self.push_unavailable(
                     ResourceOwnerOperation::ExternalIoPayloadExtent,
                     &buffer_cell,
@@ -96,6 +124,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     raw_aliases,
                     &buffer,
                     &length_cell,
+                    direction,
                     span,
                 );
             }
@@ -109,13 +138,23 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_aliases: &RawCellAddressAliases,
         buffer: &Place,
         length: &Place,
+        direction: HostMemoryDirection,
         span: Span,
     ) -> bool {
-        let resolved = resolve_owner_alias_place(owners, raw_aliases, buffer);
+        let buffer = host_memory_address_place(self.types, raw_aliases, buffer);
+        let resolved = resolve_owner_alias_place(owners, raw_aliases, &buffer);
         let state = owners
             .state(&resolved)
             .unwrap_or(OwnerState::NoFreeObligation);
         let OwnerState::Live { extent, .. } = &state else {
+            if self.try_record_deferred_direct_host_memory_span_requirement(
+                raw_aliases,
+                &buffer,
+                length,
+                direction,
+            ) {
+                return true;
+            }
             self.push_unavailable(
                 ResourceOwnerOperation::ExternalIoPayloadExtent,
                 &resolved,
@@ -128,6 +167,14 @@ impl ResourceOwnerCheckEngine<'_> {
         match prove_owner_extent_covers_argument(raw_aliases, &extent, length) {
             OwnerExtentProof::Proven => true,
             OwnerExtentProof::Unknown => {
+                if self.try_record_deferred_direct_host_memory_span_requirement(
+                    raw_aliases,
+                    &buffer,
+                    length,
+                    direction,
+                ) {
+                    return true;
+                }
                 self.owner_extent_requirements
                     .push(PendingOwnerExtentRequirement {
                         owner: resolved,

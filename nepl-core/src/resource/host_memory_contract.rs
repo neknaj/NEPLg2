@@ -3,26 +3,26 @@ use crate::types::TypeId;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{EffectOp, ExternalIoOp, NondetOp, Place};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum HostMemoryDirection {
     Input,
     Output,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum HostMemoryDirectUnit {
     Bytes,
     I32Cell,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum HostMemoryLength {
     Arg(usize),
     ArgScaled { arg: usize, bytes_per_item: i32 },
     ConstI32(i32),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum HostMemorySpan {
     Direct {
         address_arg: usize,

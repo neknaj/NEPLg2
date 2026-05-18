@@ -1,5 +1,6 @@
 use super::cell_state::CellTable;
 use super::cell_state_raw_range::InitializedRawRangeUnit;
+use super::host_memory_address::host_memory_address_place;
 use super::host_memory_contract::{
     host_memory_spans, HostMemoryDirectUnit, HostMemoryDirection, HostMemorySpan,
 };
@@ -42,7 +43,8 @@ impl ResourceCheckEngine<'_> {
                 direction: HostMemoryDirection::Output,
             } => {
                 if let Some(address) = args.get(address_arg) {
-                    self.mark_raw_cell_initialized(cells, raw_aliases, address, self.types.i32());
+                    let address = host_memory_address_place(self.types, raw_aliases, address);
+                    self.mark_raw_cell_initialized(cells, raw_aliases, &address, self.types.i32());
                 }
                 let _ = length;
             }
@@ -58,7 +60,7 @@ impl ResourceCheckEngine<'_> {
                 let Some(length) = length.resolve(args, self.types.i32(), raw_aliases) else {
                     return;
                 };
-                let address = raw_aliases.canonicalize(address);
+                let address = host_memory_address_place(self.types, raw_aliases, address);
                 for alias in raw_aliases.aliases_for(&address) {
                     cells.add_initialized_raw_byte_range(
                         &alias,

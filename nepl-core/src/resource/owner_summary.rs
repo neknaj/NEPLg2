@@ -73,6 +73,8 @@ fn function_owner_return_summary(
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
         owner_extent_requirements: Vec::new(),
+        host_memory_span_requirements: Vec::new(),
+        params: &function.params,
     };
     let mut owners = OwnerTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
@@ -416,6 +418,7 @@ fn function_owner_return_summary(
         &consumed_parameter_indices,
         &consumed_parameter_sources,
     );
+    let host_memory_span_requirements = engine.host_memory_span_requirements.clone();
     OwnerReturnSummary {
         function: function.name.clone(),
         parameter_indices,
@@ -424,6 +427,7 @@ fn function_owner_return_summary(
         consumed_parameter_indices,
         consumed_parameter_sources,
         consumed_extent_requirements,
+        host_memory_span_requirements,
         variant_consumed_parameter_indices,
         variant_consumed_parameter_sources,
         variant_consumed_extent_requirements,

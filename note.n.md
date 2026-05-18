@@ -1,3 +1,30 @@
+# 2026-05-18 Agent 1 ResourceIR fd_write host memory span summary 修正
+
+- `ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`fd_write` の readable payload span 証明が `MemPtr<T>` raw field 正規化、iovec descriptor alias、callee summary から caller facts への HostMemorySpan requirement 伝播、length/count scalar origin の区別を跨げなかったこと。
+- `host_memory_address_place` を追加し、owner / initialized / host-dependent span の host memory address を `MemPtr<T>` raw field に正規化してから raw alias canonicalize するようにした。
+- `OwnerHostMemorySpanRequirement` と role-aware summary を追加し、callee 内で証明できない HostMemorySpan は関数境界を越えて caller の raw alias / owner extent / scalar facts から再証明するようにした。address 引数と scalar 引数は分離し、iovec 内部 cell を length/count origin として誤採用しない。
+- iovec descriptor scan は canonical iov address だけでなく全 raw alias 配下の tracked cell を見るようにした。これにより `%iov.field0.deref` と `%iov_raw` のような alias 関係でも payload pointer store を見落とさない。
+- `RawMemoryOp::Store` は non-owning raw address view のコピーを free-obligation owner 消費として扱わないようにした。これは readable view を descriptor に書き込む操作を owner transfer と混同しないための修正。
+- `RawValueOrigins::copy_stable_origin` は source 自体が temporary でも、source に既に stable origin がある場合は raw cell へ伝搬するようにした。これにより `data_len -> tmp -> iov[4]` のような store 経路も HostMemorySpan summary の scalar argument として再証明できる。
+- 回帰テストとして、`fd_write` wrapper summary が caller の iovec payload store から証明されるケースと、payload pointer store がない caller を拒否するケースを追加した。
+- 検証:
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core resource::initialized_alias_origin::tests::copy_stable_origin_follows_temporary_source_origin -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_fd_write_wrapper_iovec_payload_span_summary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_fd_write_wrapper_missing_iovec_payload_store -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_fd_write_rejects_iovec_payload_extent_mismatch -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_write_accepts_initialized_iovec_buffer -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_write_reports_uninitialized_iovec_buffer -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_read_reports_uninitialized_iovec_descriptor -- --nocapture`
+  - `cargo fmt --all`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl -i stdlib/neplg2/core/pipeline.nepl -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-fd-write-readable-extent.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+  - `node nodesrc/issues.js check`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の ResourceIR host-visible memory proof として、stdio 個別許可ではなく汎用 HostMemorySpan 証明器の関数境界伝播を追加した。
+
 # 2026-05-18 Agent 1 BinaryHeap push grow failure owner 修正
 
 - `ISS-20260518T132553358Z-BINARYHEAP-PUSH-GROW-FAILURE-DESTROY-FC308045` を追加し、fixed / resolved にした。`plan.md` は変更していない。

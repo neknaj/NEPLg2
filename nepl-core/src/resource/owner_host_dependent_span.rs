@@ -1,6 +1,7 @@
 use crate::span::Span;
 
 use super::host_dependent_length::dependent_host_length_candidates;
+use super::host_memory_address::host_memory_address_place;
 use super::host_size_contract::{host_size_outputs, HostDependentMemorySpan};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{EffectOp, OwnerState, OwnerStorageExtent, Place};
@@ -59,7 +60,8 @@ impl ResourceOwnerCheckEngine<'_> {
         required_lengths: &[Place],
         span: Span,
     ) -> bool {
-        let resolved = resolve_owner_alias_place(owners, raw_aliases, buffer);
+        let buffer = host_memory_address_place(self.types, raw_aliases, buffer);
+        let resolved = resolve_owner_alias_place(owners, raw_aliases, &buffer);
         let state = owners
             .state(&resolved)
             .unwrap_or(OwnerState::NoFreeObligation);

@@ -4,6 +4,7 @@ use super::cell_state::CellTable;
 use super::external_io_iov_layout::{
     iov_buffer_pointer_cells, iov_length_cell, raw_cell_is_under_any_address,
 };
+use super::host_memory_address::host_memory_address_place;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{CellState, Place};
@@ -21,7 +22,7 @@ impl ResourceCheckEngine<'_> {
         let Some(iovs) = iovs else {
             return true;
         };
-        let iovs = raw_aliases.canonicalize(iovs);
+        let iovs = host_memory_address_place(self.types, raw_aliases, iovs);
         let mut available = true;
         for buffer_cell in iov_buffer_pointer_cells(raw_aliases, &iovs, self.types.i32()) {
             available &= self.ensure_available(
@@ -52,7 +53,7 @@ impl ResourceCheckEngine<'_> {
         let Some(iovs) = iovs else {
             return true;
         };
-        let iovs = raw_aliases.canonicalize(iovs);
+        let iovs = host_memory_address_place(self.types, raw_aliases, iovs);
         let iov_aliases = raw_aliases.aliases_for(&iovs);
         let mut available =
             self.ensure_iov_descriptor_cells_available(cells, raw_aliases, Some(&iovs), span);
@@ -83,7 +84,8 @@ impl ResourceCheckEngine<'_> {
         length: Option<&Place>,
         span: Span,
     ) -> bool {
-        let candidates = raw_aliases.aliases_for(buffer);
+        let buffer = host_memory_address_place(self.types, raw_aliases, buffer);
+        let candidates = raw_aliases.aliases_for(&buffer);
         if candidates
             .iter()
             .any(|candidate| cells.raw_cell_is_untracked_external(candidate))
@@ -111,7 +113,7 @@ impl ResourceCheckEngine<'_> {
                 return true;
             }
         }
-        let cell = raw_memory_unknown_offset_cell_place(buffer, self.types.i32());
+        let cell = raw_memory_unknown_offset_cell_place(&buffer, self.types.i32());
         self.ensure_available(
             cells,
             &cell,

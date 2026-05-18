@@ -1,6 +1,7 @@
 use super::cell_state::CellTable;
 use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::external_io_iov_layout::{iov_buffer_pointer_cells, raw_cell_is_under_any_address};
+use super::host_memory_address::host_memory_address_place;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
@@ -18,7 +19,7 @@ impl ResourceCheckEngine<'_> {
         let Some(iovs) = iovs else {
             return;
         };
-        let iovs = raw_aliases.canonicalize(iovs);
+        let iovs = host_memory_address_place(self.types, raw_aliases, iovs);
         let Some(iov_count) = iov_count else {
             return;
         };

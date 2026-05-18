@@ -1,6 +1,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use super::host_memory_contract::HostMemorySpan;
 use super::model::{I32ValueCondition, PlaceProjection, StorageOrigin};
 use super::report::ResourceOwnerOperation;
 use super::summary_index::{FunctionSummary, SummaryIndex};
@@ -32,6 +33,7 @@ pub(super) struct OwnerReturnSummary {
     pub(super) consumed_parameter_indices: Vec<usize>,
     pub(super) consumed_parameter_sources: Vec<OwnerProjectionSource>,
     pub(super) consumed_extent_requirements: Vec<OwnerConsumedExtentRequirement>,
+    pub(super) host_memory_span_requirements: Vec<OwnerHostMemorySpanRequirement>,
     pub(super) variant_consumed_parameter_indices: Vec<OwnerVariantParameterIndex>,
     pub(super) variant_consumed_parameter_sources: Vec<OwnerVariantProjectionSource>,
     pub(super) variant_consumed_extent_requirements: Vec<OwnerVariantConsumedExtentRequirement>,
@@ -76,6 +78,19 @@ pub(super) struct OwnerConsumedExtentRequirement {
     pub(super) owner: OwnerProjectionSource,
     pub(super) extent: OwnerExtentSummary,
     pub(super) operation: ResourceOwnerOperation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct OwnerHostMemorySpanRequirement {
+    pub(super) span: HostMemorySpan,
+    pub(super) args: Vec<OwnerHostMemoryArgSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum OwnerHostMemoryArgSummary {
+    Unknown { ty: TypeId },
+    Parameter(OwnerProjectionSource),
+    I32Constant { value: i32, ty: TypeId },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

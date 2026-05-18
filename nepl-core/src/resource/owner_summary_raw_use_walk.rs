@@ -60,7 +60,7 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
             ResourceOp::RawMemory {
                 operation, args, ..
             } => {
-                if raw_memory_uses_alias(*operation, args, aliases) {
+                if raw_memory_uses_alias(*operation, args, aliases, raw_views) {
                     return true;
                 }
             }
@@ -173,14 +173,19 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
     false
 }
 
-fn raw_memory_uses_alias(operation: RawMemoryOp, args: &[Place], aliases: &[Place]) -> bool {
+fn raw_memory_uses_alias(
+    operation: RawMemoryOp,
+    args: &[Place],
+    aliases: &[Place],
+    raw_views: &RawAddressViewTable,
+) -> bool {
     match operation {
         RawMemoryOp::Dealloc | RawMemoryOp::Realloc => args
             .first()
             .is_some_and(|arg| place_matches_any_alias(arg, aliases)),
-        RawMemoryOp::Store => args
-            .get(1)
-            .is_some_and(|arg| place_matches_any_alias(arg, aliases)),
+        RawMemoryOp::Store => args.get(1).is_some_and(|arg| {
+            place_matches_any_alias(arg, aliases) && !raw_views.contains_non_owning(arg)
+        }),
         _ => false,
     }
 }

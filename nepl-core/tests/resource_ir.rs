@@ -18530,6 +18530,38 @@ fn resource_ir_owner_check_fd_write_rejects_iovec_payload_extent_mismatch() {
 }
 
 #[test]
+fn resource_ir_owner_check_applies_fd_write_wrapper_iovec_payload_span_summary() {
+    let (resource, types) = fd_write_wrapper_owner_resource(true);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "fd_write wrapper summaries must defer iovec payload proof to the caller and then prove it from caller stores: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_reports_fd_write_wrapper_missing_iovec_payload_store() {
+    let (resource, types) = fd_write_wrapper_owner_resource(false);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::NoFreeObligation,
+                ..
+            } if function == "main"
+        )),
+        "fd_write wrapper summaries must still reject callers that never initialize the iovec payload pointer: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_fd_write_rejects_iovec_descriptor_extent_mismatch() {
     let (resource, types) =
         external_io_iov_owner_resource_with_iov_storage(ExternalIoOp::FdWrite, 8, 8, 4);
@@ -18874,6 +18906,219 @@ fn external_io_iov_owner_resource(
     iov_len: i32,
 ) -> (ResourceModule, TypeCtx) {
     external_io_iov_owner_resource_with_iov_storage(operation, allocation_len, iov_len, 8)
+}
+
+fn fd_write_wrapper_owner_resource(include_payload_store: bool) -> (ResourceModule, TypeCtx) {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let wrapper_fd = Place::local(String::from("fd"), i32_ty);
+    let wrapper_iov = Place::local(String::from("iov"), i32_ty);
+    let wrapper_iovcnt = Place::local(String::from("iovcnt"), i32_ty);
+    let wrapper_nwritten = Place::local(String::from("nwritten"), i32_ty);
+    let wrapper_errno = Place::temporary(ResourceId(100), i32_ty);
+    let wrapper = ResourceFunction {
+        name: String::from("fd_write_wrapper"),
+        origin_name: String::from("fd_write_wrapper"),
+        params: vec![
+            ResourceLocal {
+                name: String::from("fd"),
+                ty: i32_ty,
+                mutable: false,
+                place: wrapper_fd.clone(),
+            },
+            ResourceLocal {
+                name: String::from("iov"),
+                ty: i32_ty,
+                mutable: false,
+                place: wrapper_iov.clone(),
+            },
+            ResourceLocal {
+                name: String::from("iovcnt"),
+                ty: i32_ty,
+                mutable: false,
+                place: wrapper_iovcnt.clone(),
+            },
+            ResourceLocal {
+                name: String::from("nwritten"),
+                ty: i32_ty,
+                mutable: false,
+                place: wrapper_nwritten.clone(),
+            },
+        ],
+        result: i32_ty,
+        effect: Effect::Impure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![ResourceOp::Call {
+                output: wrapper_errno.clone(),
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("fd_write"),
+                },
+                args: vec![wrapper_fd, wrapper_iov, wrapper_iovcnt, wrapper_nwritten],
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdWrite,
+                },
+                span,
+            }],
+            terminator: ResourceTerminator::Return {
+                value: Some(wrapper_errno),
+                span,
+            },
+            span,
+        }],
+        span,
+    };
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let iov_count = Place::temporary(ResourceId(1), i32_ty);
+    let payload_len = Place::temporary(ResourceId(2), i32_ty);
+    let iov_storage_len = Place::temporary(ResourceId(3), i32_ty);
+    let out_storage_len = Place::temporary(ResourceId(4), i32_ty);
+    let payload = Place::temporary(ResourceId(5), i32_ty);
+    let payload_view = Place::temporary(ResourceId(6), i32_ty);
+    let iov = Place::temporary(ResourceId(7), i32_ty);
+    let out_ptr = Place::temporary(ResourceId(8), i32_ty);
+    let iov_len_cell = iov.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
+        i32_ty,
+    );
+    let store_payload = Place::temporary(ResourceId(9), unit_ty);
+    let store_len = Place::temporary(ResourceId(10), unit_ty);
+    let errno = Place::temporary(ResourceId(11), i32_ty);
+    let free_out = Place::temporary(ResourceId(12), unit_ty);
+    let free_iov = Place::temporary(ResourceId(13), unit_ty);
+    let free_payload = Place::temporary(ResourceId(14), unit_ty);
+    let mut ops = vec![
+        ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(0),
+            output: fd.clone(),
+            ty: i32_ty,
+            span,
+        },
+        ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(1),
+            output: iov_count.clone(),
+            ty: i32_ty,
+            span,
+        },
+        ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(8),
+            output: payload_len.clone(),
+            ty: i32_ty,
+            span,
+        },
+        ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(8),
+            output: iov_storage_len.clone(),
+            ty: i32_ty,
+            span,
+        },
+        ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(4),
+            output: out_storage_len.clone(),
+            ty: i32_ty,
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            output: payload.clone(),
+            args: vec![payload_len.clone()],
+            span,
+        },
+        ResourceOp::RawAddressView {
+            source: payload.clone(),
+            target: payload_view.clone(),
+            kind: RawAddressViewKind::NonOwningProjection,
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            output: iov.clone(),
+            args: vec![iov_storage_len.clone()],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            output: out_ptr.clone(),
+            args: vec![out_storage_len.clone()],
+            span,
+        },
+    ];
+    if include_payload_store {
+        ops.push(ResourceOp::RawMemory {
+            operation: RawMemoryOp::Store,
+            output: store_payload,
+            args: vec![iov.clone(), payload_view],
+            span,
+        });
+    }
+    ops.extend([
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Store,
+            output: store_len,
+            args: vec![iov_len_cell, payload_len.clone()],
+            span,
+        },
+        ResourceOp::Call {
+            output: errno,
+            target: ResourceCallTarget::User {
+                name: String::from("fd_write_wrapper"),
+                type_args: Vec::new(),
+            },
+            args: vec![fd, iov.clone(), iov_count, out_ptr.clone()],
+            effect: EffectOp::UserCall {
+                name: String::from("fd_write_wrapper"),
+                effect: Effect::Impure,
+            },
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: free_out,
+            args: vec![out_ptr, out_storage_len],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: free_iov,
+            args: vec![iov, iov_storage_len],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: free_payload,
+            args: vec![payload, payload_len],
+            span,
+        },
+    ]);
+    let main = ResourceFunction {
+        name: String::from("main"),
+        origin_name: String::from("main"),
+        params: vec![],
+        result: unit_ty,
+        effect: Effect::Impure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops,
+            terminator: ResourceTerminator::Return { value: None, span },
+            span,
+        }],
+        span,
+    };
+    (
+        ResourceModule {
+            functions: vec![wrapper, main],
+            entry: Some(String::from("main")),
+            string_literals: vec![],
+        },
+        types,
+    )
 }
 
 fn external_io_iov_owner_resource_with_iov_storage(
@@ -21199,7 +21444,10 @@ fn main <()*>()> ():
     let resource_dump = resource.dump_text();
     let stdio_dump = resource_dump
         .split("\nfn ")
-        .filter(|section| section.starts_with("stdio_write_fd_mem_result__"))
+        .filter(|section| {
+            section.starts_with("stdio_write_fd_mem_result__")
+                || section.starts_with("stdio_fd_write_from_result__")
+        })
         .collect::<Vec<_>>()
         .join("\nfn ");
     let report = check_resource_owner_obligations(&resource, &types);
@@ -21213,6 +21461,7 @@ fn main <()*>()> ():
                 | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
             };
             function.starts_with("stdio_write_fd_mem_result__")
+                || function.starts_with("stdio_fd_write_from_result__")
         })
         .collect::<Vec<_>>();
     assert!(
