@@ -41285,3 +41285,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc\run_doctest.js -i tests\compiler\move_check.n.md -n 39 --dist web\dist`: passed
   - `node nodesrc\tests.js -i tests\compiler\reference_codegen.n.md --no-tree -o tmp\agent1-match-payload-bind-mode-reference-codegen.json -j 1 --dist web\dist --assert-io`: total=6, passed=6
   - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-match-payload-bind-mode-move-check.json -j 1 --dist web\dist --assert-io`: timeout after 184s; focused doctest #38/#39 で代替確認済み。
+
+## 2026-05-18 Agent 1 compiler intrinsic raw boundary fixture 修正
+
+- `ISS-20260518T012520895Z-COMPILER-INTRINSIC-DOCTESTS-STILL-AS-4AD0DA0D` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/compiler/intrinsic.n.md` が ordinary doctest source から `alloc_raw` / raw `load` / `store` / `dealloc_raw` を成功例として呼んでいたことだった。Stage 6 では raw memory operation authority は compiler-owned source provenance と exact use-site source evidence からだけ得るため、doctest entry が通常 source である限り拒否されるのが正しい。
+- 修正後は raw operation 直接利用の 4 件を `neplg2:test[compile_fail]` に変更し、`diag_code: resource.raw.memory_outside_boundary` を固定した。raw load/store の runtime codegen は `nepl-core/tests/intrinsic.rs` の `run_main_wasi_i32_raw_memory_boundary` で検証する責務分割にした。
+- focused verification:
+  - `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 2 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 3 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 5 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 6 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/agent1-intrinsic-raw-boundary-fixtures.json -j 1 --dist web/dist`: total=8, passed=8
+  - `cargo test -p nepl-core --test intrinsic -- --nocapture`: 4 passed

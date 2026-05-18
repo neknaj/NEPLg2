@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T01:16:32.730Z",
+  "generated_at": "2026-05-18T01:28:16.900Z",
   "counts": {
-    "total": 971,
+    "total": 972,
     "open": 5,
-    "resolved": 966,
+    "resolved": 967,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 497,
+        "total": 498,
         "open": 0,
-        "resolved": 497
+        "resolved": 498
       },
       "CORE": {
         "total": 4,
@@ -7598,6 +7598,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T011425661Z-OWNED-REFERENCE-PAYLOAD-MATCH-IS-MIS-BDD651CC.md"
+    },
+    {
+      "id": "ISS-20260518T012520895Z-COMPILER-INTRINSIC-DOCTESTS-STILL-AS-4AD0DA0D",
+      "title": "compiler intrinsic doctests still assume user raw memory boundary access",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/compiler/intrinsic.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T012520895Z-COMPILER-INTRINSIC-DOCTESTS-STILL-AS-4AD0DA0D.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

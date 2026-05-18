@@ -1,6 +1,10 @@
 # intrinsic の直接テスト
 
-`#intrinsic` の `size_of/align_of/load/store` が i64/f64/unit で正しく動くことを確認する。
+`#intrinsic` の `size_of/align_of` と unit payload lowering が通常 source から正しく使えることを確認する。
+
+raw memory の `load/store/alloc/dealloc` は compiler-owned raw-memory boundary の source proof がある場所だけで使える。
+このファイルの doctest は通常利用者 source として実行されるため、直接 raw memory operation を呼ぶ例は拒否されることを確認する。
+raw load/store の runtime codegen は `nepl-core/tests/intrinsic.rs` の compiler-owned raw boundary harness で検証する。
 
 ## intrinsic_size_and_align_direct
 
@@ -29,10 +33,10 @@ fn main <()->i32> ():
             1
 ```
 
-## intrinsic_load_store_i64
+## intrinsic_load_store_i64_requires_raw_boundary
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #target core
 #entry main
@@ -52,10 +56,10 @@ fn main <()*>i32> ():
     if eq got v 0 1
 ```
 
-## intrinsic_load_store_f64
+## intrinsic_load_store_f64_requires_raw_boundary
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #target core
 #entry main
@@ -94,10 +98,10 @@ fn main <()->i32> ():
             1
 ```
 
-## intrinsic_store_load_enum_i64_payload_uses_full_storage
+## intrinsic_store_load_enum_i64_payload_requires_raw_boundary
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #target core
 #entry main
@@ -124,10 +128,10 @@ fn main <()*>i32> ():
             if eq e v 0 2
 ```
 
-## intrinsic_zero_sized_struct_constructor_keeps_heap_pointer
+## intrinsic_zero_sized_struct_raw_probe_requires_raw_boundary
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #target core
 #entry main
