@@ -166,7 +166,12 @@ pub(super) fn checked_mem_ptr_wrapper_arg_indices(
     args: &[Place],
 ) -> Vec<usize> {
     let indices: &[usize] = match operation {
-        RawMemoryOp::Load | RawMemoryOp::Store | RawMemoryOp::FillBytes | RawMemoryOp::Fill => &[0],
+        RawMemoryOp::Load
+        | RawMemoryOp::Store
+        | RawMemoryOp::LoadU8
+        | RawMemoryOp::StoreU8
+        | RawMemoryOp::FillBytes
+        | RawMemoryOp::Fill => &[0],
         RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => &[0, 1],
         RawMemoryOp::Alloc
         | RawMemoryOp::Dealloc

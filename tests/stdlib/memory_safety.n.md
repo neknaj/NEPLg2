@@ -73,10 +73,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## 無効ポインタ load は Option::None
+## internal MemPtr wrapper で無効 load 用 pointer は作れない
 
-neplg2:test
-ret: 1
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -97,10 +97,10 @@ fn main <()*>i32> ():
             0
 ```
 
-## 無効ポインタ store は Result::Err
+## internal MemPtr wrapper で無効 store 用 pointer は作れない
 
-neplg2:test
-ret: 1
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -379,13 +379,17 @@ ret: 1
 #import "core/math" as *
 
 fn main <()*>i32> ():
+    let ok_u8 <i32> check_fill_u8
+    let ok_i32 <i32> check_fill_i32
+    if and (eq ok_u8 1) (eq ok_i32 1) 1 0
+
+fn check_fill_u8 <()*>i32> ():
     match alloc_region<u8> 16:
         Result::Err _e:
             0
         Result::Ok token:
-            let p_u8 <MemPtr<u8>> region_ptr &token
-            let p_i32 <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr p_u8
-            match fill_u8 p_u8 16 0:
+            let p <MemPtr<u8>> region_ptr &token
+            match fill_u8 p 16 7:
                 Result::Err _e:
                     match dealloc_region token:
                         Result::Err _drop:
@@ -393,24 +397,41 @@ fn main <()*>i32> ():
                         Result::Ok _:
                             0
                 Result::Ok _:
-                    match fill_i32 p_i32 4 7:
+                    let ok <i32> match load_u8 p:
+                        Option::None:
+                            0
+                        Option::Some v:
+                            if eq v 7 1 0
+                    match dealloc_region token:
                         Result::Err _e:
-                            match dealloc_region token:
-                                Result::Err _drop:
-                                    0
-                                Result::Ok _:
-                                    0
+                            0
                         Result::Ok _:
-                            let ok <i32> match load_i32 p_i32:
-                                Option::None:
-                                    0
-                                Option::Some v:
-                                    if eq v 7 1 0
-                            match dealloc_region token:
-                                Result::Err _e:
-                                    0
-                                Result::Ok _:
-                                    ok
+                            ok
+
+fn check_fill_i32 <()*>i32> ():
+    match alloc_region<i32> 4:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let p <MemPtr<i32>> region_ptr &token
+            match fill_i32 p 4 7:
+                Result::Err _e:
+                    match dealloc_region token:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            0
+                Result::Ok _:
+                    let ok <i32> match load_i32 p:
+                        Option::None:
+                            0
+                        Option::Some v:
+                            if eq v 7 1 0
+                    match dealloc_region token:
+                        Result::Err _e:
+                            0
+                        Result::Ok _:
+                            ok
 ```
 
 ## MemPtr fill 系は無効引数を Err で返す
@@ -430,26 +451,50 @@ ret: 1
 #import "core/math" as *
 
 fn main <()*>i32> ():
-    let p_u8 <MemPtr<u8>> mem_ptr_wrap 0
-    let p_i32 <MemPtr<i32>> mem_ptr_wrap 0
-    let a <Result<(),str>> fill_u8 p_u8 4 1
-    let b <Result<(),str>> fill_i32 p_i32 2 9
-    let ok_a <bool> match a:
-        Result::Err _e:
-            true
-        Result::Ok _:
-            false
-    let ok_b <bool> match b:
-        Result::Err _e:
-            true
-        Result::Ok _:
-            false
+    let ok_u8 <i32> check_invalid_fill_u8
+    let ok_i32 <i32> check_invalid_fill_i32
     if:
-        and ok_a ok_b
+        and (eq ok_u8 1) (eq ok_i32 1)
         then:
             1
         else:
             0
+
+fn check_invalid_fill_u8 <()*>i32> ():
+    match alloc_region<u8> 4:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let p <MemPtr<u8>> region_ptr &token
+            let bad_len <i32> sub 0 1
+            let ok <bool> match fill_u8 p bad_len 1:
+                Result::Err _e:
+                    true
+                Result::Ok _:
+                    false
+            match dealloc_region token:
+                Result::Err _drop:
+                    0
+                Result::Ok _:
+                    if ok 1 0
+
+fn check_invalid_fill_i32 <()*>i32> ():
+    match alloc_region<i32> 2:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let p <MemPtr<i32>> region_ptr &token
+            let bad_len <i32> sub 0 1
+            let ok <bool> match fill_i32 p bad_len 9:
+                Result::Err _e:
+                    true
+                Result::Ok _:
+                    false
+            match dealloc_region token:
+                Result::Err _drop:
+                    0
+                Result::Ok _:
+                    if ok 1 0
 ```
 
 ## pure から MemPtr load/store を呼ぶと拒否する
@@ -649,7 +694,7 @@ fn main <()->i32> ():
 ## region_new は str_addr 由来の non-owning view を owner token にできない
 
 neplg2:test[compile_fail]
-diag_code: resource.owner.no_free_obligation
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -681,7 +726,7 @@ fn main <()*>()> ():
 ## region_new は固定 raw address 由来の MemPtr を owner token にできない
 
 neplg2:test[compile_fail]
-diag_code: resource.owner.no_free_obligation
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -709,7 +754,7 @@ fn main <()*>()> ():
 ## helper が返した固定 raw address 由来の RegionToken は owner token にならない
 
 neplg2:test[compile_fail]
-diag_code: resource.owner.no_free_obligation
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -805,7 +850,7 @@ fn main <()->i32> ():
 ## helper が返した region_ptr は owner token にできない
 
 neplg2:test[compile_fail]
-diag_code: resource.owner.no_free_obligation
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -840,7 +885,7 @@ fn main <()*>()> ():
 ## known callback が返した region_ptr は owner token にできない
 
 neplg2:test[compile_fail]
-diag_code: resource.owner.no_free_obligation
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -919,7 +964,7 @@ fn main <()*>()> ():
 ## region_ptr_at の Ok payload は owner token にできない
 
 neplg2:test[compile_fail]
-diag_code: resource.owner.no_free_obligation
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4

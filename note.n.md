@@ -1,3 +1,20 @@
+# 2026-05-18 Agent 1 ResourceIR byte raw memory cell 型証明修正
+
+- `ISS-20260518T064507398Z-RESOURCEIR-FILLBYTES-RECORDS-THE-FIL-C96703EF` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、ResourceIR が `load_u8` / `store_u8` を generic `Load` / `Store` に潰し、`FillBytes` も fill value の ABI 型 `i32` を initialized byte range の cell 型として使っていたこと。byte memory cell は `u8` だが、NEPL の `load_u8` / `store_u8` ABI は `i32` 値を返すため、出力型と cell 型を同一視すると静的検査が誤る。
+- `RawMemoryOp::LoadU8` / `RawMemoryOp::StoreU8` を追加し、initialized move / owner / effect / summary / checked MemPtr boundary の各 match で byte cell 型を enum 分岐から決定するようにした。stdlib 名の allowlist ではなく、ResourceIR の operation enum による汎用的な証明に直している。
+- `FillBytes` は initialized byte range を `u8` cell として記録し、generic `Load<i32>` は byte fill だけでは初期化済みにならないことも回帰テストで固定した。
+- `ISS-20260518T063826900Z-MEMORY-SAFETY-DOCTESTS-STILL-EXPECT--7293BDED` も fixed / resolved にした。`memory_safety.n.md` の古い raw helper forging 前提を `resource.raw.memory_outside_boundary` の compile_fail へ移行し、valid fill/load は public `alloc_region` / `region_ptr` provenance で検査する。
+- 検証:
+  - `cargo test -p nepl-core resource_ir_cell_check_fill_bytes --test resource_ir`
+  - `cargo test -p nepl-core resource_ir_cell_check_store_u8_initializes_u8_cells --test resource_ir`
+  - `cargo test -p nepl-core raw_memory --lib`
+  - `cargo check -p nepl-core`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-memory-safety-raw-boundary-after.json -j 1 --dist web\dist`: total=42, passed=42
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の ResourceIR typed memory proof として、ABI 値型と memory cell 型を分離した。
+
 # 2026-05-18 Agent 1 collection cleanup 横断 Copy-only policy 追加
 
 - `ISS-20260518T051123451Z-COLLECTION-CLEANUP-CONTRACT-LACKS-GE-63D5D8EE` を追加し、fixed / resolved にした。`plan.md` は変更していない。

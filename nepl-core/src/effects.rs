@@ -18,6 +18,8 @@ pub enum RawMemoryOp {
     Realloc,
     Load,
     Store,
+    LoadU8,
+    StoreU8,
     BulkCopy,
     BulkMove,
     MemorySize,
@@ -34,6 +36,8 @@ impl RawMemoryOp {
             RawMemoryOp::Realloc => "realloc",
             RawMemoryOp::Load => "load",
             RawMemoryOp::Store => "store",
+            RawMemoryOp::LoadU8 => "load_u8",
+            RawMemoryOp::StoreU8 => "store_u8",
             RawMemoryOp::BulkCopy => "bulk_copy",
             RawMemoryOp::BulkMove => "bulk_move",
             RawMemoryOp::MemorySize => "memory_size",
@@ -128,12 +132,10 @@ impl RawMemoryHelper {
             RawMemoryHelper::RuntimeAlloc | RawMemoryHelper::AllocRaw => RawMemoryOp::Alloc,
             RawMemoryHelper::RuntimeDealloc | RawMemoryHelper::DeallocRaw => RawMemoryOp::Dealloc,
             RawMemoryHelper::RuntimeRealloc | RawMemoryHelper::ReallocRaw => RawMemoryOp::Realloc,
-            RawMemoryHelper::Load | RawMemoryHelper::LoadI32 | RawMemoryHelper::LoadU8 => {
-                RawMemoryOp::Load
-            }
-            RawMemoryHelper::Store | RawMemoryHelper::StoreI32 | RawMemoryHelper::StoreU8 => {
-                RawMemoryOp::Store
-            }
+            RawMemoryHelper::Load | RawMemoryHelper::LoadI32 => RawMemoryOp::Load,
+            RawMemoryHelper::Store | RawMemoryHelper::StoreI32 => RawMemoryOp::Store,
+            RawMemoryHelper::LoadU8 => RawMemoryOp::LoadU8,
+            RawMemoryHelper::StoreU8 => RawMemoryOp::StoreU8,
             RawMemoryHelper::MemCopy => RawMemoryOp::BulkCopy,
             RawMemoryHelper::MemMove => RawMemoryOp::BulkMove,
             RawMemoryHelper::MemsetU8 | RawMemoryHelper::FillU8 | RawMemoryHelper::MemFill => {
@@ -954,6 +956,8 @@ fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
         | RawMemoryOp::MemoryGrow => Some(InternalEffect::InternalAlloc { operation }),
         RawMemoryOp::Load
         | RawMemoryOp::Store
+        | RawMemoryOp::LoadU8
+        | RawMemoryOp::StoreU8
         | RawMemoryOp::BulkCopy
         | RawMemoryOp::BulkMove
         | RawMemoryOp::FillBytes

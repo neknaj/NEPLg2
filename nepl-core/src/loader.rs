@@ -1709,8 +1709,12 @@ mod tests {
             "pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):\n    load_u8 mem_ptr_addr p\n",
         );
         assert!(
-            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::LoadU8),
             "a raw helper wrapper must be allowed to prove its own raw primitive call"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "load_u8 evidence must not grant generic typed load authority"
         );
     }
 
@@ -1727,17 +1731,21 @@ mod tests {
         let call_span = Span::new(FileId(0), call_start, call_start + "load_u8".len() as u32);
         let unrelated_span = Span::new(FileId(0), call_span.end + 1, call_span.end + 8);
         assert!(
-            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::LoadU8),
             "a raw primitive call used as a constructor payload must remain source evidence"
         );
         assert!(
-            capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, call_span),
+            capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::LoadU8, call_span),
             "source proof must attach raw operation authority to the raw helper call site"
         );
         assert!(
             !capabilities
-                .allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, unrelated_span),
+                .allows_raw_memory_operation_boundary_at(RawMemoryOp::LoadU8, unrelated_span),
             "raw operation authority must not spread to another span in the same file"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, call_span),
+            "load_u8 call-site evidence must stay distinct from generic typed load evidence"
         );
     }
 

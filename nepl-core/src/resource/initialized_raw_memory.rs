@@ -29,13 +29,23 @@ impl ResourceCheckEngine<'_> {
                     raw_aliases.mark(output);
                 }
             }
-            RawMemoryOp::Load => {
+            RawMemoryOp::Load | RawMemoryOp::LoadU8 => {
                 pending_reallocs.clear_result(output);
-                self.check_raw_memory_load(cells, raw_aliases, output, args, span);
+                let cell_ty = match operation {
+                    RawMemoryOp::Load => output.ty,
+                    RawMemoryOp::LoadU8 => self.types.u8(),
+                    _ => unreachable!("load branch contains only raw load operations"),
+                };
+                self.check_raw_memory_load(cells, raw_aliases, output, args, cell_ty, span);
             }
-            RawMemoryOp::Store => {
+            RawMemoryOp::Store | RawMemoryOp::StoreU8 => {
                 pending_reallocs.clear_result(output);
-                self.check_raw_memory_store(cells, raw_aliases, output, args, span);
+                let cell_ty = match operation {
+                    RawMemoryOp::Store => args.get(1).map(|value| value.ty),
+                    RawMemoryOp::StoreU8 => Some(self.types.u8()),
+                    _ => unreachable!("store branch contains only raw store operations"),
+                };
+                self.check_raw_memory_store(cells, raw_aliases, output, args, cell_ty, span);
             }
             RawMemoryOp::Dealloc => {
                 pending_reallocs.clear_result(output);

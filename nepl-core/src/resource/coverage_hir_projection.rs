@@ -56,12 +56,18 @@ pub(super) fn get_field_ref_intrinsic_owner<'a>(
 pub(super) fn raw_load_address_expr(expr: &HirExpr) -> Option<&HirExpr> {
     match &expr.kind {
         HirExprKind::Intrinsic { name, args, .. }
-            if matches!(raw_memory_op_from_intrinsic(name), Some(RawMemoryOp::Load)) =>
+            if matches!(
+                raw_memory_op_from_intrinsic(name),
+                Some(RawMemoryOp::Load | RawMemoryOp::LoadU8)
+            ) =>
         {
             args.first()
         }
         HirExprKind::Call { callee, args }
-            if matches!(raw_memory_op_from_callee(callee), Some(RawMemoryOp::Load)) =>
+            if matches!(
+                raw_memory_op_from_callee(callee),
+                Some(RawMemoryOp::Load | RawMemoryOp::LoadU8)
+            ) =>
         {
             args.first()
         }

@@ -15,6 +15,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         args: &[Place],
+        cell_ty: TypeId,
         span: Span,
     ) {
         let Some(address) = args.first() else {
@@ -29,7 +30,7 @@ impl ResourceCheckEngine<'_> {
             ResourceCheckOperation::RawMemoryLoadAddress,
             span,
         );
-        let cell = raw_memory_cell_place(&address, output.ty);
+        let cell = raw_memory_cell_place(&address, cell_ty);
         let loaded_from_untracked_external = raw_aliases
             .aliases_for(&address)
             .iter()
@@ -39,7 +40,7 @@ impl ResourceCheckEngine<'_> {
         let loaded_from_untracked_source =
             loaded_from_untracked_external || loaded_from_zero_initialized_runtime;
         let cell_available = loaded_from_untracked_source
-            || cells.raw_cell_initialized_by_byte_range(&address, output.ty, raw_aliases)
+            || cells.raw_cell_initialized_by_byte_range(&address, cell_ty, raw_aliases)
             || self.ensure_available(
                 cells,
                 &cell,
@@ -47,8 +48,8 @@ impl ResourceCheckEngine<'_> {
                 span,
             );
         if address_available && cell_available {
-            if !self.types.is_copy(output.ty) {
-                cells.mark_raw_cell_moved(&address, output.ty);
+            if !self.types.is_copy(cell_ty) {
+                cells.mark_raw_cell_moved(&address, cell_ty);
             }
             cells.mark_initialized(output);
             if raw_aliases.value_is_known_raw_address(&cell) {
@@ -78,6 +79,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         args: &[Place],
+        cell_ty: Option<TypeId>,
         span: Span,
     ) {
         let Some(address) = args.first() else {
@@ -112,8 +114,9 @@ impl ResourceCheckEngine<'_> {
         };
         if address_available && cell_available && value_available {
             if let Some(value) = args.get(1) {
-                let cell = raw_memory_cell_place(&address, value.ty);
-                cells.clear_raw_cells_overwritten_by_store(&address, value.ty, self.types);
+                let stored_ty = cell_ty.unwrap_or(value.ty);
+                let cell = raw_memory_cell_place(&address, stored_ty);
+                cells.clear_raw_cells_overwritten_by_store(&address, stored_ty, self.types);
                 cells.clear_initialized_raw_byte_ranges_through_value(&cell);
                 cells.mark_initialized(&cell);
                 raw_aliases.clear(&cell);

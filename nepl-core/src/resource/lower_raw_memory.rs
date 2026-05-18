@@ -34,6 +34,8 @@ pub(super) fn raw_memory_call_uses_direct_raw_address(
     match operation {
         RawMemoryOp::Load
         | RawMemoryOp::Store
+        | RawMemoryOp::LoadU8
+        | RawMemoryOp::StoreU8
         | RawMemoryOp::Dealloc
         | RawMemoryOp::Realloc
         | RawMemoryOp::FillBytes

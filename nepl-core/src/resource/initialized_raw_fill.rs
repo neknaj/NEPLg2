@@ -40,12 +40,12 @@ impl ResourceCheckEngine<'_> {
         );
         if address_available && cells_released {
             cells.clear_raw_cells_under(&address);
-            if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
+            if let (Some(count), Some(_value)) = (args.get(1), args.get(2)) {
                 cells.mark_initialized_raw_byte_range_extending_appended_difference(
                     &address,
                     count,
                     InitializedRawRangeUnit::Bytes,
-                    value.ty,
+                    self.types.u8(),
                     raw_aliases,
                 );
             }

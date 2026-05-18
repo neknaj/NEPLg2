@@ -507,6 +507,11 @@ impl ResourceEffectBoundaryEngine<'_> {
                     }
                 }
             }
+            RawMemoryOp::StoreU8 => {
+                if let Some(ptr) = args.first() {
+                    raw_memory_identities.clear(pointer_aliases, ptr);
+                }
+            }
             RawMemoryOp::Realloc => {
                 let mut carried_origins = args
                     .first()
@@ -538,7 +543,10 @@ impl ResourceEffectBoundaryEngine<'_> {
                     raw_memory_identities.clear(pointer_aliases, ptr);
                 }
             }
-            RawMemoryOp::Alloc | RawMemoryOp::MemorySize | RawMemoryOp::MemoryGrow => {}
+            RawMemoryOp::Alloc
+            | RawMemoryOp::LoadU8
+            | RawMemoryOp::MemorySize
+            | RawMemoryOp::MemoryGrow => {}
         }
     }
 
@@ -673,6 +681,8 @@ fn internal_alloc_operation_requires_pure_boundary_diagnostic(operation: RawMemo
         | RawMemoryOp::MemoryGrow => true,
         RawMemoryOp::Load
         | RawMemoryOp::Store
+        | RawMemoryOp::LoadU8
+        | RawMemoryOp::StoreU8
         | RawMemoryOp::BulkCopy
         | RawMemoryOp::BulkMove
         | RawMemoryOp::FillBytes

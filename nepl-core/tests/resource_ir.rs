@@ -1279,6 +1279,191 @@ fn resource_ir_effect_check_clears_raw_identity_payload_on_bulk_move() {
 }
 
 #[test]
+fn resource_ir_cell_check_fill_bytes_initializes_u8_cells() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.u8());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let buf = Place::temporary(ResourceId(0), i32_ty);
+    let len = Place::temporary(ResourceId(1), i32_ty);
+    let value = Place::temporary(ResourceId(2), i32_ty);
+    let fill_out = Place::temporary(ResourceId(3), unit_ty);
+    let loaded = Place::temporary(ResourceId(4), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(7),
+                output: value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::FillBytes,
+                output: fill_out,
+                args: vec![buf.clone(), len, value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::LoadU8,
+                output: loaded,
+                args: vec![buf],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(
+        report.diagnostics,
+        vec![],
+        "FillBytes must initialize u8 raw cells for LoadU8 even though LoadU8 returns i32:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_fill_bytes_does_not_initialize_i32_cells() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.u8());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let buf = Place::temporary(ResourceId(0), i32_ty);
+    let len = Place::temporary(ResourceId(1), i32_ty);
+    let value = Place::temporary(ResourceId(2), i32_ty);
+    let fill_out = Place::temporary(ResourceId(3), unit_ty);
+    let loaded = Place::temporary(ResourceId(4), i32_ty);
+    let loaded_cell = buf.clone().with_projection(PlaceProjection::Deref, i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(7),
+                output: value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::FillBytes,
+                output: fill_out,
+                args: vec![buf.clone(), len, value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![buf],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place == &loaded_cell
+        )),
+        "FillBytes must not prove an i32 typed cell initialized only because the byte value is i32: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_store_u8_initializes_u8_cells() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.u8());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let buf = Place::temporary(ResourceId(0), i32_ty);
+    let value = Place::temporary(ResourceId(1), i32_ty);
+    let store_out = Place::temporary(ResourceId(2), unit_ty);
+    let loaded = Place::temporary(ResourceId(3), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(7),
+                output: value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::StoreU8,
+                output: store_out,
+                args: vec![buf.clone(), value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::LoadU8,
+                output: loaded,
+                args: vec![buf],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(
+        report.diagnostics,
+        vec![],
+        "StoreU8 must initialize a u8 raw cell even though the stored value expression is i32:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_stored_in_aggregate_field() {
     let mut types = TypeCtx::new();
     let unit_ty = types.unit();

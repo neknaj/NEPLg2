@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T06:27:26.970Z",
+  "generated_at": "2026-05-18T06:59:12.027Z",
   "counts": {
-    "total": 983,
+    "total": 985,
     "open": 5,
-    "resolved": 978,
+    "resolved": 980,
     "by_area": {
       "stdlib": {
         "total": 265,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 502,
+        "total": 503,
         "open": 0,
-        "resolved": 502
+        "resolved": 503
       },
       "CORE": {
         "total": 4,
@@ -102,9 +102,9 @@
         "resolved": 1
       },
       "test": {
-        "total": 10,
+        "total": 11,
         "open": 0,
-        "resolved": 10
+        "resolved": 11
       },
       "tests": {
         "total": 1,
@@ -7675,6 +7675,21 @@
       "file": "items/ISS-20260518T015305820Z-RESOURCE-OWNER-FLOW-RESPONSIBILITY-L-ED29F73C.md"
     },
     {
+      "id": "ISS-20260518T064507398Z-RESOURCEIR-FILLBYTES-RECORDS-THE-FIL-C96703EF",
+      "title": "ResourceIR byte raw memory operations lose the u8 cell type proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/initialized_raw_fill.rs; nepl-core/tests/resource_ir.rs; tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T064507398Z-RESOURCEIR-FILLBYTES-RECORDS-THE-FIL-C96703EF.md"
+    },
+    {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
       "title": "Resource owner storage origin crosses raw deref into Copy cell payloads",
       "area": "core/resource",
@@ -12413,6 +12428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T051123451Z-COLLECTION-CLEANUP-CONTRACT-LACKS-GE-63D5D8EE.md"
+    },
+    {
+      "id": "ISS-20260518T063826900Z-MEMORY-SAFETY-DOCTESTS-STILL-EXPECT--7293BDED",
+      "title": "memory safety doctests still expect pre-raw-boundary MemPtr forging behavior",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T063826900Z-MEMORY-SAFETY-DOCTESTS-STILL-EXPECT--7293BDED.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

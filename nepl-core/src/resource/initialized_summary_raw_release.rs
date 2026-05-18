@@ -26,7 +26,9 @@ fn release_requirement_args(
     operation: &RawMemoryOp,
 ) -> Vec<(usize, RawCellReleaseRequirementKind)> {
     match operation {
-        RawMemoryOp::Store => alloc::vec![(0, RawCellReleaseRequirementKind::Store)],
+        RawMemoryOp::Store | RawMemoryOp::StoreU8 => {
+            alloc::vec![(0, RawCellReleaseRequirementKind::Store)]
+        }
         RawMemoryOp::Dealloc => alloc::vec![(0, RawCellReleaseRequirementKind::Dealloc)],
         RawMemoryOp::Realloc => alloc::vec![(0, RawCellReleaseRequirementKind::Realloc)],
         RawMemoryOp::FillBytes | RawMemoryOp::Fill => {
@@ -38,6 +40,7 @@ fn release_requirement_args(
         ],
         RawMemoryOp::Alloc
         | RawMemoryOp::Load
+        | RawMemoryOp::LoadU8
         | RawMemoryOp::MemorySize
         | RawMemoryOp::MemoryGrow => Vec::new(),
     }

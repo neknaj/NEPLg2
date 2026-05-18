@@ -1461,6 +1461,8 @@ fn raw_identity_escape_allowed(
         RawMemoryOp::Dealloc
         | RawMemoryOp::Load
         | RawMemoryOp::Store
+        | RawMemoryOp::LoadU8
+        | RawMemoryOp::StoreU8
         | RawMemoryOp::BulkCopy
         | RawMemoryOp::BulkMove
         | RawMemoryOp::MemorySize

@@ -98,7 +98,9 @@ fn propagate_raw_address_alias_op(
         } => match operation {
             RawMemoryOp::Alloc | RawMemoryOp::Realloc => raw_aliases.mark(output),
             RawMemoryOp::Load
+            | RawMemoryOp::LoadU8
             | RawMemoryOp::Store
+            | RawMemoryOp::StoreU8
             | RawMemoryOp::Dealloc
             | RawMemoryOp::BulkCopy
             | RawMemoryOp::BulkMove

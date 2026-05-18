@@ -138,7 +138,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     }
                 }
             }
-            RawMemoryOp::Load => {
+            RawMemoryOp::Load | RawMemoryOp::LoadU8 => {
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
                 if let Some(address) = args.first() {
@@ -151,7 +151,12 @@ impl ResourceOwnerCheckEngine<'_> {
                         span,
                     );
                     let address = raw_aliases.canonicalize_owner_cell_address(address);
-                    let cell = raw_memory_cell_place(&address, output.ty);
+                    let cell_ty = match operation {
+                        RawMemoryOp::Load => output.ty,
+                        RawMemoryOp::LoadU8 => self.types.u8(),
+                        _ => unreachable!("load branch contains only raw load operations"),
+                    };
+                    let cell = raw_memory_cell_place(&address, cell_ty);
                     if self.raw_memory_load_is_non_owning_raw_address_view(
                         owners,
                         raw_aliases,
@@ -177,7 +182,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     }
                 }
             }
-            RawMemoryOp::Store => {
+            RawMemoryOp::Store | RawMemoryOp::StoreU8 => {
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
                 if let [address, value, ..] = args {
@@ -190,7 +195,12 @@ impl ResourceOwnerCheckEngine<'_> {
                         span,
                     );
                     let address = raw_aliases.canonicalize_owner_cell_address(address);
-                    let cell = raw_memory_cell_place(&address, value.ty);
+                    let cell_ty = match operation {
+                        RawMemoryOp::Store => value.ty,
+                        RawMemoryOp::StoreU8 => self.types.u8(),
+                        _ => unreachable!("store branch contains only raw store operations"),
+                    };
+                    let cell = raw_memory_cell_place(&address, cell_ty);
                     self.report_overwritten_owners(
                         owners,
                         raw_aliases,
