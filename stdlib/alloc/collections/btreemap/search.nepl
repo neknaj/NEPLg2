@@ -24,7 +24,9 @@
 //: - 現行の `Ord` 比較は key を値渡しし、同値判定では `ord_lt` を 2 回呼びます。
 //: - borrowed comparison と non-Copy key 用の `OwnedBuffer` / initialized cell 設計が入るまでは、二重消費を避けるため `.K: Copy` に限定します。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreemap_key_eq_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"same keys compare equal\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"different keys compare unequal\" expected=\"0\" actual=\"0\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -33,11 +35,12 @@
 //: fn main <()*>i32> ():
 //:     let same <bool> btreemap_key_eq<i32> 7 7
 //:     let diff <bool> btreemap_key_eq<i32> 7 9
-//:     let mut checks checks_new
-//:     set checks checks_push checks check_eq_i32 1 if same 1 0
-//:     set checks checks_push checks check_eq_i32 0 if diff 1 0
-//:     let shown checks_print_report checks
-//:     checks_exit_code shown
+//:     let report:
+//:         test_report_new "btreemap_key_eq_doc"
+//:         |> test_report_push assert_eq_i32 "same keys compare equal" 1 if same 1 0
+//:         |> test_report_push assert_eq_i32 "different keys compare unequal" 0 if diff 1 0
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn btreemap_key_eq <.K: Ord&Copy> <(.K,.K)->bool> (a, b):
     and not ord_lt a b not ord_lt b a

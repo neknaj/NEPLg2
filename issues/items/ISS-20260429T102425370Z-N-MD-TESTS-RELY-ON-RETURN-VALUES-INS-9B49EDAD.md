@@ -68,6 +68,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` は focused run で `return value mismatch expected: 0 actual: null` になっており、canonical stdout report を持ちながら `exit_code:` ではなく `ret:` を使っている。これは compiler core の静的検査 issue ではなく、この issue の残件である `ret:` 代用 fixture の移行漏れとして扱う。修正時は `exit_code: 0` と stdout report を維持し、Vec owner cleanup / error path の検査を弱めない。
 
+## 2026-05-18 BTree search doc-comment stdout report migration
+
+`stdlib/alloc/collections/btreemap/search.nepl` と `stdlib/alloc/collections/btreeset/search.nepl` の key equality doc-comment doctest を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、`stdout:` を追加し、Copy-only equality boundary の equal / unequal case を fixture として固定した。
+- `checks_new` / `checks_push` / `checks_print_report` / `checks_exit_code` を使わず、`test_report_new` / `test_report_push` / `test_report_print_stdout` / `test_report_exit_code` に揃えた。
+- `nodesrc/test_stdlib_btree_search_doc_report_contract.js` を追加し、この2つの doc-comment doctest が `ret:` や stdout-less report、旧 `checks_*` 形式へ戻らないようにした。
+
+この issue はまだ open のまま継続する。他の doc-comment / `.n.md` fixture に残る return-value-only または stdout-less assertion report を引き続き移行する。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

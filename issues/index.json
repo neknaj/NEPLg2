@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T23:47:00.132Z",
+  "generated_at": "2026-05-18T23:56:00.521Z",
   "counts": {
-    "total": 1031,
+    "total": 1032,
     "open": 5,
-    "resolved": 1026,
+    "resolved": 1027,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 53,
+        "total": 54,
         "open": 1,
-        "resolved": 52
+        "resolved": 53
       },
       "selfhost": {
         "total": 72,
@@ -13103,6 +13103,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T234533962Z-TRAITS-SERDE-DOCTESTS-HAVE-STALE-CAS-6FFB03CF.md"
+    },
+    {
+      "id": "ISS-20260518T235356351Z-BTREE-SEARCH-DOC-COMMENT-DOCTESTS-US-91A1AB3D",
+      "title": "BTree search doc-comment doctests use legacy checks reports without stdout fixtures",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/collections/btreemap/search.nepl, stdlib/alloc/collections/btreeset/search.nepl, nodesrc/test_stdlib_btree_search_doc_report_contract.js, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T235356351Z-BTREE-SEARCH-DOC-COMMENT-DOCTESTS-US-91A1AB3D.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

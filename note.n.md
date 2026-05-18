@@ -1,3 +1,14 @@
+# 2026-05-19 Agent 1 BTree search doc-comment stdout report 固定
+
+- `ISS-20260518T235356351Z-BTREE-SEARCH-DOC-COMMENT-DOCTESTS-US-91A1AB3D` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`btreemap_key_eq` / `btreeset_key_eq` の doc-comment doctest が Copy-only equality boundary を説明する重要な例でありながら、旧 `checks_*` report を stdout fixture として固定していなかったこと。
+- 両 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ移行し、named `TestReport` で equal / unequal の2観測を expected / actual 付きにした。
+- `nodesrc/test_stdlib_btree_search_doc_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、旧 `checks_*` への退行を source policy regression に登録した。
+- 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に今回の進捗を追記した。この親 issue は他 fixture と一般 lint 強化が残るため open のまま。
+- 検証:
+  - `node nodesrc/test_stdlib_btree_search_doc_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap/search.nepl -i stdlib/alloc/collections/btreeset/search.nepl --no-tree -o tmp/agent1-btree-search-doc-report.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+
 # 2026-05-18 Agent 1 fs directory entry raw byte conversion 境界整理
 
 - `ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92` を解決した。
