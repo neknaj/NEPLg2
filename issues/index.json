@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T23:26:47.821Z",
+  "generated_at": "2026-05-18T23:32:52.371Z",
   "counts": {
-    "total": 1028,
+    "total": 1029,
     "open": 5,
-    "resolved": 1023,
+    "resolved": 1024,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 50,
+        "total": 51,
         "open": 1,
-        "resolved": 49
+        "resolved": 50
       },
       "selfhost": {
         "total": 72,
@@ -13058,6 +13058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T232455691Z-TRAITS-HASH-DOCTESTS-PRINT-REPORTS-W-234B8FA6.md"
+    },
+    {
+      "id": "ISS-20260518T233122315Z-IO-FACADE-MISSING-FILE-DOCTEST-PRINT-159D708E",
+      "title": "io facade missing-file doctest prints report without stdout fixture",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/io.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T233122315Z-IO-FACADE-MISSING-FILE-DOCTEST-PRINT-159D708E.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

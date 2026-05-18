@@ -42128,3 +42128,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 根本原因は、`tests/stdlib/traits_hash.n.md` の 3 runtime doctest が `checks_print_report` を呼んでいるにもかかわらず、manifest に stdout / exit_code expectation がなく、HashKey / Hasher abstraction の assertion count と report format を固定していなかったことだった。
 - primitive Hash trait、custom HashMap key/hasher、custom HashSet key/hasher の doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。
 - `nodesrc/test_stdlib_traits_hash_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+
+## 2026-05-18 Agent 1 io.n.md missing-file stdout report metadata 移行
+
+- `ISS-20260518T233122315Z-IO-FACADE-MISSING-FILE-DOCTEST-PRINT-159D708E` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/io.n.md::io_fs_missing_file_is_io_error` が `checks_print_report` を呼んでいるにもかかわらず、manifest に stdout / exit_code expectation がなく、missing-file read の `IoError` assertion report を固定していなかったことだった。
+- 対象 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。通常の I/O roundtrip stdout fixture は既存 contract として維持した。
+- `nodesrc/test_stdlib_io_nmd_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。

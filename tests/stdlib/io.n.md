@@ -61,7 +61,11 @@ fn main <()*>i32> ():
 
 ## io_fs_missing_file_is_io_error
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4

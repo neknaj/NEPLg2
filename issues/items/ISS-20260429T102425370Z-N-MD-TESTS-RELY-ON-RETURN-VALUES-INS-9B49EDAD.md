@@ -1578,3 +1578,16 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
 
 この issue はまだ open のまま継続する。`traits_hash` の target subcase は移行済みだが、`checks_exit_code` を使いながら manifest stdout/exit_code を持たない fixture がまだ残っているため、report 省略検出と段階的移行を続ける。
+
+## 2026-05-18 io facade missing-file stdout report metadata migration
+
+`ISS-20260518T233122315Z-IO-FACADE-MISSING-FILE-DOCTEST-PRINT-159D708E` として、`tests/stdlib/io.n.md::io_fs_missing_file_is_io_error` を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- missing-file read が `StdErrorKind::IoError` を返すことを `Checked [ok]` report として stdout fixture に固定した。
+- 既存の stdin/stdout roundtrip doctest は通常 I/O contract の fixture なので変更していない。
+- `nodesrc/test_stdlib_io_nmd_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+この issue はまだ open のまま継続する。`io.n.md` の target subcase は移行済みだが、他の `checks_exit_code` + stdout fixture 未固定の doctest が残っている。
