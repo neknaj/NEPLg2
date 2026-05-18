@@ -914,6 +914,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T134512597Z-DEQUE-PUSH-GROW-FAILURE-DESTROYS-THE-081F1BD4` は 2026-05-18 に修正した。`Deque.push_front` / `push_back` も owner-consuming API であるにもかかわらず、grow allocation failure では旧 `Vec<Option<T>>` storage を内部で `free` して `Diag` だけを返していた。修正後は `DequePushError<T>` を導入し、`push_front<T>` / `push_back<T>` を `Result<Deque<T>, DequePushError<T>>` に変更した。failure payload は `deque: Deque<T>` と `diag: Diag` を持ち、caller は diagnostic を読んだ後に deque owner を取り出して cleanup / retry を選べる。source policy は旧 grow failure branch の `vec::free<Option<T>> items` と `err<Deque<T>, Diag>` への退行を拒否するため、Stage 6 の owner-preserving fallible update 方針が Deque にも適用される。
 
+`ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92` は 2026-05-18 に修正した。`std/fs/path/entry` は safe path facade から re-export される module だったが、`fs_string_from_bytes(i32,i32)` を public に持ち、任意 raw address を `mem_ptr_wrap` で `MemPtr<u8>` に包んで directory entry name の `str` 化を行っていた。修正後は conversion を `std/fs/dir/read_fd` の private `fs_dirent_name_to_string(MemPtr<u8>, i32)` へ移し、`fs_read_dir_fd` は `fd_readdir` buffer の `RegionToken` から導出した `buf_ptr` に `mem_ptr_add` して name pointer を得る。これにより safe path facade は raw `i32` address conversion を公開せず、directory entry raw byte handling は raw ABI boundary 内の source proof と owner/view 分離に従う。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

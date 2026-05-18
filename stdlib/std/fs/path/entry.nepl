@@ -1,24 +1,19 @@
 //: # std/fs/path/entry
-//: directory entry 名の byte helper
+//: directory entry 名の path helper
 //:
 //: ### 目的
-//: - directory entry の安定 sort、`.` / `..` 判定、WASI dirent name byte range の UTF-8 検証をまとめます。
-//: - path normalization の component stack とは独立した entry 名処理だけを扱います。
+//: - directory entry の安定 sort と `.` / `..` 判定をまとめます。
+//: - fd_readdir buffer の raw byte range 変換は `std/fs/dir/read_fd` の raw ABI 境界に閉じ、path facade からは公開しません。
 
 #indent 4
 
 #import "alloc/string" as *
 #import "alloc/string/byte_index" as *
-#import "alloc/string/storage" as *
-#import "alloc/string/utf8" as *
 #import "alloc/collections/vec" as v
 #import "core/math" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
-#import "std/text" as *
 
 //: fs_str_lt: directory entry の安定順を決める byte 辞書順比較
 //:
@@ -115,31 +110,6 @@ pub fn fs_sort_strings <(&Vec<str>)*>Result<(),i32>> (entries):
         eq err 0
         then Result<(),i32>::Ok ()
         else Result<(),i32>::Err err
-
-//: fs_string_from_bytes: fd_readdir の name byte range を UTF-8 検証して str へ複製する
-//:
-//: 目的:
-//: - WASI dirent buffer 内の一時 byte 列を、UTF-8 として妥当な場合だけ戻り値として保持できる str に変換します。
-//:
-//: 実装(アルゴリズム):
-//: - `string_utf8_validate_mem` で byte 列を検証し、成功時だけ `string_from_mem_unchecked_result` で複製します。
-//:
-//: 注意(重要):
-//: - invalid UTF-8 の directory entry は errno 84 (ILSEQ 相当) として返します。
-//:
-//: 計算量:
-//: - 名前長 n に対して O(n)
-pub fn fs_string_from_bytes <(i32,i32)->Result<str,i32>> (src, byte_len):
-    let src_ptr <MemPtr<u8>> mem_ptr_wrap src
-    match string_utf8_validate_mem src_ptr byte_len:
-        Result::Err _e:
-            Result<str,i32>::Err fs_errno_ilseq
-        Result::Ok _:
-            match string_from_mem_unchecked_result src_ptr byte_len:
-                Result::Err _e:
-                    Result<str,i32>::Err 12
-                Result::Ok text:
-                    Result<str,i32>::Ok text
 
 pub fn fs_dir_name_is_dot <(str)->bool> (name):
     or str_eq name "." str_eq name ".."

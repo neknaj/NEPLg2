@@ -13,6 +13,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/string" as *
 //:| #import "core/result" as *
 //:| #import "std/fs/path" as *
 //: fn main <()->i32> ():
@@ -27,7 +28,10 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
+//:| #import "std/fs/constants" as *
 //:| #import "std/fs/path" as *
 //: fn main <()->i32> ():
 //:     match fs_normalize_relative "../outside":

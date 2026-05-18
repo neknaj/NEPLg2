@@ -20,6 +20,7 @@ const fsBytesCode = implementation('stdlib/std/fs/bytes.nepl');
 const fsReadCode = implementation('stdlib/std/fs/read/path.nepl');
 const fsPathCode = implementation('stdlib/std/fs/path.nepl');
 const fsPathEntryCode = implementation('stdlib/std/fs/path/entry.nepl');
+const fsDirReadFdCode = implementation('stdlib/std/fs/dir/read_fd.nepl');
 
 assert.match(ioRootCode, /pub\s+#import\s+"\.\/io\/bytebuf"\s+as\s+\*/, 'alloc/io root must re-export checked ByteBuf APIs');
 assert.doesNotMatch(ioRootCode, /fn\s+io_bytebuf_to_str_result\b/, 'alloc/io root must not own ByteBuf UTF-8 conversion');
@@ -30,6 +31,10 @@ assert.match(ioCode, /Result::Ok\s+_:[\s\S]*string_from_mem_unchecked_result\s+d
 assert.match(fsBytesCode, /fn\s+fs_bytes_to_string_result\s+<\(ByteBuf\)\*>Result<str,i32>>\s+\(buf\):[\s\S]*io_bytebuf_to_str_result\s+buf/, 'fs_bytes_to_string_result must use the checked ByteBuf-to-str boundary');
 assert.match(fsReadCode, /fn\s+fs_read_to_string\s+<\(str\)\*>Result<str,i32>>\s+\(path\):[\s\S]*fs_bytes_to_string_result\s+bytes/, 'fs_read_to_string must use checked ByteBuf-to-str conversion');
 assert.doesNotMatch(fsPathCode, /fn\s+fs_string_from_bytes\b/, 'std/fs/path root must not own directory entry UTF-8 conversion');
-assert.match(fsPathEntryCode, /fn\s+fs_string_from_bytes\s+<\(i32,i32\)->Result<str,i32>>\s+\(src,\s*byte_len\):[\s\S]*string_utf8_validate_mem\s+src_ptr\s+byte_len[\s\S]*string_from_mem_unchecked_result\s+src_ptr\s+byte_len/, 'directory entry byte ranges must be UTF-8 validated before str construction');
+assert.doesNotMatch(fsPathEntryCode, /\bfs_string_from_bytes\b/, 'std/fs/path/entry must not expose raw directory byte conversion through the safe path facade');
+assert.doesNotMatch(fsPathEntryCode, /\b(?:mem_ptr_wrap|mem_ptr_addr|string_utf8_validate_mem|string_from_mem_unchecked_result)\b/, 'std/fs/path/entry must stay out of the raw directory byte conversion boundary');
+assert.match(fsDirReadFdCode, /fn\s+fs_dirent_name_to_string\s+<\(MemPtr<u8>,i32\)->Result<str,i32>>\s+\(src_ptr,\s*byte_len\):[\s\S]*string_utf8_validate_mem\s+src_ptr\s+byte_len[\s\S]*string_from_mem_unchecked_result\s+src_ptr\s+byte_len/, 'fd_readdir directory entry byte ranges must be UTF-8 validated before str construction inside the raw fd boundary');
+assert.match(fsDirReadFdCode, /let\s+name_ptr\s+<MemPtr<u8>>\s+mem_ptr_add\s+buf_ptr\s+add\s+off\s+fs_dirent_header_size[\s\S]*match\s+fs_dirent_name_to_string\s+name_ptr\s+name_len/, 'fd_readdir entry conversion must derive the name pointer from the RegionToken-backed buffer view');
+assert.doesNotMatch(fsDirReadFdCode, /\bmem_ptr_wrap\b/, 'std/fs/dir/read_fd must not rewrap raw directory entry addresses as MemPtr');
 
 console.log('stdlib bytebuf utf8 boundary regression passed');

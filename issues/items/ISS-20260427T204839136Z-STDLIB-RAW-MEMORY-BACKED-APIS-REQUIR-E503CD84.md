@@ -743,3 +743,9 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 `ISS-20260518T200613054Z-BYTEBUF-DOCTEST-IMPORTS-RAW-INTERNAL-387EC456` を解決した。`io_bytebuf_from_owned_ptr` が削除済みであることを確認する compile-fail doctest が、`core/mem/internal` と `mem_ptr_wrap` を使って raw `MemPtr` fixture を作っていた。
 
 修正後の doctest は `alloc/io` だけを import し、`io_bytebuf_from_owned_ptr 0 1` が未定義になることを確認する。source policy もこの removed-helper fixture に raw memory module import や raw `MemPtr` construction が戻らないことを監視する。これは ByteBuf owner boundary の本体修正ではなく、Stage 6 の regression fixture が raw boundary privilege を正常な前提として示さないための整理である。
+
+## 2026-05-18 Agent 1 fs directory entry raw byte conversion 境界追記
+
+`ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92` を解決した。`std/fs/path/entry` は safe path facade から re-export される module であるにもかかわらず、`fs_string_from_bytes(i32,i32)` を public に持ち、任意 raw address を `mem_ptr_wrap` で `MemPtr<u8>` へ包んで directory entry name の `str` 化を行っていた。
+
+修正後は directory entry byte conversion を `std/fs/dir/read_fd` の private `fs_dirent_name_to_string(MemPtr<u8>, i32)` に閉じた。`fs_read_dir_fd` は `fd_readdir` buffer を所有する `RegionToken<u8>` から得た `buf_ptr` に `mem_ptr_add` して name pointer を作るため、safe path facade は raw `i32` address conversion を公開しない。source policy と compile-fail doctest は、`std/fs/path` から `fs_string_from_bytes` が戻らないこと、`dir/read_fd` が raw address を再包装しないことを監視する。

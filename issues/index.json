@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T20:25:43.298Z",
+  "generated_at": "2026-05-18T20:48:06.424Z",
   "counts": {
-    "total": 1015,
+    "total": 1016,
     "open": 5,
-    "resolved": 1010,
+    "resolved": 1011,
     "by_area": {
       "stdlib": {
-        "total": 281,
+        "total": 282,
         "open": 3,
-        "resolved": 278
+        "resolved": 279
       },
       "TEST": {
         "total": 43,
@@ -12113,6 +12113,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T200613054Z-BYTEBUF-DOCTEST-IMPORTS-RAW-INTERNAL-387EC456.md"
+    },
+    {
+      "id": "ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92",
+      "title": "std/fs path entry exposes raw directory byte pointer conversion",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/std/fs/path/entry.nepl, stdlib/std/fs/dir/read_fd.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

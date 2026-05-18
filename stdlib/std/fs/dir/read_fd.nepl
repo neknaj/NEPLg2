@@ -12,6 +12,8 @@
 
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
+#import "alloc/string/utf8" as *
 #import "core/cast" as *
 #import "core/math" as *
 #import "core/mem" as *
@@ -21,6 +23,32 @@
 #import "std/fs/constants" as *
 #import "std/fs/path" as *
 #import "std/fs/raw" as *
+
+//: fs_dirent_name_to_string: fd_readdir の name byte range を UTF-8 検証して str へ複製する
+//:
+//: 目的:
+//: - WASI dirent buffer 内の一時 byte 列を、UTF-8 として妥当な場合だけ戻り値として保持できる `str` に変換します。
+//:
+//: 実装(アルゴリズム):
+//: - caller が `RegionToken` 所有 buffer から導出した `MemPtr<u8>` view と byte length を受け取ります。
+//: - `string_utf8_validate_mem` で byte 列を検証し、成功時だけ `string_from_mem_unchecked_result` で複製します。
+//:
+//: 注意(重要):
+//: - この helper は fd_readdir raw ABI 境界の private helper です。任意の raw `i32` address から `MemPtr` を作る public API にはしません。
+//: - invalid UTF-8 の directory entry は errno 84 (ILSEQ 相当) として返します。
+//:
+//: 計算量:
+//: - 名前長 n に対して O(n)
+fn fs_dirent_name_to_string <(MemPtr<u8>,i32)->Result<str,i32>> (src_ptr, byte_len):
+    match string_utf8_validate_mem src_ptr byte_len:
+        Result::Err _e:
+            Result<str,i32>::Err fs_errno_ilseq
+        Result::Ok _:
+            match string_from_mem_unchecked_result src_ptr byte_len:
+                Result::Err _e:
+                    Result<str,i32>::Err 12
+                Result::Ok text:
+                    Result<str,i32>::Ok text
 
 //: fs_read_dir_fd: directory fd から entry 名を読み出す
 //:
@@ -100,7 +128,8 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                                                                         then:
                                                                             set err fs_errno_inval
                                                                         else:
-                                                                            match fs_string_from_bytes add rec fs_dirent_header_size name_len:
+                                                                            let name_ptr <MemPtr<u8>> mem_ptr_add buf_ptr add off fs_dirent_header_size
+                                                                            match fs_dirent_name_to_string name_ptr name_len:
                                                                                 Result::Err e:
                                                                                     set err e
                                                                                 Result::Ok name:

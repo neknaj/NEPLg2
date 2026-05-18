@@ -1,3 +1,18 @@
+# 2026-05-18 Agent 1 fs directory entry raw byte conversion 境界整理
+
+- `ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92` を解決した。
+- `stdlib/std/fs/path/entry.nepl` から public `fs_string_from_bytes(i32,i32)` を削除し、safe `std/fs/path` facade から raw directory byte conversion が見えないようにした。
+- `stdlib/std/fs/dir/read_fd.nepl` に private `fs_dirent_name_to_string(MemPtr<u8>, i32)` を置き、fd_readdir buffer の UTF-8 検証と `str` 複製を raw ABI 境界へ閉じた。
+- `fs_read_dir_fd` は `mem_ptr_wrap` で raw `i32` を `MemPtr` へ戻すのではなく、`RegionToken` 由来の `buf_ptr` に `mem_ptr_add` して name byte pointer を作る。
+- `stdlib/std/fs/path.nepl` の facade doctest は、`alloc/string`、`core/math`、`std/fs/constants` など使用 symbol の import を明示し、推移的 import に依存しないようにした。
+- 回帰監視として `tests/stdlib/fs_path_raw_boundary.n.md`、`nodesrc/test_stdlib_bytebuf_utf8_boundary.js`、`nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` を更新した。
+- 検証:
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/fs_path_raw_boundary.n.md --no-tree -o tmp/agent1-fs-path-raw-boundary-after-path-doc.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-dirent-read-fd-focused.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
+  - `node nodesrc/tests.js -i stdlib/std/fs/path.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-dirent-raw-boundary-focused-after-path-doc.json -j 1 --dist web/dist --assert-io`: total=10, passed=10
+
 # 2026-05-18 Agent 1 selfhost_req StringBuilder nested owner summary 修正
 
 - `ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E` を fixed / resolved にした。`plan.md` は変更していない。
