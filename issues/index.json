@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T08:58:13.228Z",
+  "generated_at": "2026-05-18T09:28:58.269Z",
   "counts": {
     "total": 990,
-    "open": 6,
-    "resolved": 984,
+    "open": 5,
+    "resolved": 985,
     "by_area": {
-      "core": {
-        "total": 503,
-        "open": 1,
-        "resolved": 502
-      },
       "stdlib": {
         "total": 270,
         "open": 3,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 503,
+        "open": 0,
+        "resolved": 503
       },
       "CORE": {
         "total": 4,
@@ -129,21 +129,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D",
-      "title": "ByteBuilder LEB128 doctest exceeds default static-check timeout",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-18",
-      "updated": "2026-05-18",
-      "target": "tests/stdlib/byte_builder.n.md, nepl-core/src",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -7688,6 +7673,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T064507398Z-RESOURCEIR-FILLBYTES-RECORDS-THE-FIL-C96703EF.md"
+    },
+    {
+      "id": "ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D",
+      "title": "ByteBuilder LEB128 doctest exceeds default static-check timeout",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/byte_builder.n.md, nepl-core/src/resource/initialized_alias_flow.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

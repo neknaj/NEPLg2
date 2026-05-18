@@ -7,7 +7,9 @@ use crate::types::{TypeCtx, TypeId};
 
 use super::initialized_alias_flow_raw::function_raw_cell_address_return_aliases;
 use super::initialized_alias_flow_value_projection::function_value_projection_return_aliases;
-use super::model::{Place, PlaceProjection, ResourceExprKind, ResourceFunction, ResourceModule};
+use super::model::{
+    Place, PlaceProjection, ResourceExprKind, ResourceFunction, ResourceModule, ResourceOffset,
+};
 use super::place_utils::type_preserves_raw_address_alias;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_worklist::SummaryWorklist;
@@ -92,8 +94,13 @@ fn update_raw_cell_address_return_summary(
     match (has_aliases, position) {
         (true, Some(index)) if summaries[index] == summary => false,
         (true, Some(index)) => {
-            summaries[index] = summary;
-            true
+            let widened = widen_raw_cell_address_return_summary(&summaries[index], summary);
+            if summaries[index] == widened {
+                false
+            } else {
+                summaries[index] = widened;
+                true
+            }
         }
         (true, None) => {
             summaries.push(summary);
@@ -105,6 +112,30 @@ fn update_raw_cell_address_return_summary(
         }
         (false, None) => false,
     }
+}
+
+fn widen_raw_cell_address_return_summary(
+    existing: &RawCellAddressReturnSummary,
+    mut summary: RawCellAddressReturnSummary,
+) -> RawCellAddressReturnSummary {
+    let mut widened = Vec::new();
+    for alias in summary.aliases {
+        let alias = normalize_raw_cell_address_return_alias(alias);
+        let Some(existing_alias) = existing
+            .aliases
+            .iter()
+            .find(|existing_alias| raw_aliases_are_widening_compatible(existing_alias, &alias))
+        else {
+            push_unique_return_alias(&mut widened, alias);
+            continue;
+        };
+        push_unique_return_alias(
+            &mut widened,
+            widen_raw_cell_address_return_alias(existing_alias, &alias),
+        );
+    }
+    summary.aliases = widened;
+    summary
 }
 
 fn function_raw_cell_address_return_summary(
@@ -147,9 +178,157 @@ pub(super) fn push_unique_return_alias(
     aliases: &mut Vec<RawCellAddressReturnAlias>,
     alias: RawCellAddressReturnAlias,
 ) {
-    if !aliases.iter().any(|existing| existing == &alias) {
-        aliases.push(alias);
+    let alias = normalize_raw_cell_address_return_alias(alias);
+    if aliases
+        .iter()
+        .any(|existing| raw_alias_subsumes(existing, &alias))
+    {
+        return;
     }
+    aliases.retain(|existing| !raw_alias_subsumes(&alias, existing));
+    aliases.push(alias);
+}
+
+fn normalize_raw_cell_address_return_alias(
+    mut alias: RawCellAddressReturnAlias,
+) -> RawCellAddressReturnAlias {
+    alias.parameter_projection = normalize_raw_address_projections(alias.parameter_projection);
+    alias.return_projection = normalize_raw_address_projections(alias.return_projection);
+    alias
+}
+
+fn normalize_raw_address_projections(projections: Vec<PlaceProjection>) -> Vec<PlaceProjection> {
+    let mut out = Vec::new();
+    for projection in projections {
+        let PlaceProjection::StorageOffset(offset) = projection else {
+            out.push(projection);
+            continue;
+        };
+        if matches!(offset, ResourceOffset::Known(0)) {
+            continue;
+        }
+        match out.last_mut() {
+            Some(PlaceProjection::StorageOffset(existing)) => {
+                *existing = combine_raw_address_offsets(existing.clone(), offset);
+            }
+            _ => out.push(PlaceProjection::StorageOffset(offset)),
+        }
+    }
+    out
+}
+
+fn combine_raw_address_offsets(left: ResourceOffset, right: ResourceOffset) -> ResourceOffset {
+    match (left, right) {
+        (offset, ResourceOffset::Known(0)) | (ResourceOffset::Known(0), offset) => offset,
+        (ResourceOffset::Known(left), ResourceOffset::Known(right)) => left
+            .checked_add(right)
+            .map(ResourceOffset::Known)
+            .unwrap_or(ResourceOffset::Unknown),
+        _ => ResourceOffset::Unknown,
+    }
+}
+
+fn raw_aliases_are_widening_compatible(
+    left: &RawCellAddressReturnAlias,
+    right: &RawCellAddressReturnAlias,
+) -> bool {
+    left.parameter_index == right.parameter_index
+        && left.parameter_ty == right.parameter_ty
+        && left.return_ty == right.return_ty
+        && raw_address_projections_are_widening_compatible(
+            &left.parameter_projection,
+            &right.parameter_projection,
+        )
+        && raw_address_projections_are_widening_compatible(
+            &left.return_projection,
+            &right.return_projection,
+        )
+}
+
+fn raw_alias_subsumes(
+    general: &RawCellAddressReturnAlias,
+    specific: &RawCellAddressReturnAlias,
+) -> bool {
+    general.parameter_index == specific.parameter_index
+        && general.parameter_ty == specific.parameter_ty
+        && general.return_ty == specific.return_ty
+        && raw_address_projections_subsume(
+            &general.parameter_projection,
+            &specific.parameter_projection,
+        )
+        && raw_address_projections_subsume(&general.return_projection, &specific.return_projection)
+}
+
+fn raw_address_projections_subsume(
+    general: &[PlaceProjection],
+    specific: &[PlaceProjection],
+) -> bool {
+    general.len() == specific.len()
+        && general
+            .iter()
+            .zip(specific)
+            .all(|(general, specific)| match (general, specific) {
+                (
+                    PlaceProjection::StorageOffset(ResourceOffset::Unknown),
+                    PlaceProjection::StorageOffset(_),
+                ) => true,
+                (
+                    PlaceProjection::StorageOffset(general),
+                    PlaceProjection::StorageOffset(specific),
+                ) => general == specific,
+                _ => general == specific,
+            })
+}
+
+fn raw_address_projections_are_widening_compatible(
+    left: &[PlaceProjection],
+    right: &[PlaceProjection],
+) -> bool {
+    left.len() == right.len()
+        && left
+            .iter()
+            .zip(right)
+            .all(|(left, right)| match (left, right) {
+                (PlaceProjection::StorageOffset(_), PlaceProjection::StorageOffset(_)) => true,
+                _ => left == right,
+            })
+}
+
+fn widen_raw_cell_address_return_alias(
+    existing: &RawCellAddressReturnAlias,
+    alias: &RawCellAddressReturnAlias,
+) -> RawCellAddressReturnAlias {
+    RawCellAddressReturnAlias {
+        parameter_index: alias.parameter_index,
+        parameter_projection: widen_raw_address_projections(
+            &existing.parameter_projection,
+            &alias.parameter_projection,
+        ),
+        parameter_ty: alias.parameter_ty,
+        return_projection: widen_raw_address_projections(
+            &existing.return_projection,
+            &alias.return_projection,
+        ),
+        return_ty: alias.return_ty,
+    }
+}
+
+fn widen_raw_address_projections(
+    existing: &[PlaceProjection],
+    current: &[PlaceProjection],
+) -> Vec<PlaceProjection> {
+    existing
+        .iter()
+        .zip(current)
+        .map(|(existing, current)| match (existing, current) {
+            (PlaceProjection::StorageOffset(existing), PlaceProjection::StorageOffset(current))
+                if existing != current =>
+            {
+                PlaceProjection::StorageOffset(ResourceOffset::Unknown)
+            }
+            (_, current) => current.clone(),
+        })
+        .collect()
 }
 
 #[cfg(test)]

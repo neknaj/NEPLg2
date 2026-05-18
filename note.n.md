@@ -41590,3 +41590,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 切り分け済み:
   - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-bytebuf-storage-state-builder-text.json -j 1 --dist web/dist --assert-io`: total=12, passed=11, errored=1。失敗は `byte_builder.n.md::doctest#2` compile timeout。
   - `origin/main` worktree での `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/baseline-byte-builder.json -j 1 --dist C:\neknaj\neplg2_1\web\dist --assert-io`: total=3, passed=2, errored=1。同じ doctest#2 timeout。
+
+## 2026-05-18 Agent 1 ByteBuilder LEB128 static-check timeout 修正
+
+- `ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D` を resolved にした。`plan.md` は変更していない。
+- 根本原因は `byte_builder_push_leb_u32` 個別の fixture ではなく、Resource IR の raw-address return alias summary が自己再帰で増え続ける storage offset projection を有限の抽象値へ widen できなかったことだった。
+- 計測では `resource_initialized_moves` が `resource_initialized_raw_alias_summaries` の完了前に止まり、trace では `byte_builder_push_leb_u32` summary の alias 数と projection depth が増え続けていた。
+- `initialized_alias_flow` で raw-address projection を正規化し、連続する `StorageOffset` を合成するようにした。summary 更新時には同じ構造の storage offset alias が異なる offset 値へ変化した場合に `StorageOffset(Unknown)` へ widen し、より具体的な offset alias を subsume する。
+- stdlib 関数名の allowlist や timeout 引き上げではなく、raw-address alias summary 全体の抽象解釈を有限に収束させる修正として入れた。
+- focused verification:
+  - `cargo test -p nepl-core raw_alias_return_summaries_widen_recursive_storage_offsets -- --nocapture`: passed
+  - `NEPL_COMPILE_STAGE_TIMING=1 target\debug\nepl-cli.exe --check --target std --profile debug --stdlib-root stdlib -i tmp\agent1-byte-builder-leb-probe.nepl`: `Check successful`; `resource_initialized_raw_alias_summaries=74ms`, `resource_static_check=4451ms`
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/agent1-bytebuilder-leb-timeout-fixed.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-bytebuilder-textutf8-fixed.json -j 1 --dist web/dist --assert-io`: total=12, passed=12

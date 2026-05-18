@@ -2,13 +2,13 @@
 id: ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D
 title: "ByteBuilder LEB128 doctest exceeds default static-check timeout"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-18
 updated: 2026-05-18
-target: "tests/stdlib/byte_builder.n.md, nepl-core/src"
+target: "tests/stdlib/byte_builder.n.md, nepl-core/src/resource/initialized_alias_flow.rs"
 ---
 
 # ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D: ByteBuilder LEB128 doctest exceeds default static-check timeout
@@ -43,4 +43,15 @@ Profile the failing doctest with compile-stage timings and Resource IR counters.
 
 ## 検証
 
-Run the focused doctest at the default timeout after the fix: node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/byte-builder-timeout-after.json -j 1 --dist web/dist --assert-io
+2026-05-18 Agent 1:
+
+- 根本原因は `byte_builder_push_leb_u32` 個別ではなく、raw-address return alias summary が再帰的な storage offset (`+1`, `+1`, ...) を有限の抽象値へ widen できず、`StorageOffset(Known(1))` の projection を何百段も連結し続けることだった。
+- `initialized_alias_flow` で raw-address projection を正規化し、連続する storage offset を合成するようにした。
+- summary 更新時に同じ構造の storage offset alias が異なる offset 値へ変化した場合は `StorageOffset(Unknown)` へ widen し、既存の `Unknown` alias がより具体的な offset alias を subsume するようにした。
+- これは特定 stdlib 関数の allowlist ではなく、Resource IR の raw-address alias summary 全体へ適用される抽象解釈上の収束規則である。
+- regression として、自己再帰で storage offset が増え続ける synthetic Resource IR 関数に対し、summary が `StorageOffset(Unknown)` を含む有限 projection に収束する unit test を追加した。
+- `NEPL_COMPILE_STAGE_TIMING=1 target\debug\nepl-cli.exe --check --target std --profile debug --stdlib-root stdlib -i tmp\agent1-byte-builder-leb-probe.nepl`: `Check successful`。`resource_raw_alias_summary_recomputations=179 summaries=27`, `resource_initialized_raw_alias_summaries=74ms`, `resource_static_check=4451ms`。
+- `cargo test -p nepl-core raw_alias_return_summaries_widen_recursive_storage_offsets -- --nocapture`: passed。
+- `trunk build --release`: passed。
+- `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/agent1-bytebuilder-leb-timeout-fixed.json -j 1 --dist web/dist --assert-io`: total=3, passed=3。
+- `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-bytebuilder-textutf8-fixed.json -j 1 --dist web/dist --assert-io`: total=12, passed=12。
