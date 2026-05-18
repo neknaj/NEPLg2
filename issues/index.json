@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T22:53:35.087Z",
+  "generated_at": "2026-05-18T23:02:13.088Z",
   "counts": {
-    "total": 1024,
+    "total": 1025,
     "open": 5,
-    "resolved": 1019,
+    "resolved": 1020,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 46,
+        "total": 47,
         "open": 1,
-        "resolved": 45
+        "resolved": 46
       },
       "selfhost": {
         "total": 72,
@@ -12998,6 +12998,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T224806912Z-SELFHOST-CLI-FILE-IO-DOCTESTS-HIDE-S-3BA5E109.md"
+    },
+    {
+      "id": "ISS-20260518T225609837Z-STRING-BUILDER-LINEAR-BUILD-DOCTEST--3BC303FD",
+      "title": "string builder linear build doctest hides std/test report behind ret metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/string.n.md, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T225609837Z-STRING-BUILDER-LINEAR-BUILD-DOCTEST--3BC303FD.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

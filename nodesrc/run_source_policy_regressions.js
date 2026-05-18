@@ -142,6 +142,7 @@ const checks = [
     "nodesrc/test_string_trim_doc_report_contract.js",
     "nodesrc/test_alloc_string_doc_report_contract.js",
     "nodesrc/test_stdlib_string_report_contract.js",
+    "nodesrc/test_stdlib_string_nmd_report_contract.js",
     "nodesrc/test_stdlib_btreemap_report_contract.js",
     "nodesrc/test_stdlib_cliarg_report_contract.js",
     "nodesrc/test_stdlib_collections_diag_report_contract.js",

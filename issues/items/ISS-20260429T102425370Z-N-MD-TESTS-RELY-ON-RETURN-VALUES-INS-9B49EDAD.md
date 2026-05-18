@@ -1511,3 +1511,21 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/agent1-selfhost-cli-file-io-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
 
 この issue はまだ open のまま継続する。`selfhost_cli_file_io` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 string.n.md StringBuilder stdout report metadata migration
+
+`ISS-20260518T225609837Z-STRING-BUILDER-LINEAR-BUILD-DOCTEST--3BC303FD` として、`tests/stdlib/string.n.md::test_string_builder_linear_build` を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `StringBuilder` で 2000 文字を構築する長い append path の検査結果を `std/test::Checks` の stdout report として fixture に固定した。
+- `checks_exit_code checks` 直返しをやめ、`checks_print_report` の結果を `checks_exit_code` へ渡す形にした。
+- `nodesrc/test_stdlib_string_nmd_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_stdlib_string_nmd_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/agent1-string-nmd-report.json -j 1 --dist web/dist --assert-io`: total=17, passed=17
+
+この issue はまだ open のまま継続する。`tests/stdlib/string.n.md` の対象 subcase は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。

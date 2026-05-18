@@ -42091,3 +42091,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_selfhost_cli_file_io_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/agent1-selfhost-cli-file-io-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+
+## 2026-05-18 Agent 1 string.n.md StringBuilder stdout report metadata 移行
+
+- `ISS-20260518T225609837Z-STRING-BUILDER-LINEAR-BUILD-DOCTEST--3BC303FD` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/string.n.md::test_string_builder_linear_build` が `StringBuilder` の 2000 文字 append path を `ret: 0` と `checks_exit_code checks` だけで表し、success report を stdout fixture に固定していなかったことだった。
+- 対象 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行し、`checks_print_report` -> `checks_exit_code` の順序へ直した。
+- `nodesrc/test_stdlib_string_nmd_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_stdlib_string_nmd_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/agent1-string-nmd-report.json -j 1 --dist web/dist --assert-io`: total=17, passed=17
