@@ -2,8 +2,12 @@
 
 ## selfhost_cli_reporter_renders_single_human_and_json
 
-neplg2:test[normalize_newlines]
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: mlstr:
+##: Checked [ok,ok]
+##: [0] ok
+##: [1] ok
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -25,15 +29,16 @@ fn main <()*>i32> ():
         checks_new
         |> checks_push assert_str_eq "error[parser.token.index_unavailable]: second\n  --> file 1:10..15\n  = label: token\n  = note: fix it\n" human
         |> checks_push assert_str_eq "{\"severity\":\"error\",\"code\":\"parser.token.index_unavailable\",\"message\":\"second\",\"primary_label\":{\"file_id\":1,\"start\":10,\"end\":15,\"message\":\"token\"},\"note\":\"fix it\"}" json
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## selfhost_cli_reporter_writes_json_stdout_and_human_stderr
 
-neplg2:test[normalize_newlines]
-ret: 0
+neplg2:test[stdio, normalize_newlines]
 stdout: "{\"severity\":\"error\",\"code\":\"parser.token.index_unavailable\",\"message\":\"bad input\",\"primary_label\":null,\"note\":null}"
 stderr: "error[parser.token.index_unavailable]: bad input\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -58,8 +63,12 @@ fn main <()*>i32> ():
 
 ## selfhost_cli_reporter_renders_collection_human_and_json
 
-neplg2:test[normalize_newlines]
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: mlstr:
+##: Checked [ok,ok]
+##: [0] ok
+##: [1] ok
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -86,5 +95,6 @@ fn main <()*>i32> ():
         checks_new
         |> checks_push assert_str_eq "warning[cli.input.missing]: first\nerror[parser.token.index_unavailable]: second\n  --> file 1:10..15\n  = label: token\n  = note: fix it\n" human
         |> checks_push assert_str_eq "[{\"severity\":\"warning\",\"code\":\"cli.input.missing\",\"message\":\"first\",\"primary_label\":null,\"note\":null},{\"severity\":\"error\",\"code\":\"parser.token.index_unavailable\",\"message\":\"second\",\"primary_label\":{\"file_id\":1,\"start\":10,\"end\":15,\"message\":\"token\"},\"note\":\"fix it\"}]" json
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```

@@ -1,3 +1,19 @@
+# 2026-05-18 Agent 1 selfhost CLI reporter stdout report metadata 固定
+
+- `ISS-20260518T024038881Z-SELFHOST-CLI-REPORTER-DOCTESTS-STILL-E474D880` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/selfhost_cli_reporter.n.md` の rendering-only doctest 2 件が `std/test` の checks を作るだけで stdout report を出さず、3 件とも終了可否を `exit_code:` ではなく `ret:` に載せていたこと。
+- rendering-only 2 件を `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` へ移行し、`checks_print_report` で human/json renderer の比較結果を stdout に出すようにした。
+- writer doctest は検査対象である JSON stdout / human stderr を維持し、`stdio` tag と `exit_code: 0` を明示した。
+- `nodesrc/test_selfhost_cli_reporter_report_contract.js` を追加し、doctest 数、`ret:` 不使用、stdio tag、stdout/stderr contract、report print -> exit code の順序を source policy として固定した。
+- focused doctest は default 60000ms と 300000ms の両方で compile timeout したため、`ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865` として compiler/static-check performance 側に分離した。
+- 検証:
+  - `node nodesrc/test_selfhost_cli_reporter_report_contract.js`
+  - `node nodesrc/test_selfhost_cli_reporter_boundary.js`
+  - `node nodesrc/tests.js -i tests\stdlib\selfhost_cli_reporter.n.md --no-tree -o tmp\agent1-selfhost-cli-reporter-report.json -j 1 --dist web\dist --assert-io`: compile timeout 3件
+  - `$env:NEPL_TEST_CASE_TIMEOUT_MS='300000'; node nodesrc/tests.js -i tests\stdlib\selfhost_cli_reporter.n.md --no-tree -o tmp\agent1-selfhost-cli-reporter-report-300s.json -j 1 --dist web\dist --assert-io`: compile timeout 3件
+- plan.md との差異:
+  - plan.md は変更していない。selfhost CLI diagnostic reporter の `.n.md` report contract は固定したが、実行可能な focused doctest にするには compiler/static-check compile time の改善が必要。
+
 # 2026-05-18 Agent 1 BinaryHeapPop owner accessor 固定
 
 - `ISS-20260518T022816487Z-BINARYHEAPPOP-EXPOSES-OWNER-FIELDS-W-9B47EE6B` を追加し、fixed / resolved にした。`plan.md` は変更していない。

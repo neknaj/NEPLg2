@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-17
+updated: 2026-05-18
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -1410,3 +1410,13 @@ runtime 検証を妨げる compiler blocker は `ISS-20260517T200909433Z-RESOURC
 - `node nodesrc/tests.js -i stdlib\neplg2\cli\args\parse.nepl -i stdlib\neplg2\cli\args\options.nepl --no-tree -o tmp\agent1-selfhost-cli-args-doc-report.json -j 1 --dist web\dist --assert-io`: total=4, passed=4
 
 この issue はまだ open のまま継続する。selfhost CLI args doc-comment は移行済みだが、他の `.n.md` / stdlib doc-comment fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 selfhost CLI reporter report contract migration
+
+`ISS-20260518T024038881Z-SELFHOST-CLI-REPORTER-DOCTESTS-STILL-E474D880` として、`tests/stdlib/selfhost_cli_reporter.n.md` の 3 doctest を `ret:` から `exit_code: 0` へ移行した。
+
+rendering-only 2 件は `checks_print_report` で deterministic stdout report を出すようにし、diagnostic writer 1 件は検査対象である JSON stdout / human stderr を維持した。`nodesrc/test_selfhost_cli_reporter_report_contract.js` を追加し、`ret:` 退行、stdio tag、stdout/stderr contract、report print -> exit code の順序を source policy にした。
+
+focused doctest 実行では default 60000ms と 300000ms の両方で compile timeout したため、これは report contract の問題から切り分け、`ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865` として compiler/static-check performance 側に分離した。
+
+この issue はまだ open のまま継続する。他の `ret:` 依存 fixture と、timeout せず stdout contract を実行できる compiler/static-check 性能改善が残っている。

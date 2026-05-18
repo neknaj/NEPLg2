@@ -102,6 +102,7 @@ const checks = [
     "nodesrc/test_selfhost_cli_driver_report_contract.js",
     "nodesrc/test_selfhost_cli_file_io_boundary.js",
     "nodesrc/test_selfhost_cli_reporter_boundary.js",
+    "nodesrc/test_selfhost_cli_reporter_report_contract.js",
     "nodesrc/test_selfhost_lexer_report_contract.js",
     "nodesrc/test_selfhost_parser_report_contract.js",
     "nodesrc/test_selfhost_module_loader_report_contract.js",

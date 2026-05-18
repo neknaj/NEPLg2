@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T02:37:02.105Z",
+  "generated_at": "2026-05-18T03:05:20.597Z",
   "counts": {
-    "total": 977,
-    "open": 5,
-    "resolved": 972,
+    "total": 979,
+    "open": 6,
+    "resolved": 973,
     "by_area": {
       "stdlib": {
         "total": 264,
@@ -12,9 +12,9 @@
         "resolved": 261
       },
       "TEST": {
-        "total": 38,
-        "open": 1,
-        "resolved": 37
+        "total": 40,
+        "open": 2,
+        "resolved": 38
       },
       "selfhost": {
         "total": 70,
@@ -168,11 +168,26 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-05-17",
+      "updated": "2026-05-18",
       "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865",
+      "title": "selfhost CLI reporter doctests exceed local compile timeout",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/selfhost_cli_reporter.n.md, stdlib/neplg2/cli/reporter.nepl, stdlib/neplg2/core/infra/diag.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -12323,6 +12338,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T022058895Z-SELFHOST-CLI-ARGS-DOC-COMMENT-DOCTES-2AECEA64.md"
+    },
+    {
+      "id": "ISS-20260518T024038881Z-SELFHOST-CLI-REPORTER-DOCTESTS-STILL-E474D880",
+      "title": "selfhost CLI reporter doctests still use ret without report stdout",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/selfhost_cli_reporter.n.md, nodesrc/test_selfhost_cli_reporter_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T024038881Z-SELFHOST-CLI-REPORTER-DOCTESTS-STILL-E474D880.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
