@@ -20,28 +20,29 @@ pub(super) fn consumed_owner_parameters(
         if returned_sources.iter().any(|returned| returned == source) {
             continue;
         }
-        match owners.state(&entry.place) {
-            Some(OwnerState::Moved | OwnerState::Freed) => {
-                if source.suffix.is_empty() {
-                    push_unique_usize(&mut indices, source.parameter_index);
-                } else {
-                    push_unique_owner_projection_source(&mut sources, source);
-                }
-            }
-            Some(OwnerState::NoFreeObligation) => {
-                if source.suffix.is_empty() {
-                    push_unique_usize(&mut indices, source.parameter_index);
-                } else {
-                    push_unique_owner_projection_source(&mut sources, source);
-                }
-            }
-            Some(
-                OwnerState::Live { .. }
-                | OwnerState::Reserved { .. }
-                | OwnerState::MaybeFreed { .. },
-            )
-            | None => {}
+        if !state_consumes_parameter_owner(owners.state(&entry.place), entry) {
+            continue;
+        }
+        if source.suffix.is_empty() {
+            push_unique_usize(&mut indices, source.parameter_index);
+        } else {
+            push_unique_owner_projection_source(&mut sources, source);
         }
     }
     (indices, sources)
+}
+
+fn state_consumes_parameter_owner(
+    state: Option<OwnerState>,
+    source: &OwnerParameterStorageSource,
+) -> bool {
+    match state {
+        Some(OwnerState::Moved | OwnerState::Freed | OwnerState::NoFreeObligation) => true,
+        Some(OwnerState::MaybeFreed {
+            storage: Some(storage),
+        }) => storage == source.storage,
+        Some(OwnerState::Live { .. } | OwnerState::Reserved { .. })
+        | Some(OwnerState::MaybeFreed { storage: None })
+        | None => false,
+    }
 }

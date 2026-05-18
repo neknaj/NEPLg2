@@ -1,3 +1,23 @@
+# 2026-05-18 Agent 1 selfhost_req StringBuilder nested owner summary 修正
+
+- `ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の copy state-only temporary scope が型全体の `str` だけを見ており、`StringBuilder` のような copy aggregate 内にある nested `str` owner leaf を閉じる scope を挿入できなかったこと。
+- さらに owner summary の consumed 判定が `MaybeFreed(storage=parameter)` を扱えず、wrapper 内で入力 owner が返却されず別 owner へ詰め替えられる経路を raw owner leaf の消費として伝播できていなかった。
+- `copy_state_only_temporary_needs_resource_scope` は `owner_leaf_projections_mapped` で nested owner leaf を調べるようにした。
+- `consumed_owner_parameters` は returned source を除外する既存の path 相関を維持したまま、返却されていない `MaybeFreed(storage=parameter)` を consumed として扱うようにした。これにより StringBuilder wrapper の false leak は解消し、fs/stdio の `Result::Ok` payload parameter return の二重消費は再発しない。
+- 回帰テストとして `resource_ir_owner_check_accepts_string_builder_build_wrapper_str_observer` を追加した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_builder_build_wrapper_str_observer -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir string_builder -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_accepts_stdio_string_temporaries -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_accepts_vec_get_copy_str_option_return -- --exact --nocapture`
+  - `cargo check -p nepl-core`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-stringbuilder-owner.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR owner summary / copy aggregate owner leaf proof として、個別 stdlib 許可ではなく owner leaf と returned source の汎用的な証明へ寄せた。
+
 # 2026-05-18 Agent 1 ResourceIR fd_write host memory span summary 修正
 
 - `ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E` を fixed / resolved にした。`plan.md` は変更していない。

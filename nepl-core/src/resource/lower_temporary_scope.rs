@@ -1,11 +1,13 @@
 extern crate alloc;
 
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceRoot, ResourceOp};
+use super::owner_summary_leaf::owner_leaf_projections_mapped;
 
 pub(super) fn push_line_copy_state_only_temporary_scope(
     types: &TypeCtx,
@@ -81,6 +83,12 @@ fn copy_state_only_temporary_needs_resource_scope(types: &TypeCtx, ty: TypeId) -
     if !types.is_copy(ty) {
         return false;
     }
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    matches!(types.get_ref(resolved), TypeKind::Str)
+    let mapping = BTreeMap::new();
+    let mut seen = BTreeSet::new();
+    owner_leaf_projections_mapped(types, ty, &mapping, &mut seen)
+        .into_iter()
+        .any(|leaf| {
+            let resolved = types.resolve_named_type_id(types.resolve_id(leaf.ty));
+            matches!(types.get_ref(resolved), TypeKind::Str)
+        })
 }

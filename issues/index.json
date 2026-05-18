@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T18:45:01.045Z",
+  "generated_at": "2026-05-18T19:41:03.108Z",
   "counts": {
     "total": 1012,
-    "open": 6,
-    "resolved": 1006,
+    "open": 5,
+    "resolved": 1007,
     "by_area": {
       "stdlib": {
-        "total": 280,
-        "open": 4,
+        "total": 279,
+        "open": 3,
         "resolved": 276
       },
       "TEST": {
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 511,
+        "total": 512,
         "open": 0,
-        "resolved": 511
+        "resolved": 512
       },
       "CORE": {
         "total": 4,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E",
-      "title": "selfhost_req StringBuilder doctest leaks built string owner",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-18",
-      "updated": "2026-05-18",
-      "target": "tests/stdlib/selfhost_req.n.md, stdlib/alloc/string/builder/**, stdlib/alloc/io/bytebuilder/**, nepl-core/src/resource/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -7808,6 +7793,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T165601592Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-7475D872.md"
+    },
+    {
+      "id": "ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E",
+      "title": "selfhost_req StringBuilder doctest leaks nested copy temporary owner",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/selfhost_req.n.md, nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

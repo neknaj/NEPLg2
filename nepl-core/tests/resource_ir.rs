@@ -14447,6 +14447,54 @@ fn main <()* >i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_accepts_string_builder_build_wrapper_str_observer() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+
+fn main <()* >i32> ():
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "Error: ";
+    set sb sb_append_i32 sb 404;
+    set sb sb_append sb " Not Found";
+    let res <str> sb_build sb;
+    len res
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("main__")
+                || function.starts_with("sb_append_i32__")
+                || function.starts_with("sb_append_i32_result__")
+                || function.starts_with("sb_build__")
+                || function.starts_with("sb_build_result__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "StringBuilder sb_build wrapper result must not leak nested Result<str,str> temporary owners: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm).expect(
+        "StringBuilder sb_build wrapper result must compile under the full Resource IR gate",
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_byte_builder_free_closes_region_by_token_size() {
     let source = r#"
 #entry main
