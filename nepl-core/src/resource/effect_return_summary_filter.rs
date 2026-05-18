@@ -4,9 +4,10 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::layout::{extend_type_mapping, mapped_type_id};
-use crate::resource_primitives::type_is_raw_pointer;
+use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+use super::effect_return_owner_type::raw_identity_type_is_structural_owner_carrier;
 use super::model::{Place, PlaceProjection};
 use super::place_utils::projection_result_type;
 
@@ -19,7 +20,7 @@ pub(super) fn raw_identity_return_projection_requires_summary(
     let Some(types) = types else {
         return true;
     };
-    if raw_identity_projection_has_summary_opaque_owner_protection(types, returned.ty, suffix) {
+    if raw_identity_projection_has_summary_owner_carrier_protection(types, returned.ty, suffix) {
         return false;
     }
     raw_identity_type_can_propagate_public_escape(
@@ -30,21 +31,27 @@ pub(super) fn raw_identity_return_projection_requires_summary(
     )
 }
 
-fn raw_identity_projection_has_summary_opaque_owner_protection(
+fn raw_identity_projection_has_summary_owner_carrier_protection(
     types: &TypeCtx,
     root_ty: TypeId,
     suffix: &[PlaceProjection],
 ) -> bool {
     let mut current_ty = types.resolve_named_type_id(types.resolve_id(root_ty));
-    if raw_identity_type_suppresses_internal_summary(types, current_ty) {
+    if raw_identity_type_suppresses_internal_summary(types, current_ty)
+        || raw_identity_type_is_structural_owner_carrier(types, current_ty)
+    {
         return true;
     }
     for projection in suffix {
-        if raw_identity_type_suppresses_internal_summary(types, current_ty) {
+        if raw_identity_type_suppresses_internal_summary(types, current_ty)
+            || raw_identity_type_is_structural_owner_carrier(types, current_ty)
+        {
             return true;
         }
         current_ty = projection_result_type(types, current_ty, projection).unwrap_or(current_ty);
-        if raw_identity_type_suppresses_internal_summary(types, current_ty) {
+        if raw_identity_type_suppresses_internal_summary(types, current_ty)
+            || raw_identity_type_is_structural_owner_carrier(types, current_ty)
+        {
             return true;
         }
     }
@@ -52,7 +59,8 @@ fn raw_identity_projection_has_summary_opaque_owner_protection(
 }
 
 fn raw_identity_type_suppresses_internal_summary(types: &TypeCtx, ty: TypeId) -> bool {
-    types.resolve_named_type_id(types.resolve_id(ty)) == types.str()
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    resolved == types.str() || type_is_owner_token(types, resolved)
 }
 
 fn raw_identity_type_can_propagate_public_escape(
@@ -64,6 +72,12 @@ fn raw_identity_type_can_propagate_public_escape(
     let resolved = mapped_type_id(types, ty, mapping);
     if type_is_raw_pointer(types, resolved) {
         return true;
+    }
+    if type_is_owner_token(types, resolved) {
+        return false;
+    }
+    if raw_identity_type_is_structural_owner_carrier(types, resolved) {
+        return false;
     }
     if seen.contains(&resolved) {
         return false;
@@ -146,96 +160,5 @@ fn raw_identity_type_can_propagate_public_escape(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::resource::model::ResourceId;
-    use alloc::string::ToString;
-    use alloc::vec;
-
-    fn returned_place(ty: TypeId) -> Place {
-        Place::temporary(ResourceId(0), ty)
-    }
-
-    #[test]
-    fn summary_filter_skips_owner_protected_string_returns() {
-        let types = TypeCtx::new();
-        let returned = returned_place(types.str());
-
-        assert!(!raw_identity_return_projection_requires_summary(
-            Some(&types),
-            &returned,
-            &[],
-            types.str(),
-        ));
-    }
-
-    #[test]
-    fn summary_filter_keeps_public_raw_identity_returns() {
-        let mut types = TypeCtx::new();
-        let i32_ty = types.i32();
-        let mem_ptr_ty = types.register_named(
-            "MemPtr".to_string(),
-            TypeKind::Struct {
-                name: "MemPtr".to_string(),
-                type_params: vec![],
-                fields: vec![i32_ty],
-                field_names: vec!["raw".to_string()],
-            },
-        );
-
-        assert!(raw_identity_return_projection_requires_summary(
-            Some(&types),
-            &returned_place(i32_ty),
-            &[],
-            i32_ty,
-        ));
-        assert!(raw_identity_return_projection_requires_summary(
-            Some(&types),
-            &returned_place(mem_ptr_ty),
-            &[],
-            mem_ptr_ty,
-        ));
-    }
-
-    #[test]
-    fn summary_filter_respects_reference_target_identity() {
-        let mut types = TypeCtx::new();
-        let str_ref_ty = types.reference(types.str(), false);
-        let i32_ref_ty = types.reference(types.i32(), false);
-
-        assert!(!raw_identity_return_projection_requires_summary(
-            Some(&types),
-            &returned_place(str_ref_ty),
-            &[],
-            str_ref_ty,
-        ));
-        assert!(raw_identity_return_projection_requires_summary(
-            Some(&types),
-            &returned_place(i32_ref_ty),
-            &[],
-            i32_ref_ty,
-        ));
-    }
-
-    #[test]
-    fn summary_filter_keeps_region_token_owner_provenance() {
-        let mut types = TypeCtx::new();
-        let i32_ty = types.i32();
-        let region_token_ty = types.register_named(
-            "RegionToken".to_string(),
-            TypeKind::Struct {
-                name: "RegionToken".to_string(),
-                type_params: vec![],
-                fields: vec![i32_ty],
-                field_names: vec!["raw".to_string()],
-            },
-        );
-
-        assert!(raw_identity_return_projection_requires_summary(
-            Some(&types),
-            &returned_place(region_token_ty),
-            &[],
-            region_token_ty,
-        ));
-    }
-}
+#[path = "effect_return_summary_filter_tests.rs"]
+mod tests;

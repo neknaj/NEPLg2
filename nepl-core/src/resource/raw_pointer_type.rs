@@ -2,8 +2,10 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::layout::{extend_type_mapping, mapped_type_id};
-use crate::resource_primitives::type_is_raw_pointer;
+use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer};
 use crate::types::{TypeCtx, TypeId, TypeKind};
+
+use super::effect_return_owner_type::raw_identity_type_is_structural_owner_carrier;
 
 pub(super) fn type_can_carry_raw_pointer_alias_summary(types: &TypeCtx, ty: TypeId) -> bool {
     type_can_carry_raw_pointer_alias_mapped(types, ty, &BTreeMap::new(), &mut Vec::new())
@@ -18,6 +20,11 @@ fn type_can_carry_raw_pointer_alias_mapped(
     let resolved = mapped_type_id(types, ty, mapping);
     if type_is_raw_pointer(types, resolved) {
         return true;
+    }
+    if type_is_owner_token(types, resolved)
+        || raw_identity_type_is_structural_owner_carrier(types, resolved)
+    {
+        return false;
     }
     if seen.contains(&resolved) {
         return false;

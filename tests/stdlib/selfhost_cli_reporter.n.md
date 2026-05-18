@@ -13,7 +13,7 @@ exit_code: 0
 #indent 4
 #target std
 
-#import "neplg2/cli/reporter" as *
+#import "neplg2/cli/reporter/render/single" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "core/result" as *
@@ -23,8 +23,8 @@ fn main <()*>i32> ():
     let span <SelfhostSourceSpan> source_span_new 1 10 15
     let label <SelfhostDiagnosticLabel> selfhost_diag_label_new span "token"
     let diag <SelfhostDiagnostic> selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"
-    let human <str> selfhost_cli_render_diagnostic_human diag
-    let json <str> selfhost_cli_render_diagnostic_json diag
+    let human <str> selfhost_cli_render_diagnostic_human &diag
+    let json <str> selfhost_cli_render_diagnostic_json &diag
     let checks:
         checks_new
         |> checks_push assert_str_eq "error[parser.token.index_unavailable]: second\n  --> file 1:10..15\n  = label: token\n  = note: fix it\n" human
@@ -44,7 +44,7 @@ exit_code: 0
 #indent 4
 #target std
 
-#import "neplg2/cli/reporter" as *
+#import "neplg2/cli/reporter/write" as *
 #import "neplg2/core/infra/diag" as *
 #import "core/result" as *
 
@@ -74,7 +74,7 @@ exit_code: 0
 #indent 4
 #target std
 
-#import "neplg2/cli/reporter" as *
+#import "neplg2/cli/reporter/render/collection" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "core/result" as *
