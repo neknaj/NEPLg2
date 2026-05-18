@@ -1,3 +1,18 @@
+# 2026-05-18 Agent 1 cliarg C string bounded 境界修正
+
+- `ISS-20260518T114636396Z-CLIARG-C-STRING-CONVERSION-LACKS-ARG-21786F27` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`std/env/cliarg/cstr` が `MemPtr<u8>` だけを受ける `cstr_len_result` / `cstr_len` / `cstr_to_str` を public にしており、`cliarg_get_checked` が持つ `argv_buf_raw` / `buf_size` の owner extent proof を C string conversion へ渡していなかったこと。
+- 旧 unbounded API を削除し、`cstr_len_bounded_result(data, max_len)` と `cstr_to_str_bounded_result(data, max_len)` に置き換えた。NUL が `max_len` 内に無い場合、無効 pointer、空 bound は `Err` にする。
+- `cstr_to_str_bounded_result` は `string_from_utf8_mem_result` を使う。外部 argv byte 列を `string_from_mem_unchecked_result` で UTF-8 検証なしに `str` へ昇格する経路は削除した。
+- `cliarg_get_checked` は `arg_offset = arg_ptr - argv_buf_raw` を検査し、`buf_size - arg_offset` を bounded conversion へ渡す。これにより argv pointer と argv byte buffer の範囲証明が API signature に残る。
+- 検証:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib\std\env\cliarg\cstr.nepl -i stdlib\tests\cliarg.n.md --no-tree -o tmp\agent1-cliarg-cstr-bounded-cliarg.json -j 1 --dist web\dist --assert-io`: total=9, passed=9
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-cliarg-cstr-bounded-memory-safety.json -j 1 --dist web\dist --assert-io`: total=59, passed=59
+  - `node nodesrc/tests.js -i stdlib\std\env\cliarg.nepl -i stdlib\std\env\cliarg\raw.nepl -i stdlib\tests\cliarg.n.md --no-tree -o tmp\agent1-cliarg-cstr-bounded-focused.json -j 1 --dist web\dist --assert-io`: total=10, passed=10
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の raw-memory-backed stdlib public/internal 境界として、argv C string conversion の unbounded public surface と UTF-8 unchecked string construction を閉じた。
+
 # 2026-05-18 Agent 1 UTF-8 raw byte reader public 境界修正
 
 - `ISS-20260518T112925248Z-UTF-8-RAW-BYTE-READERS-EXPOSE-UNCHEC-35257411` を追加し、fixed / resolved にした。`plan.md` は変更していない。

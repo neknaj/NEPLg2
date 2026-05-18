@@ -3,7 +3,8 @@
 //:
 //: ### [目的/もくてき]
 //: - NUL 終端 C string の長さ計測と `str` コピーを `cliarg` root から分離します。
-//: - public `cliarg_get` は argv buffer の寿命と独立した `str` を、この module の checked 境界を通して作ります。
+//: - argv byte buffer の残り長を受け取り、NUL がその範囲内にあることを確認してから `str` へコピーします。
+//: - public `cliarg_get` は argv buffer の寿命と独立した UTF-8 `str` を、この module の bounded 境界を通して作ります。
 
 #indent 4
 
@@ -15,66 +16,26 @@
 #import "core/result" as *
 #import "core/math" as *
 
-//: cstr_len_result: NUL 終端文字列の長さを checked load で求める
+//: cstr_len_bounded_result: NUL 終端文字列の長さを bounded checked load で求める
 //:
 //: 目的:
-//: - `MemPtr<u8>` で与えられた C 文字列の長さを、無効 pointer を `Err` として扱いながら返します。
+//: - `MemPtr<u8>` と読み取り上限で与えられた C 文字列の長さを返します。
+//: - NUL が上限内に見つからない場合は `Err` にします。
 //:
 //: 実装(アルゴリズム):
 //: - 1 バイトずつ読み、0 に達したら停止します。
+//: - `max_len` byte を読み切る前に必ず停止し、上限の外へ pointer を進めません。
 //:
 //: 注意(重要):
-//: - `p` は NUL 終端済みの有効なバイト列を指している必要があります。
+//: - `p` は `max_len` byte の有効な範囲内に NUL 終端を持つ必要があります。
 //: - 無効 pointer に到達した場合は `Err` を返します。
 //:
 //: 計算量:
-//: - O(n)
-pub fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
-    let mut i <i32> 0
-    let mut done <i32> 0
-    let mut ok <i32> 1
-    while and eq done 0 eq ok 1:
-        do:
-            match load_u8 mem_ptr_add p i:
-                Option::Some b:
-                    if:
-                        cond:
-                            eq b 0
-                        then:
-                            set done 1;
-                        else:
-                            set i add i 1
-                Option::None:
-                    set ok 0
-    if:
-        eq ok 1
-        then:
-            Result<i32,str>::Ok i
-        else:
-            Result<i32,str>::Err "cliarg.cstr_len invalid pointer"
-
-//: cstr_len: NUL 終端文字列の長さを求める
-//:
-//: 目的:
-//: - `MemPtr<u8>` で与えられた C 文字列の長さを返します。
-//:
-//: 実装(アルゴリズム):
-//: - `cstr_len_result` に委譲し、無効 pointer は 0 に丸めます。
-//:
-//: 注意(重要):
-//: - `p` は NUL 終端済みの有効なバイト列を指している必要があります。
-//:
-//: 計算量:
-//: - O(n)
-//: cstr_len: 使い方の最小例
+//: - O(min(n, max_len))
+//: cstr_len_bounded_result: 使い方の最小例
 //:
 //: [目的/もくてき]:
-//: - `cstr_len` の典型的な使い方を最小構成で示します。
-//: - NUL を含む文字列 literal の data pointer を渡し、ordinary doctest から raw memory write を行わずに確認します。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//: - NUL を含む文字列 literal の data pointer と上限を渡し、上限内の NUL で停止することを確認します。
 //:
 //: neplg2:test
 //: ret: 0
@@ -85,42 +46,70 @@ pub fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
 //:| #import "std/env/cliarg/cstr" as *
 //:| #import "alloc/string/storage" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let p <MemPtr<u8>> string_data_ptr "nep\0";
-//:     let n <i32> cstr_len p;
-//:     if eq n 3 0 1
+//:     match cstr_len_bounded_result p 4:
+//:         Result::Ok n:
+//:             if eq n 3 0 1
+//:         Result::Err _:
+//:             1
 //: ```
-pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
-    match cstr_len_result p:
-        Result::Ok n:
-            n
-        Result::Err _e:
-            0
+pub fn cstr_len_bounded_result <(MemPtr<u8>,i32)*>Result<i32,str>> (p, max_len):
+    if:
+        le max_len 0
+        then:
+            Result<i32,str>::Err "cliarg.cstr_len empty bound"
+        else:
+            let mut i <i32> 0
+            let mut done <i32> 0
+            let mut ok <i32> 1
+            while and and eq done 0 eq ok 1 lt i max_len:
+                do:
+                    match load_u8 mem_ptr_add p i:
+                        Option::Some b:
+                            if:
+                                cond:
+                                    eq b 0
+                                then:
+                                    set done 1;
+                                else:
+                                    set i add i 1
+                        Option::None:
+                            set ok 0
+            if:
+                eq ok 0
+                then:
+                    Result<i32,str>::Err "cliarg.cstr_len invalid pointer"
+                else:
+                    if:
+                        eq done 1
+                        then:
+                            Result<i32,str>::Ok i
+                        else:
+                            Result<i32,str>::Err "cliarg.cstr_len missing nul terminator"
 
-//: cstr_to_str: NUL 終端文字列を str にコピーする
+//: cstr_to_str_bounded_result: NUL 終端文字列を UTF-8 検証して `str` にコピーする
 //:
 //: 目的:
-//: - `MemPtr<u8>` から NUL 終端文字列を読み取り、独立した `str` にコピーします。
+//: - `MemPtr<u8>` と読み取り上限で与えられた C 文字列を、独立した `str` にコピーします。
+//: - NUL 終端が上限内にあることと、NUL より前の byte 列が UTF-8 として妥当であることを確認します。
 //:
 //: 実装(アルゴリズム):
-//: - まず `cstr_len_result` で長さを数え、`[len][bytes]` 形式の新領域へ転写します。
+//: - `cstr_len_bounded_result` で NUL の位置を求めます。
+//: - `string_from_utf8_mem_result` に委譲し、UTF-8 検証と string owner transfer を `alloc/string` 境界で行います。
 //:
 //: 注意(重要):
 //: - 呼び出しごとに新しい領域を確保します。
 //: - 返り値は元の C 文字列の寿命と独立です。
-//: - load/store 失敗や確保失敗は空文字列に丸めます。
+//: - NUL 不在、無効 pointer、UTF-8 不正、確保失敗は `Err` として呼び出し側へ返します。
 //:
 //: 計算量:
-//: - O(n)
-//: cstr_to_str: 使い方の最小例
+//: - O(min(n, max_len))
+//: cstr_to_str_bounded_result: 使い方の最小例
 //:
 //: [目的/もくてき]:
-//: - `cstr_to_str` の典型的な使い方を最小構成で示します。
-//: - NUL を含む文字列 literal の data pointer を渡し、ordinary doctest から raw memory write を行わずに確認します。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//: - NUL を含む文字列 literal を上限付きで `str` にコピーする典型例を示します。
 //:
 //: neplg2:test
 //: ret: 0
@@ -131,18 +120,22 @@ pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:| #import "std/env/cliarg/cstr" as *
 //:| #import "alloc/string/storage" as *
 //:| #import "alloc/string" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let p <MemPtr<u8>> string_data_ptr "nep\0";
-//:     let s <str> cstr_to_str p;
-//:     if str_eq s "nep" 0 1
+//:     match cstr_to_str_bounded_result p 4:
+//:         Result::Ok s:
+//:             if str_eq s "nep" 0 1
+//:         Result::Err _:
+//:             1
 //: ```
-pub fn cstr_to_str <(MemPtr<u8>)*>str> (p):
-    match cstr_len_result p:
-        Result::Err _e:
-            ""
+pub fn cstr_to_str_bounded_result <(MemPtr<u8>,i32)*>Result<str,str>> (p, max_len):
+    match cstr_len_bounded_result p max_len:
+        Result::Err e:
+            Result<str,str>::Err e
         Result::Ok len:
-            match string_from_mem_unchecked_result p len:
-                Result::Err _:
-                    ""
+            match string_from_utf8_mem_result p len:
+                Result::Err e:
+                    Result<str,str>::Err e
                 Result::Ok s:
-                    s
+                    Result<str,str>::Ok s

@@ -69,16 +69,18 @@ for (const pattern of [
     assert.match(rawCode, pattern, 'cliarg raw module must own raw argv boundary implementation bodies');
 }
 for (const pattern of [
-    /\bfn\s+cstr_len_result\b/,
-    /\bfn\s+cstr_to_str\b/,
+    /\bfn\s+cstr_len_bounded_result\b/,
+    /\bfn\s+cstr_to_str_bounded_result\b/,
 ]) {
     assert.doesNotMatch(code, pattern, 'cliarg root must not keep C string implementation bodies');
     assert.match(cstrCode, pattern, 'cliarg cstr module must own C string implementation bodies');
 }
 
 assert.match(rawCode, /fn\s+cli_load_u8_result\s+<\(MemPtr<u8>,i32\)->Result<i32,i32>>\s+\(base,\s*off\):[\s\S]*Option::None:[\s\S]*Result<i32,i32>::Err\s+1/, 'cliarg must map invalid byte loads to shim errno 1');
-assert.match(cstrCode, /fn\s+cstr_len_result\s+<\(MemPtr<u8>\)\*>Result<i32,str>>\s+\(p\):[\s\S]*Option::None:[\s\S]*set\s+ok\s+0[\s\S]*Result<i32,str>::Err\s+"cliarg\.cstr_len invalid pointer"/, 'cstr_len_result must return Err on invalid C string pointer');
-assert.match(cstrCode, /fn\s+cstr_to_str\s+<\(MemPtr<u8>\)\*>str>\s+\(p\):[\s\S]*string_from_mem_unchecked_result\s+p\s+len/, 'cstr_to_str must delegate string allocation and owner transfer to alloc/string');
+assert.doesNotMatch(cstrCode, /\bpub\s+fn\s+(?:cstr_len_result|cstr_len|cstr_to_str)\s+</, 'cliarg cstr module must not expose unbounded C string readers');
+assert.match(cstrCode, /fn\s+cstr_len_bounded_result\s+<\(MemPtr<u8>,i32\)\*>Result<i32,str>>\s+\(p,\s*max_len\):[\s\S]*le\s+max_len\s+0[\s\S]*while\s+and\s+and\s+eq\s+done\s+0\s+eq\s+ok\s+1\s+lt\s+i\s+max_len[\s\S]*Option::None:[\s\S]*set\s+ok\s+0[\s\S]*Result<i32,str>::Err\s+"cliarg\.cstr_len invalid pointer"[\s\S]*Result<i32,str>::Err\s+"cliarg\.cstr_len missing nul terminator"/, 'bounded cstr length must reject invalid pointers and missing NUL before reading beyond the caller extent');
+assert.match(cstrCode, /fn\s+cstr_to_str_bounded_result\s+<\(MemPtr<u8>,i32\)\*>Result<str,str>>\s+\(p,\s*max_len\):[\s\S]*cstr_len_bounded_result\s+p\s+max_len[\s\S]*string_from_utf8_mem_result\s+p\s+len/, 'bounded cstr conversion must preserve the caller extent and validate UTF-8 before str construction');
+assert.doesNotMatch(cstrCode, /\bstring_from_mem_unchecked_result\b/, 'cliarg cstr conversion must not construct str from external bytes without UTF-8 validation');
 assert.match(cstrDoc, /string_data_ptr\s+"nep\\0"/, 'cstr doctests must use safe string literal data pointers for NUL-terminated examples');
 assert.doesNotMatch(cstrDoc, /\b(?:alloc_region|dealloc_region|store_u8|mem_ptr_add|unwrap_ok)\b/, 'cstr doctests must not write raw memory from ordinary doctest source');
 assert.doesNotMatch(allCode, /\bfn\s+cli_i32_ptr\b/, 'cliarg must not reintroduce MemPtr<i32> out-pointer projections across WASI boundaries');
@@ -87,6 +89,7 @@ assert.match(cstrCode, /\bload_u8\b/, 'cliarg cstr conversion must carry source-
 assert.match(rawCode, /fn\s+cli_args_sizes_result\s+<\(MemPtr<u8>\)\*>Result<CliArgSizes,i32>>\s+\(meta\):[\s\S]*store_i32\s+meta_raw\s+0[\s\S]*store_i32\s+add\s+meta_raw\s+4\s+0[\s\S]*args_sizes_get\s+meta_raw\s+add\s+meta_raw\s+4[\s\S]*load_i32\s+meta_raw[\s\S]*load_i32\s+add\s+meta_raw\s+4/, 'cliarg sizes must initialize and read WASI out pointers in one raw-address boundary');
 assert.match(rawCode, /fn\s+cliarg_get_checked\s+<\(i32\)\*>Option<str>>\s+\(idx\):[\s\S]*cli_args_sizes_result\s+meta[\s\S]*cli_zero_i32_slots_result\s+argv\s+argv_size[\s\S]*cli_zero_u8_buffer_result\s+argv_buf\s+buf_size[\s\S]*store_i32\s+arg_slot_raw\s+0[\s\S]*args_get\s+argv_raw\s+argv_buf_raw[\s\S]*load_i32\s+arg_slot_raw/, 'cliarg_get_checked must initialize argv scratch and read arg slots in one raw-address boundary');
 assert.match(rawCode, /fn\s+cliarg_get_checked\s+<\(i32\)\*>Option<str>>\s+\(idx\):[\s\S]*\bor\s+lt\s+idx\s+0\s+or\s+ge\s+idx\s+argc\s+le\s+buf_size\s+0[\s\S]*let\s+arg_slot_raw\s+<i32>\s+add\s+argv_raw\s+mul\s+idx\s+4/, 'cliarg_get_checked must reject negative indexes before computing the argv slot address');
+assert.match(rawCode, /let\s+arg_offset\s+<i32>\s+sub\s+arg_ptr\s+argv_buf_raw[\s\S]*or\s+lt\s+arg_offset\s+0\s+ge\s+arg_offset\s+buf_size[\s\S]*let\s+arg_max_len\s+<i32>\s+sub\s+buf_size\s+arg_offset[\s\S]*cstr::cstr_to_str_bounded_result\s+mem_ptr_wrap\s+arg_ptr\s+arg_max_len/, 'cliarg_get_checked must pass the remaining argv byte-buffer extent to C string conversion');
 assert.match(rawCode, /fn\s+cliarg_count_result\b[\s\S]*\balloc_region<u8>\s+8[\s\S]*\blet\s+meta\s+<MemPtr<u8>>\s+region_ptr\s+&meta_region[\s\S]*\bdealloc_region<u8>\s+meta_region/, 'cliarg_count_result must own argc metadata scratch through RegionToken');
 assert.match(rawCode, /fn\s+cliarg_get_checked\b[\s\S]*\balloc_region<u8>\s+8[\s\S]*\blet\s+meta\s+<MemPtr<u8>>\s+region_ptr\s+&meta_region[\s\S]*\balloc_region<u8>\s+argv_size[\s\S]*\blet\s+argv\s+<MemPtr<u8>>\s+region_ptr\s+&argv_region[\s\S]*\balloc_region<u8>\s+buf_size[\s\S]*\blet\s+argv_buf\s+<MemPtr<u8>>\s+region_ptr\s+&argv_buf_region[\s\S]*\bdealloc_region<u8>\s+argv_buf_region[\s\S]*\bdealloc_region<u8>\s+argv_region[\s\S]*\bdealloc_region<u8>\s+meta_region/, 'cliarg_get_checked must own argv metadata and byte buffers through RegionToken');
 assert.match(rawCode, /fn\s+__cli_copy_to_cstr\s+<\(str\)\*>Result<RegionToken<u8>,i32>>[\s\S]*\balloc_region<u8>\s+size[\s\S]*\blet\s+dst\s+<MemPtr<u8>>\s+region_ptr\s+&dst_region[\s\S]*Result<RegionToken<u8>,i32>::Ok\s+dst_region[\s\S]*\blet\s+cpath\s+<MemPtr<u8>>\s+region_ptr\s+&cpath_region[\s\S]*\bdealloc_region<u8>\s+cpath_region/, 'LLVM cliarg cmdline C string scratch must be owned through RegionToken');

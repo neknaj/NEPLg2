@@ -103,32 +103,80 @@ fn main <()*>i32> ():
     test_report_exit_code shown
 ```
 
-## cliarg_cstr_requires_mem_ptr
+## cliarg_cstr_bounded_conversion_reports
 
-neplg2:test[compile_fail]
-diag_code: type.overload.no_match
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"cliarg_cstr_bounded_conversion_reports\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"bounded cstr length stops at nul\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"bounded cstr conversion validates utf8\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"missing nul in bound is rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
 #import "std/env/cliarg/cstr" as *
+#import "alloc/string/storage" as *
+#import "alloc/string" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "std/test" as *
 
-fn main <()*>()> ():
-    let _n cstr_len 0;
+fn main <()*>i32> ():
+    let p <MemPtr<u8>> string_data_ptr "nep\0tail";
+    let no_nul <MemPtr<u8>> string_data_ptr "abc";
+    let len_ok <bool> match cstr_len_bounded_result p 4:
+        Result::Ok n:
+            eq n 3
+        Result::Err _:
+            false
+    let str_ok <bool> match cstr_to_str_bounded_result p 4:
+        Result::Ok s:
+            str_eq s "nep"
+        Result::Err _:
+            false
+    let missing_ok <bool> match cstr_len_bounded_result no_nul 3:
+        Result::Ok _:
+            false
+        Result::Err _:
+            true
+    let report:
+        test_report_new "cliarg_cstr_bounded_conversion_reports"
+        |> test_report_push assert "bounded cstr length stops at nul" len_ok
+        |> test_report_push assert "bounded cstr conversion validates utf8" str_ok
+        |> test_report_push assert "missing nul in bound is rejected" missing_ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
-## cliarg_cstr_to_str_requires_mem_ptr
+## cliarg_cstr_len_unbounded_is_not_public
 
 neplg2:test[compile_fail]
-diag_code: type.overload.no_match
+diag_code: resolve.identifier.undefined
 ```neplg2
 #entry main
 #indent 4
 #target std
 
 #import "std/env/cliarg/cstr" as *
+#import "alloc/string/storage" as *
 
 fn main <()*>()> ():
-    let _s cstr_to_str 0;
+    let p <MemPtr<u8>> string_data_ptr "nep\0";
+    let _n cstr_len p;
+```
+
+## cliarg_cstr_to_str_unbounded_is_not_public
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/env/cliarg/cstr" as *
+#import "alloc/string/storage" as *
+
+fn main <()*>()> ():
+    let p <MemPtr<u8>> string_data_ptr "nep\0";
+    let _s cstr_to_str p;
 ```

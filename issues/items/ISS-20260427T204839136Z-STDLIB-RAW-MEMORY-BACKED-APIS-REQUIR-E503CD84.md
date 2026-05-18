@@ -690,6 +690,14 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 
 この親 issue は引き続き open とする。今回閉じたのは UTF-8 validation submodule の unchecked public byte-reader surface であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
 
+## 2026-05-18 Agent 1 cliarg C string bounded 境界追記
+
+`ISS-20260518T114636396Z-CLIARG-C-STRING-CONVERSION-LACKS-ARG-21786F27` を解決した。`std/env/cliarg/cstr` は `MemPtr<u8>` だけを受ける `cstr_len_result` / `cstr_len` / `cstr_to_str` を public にしており、NUL まで走査する際に argv byte buffer の owner extent を受け取っていなかった。`cliarg_get_checked` 側は `argv_buf_raw` と `buf_size` を知っていたが、`arg_ptr` だけを渡すことで範囲証明を落としていた。
+
+修正後は unbounded public API を削除し、`cstr_len_bounded_result(data, max_len)` と `cstr_to_str_bounded_result(data, max_len)` に一本化した。`cliarg_get_checked` は `arg_offset = arg_ptr - argv_buf_raw` を検査し、`buf_size - arg_offset` を C string conversion へ渡す。さらに `cstr_to_str_bounded_result` は `string_from_utf8_mem_result` を使うため、外部 argv byte 列を UTF-8 検証なしに `str` へ昇格する経路も閉じた。
+
+この親 issue は引き続き open とする。今回閉じたのは argv C string conversion の buffer extent proof 漏れであり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
 ## 2026-05-18 Agent 1 SHA256 owner aggregate field 境界追記
 
 `ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20` を解決した。SHA256 incremental state は `Sha256.buffer` として `Vec<i32>` owner を保持しているため、通常 source から aggregate field を直接読む設計にはできない。

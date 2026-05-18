@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T11:40:33.693Z",
+  "generated_at": "2026-05-18T11:52:55.466Z",
   "counts": {
-    "total": 997,
+    "total": 998,
     "open": 5,
-    "resolved": 992,
+    "resolved": 993,
     "by_area": {
       "stdlib": {
-        "total": 271,
+        "total": 272,
         "open": 3,
-        "resolved": 268
+        "resolved": 269
       },
       "TEST": {
         "total": 42,
@@ -11888,6 +11888,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T112925248Z-UTF-8-RAW-BYTE-READERS-EXPOSE-UNCHEC-35257411.md"
+    },
+    {
+      "id": "ISS-20260518T114636396Z-CLIARG-C-STRING-CONVERSION-LACKS-ARG-21786F27",
+      "title": "cliarg C string conversion lacks argv buffer bound proof",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/std/env/cliarg/cstr.nepl, stdlib/std/env/cliarg/raw.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T114636396Z-CLIARG-C-STRING-CONVERSION-LACKS-ARG-21786F27.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

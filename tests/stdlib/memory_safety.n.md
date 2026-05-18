@@ -1364,3 +1364,37 @@ diag_code: resolve.identifier.undefined
 fn main <()*>i32> ():
     text_utf8_byte_at "abc" 0
 ```
+
+## std/env/cliarg/cstr は unbounded length reader を公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/env/cliarg/cstr" as *
+#import "alloc/string/storage" as *
+
+fn main <()*>i32> ():
+    let p <MemPtr<u8>> string_data_ptr "nep\0";
+    cstr_len p
+```
+
+## std/env/cliarg/cstr は unbounded string conversion を公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/env/cliarg/cstr" as *
+#import "alloc/string/storage" as *
+
+fn main <()*>i32> ():
+    let p <MemPtr<u8>> string_data_ptr "nep\0";
+    cstr_to_str p
+```

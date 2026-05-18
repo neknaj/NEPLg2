@@ -139,7 +139,8 @@ pub fn cliarg_count_result <()*>Result<i32,i32>> ():
 //:
 //: 実装(アルゴリズム):
 //: - argc / argv byte size を取得し、argv pointer 配列と argv byte buffer を scratch 領域として確保します。
-//: - out pointer slot を 0 で初期化してから `args_get` を呼び、返された C string pointer を `cstr_to_str` で独立した `str` へコピーします。
+//: - out pointer slot を 0 で初期化してから `args_get` を呼び、返された C string pointer が argv byte buffer 内にあることを確認します。
+//: - argv byte buffer の残り長を `cstr_to_str_bounded_result` へ渡し、NUL 終端と UTF-8 を証明してから独立した `str` へコピーします。
 //: - scratch 領域は戻り値の `str` とは独立して、この関数内で必ず解放します。
 //:
 //: 注意(重要):
@@ -209,7 +210,18 @@ pub fn cliarg_get_checked <(i32)*>Option<str>> (idx):
                                                                                 then:
                                                                                     none<str>
                                                                                 else:
-                                                                                    some<str> cstr::cstr_to_str mem_ptr_wrap arg_ptr
+                                                                                    let arg_offset <i32> sub arg_ptr argv_buf_raw
+                                                                                    if:
+                                                                                        or lt arg_offset 0 ge arg_offset buf_size
+                                                                                        then:
+                                                                                            none<str>
+                                                                                        else:
+                                                                                            let arg_max_len <i32> sub buf_size arg_offset
+                                                                                            match cstr::cstr_to_str_bounded_result mem_ptr_wrap arg_ptr arg_max_len:
+                                                                                                Result::Ok arg:
+                                                                                                    some<str> arg
+                                                                                                Result::Err _:
+                                                                                                    none<str>
                                             match dealloc_region<u8> argv_buf_region:
                                                 Result::Ok _:
                                                     ()
