@@ -9,8 +9,8 @@ use alloc::vec::Vec;
 
 use crate::ast::TraitCapability;
 use crate::hir::{
-    FuncRef, HirBlock, HirExpr, HirExprKind, HirFunction, HirLine, HirMatchArm, HirMatchPattern,
-    HirModule, HirTraitApplication, HirTraitMethodId,
+    FuncRef, HirBlock, HirExpr, HirExprKind, HirFunction, HirLine, HirMatchArm, HirMatchBindMode,
+    HirMatchPattern, HirModule, HirTraitApplication, HirTraitMethodId,
 };
 use crate::intrinsic_kinds::CoreIntrinsicKind;
 use crate::layout::{extend_type_mapping, mapped_type_id};
@@ -306,6 +306,7 @@ impl<'a> DropInsertionContext<'a> {
                 pattern: HirMatchPattern::Variant(variant.name),
                 bind_local,
                 bind_ty,
+                bind_mode: bind_ty.map(|_| HirMatchBindMode::Owned),
                 body,
             });
         }

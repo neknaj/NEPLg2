@@ -2136,7 +2136,7 @@ fn gen_expr(
                             let lidx =
                                 locals.ensure_local(bind.clone(), valtype(&ctx.get(bind_ty)));
                             let payload_offset = enum_payload_offset_bytes() as i32;
-                            if type_is_reference(ctx, bind_ty) {
+                            if matches!(arm.bind_mode, Some(HirMatchBindMode::Borrowed { .. })) {
                                 emit_linear_addr_from_local(scrut_local, payload_offset, insts);
                                 insts.push(Instruction::LocalSet(lidx));
                             } else if is_aggregate_storage_type(ctx, payload_ty) {
@@ -2440,11 +2440,6 @@ fn enum_match_type(ctx: &TypeCtx, ty: TypeId) -> Option<TypeId> {
         TypeKind::Reference(target, _) => enum_match_type(ctx, target),
         _ => None,
     }
-}
-
-fn type_is_reference(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let ty = ctx.resolve_named_type_id(ctx.resolve_id(ty));
-    matches!(ctx.get(ty), TypeKind::Reference(_, _))
 }
 
 fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option<TypeId> {

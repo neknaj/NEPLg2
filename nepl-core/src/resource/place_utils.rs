@@ -8,7 +8,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{
     AggregateKind, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceMatchArm,
-    ResourceMatchPattern,
+    ResourceMatchBindMode, ResourceMatchPattern,
 };
 use super::variant_name::{
     match_pattern_variant_name, normalize_variant_name, variant_names_match,
@@ -391,7 +391,7 @@ pub(super) fn match_bind_payload_place(
     arm: &ResourceMatchArm,
     bind_local: &Place,
 ) -> Option<Place> {
-    if arm.bind_is_borrow {
+    if matches!(arm.bind_mode, Some(ResourceMatchBindMode::Borrowed { .. })) {
         return None;
     }
     let variant = match_arm_variant_payload_name(arm)?;

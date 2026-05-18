@@ -224,11 +224,18 @@ pub enum HirMatchPattern {
     Wildcard,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HirMatchBindMode {
+    Owned,
+    Borrowed { is_mut: bool },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct HirMatchArm {
     pub pattern: HirMatchPattern,
     pub bind_local: Option<String>,
     pub bind_ty: Option<TypeId>,
+    pub bind_mode: Option<HirMatchBindMode>,
     pub body: HirExpr,
 }
 #[derive(Debug, Clone)]

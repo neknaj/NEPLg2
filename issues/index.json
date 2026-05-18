@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T00:51:30.786Z",
+  "generated_at": "2026-05-18T01:16:32.730Z",
   "counts": {
-    "total": 970,
+    "total": 971,
     "open": 5,
-    "resolved": 965,
+    "resolved": 966,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 496,
+        "total": 497,
         "open": 0,
-        "resolved": 496
+        "resolved": 497
       },
       "CORE": {
         "total": 4,
@@ -7583,6 +7583,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E.md"
+    },
+    {
+      "id": "ISS-20260518T011425661Z-OWNED-REFERENCE-PAYLOAD-MATCH-IS-MIS-BDD651CC",
+      "title": "Owned reference payload match is misclassified as borrowed payload binding",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/hir.rs, nepl-core/src/typecheck/match_check.rs, nepl-core/src/resource/lower.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T011425661Z-OWNED-REFERENCE-PAYLOAD-MATCH-IS-MIS-BDD651CC.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

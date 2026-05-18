@@ -17,7 +17,8 @@ use crate::compiler::{self, BuildProfile, CompileTarget, PreparedLlvmProgram};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{
-    FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
+    FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchBindMode,
+    HirMatchPattern, HirModule,
 };
 use crate::intrinsic_kinds::ScalarIntrinsicKind;
 use crate::layout::{
@@ -2645,9 +2646,8 @@ fn lower_hir_expr(
                         if let Some(payload_ty) =
                             enum_variant_payload(types, enum_match_ty.unwrap(), variant)
                         {
-                            let bind_ty = arm.bind_ty.unwrap_or(payload_ty);
                             let payload_ll = llty_for_type(types, payload_ty);
-                            if type_is_reference(types, bind_ty) {
+                            if matches!(arm.bind_mode, Some(HirMatchBindMode::Borrowed { .. })) {
                                 let payload_offset = enum_payload_offset_bytes() as i64;
                                 let payload_addr = if payload_offset == 0 {
                                     scr_v.repr.clone()
@@ -3628,11 +3628,6 @@ fn enum_match_type(ctx: &TypeCtx, ty: TypeId) -> Option<TypeId> {
         TypeKind::Reference(target, _) => enum_match_type(ctx, target),
         _ => None,
     }
-}
-
-fn type_is_reference(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let ty = ctx.resolve_named_type_id(ctx.resolve_id(ty));
-    matches!(ctx.get(ty), TypeKind::Reference(_, _))
 }
 
 fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option<TypeId> {

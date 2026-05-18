@@ -108,6 +108,40 @@ fn main <()*>i32> ():
     test_report_exit_code shown
 ```
 
+## owned enum match preserves reference payload value
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"owned_enum_match_preserves_reference_payload_value\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"owned enum reference payload\" expected=\"57\" actual=\"57\" message=\"\"\n"
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "std/test" as *
+
+enum RefOpt:
+    None
+    Some <&i32>
+
+fn read_ref_opt <(RefOpt)->i32> (opt):
+    match opt:
+        RefOpt::None:
+            0
+        RefOpt::Some r:
+            *r
+
+fn main <()*>i32> ():
+    let x <i32> 57
+    let opt <RefOpt> RefOpt::Some &x
+    let actual <i32> read_ref_opt opt
+    let report:
+        test_report_new "owned_enum_match_preserves_reference_payload_value"
+        |> test_report_push assert_eq_i32 "owned enum reference payload" 57 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
+```
+
 ## borrowed enum match does not move owner payload
 
 neplg2:test[stdio, normalize_newlines]

@@ -4,8 +4,8 @@ use crate::types::TypeId;
 
 use super::borrow_state::{BorrowBinding, BorrowTable};
 use super::model::{
-    AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchArm, ResourceOp,
-    ResourceTerminator,
+    AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchArm, ResourceMatchBindMode,
+    ResourceOp, ResourceTerminator,
 };
 use super::place_utils::places_overlap;
 use super::variant_name::match_pattern_variant_name;
@@ -92,7 +92,7 @@ pub(super) fn propagate_match_bind_borrow_token(
     op: &ResourceOp,
     arm: &ResourceMatchArm,
 ) {
-    if arm.bind_is_borrow {
+    if matches!(arm.bind_mode, Some(ResourceMatchBindMode::Borrowed { .. })) {
         return;
     }
     let Some(bind_local) = arm.bind_local.as_ref() else {

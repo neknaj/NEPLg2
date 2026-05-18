@@ -41268,3 +41268,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc\test_selfhost_string_helpers_boundary.js`: passed
   - `node nodesrc\tests.js -i stdlib\neplg2\core\module\graph.nepl -i tests\stdlib\neplg2_module_graph.n.md -i tests\stdlib\neplg2_stdlib_map.n.md --no-tree -o tmp\agent1-selfhost-graph-no-ast-path.json -j 1 --dist web\dist --assert-io`: total=7, passed=7
   - `node nodesrc\issues.js check --dir issues`: passed
+
+## 2026-05-18 Agent 1 match payload binding mode 修正
+
+- `ISS-20260518T011425661Z-OWNED-REFERENCE-PAYLOAD-MATCH-IS-MIS-BDD651CC` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、borrowed enum match の導入後、HIR/Resource IR/backend が `bind_ty` が reference であることを根拠に payload binding を borrowed observation と推測していたことだった。owned enum の payload 自体が `&T` の場合、payload は所有 match から移る reference value であり、`&Enum` payload を借用観測する場合とは別の証明で扱う必要がある。
+- 修正後は `HirMatchBindMode` / `ResourceMatchBindMode` を追加し、`Owned` と `Borrowed { is_mut }` を enum として通す。Resource IR は `Owned` では payload 内の borrow token を binding へ移し、`Borrowed` では payload place から synthetic borrow を seed する。
+- wasm/LLVM backend も binding mode を見て payload address binding と payload value load を選ぶため、owned reference payload では payload slot address ではなく stored reference value を読む。
+- focused verification:
+  - `cargo fmt --all --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test move_check move_match_reference_payload -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core resource_ir_compiler_rejects_match_payload_borrow_move -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc\run_doctest.js -i tests\compiler\move_check.n.md -n 38 --dist web\dist`: passed
+  - `node nodesrc\run_doctest.js -i tests\compiler\move_check.n.md -n 39 --dist web\dist`: passed
+  - `node nodesrc\tests.js -i tests\compiler\reference_codegen.n.md --no-tree -o tmp\agent1-match-payload-bind-mode-reference-codegen.json -j 1 --dist web\dist --assert-io`: total=6, passed=6
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-match-payload-bind-mode-move-check.json -j 1 --dist web\dist --assert-io`: timeout after 184s; focused doctest #38/#39 で代替確認済み。

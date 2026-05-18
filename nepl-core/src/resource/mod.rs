@@ -309,8 +309,9 @@ pub use model::{
     PlaceProjection, PlaceRoot, PointerProvenance, RawAddressViewKind, RawBodyKind, RawMemoryOp,
     ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind,
     ResourceFunction, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm,
-    ResourceMatchPattern, ResourceModule, ResourceOffset, ResourceOp, ResourceState,
-    ResourceTerminator, StorageId, StorageOrigin, StorageOriginEntry, UnknownEffectReason,
+    ResourceMatchBindMode, ResourceMatchPattern, ResourceModule, ResourceOffset, ResourceOp,
+    ResourceState, ResourceTerminator, StorageId, StorageOrigin, StorageOriginEntry,
+    UnknownEffectReason,
 };
 pub use owner_entry::check_resource_owner_obligations;
 pub use report::{

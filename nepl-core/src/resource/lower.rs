@@ -7,8 +7,8 @@ use alloc::vec::Vec;
 use crate::ast::Effect;
 use crate::effects::raw_callee_internal_effect;
 use crate::hir::{
-    FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
-    HirParam,
+    FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchBindMode,
+    HirMatchPattern, HirModule, HirParam,
 };
 use crate::layout::aggregate_fields_with_offsets;
 use crate::runtime_helpers::helper_base_name;
@@ -28,8 +28,7 @@ use super::lower_layout_intrinsic::{
     layout_intrinsic_i32_value, layout_intrinsic_i32_value_from_callee,
 };
 use super::lower_match::{
-    borrowed_match_payload_source, place_is_reference, resource_match_scrutinee_place,
-    type_is_reference_to_enum,
+    borrowed_match_payload_source, resource_match_scrutinee_place, type_is_reference_to_enum,
 };
 use super::lower_raw_address::{
     push_core_mem_owner_storage_origin, push_core_mem_wrapper_semantics,
@@ -43,7 +42,7 @@ use super::lower_temporary_scope::push_line_copy_state_only_temporary_scope;
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, ResourceBlock, ResourceBlockId,
     ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm,
-    ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceMatchBindMode, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
@@ -525,10 +524,8 @@ pub(super) fn lower_expr_skeleton(
                     .as_ref()
                     .zip(arm.bind_ty)
                     .map(|(name, ty)| ctx.declare_local(name.clone(), ty));
-                let bind_is_borrow = bind_local
-                    .as_ref()
-                    .is_some_and(|place| place_is_reference(env.types, place));
-                if bind_is_borrow {
+                let bind_mode = resource_match_bind_mode(arm.bind_mode);
+                if matches!(bind_mode, Some(ResourceMatchBindMode::Borrowed { .. })) {
                     if let Some(bind_source) = borrowed_match_payload_source(
                         env.types,
                         &scrutinee,
@@ -557,7 +554,7 @@ pub(super) fn lower_expr_skeleton(
                     pattern: lower_match_pattern(&arm.pattern),
                     bind_local,
                     bind_source_name,
-                    bind_is_borrow,
+                    bind_mode,
                     ops: arm_ops,
                     value,
                     span: arm.body.span,
@@ -1032,6 +1029,16 @@ fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
         HirMatchPattern::IntLiteral(value) => ResourceMatchPattern::IntLiteral(*value),
         HirMatchPattern::BoolLiteral(value) => ResourceMatchPattern::BoolLiteral(*value),
         HirMatchPattern::Wildcard => ResourceMatchPattern::Wildcard,
+    }
+}
+
+fn resource_match_bind_mode(mode: Option<HirMatchBindMode>) -> Option<ResourceMatchBindMode> {
+    match mode {
+        Some(HirMatchBindMode::Owned) => Some(ResourceMatchBindMode::Owned),
+        Some(HirMatchBindMode::Borrowed { is_mut }) => {
+            Some(ResourceMatchBindMode::Borrowed { is_mut })
+        }
+        None => None,
     }
 }
 

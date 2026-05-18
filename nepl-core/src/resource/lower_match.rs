@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::hir::{HirMatchArm, HirMatchPattern};
+use crate::hir::{HirMatchArm, HirMatchBindMode, HirMatchPattern};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection};
@@ -29,6 +29,9 @@ pub(super) fn borrowed_match_payload_source(
     arm: &HirMatchArm,
     bind_local: Option<&Place>,
 ) -> Option<Place> {
+    if !matches!(arm.bind_mode, Some(HirMatchBindMode::Borrowed { .. })) {
+        return None;
+    }
     let bind_local = bind_local?;
     let payload_ty = reference_target_type(types, bind_local.ty)?;
     let HirMatchPattern::Variant(variant) = &arm.pattern else {
@@ -40,10 +43,6 @@ pub(super) fn borrowed_match_payload_source(
         },
         payload_ty,
     ))
-}
-
-pub(super) fn place_is_reference(types: &TypeCtx, place: &Place) -> bool {
-    reference_target_type(types, place.ty).is_some()
 }
 
 pub(super) fn type_is_reference_to_enum(types: &TypeCtx, ty: TypeId) -> bool {

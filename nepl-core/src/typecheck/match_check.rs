@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{MatchArm, MatchExpr, MatchPattern, Visibility};
 use crate::diagnostic_codes::TypeDiagnosticCode;
-use crate::hir::{HirExpr, HirExprKind, HirMatchArm, HirMatchPattern};
+use crate::hir::{HirExpr, HirExprKind, HirMatchArm, HirMatchBindMode, HirMatchPattern};
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeId, TypeKind};
 
@@ -13,12 +13,6 @@ use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, variant_member_tail};
 use super::{BlockChecker, ScalarMatchKind};
-
-#[derive(Clone, Copy)]
-pub(super) enum EnumMatchBindMode {
-    Owned,
-    Borrowed { is_mut: bool },
-}
 
 impl<'a> BlockChecker<'a> {
     pub(super) fn check_match_expr(&mut self, m: &MatchExpr) -> Option<(HirExpr, TypeId)> {
@@ -83,7 +77,7 @@ impl<'a> BlockChecker<'a> {
     fn match_enum_subject_for_type(
         &mut self,
         resolved_ty: TypeId,
-    ) -> Option<(Vec<EnumVariantInfo>, EnumMatchBindMode)> {
+    ) -> Option<(Vec<EnumVariantInfo>, HirMatchBindMode)> {
         let reference_target = match self.ctx.get(resolved_ty) {
             TypeKind::Reference(target, is_mut) => Some((target, is_mut)),
             _ => None,
@@ -92,10 +86,10 @@ impl<'a> BlockChecker<'a> {
             let target = self.ctx.resolve(target);
             return self
                 .match_enum_variants_for_type(target)
-                .map(|variants| (variants, EnumMatchBindMode::Borrowed { is_mut }));
+                .map(|variants| (variants, HirMatchBindMode::Borrowed { is_mut }));
         }
         self.match_enum_variants_for_type(resolved_ty)
-            .map(|variants| (variants, EnumMatchBindMode::Owned))
+            .map(|variants| (variants, HirMatchBindMode::Owned))
     }
 
     pub(super) fn match_enum_variants_for_type(
@@ -143,7 +137,7 @@ impl<'a> BlockChecker<'a> {
         m: &MatchExpr,
         scrut_expr: HirExpr,
         variants: Vec<EnumVariantInfo>,
-        bind_mode: EnumMatchBindMode,
+        subject_bind_mode: HirMatchBindMode,
     ) -> Option<(HirExpr, TypeId)> {
         let mut seen = alloc::collections::BTreeSet::new();
         let mut saw_wildcard = false;
@@ -178,6 +172,7 @@ impl<'a> BlockChecker<'a> {
                         pattern: HirMatchPattern::Wildcard,
                         bind_local: None,
                         bind_ty: None,
+                        bind_mode: None,
                         body: HirExpr {
                             ty: body_ty,
                             kind: HirExprKind::Block(blk),
@@ -215,11 +210,14 @@ impl<'a> BlockChecker<'a> {
             }
             let var_info = var_info.unwrap();
             let bind_ty = bind.as_ref().and_then(|_| {
-                var_info.payload.map(|payload| match bind_mode {
-                    EnumMatchBindMode::Owned => payload,
-                    EnumMatchBindMode::Borrowed { is_mut } => self.ctx.reference(payload, is_mut),
+                var_info.payload.map(|payload| match subject_bind_mode {
+                    HirMatchBindMode::Owned => payload,
+                    HirMatchBindMode::Borrowed { is_mut } => self.ctx.reference(payload, is_mut),
                 })
             });
+            let bind_mode = bind
+                .as_ref()
+                .and_then(|_| var_info.payload.map(|_| subject_bind_mode));
             self.env.push_scope();
             if let Some(bind) = bind {
                 if let Some(pty) = bind_ty {
@@ -256,6 +254,7 @@ impl<'a> BlockChecker<'a> {
                 pattern: HirMatchPattern::Variant(variant.name.clone()),
                 bind_local: bind.as_ref().map(|b| b.name.clone()),
                 bind_ty,
+                bind_mode,
                 body: HirExpr {
                     ty: body_ty,
                     kind: HirExprKind::Block(blk),
@@ -361,6 +360,7 @@ impl<'a> BlockChecker<'a> {
                 pattern: hir_pattern,
                 bind_local: None,
                 bind_ty: None,
+                bind_mode: None,
                 body: HirExpr {
                     ty: body_ty,
                     kind: HirExprKind::Block(blk),

@@ -270,10 +270,16 @@ pub struct ResourceMatchArm {
     pub pattern: ResourceMatchPattern,
     pub bind_local: Option<Place>,
     pub bind_source_name: Option<String>,
-    pub bind_is_borrow: bool,
+    pub bind_mode: Option<ResourceMatchBindMode>,
     pub ops: Vec<ResourceOp>,
     pub value: Place,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceMatchBindMode {
+    Owned,
+    Borrowed { is_mut: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

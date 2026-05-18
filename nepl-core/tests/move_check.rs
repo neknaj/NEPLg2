@@ -566,9 +566,9 @@ fn main <()*>()>():
     let still_live <&Wrapper> r;
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot move out of shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::MoveFromShared)));
 }
 
 #[test]
@@ -1275,9 +1275,9 @@ fn main <()*>()>():
             ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot move out of shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::MoveFromShared)));
 }
 
 #[test]
