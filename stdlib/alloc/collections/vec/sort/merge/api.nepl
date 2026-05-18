@@ -33,7 +33,10 @@ pub fn vec_sort_merge_error_kind <.T> <(&VecSortMergeError<.T>)->StdErrorKind> (
     *field::get_ref e "error"
 
 //: vec_sort_merge_error_vec: `sort_merge_ret` [失敗/しっぱい]で[戻/もど]された `Vec` owner を[取/と]り[出/だ]す
-pub fn vec_sort_merge_error_vec <.T> <(VecSortMergeError<.T>)->Vec<.T>> (e):
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 merge sort は raw swap / scratch copy を使うため `.T: Ord&Copy` 専用です。error payload から owner を[取/と]り[戻/もど]す面も `.T: Copy` に[揃/そろ]えます。
+pub fn vec_sort_merge_error_vec <.T: Copy> <(VecSortMergeError<.T>)->Vec<.T>> (e):
     field::get e "vec"
 
 //: ## sort_merge

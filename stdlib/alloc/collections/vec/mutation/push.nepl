@@ -79,7 +79,10 @@ pub fn vec_push_error_kind <.T> <(&VecPushError<.T>)->StdErrorKind> (e):
 
 //: ## vec_push_error_vec
 //: `push` [失敗/しっぱい]で[戻/もど]された `Vec` owner を[取/と]り[出/だ]す
-pub fn vec_push_error_vec <.T> <(VecPushError<.T>)->Vec<.T>> (e):
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 `push` は `.T: Copy` 専用です。non-Copy payload の `VecPushError<T>` は、`OwnedBuffer<T>` の initialized cell / drop traversal が[完成/かんせい]するまで owner [回収/かいしゅう]面へ[出/だ]しません。
+pub fn vec_push_error_vec <.T: Copy> <(VecPushError<.T>)->Vec<.T>> (e):
     field::get e "vec"
 
 //: ## VecReallocRegionError
@@ -93,7 +96,7 @@ pub fn vec_realloc_region_error_kind <.T> <(&VecReallocRegionError<.T>)->StdErro
     *field::get_ref e "error"
 
 //: vec_realloc_region_error_region: grow [失敗/しっぱい]で[戻/もど]された旧 region owner を[取/と]り[出/だ]す
-pub fn vec_realloc_region_error_region <.T> <(VecReallocRegionError<.T>)->RegionToken<.T>> (e):
+pub fn vec_realloc_region_error_region <.T: Copy> <(VecReallocRegionError<.T>)->RegionToken<.T>> (e):
     field::get e "region"
 
 //: ## vec_next_capacity

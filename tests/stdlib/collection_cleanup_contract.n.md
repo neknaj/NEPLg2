@@ -113,6 +113,70 @@ fn main <()->i32> ():
     0
 ```
 
+## vec_push_error_vec_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn recover_vec_from_push_error <(VecPushError<CleanupPayload>)->Vec<CleanupPayload>> (e):
+    vec_push_error_vec<CleanupPayload> e
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_transform_error_vec_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn recover_vec_from_transform_error <(VecTransformError<CleanupPayload>)->Vec<CleanupPayload>> (e):
+    vec_transform_error_vec<CleanupPayload> e
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_sort_merge_error_vec_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort/merge" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn recover_vec_from_sort_merge_error <(VecSortMergeError<CleanupPayload>)->Vec<CleanupPayload>> (e):
+    vec_sort_merge_error_vec<CleanupPayload> e
+
+fn main <()->i32> ():
+    0
+```
+
 ## vec_root_facade_hides_alloc_empty_helper
 
 neplg2:test[compile_fail]

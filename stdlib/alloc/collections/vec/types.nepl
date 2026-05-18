@@ -139,7 +139,10 @@ pub fn vec_transform_error_kind <.T> <(&VecTransformError<.T>)->StdErrorKind> (e
 
 //: ## vec_transform_error_vec
 //: transform [失敗/しっぱい]で[戻/もど]された入力 `Vec` owner を[取/と]り[出/だ]す
-pub fn vec_transform_error_vec <.T> <(VecTransformError<.T>)->Vec<.T>> (e):
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 transform family は `.T: Copy` 専用です。non-Copy payload の入力 owner は、move-out / drop traversal を型で[表/あらわ]せる API までこの accessor から[出/だ]しません。
+pub fn vec_transform_error_vec <.T: Copy> <(VecTransformError<.T>)->Vec<.T>> (e):
     field::get e "vec"
 
 //: ## VecPop

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T21:59:31.982Z",
+  "generated_at": "2026-05-18T22:17:18.252Z",
   "counts": {
-    "total": 1019,
+    "total": 1020,
     "open": 5,
-    "resolved": 1014,
+    "resolved": 1015,
     "by_area": {
       "stdlib": {
-        "total": 285,
+        "total": 286,
         "open": 3,
-        "resolved": 282
+        "resolved": 283
       },
       "TEST": {
         "total": 43,
@@ -12173,6 +12173,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T213314500Z-STD-STDIO-READ-BUFFER-EXPOSES-RAW-ME-5BAB55A1.md"
+    },
+    {
+      "id": "ISS-20260518T220931012Z-VEC-OWNER-RETURNING-ERROR-ACCESSORS--EEDC747A",
+      "title": "Vec owner-returning error accessors accept non-Copy payload before drop traversal",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/vec/mutation/push.nepl, stdlib/alloc/collections/vec/sort/merge/api.nepl, tests/stdlib/collection_cleanup_contract.n.md, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T220931012Z-VEC-OWNER-RETURNING-ERROR-ACCESSORS--EEDC747A.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
