@@ -649,3 +649,11 @@ Resource IR は raw address alias と raw address view を `InternalHelper` / `T
 `data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` は現行の Copy-only collection 実装で内部 storage view として使われているが、`MemPtr<T>` は free obligation owner ではなく non-owning view である。今回の regression は、ordinary source が `Vec<i32>` の backing view を取り出して `store_i32` へ渡すと `resource.raw.memory_outside_boundary` で拒否されることを `tests/stdlib/memory_safety.n.md` に追加した。これにより、将来の Resource IR return summary / checked MemPtr provenance 修正が、collection mutation API と initialized/drop state discipline を迂回する方向へ退行した場合に検出できる。
 
 この親 issue は引き続き open とする。今回閉じたのは regression gap であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行は継続する。
+
+## 2026-05-18 Agent 1 alloc/string raw address public helper 境界追記
+
+`ISS-20260518T071033883Z-ALLOC-STRING-STORAGE-EXPOSES-UNCHECK-9EA051F0` として、`alloc/string` module 群が raw `str` address observer / unchecked finalizer を public API として露出していた問題を分離して修正した。
+
+`string_finish_base` は `MemPtr<u8>` から `str` を確定できる不要 helper であり、現行の live path はすべて `RegionToken<u8>` を消費する `string_finish` に集約済みだったため削除した。`string_addr` / `string_from_addr_unchecked` は `storage.nepl` 内の private helper に閉じ、`access.nepl` / `scanner.nepl` が必要とする `str_addr` observer も各 module の private helper にした。
+
+この親 issue は引き続き open とする。今回閉じたのは raw address helper の public surface 漏れであり、`RegionToken` を compiler-issued owner token / `OwnedStringRegion` / `OwnedBuffer<T>` / initialized prefix へ移す作業は Stage 6 残件として継続する。

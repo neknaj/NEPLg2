@@ -200,7 +200,9 @@ assert.doesNotMatch(code, /fn\s+to_i128_radix\s+/, 'alloc/string root must not o
 assert.match(builderExtCode, /fn\s+sb_append_slice_result\s+/, 'StringBuilder must support appending source string ranges without allocating owned substrings');
 assert.match(findCode, /fn\s+find\s+<\(str,str\)->Option<i32>>/, 'alloc/string/find must expose Option-returning byte search');
 assert.doesNotMatch(code, /\bfn\s+/, 'alloc/string root facade must not own implementation function bodies');
-assert.match(storageCode, /fn\s+string_finish_base[\s\S]*store_i32\s+mem_ptr_addr\s+base\s+byte_len/, 'string_finish_base must use owned raw header store');
+assert.doesNotMatch(storageCode, /\bfn\s+string_finish_base\b/, 'alloc/string/storage must not keep a MemPtr-based string finalizer');
+assert.doesNotMatch(storageCode, /\bpub\s+fn\s+string_addr\b/, 'string_addr must stay private to string_data_ptr');
+assert.doesNotMatch(storageCode, /\bpub\s+fn\s+string_from_addr_unchecked\b/, 'string_from_addr_unchecked must stay private to string_finish');
 assert.match(stringFinish, /\blet\s+base_raw\s+<i32>\s+get\s+region\s+"raw"/, 'string_finish must consume RegionToken raw owner identity at the final str ownership boundary');
 assert.match(stringFinish, /\bstore_i32\s+base_raw\s+byte_len\b[\s\S]*\bstring_from_addr_unchecked\s+base_raw\b/, 'string_finish must finalize the header and transfer the same raw owner directly into str');
 assert.match(fromU128Radix, /digit_count[\s\S]*string_alloc_region\s+digit_count[\s\S]*set\s+pos\s+sub\s+pos\s+1/, 'from_u128_radix must count digits before allocating and write output from the end');

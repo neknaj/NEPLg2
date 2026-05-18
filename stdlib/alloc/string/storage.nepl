@@ -7,6 +7,7 @@
 //: [注意/ちゅうい]:
 //: - `string_from_mem_unchecked_result` は UTF-8 検証を行いません。外部入力には `string_from_utf8_mem_result` を使います。
 //: - `string_finish` 後は `RegionToken<u8>` の所有権が `str` 側へ移ります。
+//: - raw address から `str` を作る変換は、この module 内の `string_finish` 境界に閉じます。
 
 #indent 4
 
@@ -40,22 +41,6 @@ pub fn string_alloc_region <(i32)->Result<RegionToken<u8>,str>> (byte_len):
         else:
             alloc_region_bytes<u8> add 4 byte_len
 
-//: string_region_len_ptr: 文字列領域ヘッダへの型付きポインタを得る
-//:
-//: [目的/もくてき]:
-//: - 文字列領域の長さヘッダを `MemPtr<i32>` として扱えるようにします。
-//:
-//: [実装/じっそう]:
-//: - `RegionToken` の所有権を動かさず、checked projection から基底 `MemPtr<u8>` を得てヘッダポインタに包み直します。
-//:
-//: [注意/ちゅうい]:
-//: - 文字列領域レイアウトを前提とする内部ヘルパです。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-pub fn string_region_len_ptr <(&RegionToken<u8>)->MemPtr<i32>> (region):
-    mem_ptr_wrap mem_ptr_addr region_ptr region
-
 //: string_region_data_ptr: 文字列本文先頭への型付きポインタを得る
 //:
 //: [目的/もくてき]:
@@ -72,20 +57,20 @@ pub fn string_region_len_ptr <(&RegionToken<u8>)->MemPtr<i32>> (region):
 pub fn string_region_data_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
     mem_ptr_add region_ptr region 4
 
-//: string_addr: `str` の内部アドレスを低レベル処理用に取り出す
+//: string_addr: `str` の内部アドレスを storage module 内部で取り出す
 //:
 //: [目的/もくてき]:
-//: - `str` と `i32` を型として混同せず、文字列レイアウトを扱う内部処理だけが明示的に生アドレスを使えるようにします。
+//: - `string_data_ptr` の実装だけが、`str` 本体の基底 raw address を扱えるようにします。
 //:
 //: [実装/じっそう]:
 //: - compiler intrinsic により、WASM 上の `str` 表現である線形メモリアドレスを `i32` として返します。
 //:
 //: [注意/ちゅうい]:
-//: - 文字列実装と OS 境界用の低レベル API です。通常の文字列処理では `len` / `string_data_ptr` を使ってください。
+//: - この helper は公開しません。OS 境界など外部へ渡す場合も、公開面では `string_data_ptr` の non-owning view を使います。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_addr <(str)->i32> (s):
+fn string_addr <(str)->i32> (s):
     #intrinsic "str_addr" <> (s)
 
 //: string_data_ptr: 既存文字列の本文先頭を型付きポインタとして扱う
@@ -123,39 +108,22 @@ pub fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
     store_i32 base_raw byte_len
     string_from_addr_unchecked base_raw
 
-//: string_from_addr_unchecked: 文字列レイアウト済み領域を `str` として扱う
+//: string_from_addr_unchecked: 文字列レイアウト済み領域を `str` として扱う内部境界
 //:
 //: [目的/もくてき]:
-//: - 先頭 4 バイトに長さを持つ文字列領域の基底アドレスを、公開型 `str` へ変換します。
+//: - `string_finish` が確定した文字列領域の基底アドレスを、公開型 `str` へ変換します。
 //:
 //: [実装/じっそう]:
 //: - compiler intrinsic により、`i32` の生アドレスを `str` 表現へ明示的に境界変換します。
 //:
 //: [注意/ちゅうい]:
-//: - UTF-8 検証済みで、文字列レイアウトを満たす領域にだけ使ってください。任意の整数を渡すと未定義動作になります。
+//: - この helper は公開しません。所有権移行は `RegionToken<u8>` を消費する `string_finish` だけが行います。
+//: - UTF-8 検証済みで、文字列レイアウトを満たす領域にだけ使います。任意の整数を渡すと未定義動作になります。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_from_addr_unchecked <(i32)->str> (addr):
+fn string_from_addr_unchecked <(i32)->str> (addr):
     #intrinsic "str_from_addr_unchecked" <> (addr)
-
-//: string_finish_base: 文字列先頭ポインタを `str` として確定する
-//:
-//: [目的/もくてき]:
-//: - 文字列領域の先頭ポインタへ長さを書き込み、公開型 `str` に変換します。
-//:
-//: [実装/じっそう]:
-//: - ヘッダ先頭を `MemPtr<i32>` として見なし、長さを書き込んだ後に基底アドレスを返します。
-//:
-//: [注意/ちゅうい]:
-//: - 呼び出し側は、先頭 4 バイトが長さヘッダである文字列レイアウトを守る必要があります。
-//: - 領域の所有権は呼び出し側で保持したまま、`str` へ移す前提の内部ヘルパです。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-pub fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
-    store_i32 mem_ptr_addr base byte_len
-    string_from_addr_unchecked mem_ptr_addr base
 
 //: string_from_mem_unchecked_result: raw byte 列を検証なしで `str` へ複製する
 //:

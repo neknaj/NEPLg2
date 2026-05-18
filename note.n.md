@@ -1,3 +1,22 @@
+# 2026-05-18 Agent 1 alloc/string raw address public helper 境界修正
+
+- `ISS-20260518T071033883Z-ALLOC-STRING-STORAGE-EXPOSES-UNCHECK-9EA051F0` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`alloc/string/storage` に `string_finish_base(MemPtr<u8>, i32) -> str`、public `string_addr`、public `string_from_addr_unchecked` が残り、さらに `alloc/string/scanner` も public `scanner_string_addr` を持っていたこと。これらは通常 source が direct import した場合に raw `i32` observer / unchecked finalizer として到達でき、`RegionToken<u8>` を消費する `string_finish` の所有権境界を迂回し得る public surface だった。
+- `string_finish_base` と未使用の `string_region_len_ptr` を削除し、`storage.nepl` の `string_addr` / `string_from_addr_unchecked` を private helper にした。`access.nepl` と `scanner.nepl` もそれぞれ private raw-address helper を持つ形にし、public API には raw `i32` observer を出さない。
+- `tests/stdlib/memory_safety.n.md` に direct import から `string_finish_base` / `string_addr` / `string_from_addr_unchecked` / `scanner_string_addr` が見えない compile_fail regression を追加した。source policy も storage/access/scanner の private 境界を監視するよう更新した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に Stage 6 の進捗として反映した。
+- 検証:
+  - `node nodesrc/test_stdlib_string_storage_boundary.js`
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_string_access_boundary.js`
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-string-raw-address-boundary-memory-safety.json -j 1 --dist web\dist`: total=46, passed=46
+  - `node nodesrc/tests.js -i stdlib\alloc\string\access.nepl -i stdlib\alloc\string\scanner.nepl -i stdlib\alloc\string\storage.nepl --no-tree -o tmp\agent1-string-raw-address-boundary-stdlib-docs.json -j 1 --dist web\dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib\tests\string.n.md --no-tree -o tmp\agent1-string-raw-address-boundary-string-tests.json -j 1 --dist web\dist`: total=9, passed=9
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の raw-memory-backed stdlib API 境界として、`str` raw address authority を public surface から外した。
+
 # 2026-05-18 Agent 1 ResourceIR byte raw memory cell 型証明修正
 
 - `ISS-20260518T064507398Z-RESOURCEIR-FILLBYTES-RECORDS-THE-FIL-C96703EF` を fixed / resolved にした。`plan.md` は変更していない。

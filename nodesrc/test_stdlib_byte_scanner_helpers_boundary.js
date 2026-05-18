@@ -56,6 +56,9 @@ for (const fnName of [
     assert.doesNotMatch(stringSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string.nepl must not keep scanner facade ${fnName}`);
 }
 
+assert.match(scannerSrc, /\bfn\s+scanner_string_addr\b/, 'alloc/string/scanner.nepl must own its private str raw-address helper');
+assert.doesNotMatch(scannerSrc, /\bpub\s+fn\s+scanner_string_addr\b/, 'scanner_string_addr must not be public');
+
 assert.match(
     stringSrc,
     /pub\s+#import\s+"\.\/string\/slice"\s+as\s+\*/,

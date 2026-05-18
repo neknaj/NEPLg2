@@ -20,19 +20,22 @@ assert.match(storageSrc, /#import "alloc\/string\/utf8" as \*/, 'string/storage 
 
 for (const name of [
     'string_alloc_region',
-    'string_region_len_ptr',
     'string_region_data_ptr',
-    'string_addr',
     'string_data_ptr',
     'string_finish',
-    'string_from_addr_unchecked',
-    'string_finish_base',
     'string_from_mem_unchecked_result',
     'string_from_utf8_mem_result',
 ]) {
     assert.doesNotMatch(rootCode, new RegExp(`fn\\s+${name}\\b`), `${rootRelPath} must not own ${name}`);
-    assert.match(storageCode, new RegExp(`fn\\s+${name}\\b`), `${storageRelPath} must own ${name}`);
+    assert.match(storageCode, new RegExp(`pub\\s+fn\\s+${name}\\b`), `${storageRelPath} must publish ${name}`);
 }
+
+assert.match(storageCode, /\bfn\s+string_from_addr_unchecked\b/, `${storageRelPath} must own the final raw-address-to-str conversion`);
+assert.doesNotMatch(storageCode, /\bpub\s+fn\s+string_from_addr_unchecked\b/, 'string_from_addr_unchecked must stay private to string_finish');
+assert.match(storageCode, /\bfn\s+string_addr\b/, `${storageRelPath} must own str raw-address projection for string_data_ptr`);
+assert.doesNotMatch(storageCode, /\bpub\s+fn\s+string_addr\b/, 'string_addr must stay private to string_data_ptr');
+assert.doesNotMatch(storageCode, /\bfn\s+string_finish_base\b/, 'MemPtr-based string_finish_base must not be kept as a storage API');
+assert.doesNotMatch(storageCode, /\bfn\s+string_region_len_ptr\b/, 'unused header pointer projection must not be exposed as a storage API');
 
 assert.match(
     storageCode,

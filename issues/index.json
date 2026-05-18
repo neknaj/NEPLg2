@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T06:59:12.027Z",
+  "generated_at": "2026-05-18T07:19:44.422Z",
   "counts": {
-    "total": 985,
+    "total": 986,
     "open": 5,
-    "resolved": 980,
+    "resolved": 981,
     "by_area": {
       "stdlib": {
-        "total": 265,
+        "total": 266,
         "open": 3,
-        "resolved": 262
+        "resolved": 263
       },
       "TEST": {
         "total": 41,
@@ -11723,6 +11723,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T062457553Z-VEC-DATA-MEM-PTR-BOUNDARY-LACKS-DIRE-DF309C77.md"
+    },
+    {
+      "id": "ISS-20260518T071033883Z-ALLOC-STRING-STORAGE-EXPOSES-UNCHECK-9EA051F0",
+      "title": "alloc string modules expose unchecked str raw-address helpers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/string/{storage,access,scanner}.nepl, tests/stdlib/memory_safety.n.md, nodesrc/test_stdlib_string_storage_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T071033883Z-ALLOC-STRING-STORAGE-EXPOSES-UNCHECK-9EA051F0.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

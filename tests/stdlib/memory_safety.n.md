@@ -1134,3 +1134,63 @@ diag_code: resolve.identifier.undefined
 fn main <()->RegionToken<u8>> ():
     io_bytebuf_empty_region
 ```
+
+## string storage の MemPtr 確定 helper は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/storage" as *
+
+fn main <()*>str> ():
+    string_finish_base string_data_ptr "abc" 3
+```
+
+## string storage の raw address observer は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/storage" as *
+
+fn main <()*>i32> ():
+    string_addr "abc"
+```
+
+## string storage の raw address 確定 helper は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/storage" as *
+
+fn main <()*>str> ():
+    string_from_addr_unchecked 0
+```
+
+## string scanner の raw address observer は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/scanner" as *
+
+fn main <()*>i32> ():
+    scanner_string_addr "abc"
+```

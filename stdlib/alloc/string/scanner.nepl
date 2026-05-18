@@ -54,11 +54,14 @@
 //:         else 1
 //: ```
 
-//: scanner_string_addr: `str` の内部 address を scanner 内だけで読む
+//: scanner_string_addr: `str` の内部 address を scanner module 内部で読む
 //:
 //: [目的/もくてき]:
 //: - `alloc/string` 本体に依存せず、scanner module が循環 import なしで `str` の byte header を読めるようにします。
-pub fn scanner_string_addr <(str)->i32> (s):
+//:
+//: [注意/ちゅうい]:
+//: - この helper は公開しません。scanner 利用者は range helper / byte classification helper を使います。
+fn scanner_string_addr <(str)->i32> (s):
     #intrinsic "str_addr" <> (s)
 
 //: scanner_str_byte_len: scanner 用の byte length 取得 helper
