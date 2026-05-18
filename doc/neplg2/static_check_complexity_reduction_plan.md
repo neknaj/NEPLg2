@@ -904,6 +904,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T132553358Z-BINARYHEAP-PUSH-GROW-FAILURE-DESTROY-FC308045` は 2026-05-18 に修正した。`BinaryHeap.push` は owner-consuming API であるにもかかわらず、grow allocation failure では旧 `Vec<Option<T>>` storage を内部で `free` して `Diag` だけを返していた。これは caller が cleanup / retry を選べず、Resource IR が failure path の owner transfer を API 型から証明しにくい構造だった。修正後は `BinaryHeapPushError<T>` を導入し、`push<T>` を `Result<BinaryHeap<T>, BinaryHeapPushError<T>>` に変更した。failure payload は `heap: BinaryHeap<T>` と `diag: Diag` を持ち、success / failure は typed `Result::Ok` / `Result::Err` constructor で直接構築する。source policy は旧 grow failure branch の `vec::free<Option<T>> items` と `err<BinaryHeap<T>, Diag> e` への退行を拒否するため、Stage 6 の owner-preserving fallible update 方針が BinaryHeap にも適用される。
 
+`ISS-20260518T134512597Z-DEQUE-PUSH-GROW-FAILURE-DESTROYS-THE-081F1BD4` は 2026-05-18 に修正した。`Deque.push_front` / `push_back` も owner-consuming API であるにもかかわらず、grow allocation failure では旧 `Vec<Option<T>>` storage を内部で `free` して `Diag` だけを返していた。修正後は `DequePushError<T>` を導入し、`push_front<T>` / `push_back<T>` を `Result<Deque<T>, DequePushError<T>>` に変更した。failure payload は `deque: Deque<T>` と `diag: Diag` を持ち、caller は diagnostic を読んだ後に deque owner を取り出して cleanup / retry を選べる。source policy は旧 grow failure branch の `vec::free<Option<T>> items` と `err<Deque<T>, Diag>` への退行を拒否するため、Stage 6 の owner-preserving fallible update 方針が Deque にも適用される。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

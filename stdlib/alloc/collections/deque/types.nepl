@@ -1,8 +1,9 @@
 //: # deque/types
-//: double-ended queue の owner 型と pop 結果型
+//: double-ended queue の owner 型、push error 型、pop 結果型
 //:
 //: ### [目的/もくてき]
 //: - deque state と backing storage owner を struct field として[表/あらわ]します。
+//: - owner-consuming push の[失敗/しっぱい]時にも、caller が deque owner を[回収/かいしゅう]できる error payload を[定義/ていぎ]します。
 //: - raw header / raw element buffer ではなく、初期化済み `Vec<Option<T>>` で slot state を[表/あらわ]します。
 //:
 //: ### [不変条件/ふへんじょうけん]
@@ -13,6 +14,9 @@
 #indent 4
 
 #import "core/option" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 
 //: ## Deque
@@ -22,6 +26,87 @@ pub struct Deque<.T>:
     cap <i32>
     head <i32>
     items <Vec<Option<.T>>>
+
+//: ## DequePushError
+//: `push_front` / `push_back` の grow [失敗/しっぱい]で[戻/もど]る error payload
+//:
+//: ### [目的/もくてき]
+//: - push が[消費/しょうひ]した deque owner を `deque` に[戻/もど]し、caller が cleanup や[再試行/さいしこう]を[選/えら]べるようにします。
+//: - `Diag` だけを[返/かえ]して deque owner の[行方/ゆくえ]を実装 discipline に[隠/かく]すことを[避/さ]けます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/deque" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dq0 <Deque<i32>> unwrap_ok new<i32>;
+//:     match push_back<i32> dq0 7:
+//:         Result::Ok dq1:
+//:             free<i32> dq1;
+//:             0
+//:         Result::Err e:
+//:             let dq2 <Deque<i32>> deque_push_error_deque<i32> e;
+//:             free<i32> dq2;
+//:             1
+//: ```
+pub struct DequePushError<.T>:
+    deque <Deque<.T>>
+    diag <Diag>
+
+//: ## deque_push_error_diag
+//: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/deque" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dq0 <Deque<i32>> unwrap_ok new<i32>;
+//:     match push_front<i32> dq0 7:
+//:         Result::Ok dq1:
+//:             free<i32> dq1;
+//:             0
+//:         Result::Err e:
+//:             let _d <Diag> deque_push_error_diag<i32> &e;
+//:             let dq2 <Deque<i32>> deque_push_error_deque<i32> e;
+//:             free<i32> dq2;
+//:             1
+//: ```
+pub fn deque_push_error_diag <.T> <(&DequePushError<.T>)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: ## deque_push_error_deque
+//: push [失敗/しっぱい]で[戻/もど]された deque owner を[取/と]り[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 Deque は `Vec<Option<T>>` storage を Copy-only payload に[限定/げんてい]しているため、この accessor も `.T: Copy` に[限定/げんてい]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/deque" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dq0 <Deque<i32>> unwrap_ok with_capacity<i32> 1;
+//:     match push_back<i32> dq0 7:
+//:         Result::Ok dq1:
+//:             free<i32> dq1;
+//:             0
+//:         Result::Err e:
+//:             let dq2 <Deque<i32>> deque_push_error_deque<i32> e;
+//:             free<i32> dq2;
+//:             1
+//: ```
+pub fn deque_push_error_deque <.T: Copy> <(DequePushError<.T>)->Deque<.T>> (e):
+    field::get e "deque"
 
 //: ## DequePop
 //: `pop_front` / `pop_back` の[結果/けっか]

@@ -9,6 +9,7 @@
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には deque payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
 //: - `len` / `cap` / `is_empty` / `peek_front` / `peek_back` は `Deque` を[借用/しゃくよう]して[観測/かんそく]します。
 //: - `push_front` / `push_back` / `pop_front` / `pop_back` は owner を[消費/しょうひ]し、更新後 owner を[返/かえ]します。
+//: - `push_front` / `push_back` の grow [失敗/しっぱい]は `DequePushError<T>` で元の owner と[診断/しんだん]を[返/かえ]します。
 //: - `pop_front` / `pop_back` の[結果/けっか]は `DequePop<T>` で、`deque_pop_item` / `deque_pop_deque` により item と owner を[分解/ぶんかい]します。
 
 #indent 4

@@ -78,9 +78,9 @@ stdout: "test_report name=\"deque_grow_clear_and_free\" count=4 failed=0\nassert
 
 fn main <()*>i32> ():
     let dq0 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 1;
-    let dq1 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> push_back<i32> dq0 10;
-    let dq2 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> push_front<i32> dq1 5;
-    let dq3 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> push_back<i32> dq2 20;
+    let dq1 <Deque<i32>> unwrap_ok<Deque<i32>, DequePushError<i32>> push_back<i32> dq0 10;
+    let dq2 <Deque<i32>> unwrap_ok<Deque<i32>, DequePushError<i32>> push_front<i32> dq1 5;
+    let dq3 <Deque<i32>> unwrap_ok<Deque<i32>, DequePushError<i32>> push_back<i32> dq2 20;
     let size <i32> len<i32> &dq3;
     let ok_front <bool> match peek_front<i32> &dq3:
         Option::Some v:

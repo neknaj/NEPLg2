@@ -79,6 +79,9 @@ const deque = [
     'stdlib/alloc/collections/deque/api.nepl',
 ].map(implementationCode).join('\n');
 assert.match(deque, /struct\s+Deque<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*head\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Deque must keep typed Vec<Option<T>> storage in its public owner struct');
+assert.match(deque, /struct\s+DequePushError<\.T>:[\s\S]*deque\s+<Deque<\.T>>[\s\S]*diag\s+<Diag>/, 'Deque push failure payload must carry the consumed deque owner and diagnostic');
+assert.match(deque, /fn\s+deque_push_error_diag\s+<\.T>\s+<\(&DequePushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/, 'DequePushError diag access must borrow the error payload');
+assert.match(deque, /fn\s+deque_push_error_deque\s+<\.T:\s*Copy>\s+<\(DequePushError<\.T>\)->Deque<\.T>>[\s\S]*field::get\s+e\s+"deque"/, 'DequePushError deque extraction must move the returned owner and remain Copy-only while Deque is Copy-only');
 assert.match(deque, /struct\s+DequePop<\.T>:[\s\S]*deque\s+<Deque<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Deque must expose an owner-preserving pop result');
 assert.match(deque, /fn\s+len\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.len must borrow the owner');
 assert.match(deque, /fn\s+cap\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.cap must borrow the owner');
@@ -92,6 +95,11 @@ assert.doesNotMatch(deque, /fn\s+(?:len|cap|is_empty|peek_front|peek_back)\s+<[^
 assert.match(deque, /fn\s+deque_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'Deque must read initialized slot state through Option<T>');
 assert.match(deque, /fn\s+deque_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'Deque must update slot state through Vec<Option<T>> replacement');
 assert.match(deque, /fn\s+deque_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'Deque allocation must initialize every slot as None');
+assert.match(deque, /fn\s+push_front\s+<\.T:\s*Copy>\s+<\(Deque<\.T>,\.T\)\*>Result<Deque<\.T>,\s*DequePushError<\.T>>>/, 'Deque push_front must expose owner-preserving Result<Deque<T>, DequePushError<T>>');
+assert.match(deque, /fn\s+push_back\s+<\.T:\s*Copy>\s+<\(Deque<\.T>,\.T\)\*>Result<Deque<\.T>,\s*DequePushError<\.T>>>/, 'Deque push_back must expose owner-preserving Result<Deque<T>, DequePushError<T>>');
+assert.match(deque, /fn\s+push_front\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*Result::Err<Deque<\.T>,\s*DequePushError<\.T>>\s+DequePushError<\.T>\s+\(Deque<\.T>\s+len0\s+cap0\s+head0\s+items\)\s+d/, 'Deque push_front grow failure must return the consumed deque owner in DequePushError');
+assert.match(deque, /fn\s+push_back\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*Result::Err<Deque<\.T>,\s*DequePushError<\.T>>\s+DequePushError<\.T>\s+\(Deque<\.T>\s+len0\s+cap0\s+head0\s+items\)\s+d/, 'Deque push_back grow failure must return the consumed deque owner in DequePushError');
+assert.doesNotMatch(deque, /Result::Err\s+d:[\s\S]{0,120}vec::free<Option<\.T>>\s+items[\s\S]{0,120}err<Deque<\.T>,\s*Diag>\s+d/, 'Deque push grow failure must not destroy the consumed owner and return Diag only');
 assert.match(deque, /fn\s+push_front\s+<\.T:\s*Copy>[\s\S]*deque_prev_index[\s\S]*deque_store_slot<\.T>\s+&items\s+head1\s+some<\.T>\s+item/, 'Deque push_front must write a typed Some slot at the new head');
 assert.match(deque, /fn\s+push_back\s+<\.T:\s*Copy>[\s\S]*deque_tail_index[\s\S]*deque_store_slot<\.T>\s+&items\s+tail\s+some<\.T>\s+item/, 'Deque push_back must write a typed Some slot at the tail');
 assert.match(deque, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)\*>DequePop<\.T>>[\s\S]*deque_store_slot<\.T>\s+&items\s+head0\s+none<\.T>[\s\S]*DequePop<\.T>/, 'Deque pop_front must clear the consumed front slot and return the updated owner');

@@ -41797,3 +41797,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib\neplg2\core\syntax\lexer.nepl -i stdlib\neplg2\core\module\import_scan.nepl -i stdlib\neplg2\core\module\import_spec.nepl -i stdlib\neplg2\core\module\stdlib_map.nepl -i stdlib\neplg2\core\infra\text.nepl -i stdlib\neplg2\cli\args\emit.nepl --no-tree -o tmp\agent1-string-byte-index-selfhost-focused.json -j 1 --dist web\dist --assert-io`: total=5, passed=5
   - `node nodesrc/tests.js -i stdlib\alloc\hash\hash32.nepl -i stdlib\core\traits\hash.nepl -i stdlib\core\traits\hash_key.nepl -i stdlib\tests\hash.n.md --no-tree -o tmp\agent1-string-byte-index-hash-focused.json -j 1 --dist web\dist --assert-io`: total=2, passed=2
   - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-string-byte-index-memory-safety.json -j 1 --dist web\dist --assert-io`: total=60, passed=60
+
+## 2026-05-18 Agent 1 Deque push grow failure owner contract 修正
+
+- `ISS-20260518T134512597Z-DEQUE-PUSH-GROW-FAILURE-DESTROYS-THE-081F1BD4` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Deque.push_front` / `push_back` が `Deque<T>` owner を消費する API なのに、grow allocation failure branch で旧 `Vec<Option<T>>` storage を内部で `free` し、caller へ `Diag` だけを返していたことだった。これでは caller が cleanup / retry を選べず、Resource IR が failure path の owner transfer を API 型から証明しにくい。
+- `DequePushError<T>` を追加し、`push_front<T>` / `push_back<T>` を `Result<Deque<T>, DequePushError<T>>` に変更した。failure payload は `deque: Deque<T>` と `diag: Diag` を持ち、`deque_push_error_diag<T>` / `deque_push_error_deque<T>` で diagnostic と owner を分解できる。
+- source policy は旧 `vec::free<Option<T>> items` + `err<Deque<T>, Diag>` failure path への退行を拒否する。これは stdlib module 名 allowlist ではなく、Deque API 型と failure branch の owner-preserving shape を監視する Stage 6 の回帰ガードである。
+- focused verification:
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/deque.nepl -i stdlib/alloc/collections/deque/types.nepl -i stdlib/alloc/collections/deque/api.nepl -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/agent1-deque-push-owner-second.json -j 1 --dist web/dist --assert-io`: total=9, passed=9

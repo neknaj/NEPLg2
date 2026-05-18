@@ -2,7 +2,7 @@
 //: double-ended queue の public 操作
 //:
 //: ### [目的/もくてき]
-//: - `new` / `with_capacity` / `len` / `cap` / `is_empty` / `push_front` / `push_back` / `pop_front` / `pop_back` / `deque_pop_item` / `deque_pop_deque` / `peek_front` / `peek_back` / `clear` / `free` を[提供/ていきょう]します。
+//: - `new` / `with_capacity` / `len` / `cap` / `is_empty` / `push_front` / `push_back` / `deque_push_error_diag` / `deque_push_error_deque` / `pop_front` / `pop_back` / `deque_pop_item` / `deque_pop_deque` / `peek_front` / `peek_back` / `clear` / `free` を[提供/ていきょう]します。
 //: - owner を[更新/こうしん]する API と、owner を[借用/しゃくよう]して[観測/かんそく]する API を[分/わ]けます。
 //:
 //: ### [計算量/けいさんりょう]
@@ -32,6 +32,7 @@
 //:| #target std
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dq <Deque<i32>> unwrap_ok<Deque<i32>, Diag> new<i32>;
@@ -51,6 +52,7 @@ pub fn new <.T: Copy> <()*>Result<Deque<.T>, Diag>> ():
 //:| #target std
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dq <Deque<i32>> unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 16;
@@ -83,7 +85,10 @@ pub fn is_empty <.T> <(&Deque<.T>)->bool> (dq):
 
 //: ## push_front
 //: [先頭/せんとう]へ[追加/ついか]する
-pub fn push_front <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, Diag>> (dq, item):
+//:
+//: ### [失敗/しっぱい]時の owner
+//: - grow allocation failure では旧 deque owner を `DequePushError` に[戻/もど]します。
+pub fn push_front <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, DequePushError<.T>>> (dq, item):
     let len0 <i32> *field::get_ref &dq "len"
     let cap0 <i32> *field::get_ref &dq "cap"
     let head0 <i32> *field::get_ref &dq "head"
@@ -94,21 +99,23 @@ pub fn push_front <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, Diag>> (dq, item
             let new_cap <i32> mul cap0 2
             match deque_alloc_slots<.T> new_cap:
                 Result::Err d:
-                    vec::free<Option<.T>> items
-                    err<Deque<.T>, Diag> d
+                    Result::Err<Deque<.T>, DequePushError<.T>> DequePushError<.T> (Deque<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
                     deque_store_slot<.T> &new_items 0 some<.T> item
                     deque_copy_live_slots<.T> &items &new_items cap0 head0 len0 1
                     vec::free<Option<.T>> items
-                    ok<Deque<.T>, Diag> Deque<.T> add len0 1 new_cap 0 new_items
+                    Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 new_cap 0 new_items
         else:
             let head1 <i32> deque_prev_index head0 cap0
             deque_store_slot<.T> &items head1 some<.T> item
-            ok<Deque<.T>, Diag> Deque<.T> add len0 1 cap0 head1 items
+            Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 cap0 head1 items
 
 //: ## push_back
 //: [末尾/まつび]へ[追加/ついか]する
-pub fn push_back <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, Diag>> (dq, item):
+//:
+//: ### [失敗/しっぱい]時の owner
+//: - grow allocation failure では旧 deque owner を `DequePushError` に[戻/もど]します。
+pub fn push_back <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, DequePushError<.T>>> (dq, item):
     let len0 <i32> *field::get_ref &dq "len"
     let cap0 <i32> *field::get_ref &dq "cap"
     let head0 <i32> *field::get_ref &dq "head"
@@ -119,17 +126,16 @@ pub fn push_back <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, Diag>> (dq, item)
             let new_cap <i32> mul cap0 2
             match deque_alloc_slots<.T> new_cap:
                 Result::Err d:
-                    vec::free<Option<.T>> items
-                    err<Deque<.T>, Diag> d
+                    Result::Err<Deque<.T>, DequePushError<.T>> DequePushError<.T> (Deque<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
                     deque_copy_live_slots<.T> &items &new_items cap0 head0 len0 0
                     deque_store_slot<.T> &new_items len0 some<.T> item
                     vec::free<Option<.T>> items
-                    ok<Deque<.T>, Diag> Deque<.T> add len0 1 new_cap 0 new_items
+                    Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 new_cap 0 new_items
         else:
             let tail <i32> deque_tail_index head0 len0 cap0
             deque_store_slot<.T> &items tail some<.T> item
-            ok<Deque<.T>, Diag> Deque<.T> add len0 1 cap0 head0 items
+            Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
 //: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の deque と[値/あたい]を[返/かえ]す

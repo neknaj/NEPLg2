@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T13:37:58.238Z",
+  "generated_at": "2026-05-18T13:56:26.052Z",
   "counts": {
-    "total": 1003,
+    "total": 1004,
     "open": 5,
-    "resolved": 998,
+    "resolved": 999,
     "by_area": {
       "stdlib": {
-        "total": 276,
+        "total": 277,
         "open": 3,
-        "resolved": 273
+        "resolved": 274
       },
       "TEST": {
         "total": 42,
@@ -11978,6 +11978,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T132553358Z-BINARYHEAP-PUSH-GROW-FAILURE-DESTROY-FC308045.md"
+    },
+    {
+      "id": "ISS-20260518T134512597Z-DEQUE-PUSH-GROW-FAILURE-DESTROYS-THE-081F1BD4",
+      "title": "Deque push grow failure destroys the consumed owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/collections/deque/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T134512597Z-DEQUE-PUSH-GROW-FAILURE-DESTROYS-THE-081F1BD4.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
