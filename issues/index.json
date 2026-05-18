@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T14:28:31.290Z",
+  "generated_at": "2026-05-18T15:01:38.478Z",
   "counts": {
-    "total": 1007,
+    "total": 1008,
     "open": 6,
-    "resolved": 1001,
+    "resolved": 1002,
     "by_area": {
+      "core": {
+        "total": 510,
+        "open": 1,
+        "resolved": 509
+      },
       "stdlib": {
         "total": 277,
         "open": 3,
@@ -15,11 +20,6 @@
         "total": 42,
         "open": 1,
         "resolved": 41
-      },
-      "core": {
-        "total": 509,
-        "open": 1,
-        "resolved": 508
       },
       "selfhost": {
         "total": 72,
@@ -130,6 +130,21 @@
   },
   "issues": [
     {
+      "id": "ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E",
+      "title": "Resource IR fd_write payload extent proof still requires free-obligation owner for readable views",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/owner_external_io.rs; nepl-core/src/resource/host_memory_contract.rs; stdlib/std/stdio/raw.nepl; tests/stdlib/neplg2_checker.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -173,21 +188,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260518T142248720Z-RESOURCE-IR-OWNER-CHECK-MISCLASSIFIE-8A3C73E5",
-      "title": "Resource IR owner check misclassifies selfhost diagnostic primary labels as leaking owner payload",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-05-18",
-      "updated": "2026-05-18",
-      "target": "nepl-core/src/resource/**, stdlib/neplg2/core/infra/diag.nepl, stdlib/neplg2/core/check/module.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260518T142248720Z-RESOURCE-IR-OWNER-CHECK-MISCLASSIFIE-8A3C73E5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -13613,6 +13613,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190.md"
+    },
+    {
+      "id": "ISS-20260518T142248720Z-RESOURCE-IR-OWNER-CHECK-MISCLASSIFIE-8A3C73E5",
+      "title": "Resource IR owner check misclassifies selfhost diagnostic primary labels as leaking owner payload",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/**, stdlib/neplg2/core/infra/diag.nepl, stdlib/neplg2/core/check/module.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T142248720Z-RESOURCE-IR-OWNER-CHECK-MISCLASSIFIE-8A3C73E5.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

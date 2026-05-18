@@ -41832,3 +41832,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-18 Agent 1 diagnostic label owner metadata 修正
+
+- `ISS-20260518T142248720Z-RESOURCE-IR-OWNER-CHECK-MISCLASSIFIE-8A3C73E5` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR owner summary が `SelfhostDiagnostic.primary_label.Some.label.span.{file_id,start,end}` のような Copy aggregate 内の nested `i32` metadata を raw owner leaf として seed し、diagnostic label を free obligation owner payload のように扱っていたことだった。
+- `owner_seed_leaf_places` に Copy metadata filter を追加し、nested leaf かつ base が Copy で、raw pointer でも owner token aggregate でもない場合だけ raw owner leaf から外すようにした。`MemPtr<T>` と owner token を含む aggregate は除外しないため、external IO / owner transfer proof は弱めていない。
+- self-host module checker では primary label を復帰し、raw block 空、raw text block 不一致、invalid span、module item index 欠落の診断に原因箇所 label を付けるように戻した。
+- focused selfhost checker suite は core checker / module / pipeline doctest が pass し、元の diagnostic primary label `resource.owner.maybe_leak` は消えた。stdio 付き doctest 2 件は別件の `ExternalIoPayloadExtent` proof gap に到達したため、`ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E` として分離した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_ignores_copy_diagnostic_label_i32_payloads -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_variant_reservation_ignores_copy_payload_sources -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reinitializes_self_update_aggregate_return -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_treat_plain_i32_identity_as_owner_return -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_does_not_treat_plain_i32_struct_fields_as_owners -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_treat_raw_cell_payload_as_storage_owner -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl -i stdlib/neplg2/core/pipeline.nepl -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-resource-diag-label-checker-after-rawptr.json -j 1 --dist web/dist --assert-io`: total=5, passed=3, failed=2。残りは `ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E`。

@@ -21432,6 +21432,109 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_owner_summary_ignores_copy_diagnostic_label_i32_payloads() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+struct SpanLike:
+    file_id <i32>
+    start <i32>
+    end <i32>
+
+impl Clone for SpanLike:
+    fn clone <(&SpanLike)->SpanLike> (self):
+        *self
+
+impl Copy for SpanLike:
+    fn copy_mark <(SpanLike)->SpanLike> (self):
+        self
+
+struct DiagnosticLabel:
+    span <SpanLike>
+    message <str>
+
+impl Clone for DiagnosticLabel:
+    fn clone <(&DiagnosticLabel)->DiagnosticLabel> (self):
+        *self
+
+impl Copy for DiagnosticLabel:
+    fn copy_mark <(DiagnosticLabel)->DiagnosticLabel> (self):
+        self
+
+struct Diagnostic:
+    code <i32>
+    primary <Option<DiagnosticLabel>>
+    message <str>
+
+impl Clone for Diagnostic:
+    fn clone <(&Diagnostic)->Diagnostic> (self):
+        *self
+
+impl Copy for Diagnostic:
+    fn copy_mark <(Diagnostic)->Diagnostic> (self):
+        self
+
+fn label_new <(SpanLike,str)->DiagnosticLabel> (span, message):
+    DiagnosticLabel span message
+
+fn diagnostic_with_primary <(i32,SpanLike,str)->Diagnostic> (code, span, message):
+    Diagnostic code some<DiagnosticLabel> label_new span "label" message
+
+fn fail_with_label <(SpanLike)->Result<i32,Diagnostic>> (span):
+    Result<i32,Diagnostic>::Err diagnostic_with_primary 7 span "failed"
+
+fn main <()*>i32> ():
+    let span <SpanLike> SpanLike 0 10 14
+    match fail_with_label span:
+        Result::Ok _value:
+            1
+        Result::Err diag:
+            let code_ok <bool> eq field::get diag "code" 7
+            let label_ok <bool> match field::get diag "primary":
+                Option::Some label:
+                    str_eq field::get label "message" "label"
+                Option::None:
+                    false
+            if and code_ok label_ok 0 1
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("label_new__")
+                || function.starts_with("diagnostic_with_primary__")
+                || function.starts_with("fail_with_label__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Copy diagnostic label span fields must remain metadata, not raw owner obligations: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("nested Copy diagnostic labels must compile without resource.owner.maybe_leak");
+}
+
+#[test]
 fn resource_ir_owner_summary_keeps_copy_str_views_after_selfhost_path_resolution() {
     let source = r#"
 #entry main

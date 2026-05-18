@@ -195,8 +195,11 @@ pub fn selfhost_module_check_summary_record <(SelfhostModuleCheckSummary,Selfhos
 pub fn selfhost_module_check_diag <(SelfhostCheckerDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
     selfhost_diag_error SelfhostDiagnosticCode::Checker code message
 
+pub fn selfhost_module_check_labeled_diag <(SelfhostCheckerDiagnosticCode,str,SelfhostSourceSpan,str)->SelfhostDiagnostic> (code, message, span, label):
+    selfhost_diag_with_primary_label selfhost_module_check_diag code message selfhost_diag_label_new span label
+
 pub fn selfhost_module_check_raw_block_empty_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
-    selfhost_module_check_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items"
+    selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items" span "raw backend block starts here"
 
 pub fn selfhost_module_check_finish_raw_state <(SelfhostModuleRawState)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state):
     match state:
@@ -263,11 +266,11 @@ pub fn selfhost_module_check_wasm_text_state <(SelfhostModuleRawState,SelfhostMo
         SelfhostModuleRawState::WasmReady:
             Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::WasmReady
         SelfhostModuleRawState::Normal:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared without a matching #wasm block"
+            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared without a matching #wasm block" item.span "raw text appears here"
         SelfhostModuleRawState::LlvmIrEmpty _span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared inside an llvmir block"
+            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared inside an llvmir block" item.span "raw text appears here"
         SelfhostModuleRawState::LlvmIrReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared inside an llvmir block"
+            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared inside an llvmir block" item.span "raw text appears here"
 
 pub fn selfhost_module_check_llvmir_text_state <(SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state, item):
     match state:
@@ -276,11 +279,11 @@ pub fn selfhost_module_check_llvmir_text_state <(SelfhostModuleRawState,Selfhost
         SelfhostModuleRawState::LlvmIrReady:
             Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::LlvmIrReady
         SelfhostModuleRawState::Normal:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared without a matching #llvmir block"
+            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared without a matching #llvmir block" item.span "raw text appears here"
         SelfhostModuleRawState::WasmEmpty _span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared inside a wasm block"
+            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared inside a wasm block" item.span "raw text appears here"
         SelfhostModuleRawState::WasmReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared inside a wasm block"
+            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared inside a wasm block" item.span "raw text appears here"
 
 pub fn selfhost_module_check_non_raw_state <(SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state, item):
     match selfhost_module_check_finish_raw_state state:
@@ -348,7 +351,7 @@ pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostModuleRaw
                 Result::Err diag:
                     Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
         else:
-            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span"
+            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" item.span "invalid module item span"
 
 pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModuleCheckSummary,SelfhostModuleRawState)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast, n, idx, summary, raw_state):
     if:
@@ -369,7 +372,7 @@ pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModul
                             Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err diag
                 Option::None:
                     let span <SelfhostSourceSpan> source_span_empty 0 0
-                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err selfhost_module_check_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module AST item index was unavailable"
+                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module AST item index was unavailable" span "unavailable module item"
 
 //: selfhost_check_module_ast: module item stream を[検査/けんさ]して summary を[返/かえ]す
 pub fn selfhost_check_module_ast <(&SelfhostModuleAst)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast):

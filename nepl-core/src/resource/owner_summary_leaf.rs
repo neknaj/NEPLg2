@@ -8,6 +8,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection, ResourceFunction};
 use super::owner_summary_i32_leaf::raw_i32_owner_leaf_places;
+use super::owner_summary_owner_token_type::type_contains_owner_token;
 use super::owner_summary_raw_consumption::{
     function_consumes_raw_owner_from, function_returns_raw_owner_from,
 };
@@ -39,6 +40,9 @@ pub(super) fn owner_seed_leaf_places(
 ) -> Vec<OwnerLeafPlace> {
     let mut leaves = owner_leaf_places(types, base);
     for leaf in raw_i32_owner_leaf_places(types, base) {
+        if raw_i32_leaf_is_copy_metadata(types, base, &leaf) {
+            continue;
+        }
         let consumes_raw_owner = function_consumes_raw_owner_from(function, &leaf.place, summaries);
         let returns_aggregate_raw_owner = !leaf.suffix.is_empty()
             && function_returns_raw_owner_from(function, &leaf.place, summaries);
@@ -51,6 +55,13 @@ pub(super) fn owner_seed_leaf_places(
         }
     }
     leaves
+}
+
+fn raw_i32_leaf_is_copy_metadata(types: &TypeCtx, base: &Place, leaf: &OwnerLeafPlace) -> bool {
+    !leaf.suffix.is_empty()
+        && types.is_copy(base.ty)
+        && !type_is_raw_pointer(types, base.ty)
+        && !type_contains_owner_token(types, base.ty)
 }
 
 pub(super) struct OwnerLeafProjection {
