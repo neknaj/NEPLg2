@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T06:00:37.322Z",
+  "generated_at": "2026-05-18T06:13:22.425Z",
   "counts": {
-    "total": 981,
+    "total": 982,
     "open": 5,
-    "resolved": 976,
+    "resolved": 977,
     "by_area": {
       "stdlib": {
         "total": 264,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 501,
+        "total": 502,
         "open": 0,
-        "resolved": 501
+        "resolved": 502
       },
       "CORE": {
         "total": 4,
@@ -638,6 +638,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T052853094Z-USER-SOURCE-CAN-FORGE-RAW-MEMPTR-THR-109B2F18.md"
+    },
+    {
+      "id": "ISS-20260518T060850538Z-CHECKED-MEMPTR-PROVENANCE-REJECTS-RE-CA3CAB00",
+      "title": "checked MemPtr provenance rejects RegionToken-derived pointer on main",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/effect_return_summary_filter.rs, nepl-core/src/resource/effect_return_summary_filter_tests.rs, nepl-core/tests/resource_ir.rs, stdlib/core/mem/pointer",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T060850538Z-CHECKED-MEMPTR-PROVENANCE-REJECTS-RE-CA3CAB00.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

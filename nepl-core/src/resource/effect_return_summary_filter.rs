@@ -37,30 +37,26 @@ fn raw_identity_projection_has_summary_owner_carrier_protection(
     suffix: &[PlaceProjection],
 ) -> bool {
     let mut current_ty = types.resolve_named_type_id(types.resolve_id(root_ty));
-    if raw_identity_type_suppresses_internal_summary(types, current_ty)
-        || raw_identity_type_is_structural_owner_carrier(types, current_ty)
-    {
+    if raw_identity_type_blocks_internal_summary(types, current_ty) {
         return true;
     }
     for projection in suffix {
-        if raw_identity_type_suppresses_internal_summary(types, current_ty)
-            || raw_identity_type_is_structural_owner_carrier(types, current_ty)
-        {
+        if raw_identity_type_blocks_internal_summary(types, current_ty) {
             return true;
         }
         current_ty = projection_result_type(types, current_ty, projection).unwrap_or(current_ty);
-        if raw_identity_type_suppresses_internal_summary(types, current_ty)
-            || raw_identity_type_is_structural_owner_carrier(types, current_ty)
-        {
+        if raw_identity_type_blocks_internal_summary(types, current_ty) {
             return true;
         }
     }
     false
 }
 
-fn raw_identity_type_suppresses_internal_summary(types: &TypeCtx, ty: TypeId) -> bool {
+fn raw_identity_type_blocks_internal_summary(types: &TypeCtx, ty: TypeId) -> bool {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    resolved == types.str() || type_is_owner_token(types, resolved)
+    resolved == types.str()
+        || (!type_is_owner_token(types, resolved)
+            && raw_identity_type_is_structural_owner_carrier(types, resolved))
 }
 
 fn raw_identity_type_can_propagate_public_escape(
@@ -74,9 +70,9 @@ fn raw_identity_type_can_propagate_public_escape(
         return true;
     }
     if type_is_owner_token(types, resolved) {
-        return false;
+        return true;
     }
-    if raw_identity_type_is_structural_owner_carrier(types, resolved) {
+    if raw_identity_type_blocks_internal_summary(types, resolved) {
         return false;
     }
     if seen.contains(&resolved) {

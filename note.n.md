@@ -41442,3 +41442,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests\compiler\intrinsic.n.md --no-tree -o tmp\agent1-internal-raw-helper-intrinsic-boundary.json -j 1 --dist web\dist --assert-io`: total=10, passed=10
   - `node nodesrc/tests.js -i stdlib\core\mem\internal.nepl --no-tree -o tmp\agent1-core-mem-internal-boundary.json -j 1 --dist web\dist --assert-io`: total=4, passed=4
 - 補足: `stdlib/core/mem/pointer` focused doctest と `compile_accepts_checked_mem_ptr_wrapper_from_region_provenance` は `origin/main` でも同じ `resource.raw.memory_outside_boundary` で失敗する。今回の internal raw helper gate の新規 regression ではなく、checked `MemPtr` provenance の別問題として追跡する。
+
+## 2026-05-18 Agent 1 checked MemPtr RegionToken provenance regression 修正
+
+- `ISS-20260518T060850538Z-CHECKED-MEMPTR-PROVENANCE-REJECTS-RE-CA3CAB00` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、public raw identity escape を抑止する owner-carrier filter が、checked `MemPtr` 用の internal raw identity summary まで同時に抑止していたことだった。`RegionToken<T>` は public raw pointer ではないが、`region_ptr` / `region_ptr_at` 由来の checked `MemPtr<T>` が store/load/fill するには `RegionToken.raw` の allocator provenance が必要である。
+- 修正後は `str` と structural owner carrier aggregate だけを internal summary barrier にし、direct compiler owner token と `Result<RegionToken,E>` payload は internal provenance summary の対象に残した。builder/collection の raw identity 過展開は戻していない。
+- regression coverage:
+  - direct owner token internal provenance を保持する unit test
+  - `Result<RegionToken,E>` payload internal provenance を保持する unit test
+  - owner token を含む structural aggregate は引き続き summary carrier から外す unit test
+- focused verification:
+  - `cargo fmt --all --check`: passed
+  - `cargo test -p nepl-core --lib effect_return_summary_filter -- --nocapture`: 6 passed
+  - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_mem_ptr_wrapper_from_region_provenance -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib\core\mem\pointer --no-tree -o tmp\agent1-core-mem-pointer-regiontoken-provenance.json -j 1 --dist web\dist --assert-io`: total=16, passed=16
