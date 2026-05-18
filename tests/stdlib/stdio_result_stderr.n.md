@@ -82,7 +82,7 @@ neplg2:test
 
 fn main <()*>i32> ():
     let text <str> "x"
-    match stdio_write_fd_mem_result 9999 string_data_ptr text len text:
+    match stdio_write_fd_str_result 9999 text:
         Result::Ok _:
             1
         Result::Err kind:

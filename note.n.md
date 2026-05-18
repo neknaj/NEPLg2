@@ -42022,3 +42022,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 根本原因は、`std/fs/write` が `std/fs/write/fd` を re-export する一方で、fd write loop の内部 helper `fs_write_fd_mem_result(i32, MemPtr<u8>, i32)` も public のまま残っていたことだった。これにより通常 source が `ByteBuf` owner から導出された readable span ではなく、任意の `MemPtr` と任意 length を組み合わせて raw ABI write boundary に渡せた。
 - `fs_write_fd_mem_result` は private helper に戻し、public API は `fs_write_fd_bytes(fd, ByteBuf)` と path/string wrapper に限定した。`fs_write_fd_bytes` が `ByteBuf` owner から `data` と `data_len` を同時に取り出すため、`MemPtr = non-owning pointer` 方針を弱めずに fd write implementation boundary を維持する。
 - source policy は raw span writer の `pub fn` 再導入を拒否し、compile-fail doctest は `std/fs/write` facade と direct `std/fs/write/fd` import の両方から `fs_write_fd_mem_result` が見えないことを固定する。
+
+## 2026-05-18 Agent 1 stdio write raw span writer 境界修正
+
+- `ISS-20260518T210549005Z-STD-STDIO-WRITE-FACADE-EXPOSES-RAW-M-11591E6E` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`std/stdio/write` が `std/stdio/write/fd` を re-export しているのに、fd write loop の raw span helper と stdout/stderr 用 MemPtr wrapper も public のまま残っていたことだった。これにより通常 source が `str` / `ByteBuf` / `ByteBuilder` の owner 境界を迂回し、任意の `MemPtr<u8>` と任意 length を raw ABI write boundary へ渡せた。
+- `stdio_write_fd_mem_result` は private helper に戻し、public API は `stdio_write_fd_str_result`、`stdio_write_fd_bytebuf_result`、`stdio_write_fd_bytebuilder_prefix_result`、`stdio_write_fd_byte_result` に分けた。readable span はそれぞれ同じ source object と checked length から導出する。
+- `std/stdio/write/text` / `bytes` / `byte` / `print` / `std/streamio/writer/state` を typed wrapper 経由に移行し、streamio writer が `ByteBuilder` の raw pointer view を直接取り出さないようにした。
+- source policy は raw span public helper の再導入、text/bytes/streamio 側での raw pointer span 再構築を拒否する。compile-fail doctest は safe facade と direct fd module import の両方で raw span writer が見えないことを固定する。
+- focused verification:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_write_raw_boundary.n.md --no-tree -o tmp/agent1-stdio-write-raw-boundary.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write.nepl -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/agent1-stdio-write-typed-boundary.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/agent1-streamio-stdio-write-boundary-j4.json -j 4 --dist web/dist --assert-io`: total=15, passed=15

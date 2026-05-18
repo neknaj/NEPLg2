@@ -124,16 +124,51 @@ for (const helper of ['std_alloc', 'std_free']) {
     );
 }
 
+assert.doesNotMatch(
+    code,
+    /\bfn\s+stdio_write_fd_mem_result\b/,
+    'stdio_write_fd_mem_result must stay below stdio/write',
+);
+assert.doesNotMatch(
+    writeCode,
+    /\bfn\s+stdio_write_fd_mem_result\b/,
+    'stdio_write_fd_mem_result must stay in stdio/write/fd',
+);
+assert.match(
+    writeFdCode,
+    /\bfn\s+stdio_write_fd_mem_result\b/,
+    'stdio_write_fd_mem_result must exist as the private fd_write loop helper',
+);
+assert.doesNotMatch(
+    writeFdCode,
+    /\bpub\s+fn\s+stdio_write_fd_mem_result\b/,
+    'stdio_write_fd_mem_result must not be public because raw MemPtr span writes require a typed source proof',
+);
 for (const helper of [
-    'stdio_write_fd_mem_result',
     'stdio_write_mem_result',
     'stdio_write_stderr_mem_result',
     'stdio_write_mem',
     'stdio_write_stderr_mem',
 ]) {
-    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/write`);
-    assert.doesNotMatch(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write/fd`);
-    assert.match(writeFdCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write/fd`);
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must not be reintroduced in std/stdio`);
+    assert.doesNotMatch(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must not be reintroduced in stdio/write`);
+    assert.doesNotMatch(
+        writeFdCode,
+        new RegExp(`\\bfn\\s+${helper}\\b`),
+        `${helper} must not exist because it exposes caller-chosen MemPtr/length pairs`,
+    );
+}
+for (const helper of [
+    'stdio_write_fd_str_result',
+    'stdio_write_fd_bytebuf_result',
+    'stdio_write_fd_bytebuilder_prefix_result',
+    'stdio_write_fd_byte_result',
+]) {
+    assert.match(
+        writeFdCode,
+        new RegExp(`\\bpub\\s+fn\\s+${helper}\\b`),
+        `${helper} must be the public typed fd_write wrapper`,
+    );
 }
 for (const helper of [
     'stdio_write_str_result',
@@ -169,7 +204,7 @@ for (const submodule of ['fd', 'text', 'bytes', 'byte']) {
 }
 assert.doesNotMatch(writeCode, /\bfn\s+/, 'std/stdio/write facade must not keep write implementation bodies');
 const writeFdMatch = writeFdCode.match(
-    /fn\s+stdio_write_fd_mem_result\s+<\(i32,MemPtr<u8>,i32\)\*>\s*Result<\(\),\s*StdErrorKind>>\s+\(fd,\s*data,\s*data_len\):([\s\S]*?)\n(?:pub\s+)?fn\s+stdio_write_mem_result\s+/,
+    /fn\s+stdio_write_fd_mem_result\s+<\(i32,MemPtr<u8>,i32\)\*>\s*Result<\(\),\s*StdErrorKind>>\s+\(fd,\s*data,\s*data_len\):([\s\S]*?)\n(?:pub\s+)?fn\s+stdio_write_fd_str_result\s+/,
 );
 assert.ok(writeFdMatch, 'stdio_write_fd_mem_result body must be found');
 assert.match(
@@ -206,6 +241,36 @@ assert.doesNotMatch(
     writeFdMatch[1],
     /\bstd_free\b/,
     'stdio fd_write must not hide checked dealloc failures behind std_free',
+);
+assert.match(
+    writeTextCode,
+    /\bstdio_write_fd_str_result\s+1\s+s\b[\s\S]*\bstdio_write_fd_str_result\s+2\s+s\b/,
+    'stdio text writes must derive their MemPtr/len pair through the typed str wrapper',
+);
+assert.doesNotMatch(
+    writeTextCode,
+    /\b(?:stdio_write_mem_result|stdio_write_stderr_mem_result|string_data_ptr|string_storage::string_data_ptr)\b/,
+    'stdio text writes must not reconstruct raw string spans outside write/fd',
+);
+assert.match(
+    writeBytesCode,
+    /\bstdio_write_fd_bytebuf_result\s+1\s+bytes\b[\s\S]*\bstdio_write_fd_bytebuf_result\s+2\s+bytes\b/,
+    'stdio ByteBuf writes must consume the ByteBuf through the typed fd wrapper',
+);
+assert.doesNotMatch(
+    writeBytesCode,
+    /\b(?:stdio_write_mem_result|stdio_write_stderr_mem_result|io_bytebuf_ptr_ref)\b/,
+    'stdio ByteBuf writes must not expose raw ByteBuf pointers outside write/fd',
+);
+assert.match(
+    writeByteCode,
+    /\bstdio_write_fd_byte_result\s+1\s+b\b/,
+    'print_byte must use the typed one-byte fd wrapper',
+);
+assert.doesNotMatch(
+    writeByteCode,
+    /\b(?:alloc_region|region_ptr|stdio_write_mem|stdio_write_fd_mem_result)\b/,
+    'print_byte must not own raw scratch allocation or call the raw fd span helper directly',
 );
 
 for (const helper of [

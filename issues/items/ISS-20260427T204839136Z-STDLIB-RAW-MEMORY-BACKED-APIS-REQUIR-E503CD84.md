@@ -755,3 +755,9 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 `ISS-20260518T205653919Z-STD-FS-WRITE-FACADE-EXPOSES-RAW-MEMP-A8C64961` を解決した。`std/fs/write` は `std/fs/write/fd` を re-export しており、`fs_write_fd_mem_result(i32, MemPtr<u8>, i32)` が public のままだったため、通常 source が `ByteBuf` owner 境界を通らず任意の pointer/length pair を fd write loop へ渡せた。
 
 修正後は `fs_write_fd_mem_result` を `std/fs/write/fd` 内の private helper に閉じ、public fd write API は `fs_write_fd_bytes(fd, ByteBuf)` に限定した。`ByteBuf` から `data` と `data_len` を同時に導出した場合だけ raw ABI write helper へ進むため、`MemPtr = non-owning pointer` と owner-backed readable extent の対応を caller convention に押し出さない。source policy と compile-fail doctest は、safe facade と direct fd module import の両方で raw span writer が公開されないことを監視する。
+
+## 2026-05-18 Agent 1 stdio write raw span writer 境界追記
+
+`ISS-20260518T210549005Z-STD-STDIO-WRITE-FACADE-EXPOSES-RAW-M-11591E6E` を解決した。`std/stdio/write` は `std/stdio/write/fd` を re-export しており、`stdio_write_fd_mem_result(i32, MemPtr<u8>, i32)` と stdout/stderr 用 raw span wrapper が public のままだったため、通常 source が `str` / `ByteBuf` / `ByteBuilder` の owner 境界を通らず任意の pointer/length pair を fd write loop へ渡せた。
+
+修正後は raw fd write loop を `std/stdio/write/fd` の private helper に閉じ、public surface を `stdio_write_fd_str_result(fd, str)`、`stdio_write_fd_bytebuf_result(fd, ByteBuf)`、`stdio_write_fd_bytebuilder_prefix_result(fd, &ByteBuilder, byte_len)`、`stdio_write_fd_byte_result(fd, i32)` に限定した。`streamio/writer` の flush も `ByteBuilder` の raw pointer view を直接取り出さず、typed ByteBuilder prefix wrapper に委譲する。これにより readable span は source object と checked length から導出され、caller convention ではなく API shape と source policy で監視できる。

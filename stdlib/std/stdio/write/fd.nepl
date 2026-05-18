@@ -7,16 +7,22 @@
 
 #indent 4
 
+#import "alloc/io" as *
+#import "alloc/string" as string
+#import "alloc/string/storage" as string_storage
+#import "core/field" as *
 #import "core/math" as math
 #import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "std/stdio/raw" as *
 
 //: ## stdio_write_fd_mem_result
-//: fd を[指定/してい]して byte span を[書/か]き[出/だ]す
+//: fd を[指定/してい]して byte span を[書/か]き[出/だ]す内部 helper
 //:
 //: ### [目的/もくてき]
 //: - stdout / stderr などの fd [差/さ]だけを[分/わ]け、partial write [吸収/きゅうしゅう]と error [返却/へんきゃく]を 1 [箇所/かしょ]へ[集約/しゅうやく]します。
+//: - public API は `str` / `ByteBuf` / `ByteBuilder` / 1 byte の typed wrapper に限定し、この raw span helper は fd module 内部に閉じます。
 //:
 //: ### [実装/じっそう]
 //: - WASI `fd_write(fd, iov, 1, nwritten)` を[呼/よ]び、`nwritten` が[残/のこ]り byte [数/すう]より[小/ちい]さい[場合/ばあい]は offset を[進/すす]めて[再試行/さいしこう]します。
@@ -25,27 +31,28 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `data` の[所有権/しょゆうけん]は[受/う]け[取/と]りません。呼び出し側が lifetime と解放を[管理/かんり]します。
+//: - `data` と `data_len` の対応は、この file の typed wrapper が同じ source object から導出します。外部 caller には任意の pointer/length pair を渡させません。
 //: - fd の[妥当性/だとうせい]は host WASI runtime に[委/ゆだ]ね、invalid fd は `Err(IoError)` として[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
+fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
     if:
         math::le data_len 0
         then:
             Result<(), StdErrorKind>::Ok ()
         else:
             match alloc_region<u8> 8:
-                Result::Err _:
+                Result::Err iov_alloc_error:
                     Result<(), StdErrorKind>::Err StdErrorKind::IoError
                 Result::Ok iov_region:
                     let iov <MemPtr<u8>> region_ptr &iov_region
                     match alloc_region<u8> 4:
-                        Result::Err _:
+                        Result::Err nwritten_alloc_error:
                             match dealloc_region<u8> iov_region:
-                                Result::Ok _:
+                                Result::Ok released_iov_after_alloc_error:
                                     ()
-                                Result::Err _:
+                                Result::Err release_iov_error_after_alloc_error:
                                     ()
                             Result<(), StdErrorKind>::Err StdErrorKind::IoError
                         Result::Ok nwritten_region:
@@ -72,19 +79,19 @@ pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>
                                                         else:
                                                             set off math::add off n;
                                                             ()
-                                                Result::Err _:
+                                                Result::Err write_error:
                                                     set failed 1;
                                                     set done 1;
                                                     ()
                             match dealloc_region<u8> nwritten_region:
-                                Result::Ok _:
+                                Result::Ok released_nwritten:
                                     ()
-                                Result::Err _:
+                                Result::Err release_nwritten_error:
                                     ()
                             match dealloc_region<u8> iov_region:
-                                Result::Ok _:
+                                Result::Ok released_iov:
                                     ()
-                                Result::Err _:
+                                Result::Err release_iov_error:
                                     ()
                             if:
                                 math::eq failed 0
@@ -93,51 +100,98 @@ pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>
                                 else:
                                     Result<(), StdErrorKind>::Err StdErrorKind::IoError
 
-//: ## stdio_write_mem_result
-//: byte span を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//: ## stdio_write_fd_str_result
+//: fd を[指定/してい]して `str` を[書/か]き[出/だ]す
 //:
 //: ### [目的/もくてき]
-//: - `print` より[低水準/ていすいじゅん]で、stdout write [失敗/しっぱい]を caller が[検出/けんしゅつ]できるようにします。
+//: - `str` の pointer と length を同じ文字列 object から導出してから fd write loop へ渡します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-pub fn stdio_write_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
-    stdio_write_fd_mem_result 1 data data_len
+pub fn stdio_write_fd_str_result <(i32,str)*>Result<(), StdErrorKind>> (fd, s):
+    stdio_write_fd_mem_result fd string_storage::string_data_ptr s string::len s
 
-//: ## stdio_write_stderr_mem_result
-//: byte span を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//: ## stdio_write_fd_bytebuf_result
+//: fd を[指定/してい]して `ByteBuf` を[書/か]き[出/だ]す
 //:
 //: ### [目的/もくてき]
-//: - diagnostic 出力を stdout と[分離/ぶんり]し、stderr write [失敗/しっぱい]を caller が[扱/あつか]えるようにします。
+//: - `ByteBuf` owner を消費し、成功/失敗にかかわらず storage を解放します。
+//: - readable span は `ByteBuf` の `len` と storage view から導出し、raw pointer/length pair を public caller へ押し出しません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-pub fn stdio_write_stderr_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
-    stdio_write_fd_mem_result 2 data data_len
+pub fn stdio_write_fd_bytebuf_result <(i32,ByteBuf)*>Result<(), StdErrorKind>> (fd, bytes):
+    let data_len <i32> io_bytebuf_len_ref &bytes;
+    if:
+        math::le data_len 0
+        then:
+            io_bytebuf_free bytes
+            Result<(), StdErrorKind>::Ok ()
+        else:
+            match io_bytebuf_ptr_ref &bytes:
+                Option::Some data:
+                    let result <Result<(), StdErrorKind>> stdio_write_fd_mem_result fd data data_len;
+                    io_bytebuf_free bytes;
+                    result
+                Option::None:
+                    io_bytebuf_free bytes
+                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
 
-//: ## stdio_write_mem
-//: byte span を stdout へ[書/か]き[出/だ]す互換 facade
+//: ## stdio_write_fd_bytebuilder_prefix_result
+//: fd を[指定/してい]して `ByteBuilder` の有効 prefix を[書/か]き[出/だ]す
 //:
 //: ### [目的/もくてき]
-//: - 既存の `print` / `print_byte` が unit API のまま[使/つか]えるようにします。
+//: - `StreamWriter` のように builder owner を保持したまま flush する処理のため、borrowed builder と byte count を受けます。
+//: - `byte_len` が builder の現在 length 内にあることを確認した場合だけ、builder storage view から raw fd write loop へ進みます。
 //:
 //: ### [注意/ちゅうい]
-//: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。新しい code は `stdio_write_mem_result` を[使/つか]います。
-pub fn stdio_write_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
-    match stdio_write_mem_result data data_len:
-        Result::Ok _:
-            ()
-        Result::Err _:
-            ()
+//: - この関数は builder を消費しません。caller は成功/失敗にかかわらず builder owner を保持します。
+//: - `ByteBuilderStorage::Empty` で正の `byte_len` を指定した場合は `InvalidOperation` として拒否します。
+pub fn stdio_write_fd_bytebuilder_prefix_result <(i32,&ByteBuilder,i32)*>Result<(), StdErrorKind>> (fd, builder, byte_len):
+    let builder_len <i32> *get_ref builder "len";
+    if:
+        math::lt byte_len 0
+        then:
+            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                math::gt byte_len builder_len
+                then:
+                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                else:
+                    if:
+                        math::le byte_len 0
+                        then:
+                            Result<(), StdErrorKind>::Ok ()
+                        else:
+                            match byte_builder_ptr_ref builder:
+                                Option::Some data:
+                                    stdio_write_fd_mem_result fd data byte_len
+                                Option::None:
+                                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
 
-//: ## stdio_write_stderr_mem
-//: byte span を stderr へ[書/か]き[出/だ]す互換 facade
+//: ## stdio_write_fd_byte_result
+//: fd を[指定/してい]して 1 byte を[書/か]き[出/だ]す
 //:
-//: ### [注意/ちゅうい]
-//: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。diagnostic caller は `stdio_write_stderr_mem_result` を[使/つか]います。
-pub fn stdio_write_stderr_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
-    match stdio_write_stderr_mem_result data data_len:
-        Result::Ok _:
-            ()
-        Result::Err _:
-            ()
+//: ### [目的/もくてき]
+//: - 1 byte scratch owner を `RegionToken<u8>` に閉じ、single-byte output が raw `MemPtr` API を公開しないようにします。
+pub fn stdio_write_fd_byte_result <(i32,i32)*>Result<(), StdErrorKind>> (fd, b):
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Result::Ok region:
+            let out <MemPtr<u8>> region_ptr &region
+            match store_u8 out b:
+                Result::Ok stored_byte:
+                    let result <Result<(), StdErrorKind>> stdio_write_fd_mem_result fd out 1;
+                    match dealloc_region<u8> region:
+                        Result::Ok released_after_write:
+                            result
+                        Result::Err release_error_after_write:
+                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                Result::Err store_error:
+                    match dealloc_region<u8> region:
+                        Result::Ok released_after_store_error:
+                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                        Result::Err release_error_after_store_error:
+                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation

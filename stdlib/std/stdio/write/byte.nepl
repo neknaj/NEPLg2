@@ -3,11 +3,10 @@
 //:
 //: ### 目的
 //: - `print_byte` の 1 byte scratch buffer を text / ByteBuf adapter から分離します。
-//: - 実際の partial write 処理は `write/fd` の `stdio_write_mem` に委譲します。
+//: - 実際の partial write 処理と 1 byte scratch owner は `write/fd` の typed byte wrapper に委譲します。
 
 #indent 4
 
-#import "core/mem" as *
 #import "core/result" as *
 #import "./fd" as *
 
@@ -17,8 +16,8 @@
 //: - binary/VM 系の処理で、`str` を組み立てずに 1 byte だけを stdout へ書き出します。
 //:
 //: [実装/じっそう]:
-//: - 1 byte の一時 `RegionToken<u8>` を確保し、そこから得た non-owning `MemPtr<u8>` view に値を書きます。
-//: - free obligation は `RegionToken` だけが持ち、出力後または書き込み失敗時に `dealloc_region` で閉じます。
+//: - `write/fd` の typed byte wrapper に委譲し、1 byte scratch owner と raw fd write loop を fd 境界に閉じます。
+//: - この関数自体は raw `MemPtr` を生成せず、stdout 向けの unit API だけを提供します。
 //:
 //: [注意/ちゅうい]:
 //: - `b` の下位 8 bit が出力されます。
@@ -37,22 +36,8 @@
 //:     print_byte 'A'
 //: ```
 pub fn print_byte <(i32)*>()> (b):
-    match alloc_region<u8> 1:
+    match stdio_write_fd_byte_result 1 b:
+        Result::Ok _:
+            ()
         Result::Err _e:
             ()
-        Result::Ok region:
-            let out <MemPtr<u8>> region_ptr &region
-            match store_u8 out b:
-                Result::Ok _:
-                    stdio_write_mem out 1;
-                    match dealloc_region<u8> region:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
-                Result::Err _:
-                    match dealloc_region<u8> region:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()

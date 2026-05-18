@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T20:58:59.335Z",
+  "generated_at": "2026-05-18T21:23:21.562Z",
   "counts": {
-    "total": 1017,
+    "total": 1018,
     "open": 5,
-    "resolved": 1012,
+    "resolved": 1013,
     "by_area": {
       "stdlib": {
-        "total": 283,
+        "total": 284,
         "open": 3,
-        "resolved": 280
+        "resolved": 281
       },
       "TEST": {
         "total": 43,
@@ -12143,6 +12143,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T205653919Z-STD-FS-WRITE-FACADE-EXPOSES-RAW-MEMP-A8C64961.md"
+    },
+    {
+      "id": "ISS-20260518T210549005Z-STD-STDIO-WRITE-FACADE-EXPOSES-RAW-M-11591E6E",
+      "title": "std/stdio write facade exposes raw MemPtr span writers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/std/stdio/write/fd.nepl, stdlib/std/stdio/write/text.nepl, stdlib/std/stdio/write/bytes.nepl, stdlib/std/stdio/write/byte.nepl, stdlib/std/stdio/print.nepl, stdlib/std/streamio/writer/state.nepl, nodesrc/test_stdlib_stdio_read_boundary.js, nodesrc/test_stdlib_streamio_writer_boundary.js, tests/stdlib/stdio_write_raw_boundary.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T210549005Z-STD-STDIO-WRITE-FACADE-EXPOSES-RAW-M-11591E6E.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -197,8 +197,18 @@ assert.match(
 );
 assert.match(
     drainMatch[1],
-    /\blet\s+ptr\s+<MemPtr<u8>>\s+byte_builder_data_ptr_ref\s+&builder[\s\S]*stdio_write_mem\s+ptr\s+write_len[\s\S]*byte_builder_with_len\s+builder\s+0\s+target\b/,
-    'drain_impl must flush through a non-owning ByteBuilder pointer view and reset builder length without moving raw owner into StreamWriter',
+    /\bstdio_write_fd_bytebuilder_prefix_result\s+1\s+&builder\s+write_len\b[\s\S]*\bstdio_write_fd_bytebuilder_prefix_result\s+2\s+&builder\s+write_len\b[\s\S]*byte_builder_with_len\s+builder\s+0\s+target\b/,
+    'drain_impl must flush through the typed ByteBuilder prefix fd wrapper and reset builder length without exposing raw pointer spans',
+);
+assert.doesNotMatch(
+    drainMatch[1],
+    /\bbyte_builder_data_ptr_ref\b/,
+    'drain_impl must not pull a raw ByteBuilder pointer view outside stdio/write/fd',
+);
+assert.doesNotMatch(
+    drainMatch[1],
+    /\bstdio_write_(?:stderr_)?mem(?:_result)?\b/,
+    'drain_impl must not call public raw MemPtr span write helpers',
 );
 assert.doesNotMatch(
     drainMatch[1],
