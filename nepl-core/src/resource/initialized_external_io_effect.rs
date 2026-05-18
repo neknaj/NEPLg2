@@ -7,25 +7,6 @@ use super::model::Place;
 use super::place_utils::{raw_memory_cell_place, raw_memory_unknown_offset_cell_place};
 
 impl ResourceCheckEngine<'_> {
-    pub(super) fn apply_fd_read_initialized_effect(
-        &self,
-        cells: &mut CellTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        args: &[Place],
-    ) {
-        if let Some(nread) = args.get(3) {
-            self.mark_raw_cell_initialized(cells, raw_aliases, nread, self.types.i32());
-        }
-
-        self.apply_iov_read_buffers_initialized(
-            cells,
-            raw_aliases,
-            args.get(1),
-            args.get(2),
-            args.get(3),
-        );
-    }
-
     pub(super) fn mark_raw_cell_initialized(
         &self,
         cells: &mut CellTable,

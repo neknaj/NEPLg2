@@ -18541,6 +18541,110 @@ fn resource_ir_owner_check_fd_read_accepts_iovec_payload_extent_match() {
     );
 }
 
+#[test]
+fn resource_ir_owner_check_fd_read_accepts_iovec_payload_subspan() {
+    let (resource, types) = external_io_iov_owner_resource(ExternalIoOp::FdRead, 16, 8);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "fd_read iovec payload proof must accept host-visible subspans inside the backing owner extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_random_get_rejects_output_extent_mismatch() {
+    let (resource, types) = direct_host_output_owner_resource(NondetOp::RandomGet, 1, 8);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "random_get must prove the output byte span against the backing owner extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_random_get_initializes_only_reported_byte_range() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.u8());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let len = Place::temporary(ResourceId(0), i32_ty);
+    let buf = Place::temporary(ResourceId(1), i32_ty);
+    let errno = Place::temporary(ResourceId(2), i32_ty);
+    let out_of_range = buf.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(8)),
+        i32_ty,
+    );
+    let loaded = Place::temporary(ResourceId(3), types.u8());
+    let out_of_range_cell = out_of_range
+        .clone()
+        .with_projection(PlaceProjection::Deref, types.u8());
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![len.clone()],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("random_get"),
+                },
+                args: vec![buf, len],
+                effect: EffectOp::Nondet {
+                    operation: NondetOp::RandomGet,
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::LoadU8,
+                output: loaded,
+                args: vec![out_of_range],
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place == &out_of_range_cell
+        )),
+        "random_get must not initialize bytes beyond the host-visible output length: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
 fn external_io_iov_owner_resource(
     operation: ExternalIoOp,
     allocation_len: i32,
@@ -18674,6 +18778,65 @@ fn external_io_iov_owner_resource(
                 operation: RawMemoryOp::Dealloc,
                 output: free_payload,
                 args: vec![payload, alloc_len],
+                span,
+            },
+        ],
+    );
+    (resource, types)
+}
+
+fn direct_host_output_owner_resource(
+    operation: NondetOp,
+    allocation_len: i32,
+    output_len: i32,
+) -> (ResourceModule, TypeCtx) {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let alloc_len = Place::temporary(ResourceId(0), i32_ty);
+    let requested_len = Place::temporary(ResourceId(1), i32_ty);
+    let buf = Place::temporary(ResourceId(2), i32_ty);
+    let errno = Place::temporary(ResourceId(3), i32_ty);
+    let free_buf = Place::temporary(ResourceId(4), unit_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(allocation_len),
+                output: alloc_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(output_len),
+                output: requested_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![alloc_len.clone()],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: operation.as_str().to_string(),
+                },
+                args: vec![buf.clone(), requested_len],
+                effect: EffectOp::Nondet { operation },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: free_buf,
+                args: vec![buf, alloc_len],
                 span,
             },
         ],

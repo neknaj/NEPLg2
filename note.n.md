@@ -41631,3 +41631,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --all -- --check`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-18 Agent 1 host-visible memory span contract 化
+
+- `ISS-20260518T102739347Z-HOST-VISIBLE-MEMORY-SPANS-LACK-GENER-D965031F` を作成して resolved にした。`plan.md` は変更していない。
+- 根本原因は、host が読む/書く raw memory span の定義が initialized checker と owner checker に分散し、owner checker は fd iovec payload だけを exact equality で検査していたことだった。
+- `host_memory_contract.rs` を追加し、`ExternalIoOp` / `NondetOp` から direct span / iovec descriptor / iovec payload を `HostMemorySpan` enum として列挙する形へ寄せた。stdlib module 名の allowlist ではなく typed effect operation から検査対象を決める。
+- initialized checker は `random_get` などの direct byte output を unknown-offset 全体として初期化済みにせず、host-visible length に基づく bounded byte range として記録するようにした。
+- owner checker は direct output span と iovec payload を同じ generic extent proof path で検査する。host-visible span については allocation extent と長さの完全一致ではなく、allocation extent が span を覆うことを証明する。
+- regression として fd_read iovec subspan 許可、random_get output owner extent mismatch 拒否、random_get bounded initialized range の境界外 read 拒否を追加した。
+- 監査中に、`args_get` / `environ_get` / `poll_oneoff` など dependent length が必要な ABI span はまだ contract 未収録であることを切り分け、`ISS-20260518T103254297Z-HOST-MEMORY-CONTRACT-STILL-NEEDS-FUL-BB27C558` を追加した。これは個別 module allowlist ではなく、`HostMemorySpan` と prior-call proof artifact で扱う。

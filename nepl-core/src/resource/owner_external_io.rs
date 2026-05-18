@@ -4,18 +4,17 @@ use alloc::vec::Vec;
 
 use crate::span::Span;
 
-use super::external_io_iov_contract::external_io_iov_payload_arg;
 use super::external_io_iov_layout::{
     iov_buffer_pointer_cells, iov_length_cell, raw_cell_is_under_any_address,
 };
+use super::host_memory_contract::{host_memory_spans, HostMemorySpan};
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{EffectOp, OwnerState, OwnerStorageExtent, Place};
+use super::model::{OwnerState, OwnerStorageExtent, Place};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
-use super::owner_extent::{
-    prove_owner_extent_matches_argument, OwnerExtentProof, PendingOwnerExtentRequirement,
-};
+use super::owner_extent::{OwnerExtentProof, PendingOwnerExtentRequirement};
 use super::owner_extent_compare::comparable_owner_extent;
+use super::owner_extent_coverage::prove_owner_extent_covers_argument;
 use super::owner_state::OwnerTable;
 use super::report::ResourceOwnerOperation;
 
@@ -24,29 +23,44 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
-        effect: &EffectOp,
+        effect: &super::model::EffectOp,
         args: &[Place],
         span: Span,
     ) -> bool {
-        let operation = match effect {
-            EffectOp::ExternalIo { operation } => *operation,
-            EffectOp::Pure
-            | EffectOp::UserCall { .. }
-            | EffectOp::IndirectCall { .. }
-            | EffectOp::InternalAlloc { .. }
-            | EffectOp::UnsafeMemory { .. }
-            | EffectOp::Nondet { .. }
-            | EffectOp::Unknown { .. } => return true,
-        };
-        let Some(iovs_arg) = external_io_iov_payload_arg(operation) else {
-            return true;
-        };
-        self.ensure_iov_payload_owner_extents_available(
-            owners,
-            raw_aliases,
-            args.get(iovs_arg),
-            span,
-        )
+        let mut available = true;
+        for contract in host_memory_spans(effect) {
+            match *contract {
+                HostMemorySpan::Direct {
+                    address_arg,
+                    length,
+                    ..
+                } => {
+                    let Some(address) = args.get(address_arg) else {
+                        continue;
+                    };
+                    let Some(length) = length.resolve(args, self.types.i32()) else {
+                        continue;
+                    };
+                    available &= self.ensure_external_io_payload_extent_available(
+                        owners,
+                        raw_aliases,
+                        address,
+                        &length,
+                        span,
+                    );
+                }
+                HostMemorySpan::IovPayload { iovs_arg, .. } => {
+                    available &= self.ensure_iov_payload_owner_extents_available(
+                        owners,
+                        raw_aliases,
+                        args.get(iovs_arg),
+                        span,
+                    );
+                }
+                HostMemorySpan::IovDescriptor { .. } => {}
+            }
+        }
+        available
     }
 
     fn ensure_iov_payload_owner_extents_available(
@@ -121,7 +135,7 @@ impl ResourceOwnerCheckEngine<'_> {
             return false;
         };
         let extent = comparable_owner_extent(&resolved, extent.clone());
-        match prove_owner_extent_matches_argument(raw_aliases, &extent, length) {
+        match prove_owner_extent_covers_argument(raw_aliases, &extent, length) {
             OwnerExtentProof::Proven => true,
             OwnerExtentProof::Unknown => {
                 self.owner_extent_requirements

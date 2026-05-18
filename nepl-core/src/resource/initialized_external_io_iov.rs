@@ -63,7 +63,7 @@ impl ResourceCheckEngine<'_> {
                 if buffer == buffer_cell || raw_cell_is_under_any_address(&buffer, &iov_aliases) {
                     continue;
                 }
-                available &= self.ensure_iov_payload_buffer_available(
+                available &= self.ensure_raw_payload_buffer_available(
                     cells,
                     raw_aliases,
                     &buffer,
@@ -75,7 +75,7 @@ impl ResourceCheckEngine<'_> {
         available
     }
 
-    fn ensure_iov_payload_buffer_available(
+    pub(super) fn ensure_raw_payload_buffer_available(
         &mut self,
         cells: &CellTable,
         raw_aliases: &RawCellAddressAliases,
