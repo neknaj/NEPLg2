@@ -177,8 +177,9 @@ pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Optio
 //: [実装/じっそう]:
 //: - `Vec<str>` を borrow し、index 0 から `selfhost_cli_parse_loop` へ渡します。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"selfhost_cli_parse_args_doc\" count=5 failed=0\nassertion index=0 status=ok kind=bool label=\"parse succeeds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"check flag\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"emit wasm\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"output path\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"input path\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -191,6 +192,7 @@ pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Optio
 //:| #import "neplg2/cli/args/emit" as *
 //:| #import "neplg2/cli/args/parse" as *
 //:| #import "neplg2/cli/args/types" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let args <Vec<str>>:
 //:         unwrap_ok v::new<str>
@@ -203,7 +205,11 @@ pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Optio
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
 //:             v::free<str> args;
-//:             1
+//:             let report <TestReport>:
+//:                 test_report_new "selfhost_cli_parse_args_doc"
+//:                 |> test_report_push assert "parse succeeds" false
+//:             let shown test_report_print_stdout report
+//:             test_report_exit_code shown
 //:         Result::Ok opts:
 //:             let output_ref <&Option<str>> get_ref &opts "output"
 //:             let input_ref <&Option<str>> get_ref &opts "input"
@@ -221,9 +227,16 @@ pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Optio
 //:                     false
 //:             let check_ok <bool> *check_ref
 //:             let emit_ok <bool> selfhost_cli_emit_is_wasm *emit_ref
-//:             let ok <bool> and check_ok and emit_ok and output_ok input_ok
 //:             v::free<str> args;
-//:             if ok 0 1
+//:             let report <TestReport>:
+//:                 test_report_new "selfhost_cli_parse_args_doc"
+//:                 |> test_report_push assert "parse succeeds" true
+//:                 |> test_report_push assert "check flag" check_ok
+//:                 |> test_report_push assert "emit wasm" emit_ok
+//:                 |> test_report_push assert "output path" output_ok
+//:                 |> test_report_push assert "input path" input_ok
+//:             let shown test_report_print_stdout report
+//:             test_report_exit_code shown
 //: ```
 pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args):
     let count <i32> v::len<str> args;
@@ -237,8 +250,9 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //: [実装/じっそう]:
 //: - argv[0] は program name として扱い、index 1 から option parsing を始めます。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"selfhost_cli_parse_argv_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"parse succeeds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"target std maps to wasi\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"input path\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -251,6 +265,7 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:| #import "neplg2/cli/args/parse" as *
 //:| #import "neplg2/cli/args/predicates" as *
 //:| #import "neplg2/cli/args/types" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let argv <Vec<str>>:
 //:         unwrap_ok v::new<str>
@@ -262,7 +277,11 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:     match selfhost_cli_parse_argv &argv:
 //:         Result::Err _e:
 //:             v::free<str> argv;
-//:             1
+//:             let report <TestReport>:
+//:                 test_report_new "selfhost_cli_parse_argv_doc"
+//:                 |> test_report_push assert "parse succeeds" false
+//:             let shown test_report_print_stdout report
+//:             test_report_exit_code shown
 //:         Result::Ok opts:
 //:             let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
 //:             let input_ref <&Option<str>> get_ref &opts "input"
@@ -276,9 +295,14 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:                     str_eq input "main.nepl"
 //:                 Option::None:
 //:                     false
-//:             let ok <bool> and target_ok input_ok
 //:             v::free<str> argv;
-//:             if ok 0 1
+//:             let report <TestReport>:
+//:                 test_report_new "selfhost_cli_parse_argv_doc"
+//:                 |> test_report_push assert "parse succeeds" true
+//:                 |> test_report_push assert "target std maps to wasi" target_ok
+//:                 |> test_report_push assert "input path" input_ok
+//:             let shown test_report_print_stdout report
+//:             test_report_exit_code shown
 //: ```
 pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (argv):
     let count <i32> v::len<str> argv;

@@ -1393,3 +1393,20 @@ runtime 検証を妨げる compile-time blocker は `ISS-20260517T132644394Z-SEL
 - `node nodesrc/run_doctest.js -i tests\stdlib\neplg2_stdlib_map.n.md -n 1 --assert-io --dist web\dist`: ResourceIR owner summary compile diagnostic で fail
 
 runtime 検証を妨げる compiler blocker は `ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A` として分離した。この issue はまだ open のまま継続する。`neplg2_stdlib_map` は metadata contract 移行済みだが、他の `tests/stdlib/neplg2_*`、`fs`、`text_utf8` などの report metadata 移行が残っている。
+
+## 2026-05-18 selfhost CLI args doc-comment stdout report migration
+
+`ISS-20260518T022058895Z-SELFHOST-CLI-ARGS-DOC-COMMENT-DOCTES-2AECEA64` として、`stdlib/neplg2/cli/args/parse.nepl` と `stdlib/neplg2/cli/args/options.nepl` の doc-comment doctest 4 件を canonical stdout fixture へ移行した。
+
+移行内容:
+
+- `selfhost_cli_parse_args` / `selfhost_cli_parse_argv` / `selfhost_cli_default_options` / `selfhost_cli_options_to_compile_options` の例を `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` へ変更した。
+- `ret:` または metadata なしの i32 status check をやめ、`std/test::TestReport` で parse success、flag、emit、path、compile option projection を assertion label / expected / actual として固定した。
+- `nodesrc/test_selfhost_cli_args_doc_report_contract.js` を追加し、4 件が `ret:` へ戻らず stdout report と exit-code 分離を維持することを source policy として検査する。
+
+検証:
+
+- `node nodesrc/test_selfhost_cli_args_doc_report_contract.js`: pass
+- `node nodesrc/tests.js -i stdlib\neplg2\cli\args\parse.nepl -i stdlib\neplg2\cli\args\options.nepl --no-tree -o tmp\agent1-selfhost-cli-args-doc-report.json -j 1 --dist web\dist --assert-io`: total=4, passed=4
+
+この issue はまだ open のまま継続する。selfhost CLI args doc-comment は移行済みだが、他の `.n.md` / stdlib doc-comment fixture と report 省略検出 policy の一般化が残っている。

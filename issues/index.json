@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T02:16:04.799Z",
+  "generated_at": "2026-05-18T02:25:48.211Z",
   "counts": {
-    "total": 975,
+    "total": 976,
     "open": 5,
-    "resolved": 970,
+    "resolved": 971,
     "by_area": {
       "stdlib": {
         "total": 263,
@@ -12,9 +12,9 @@
         "resolved": 260
       },
       "TEST": {
-        "total": 37,
+        "total": 38,
         "open": 1,
-        "resolved": 36
+        "resolved": 37
       },
       "selfhost": {
         "total": 70,
@@ -12293,6 +12293,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T193057449Z-SELFHOST-STDLIB-MAP-DOCTESTS-STILL-U-320C9452.md"
+    },
+    {
+      "id": "ISS-20260518T022058895Z-SELFHOST-CLI-ARGS-DOC-COMMENT-DOCTES-2AECEA64",
+      "title": "selfhost CLI args doc-comment doctests hide assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/neplg2/cli/args/parse.nepl, stdlib/neplg2/cli/args/options.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T022058895Z-SELFHOST-CLI-ARGS-DOC-COMMENT-DOCTES-2AECEA64.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

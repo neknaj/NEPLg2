@@ -1,3 +1,18 @@
+# 2026-05-18 Agent 1 selfhost CLI args doc-comment stdout report 固定
+
+- `ISS-20260518T022058895Z-SELFHOST-CLI-ARGS-DOC-COMMENT-DOCTES-2AECEA64` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/neplg2/cli/args/parse.nepl` と `stdlib/neplg2/cli/args/options.nepl` の doc-comment doctest が `ret:` または metadata なしの i32 status に依存し、selfhost CLI parser/options の観測値を stdout report として固定していなかったこと。
+- 4 件の doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ移行し、`std/test::TestReport` で parse success、flag、emit、path、compile option projection を assertion label / expected / actual として出力するようにした。
+- `nodesrc/test_selfhost_cli_args_doc_report_contract.js` を追加し、`ret:` 退行、stdout-less status check、report print と exit code の未分離を検出する source policy にした。
+- `nodesrc/run_source_policy_regressions.js` に同 policy を登録した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に今回の進捗を追記した。この親 issue は他 fixture と一般 lint 強化が残るため open のまま。
+- 検証:
+  - `node nodesrc/test_selfhost_cli_args_doc_report_contract.js`
+  - `node nodesrc/tests.js -i stdlib\neplg2\cli\args\parse.nepl -i stdlib\neplg2\cli\args\options.nepl --no-tree -o tmp\agent1-selfhost-cli-args-doc-report.json -j 1 --dist web\dist --assert-io`: total=4, passed=4
+  - `node nodesrc/issues.js check --dir issues`
+- plan.md との差異:
+  - plan.md は変更していない。`.n.md` / doc-comment を Rust runner / selfhost runner の共通仕様資産にする作業として、selfhost CLI args の stdout report contract を固定した。
+
 # 2026-05-18 Agent 1 ResourceIR owner summary Copy str view / owner-backed str 分離
 
 - `ISS-20260517T200909433Z-RESOURCEIR-OWNER-SUMMARY-STILL-TREAT-10D9318A` を fixed / resolved にした。`plan.md` は変更していない。
