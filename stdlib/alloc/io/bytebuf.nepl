@@ -50,6 +50,17 @@
 //:             checks_exit_code checks_push checks0 assert_eq_i32 1 0
 //: ```
 
+//: ## ByteBufStorage
+//: `ByteBuf` の storage owner state
+//:
+//: ### [目的/もくてき]
+//: - allocation を[持/も]たない空 buffer と、free obligation を[持/も]つ byte 領域を enum として[分/わ]けます。
+//: - 空状態を zero-size `RegionToken` sentinel で[表/あらわ]さず、`match` の[網羅性/もうらせい]で cleanup の有無を[決/き]めます。
+//: - `Owned` payload だけが storage owner token を[保持/ほじ]するため、空 buffer と owner token の不正な組み合わせを source type で[表現/ひょうげん]できません。
+pub enum ByteBufStorage:
+    Empty
+    Owned <RegionToken<u8>>
+
 //: ## ByteBuf
 //: [連続/れんぞく]した raw byte buffer を[所有/しょゆう]する handle
 //:
@@ -57,19 +68,15 @@
 //: - `Vec<u8>` の[内部表現/ないぶひょうげん]に[依存/いそん]せず、binary I/O の[媒体/ばいたい]を[明示的/めいじてき]に[表/あらわ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - `region` は storage owner token です。`len` が正のときだけ `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。
-//: - 空 buffer は `len=0` の zero-length sentinel token で表し、free 時に allocator へ返しません。
+//: - `storage` は `ByteBufStorage::Empty` または `ByteBufStorage::Owned(region)` です。
+//: - `len` が正のときだけ `Owned(region)` が `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。空 buffer は owner payload を[持/も]ちません。
 //: - [使/つか]い[終/お]わったら `io_bytebuf_free` で[解放/かいほう]してください。
 pub struct ByteBuf:
-    region <RegionToken<u8>>
+    storage <ByteBufStorage>
     len <i32>
 
-fn io_bytebuf_empty_region <()->RegionToken<u8>> ():
-    let ptr <MemPtr<u8>> mem_ptr_wrap 0
-    region_new ptr 0
-
 pub fn io_bytebuf_empty <()->ByteBuf> ():
-    ByteBuf io_bytebuf_empty_region 0
+    ByteBuf ByteBufStorage::Empty 0
 
 pub fn io_bytebuf_len <(&ByteBuf)->i32> (buf):
     *get_ref buf "len"
@@ -78,17 +85,26 @@ pub fn io_bytebuf_len_ref <(&ByteBuf)->i32> (buf):
     *get_ref buf "len"
 
 pub fn io_bytebuf_data_ptr_ref <(&ByteBuf)->MemPtr<u8>> (buf):
-    let region_ref <&RegionToken<u8>> get_ref buf "region"
-    region_ptr region_ref
+    let storage_ref <&ByteBufStorage> get_ref buf "storage"
+    match storage_ref:
+        ByteBufStorage::Empty:
+            mem_ptr_wrap 0
+        ByteBufStorage::Owned region:
+            region_ptr region
 
 pub fn io_bytebuf_ptr_ref <(&ByteBuf)->Option<MemPtr<u8>>> (buf):
     let byte_len <i32> *get_ref buf "len"
-    if:
-        le byte_len 0
-        then:
+    let storage_ref <&ByteBufStorage> get_ref buf "storage"
+    match storage_ref:
+        ByteBufStorage::Empty:
             none<MemPtr<u8>>
-        else:
-            some<MemPtr<u8>> io_bytebuf_data_ptr_ref buf
+        ByteBufStorage::Owned _region:
+            if:
+                le byte_len 0
+                then:
+                    none<MemPtr<u8>>
+                else:
+                    some<MemPtr<u8>> io_bytebuf_data_ptr_ref buf
 
 pub fn io_bytebuf_storage_size <(i32)->i32> (byte_len):
     if:
@@ -108,11 +124,15 @@ pub fn io_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (buf, idx):
             load_u8 mem_ptr_add io_bytebuf_data_ptr_ref buf idx
 
 pub fn io_bytebuf_free <(ByteBuf)->()> (buf):
-    match dealloc_region<u8> get buf "region":
-        Result::Ok _:
+    match get buf "storage":
+        ByteBufStorage::Empty:
             ()
-        Result::Err _e:
-            ()
+        ByteBufStorage::Owned region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
 
 //: io_bytebuf_alloc_region: `ByteBuf` 用の byte 領域を確保する
 //:
@@ -162,7 +182,8 @@ pub fn io_bytebuf_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
 //: - `RegionToken` が持つ領域所有権を、公開 I/O buffer 型の `ByteBuf` へ移します。
 //:
 //: [実装/じっそう]:
-//: - token の基底 pointer を取り出し、同じ byte length とともに `ByteBuf` を構築します。
+//: - byte length が正なら token を `ByteBufStorage::Owned` payload として `ByteBuf` へ移します。
+//: - byte length が 0 以下なら受け取った token を解放し、owner payload を持たない `io_bytebuf_empty` に正規化します。
 //:
 //: [注意/ちゅうい]:
 //: - 呼び出し後は token を再利用しません。
@@ -180,7 +201,7 @@ pub fn io_bytebuf_finish_region <(RegionToken<u8>,i32)->ByteBuf> (region, byte_l
                 Result::Err _e:
                     io_bytebuf_empty
         else:
-            ByteBuf region byte_len
+            ByteBuf (ByteBufStorage::Owned region) byte_len
 
 //: io_bytebuf_from_str_result: `str` を `ByteBuf` へ複製する
 //:

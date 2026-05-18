@@ -1,14 +1,14 @@
 ---
 id: ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2
 title: "ByteBuf empty/non-empty ownership invariant lacks explicit structural representation"
-area: core
+area: stdlib
 status: fixed
 resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
-updated: 2026-04-29
-target: "stdlib/alloc/io.nepl, stdlib/core/mem.nepl, doc/neplg2/static_check_complexity_reduction_plan.md"
+updated: 2026-05-18
+target: "stdlib/alloc/io/bytebuf.nepl, nodesrc/test_stdlib_io_bytebuf_owner_boundary.js, tests/stdlib/memory_safety.n.md, doc/neplg2/static_check_complexity_reduction_plan.md, doc/neplg2/stdlib_collection_mem_string_static_safety_design.md"
 ---
 
 # ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2: ByteBuf empty/non-empty ownership invariant lacks explicit structural representation
@@ -40,22 +40,32 @@ ByteBuf-producing APIs such as io_bytebuf_from_str_result, stdio_finish_read_buf
 
 Decide the representation boundary instead of adding local exceptions. Preferred direction is to represent ByteBuf as an enum with an owning non-empty payload and an empty no-owner variant, or introduce an explicit `OwnedBytes`/`Storage` wrapper whose free obligation is structurally separate from non-owning `MemPtr`. Update `io_bytebuf_free` and all ByteBuf constructors to match the chosen model, then simplify any Resource IR special handling that becomes unnecessary.
 
+## 2026-05-18 再確認
+
+この issue は過去に fixed になっていたが、実装は `ByteBuf.region: RegionToken<u8>` と `len` の組み合わせへ移っただけで、空 storage を `io_bytebuf_empty_region` の zero-size `RegionToken` sentinel として残していた。`MemPtr` owner field は消えていたものの、空 buffer と owner payload の有無はまだ型ではなく helper 規約に残っていたため、本 issue の「explicit structural representation」という完了条件は満たしていなかった。
+
+今回の修正では `ByteBufStorage::Empty | Owned(RegionToken<u8>)` を導入し、空 storage は owner payload を持たない enum variant、非空 storage は `Owned` payload の owner tokenとして表す。これにより `io_bytebuf_free` と `io_bytebuf_data_ptr_ref` は `match` の網羅性で状態を分岐し、空 buffer cleanup に sentinel token を渡さない設計へ移った。
+
 ## 修正内容
 
-- `ByteBuf.ptr` を `MemPtr<u8>` から `Option<MemPtr<u8>>` へ変更し、空 buffer を `None`、所有領域を持つ buffer を `Some(ptr)` として型に現れる形へ移行した。
-- `io_bytebuf_empty` / `io_bytebuf_from_owned_ptr` / `io_bytebuf_free` / `io_bytebuf_byte_at` / `io_bytebuf_to_str_result` を `match Option` に基づく実装へ変更し、null pointer を所有 field として扱わない設計にした。
-- `io_bytebuf_alloc_region` / `io_bytebuf_region_ptr` / `io_bytebuf_finish_region` を追加し、文字列から ByteBuf への変換では確定前 owner を `RegionToken<u8>` に集約してから `ByteBuf` へ移すようにした。
-- `std/stdio` / `std/fs` / `std/text` / `std/streamio` と関連 doctest の direct `ByteBuf ptr len` construction / direct `ptr` field read を public helper 経由へ移した。
-- `fs_finish_read_buffer` は 0 byte 読み取り時に scratch buffer を解放して `io_bytebuf_empty` を返し、空 ByteBuf が隠れた owner を持たないことを保証した。
-- `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` を追加し、構造表現と変換境界が裸 pointer 表現へ戻らないよう固定した。
+- `ByteBufStorage` enum を追加し、`Empty` と `Owned(RegionToken<u8>)` を構造的に分けた。
+- `ByteBuf` は `storage <ByteBufStorage>` と `len` を持つ形に変更し、`region + len` の loose invariant をやめた。
+- `io_bytebuf_empty_region` を削除し、`io_bytebuf_empty` は `ByteBufStorage::Empty` を直接使うようにした。
+- `io_bytebuf_data_ptr_ref` / `io_bytebuf_ptr_ref` / `io_bytebuf_free` は `ByteBufStorage` を `match` し、`Owned` branch だけで `RegionToken` payload を借用または消費する。
+- `io_bytebuf_finish_region` は `byte_len <= 0` で受け取った region を解放して `io_bytebuf_empty` へ正規化し、正の長さだけ `ByteBufStorage::Owned(region)` を返す。
+- source policy を更新し、`ByteBufStorage`、`io_bytebuf_empty` の structural empty state、`io_bytebuf_data_ptr_ref` の storage match、empty sentinel helper / zero-size `region_new` の禁止を固定した。
+- memory-safety doctest と Stage 6 設計文書を更新し、ByteBuf の empty sentinel が残っていないこと、通常 source から `ByteBuf` direct constructor / `storage` field projection を使えないことを明記した。
 
 ## 検証
 
-- `trunk build`: pass
 - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: pass
-- `node nodesrc/test_stdlib_streamio_writer_boundary.js`: pass
-- `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: pass
-- `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/alloc-io-bytebuf-owner-after-trunk.json -j 1 --dist web/dist`: total=1, passed=1
-- `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-result-owner-after-test-cleanup.json -j 1 --dist web/dist`: total=6, passed=6
-- `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-after-read-helper-cleanup.json -j 1 --dist web/dist`: total=14, passed=14
-- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view -- --nocapture`: pass
+- `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: pass
+- `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuf-storage-state.json -j 1 --dist web/dist --assert-io`: pass
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-bytebuf-storage-state-memory-safety.json -j 1 --dist web/dist --assert-io`: total=54, passed=54
+- `node nodesrc/issues.js check --dir issues`: pass
+- `git diff --check`: pass
+
+## 切り分け済み
+
+- `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-bytebuf-storage-state-builder-text.json -j 1 --dist web/dist --assert-io`: `text_utf8` 9 件、`byte_builder` doctest#1/#3 は pass。`byte_builder.n.md::doctest#2` は default 60000ms compile timeout。
+- 同じ `byte_builder.n.md::doctest#2` timeout は `origin/main` worktree でも再現するため、今回の `ByteBufStorage` 変更による退行ではない。`ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D` として compiler/static-check performance issue に分離した。

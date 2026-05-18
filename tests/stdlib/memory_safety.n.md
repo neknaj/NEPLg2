@@ -1119,7 +1119,7 @@ fn main <()->RegionToken<u8>> ():
     byte_builder_empty_region
 ```
 
-## ByteBuf の empty RegionToken sentinel helper は公開しない
+## ByteBuf の empty RegionToken sentinel helper は存在しない
 
 neplg2:test[compile_fail]
 diag_code: resolve.identifier.undefined
@@ -1133,6 +1133,40 @@ diag_code: resolve.identifier.undefined
 
 fn main <()->RegionToken<u8>> ():
     io_bytebuf_empty_region
+```
+
+## ByteBuf の直 constructor は通常 source から使えない
+
+neplg2:test[compile_fail]
+diag_code: type.owner_aggregate.constructor_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io/bytebuf" as *
+
+fn main <()*>i32> ():
+    let _buf <ByteBuf> ByteBuf ByteBufStorage::Empty 0
+    0
+```
+
+## ByteBuf の storage field は通常 source から投影できない
+
+neplg2:test[compile_fail]
+diag_code: type.owner_aggregate.field_access_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io/bytebuf" as *
+#import "core/field" as field
+
+fn main <()*>i32> ():
+    let buf <ByteBuf> io_bytebuf_empty
+    let _storage <&ByteBufStorage> field::get_ref &buf "storage"
+    0
 ```
 
 ## string storage の MemPtr 確定 helper は公開しない

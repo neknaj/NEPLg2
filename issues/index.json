@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T08:24:47.241Z",
+  "generated_at": "2026-05-18T08:58:13.228Z",
   "counts": {
-    "total": 989,
-    "open": 5,
+    "total": 990,
+    "open": 6,
     "resolved": 984,
     "by_area": {
+      "core": {
+        "total": 503,
+        "open": 1,
+        "resolved": 502
+      },
       "stdlib": {
-        "total": 269,
+        "total": 270,
         "open": 3,
-        "resolved": 266
+        "resolved": 267
       },
       "TEST": {
         "total": 41,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 503,
-        "open": 0,
-        "resolved": 503
       },
       "CORE": {
         "total": 4,
@@ -129,6 +129,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D",
+      "title": "ByteBuilder LEB128 doctest exceeds default static-check timeout",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/byte_builder.n.md, nepl-core/src",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -3188,21 +3203,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE.md"
-    },
-    {
-      "id": "ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2",
-      "title": "ByteBuf empty/non-empty ownership invariant lacks explicit structural representation",
-      "area": "core",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/io.nepl, stdlib/core/mem.nepl, doc/neplg2/static_check_complexity_reduction_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2.md"
     },
     {
       "id": "ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E",
@@ -9623,6 +9623,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE.md"
+    },
+    {
+      "id": "ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2",
+      "title": "ByteBuf empty/non-empty ownership invariant lacks explicit structural representation",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/io/bytebuf.nepl, nodesrc/test_stdlib_io_bytebuf_owner_boundary.js, tests/stdlib/memory_safety.n.md, doc/neplg2/static_check_complexity_reduction_plan.md, doc/neplg2/stdlib_collection_mem_string_static_safety_design.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2.md"
     },
     {
       "id": "ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB",

@@ -78,8 +78,32 @@ assert.doesNotMatch(
 
 assert.match(
     code,
-    /struct\s+ByteBuf:\s+region\s+<RegionToken<u8>>\s+len\s+<i32>/,
-    'ByteBuf must store byte ownership in a RegionToken field',
+    /enum\s+ByteBufStorage:\s+Empty\s+Owned\s+<RegionToken<u8>>/,
+    'ByteBuf storage state must distinguish empty storage from owned RegionToken payload structurally',
+);
+
+assert.match(
+    code,
+    /struct\s+ByteBuf:\s+storage\s+<ByteBufStorage>\s+len\s+<i32>/,
+    'ByteBuf must store byte ownership in ByteBufStorage instead of a loose RegionToken/len pair',
+);
+
+assert.doesNotMatch(
+    code,
+    /\bfn\s+io_bytebuf_empty_region\b/,
+    'ByteBuf must not encode empty storage with a zero-size RegionToken sentinel helper',
+);
+
+assert.doesNotMatch(
+    code,
+    /\bregion_new\s+ptr\s+0\b/,
+    'ByteBuf empty storage must not forge a zero-size RegionToken sentinel',
+);
+
+assert.match(
+    code,
+    /\bpub\s+fn\s+io_bytebuf_empty\s+<\(\)->ByteBuf>\s+\(\):\s+ByteBuf\s+ByteBufStorage::Empty\s+0\b/,
+    'ByteBuf typed empty constructor must use the structural empty storage state',
 );
 
 assert.doesNotMatch(
@@ -120,8 +144,8 @@ assert.doesNotMatch(
 
 assert.match(
     code,
-    /\bfn\s+io_bytebuf_data_ptr_ref\s+<\(&ByteBuf\)->MemPtr<u8>>/,
-    'ByteBuf public raw-byte access must borrow the owner and return a non-owning pointer view',
+    /\bfn\s+io_bytebuf_data_ptr_ref\s+<\(&ByteBuf\)->MemPtr<u8>>[\s\S]*?\bmatch\s+storage_ref:[\s\S]*?\bByteBufStorage::Empty:[\s\S]*?\bmem_ptr_wrap\s+0[\s\S]*?\bByteBufStorage::Owned\s+region:[\s\S]*?\bregion_ptr\s+region\b/,
+    'ByteBuf public raw-byte access must match storage state and borrow owned RegionToken payload only in the Owned branch',
 );
 
 assert.match(
@@ -173,7 +197,7 @@ assert.doesNotMatch(
 assert.doesNotMatch(
     code,
     /\bByteBuf\s+mem_ptr_wrap\b/,
-    'ByteBuf construction must not inline null raw pointer ownership outside the empty-region helper',
+    'ByteBuf construction must not inline null raw pointer ownership',
 );
 
 assert.doesNotMatch(

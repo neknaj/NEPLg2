@@ -41569,3 +41569,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`: passed
   - `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree -o tmp/agent1-sha256-owner-aggregate-boundary-hash.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-sha256-owner-aggregate-boundary-memory-safety.json -j 1 --dist web/dist --assert-io`: total=52, passed=52
+
+## 2026-05-18 Agent 1 ByteBuf empty storage 構造化
+
+- `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` を再確認し、過去の fixed 内容が実装実態とずれていることを修正した。`plan.md` は変更していない。
+- 根本原因は、`ByteBuf` が `RegionToken<u8>` と `len` の組み合わせで storage state を表し、空 buffer を `io_bytebuf_empty_region` の zero-size `RegionToken` sentinel に依存していたことだった。これでは「空なら free obligation なし、非空なら owner payload あり」という性質が型ではなく helper 規約に残る。
+- `ByteBufStorage::Empty | Owned(RegionToken<u8>)` を導入し、`ByteBuf.storage` によって empty storage と owned storage を構造的に分けた。`io_bytebuf_empty_region` は削除し、`io_bytebuf_free` / `io_bytebuf_data_ptr_ref` / `io_bytebuf_ptr_ref` / `io_bytebuf_finish_region` は `match` で状態を分岐する。
+- source policy は `ByteBufStorage`、structural empty constructor、empty sentinel helper / `region_new ptr 0` の禁止、`io_bytebuf_data_ptr_ref` の storage match を固定するよう更新した。
+- `tests/stdlib/memory_safety.n.md` には、通常 source が `ByteBuf` の直 constructor や `storage` field projection を使えない regression も追加した。
+- 補足として、`tests/stdlib/byte_builder.n.md::doctest#2` が default 60000ms compile timeout になる問題を `origin/main` でも確認した。今回の `ByteBufStorage` 退行ではないため、`ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D` として分離した。
+- focused verification:
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: passed
+  - `node nodesrc/source_policy/stdlib_builder_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuf-storage-state.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-bytebuf-storage-state-memory-safety.json -j 1 --dist web/dist --assert-io`: total=54, passed=54
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+- 切り分け済み:
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-bytebuf-storage-state-builder-text.json -j 1 --dist web/dist --assert-io`: total=12, passed=11, errored=1。失敗は `byte_builder.n.md::doctest#2` compile timeout。
+  - `origin/main` worktree での `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/baseline-byte-builder.json -j 1 --dist C:\neknaj\neplg2_1\web\dist --assert-io`: total=3, passed=2, errored=1。同じ doctest#2 timeout。

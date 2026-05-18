@@ -320,6 +320,12 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 
 今回の修正では、zero-size `RegionToken<u8>` sentinel helper を private にし、公開 API を `byte_builder_empty -> ByteBuilder` / `io_bytebuf_empty -> ByteBuf` に限定した。これは `Vec` の `vec_empty_region<T>` private 化と同じ方針であり、transitional owner-token sentinel を safe public surface に出さないための Stage 6 前進である。
 
+## 2026-05-18 Agent 1 ByteBuf structural empty storage 追記
+
+`ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` で、`ByteBuf` の empty storage を private sentinel helper から完全に外し、`ByteBufStorage::Empty | Owned(RegionToken<u8>)` へ移した。
+
+これにより `ByteBuf` は空状態で free obligation owner payload を持たず、`io_bytebuf_free` / `io_bytebuf_data_ptr_ref` は enum `match` の網羅性で empty branch と owned branch を分ける。`ByteBuilder` 側にはまだ empty `RegionToken` sentinel が残るため、byte buffer 全体の最終形は `ByteBuilderStorage` または `OwnedBytes` / compiler-issued owner token への後続移行としてこの親 issue で継続する。
+
 同じ focused verification で、`std/fs/dir/read_fd.nepl` が削除済みの `Vec.data` field と `Vec<str>` raw storage sort に依存していることを確認した。これは別 issue `ISS-20260514T172450328Z-FS-DIR-READER-STILL-DEPENDS-ON-RAW-V-05400C14` として記録し、この親 issue の raw-memory-backed stdlib API migration 残件として継続する。
 
 ## 2026-05-15 Agent 1 fs dir reader Vec boundary 追記
