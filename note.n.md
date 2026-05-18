@@ -41298,3 +41298,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 6 --dist web/dist`: passed
   - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/agent1-intrinsic-raw-boundary-fixtures.json -j 1 --dist web/dist`: total=8, passed=8
   - `cargo test -p nepl-core --test intrinsic -- --nocapture`: 4 passed
+
+## 2026-05-18 Agent 1 Resource IR returned raw slot alias summary 修正
+
+- `ISS-20260518T013143510Z-RESOURCE-IR-RAW-IDENTITY-ESCAPE-MISS-DB101F7A` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の raw pointer return summary が `MemPtr<T>` などの compiler memory pointer 型だけを carrier と見なし、plain `i32` で表される raw slot pointer を helper が返す経路を落としていたことだった。direct parameter slot / local alias / helper 内 store-load は検出できていたため、raw identity table ではなく関数戻り値 alias summary の型フィルタが問題だった。
+- 修正後は `type_can_carry_raw_pointer_alias_summary` を導入し、`TypeKind::I32`、type variable、aggregate / reference / box 内の carrier を typed match で扱う。summary は Resource IR dataflow が実際に証明した alias fact だけを伝搬するため、stdlib 名や helper 名の allowlist ではない。
+- focused verification:
+  - `cargo test -p nepl-core raw_pointer_type -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core returned_i32_slot_alias -- --nocapture`: 2 passed
+  - `trunk build`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 13 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 14 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 15 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 16 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 17 --dist web/dist`: passed

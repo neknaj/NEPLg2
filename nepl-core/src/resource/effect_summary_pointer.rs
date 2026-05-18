@@ -15,7 +15,7 @@ use super::effect_summary_seed::parameter_summary_seed_places;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
-use super::raw_pointer_type::type_can_seed_non_owning_raw_pointer_alias;
+use super::raw_pointer_type::type_can_carry_raw_pointer_alias_summary;
 use super::summary_worklist::SummaryWorklist;
 use crate::types::TypeCtx;
 
@@ -52,8 +52,7 @@ fn function_raw_pointer_return_summary(
     summary_index: &RawPointerReturnSummaryIndex<'_>,
     types: Option<&TypeCtx>,
 ) -> RawPointerReturnSummary {
-    if types
-        .is_some_and(|types| !type_can_seed_non_owning_raw_pointer_alias(types, function.result))
+    if types.is_some_and(|types| !type_can_carry_raw_pointer_alias_summary(types, function.result))
     {
         return RawPointerReturnSummary {
             function: function.name.clone(),

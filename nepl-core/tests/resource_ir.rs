@@ -1814,6 +1814,242 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_returned_slot_alias
 }
 
 #[test]
+fn typed_resource_ir_effect_check_reports_raw_alloc_escape_through_returned_i32_slot_alias() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let id_param = Place::local("slot".to_string(), i32_ty);
+    let main_slot = Place::local("slot".to_string(), i32_ty);
+    let alias = Place::temporary(ResourceId(0), i32_ty);
+    let size = Place::temporary(ResourceId(1), i32_ty);
+    let raw = Place::temporary(ResourceId(2), i32_ty);
+    let loaded = Place::temporary(ResourceId(3), i32_ty);
+    let module = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "slot_id".to_string(),
+                origin_name: "slot_id".to_string(),
+                params: vec![ResourceLocal {
+                    name: "slot".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: id_param.clone(),
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(id_param),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                params: vec![ResourceLocal {
+                    name: "slot".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: main_slot.clone(),
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Call {
+                            output: alias.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "slot_id".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![main_slot.clone()],
+                            effect: EffectOp::UserCall {
+                                name: "slot_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: size.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: raw.clone(),
+                            args: vec![size],
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Store,
+                            output: Place::temporary(ResourceId(4), unit_ty),
+                            args: vec![alias, raw],
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Load,
+                            output: loaded.clone(),
+                            args: vec![main_slot],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(loaded),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries_typed(&module, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn typed_resource_ir_effect_check_reports_raw_alloc_escape_through_indirect_returned_i32_slot_alias(
+) {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let fn_ty = types.function(vec![], vec![i32_ty], i32_ty, Effect::Pure);
+    let span = Span::dummy();
+    let id_param = Place::local("slot".to_string(), i32_ty);
+    let main_slot = Place::local("slot".to_string(), i32_ty);
+    let callee = Place::temporary(ResourceId(0), fn_ty);
+    let alias = Place::temporary(ResourceId(1), i32_ty);
+    let size = Place::temporary(ResourceId(2), i32_ty);
+    let raw = Place::temporary(ResourceId(3), i32_ty);
+    let loaded = Place::temporary(ResourceId(4), i32_ty);
+    let module = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "slot_id".to_string(),
+                origin_name: "slot_id".to_string(),
+                params: vec![ResourceLocal {
+                    name: "slot".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: id_param.clone(),
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(id_param),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                params: vec![ResourceLocal {
+                    name: "slot".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: main_slot.clone(),
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::FunctionValue {
+                            output: callee.clone(),
+                            name: "slot_id".to_string(),
+                            effect: EffectOp::UserCall {
+                                name: "slot_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::IndirectCall {
+                            output: alias.clone(),
+                            callee,
+                            params: vec![i32_ty],
+                            result: i32_ty,
+                            args: vec![main_slot.clone()],
+                            effect: EffectOp::IndirectCall {
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: size.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: raw.clone(),
+                            args: vec![size],
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Store,
+                            output: Place::temporary(ResourceId(5), unit_ty),
+                            args: vec![alias, raw],
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Load,
+                            output: loaded.clone(),
+                            args: vec![main_slot],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(loaded),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries_typed(&module, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_raw_alloc_escape_wrapped_in_struct() {
     let i32_ty = TypeId(1);
     let box_ty = TypeId(2);

@@ -5,11 +5,11 @@ use crate::layout::{extend_type_mapping, mapped_type_id};
 use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-pub(super) fn type_can_seed_non_owning_raw_pointer_alias(types: &TypeCtx, ty: TypeId) -> bool {
-    type_can_seed_non_owning_raw_pointer_alias_mapped(types, ty, &BTreeMap::new(), &mut Vec::new())
+pub(super) fn type_can_carry_raw_pointer_alias_summary(types: &TypeCtx, ty: TypeId) -> bool {
+    type_can_carry_raw_pointer_alias_mapped(types, ty, &BTreeMap::new(), &mut Vec::new())
 }
 
-fn type_can_seed_non_owning_raw_pointer_alias_mapped(
+fn type_can_carry_raw_pointer_alias_mapped(
     types: &TypeCtx,
     ty: TypeId,
     mapping: &BTreeMap<TypeId, TypeId>,
@@ -24,17 +24,18 @@ fn type_can_seed_non_owning_raw_pointer_alias_mapped(
     }
     seen.push(resolved);
     let result = match types.get_ref(resolved) {
-        TypeKind::Struct { fields, .. } => fields.iter().any(|field| {
-            type_can_seed_non_owning_raw_pointer_alias_mapped(types, *field, mapping, seen)
-        }),
+        TypeKind::I32 => true,
+        TypeKind::Struct { fields, .. } => fields
+            .iter()
+            .any(|field| type_can_carry_raw_pointer_alias_mapped(types, *field, mapping, seen)),
         TypeKind::Enum { variants, .. } => variants.iter().any(|variant| {
             variant.payload.is_some_and(|payload| {
-                type_can_seed_non_owning_raw_pointer_alias_mapped(types, payload, mapping, seen)
+                type_can_carry_raw_pointer_alias_mapped(types, payload, mapping, seen)
             })
         }),
-        TypeKind::Tuple { items } => items.iter().any(|item| {
-            type_can_seed_non_owning_raw_pointer_alias_mapped(types, *item, mapping, seen)
-        }),
+        TypeKind::Tuple { items } => items
+            .iter()
+            .any(|item| type_can_carry_raw_pointer_alias_mapped(types, *item, mapping, seen)),
         TypeKind::Apply { base, args } => {
             let base = types.resolve_named_type_id(*base);
             match types.get_ref(base) {
@@ -45,7 +46,7 @@ fn type_can_seed_non_owning_raw_pointer_alias_mapped(
                 } => {
                     let nested_mapping = extend_type_mapping(types, mapping, type_params, args);
                     fields.iter().any(|field| {
-                        type_can_seed_non_owning_raw_pointer_alias_mapped(
+                        type_can_carry_raw_pointer_alias_mapped(
                             types,
                             *field,
                             &nested_mapping,
@@ -61,7 +62,7 @@ fn type_can_seed_non_owning_raw_pointer_alias_mapped(
                     let nested_mapping = extend_type_mapping(types, mapping, type_params, args);
                     variants.iter().any(|variant| {
                         variant.payload.is_some_and(|payload| {
-                            type_can_seed_non_owning_raw_pointer_alias_mapped(
+                            type_can_carry_raw_pointer_alias_mapped(
                                 types,
                                 payload,
                                 &nested_mapping,
@@ -71,30 +72,66 @@ fn type_can_seed_non_owning_raw_pointer_alias_mapped(
                     })
                 }
                 TypeKind::Tuple { items } => items.iter().any(|item| {
-                    type_can_seed_non_owning_raw_pointer_alias_mapped(types, *item, mapping, seen)
+                    type_can_carry_raw_pointer_alias_mapped(types, *item, mapping, seen)
                 }),
                 _ => false,
             }
         }
         TypeKind::Reference(target, _) | TypeKind::Box(target) => {
-            type_can_seed_non_owning_raw_pointer_alias_mapped(types, *target, mapping, seen)
+            type_can_carry_raw_pointer_alias_mapped(types, *target, mapping, seen)
         }
         TypeKind::Named(_) => {
             let named = types.resolve_named_type_id(resolved);
             named != resolved
-                && type_can_seed_non_owning_raw_pointer_alias_mapped(types, named, mapping, seen)
+                && type_can_carry_raw_pointer_alias_mapped(types, named, mapping, seen)
         }
+        TypeKind::Var(_) => true,
         TypeKind::Unit
-        | TypeKind::I32
         | TypeKind::U8
         | TypeKind::F32
         | TypeKind::Bool
         | TypeKind::Char
         | TypeKind::Str
         | TypeKind::Never
-        | TypeKind::Function { .. }
-        | TypeKind::Var(_) => false,
+        | TypeKind::Function { .. } => false,
     };
     seen.pop();
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+    use alloc::vec;
+
+    #[test]
+    fn summary_carrier_includes_plain_i32_raw_address_slots() {
+        let types = TypeCtx::new();
+
+        assert!(type_can_carry_raw_pointer_alias_summary(
+            &types,
+            types.i32()
+        ));
+    }
+
+    #[test]
+    fn summary_carrier_recurses_through_aggregates() {
+        let mut types = TypeCtx::new();
+        let i32_ty = types.i32();
+        let wrapped_i32 = types.register_named(
+            "RawAddressBox".to_string(),
+            TypeKind::Struct {
+                name: "RawAddressBox".to_string(),
+                type_params: vec![],
+                fields: vec![i32_ty],
+                field_names: vec!["raw".to_string()],
+            },
+        );
+
+        assert!(type_can_carry_raw_pointer_alias_summary(
+            &types,
+            wrapped_i32
+        ));
+    }
 }

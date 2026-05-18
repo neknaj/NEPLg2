@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T01:28:16.900Z",
+  "generated_at": "2026-05-18T01:47:39.268Z",
   "counts": {
-    "total": 972,
+    "total": 973,
     "open": 5,
-    "resolved": 967,
+    "resolved": 968,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 498,
+        "total": 499,
         "open": 0,
-        "resolved": 498
+        "resolved": 499
       },
       "CORE": {
         "total": 4,
@@ -7613,6 +7613,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T012520895Z-COMPILER-INTRINSIC-DOCTESTS-STILL-AS-4AD0DA0D.md"
+    },
+    {
+      "id": "ISS-20260518T013143510Z-RESOURCE-IR-RAW-IDENTITY-ESCAPE-MISS-DB101F7A",
+      "title": "Resource IR raw identity escape misses returned raw slot aliases",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/raw_pointer_type.rs, nepl-core/src/resource/effect_summary_pointer.rs, nepl-core/src/resource/effect_summary_pointer_seed.rs, nepl-core/tests/resource_ir.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T013143510Z-RESOURCE-IR-RAW-IDENTITY-ESCAPE-MISS-DB101F7A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
