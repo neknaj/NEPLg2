@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T22:45:33.534Z",
+  "generated_at": "2026-05-18T22:53:35.087Z",
   "counts": {
-    "total": 1023,
+    "total": 1024,
     "open": 5,
-    "resolved": 1018,
+    "resolved": 1019,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 45,
+        "total": 46,
         "open": 1,
-        "resolved": 44
+        "resolved": 45
       },
       "selfhost": {
         "total": 72,
@@ -12983,6 +12983,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T224250390Z-NEPLG2-TEXT-DOCTESTS-STILL-USE-RET-M-82850ECD.md"
+    },
+    {
+      "id": "ISS-20260518T224806912Z-SELFHOST-CLI-FILE-IO-DOCTESTS-HIDE-S-3BA5E109",
+      "title": "selfhost cli file_io doctests hide reports behind ret metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/selfhost_cli_file_io.n.md, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T224806912Z-SELFHOST-CLI-FILE-IO-DOCTESTS-HIDE-S-3BA5E109.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

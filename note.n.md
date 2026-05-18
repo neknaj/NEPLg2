@@ -42081,3 +42081,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_selfhost_source_text_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/agent1-neplg2-text-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+
+## 2026-05-18 Agent 1 selfhost_cli_file_io stdout report metadata 移行
+
+- `ISS-20260518T224806912Z-SELFHOST-CLI-FILE-IO-DOCTESTS-HIDE-S-3BA5E109` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/selfhost_cli_file_io.n.md` が root source read / missing source diagnostic / text artifact / binary artifact の file I/O 要件を `ret:` または `checks_exit_code checks` だけで表し、stdout fixture に成功時の観測結果を残していなかったことだった。
+- 4 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。root source read は `file_count == 1` を `std/test::Checks` report にし、他の3件は `checks_print_report` -> `checks_exit_code` の順序へ直した。
+- `nodesrc/test_selfhost_cli_file_io_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_selfhost_cli_file_io_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/agent1-selfhost-cli-file-io-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4

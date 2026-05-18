@@ -1492,3 +1492,22 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/agent1-neplg2-text-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
 
 この issue はまだ open のまま継続する。`neplg2_text` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 selfhost_cli_file_io stdout report metadata migration
+
+`ISS-20260518T224806912Z-SELFHOST-CLI-FILE-IO-DOCTESTS-HIDE-S-3BA5E109` として、`tests/stdlib/selfhost_cli_file_io.n.md` の 4 doctest を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- root source read、missing source diagnostic、text artifact write、binary artifact write の file I/O 観測結果を `std/test::Checks` の stdout report として fixture に固定した。
+- root source read case は numeric status だけでなく `file_count == 1` の assertion report を出すようにした。
+- 既存の diagnostic / artifact case は `checks_print_report` の結果を `checks_exit_code` に渡す形へ変更した。
+- `nodesrc/test_selfhost_cli_file_io_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_selfhost_cli_file_io_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/agent1-selfhost-cli-file-io-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+
+この issue はまだ open のまま継続する。`selfhost_cli_file_io` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
