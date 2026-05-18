@@ -256,6 +256,14 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 
 これは `RegionToken<T>` の forgeability 本体を閉じる修正ではないため、この親 issue は open のまま継続する。Stage 6 の残件は引き続き compiler-issued owner token / `OwnedBuffer<T>` / initialized prefix / collection drop traversal である。
 
+## 2026-05-18 Agent 1 Vec doctest raw address observer fixture 追記
+
+`ISS-20260518T195527913Z-VEC-DOCTEST-RAW-ADDRESS-OBSERVATI-6CAB0F41` で、通常の `Vec` doctest と `data_mem_ptr` 使用例が `core/mem/internal` / `mem_ptr_addr` によって raw backing address を観測していた問題を修正した。
+
+この変更は `data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` を final safe API として承認するものではない。現行 Stage 6 では `data_mem_ptr` は Copy payload に限定された typed non-owning view observer であり、通常の public behavior test は raw address positivity ではなく `with_capacity` / `is_empty` / `push` / `get` / `free` で検証する。
+
+source policy は `stdlib/tests/vec.n.md` と `data_mem_ptr` の usage doctest に raw address observer が戻らないことを監視する。raw-memory-boundary の正当性は stdlib test fixture の internal import ではなく、compiler の source proof と typed Resource IR によって検査する。
+
 ## 2026-05-15 Agent 1 owner aggregate constructor capability 名称化追記
 
 `ISS-20260515T020307026Z-OWNER-AGGREGATE-CONSTRUCTOR-CAPABILI-91ECE78D` で、owner aggregate constructor capability が file-wide bool として過大付与されていた問題を修正した。

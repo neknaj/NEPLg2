@@ -41964,3 +41964,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/pipe_collections.n.md -i tests/stdlib/traits_hash.n.md -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/agent1-hash-update-error-affected-no-selfhost.json -j 1 --dist web/dist --assert-io`: total=25, passed=25
   - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap/types.nepl -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/alloc/collections/hashmap/rehash.nepl -i stdlib/alloc/collections/hashset/types.nepl -i stdlib/alloc/collections/hashset/api.nepl -i stdlib/alloc/collections/hashset/rehash.nepl --no-tree -o tmp/agent1-hash-update-error-modules.json -j 1 --dist web/dist --assert-io`: total=29, passed=29
   - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-hash-update-error.json -j 1 --dist web/dist --assert-io`: total=6, passed=5, failed=1。既存の StringBuilder owner leak として別 issue 化。
+
+## 2026-05-18 Agent 1 Vec doctest raw address observer 整理
+
+- `ISS-20260518T195527913Z-VEC-DOCTEST-RAW-ADDRESS-OBSERVATI-6CAB0F41` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Vec.data_mem_ptr` が Stage 6 では typed non-owning view observer であるにもかかわらず、通常の `Vec` doctest と usage example が `core/mem/internal` / `mem_ptr_addr` を使って backing storage の raw address positivity を検証していたことだった。これでは raw-memory-boundary の正当性が compiler の source proof ではなく fixture 側の internal import 慣習へ寄る。
+- `stdlib/tests/vec.n.md` は raw pointer positivity ではなく `with_capacity` が空 Vec を返す public behavior assertion に置き換えた。`data_mem_ptr` の usage doctest は typed `MemPtr<i32>` observer を得ても raw address へ落とさず、`Vec` owner を保持して `free` できる例にした。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に、通常 vec doctest と `data_mem_ptr` usage example が `core/mem/internal` / `mem_ptr_addr` を使わないことを監視する policy を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/agent1-vec-doctest-no-raw-address.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree -o tmp/agent1-vec-data-mem-ptr-doc-no-raw-address.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/issues.js check`: passed

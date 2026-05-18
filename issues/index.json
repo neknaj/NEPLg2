@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T19:41:03.108Z",
+  "generated_at": "2026-05-18T20:01:58.841Z",
   "counts": {
-    "total": 1012,
+    "total": 1013,
     "open": 5,
-    "resolved": 1007,
+    "resolved": 1008,
     "by_area": {
       "stdlib": {
-        "total": 279,
+        "total": 280,
         "open": 3,
-        "resolved": 276
+        "resolved": 277
       },
       "TEST": {
         "total": 42,
@@ -12083,6 +12083,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T180200702Z-HASHMAP-AND-HASHSET-UPDATE-ERRORS-DI-12982990.md"
+    },
+    {
+      "id": "ISS-20260518T195527913Z-VEC-DOCTEST-RAW-ADDRESS-OBSERVATI-6CAB0F41",
+      "title": "Vec doctests observe raw data_mem_ptr address through internal helper",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/tests/vec.n.md, stdlib/alloc/collections/vec/access/data.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T195527913Z-VEC-DOCTEST-RAW-ADDRESS-OBSERVATI-6CAB0F41.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

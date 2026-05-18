@@ -4,7 +4,7 @@
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 status=ok kind=bool label=\"empty is_empty\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"data pointer positive\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"single push len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"triple push len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"get 0\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"replace get 0\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"out of range none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"negative index none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=eq_i32 label=\"u8 get\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"free after vec operations\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 status=ok kind=bool label=\"empty is_empty\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"with_capacity starts empty\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"single push len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"triple push len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"get 0\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"replace get 0\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"out of range none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"negative index none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=eq_i32 label=\"u8 get\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"free after vec operations\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -17,14 +17,12 @@ stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 stat
 #import "core/result" as *
 #import "std/test" as *
 #import "core/field" as *
-#import "core/math" as *
-#import "core/mem/internal" as *
 
 fn main <()*>i32> ():
     let v0_empty <Vec<i32>> unwrap_ok new<i32>;
     let v0_is_empty <bool> is_empty<i32> &v0_empty;
-    let v0_ptr <Vec<i32>> unwrap_ok new<i32>;
-    let v0_ptr_positive <bool> gt mem_ptr_addr data_mem_ptr<i32> &v0_ptr 0;
+    let v0_cap <Vec<i32>> unwrap_ok with_capacity<i32> 2;
+    let v0_cap_starts_empty <bool> is_empty<i32> &v0_cap;
 
     let v2:
         unwrap_ok new<i32>
@@ -101,7 +99,7 @@ fn main <()*>i32> ():
             ()
 
     free<i32> v0_empty;
-    free<i32> v0_ptr;
+    free<i32> v0_cap;
     free<i32> v2;
     free<i32> v6;
     free<i32> g2;
@@ -114,7 +112,7 @@ fn main <()*>i32> ():
     let report:
         test_report_new "vec_main"
         |> test_report_push assert "empty is_empty" v0_is_empty
-        |> test_report_push assert "data pointer positive" v0_ptr_positive
+        |> test_report_push assert "with_capacity starts empty" v0_cap_starts_empty
         |> test_report_push assert_eq_i32 "single push len" 1 v2_len
         |> test_report_push assert_eq_i32 "triple push len" 3 v6_len
         |> test_report_push assert_eq_i32 "get 0" 10 g2_value

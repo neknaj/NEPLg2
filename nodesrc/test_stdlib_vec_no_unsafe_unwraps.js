@@ -159,6 +159,7 @@ const popSection = between(vecCode, 'fn pop ', 'fn clear ');
 const popSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/mutation/pop.nepl'), 'utf8');
 const vecRawElementSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.nepl'), 'utf8');
 const vecAccessDataSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/access/data.nepl'), 'utf8');
+const vecStdlibTestSource = fs.readFileSync(path.join(repoRoot, 'stdlib/tests/vec.n.md'), 'utf8');
 const clearSection = between(vecCode, 'fn clear ', 'fn free ');
 const mapSection = between(vecCode, 'fn map ', 'fn filter ');
 const countSection = between(vecCode, 'fn count ', 'fn fold ');
@@ -170,6 +171,7 @@ const allSection = between(vecCode, 'fn all ', 'fn free ');
 const freeSection = vecCode.slice(vecCode.indexOf('fn free '));
 const ownedBufferSection = between(vecTypesCode, 'pub struct OwnedBuffer<.T>:', 'pub struct Vec<.T>:');
 const vecStructSection = between(vecTypesCode, 'pub struct Vec<.T>:', 'pub struct VecPushError<.T>:');
+const dataMemPtrUsageExample = between(vecAccessDataSource, '//: ### [使用例/しようれい]', '//: neplg2:test[compile_fail]');
 
 assert.doesNotMatch(vecCode, /\bfield::get\s+\w+\s+"(?:len|cap)"/, 'Vec implementation must read Copy len/cap header fields through field::get_ref so owner-consuming helpers do not move them');
 assert.match(withCapacitySection, /fn\s+with_capacity\s+<\.T:\s*Copy>[\s\S]*if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*else:\s+alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must reject negative capacity before allocating owned storage and remain Copy-only');
@@ -226,6 +228,10 @@ assert.doesNotMatch(vecAccessDataCode, /\bfn\s+data_ptr\b/, 'Vec.data_ptr must n
 assert.match(vecAccessDataCode, /fn\s+data_mem_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->MemPtr<\.T>>/, 'Vec.data_mem_ptr must remain Copy-only because it exposes raw storage identity');
 assert.match(vecAccessDataCode, /match\s+v_storage:[\s\S]*VecStorage::Empty:[\s\S]*mem_ptr_wrap\s+0[\s\S]*VecStorage::Owned\s+region:[\s\S]*region_ptr\s+region/, 'Vec.data_mem_ptr must observe the owner-carrying storage enum so lower-level helpers do not become public API');
 assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>/, 'Vec raw data observer must reject non-Copy payloads in doctests');
+assert.doesNotMatch(dataMemPtrUsageExample, /\bcore\/mem\/internal\b|\bmem_ptr_addr\b/, 'Vec.data_mem_ptr usage example must not teach raw address observation through core/mem/internal');
+assert.match(dataMemPtrUsageExample, /\blet\s+_data\s+<MemPtr<i32>>\s+data_mem_ptr<i32>\s+&v[\s\S]*\bfree<i32>\s+v/, 'Vec.data_mem_ptr usage example must show typed observer use while retaining the Vec owner for cleanup');
+assert.doesNotMatch(vecStdlibTestSource, /\bcore\/mem\/internal\b|\bmem_ptr_addr\b|data pointer positive/, 'stdlib/tests/vec.n.md must validate public Vec behavior without observing raw backing addresses');
+assert.match(vecStdlibTestSource, /with_capacity starts empty/, 'stdlib/tests/vec.n.md must cover allocation behavior through public Vec observers');
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
     assert.doesNotMatch(vecRootCode, new RegExp(`\\b${name}\\b`), `Vec root facade must not expose ${name}; import alloc/collections/vec/raw explicitly`);
