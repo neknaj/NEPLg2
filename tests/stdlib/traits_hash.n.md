@@ -161,11 +161,29 @@ fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,Defa
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>>)*>HashMap<i32,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            free hm;
+            #intrinsic "unreachable" <> ()
+
 fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
     match r:
         Result::Ok hm:
             hm
         Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, HashMapUpdateError<str,i32,DefaultHash32>>)*>HashMap<str,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            free hm;
             #intrinsic "unreachable" <> ()
 
 struct ModKey:
@@ -206,6 +224,15 @@ fn must_hmk <(Result<HashMap<ModKey,i32,ModHasher>, Diag>)*>HashMap<ModKey,i32,M
         Result::Ok hm:
             hm
         Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn must_hmk <(Result<HashMap<ModKey,i32,ModHasher>, HashMapUpdateError<ModKey,i32,ModHasher>>)*>HashMap<ModKey,i32,ModHasher>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<ModKey,i32,ModHasher>> hashmap_update_error_owner<ModKey,i32,ModHasher> e;
+            free hm;
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
@@ -265,6 +292,15 @@ neplg2:test
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
     unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
 
+fn must_hs <(Result<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>>)*>HashSet<i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs <HashSet<i32,DefaultHash32>> hashset_update_error_owner<i32,DefaultHash32> e;
+            free hs;
+            #intrinsic "unreachable" <> ()
+
 struct ModKey:
     raw <i32>
 
@@ -300,6 +336,15 @@ impl Hasher<ModKey> for ModHasher:
 
 fn must_hsk <(Result<HashSet<ModKey,ModHasher>, Diag>)*>HashSet<ModKey,ModHasher>> (r):
     unwrap_ok<HashSet<ModKey,ModHasher>, Diag> r
+
+fn must_hsk <(Result<HashSet<ModKey,ModHasher>, HashSetUpdateError<ModKey,ModHasher>>)*>HashSet<ModKey,ModHasher>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs <HashSet<ModKey,ModHasher>> hashset_update_error_owner<ModKey,ModHasher> e;
+            free hs;
+            #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
     let mut checks checks_new;

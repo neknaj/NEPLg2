@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T17:56:04.661Z",
+  "generated_at": "2026-05-18T18:45:01.045Z",
   "counts": {
-    "total": 1010,
-    "open": 5,
-    "resolved": 1005,
+    "total": 1012,
+    "open": 6,
+    "resolved": 1006,
     "by_area": {
       "stdlib": {
-        "total": 278,
-        "open": 3,
-        "resolved": 275
+        "total": 280,
+        "open": 4,
+        "resolved": 276
       },
       "TEST": {
         "total": 42,
@@ -158,6 +158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E",
+      "title": "selfhost_req StringBuilder doctest leaks built string owner",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/selfhost_req.n.md, stdlib/alloc/string/builder/**, stdlib/alloc/io/bytebuilder/**, nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -12053,6 +12068,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T170931495Z-STACK-QUEUE-RINGBUFFER-LIST-PUSH-GRO-88AD5166.md"
+    },
+    {
+      "id": "ISS-20260518T180200702Z-HASHMAP-AND-HASHSET-UPDATE-ERRORS-DI-12982990",
+      "title": "HashMap and HashSet update errors discard consumed owners",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/collections/hashmap/**, stdlib/alloc/collections/hashset/**, nodesrc/test_stdlib_hashmap_storage_contract.js, nodesrc/test_stdlib_hashset_storage_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T180200702Z-HASHMAP-AND-HASHSET-UPDATE-ERRORS-DI-12982990.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

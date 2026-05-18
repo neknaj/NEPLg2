@@ -207,6 +207,15 @@ fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,Defa
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>>)*>HashMap<i32,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            free hm;
+            #intrinsic "unreachable" <> ()
+
 fn main <()*>i32> ():
     let mut checks checks_new;
     let hm0 <HashMap<i32,i32,DefaultHash32>>:
@@ -257,6 +266,15 @@ neplg2:test
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>,Diag>)*>HashSet<i32,DefaultHash32>> (r):
     unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
+
+fn must_hs <(Result<HashSet<i32,DefaultHash32>,HashSetUpdateError<i32,DefaultHash32>>)*>HashSet<i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs <HashSet<i32,DefaultHash32>> hashset_update_error_owner<i32,DefaultHash32> e;
+            free hs;
+            #intrinsic "unreachable" <> ()
 
 fn new_hs <()*>Result<HashSet<i32,DefaultHash32>,Diag>> ():
     new DefaultHash32

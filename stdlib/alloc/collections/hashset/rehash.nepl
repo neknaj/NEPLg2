@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - table capacity の正規化、live key の再配置、insert 前の grow 判定を API 本体から分離します。
-//: - 旧 storage owner は成功・失敗のどちらでもこの module が閉じます。
+//: - 成功時は旧 storage owner をこの module が閉じ、失敗時は `HashSetUpdateError` で元の set owner を caller へ返します。
 
 #indent 4
 
@@ -26,17 +26,17 @@
 //: - grow または tombstone cleanup のために新しい capacity の table を[作/つく]り、Full key だけを[移/うつ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]、入力 HashSet はこの[関数/かんすう]が[消費/しょうひ]し、旧 storage を[解放/かいほう]してから Err を[返/かえ]します。
-pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, Diag>> (hs, requested_cap):
+//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]、入力 HashSet owner は `HashSetUpdateError` に[入/い]れて[返/かえ]します。
+pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>> (hs, requested_cap):
     let count0 <i32> *field::get_ref &hs "count"
     let old_cap <i32> *field::get_ref &hs "cap"
+    let tombstones0 <i32> *field::get_ref &hs "tombstones"
     let hasher <.H> *field::get_ref &hs "hasher"
     let old_storage <HashSetStorage<.T>> field::get hs "storage"
     let new_cap <i32> hashset_normalize_capacity requested_cap
     match hashset_alloc_storage<.T> new_cap:
         Result::Err d:
-            hashset_free_storage<.T> old_storage
-            err<HashSet<.T,.H>, Diag> d
+            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 old_cap tombstones0 old_storage hasher) d
         Result::Ok new_storage:
             let states <&Vec<HashSetBucketState>> hashset_storage_states<.T> &old_storage
             let keys <&Vec<Option<.T>>> hashset_storage_keys<.T> &old_storage
@@ -56,13 +56,13 @@ pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>
                             ()
                     set i add i 1
             hashset_free_storage<.T> old_storage
-            ok<HashSet<.T,.H>, Diag> HashSet<.T,.H> count0 new_cap 0 new_storage hasher
+            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok HashSet<.T,.H> count0 new_cap 0 new_storage hasher
 
 //: hashset_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
 //:
 //: ### [目的/もくてき]
 //: - 既存 key では容量を変えません。新規 key では count と tombstone を合わせた occupied 数を見て、必要なら同容量 rehash または 2 倍 grow を選びます。
-pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>> (hs, key):
     let count0 <i32> *field::get_ref &hs "count"
     let cap0 <i32> *field::get_ref &hs "cap"
     let tombstones0 <i32> *field::get_ref &hs "tombstones"
@@ -72,7 +72,7 @@ pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.
     if:
         not lt idx 0
         then:
-            ok<HashSet<.T,.H>, Diag> hs
+            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok hs
         else:
             let limit <i32> hashset_load_limit cap0
             let occupied_after_insert <i32> add add count0 tombstones0 1
@@ -83,7 +83,7 @@ pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.
                     let target_cap <i32> if gt count_after_insert limit then mul cap0 2 else cap0
                     hashset_rehash_to<.T,.H> hs target_cap
                 else:
-                    ok<HashSet<.T,.H>, Diag> hs
+                    Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok hs
 
 //: hashset_new_with_capacity: `new` と `with_capacity` が[共有/きょうゆう]する constructor
 //:

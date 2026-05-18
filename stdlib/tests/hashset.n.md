@@ -21,6 +21,15 @@ stdout: "test_report name=\"hashset_main\" count=8 failed=0\nassertion index=0 s
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
     unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
 
+fn must_hs <(Result<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>>)*>HashSet<i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs <HashSet<i32,DefaultHash32>> hashset_update_error_owner<i32,DefaultHash32> e;
+            free hs;
+            #intrinsic "unreachable" <> ()
+
 fn main <()*>i32> ():
     let hs0 <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
     let hs0_len <i32> len &hs0;
@@ -69,8 +78,15 @@ fn main <()*>i32> ():
 
     let hs4 <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
     let hs4 <HashSet<i32,DefaultHash32>> must_hs insert hs4 5;
-    let er <Result<HashSet<i32,DefaultHash32>, Diag>> remove hs4 99;
-    let missing_err <bool> is_err<HashSet<i32,DefaultHash32>, Diag> er;
+    let missing_err <bool>:
+        match remove hs4 99:
+            Result::Ok hs:
+                free hs;
+                false
+            Result::Err e:
+                let hs <HashSet<i32,DefaultHash32>> hashset_update_error_owner<i32,DefaultHash32> e;
+                free hs;
+                true
 
     let report:
         test_report_new "hashset_main"
@@ -104,6 +120,15 @@ stdout: "test_report name=\"hashset_free_smoke\" count=1 failed=0\nassertion ind
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
     unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
+
+fn must_hs <(Result<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>>)*>HashSet<i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs <HashSet<i32,DefaultHash32>> hashset_update_error_owner<i32,DefaultHash32> e;
+            free hs;
+            #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
     let hsf <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;

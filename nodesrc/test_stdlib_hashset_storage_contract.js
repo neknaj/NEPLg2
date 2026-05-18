@@ -67,8 +67,10 @@ const allocStorageSection = codes.storage.slice(allocStorageStart);
 const findPresentSection = between(codes.probe, 'fn hashset_find_present ', 'fn hashset_find_insert_slot ');
 const findInsertSlotSection = between(codes.probe, 'fn hashset_find_insert_slot ', 'fn hashset_insert_entry_into_storage ');
 const rehashSection = between(codes.rehash, 'fn hashset_rehash_to ', 'fn hashset_prepare_insert ');
+const rehashErrSection = between(rehashSection, 'Result::Err d:', 'Result::Ok new_storage:');
 const insertSection = between(codes.api, 'fn insert ', 'fn contains ');
 const containsSection = between(codes.api, 'fn contains ', 'fn remove ');
+const removeSection = between(codes.api, 'fn remove ', 'fn len ');
 const lenSection = between(codes.api, 'fn len ', 'fn free ');
 const freeSection = codes.api.slice(codes.api.indexOf('fn free '));
 
@@ -119,6 +121,18 @@ assert.match(
 );
 
 assert.match(
+    codes.types,
+    /struct\s+HashSetUpdateError<\.T,\.H>:\s+owner\s+<HashSet<\.T,\.H>>\s+diag\s+<Diag>/,
+    'HashSet owner-consuming update errors must carry the consumed set owner and diagnostic',
+);
+
+assert.match(
+    codes.types,
+    /fn\s+hashset_update_error_owner\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSetUpdateError<\.T,\.H>\)->HashSet<\.T,\.H>>/,
+    'HashSet update error must expose an owner-returning accessor with the collection cleanup contract',
+);
+
+assert.match(
     allocStorageSection,
     /vec::filled<HashSetBucketState>\s+cap\s+HashSetBucketState::Empty[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>[\s\S]*ok<HashSetStorage<\.T>,\s*Diag>\s+HashSetStorage<\.T>\s+states\s+keys/,
     'HashSet storage allocation must initialize all state/key slots',
@@ -144,14 +158,50 @@ assert.match(
 
 assert.match(
     rehashSection,
-    /let\s+old_storage\s+<HashSetStorage<\.T>>\s+field::get\s+hs\s+"storage"[\s\S]*Result::Err\s+d:[\s\S]*hashset_free_storage<\.T>\s+old_storage[\s\S]*Result::Ok\s+new_storage:[\s\S]*hashset_free_storage<\.T>\s+old_storage/,
-    'HashSet rehash must own old storage and release it on both failure and success paths',
+    /fn\s+hashset_rehash_to\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>,i32\)\*>Result<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>>/,
+    'HashSet rehash must return owner-preserving update errors',
+);
+
+assert.match(
+    rehashErrSection,
+    /HashSetUpdateError<\.T,\.H>\s+\(HashSet<\.T,\.H>\s+count0\s+old_cap\s+tombstones0\s+old_storage\s+hasher\)\s+d/,
+    'HashSet rehash allocation failure must return the consumed owner in the error payload',
+);
+
+assert.doesNotMatch(
+    rehashErrSection,
+    /hashset_free_storage<\.T>\s+old_storage/,
+    'HashSet rehash allocation failure must not destroy the old owner before returning Err',
+);
+
+assert.match(
+    rehashSection,
+    /Result::Ok\s+new_storage:[\s\S]*hashset_free_storage<\.T>\s+old_storage/,
+    'HashSet rehash success must release the old storage after moving live keys',
 );
 
 assert.match(
     insertSection,
-    /let\s+storage\s+<HashSetStorage<\.T>>\s+field::get\s+ready\s+"storage"[\s\S]*ok<HashSet<\.T,\.H>,\s*Diag>\s+HashSet<\.T,\.H>[\s\S]*storage\s+hasher/,
+    /fn\s+insert\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>,\.T\)\*>Result<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>>[\s\S]*let\s+storage\s+<HashSetStorage<\.T>>\s+field::get\s+ready\s+"storage"[\s\S]*Result<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>::Ok\s+HashSet<\.T,\.H>[\s\S]*storage\s+hasher/,
     'HashSet insert must transfer storage owner from the consumed set into the returned set',
+);
+
+assert.doesNotMatch(
+    `${rehashSection}\n${insertSection}\n${removeSection}`,
+    /\b(?:ok|err)<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>/,
+    'HashSet owner-bearing update results must use direct Result constructors, not generic helpers',
+);
+
+assert.match(
+    removeSection,
+    /fn\s+remove\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>,\.T\)\*>Result<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>>[\s\S]*HashSetUpdateError<\.T,\.H>\s+\(HashSet<\.T,\.H>\s+count0\s+cap0\s+tombstones0\s+storage\s+hasher\)\s+diag_key_not_found/,
+    'HashSet remove-missing must return the consumed owner instead of destroying storage internally',
+);
+
+assert.doesNotMatch(
+    removeSection,
+    /then:[\s\S]*hashset_free_storage<\.T>\s+storage[\s\S]*diag_key_not_found/,
+    'HashSet remove-missing must not free the consumed owner before reporting the error',
 );
 
 assert.match(

@@ -27,7 +27,7 @@ fn hashmap_insert_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i
         then:
             hm
         else:
-            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i mul i 10
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm i mul i 10
             hashmap_insert_range next add i 1 end
 
 fn main <()*>i32> ():
@@ -65,7 +65,7 @@ fn main <()*>i32> ():
     let mut i <i32> 0;
     while lt i 40:
         do:
-            set hs unwrap_ok<HashSet<i32,DefaultHash32>, Diag> insert hs i;
+            set hs unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> insert hs i;
             set i add i 1;
     let ok <i32> if contains &hs 39 0 1
     free hs;
@@ -97,7 +97,7 @@ fn hashmap_insert_many <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i3
         then:
             hm
         else:
-            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i add i 1
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm i add i 1
             hashmap_insert_many next add i 1 end
 
 fn main <()*>i32> ():
@@ -134,7 +134,7 @@ fn main <()*>i32> ():
     let mut i <i32> 0;
     while lt i 160:
         do:
-            set hs unwrap_ok<HashSet<i32,DefaultHash32>, Diag> insert hs i;
+            set hs unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> insert hs i;
             set i add i 1;
     let ok <i32> if contains &hs 159 0 1
     free hs;
@@ -166,7 +166,7 @@ fn hashmap_tombstone_insert_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>Has
         then:
             hm
         else:
-            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i add i 100
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm i add i 100
             hashmap_tombstone_insert_range next add i 1 end
 
 fn hashmap_tombstone_remove_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
@@ -175,14 +175,14 @@ fn hashmap_tombstone_remove_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>Has
         then:
             hm
         else:
-            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> remove hm i
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> remove hm i
             hashmap_tombstone_remove_range next add i 1 end
 
 fn hashmap_after_tombstones <()*>HashMap<i32,i32,DefaultHash32>> ():
     let hm0 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 8;
     let hm1 <HashMap<i32,i32,DefaultHash32>> hashmap_tombstone_insert_range hm0 0 6;
     let hm2 <HashMap<i32,i32,DefaultHash32>> hashmap_tombstone_remove_range hm1 0 5;
-    unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm2 100 1000
+    unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm2 100 1000
 
 fn main <()*>i32> ():
     let hm5 <HashMap<i32,i32,DefaultHash32>> hashmap_after_tombstones;
@@ -226,14 +226,14 @@ fn hashset_after_tombstones <()*>HashSet<i32,DefaultHash32>> ():
     let mut i <i32> 0;
     while lt i 6:
         do:
-            set hs unwrap_ok<HashSet<i32,DefaultHash32>, Diag> insert hs i;
+            set hs unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> insert hs i;
             set i add i 1;
     let mut r <i32> 0;
     while lt r 5:
         do:
-            set hs unwrap_ok<HashSet<i32,DefaultHash32>, Diag> remove hs r;
+            set hs unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> remove hs r;
             set r add r 1;
-    set hs unwrap_ok<HashSet<i32,DefaultHash32>, Diag> insert hs 100;
+    set hs unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> insert hs 100;
     hs
 
 fn main <()*>i32> ():

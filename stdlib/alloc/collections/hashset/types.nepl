@@ -8,7 +8,11 @@
 #indent 4
 
 #import "core/option" as *
+#import "core/field" as field
 #import "core/traits/copy" as *
+#import "core/traits/hash_key" as *
+#import "core/traits/hash" as *
+#import "alloc/diag/error" as *
 #import "alloc/collections/vec" as *
 
 //: ## HashSetBucketState
@@ -118,3 +122,83 @@ pub struct HashSet<.T,.H>:
     tombstones <i32>
     storage <HashSetStorage<.T>>
     hasher <.H>
+
+//: ## HashSetUpdateError
+//: owner-consuming update の[失敗/しっぱい]で[戻/もど]る error payload
+//:
+//: ### [目的/もくてき]
+//: - `insert` / `remove` / rehash が[消費/しょうひ]した `HashSet` owner を caller へ[返/かえ]します。
+//: - `Diag` だけを[返/かえ]して owner の cleanup / retry [判断/はんだん]を実装 discipline に[隠/かく]すことを[避/さ]けます。
+//:
+//: - error payload は update 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/hashset" as *
+//: #import "core/traits/hash" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 <Diag> diag_key_not_found;
+//:     let e <HashSetUpdateError<i32,DefaultHash32>> HashSetUpdateError<i32,DefaultHash32> hs d0;
+//:     0
+//: ```
+pub struct HashSetUpdateError<.T,.H>:
+    owner <HashSet<.T,.H>>
+    diag <Diag>
+
+//: ## hashset_update_error_diag
+//: update [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
+//:
+//: - error payload は update 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/hashset" as *
+//: #import "core/traits/hash" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 <Diag> diag_key_not_found;
+//:     let e <HashSetUpdateError<i32,DefaultHash32>> HashSetUpdateError<i32,DefaultHash32> hs d0;
+//:     0
+//: ```
+pub fn hashset_update_error_diag <.T,.H> <(&HashSetUpdateError<.T,.H>)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: ## hashset_update_error_owner
+//: update [失敗/しっぱい]で[戻/もど]された `HashSet` owner を[取/と]り[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 HashSet は Copy-only key/hasher contract で storage cleanup を[行/おこな]うため、この accessor も同じ bound に[限定/げんてい]します。
+//:
+//: - error payload は update 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/hashset" as *
+//: #import "core/traits/hash" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 <Diag> diag_key_not_found;
+//:     let e <HashSetUpdateError<i32,DefaultHash32>> HashSetUpdateError<i32,DefaultHash32> hs d0;
+//:     0
+//: ```
+pub fn hashset_update_error_owner <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSetUpdateError<.T,.H>)->HashSet<.T,.H>> (e):
+    field::get e "owner"

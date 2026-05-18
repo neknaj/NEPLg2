@@ -28,6 +28,15 @@ fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,Def
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, HashMapUpdateError<str,i32,DefaultHash32>>)*>HashMap<str,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            free hm;
+            #intrinsic "unreachable" <> ()
+
 fn main <()*> i32> ():
     let hm0 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm0_len <i32> len &hm0;
@@ -98,8 +107,15 @@ fn main <()*> i32> ():
 
     let hm7 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm7 <HashMap<str,i32,DefaultHash32>> must_hms insert hm7 "foo" 10;
-    let hm7_er <Result<HashMap<str,i32,DefaultHash32>, Diag>> remove hm7 "zzz";
-    let hm7_is_err <bool> is_err<HashMap<str,i32,DefaultHash32>, Diag> hm7_er;
+    let hm7_is_err <bool>:
+        match remove hm7 "zzz":
+            Result::Ok hm:
+                free hm;
+                false
+            Result::Err e:
+                let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+                free hm;
+                true
 
     let report:
         test_report_new "hashmap_str_main"
@@ -140,6 +156,15 @@ fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,Def
         Result::Ok hm:
             hm
         Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, HashMapUpdateError<str,i32,DefaultHash32>>)*>HashMap<str,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            free hm;
             #intrinsic "unreachable" <> ()
 
 fn main <()*> i32> ():

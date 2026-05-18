@@ -23,6 +23,15 @@ stdout: "test_report name=\"hashset_str_main\" count=8 failed=0\nassertion index
 fn must_hss <(Result<HashSet<str,DefaultHash32>, Diag>)*>HashSet<str,DefaultHash32>> (r):
     unwrap_ok<HashSet<str,DefaultHash32>, Diag> r
 
+fn must_hss <(Result<HashSet<str,DefaultHash32>, HashSetUpdateError<str,DefaultHash32>>)*>HashSet<str,DefaultHash32>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs <HashSet<str,DefaultHash32>> hashset_update_error_owner<str,DefaultHash32> e;
+            free hs;
+            #intrinsic "unreachable" <> ()
+
 fn main <()*>i32> ():
     let hs0 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
     let hs0_len <i32> len &hs0;
@@ -66,8 +75,15 @@ fn main <()*>i32> ():
 
     let hs5 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
     let hs5 <HashSet<str,DefaultHash32>> must_hss insert hs5 "foo";
-    let hs5_er <Result<HashSet<str,DefaultHash32>, Diag>> remove hs5 "zzz";
-    let hs5_is_err <bool> is_err<HashSet<str,DefaultHash32>, Diag> hs5_er;
+    let hs5_is_err <bool>:
+        match remove hs5 "zzz":
+            Result::Ok hs:
+                free hs;
+                false
+            Result::Err e:
+                let hs <HashSet<str,DefaultHash32>> hashset_update_error_owner<str,DefaultHash32> e;
+                free hs;
+                true
 
     let report:
         test_report_new "hashset_str_main"
@@ -102,6 +118,15 @@ stdout: "test_report name=\"hashset_str_free_smoke\" count=1 failed=0\nassertion
 
 fn must_hss <(Result<HashSet<str,DefaultHash32>, Diag>)*>HashSet<str,DefaultHash32>> (r):
     unwrap_ok<HashSet<str,DefaultHash32>, Diag> r
+
+fn must_hss <(Result<HashSet<str,DefaultHash32>, HashSetUpdateError<str,DefaultHash32>>)*>HashSet<str,DefaultHash32>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs <HashSet<str,DefaultHash32>> hashset_update_error_owner<str,DefaultHash32> e;
+            free hs;
+            #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
     let hsf <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;

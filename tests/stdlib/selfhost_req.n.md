@@ -147,6 +147,15 @@ fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,Def
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, HashMapUpdateError<str,i32,DefaultHash32>>)*>HashMap<str,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            free hm;
+            #intrinsic "unreachable" <> ()
+
 fn main <()*>i32> ():
     // 要件: キーに str を指定できる HashMap
     let map0 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
@@ -240,6 +249,15 @@ fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, Diag>)*>HashMap<Point,str
         Result::Ok hm:
             hm
         Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, HashMapUpdateError<Point,str,DefaultHash32>>)*>HashMap<Point,str,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<Point,str,DefaultHash32>> hashmap_update_error_owner<Point,str,DefaultHash32> e;
+            free hm;
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():

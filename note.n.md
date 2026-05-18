@@ -41926,3 +41926,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
   - Combined exploratory run `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i tests/stdlib/pipe_collections.n.md -i tests/compiler/overload.n.md -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/agent1-stack-push-owner.json -j 1 --dist web/dist --assert-io` は 10 分で timeout した。70/76 件まで進み、変更対象の Stack / pipe / examples の一部は pass、既存の `tests/compiler/overload.n.md::doctest#10` は owner-backed aggregate field access 制限で failure していたため、本 issue の検証対象からは除外した。
+
+## 2026-05-18 Agent 1 HashMap/HashSet update error owner contract 修正
+
+- `ISS-20260518T180200702Z-HASHMAP-AND-HASHSET-UPDATE-ERRORS-DI-12982990` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`HashMap` / `HashSet` の rehash / insert / remove が collection owner を消費する API なのに、allocation failure や missing key の `remove` で旧 storage を内部破棄して `Diag` だけを返していたことだった。これでは caller が cleanup / retry を選べず、Resource IR も failure path の owner transfer を API 型から証明しにくい。
+- `HashMapUpdateError<K,V,H>` / `HashSetUpdateError<T,H>` を追加し、`diag` と消費済み owner を payload に保持するようにした。`*_update_error_diag` は borrowed diagnostic read、`*_update_error_owner` は現行 Copy-only collection 境界に合わせた owner extraction として定義した。
+- owner-bearing `Result` は `ok` / `err` helper ではなく、直接 `Result<..., UpdateError>::Ok/Err` で構成するようにした。generic helper 経由では inactive branch の owner payload が Resource IR に誤 materialize されるため、静的検査を弱めず source shape を明示した。
+- 検証中に `tests/stdlib/selfhost_req.n.md::doctest#5` の StringBuilder build 後 `str` owner leak を確認し、`ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E` として分離した。
+- focused verification:
+  - `node nodesrc/test_stdlib_hashmap_storage_contract.js`: passed
+  - `node nodesrc/test_stdlib_hashset_storage_contract.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md --no-tree -o tmp/agent1-hashmap-update-error.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --no-tree -o tmp/agent1-hashset-update-error.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent1-collections-diag-update-error.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/pipe_collections.n.md -i tests/stdlib/traits_hash.n.md -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/agent1-hash-update-error-affected-no-selfhost.json -j 1 --dist web/dist --assert-io`: total=25, passed=25
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap/types.nepl -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/alloc/collections/hashmap/rehash.nepl -i stdlib/alloc/collections/hashset/types.nepl -i stdlib/alloc/collections/hashset/api.nepl -i stdlib/alloc/collections/hashset/rehash.nepl --no-tree -o tmp/agent1-hash-update-error-modules.json -j 1 --dist web/dist --assert-io`: total=29, passed=29
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-hash-update-error.json -j 1 --dist web/dist --assert-io`: total=6, passed=5, failed=1。既存の StringBuilder owner leak として別 issue 化。

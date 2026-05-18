@@ -16,7 +16,7 @@
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 1 10;
+//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 1 10;
 //:     let ok <i32> if contains &hm1 1 0 1;
 //:     free hm1;
 //:     ok
@@ -114,7 +114,7 @@ pub fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H,i32)*>
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 7 70;
+//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 7 70;
 //:     let ok <i32>:
 //:         match get &hm1 7:
 //:             Option::Some x:
@@ -124,10 +124,10 @@ pub fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H,i32)*>
 //:     free hm1;
 //:     ok
 //: ```
-pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K,.V)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key, value):
+pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K,.V)*>Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>> (hm, key, value):
     match hashmap_prepare_insert<.K,.V,.H> hm key:
-        Result::Err d:
-            err<HashMap<.K,.V,.H>, Diag> d
+        Result::Err e:
+            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Err e
         Result::Ok ready:
             let count0 <i32> *field::get_ref &ready "count"
             let cap0 <i32> *field::get_ref &ready "cap"
@@ -139,7 +139,7 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H
                 not lt existing 0
                 then:
                     hashmap_store_full<.K,.V> &storage existing key value
-                    ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher
+                    Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher
                 else:
                     let slot <HashMapInsertSlot> hashmap_find_insert_slot<.K,.V,.H> &storage cap0 hasher key
                     let slot_idx <i32> field::get slot "index"
@@ -151,7 +151,7 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H
                                 tombstones0
                             HashMapInsertSlotState::TombstoneSlot:
                                 sub tombstones0 1
-                    ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> add count0 1 cap0 next_tombstones storage hasher
+                    Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> add count0 1 cap0 next_tombstones storage hasher
 
 //: ## get
 //: key に[対応/たいおう]する value を[探/さが]す
@@ -172,7 +172,7 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 2 20;
+//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 2 20;
 //:     let ok <i32> match get &hm1 2:
 //:         Option::Some x:
 //:             if eq x 20 0 1
@@ -208,7 +208,7 @@ pub fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 3 30;
+//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 3 30;
 //:     let ok <i32> if contains &hm1 3 0 1;
 //:     free hm1;
 //:     ok
@@ -226,7 +226,7 @@ pub fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V
 //: - key が[存在/そんざい]する[場合/ばあい]は bucket を tombstone にし、probe chain を[保/たも]ちます。
 //:
 //: ### [注意/ちゅうい]
-//: - key が[存在/そんざい]しない[場合/ばあい]、入力 HashMap はこの[関数/かんすう]が[消費/しょうひ]して storage を[解放/かいほう]した上で `Err(Diag)` を[返/かえ]します。
+//: - key が[存在/そんざい]しない[場合/ばあい]、入力 HashMap owner は `HashMapUpdateError` として caller へ[戻/もど]ります。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -238,13 +238,13 @@ pub fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 4 40;
-//:     let hm2 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> remove hm1 4;
+//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 4 40;
+//:     let hm2 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> remove hm1 4;
 //:     let ok <i32> if contains &hm2 4 1 0;
 //:     free hm2;
 //:     ok
 //: ```
-pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key):
+pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K)*>Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>> (hm, key):
     let count0 <i32> *field::get_ref &hm "count"
     let cap0 <i32> *field::get_ref &hm "cap"
     let tombstones0 <i32> *field::get_ref &hm "tombstones"
@@ -254,11 +254,10 @@ pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H
     if:
         lt idx 0
         then:
-            hashmap_free_storage<.K,.V> storage
-            diag_err<HashMap<.K,.V,.H>> diag_key_not_found
+            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher) diag_key_not_found
         else:
             hashmap_store_tombstone<.K,.V> &storage idx
-            ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
+            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
 
 //: ## len
 //: [要素数/ようそすう]を[返/かえ]す

@@ -27,6 +27,15 @@ fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,Defa
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>>)*>HashMap<i32,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err e:
+            let hm <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            free hm;
+            #intrinsic "unreachable" <> ()
+
 fn main <()*> i32> ():
     let hm0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
     let hm0_len <i32> len &hm0;
@@ -111,8 +120,15 @@ fn main <()*> i32> ():
 
     let e0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
     let e1 <HashMap<i32,i32,DefaultHash32>> must_hm insert e0 10 100;
-    let er <Result<HashMap<i32,i32,DefaultHash32>, Diag>> remove e1 999;
-    let missing_err <bool> is_err<HashMap<i32,i32,DefaultHash32>, Diag> er;
+    let missing_err <bool>:
+        match remove e1 999:
+            Result::Ok hm:
+                free hm;
+                false
+            Result::Err e:
+                let hm <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+                free hm;
+                true
 
     let f0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
     let f1 <HashMap<i32,i32,DefaultHash32>> must_hm insert f0 1 1;

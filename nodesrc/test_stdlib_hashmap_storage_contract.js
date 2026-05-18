@@ -67,9 +67,11 @@ const allocStorageSection = codes.storage.slice(allocStorageStart);
 const findPresentSection = between(codes.probe, 'fn hashmap_find_present ', 'fn hashmap_find_insert_slot ');
 const findInsertSlotSection = between(codes.probe, 'fn hashmap_find_insert_slot ', 'fn hashmap_insert_entry_into_storage ');
 const rehashSection = between(codes.rehash, 'fn hashmap_rehash_to ', 'fn hashmap_prepare_insert ');
+const rehashErrSection = between(rehashSection, 'Result::Err d:', 'Result::Ok new_storage:');
 const insertSection = between(codes.api, 'fn insert ', 'fn get ');
 const getSection = between(codes.api, 'fn get ', 'fn contains ');
 const containsSection = between(codes.api, 'fn contains ', 'fn remove ');
+const removeSection = between(codes.api, 'fn remove ', 'fn len ');
 const lenSection = between(codes.api, 'fn len ', 'fn free ');
 const freeSection = codes.api.slice(codes.api.indexOf('fn free '));
 
@@ -120,6 +122,18 @@ assert.match(
 );
 
 assert.match(
+    codes.types,
+    /struct\s+HashMapUpdateError<\.K,\.V,\.H>:\s+owner\s+<HashMap<\.K,\.V,\.H>>\s+diag\s+<Diag>/,
+    'HashMap owner-consuming update errors must carry the consumed map owner and diagnostic',
+);
+
+assert.match(
+    codes.types,
+    /fn\s+hashmap_update_error_owner\s+<\.K:\s*HashKey&Copy,\.V:\s*Copy,\.H:\s*Hasher<\.K>&Copy>\s+<\(HashMapUpdateError<\.K,\.V,\.H>\)->HashMap<\.K,\.V,\.H>>/,
+    'HashMap update error must expose an owner-returning accessor with the collection cleanup contract',
+);
+
+assert.match(
     allocStorageSection,
     /vec::filled<HashMapBucketState>\s+cap\s+HashMapBucketState::Empty[\s\S]*vec::filled<Option<\.K>>\s+cap\s+none<\.K>[\s\S]*vec::filled<Option<\.V>>\s+cap\s+none<\.V>[\s\S]*ok<HashMapStorage<\.K,\.V>,\s*Diag>\s+HashMapStorage<\.K,\.V>\s+states\s+keys\s+values/,
     'HashMap storage allocation must initialize all state/key/value slots',
@@ -145,14 +159,50 @@ assert.match(
 
 assert.match(
     rehashSection,
-    /let\s+old_storage\s+<HashMapStorage<\.K,\.V>>\s+field::get\s+hm\s+"storage"[\s\S]*Result::Err\s+d:[\s\S]*hashmap_free_storage<\.K,\.V>\s+old_storage[\s\S]*Result::Ok\s+new_storage:[\s\S]*hashmap_free_storage<\.K,\.V>\s+old_storage/,
-    'HashMap rehash must own old storage and release it on both failure and success paths',
+    /fn\s+hashmap_rehash_to\s+<\.K:\s*HashKey&Copy,\.V:\s*Copy,\.H:\s*Hasher<\.K>&Copy>\s+<\(HashMap<\.K,\.V,\.H>,i32\)\*>Result<HashMap<\.K,\.V,\.H>,\s*HashMapUpdateError<\.K,\.V,\.H>>>/,
+    'HashMap rehash must return owner-preserving update errors',
+);
+
+assert.match(
+    rehashErrSection,
+    /HashMapUpdateError<\.K,\.V,\.H>\s+\(HashMap<\.K,\.V,\.H>\s+count0\s+old_cap\s+tombstones0\s+old_storage\s+hasher\)\s+d/,
+    'HashMap rehash allocation failure must return the consumed owner in the error payload',
+);
+
+assert.doesNotMatch(
+    rehashErrSection,
+    /hashmap_free_storage<\.K,\.V>\s+old_storage/,
+    'HashMap rehash allocation failure must not destroy the old owner before returning Err',
+);
+
+assert.match(
+    rehashSection,
+    /Result::Ok\s+new_storage:[\s\S]*hashmap_free_storage<\.K,\.V>\s+old_storage/,
+    'HashMap rehash success must release the old storage after moving live entries',
 );
 
 assert.match(
     insertSection,
-    /let\s+storage\s+<HashMapStorage<\.K,\.V>>\s+field::get\s+ready\s+"storage"[\s\S]*ok<HashMap<\.K,\.V,\.H>,\s*Diag>\s+HashMap<\.K,\.V,\.H>[\s\S]*storage\s+hasher/,
+    /fn\s+insert\s+<\.K:\s*HashKey&Copy,\.V:\s*Copy,\.H:\s*Hasher<\.K>&Copy>\s+<\(HashMap<\.K,\.V,\.H>,\.K,\.V\)\*>Result<HashMap<\.K,\.V,\.H>,\s*HashMapUpdateError<\.K,\.V,\.H>>>[\s\S]*let\s+storage\s+<HashMapStorage<\.K,\.V>>\s+field::get\s+ready\s+"storage"[\s\S]*Result<HashMap<\.K,\.V,\.H>,\s*HashMapUpdateError<\.K,\.V,\.H>>::Ok\s+HashMap<\.K,\.V,\.H>[\s\S]*storage\s+hasher/,
     'HashMap insert must transfer storage owner from the consumed map into the returned map',
+);
+
+assert.doesNotMatch(
+    `${rehashSection}\n${insertSection}\n${removeSection}`,
+    /\b(?:ok|err)<HashMap<\.K,\.V,\.H>,\s*HashMapUpdateError<\.K,\.V,\.H>>/,
+    'HashMap owner-bearing update results must use direct Result constructors, not generic helpers',
+);
+
+assert.match(
+    removeSection,
+    /fn\s+remove\s+<\.K:\s*HashKey&Copy,\.V:\s*Copy,\.H:\s*Hasher<\.K>&Copy>\s+<\(HashMap<\.K,\.V,\.H>,\.K\)\*>Result<HashMap<\.K,\.V,\.H>,\s*HashMapUpdateError<\.K,\.V,\.H>>>[\s\S]*HashMapUpdateError<\.K,\.V,\.H>\s+\(HashMap<\.K,\.V,\.H>\s+count0\s+cap0\s+tombstones0\s+storage\s+hasher\)\s+diag_key_not_found/,
+    'HashMap remove-missing must return the consumed owner instead of destroying storage internally',
+);
+
+assert.doesNotMatch(
+    removeSection,
+    /then:[\s\S]*hashmap_free_storage<\.K,\.V>\s+storage[\s\S]*diag_key_not_found/,
+    'HashMap remove-missing must not free the consumed owner before reporting the error',
 );
 
 assert.match(
