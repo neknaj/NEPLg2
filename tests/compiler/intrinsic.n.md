@@ -6,6 +6,48 @@ raw memory の `load/store/alloc/dealloc` は compiler-owned raw-memory boundary
 このファイルの doctest は通常利用者 source として実行されるため、直接 raw memory operation を呼ぶ例は拒否されることを確認する。
 raw load/store の runtime codegen は `nepl-core/tests/intrinsic.rs` の compiler-owned raw boundary harness で検証する。
 
+## internal_mem_ptr_wrap_requires_raw_boundary
+
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
+```neplg2
+#target std
+#entry main
+#indent 4
+#import "core/mem" as *
+#import "core/mem/internal" as *
+
+fn main <()*>i32> ():
+    let _p <MemPtr<i32>> mem_ptr_wrap 16
+    0
+```
+
+## internal_mem_ptr_addr_requires_raw_boundary
+
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
+```neplg2
+#target std
+#entry main
+#indent 4
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<i32> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
+            let raw <i32> mem_ptr_addr p
+            match dealloc_region<i32> region:
+                Result::Err _cleanup:
+                    0
+                Result::Ok _:
+                    raw
+```
+
 ## intrinsic_size_and_align_direct
 
 neplg2:test

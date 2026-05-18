@@ -311,12 +311,12 @@ pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
     ExternalIoOp, NondetOp, OwnerState, OwnerStateEntry, OwnerStorageExtent, Place,
-    PlaceProjection, PlaceRoot, PointerProvenance, RawAddressViewKind, RawBodyKind, RawMemoryOp,
-    ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind,
-    ResourceFunction, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm,
-    ResourceMatchBindMode, ResourceMatchPattern, ResourceModule, ResourceOffset, ResourceOp,
-    ResourceState, ResourceTerminator, StorageId, StorageOrigin, StorageOriginEntry,
-    UnknownEffectReason,
+    PlaceProjection, PlaceRoot, PointerProvenance, RawAddressAliasKind, RawAddressViewKind,
+    RawBodyKind, RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceCallTarget,
+    ResourceConditionFact, ResourceExprKind, ResourceFunction, ResourceI32RelationOp, ResourceId,
+    ResourceLocal, ResourceMatchArm, ResourceMatchBindMode, ResourceMatchPattern, ResourceModule,
+    ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId, StorageOrigin,
+    StorageOriginEntry, UnknownEffectReason,
 };
 pub use owner_entry::check_resource_owner_obligations;
 pub use report::{

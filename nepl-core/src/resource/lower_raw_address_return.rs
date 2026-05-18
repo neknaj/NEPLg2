@@ -112,6 +112,7 @@ fn raw_address_source_from_return_expr(
                 offset: RawAddressOffset::Known(0),
                 explicit_offset: false,
                 non_owning_view: false,
+                internal_view: false,
             })
         }
         HirExprKind::Call { callee, args } => raw_address_source_from_return_named_call(
@@ -336,6 +337,7 @@ fn raw_address_source_from_region_token_raw_expr(
                 offset: RawAddressOffset::Known(0),
                 explicit_offset: false,
                 non_owning_view: false,
+                internal_view: false,
             })
         }
         HirExprKind::Call { callee, args }

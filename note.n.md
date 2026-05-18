@@ -41423,3 +41423,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i tests\stdlib\collection_cleanup_contract.n.md -n 4 --dist web\dist`: passed
   - `node nodesrc/tests.js -i tests\stdlib\collection_cleanup_contract.n.md --no-tree -o tmp\agent1-vecpop-copy-bound-contract.json -j 1 --dist web\dist --assert-io`: total=26, passed=26
   - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+
+## 2026-05-18 Agent 1 core/mem/internal raw address helper 境界修正
+
+- `ISS-20260518T052853094Z-USER-SOURCE-CAN-FORGE-RAW-MEMPTR-THR-109B2F18` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、ordinary source が `core/mem/internal` を import して `mem_ptr_wrap` / `mem_ptr_addr` を呼べるにもかかわらず、Resource IR effect gate が raw address alias と internal helper view を raw-memory boundary diagnostic として扱っていなかったことだった。
+- 修正後は `RawAddressAliasKind` と `RawAddressViewKind::InternalHelper` を追加し、`mem_ptr_wrap` / `region_new` は internal raw address alias、`mem_ptr_addr` / `region_token_raw_ref` / `str_addr` は internal raw address view として gate する。`region_ptr` / `region_ptr_at` は checked public `NonOwningProjection` のまま維持した。
+- Source capability proof は `RawAddressAliasBoundary` と `RawAddressViewBoundary` を別 fact に分け、`raw_builtin_evidence.rs` に structural / view / alias / operation evidence 収集を集約した。stdlib module 名や helper 名 allowlist ではなく、compiler-owned source provenance と exact use-site source evidence から境界 authority を証明する。
+- `tests/compiler/intrinsic.n.md` と `stdlib/core/mem/internal.nepl` に ordinary doctest source から internal raw helper を呼ぶ compile-fail regression を追加した。
+- focused verification:
+  - `cargo fmt --all --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core raw_address_alias -- --nocapture`: passed
+  - `cargo test -p nepl-core raw_memory_boundary_accepts_raw_address_alias_helper_evidence -- --nocapture`: passed
+  - `cargo test -p nepl-core raw_memory_boundary_rejects_owner_constructor_helper_as_address_view_evidence -- --nocapture`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests\compiler\intrinsic.n.md --no-tree -o tmp\agent1-internal-raw-helper-intrinsic-boundary.json -j 1 --dist web\dist --assert-io`: total=10, passed=10
+  - `node nodesrc/tests.js -i stdlib\core\mem\internal.nepl --no-tree -o tmp\agent1-core-mem-internal-boundary.json -j 1 --dist web\dist --assert-io`: total=4, passed=4
+- 補足: `stdlib/core/mem/pointer` focused doctest と `compile_accepts_checked_mem_ptr_wrapper_from_region_provenance` は `origin/main` でも同じ `resource.raw.memory_outside_boundary` で失敗する。今回の internal raw helper gate の新規 regression ではなく、checked `MemPtr` provenance の別問題として追跡する。

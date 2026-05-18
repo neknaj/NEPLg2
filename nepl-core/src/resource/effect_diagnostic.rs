@@ -9,7 +9,8 @@ use crate::diagnostic_codes::{
 use crate::span::Span;
 
 use super::model::{
-    ExternalIoOp, NondetOp, Place, RawAddressViewKind, RawMemoryOp, UnknownEffectReason,
+    ExternalIoOp, NondetOp, Place, RawAddressAliasKind, RawAddressViewKind, RawMemoryOp,
+    UnknownEffectReason,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +33,11 @@ pub enum ResourceEffectBoundaryDiagnostic {
     RawAddressViewOutsideBoundary {
         function: String,
         kind: RawAddressViewKind,
+        span: Span,
+    },
+    RawAddressAliasOutsideBoundary {
+        function: String,
+        kind: RawAddressAliasKind,
         span: Span,
     },
     CheckedMemPtrOutsideBoundary {
@@ -71,6 +77,7 @@ impl ResourceEffectBoundaryDiagnostic {
             }
             ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. }
             | ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary { .. }
+            | ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary { .. }
             | ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary { .. } => {
                 DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
                     ResourceRawDiagnosticCode::MemoryOutsideBoundary,

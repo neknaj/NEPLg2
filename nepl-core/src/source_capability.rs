@@ -15,6 +15,7 @@ mod owner_aggregate;
 mod prefix_call;
 mod proof;
 mod proof_builder;
+mod raw_builtin_evidence;
 mod raw_evidence_gate;
 mod raw_memory;
 mod raw_operation_proof;

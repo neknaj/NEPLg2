@@ -16,8 +16,8 @@ use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    EffectOp, Place, RawAddressViewKind, RawMemoryOp, ResourceBlock, ResourceExprKind,
-    ResourceFunction, ResourceOp, ResourceTerminator,
+    EffectOp, Place, RawAddressAliasKind, RawAddressViewKind, RawMemoryOp, ResourceBlock,
+    ResourceExprKind, ResourceFunction, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{raw_address_view_candidate_bases, reference_target_place};
 
@@ -157,7 +157,13 @@ impl ResourceEffectBoundaryEngine<'_> {
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, &target);
                 function_aliases.copy_alias(source, &target);
             }
-            ResourceOp::RawAddressAlias { source, target, .. } => {
+            ResourceOp::RawAddressAlias {
+                source,
+                target,
+                kind,
+                span,
+            } => {
+                self.report_raw_address_alias_boundary_use(*kind, *span);
                 identities.copy_identity(source, target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
             }
@@ -463,9 +469,11 @@ impl ResourceEffectBoundaryEngine<'_> {
             | ResourceOp::Drop { .. }
             | ResourceOp::EndScope { .. }
             | ResourceOp::FunctionValue { .. }
-            | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::Construct { .. } => {}
+            ResourceOp::RawAddressAlias { kind, span, .. } => {
+                self.report_raw_address_alias_boundary_use(*kind, *span);
+            }
         }
     }
 
@@ -616,7 +624,7 @@ impl ResourceEffectBoundaryEngine<'_> {
 
     fn report_raw_address_view_boundary_use(&mut self, kind: RawAddressViewKind, span: Span) {
         match kind {
-            RawAddressViewKind::MemPtrOffset => {
+            RawAddressViewKind::MemPtrOffset | RawAddressViewKind::InternalHelper => {
                 self.diagnostics.push(
                     ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
                         function: String::from(self.function),
@@ -626,6 +634,21 @@ impl ResourceEffectBoundaryEngine<'_> {
                 );
             }
             RawAddressViewKind::Offset | RawAddressViewKind::NonOwningProjection => {}
+        }
+    }
+
+    fn report_raw_address_alias_boundary_use(&mut self, kind: RawAddressAliasKind, span: Span) {
+        match kind {
+            RawAddressAliasKind::InternalHelper => {
+                self.diagnostics.push(
+                    ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+                        function: String::from(self.function),
+                        kind,
+                        span,
+                    },
+                );
+            }
+            RawAddressAliasKind::Transparent => {}
         }
     }
 

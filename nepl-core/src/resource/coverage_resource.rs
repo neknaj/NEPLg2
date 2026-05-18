@@ -425,6 +425,7 @@ fn resource_ops_coverage(
                 source,
                 target,
                 span,
+                ..
             } => {
                 resource_alias_place_coverage(
                     function,
