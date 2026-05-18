@@ -1438,3 +1438,21 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-text-utf8-report-metadata.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
 
 この issue はまだ open のまま継続する。`text_utf8` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 selfhost_req stdout report metadata migration
+
+`ISS-20260518T202450000Z-SELFHOST-REQ-DOCTESTS-STILL-USE-RET-75D0A7C1` として、`tests/stdlib/selfhost_req.n.md` の 6 doctest を `ret:` から stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- filesystem failure handling、byte buffer、string helper、string-key map、StringBuilder、trait extension の各要件を `std/test::TestReport` の assertion label / expected / actual として stdout に固定した。
+- 6 件すべてに `neplg2:test[stdio, normalize_newlines]`、deterministic `stdout:`、`exit_code: 0` を追加し、`ret:` を削除した。
+- `nodesrc/test_selfhost_req_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_selfhost_req_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-report-contract.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
+
+この issue はまだ open のまま継続する。`selfhost_req` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。

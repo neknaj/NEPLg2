@@ -41988,3 +41988,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuf-result-no-raw-internal.json -j 1 --dist web/dist --assert-io`: total=7, passed=7
   - `node nodesrc/issues.js check`: passed
   - `git diff --check`: passed
+
+## 2026-05-18 Agent 1 selfhost_req stdout report metadata 移行
+
+- `ISS-20260518T202450000Z-SELFHOST-REQ-DOCTESTS-STILL-USE-RET-75D0A7C1` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、self-host 実装前の requirements gate である `tests/stdlib/selfhost_req.n.md` が、filesystem failure handling / byte buffer / string helper / string-key map / StringBuilder / trait extension の 6 要件を `ret:` だけで表していたことだった。これでは成功時の assertion detail が stdout に残らず、Rust runner と selfhost runner の report 互換性も固定できない。
+- 6 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ移行し、各要件を `std/test::TestReport` の assertion label / expected / actual として出すようにした。
+- `nodesrc/test_selfhost_req_report_contract.js` を追加し、`ret:` 不使用、stdout report、`test_report_print_stdout -> test_report_exit_code` の順序を source policy にした。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_selfhost_req_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-report-contract.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed

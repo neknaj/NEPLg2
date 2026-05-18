@@ -7,8 +7,9 @@
 doctest 実行環境の preopen に依存して不安定でした。
 現在は「ファイル I/O の失敗が `Result::Err` として安全に返ること」を stable に確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"selfhost_req_file_io\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"missing file returns err\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -18,6 +19,7 @@ ret: 0
 #import "std/stdio" as *
 #import "alloc/string" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn consume_str <(str)->()> (s):
     len s
@@ -28,28 +30,36 @@ fn main <()*>i32> ():
     let path "__definitely_missing_selfhost_req_file__.txt";
     let res <Result<str,i32>> fs_read_to_string path;
 
-    match res:
+    let ok <bool> match res:
         Result::Ok content:
             consume_str content;
-            1
+            false
         Result::Err _e:
-            0
+            true
+    let report:
+        test_report_new "selfhost_req_file_io"
+        |> test_report_push assert "missing file returns err" ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## test_req_byte_manipulation
 
-neplg2:test
-ret: 222
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"selfhost_req_byte_manipulation\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"first byte as i32\" expected=\"222\" actual=\"222\" message=\"\"\n"
 ```neplg2
 
 #entry main
 #indent 4
+#target std
 #import "alloc/collections/vec" as *
 #import "alloc/diag/error" as *
 #import "core/cast" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     // 要件: u8 型 (現状は i32/bool/f32/str のみで u8 がない)
@@ -62,7 +72,7 @@ fn main <()*>i32> ():
     set buf unwrap_ok push<u8> buf b2;
 
     // 要件: バイト単位のアクセス
-    match get<u8> &buf 0:
+    let actual <i32> match get<u8> &buf 0:
         Option::Some val:
             // i32へのキャスト等
             let out <i32> cast val
@@ -71,18 +81,26 @@ fn main <()*>i32> ():
         Option::None:
             free<u8> buf;
             0
+    let report:
+        test_report_new "selfhost_req_byte_manipulation"
+        |> test_report_push assert_eq_i32 "first byte as i32" 222 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## test_req_string_utils
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"selfhost_req_string_utils\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"trim slice result code\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 
 #entry main
 #indent 4
+#target std
 #import "alloc/string" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn consume_str <(str)->()> (s):
     len s
@@ -96,7 +114,7 @@ fn main <()*>i32> ():
 
     // 要件: starts_with / ends_with
     let ok_starts_with_fn <bool> str_starts_with trimmed "fn";
-    if:
+    let actual <i32> if:
         ok_starts_with_fn
         then:
             // 要件: delimiter search (分割せずに区切り位置を調べる)
@@ -120,13 +138,19 @@ fn main <()*>i32> ():
         else:
             consume_str trimmed;
             1
+    let report:
+        test_report_new "selfhost_req_string_utils"
+        |> test_report_push assert_eq_i32 "trim slice result code" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 
 ```
 
 ## test_req_string_map
 
-neplg2:test
-ret: 10
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"selfhost_req_string_map\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"hash map string key value\" expected=\"10\" actual=\"10\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -139,6 +163,7 @@ ret: 10
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
     match r:
@@ -168,21 +193,28 @@ fn main <()*>i32> ():
         Option::None:
             1
     free map;
-    got
+    let report:
+        test_report_new "selfhost_req_string_map"
+        |> test_report_push assert_eq_i32 "hash map string key value" 10 got
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## test_req_string_builder
 
 以前はコンパイル確認のみでした。
-StringBuilder の操作結果 `"Error: 404 Not Found"` の長さが期待どおりになることを、返り値で検証します。
-文字列の長さは 20（"Error: "=7, "404"=3, " Not Found"=10）なので `ret: 20` を追加しました。
+StringBuilder の操作結果 `"Error: 404 Not Found"` の長さが期待どおりになることを、stdout の assertion report で検証します。
+文字列の長さは 20（"Error: "=7, "404"=3, " Not Found"=10）です。
 
-neplg2:test
-ret: 20
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"selfhost_req_string_builder\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"builder length\" expected=\"20\" actual=\"20\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
+#target std
 #import "alloc/string" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     // 要件: StringBuilder のような可変文字列バッファ
@@ -195,13 +227,19 @@ fn main <()*>i32> ():
     let res <str> sb_build sb;
 
     // "Error: 404 Not Found"
-    len res
+    let actual <i32> len res
+    let report:
+        test_report_new "selfhost_req_string_builder"
+        |> test_report_push assert_eq_i32 "builder length" 20 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## test_req_trait_extensions
 
-neplg2:test
-ret: 5
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"selfhost_req_trait_extensions\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"trait key value length\" expected=\"5\" actual=\"5\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -218,6 +256,7 @@ ret: 5
 #import "core/traits/hash_key" as *
 #import "core/field" as *
 #import "core/math" as *
+#import "std/test" as *
 
 // ユーザー定義型
 struct Point:
@@ -269,5 +308,9 @@ fn main <()*>i32> ():
         Option::None:
             0
     free map1;
-    got
+    let report:
+        test_report_new "selfhost_req_trait_extensions"
+        |> test_report_push assert_eq_i32 "trait key value length" 5 got
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

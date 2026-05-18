@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T20:13:35.475Z",
+  "generated_at": "2026-05-18T20:25:43.298Z",
   "counts": {
-    "total": 1014,
+    "total": 1015,
     "open": 5,
-    "resolved": 1009,
+    "resolved": 1010,
     "by_area": {
       "stdlib": {
         "total": 281,
@@ -12,9 +12,9 @@
         "resolved": 278
       },
       "TEST": {
-        "total": 42,
+        "total": 43,
         "open": 1,
-        "resolved": 41
+        "resolved": 42
       },
       "selfhost": {
         "total": 72,
@@ -12848,6 +12848,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T093656235Z-TEXT-UTF8-DOCTESTS-STILL-USE-RET-MET-62B43D19.md"
+    },
+    {
+      "id": "ISS-20260518T202450000Z-SELFHOST-REQ-DOCTESTS-STILL-USE-RET-75D0A7C1",
+      "title": "selfhost_req doctests still use ret-only requirement checks",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/selfhost_req.n.md, nodesrc/test_selfhost_req_report_contract.js, nodesrc/run_source_policy_regressions.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T202450000Z-SELFHOST-REQ-DOCTESTS-STILL-USE-RET-75D0A7C1.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
