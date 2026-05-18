@@ -41328,3 +41328,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --all --check`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: CRLF warnings only
+
+## 2026-05-18 Agent 1 VecPop accessor Copy-only 境界修正
+
+- `ISS-20260518T021150101Z-VECPOP-VEC-ACCESSOR-ACCEPTS-NON-COPY-B3275223` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Vec.pop<T>` 本体は `.T: Copy` に閉じている一方で、結果型 `VecPop<T>` から更新後 `Vec<T>` だけを取り出す `vec_pop_vec<T>` が unconstrained のままだったこと。
+- `VecPop<T>` は `vec: Vec<T>` と `item: Option<T>` の両方を持つため、`vec_pop_vec<T>` が non-Copy を受けると item owner を返さないまま破棄する API surface になる。`OwnedBuffer<T>` / initialized cell / drop traversal が完成するまでは、ここも Copy-only 境界へ揃える必要がある。
+- `vec_pop_vec<T>` を `.T: Copy` に限定し、`VecPop<CleanupPayload>` parameter から accessor だけを呼ぶ compile-fail regression と source policy を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\collection_cleanup_contract.n.md -n 4 --dist web\dist`: passed
+  - `node nodesrc/tests.js -i tests\stdlib\collection_cleanup_contract.n.md --no-tree -o tmp\agent1-vecpop-copy-bound-contract.json -j 1 --dist web\dist --assert-io`: total=26, passed=26
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed

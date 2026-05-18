@@ -71,6 +71,27 @@ fn main <()->i32> ():
     0
 ```
 
+## vec_pop_vec_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn recover_vec_from_pop <(VecPop<CleanupPayload>)->Vec<CleanupPayload>> (p):
+    vec_pop_vec<CleanupPayload> p
+
+fn main <()->i32> ():
+    0
+```
+
 ## vec_root_facade_hides_alloc_empty_helper
 
 neplg2:test[compile_fail]

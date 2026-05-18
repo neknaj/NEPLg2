@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T02:04:39.473Z",
+  "generated_at": "2026-05-18T02:16:04.799Z",
   "counts": {
-    "total": 974,
+    "total": 975,
     "open": 5,
-    "resolved": 969,
+    "resolved": 970,
     "by_area": {
       "stdlib": {
-        "total": 262,
+        "total": 263,
         "open": 3,
-        "resolved": 259
+        "resolved": 260
       },
       "TEST": {
         "total": 37,
@@ -11633,6 +11633,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T034837136Z-BYTEBUF-PUBLIC-API-CAN-FORGE-OWNERSH-16F30AE5.md"
+    },
+    {
+      "id": "ISS-20260518T021150101Z-VECPOP-VEC-ACCESSOR-ACCEPTS-NON-COPY-B3275223",
+      "title": "VecPop vec accessor accepts non-Copy payload and can discard popped owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/collections/vec/types.nepl, tests/stdlib/collection_cleanup_contract.n.md, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T021150101Z-VECPOP-VEC-ACCESSOR-ACCEPTS-NON-COPY-B3275223.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

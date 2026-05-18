@@ -214,6 +214,9 @@ pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
 //: - `VecPop` を[消費/しょうひ]し、次に[使/つか]う `Vec` owner だけを[移動/いどう]します。
 //: - owner を[含/ふく]む field projection は `Vec` 実装境界に[閉/と]じます。
 //:
+//: ### [注意/ちゅうい]
+//: - `VecPop` には[取/と]り[出/だ]した `Option<T>` も[含/ふく]まれます。この accessor はその item を[返/かえ]さないため、現行の drop traversal 未実装段階では `.T: Copy` に[限定/げんてい]します。
+//:
 //: neplg2:test
 //: exit_code: 0
 //: ```neplg2
@@ -231,7 +234,7 @@ pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
 //:     free<i32> next;
 //:     if ok 0 1
 //: ```
-pub fn vec_pop_vec <.T> <(VecPop<.T>)->Vec<.T>> (p):
+pub fn vec_pop_vec <.T: Copy> <(VecPop<.T>)->Vec<.T>> (p):
     field::get p "vec"
 
 //: ## VecPartition
