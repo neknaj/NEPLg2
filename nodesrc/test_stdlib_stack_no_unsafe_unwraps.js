@@ -40,10 +40,16 @@ assert.match(rootCode, /pub\s+#import\s+"\.\/stack\/types"\s+as\s+@merge/, 'Stac
 assert.match(rootCode, /pub\s+#import\s+"\.\/stack\/api"\s+as\s+@merge/, 'Stack root must re-export API from a submodule');
 assert.doesNotMatch(rootCode, /\b(?:struct|fn)\s+/, 'Stack root must remain a public facade without implementation bodies');
 assert.match(code, /struct\s+Stack<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Stack must keep typed Vec<Option<T>> storage in its public owner struct');
+assert.match(code, /struct\s+StackPushError<\.T>:[\s\S]*stack\s+<Stack<\.T>>[\s\S]*diag\s+<Diag>/, 'Stack push failure payload must carry the consumed stack owner and diagnostic');
+assert.match(code, /fn\s+stack_push_error_diag\s+<\.T>\s+<\(&StackPushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/, 'StackPushError diag access must borrow the error payload');
+assert.match(code, /fn\s+stack_push_error_stack\s+<\.T:\s*Copy>\s+<\(StackPushError<\.T>\)->Stack<\.T>>[\s\S]*field::get\s+e\s+"stack"/, 'StackPushError stack extraction must move the returned owner and remain Copy-only while Stack is Copy-only');
 assert.match(code, /struct\s+StackPop<\.T>:[\s\S]*stack\s+<Stack<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Stack must expose an owner-preserving pop result');
 assert.match(code, /fn\s+stack_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'Stack must read initialized slot state through Option<T>');
 assert.match(code, /fn\s+stack_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'Stack must update slot state through Vec<Option<T>> replacement');
 assert.match(code, /fn\s+stack_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'Stack allocation must initialize every slot as None');
+assert.match(code, /fn\s+push\s+<\.T:\s*Copy>\s+<\(Stack<\.T>,\.T\)\*>Result<Stack<\.T>,\s*StackPushError<\.T>>>/, 'Stack push must expose owner-preserving Result<Stack<T>, StackPushError<T>>');
+assert.match(code, /fn\s+push\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*Result::Err<Stack<\.T>,\s*StackPushError<\.T>>\s+StackPushError<\.T>\s+\(Stack<\.T>\s+len0\s+cap0\s+items\)\s+d/, 'Stack push grow failure must return the consumed stack owner in StackPushError');
+assert.doesNotMatch(code, /Result::Err\s+d:[\s\S]{0,120}vec::free<Option<\.T>>\s+items[\s\S]{0,120}err<Stack<\.T>,\s*Diag>\s+d/, 'Stack push grow failure must not destroy the consumed owner and return Diag only');
 assert.match(code, /fn\s+pop_top\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)\*>StackPop<\.T>>[\s\S]*stack_store_slot<\.T>\s+&items\s+next_len\s+none<\.T>[\s\S]*StackPop<\.T>/, 'Stack pop_top must clear the consumed slot and return the updated owner');
 assert.match(code, /fn\s+stack_pop_item\s+<\.T:\s*Copy>\s+<\(&StackPop<\.T>\)->Option<\.T>>[\s\S]*field::get_ref\s+p\s+"item"/, 'StackPop item access must be a public borrowed accessor');
 assert.match(code, /fn\s+stack_pop_stack\s+<\.T:\s*Copy>\s+<\(StackPop<\.T>\)->Stack<\.T>>[\s\S]*field::get\s+p\s+"stack"/, 'StackPop stack extraction must be a public consuming accessor');
@@ -68,6 +74,7 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?p[0-9]?\s+"(?:item|stack)"/, `${testPath} must not project StackPop fields directly`);
     assert.match(testSrc, /\bstack_pop_item<i32>\s+&p[0-9]?\b/, `${testPath} must exercise StackPop item accessor`);
     assert.match(testSrc, /\bstack_pop_stack<i32>\s+p[0-9]?\b/, `${testPath} must exercise StackPop stack accessor`);
+    assert.doesNotMatch(testSrc, /unwrap_ok<Stack<i32>,\s*Diag>\s+push<i32>|\|>\s+unwrap_ok<Stack<i32>,\s*Diag>/, `${testPath} must unwrap Stack push with StackPushError, while Stack new keeps Diag`);
 }
 
 for (const rel of [

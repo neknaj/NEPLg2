@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T17:03:08.178Z",
+  "generated_at": "2026-05-18T17:56:04.661Z",
   "counts": {
-    "total": 1009,
+    "total": 1010,
     "open": 5,
-    "resolved": 1004,
+    "resolved": 1005,
     "by_area": {
       "stdlib": {
-        "total": 277,
+        "total": 278,
         "open": 3,
-        "resolved": 274
+        "resolved": 275
       },
       "TEST": {
         "total": 42,
@@ -12038,6 +12038,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T134512597Z-DEQUE-PUSH-GROW-FAILURE-DESTROYS-THE-081F1BD4.md"
+    },
+    {
+      "id": "ISS-20260518T170931495Z-STACK-QUEUE-RINGBUFFER-LIST-PUSH-GRO-88AD5166",
+      "title": "Stack Queue RingBuffer List push grow failure destroys owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/collections/{stack,queue,ringbuffer,list}/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T170931495Z-STACK-QUEUE-RINGBUFFER-LIST-PUSH-GRO-88AD5166.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

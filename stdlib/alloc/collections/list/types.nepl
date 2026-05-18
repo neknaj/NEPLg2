@@ -1,11 +1,15 @@
 //: # list/types
-//: `List` の型定義
+//: `List` の owner 型と push error 型
 //:
 //: ### [目的/もくてき]
 //: - raw node pointer ではなく `Vec<T>` owner を保持する list storage を定義します。
+//: - owner-consuming cons / push の[失敗/しっぱい]時にも、caller が list owner を[回収/かいしゅう]できる error payload を[定義/ていぎ]します。
 
 #indent 4
 
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 
 //: ## List
@@ -19,3 +23,80 @@
 //: - `items` は `List` が[所有/しょゆう]し、不要になったら `free` で[閉/と]じます。
 pub struct List<.T>:
     items <Vec<.T>>
+
+//: ## ListPushError
+//: `cons` / `push` の grow [失敗/しっぱい]で[戻/もど]る error payload
+//:
+//: ### [目的/もくてき]
+//: - push が[消費/しょうひ]した list owner を `list` に[戻/もど]し、caller が cleanup や[再試行/さいしこう]を[選/えら]べるようにします。
+//: - `Diag` だけを[返/かえ]して list owner の[行方/ゆくえ]を実装 discipline に[隠/かく]すことを[避/さ]けます。
+//:
+//: - error payload は `push` / `cons` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/list" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 <Diag> diag_out_of_memory;
+//:     let error_payload <ListPushError<i32>> ListPushError<i32> lst d0;
+//:     0
+//: ```
+pub struct ListPushError<.T>:
+    list <List<.T>>
+    diag <Diag>
+
+//: ## list_push_error_diag
+//: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
+//:
+//: - error payload は `push` / `cons` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/list" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 <Diag> diag_out_of_memory;
+//:     let error_payload <ListPushError<i32>> ListPushError<i32> lst d0;
+//:     0
+//: ```
+pub fn list_push_error_diag <.T> <(&ListPushError<.T>)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: ## list_push_error_list
+//: push [失敗/しっぱい]で[戻/もど]された list owner を[取/と]り[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 List は `Vec<T>` storage を Copy-only payload に[限定/げんてい]しているため、この accessor も `.T: Copy` に[限定/げんてい]します。
+//:
+//: - error payload は `push` / `cons` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/list" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 <Diag> diag_out_of_memory;
+//:     let error_payload <ListPushError<i32>> ListPushError<i32> lst d0;
+//:     0
+//: ```
+pub fn list_push_error_list <.T: Copy> <(ListPushError<.T>)->List<.T>> (e):
+    field::get e "list"

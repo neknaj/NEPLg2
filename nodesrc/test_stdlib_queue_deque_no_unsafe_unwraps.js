@@ -54,7 +54,12 @@ const queue = [
     'stdlib/alloc/collections/queue/api.nepl',
 ].map(implementationCode).join('\n');
 assert.match(queue, /struct\s+Queue<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*head\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Queue must keep typed Vec<Option<T>> storage in its public owner struct');
+assert.match(queue, /struct\s+QueuePushError<\.T>:[\s\S]*queue\s+<Queue<\.T>>[\s\S]*diag\s+<Diag>/, 'Queue push failure payload must carry the consumed queue owner and diagnostic');
+assert.match(queue, /fn\s+queue_push_error_diag\s+<\.T>\s+<\(&QueuePushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/, 'QueuePushError diag access must borrow the error payload');
+assert.match(queue, /fn\s+queue_push_error_queue\s+<\.T:\s*Copy>\s+<\(QueuePushError<\.T>\)->Queue<\.T>>[\s\S]*field::get\s+e\s+"queue"/, 'QueuePushError queue extraction must move the returned owner and remain Copy-only while Queue is Copy-only');
 assert.match(queue, /struct\s+QueuePop<\.T>:[\s\S]*queue\s+<Queue<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Queue must expose an owner-preserving pop result');
+assert.match(queue, /fn\s+queue_pop_item\s+<\.T:\s*Copy>\s+<\(&QueuePop<\.T>\)->Option<\.T>>[\s\S]*field::get_ref\s+p\s+"item"/, 'QueuePop item access must be a public borrowed accessor');
+assert.match(queue, /fn\s+queue_pop_queue\s+<\.T:\s*Copy>\s+<\(QueuePop<\.T>\)->Queue<\.T>>[\s\S]*field::get\s+p\s+"queue"/, 'QueuePop queue extraction must be a public consuming accessor');
 assert.match(queue, /fn\s+len\s+<\.T>\s+<\(&Queue<\.T>\)->i32>\s+\(q\):/, 'Queue.len must borrow the owner');
 assert.match(queue, /fn\s+is_empty\s+<\.T>\s+<\(&Queue<\.T>\)->bool>\s+\(q\):/, 'Queue.is_empty must borrow the owner');
 assert.match(queue, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&Queue<\.T>\)->Option<\.T>>\s+\(q\):/, 'Queue.peek must borrow the owner');
@@ -63,6 +68,9 @@ assert.doesNotMatch(queue, /fn\s+(?:len|is_empty|peek)\s+<[^>]+>\s+<\(Queue<\.T>
 assert.match(queue, /fn\s+queue_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'Queue must read initialized slot state through Option<T>');
 assert.match(queue, /fn\s+queue_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'Queue must update slot state through Vec<Option<T>> replacement');
 assert.match(queue, /fn\s+queue_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'Queue allocation must initialize every slot as None');
+assert.match(queue, /fn\s+push\s+<\.T:\s*Copy>\s+<\(Queue<\.T>,\.T\)\*>Result<Queue<\.T>,\s*QueuePushError<\.T>>>/, 'Queue push must expose owner-preserving Result<Queue<T>, QueuePushError<T>>');
+assert.match(queue, /fn\s+push\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*Result::Err<Queue<\.T>,\s*QueuePushError<\.T>>\s+QueuePushError<\.T>\s+\(Queue<\.T>\s+len0\s+cap0\s+head0\s+items\)\s+d/, 'Queue push grow failure must return the consumed queue owner in QueuePushError');
+assert.doesNotMatch(queue, /Result::Err\s+d:[\s\S]{0,120}vec::free<Option<\.T>>\s+items[\s\S]{0,120}err<Queue<\.T>,\s*Diag>\s+d/, 'Queue push grow failure must not destroy the consumed owner and return Diag only');
 assert.match(queue, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(Queue<\.T>\)\*>QueuePop<\.T>>[\s\S]*queue_store_slot<\.T>\s+&items\s+head0\s+none<\.T>[\s\S]*QueuePop<\.T>/, 'Queue pop_front must clear the consumed slot and return the updated owner');
 assert.match(queue, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Queue<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+q\s+"items"/, 'Queue.free must close the Copy-only Vec<Option<T>> owner');
 assert.doesNotMatch(queue, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b/, 'Queue must not reintroduce raw header or raw element storage');
@@ -118,6 +126,7 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /\b(?:len_ref|cap_ref|is_empty_ref|peek_ref|peek_front_ref|peek_back_ref)<i32>/, `${testPath} must not use removed Queue/Deque *_ref observers`);
     assert.doesNotMatch(testSrc, /\b(?:len|cap|is_empty|peek|peek_front|peek_back)<i32>\s+(?:q|dq)[0-9]?\b/, `${testPath} must not call Queue/Deque observers by value`);
     assert.doesNotMatch(testSrc, /\b(?:q|dq)[0-9]?\s+\|>\s+(?:peek|peek_front|peek_back)(?:<i32>)?\b/, `${testPath} must not pipe Queue/Deque owners into observers`);
+    assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?p[0-9]?\s+"(?:item|queue)"/, `${testPath} must not project QueuePop fields directly`);
 }
 
 console.log('queue/deque unsafe unwrap regression passed');

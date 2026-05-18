@@ -39,7 +39,7 @@ pub fn with_capacity <.T: Copy> <(i32)*>Result<Stack<.T>, Diag>> (cap):
 
 //: ## push
 //: [末尾/まつび]へ[積/つ]む
-pub fn push <.T: Copy> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
+pub fn push <.T: Copy> <(Stack<.T>,.T)*>Result<Stack<.T>, StackPushError<.T>>> (stk, item):
     let len0 <i32> *field::get_ref &stk "len"
     let cap0 <i32> *field::get_ref &stk "cap"
     let items <Vec<Option<.T>>> field::get stk "items"
@@ -49,16 +49,15 @@ pub fn push <.T: Copy> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
             let new_cap <i32> mul cap0 2
             match stack_alloc_slots<.T> new_cap:
                 Result::Err d:
-                    vec::free<Option<.T>> items
-                    err<Stack<.T>, Diag> d
+                    Result::Err<Stack<.T>, StackPushError<.T>> StackPushError<.T> (Stack<.T> len0 cap0 items) d
                 Result::Ok new_items:
                     stack_copy_live_slots<.T> &items &new_items len0
                     stack_store_slot<.T> &new_items len0 some<.T> item
                     vec::free<Option<.T>> items
-                    ok<Stack<.T>, Diag> Stack<.T> add len0 1 new_cap new_items
+                    Result::Ok<Stack<.T>, StackPushError<.T>> Stack<.T> add len0 1 new_cap new_items
         else:
             stack_store_slot<.T> &items len0 some<.T> item
-            ok<Stack<.T>, Diag> Stack<.T> add len0 1 cap0 items
+            Result::Ok<Stack<.T>, StackPushError<.T>> Stack<.T> add len0 1 cap0 items
 
 //: ## pop_top
 //: [末尾/まつび]を[取/と]り[出/だ]し、[更新後/こうしんご]の stack と[値/あたい]を[返/かえ]す

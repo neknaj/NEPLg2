@@ -587,7 +587,7 @@ fn main <()*>i32> ():
         new
         |> unwrap_ok<Stack<i32>, Diag>
         |> push 10
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let n <i32> len<i32> &st;
     free<i32> st;
     let report:

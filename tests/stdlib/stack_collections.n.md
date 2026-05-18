@@ -18,8 +18,8 @@ stdout: "test_report name=\"stack_new_and_len\" count=1 failed=0\nassertion inde
 
 fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 10;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 20;
     let stack_len <i32> len<i32> &s;
     free<i32> s;
     let report:
@@ -51,9 +51,9 @@ fn main <()*>i32> ():
     let s0 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
         |> push<i32> 20
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let ok0 <bool> match peek<i32> &s0:
         Option::Some v:
             eq v 20
@@ -63,9 +63,9 @@ fn main <()*>i32> ():
     let s1 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
         |> push<i32> 20
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let p pop<i32> s1;
     let ok1 <bool> match p:
         Option::Some v:
@@ -133,9 +133,9 @@ fn main <()*>i32> ():
     let s <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
         |> push<i32> 20
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let stack_len <i32> len<i32> &s;
     free<i32> s;
     let report:
@@ -167,9 +167,9 @@ fn main <()*>i32> ():
     let s0 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
         |> push<i32> 20
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let ok0 <bool> match peek<i32> &s0:
         Option::Some v:
             eq v 20
@@ -179,9 +179,9 @@ fn main <()*>i32> ():
     let s1 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
         |> push<i32> 20
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let p <Option<i32>> pop<i32> s1;
     let ok1 <bool> match p:
         Option::Some v:
@@ -249,15 +249,15 @@ stdout: "test_report name=\"stack_get_keeps_stack\" count=3 failed=0\nassertion 
 
 fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 10;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 20;
     let first_ok <bool> match get<i32> &s 0:
         Option::Some v:
             eq v 10
         Option::None:
             false
     let len_before <i32> len<i32> &s;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 30;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 30;
     let len_after <i32> len<i32> &s;
     free<i32> s;
     let report:
@@ -290,8 +290,8 @@ stdout: "test_report name=\"stack_pop_top_keeps_stack\" count=4 failed=0\nassert
 
 fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 10;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 20;
     let p0 <StackPop<i32>> pop_top<i32> s;
     let a <Option<i32>> stack_pop_item<i32> &p0;
     let s1 <Stack<i32>> stack_pop_stack<i32> p0;
@@ -299,7 +299,7 @@ fn main <()*>i32> ():
     let b <Option<i32>> stack_pop_item<i32> &p1;
     let s2 <Stack<i32>> stack_pop_stack<i32> p1;
     let empty_len <i32> len<i32> &s2;
-    let s3 <Stack<i32>> unwrap_ok<Stack<i32>, Diag> push<i32> s2 30;
+    let s3 <Stack<i32>> unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s2 30;
     let repush_len <i32> len<i32> &s3;
     let a_ok <bool> match a:
         Option::Some v:
@@ -351,22 +351,22 @@ stdout: "test_report name=\"stack_grow_clear_free_reallocates\" count=3 failed=0
 
 fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 0;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 1;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 2;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 3;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 4;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 5;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 6;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 7;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 8;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 9;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 0;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 1;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 2;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 3;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 4;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 5;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 6;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 7;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 8;
+    set s unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> s 9;
     let grown_len <i32> len<i32> &s;
     set s clear<i32> s;
     let clear_len <i32> len<i32> &s;
     free<i32> s;
     let mut next <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-    set next unwrap_ok<Stack<i32>, Diag> push<i32> next 42;
+    set next unwrap_ok<Stack<i32>, StackPushError<i32>> push<i32> next 42;
     let top_ok <bool> match peek<i32> &next:
         Option::Some v:
             eq v 42

@@ -23,17 +23,17 @@ fn main <()*>i32> ():
     let q0 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 1
-        |> unwrap_ok<Queue<i32>, Diag>
+        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
         |> push<i32> 2
-        |> unwrap_ok<Queue<i32>, Diag>
+        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
     let size0 <i32> len<i32> &q0;
     free<i32> q0;
     let q1 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 1
-        |> unwrap_ok<Queue<i32>, Diag>
+        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
         |> push<i32> 2
-        |> unwrap_ok<Queue<i32>, Diag>
+        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
     let ok1 <bool> match peek<i32> &q1:
         Option::Some v:
             eq v 1
@@ -43,7 +43,7 @@ fn main <()*>i32> ():
     let q2 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 5
-        |> unwrap_ok<Queue<i32>, Diag>
+        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
     let ok2 <bool> match pop<i32> q2:
         Option::Some v:
             eq v 5
@@ -52,16 +52,16 @@ fn main <()*>i32> ():
     let q3 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 7
-        |> unwrap_ok<Queue<i32>, Diag>
+        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
         |> push<i32> 8
-        |> unwrap_ok<Queue<i32>, Diag>
+        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
     let p0 <QueuePop<i32>> pop_front<i32> q3
-    let ok3 <bool> match *field::get_ref &p0 "item":
+    let ok3 <bool> match queue_pop_item<i32> &p0:
         Option::Some v:
             eq v 7
         Option::None:
             false
-    let q4 <Queue<i32>> field::get p0 "queue"
+    let q4 <Queue<i32>> queue_pop_queue<i32> p0
     let ok4 <bool>:
         match peek<i32> &q4:
             Option::Some v:

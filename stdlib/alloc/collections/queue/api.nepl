@@ -50,7 +50,7 @@ pub fn is_empty <.T> <(&Queue<.T>)->bool> (q):
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
-pub fn push <.T: Copy> <(Queue<.T>,.T)*>Result<Queue<.T>, Diag>> (q, item):
+pub fn push <.T: Copy> <(Queue<.T>,.T)*>Result<Queue<.T>, QueuePushError<.T>>> (q, item):
     let len0 <i32> *field::get_ref &q "len"
     let cap0 <i32> *field::get_ref &q "cap"
     let head0 <i32> *field::get_ref &q "head"
@@ -61,17 +61,16 @@ pub fn push <.T: Copy> <(Queue<.T>,.T)*>Result<Queue<.T>, Diag>> (q, item):
             let new_cap <i32> mul cap0 2
             match queue_alloc_slots<.T> new_cap:
                 Result::Err d:
-                    vec::free<Option<.T>> items
-                    err<Queue<.T>, Diag> d
+                    Result::Err<Queue<.T>, QueuePushError<.T>> QueuePushError<.T> (Queue<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
                     queue_copy_live_slots<.T> &items &new_items cap0 head0 len0
                     queue_store_slot<.T> &new_items len0 some<.T> item
                     vec::free<Option<.T>> items
-                    ok<Queue<.T>, Diag> Queue<.T> add len0 1 new_cap 0 new_items
+                    Result::Ok<Queue<.T>, QueuePushError<.T>> Queue<.T> add len0 1 new_cap 0 new_items
         else:
             let tail <i32> queue_tail_index head0 len0 cap0
             queue_store_slot<.T> &items tail some<.T> item
-            ok<Queue<.T>, Diag> Queue<.T> add len0 1 cap0 head0 items
+            Result::Ok<Queue<.T>, QueuePushError<.T>> Queue<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
 //: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の queue と[値/あたい]を[返/かえ]す
@@ -97,8 +96,8 @@ pub fn pop_front <.T: Copy> <(Queue<.T>)*>QueuePop<.T>> (q):
 //: queue を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
 pub fn pop <.T: Copy> <(Queue<.T>)*>Option<.T>> (q):
     let p <QueuePop<.T>> pop_front<.T> q
-    let item <Option<.T>> *field::get_ref &p "item"
-    free<.T> field::get p "queue"
+    let item <Option<.T>> queue_pop_item<.T> &p
+    free<.T> queue_pop_queue<.T> p
     item
 
 //: ## peek

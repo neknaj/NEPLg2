@@ -57,14 +57,14 @@ ret: 1
 fn main <()*>i32> ():
     let s0 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
-        |> push<i32> 10 |> unwrap_ok<Stack<i32>, Diag>
-        |> push<i32> 20 |> unwrap_ok<Stack<i32>, Diag>
+        |> push<i32> 10 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
+        |> push<i32> 20 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let ok0 <bool> eq len<i32> &s0 2;
     free<i32> s0;
     let s1 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
-        |> push<i32> 10 |> unwrap_ok<Stack<i32>, Diag>
-        |> push<i32> 20 |> unwrap_ok<Stack<i32>, Diag>
+        |> push<i32> 10 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
+        |> push<i32> 20 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     let p pop<i32> s1;
     let ok1 <bool> match p:
         Option::Some v:

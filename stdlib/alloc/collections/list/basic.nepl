@@ -33,19 +33,18 @@ pub fn new <.T: Copy> <()*>Result<List<.T>, Diag>> ():
 //:
 //: ### [実装/じっそう]
 //: - 論理先頭は storage 末尾なので、`Vec.push` だけで先頭追加になります。
-pub fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
+pub fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, ListPushError<.T>>> (head, tail):
     let items <Vec<.T>> field::get tail "items"
     match vec::push<.T> items head:
         Result::Ok next_items:
-            ok<List<.T>, Diag> List<.T> next_items
+            Result::Ok<List<.T>, ListPushError<.T>> List<.T> next_items
         Result::Err e:
             let error <StdErrorKind> vec::vec_push_error_kind<.T> &e
             let returned_items <Vec<.T>> vec::vec_push_error_vec<.T> e
-            vec::free<.T> returned_items
-            diag_err<List<.T>> list_diag_from_vec_error error
+            Result::Err<List<.T>, ListPushError<.T>> ListPushError<.T> (List<.T> returned_items) (list_diag_from_vec_error error)
 
 //: push: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
-pub fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, Diag>> (lst, head):
+pub fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, ListPushError<.T>>> (lst, head):
     cons<.T> head lst
 
 //: tail: list を[消費/しょうひ]して[先頭/せんとう]を[除/のぞ]いた list を[返/かえ]す

@@ -69,7 +69,7 @@ pub fn is_empty <.T> <(&RingBuffer<.T>)->bool> (rb):
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
-pub fn push <.T: Copy> <(RingBuffer<.T>,.T)*>Result<RingBuffer<.T>, Diag>> (rb, item):
+pub fn push <.T: Copy> <(RingBuffer<.T>,.T)*>Result<RingBuffer<.T>, RingBufferPushError<.T>>> (rb, item):
     let len0 <i32> *field::get_ref &rb "len"
     let cap0 <i32> *field::get_ref &rb "cap"
     let head0 <i32> *field::get_ref &rb "head"
@@ -80,17 +80,16 @@ pub fn push <.T: Copy> <(RingBuffer<.T>,.T)*>Result<RingBuffer<.T>, Diag>> (rb, 
             let new_cap <i32> mul cap0 2
             match ringbuffer_alloc_slots<.T> new_cap:
                 Result::Err d:
-                    vec::free<Option<.T>> items
-                    err<RingBuffer<.T>, Diag> d
+                    Result::Err<RingBuffer<.T>, RingBufferPushError<.T>> RingBufferPushError<.T> (RingBuffer<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
                     ringbuffer_copy_live_slots<.T> &items &new_items cap0 head0 len0
                     ringbuffer_store_slot<.T> &new_items len0 some<.T> item
                     vec::free<Option<.T>> items
-                    ok<RingBuffer<.T>, Diag> RingBuffer<.T> add len0 1 new_cap 0 new_items
+                    Result::Ok<RingBuffer<.T>, RingBufferPushError<.T>> RingBuffer<.T> add len0 1 new_cap 0 new_items
         else:
             let tail <i32> ringbuffer_tail_index head0 len0 cap0
             ringbuffer_store_slot<.T> &items tail some<.T> item
-            ok<RingBuffer<.T>, Diag> RingBuffer<.T> add len0 1 cap0 head0 items
+            Result::Ok<RingBuffer<.T>, RingBufferPushError<.T>> RingBuffer<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
 //: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の buffer と[値/あたい]を[返/かえ]す
@@ -116,8 +115,8 @@ pub fn pop_front <.T: Copy> <(RingBuffer<.T>)*>RingBufferPop<.T>> (rb):
 //: buffer を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
 pub fn pop <.T: Copy> <(RingBuffer<.T>)*>Option<.T>> (rb):
     let p <RingBufferPop<.T>> pop_front<.T> rb
-    let item <Option<.T>> *field::get_ref &p "item"
-    free<.T> field::get p "buffer"
+    let item <Option<.T>> ringbuffer_pop_item<.T> &p
+    free<.T> ringbuffer_pop_buffer<.T> p
     item
 
 //: ## peek

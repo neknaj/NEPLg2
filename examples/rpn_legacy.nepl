@@ -77,11 +77,14 @@ fn print_result <(i32)*>()> (val):
 //: [目的/もくてき]:
 //: - 計算途中の `push` 失敗を panic にせず、利用者へ `out of memory` として表示します。
 //: - `push` は Stack owner を消費して更新後 owner を返すため、成功時だけ次の owner を返します。
+//: - 失敗時は `StackPushError` から owner を回収して閉じ、REPL 状態には失敗だけを残します。
 fn push_or_report <(Stack<i32>,i32)*>Result<Stack<i32>,str>> (stack, val):
     match stk::push<i32> stack val:
         Result::Ok next_stack:
             ok<Stack<i32>,str> next_stack
-        Result::Err _:
+        Result::Err e:
+            let returned <Stack<i32>> stk::stack_push_error_stack<i32> e
+            stk::free<i32> returned;
             print_error "out of memory";
             err<Stack<i32>,str> "out of memory"
 

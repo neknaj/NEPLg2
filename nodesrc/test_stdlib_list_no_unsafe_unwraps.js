@@ -53,6 +53,21 @@ assert.match(
     'List types must delegate storage ownership to the Vec abstraction',
 );
 assert.match(
+    typesCode,
+    /struct\s+ListPushError<\.T>:[\s\S]*list\s+<List<\.T>>[\s\S]*diag\s+<Diag>/,
+    'List push failure payload must carry the consumed list owner and diagnostic',
+);
+assert.match(
+    typesCode,
+    /fn\s+list_push_error_diag\s+<\.T>\s+<\(&ListPushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/,
+    'ListPushError diag access must borrow the error payload',
+);
+assert.match(
+    typesCode,
+    /fn\s+list_push_error_list\s+<\.T:\s*Copy>\s+<\(ListPushError<\.T>\)->List<\.T>>[\s\S]*field::get\s+e\s+"list"/,
+    'ListPushError list extraction must move the returned owner and remain Copy-only while List is Copy-only',
+);
+assert.match(
     storageCode,
     /fn\s+list_physical_index\s+<\(i32,i32\)->i32>[\s\S]*sub\s+sub\s+len0\s+1\s+idx/,
     'List storage helper must own logical-to-physical index conversion',
@@ -69,8 +84,18 @@ assert.match(
 );
 assert.match(
     basicCode,
-    /fn\s+cons\s+<\.T:\s*Copy>\s+<\(\.T,List<\.T>\)\*>Result<List<\.T>,\s*Diag>>[\s\S]*vec::push<\.T>\s+items\s+head/,
-    'List.cons must add the logical head through Vec.push and expose the Copy payload contract',
+    /fn\s+cons\s+<\.T:\s*Copy>\s+<\(\.T,List<\.T>\)\*>Result<List<\.T>,\s*ListPushError<\.T>>>[\s\S]*vec::push<\.T>\s+items\s+head/,
+    'List.cons must add the logical head through Vec.push and expose owner-preserving Result<List<T>, ListPushError<T>>',
+);
+assert.match(
+    basicCode,
+    /Result::Err\s+e:[\s\S]*vec::vec_push_error_vec<\.T>\s+e[\s\S]*Result::Err<List<\.T>,\s*ListPushError<\.T>>\s+ListPushError<\.T>\s+\(List<\.T>\s+returned_items\)\s+\(list_diag_from_vec_error\s+error\)/,
+    'List.cons Vec.push failure must return the consumed List owner in ListPushError',
+);
+assert.doesNotMatch(
+    basicCode,
+    /Result::Err\s+e:[\s\S]{0,260}vec::free<\.T>\s+returned_items[\s\S]{0,120}diag_err<List<\.T>>/,
+    'List.cons failure must not destroy the returned Vec owner and collapse the failure to Diag only',
 );
 assert.match(
     basicCode,

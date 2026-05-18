@@ -121,7 +121,9 @@ fn compile_jumps <(str)*>Result<Vec<i32>,str>> (code):
                                             match stk::push<i32> stk pc:
                                                 Result::Ok next_stack:
                                                     set stack_state ok<Stack<i32>,str> next_stack
-                                                Result::Err _:
+                                                Result::Err e:
+                                                    let returned_stack <Stack<i32>> stk::stack_push_error_stack<i32> e
+                                                    stk::free<i32> returned_stack;
                                                     set error true;
                                                     set error_msg "out of memory";
                                                     set stack_state err<Stack<i32>,str> "out of memory"

@@ -41892,3 +41892,37 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
   - `node nodesrc/issues.js check`: passed
   - `git diff --check`: passed
+
+## 2026-05-18 Agent 1 collection push failure owner contract 修正
+
+- `ISS-20260518T170931495Z-STACK-QUEUE-RINGBUFFER-LIST-PUSH-GRO-88AD5166` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Stack.push` / `Queue.push` / `RingBuffer.push` / `List.cons` / `List.push` が collection owner を消費する API なのに、grow / allocation failure branch で旧 storage owner を内部で破棄し、caller へ `Diag` だけを返していたことだった。これでは cleanup / retry / diagnostic の責務を caller が型で分岐できず、Resource IR にとっても failure path の owner transfer が API 型から見えない。
+- `StackPushError<T>` / `QueuePushError<T>` / `RingBufferPushError<T>` / `ListPushError<T>` を追加し、fallible push/cons の `Err` payload が消費済み collection owner と `Diag` を保持するようにした。各 accessor は現行 Copy-only collection 境界に合わせて `.T: Copy` の owner extraction と、borrowed diagnostic read に分けた。
+- 検証中に `QueuePop` / `RingBufferPop` が public accessor を持たず、doctest が owner-backed aggregate field projection に依存していることも発覚した。同じ owner boundary 問題として `queue_pop_item` / `queue_pop_queue` / `ringbuffer_pop_item` / `ringbuffer_pop_buffer` を追加し、`pop` helper と doctest を direct field access から切り離した。
+- `examples/rpn.nepl` / `examples/rpn_legacy.nepl` / `examples/bf.nepl` は `StackPushError` から returned owner を回収して `free` してから user-facing error に変換するようにした。
+- source policy は bare `Diag` push result、grow failure branch の storage destroy、QueuePop / RingBufferPop の direct field projection への退行を拒否する。これは stdlib allowlist ではなく、API 型と failure branch shape から owner-preserving contract を監視する Stage 6 の回帰ガードである。
+- focused verification:
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/stack.n.md --no-tree -o tmp/agent1-stack-stdlib-push-owner.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+  - `node nodesrc/tests.js -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/agent1-stack-collections-push-owner.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+  - `node nodesrc/tests.js -i stdlib/tests/queue.n.md --no-tree -o tmp/agent1-queue-push-owner.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/queue_collections.n.md --no-tree -o tmp/agent1-queue-collections-push-owner.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/tests/ringbuffer.n.md --no-tree -o tmp/agent1-ringbuffer-push-owner.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/agent1-ringbuffer-collections-push-owner.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/tests/list.n.md --no-tree -o tmp/agent1-list-push-owner.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/list_collections.n.md --no-tree -o tmp/agent1-list-collections-push-owner.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/agent1-pipe-collections-push-owner.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
+  - `node nodesrc/tests.js -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/agent1-stack-examples-push-owner.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack/types.nepl --no-tree -o tmp/agent1-stack-types-push-owner-docs.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/queue/types.nepl --no-tree -o tmp/agent1-queue-types-push-owner-docs.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/ringbuffer/types.nepl --no-tree -o tmp/agent1-ringbuffer-types-push-owner-docs.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/list/types.nepl --no-tree -o tmp/agent1-list-types-push-owner-docs.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+  - Combined exploratory run `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i tests/stdlib/pipe_collections.n.md -i tests/compiler/overload.n.md -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/agent1-stack-push-owner.json -j 1 --dist web/dist --assert-io` は 10 分で timeout した。70/76 件まで進み、変更対象の Stack / pipe / examples の一部は pass、既存の `tests/compiler/overload.n.md::doctest#10` は owner-backed aggregate field access 制限で failure していたため、本 issue の検証対象からは除外した。

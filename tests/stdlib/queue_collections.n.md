@@ -71,8 +71,8 @@ stdout: "test_report name=\"queue_grow_clear_and_free\" count=3 failed=0\nassert
 
 fn main <()*>i32> ():
     let q0 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> with_capacity<i32> 1;
-    let q1 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> push<i32> q0 10;
-    let q2 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> push<i32> q1 20;
+    let q1 <Queue<i32>> unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 10;
+    let q2 <Queue<i32>> unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q1 20;
     let size <i32> len<i32> &q2;
     let ok_peek <bool> match peek<i32> &q2:
         Option::Some v:
