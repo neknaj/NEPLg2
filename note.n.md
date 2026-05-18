@@ -41257,3 +41257,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc\run_doctest.js -i stdlib\neplg2\core\module\loader.nepl -n 1 --assert-io --dist web\dist`: passed
   - `node nodesrc\run_doctest.js -i tests\stdlib\neplg2_stdlib_map.n.md -n 1 --assert-io --dist web\dist`: passed
   - `node nodesrc\run_doctest.js -i tests\stdlib\neplg2_stdlib_map.n.md -n 3 --assert-io --dist web\dist`: passed
+
+## 2026-05-18 Agent 1 selfhost module graph obsolete AST traversal 削除
+
+- `ISS-20260518T004559104Z-SELFHOST-MODULE-GRAPH-KEEPS-OBSOLETE-8DDB7A8E` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、前段で graph の通常経路を source-scanned `SelfhostImportRecord` へ移した後も、`graph.nepl` に `SelfhostModuleAst` / `SelfhostImportSpec` 経由の旧 traversal helper が残り、source policy までその旧経路を要求していたことだった。
+- 修正後は `graph.nepl` から `module_ast` / `import_spec` import と旧 `selfhost_module_graph_visit_imports` / `selfhost_module_graph_extract_imports` 系 API を削除し、graph traversal を `SelfhostImportRecord` に一本化した。
+- `nodesrc/test_selfhost_string_helpers_boundary.js` は旧 AST 経路を要求せず、`module/import_scan` と `selfhost_scan_module_imports_with_file_id` の使用、旧 AST / import-spec traversal の再導入禁止を検査する。
+- focused verification:
+  - `node nodesrc\test_selfhost_string_helpers_boundary.js`: passed
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\module\graph.nepl -i tests\stdlib\neplg2_module_graph.n.md -i tests\stdlib\neplg2_stdlib_map.n.md --no-tree -o tmp\agent1-selfhost-graph-no-ast-path.json -j 1 --dist web\dist --assert-io`: total=7, passed=7
+  - `node nodesrc\issues.js check --dir issues`: passed

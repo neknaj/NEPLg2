@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-17T21:24:39.203Z",
+  "generated_at": "2026-05-18T00:51:30.786Z",
   "counts": {
-    "total": 969,
-    "open": 6,
-    "resolved": 963,
+    "total": 970,
+    "open": 5,
+    "resolved": 965,
     "by_area": {
-      "CORE": {
-        "total": 4,
-        "open": 1,
-        "resolved": 3
-      },
       "stdlib": {
         "total": 262,
         "open": 3,
@@ -22,9 +17,9 @@
         "resolved": 36
       },
       "selfhost": {
-        "total": 69,
+        "total": 70,
         "open": 1,
-        "resolved": 68
+        "resolved": 69
       },
       "cli": {
         "total": 19,
@@ -35,6 +30,11 @@
         "total": 496,
         "open": 0,
         "resolved": 496
+      },
+      "CORE": {
+        "total": 4,
+        "open": 0,
+        "resolved": 4
       },
       "resource": {
         "total": 3,
@@ -129,21 +129,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E",
-      "title": "selfhost stdlib_map graph doctest exceeds default compile timeout",
-      "area": "CORE",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-17",
-      "updated": "2026-05-17",
-      "target": "tests/stdlib/neplg2_stdlib_map.n.md, nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -7585,6 +7570,21 @@
       "file": "items/ISS-20260517T185446545Z-SYNTHETIC-HIR-RAW-AND-ADDRESS-INTRIN-0E618808.md"
     },
     {
+      "id": "ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E",
+      "title": "selfhost stdlib_map graph doctest exceeds default compile timeout",
+      "area": "CORE",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-17",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/neplg2_stdlib_map.n.md, stdlib/neplg2/core/module/graph.nepl, stdlib/neplg2/core/module/loader.nepl, stdlib/neplg2/core/module/vfs.nepl, stdlib/neplg2/core/module/import_scan.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260517T212438890Z-SELFHOST-STDLIB-MAP-GRAPH-DOCTEST-EX-DACB7C6E.md"
+    },
+    {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
       "title": "Resource owner storage origin crosses raw deref into Copy cell payloads",
       "area": "core/resource",
@@ -8708,6 +8708,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T171239067Z-SELFHOST-TYPE-ARENA-DOCTESTS-HIDE-ST-F725D758.md"
+    },
+    {
+      "id": "ISS-20260518T004559104Z-SELFHOST-MODULE-GRAPH-KEEPS-OBSOLETE-8DDB7A8E",
+      "title": "selfhost module graph keeps obsolete AST import traversal path",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/neplg2/core/module/graph.nepl, nodesrc/test_selfhost_string_helpers_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T004559104Z-SELFHOST-MODULE-GRAPH-KEEPS-OBSOLETE-8DDB7A8E.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

@@ -10,11 +10,11 @@
 //: [実装/じっそう]:
 //: - `SelfhostModuleGraph` は `Vec<SelfhostModuleGraphNode>` と `Vec<SelfhostModuleGraphEdge>` を所有します。
 //: - node は `Visiting` / `Done` の状態を持ち、DFS 中の再訪問を cycle として検出します。
-//: - module AST は import spec 抽出後すぐ解放し、graph には path、file_id、edge span だけを残します。
+//: - module source から top-level import directive だけを scan し、graph には path、file_id、edge span だけを残します。
 //:
 //: [注意/ちゅうい]:
 //: - graph 内の path は VFS source または caller が渡した path に由来する `str` です。graph 利用中は VFS と root path の lifetime を保ってください。
-//: - `selfhost_build_module_graph` は後方互換の完全一致 loader です。stdlib root / user root を解決する場合は `selfhost_build_module_graph_with_path_map` を使います。
+//: - `selfhost_build_module_graph` は VFS path の完全一致 API です。stdlib root / user root を解決する場合は `selfhost_build_module_graph_with_path_map` を使います。
 //:
 //: [計算量/けいさんりょう]:
 //: - path lookup と visited lookup は現段階では線形探索です。module 数 n、import edge 数 e に対して O(n^2 + e n) です。
@@ -40,10 +40,8 @@
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/import_scan" as *
-#import "neplg2/core/module/import_spec" as *
 #import "neplg2/core/module/stdlib_map" as *
 #import "neplg2/core/module/vfs" as *
-#import "neplg2/core/syntax/ast/module_ast" as *
 #import "core/field" as *
 
 //: SelfhostModuleGraphNodeStatus: DFS 中の module node 状態
@@ -237,118 +235,6 @@ pub fn selfhost_module_graph_set_state <(SelfhostModuleGraph,i32,SelfhostModuleG
             selfhost_module_graph_set_node graph idx selfhost_module_graph_node_new node.path node.file_id status import_count
         Option::None:
             graph
-
-//: selfhost_module_graph_import_item: import spec の元 AST item を[取/と]り[出/だ]す
-pub fn selfhost_module_graph_import_item <(&SelfhostModuleAst,SelfhostImportSpec)*>Result<SelfhostModuleItem, SelfhostDiagnostic>> (ast, spec):
-    match selfhost_module_ast_get ast selfhost_import_spec_item_index spec:
-        Option::Some item:
-            Result<SelfhostModuleItem, SelfhostDiagnostic>::Ok item
-        Option::None:
-            Result<SelfhostModuleItem, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag selfhost_import_spec_span spec "import spec item index was unavailable"
-
-//: selfhost_module_graph_visit_imports: 1 module の import list を DFS で[辿/たど]る
-pub fn selfhost_module_graph_visit_imports <(&SelfhostVirtualFileSystem,str,&SelfhostModuleAst,&Vec<SelfhostImportSpec>,i32,i32,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, from_path, ast, imports, n, idx, graph):
-    if:
-        ge idx n
-        then:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok graph
-        else:
-            match v::get<SelfhostImportSpec> imports idx:
-                Option::Some spec:
-                    match selfhost_module_graph_import_item ast spec:
-                        Result::Ok item:
-                            let span <SelfhostSourceSpan> selfhost_import_spec_span spec
-                            let edge_path <str> selfhost_import_spec_path item.lexeme spec
-                            let edge <SelfhostModuleGraphEdge> selfhost_module_graph_edge_new from_path edge_path span
-                            match selfhost_module_graph_push_edge graph edge span:
-                                Result::Ok edge_graph:
-                                    let visit_path <str> selfhost_import_spec_path item.lexeme spec
-                                    match selfhost_module_graph_visit vfs visit_path span edge_graph:
-                                        Result::Ok next_graph:
-                                            selfhost_module_graph_visit_imports vfs from_path ast imports n add idx 1 next_graph
-                                        Result::Err diag:
-                                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-                                Result::Err diag:
-                                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-                        Result::Err diag:
-                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-                Option::None:
-                    selfhost_module_graph_free graph
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import spec index was unavailable"
-
-//: selfhost_module_graph_visit_imports_with_path_map: path map で import list を DFS 展開する
-pub fn selfhost_module_graph_visit_imports_with_path_map <(&SelfhostVirtualFileSystem,&SelfhostModulePathMap,str,&SelfhostModuleAst,&Vec<SelfhostImportSpec>,i32,i32,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path_map, from_path, ast, imports, n, idx, graph):
-    if:
-        ge idx n
-        then:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok graph
-        else:
-            match v::get<SelfhostImportSpec> imports idx:
-                Option::Some spec:
-                    match selfhost_module_graph_import_item ast spec:
-                        Result::Ok item:
-                            let span <SelfhostSourceSpan> selfhost_import_spec_span spec
-                            match selfhost_module_path_resolve_import_spec path_map from_path item.lexeme spec:
-                                Result::Ok resolved:
-                                    let edge <SelfhostModuleGraphEdge> selfhost_module_graph_edge_new from_path resolved.path span
-                                    match selfhost_module_graph_push_edge graph edge span:
-                                        Result::Ok edge_graph:
-                                            match selfhost_module_graph_visit_with_path_map vfs path_map resolved.path span edge_graph:
-                                                Result::Ok next_graph:
-                                                    selfhost_module_graph_visit_imports_with_path_map vfs path_map from_path ast imports n add idx 1 next_graph
-                                                Result::Err diag:
-                                                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-                                        Result::Err diag:
-                                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-                                Result::Err diag:
-                                    selfhost_module_graph_free graph
-                                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-                        Result::Err diag:
-                            selfhost_module_graph_free graph
-                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-                Option::None:
-                    selfhost_module_graph_free graph
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import spec index was unavailable"
-
-//: selfhost_module_graph_extract_imports: parse 済み AST から import graph edge を[展開/てんかい]する
-pub fn selfhost_module_graph_extract_imports <(&SelfhostVirtualFileSystem,str,i32,SelfhostModuleGraph,SelfhostModuleAst)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path, node_idx, graph, ast):
-    match selfhost_module_import_specs &ast:
-        Result::Ok imports:
-            let import_count <i32> v::len<SelfhostImportSpec> &imports
-            let graph_with_count <SelfhostModuleGraph> selfhost_module_graph_set_state graph node_idx SelfhostModuleGraphNodeStatus::Visiting import_count
-            match selfhost_module_graph_visit_imports vfs path &ast &imports import_count 0 graph_with_count:
-                Result::Ok graph_after_imports:
-                    v::free<SelfhostImportSpec> imports
-                    selfhost_module_ast_free ast
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
-                Result::Err diag:
-                    v::free<SelfhostImportSpec> imports
-                    selfhost_module_ast_free ast
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-        Result::Err diag:
-            selfhost_module_ast_free ast
-            selfhost_module_graph_free graph
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-
-//: selfhost_module_graph_extract_imports_with_path_map: path map で AST の import を graph edge にする
-pub fn selfhost_module_graph_extract_imports_with_path_map <(&SelfhostVirtualFileSystem,&SelfhostModulePathMap,str,i32,SelfhostModuleGraph,SelfhostModuleAst)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path_map, path, node_idx, graph, ast):
-    match selfhost_module_import_specs &ast:
-        Result::Ok imports:
-            let import_count <i32> v::len<SelfhostImportSpec> &imports
-            let graph_with_count <SelfhostModuleGraph> selfhost_module_graph_set_state graph node_idx SelfhostModuleGraphNodeStatus::Visiting import_count
-            match selfhost_module_graph_visit_imports_with_path_map vfs path_map path &ast &imports import_count 0 graph_with_count:
-                Result::Ok graph_after_imports:
-                    v::free<SelfhostImportSpec> imports
-                    selfhost_module_ast_free ast
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
-                Result::Err diag:
-                    v::free<SelfhostImportSpec> imports
-                    selfhost_module_ast_free ast
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
-        Result::Err diag:
-            selfhost_module_ast_free ast
-            selfhost_module_graph_free graph
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
 
 //: selfhost_module_graph_visit_import_records: scanned import record を DFS 展開する
 //:

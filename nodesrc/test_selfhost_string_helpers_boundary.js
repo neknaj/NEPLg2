@@ -159,20 +159,26 @@ assert.match(
 
 assert.match(
     moduleGraphSrc,
-    /fn\s+selfhost_module_graph_visit_imports\s+<\(&SelfhostVirtualFileSystem,str,&SelfhostModuleAst,&Vec<SelfhostImportSpec>/,
-    'module graph import traversal must keep the AST alive while resolving range-only import specs',
+    /#import\s+"neplg2\/core\/module\/import_scan"\s+as\s+\*/,
+    'module graph must consume the lightweight source import scanner',
 );
 
 assert.match(
     moduleGraphSrc,
-    /selfhost_module_graph_visit_imports\s+vfs\s+path\s+&ast\s+&imports/,
-    'module graph must pass the AST into import traversal instead of freeing it before path slicing',
+    /selfhost_scan_module_imports_with_file_id\s+file\.source\s+file\.file_id/,
+    'module graph must scan source imports directly instead of parsing a full module AST',
 );
 
 assert.match(
     moduleGraphSrc,
-    /selfhost_import_spec_path\s+item\.lexeme\s+spec/,
-    'module graph must slice import paths from the original module item lexeme',
+    /fn\s+selfhost_module_graph_visit_import_records\s+<\(&SelfhostVirtualFileSystem,str,&Vec<SelfhostImportRecord>/,
+    'module graph import traversal must use source-scanned import records',
+);
+
+assert.doesNotMatch(
+    moduleGraphSrc,
+    /SelfhostModuleAst|SelfhostImportSpec|selfhost_module_graph_visit_imports|selfhost_module_graph_extract_imports|selfhost_module_graph_import_item/,
+    'module graph must not retain the obsolete AST/import-spec traversal path',
 );
 
 assert.match(
