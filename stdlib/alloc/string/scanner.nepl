@@ -71,11 +71,12 @@ fn scanner_string_addr <(str)->i32> (s):
 pub fn scanner_str_byte_len <(str)->i32> (s):
     load_i32 scanner_string_addr s
 
-//: scanner_string_byte_at_unchecked: 範囲確認済み index の byte を読む
+//: scanner_string_byte_at_unchecked: 範囲確認済み index の byte を scanner 内部で読む
 //:
 //: [注意/ちゅうい]:
 //: - `idx` は必ず `0 <= idx < scanner_str_byte_len(s)` を満たす前提です。
-pub fn scanner_string_byte_at_unchecked <(str,i32)->i32> (s, idx):
+//: - この helper は公開しません。scanner 利用者は範囲を正規化する public helper を使います。
+fn scanner_string_byte_at_unchecked <(str,i32)->i32> (s, idx):
     load_u8 <i32> add scanner_string_addr s <i32> add 4 idx
 
 pub fn scanner_byte_is_ascii_digit <(i32)->bool> (b):

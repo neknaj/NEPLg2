@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T07:19:44.422Z",
+  "generated_at": "2026-05-18T07:27:58.952Z",
   "counts": {
-    "total": 986,
-    "open": 5,
-    "resolved": 981,
+    "total": 988,
+    "open": 6,
+    "resolved": 982,
     "by_area": {
       "stdlib": {
-        "total": 266,
-        "open": 3,
-        "resolved": 263
+        "total": 268,
+        "open": 4,
+        "resolved": 264
       },
       "TEST": {
         "total": 41,
@@ -158,6 +158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1",
+      "title": "alloc string public unchecked byte access needs safe boundary redesign",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/string/access.nepl, stdlib/**, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -11738,6 +11753,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T071033883Z-ALLOC-STRING-STORAGE-EXPOSES-UNCHECK-9EA051F0.md"
+    },
+    {
+      "id": "ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25",
+      "title": "alloc string scanner exposes unchecked byte reader",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/string/scanner.nepl, tests/stdlib/memory_safety.n.md, nodesrc/test_stdlib_byte_scanner_helpers_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

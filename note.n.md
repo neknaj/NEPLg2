@@ -1,3 +1,17 @@
+# 2026-05-18 Agent 1 alloc/string scanner unchecked byte reader public 境界修正
+
+- `ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`alloc/string/scanner.nepl` の `scanner_string_byte_at_unchecked` が scanner 内部の範囲正規化済み loop helper であるにもかかわらず public API として公開されていたこと。直接 import した caller は `str_find_byte_range` / `str_line_end` などの範囲正規化を通らず raw string layout read を呼べた。
+- `scanner_string_byte_at_unchecked` を private helper にし、public scanner API を range helper / byte classification helper に限定した。
+- `nodesrc/test_stdlib_byte_scanner_helpers_boundary.js` と `tests/stdlib/memory_safety.n.md` に、unchecked reader が public に戻らない regression を追加した。
+- 同じ監査で root `alloc/string` から見える `string_byte_at_unchecked` は利用箇所が多く、bounded-index proof / checked helper migration が必要な別設計問題として `ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1` に分離した。
+- 検証:
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`
+  - `node nodesrc/tests.js -i stdlib\alloc\string\scanner.nepl --no-tree -o tmp\agent1-string-scanner-unchecked-private-docs.json -j 1 --dist web\dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-string-scanner-unchecked-private-memory-safety.json -j 1 --dist web\dist`: total=47, passed=47
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の raw-memory-backed stdlib public/internal 境界として、scanner 内部の unchecked byte reader を公開面から外した。
+
 # 2026-05-18 Agent 1 alloc/string raw address public helper 境界修正
 
 - `ISS-20260518T071033883Z-ALLOC-STRING-STORAGE-EXPOSES-UNCHECK-9EA051F0` を追加し、fixed / resolved にした。`plan.md` は変更していない。

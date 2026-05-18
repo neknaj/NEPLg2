@@ -875,6 +875,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T071033883Z-ALLOC-STRING-STORAGE-EXPOSES-UNCHECK-9EA051F0` は同じ 2026-05-18 に修正した。`alloc/string/storage` には `string_finish_base(MemPtr<u8>, i32) -> str`、public `string_addr`、public `string_from_addr_unchecked` が残り、`alloc/string/scanner` も public `scanner_string_addr` を持っていた。これらは Resource IR が `str_addr` を non-owning view、`str_from_addr_unchecked` を owner transfer として区別していても、通常 source が direct import で raw `i32` observer / unchecked finalizer を呼べる public surface になっていた。修正後は `string_finish_base` と未使用 header pointer projection を削除し、`str` への所有権移行は `RegionToken<u8>` を消費する `string_finish` だけに集約した。`storage` / `access` / `scanner` が必要とする raw address helper は各 module の private helper に閉じ、source policy と memory safety doctest で public helper の再導入を拒否する。これは stdlib module 名 allowlist ではなく、public API surface から raw address authority を取り除き、compiler-owned source 内部でだけ source capability proof が効く形に戻す Stage 6 の境界整理である。
 
+`ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25` も同じ 2026-05-18 に修正した。`alloc/string/scanner` の public range helper は入力範囲を正規化してから internal byte reader を使う設計だが、`scanner_string_byte_at_unchecked` 自体も public だったため、direct import caller が範囲正規化を迂回できた。修正後は scanner 内部の unchecked byte reader を private にし、public surface は range helper と byte classification helper に限定した。これにより scanner module の raw string layout read は compiler-owned source 内部の proof boundary に戻り、source policy と memory safety doctest が public unchecked reader の再導入を拒否する。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

@@ -657,3 +657,13 @@ Resource IR は raw address alias と raw address view を `InternalHelper` / `T
 `string_finish_base` は `MemPtr<u8>` から `str` を確定できる不要 helper であり、現行の live path はすべて `RegionToken<u8>` を消費する `string_finish` に集約済みだったため削除した。`string_addr` / `string_from_addr_unchecked` は `storage.nepl` 内の private helper に閉じ、`access.nepl` / `scanner.nepl` が必要とする `str_addr` observer も各 module の private helper にした。
 
 この親 issue は引き続き open とする。今回閉じたのは raw address helper の public surface 漏れであり、`RegionToken` を compiler-issued owner token / `OwnedStringRegion` / `OwnedBuffer<T>` / initialized prefix へ移す作業は Stage 6 残件として継続する。
+
+## 2026-05-18 Agent 1 alloc/string scanner unchecked byte reader 境界追記
+
+`ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25` として、`alloc/string/scanner.nepl` が `scanner_string_byte_at_unchecked` を public API として公開していた問題を分離して修正した。
+
+scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next_line_pos` などで範囲を正規化してから内部 unchecked reader を呼ぶ設計であり、外部 caller が任意 index で raw string layout read を直接呼ぶ必要はない。修正後は unchecked reader を private にし、direct import でも到達できないことを memory safety doctest と source policy で固定した。
+
+この親 issue は引き続き open とする。今回閉じたのは scanner module の不要な unchecked public reader であり、root `alloc/string/access` 側の広範な `string_byte_at_unchecked` 利用整理や、compiler-issued owner token / initialized prefix は Stage 6 残件として継続する。
+
+同じ監査で、root `alloc/string` facade から見える `string_byte_at_unchecked` は stdlib / selfhost の多数の範囲証明済みループで使われており、単純な private 化ではなく bounded-index proof / checked helper migration が必要であることを確認した。この大きな設計残件は `ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1` として分離し、この親 issue の Stage 6 残件に含める。

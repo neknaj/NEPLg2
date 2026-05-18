@@ -1194,3 +1194,18 @@ diag_code: resolve.identifier.undefined
 fn main <()*>i32> ():
     scanner_string_addr "abc"
 ```
+
+## string scanner の unchecked byte reader は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/scanner" as *
+
+fn main <()*>i32> ():
+    scanner_string_byte_at_unchecked "abc" 99
+```
