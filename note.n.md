@@ -42061,3 +42061,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
   - `node nodesrc/issues.js check`: passed
   - `git diff --check`: passed
+
+## 2026-05-18 Agent 1 string_char stdout report metadata 移行
+
+- `ISS-20260518T223426080Z-STRING-CHAR-DOCTESTS-STILL-USE-RET-W-0FE6D028` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/string_char.n.md` の 3 doctest が `std/test::Checks` を使っているにもかかわらず `ret: 0` だけで成功を表し、char count / access / slice、next-char / contains、builder append の観測結果を stdout fixture に固定していなかったことだった。
+- 3 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行し、`checks_print_report` の結果を `checks_exit_code` に渡す形へ揃えた。
+- `nodesrc/test_stdlib_string_char_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を source policy で拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_stdlib_string_char_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent1-string-char-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3

@@ -150,6 +150,7 @@ const checks = [
     "nodesrc/test_stdlib_string_utf8_boundary.js",
     "nodesrc/test_stdlib_string_storage_boundary.js",
     "nodesrc/test_stdlib_string_access_boundary.js",
+    "nodesrc/test_stdlib_string_char_report_contract.js",
     "nodesrc/test_stdlib_string_search_boundary.js",
     "nodesrc/test_stdlib_string_slice_boundary.js",
     "nodesrc/test_stdlib_string_split_boundary.js",

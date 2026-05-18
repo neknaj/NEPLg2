@@ -1456,3 +1456,21 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-report-contract.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
 
 この issue はまだ open のまま継続する。`selfhost_req` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 string_char stdout report metadata migration
+
+`ISS-20260518T223426080Z-STRING-CHAR-DOCTESTS-STILL-USE-RET-W-0FE6D028` として、`tests/stdlib/string_char.n.md` の 3 doctest を `ret: 0` から stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- char count / access / slice、next-char / contains、string and byte builders append char の検査結果を `std/test::Checks` の stdout report として fixture に固定した。
+- `checks_print_report` の結果を `checks_exit_code` に渡す形にし、report 出力なしの exit-code-only 成功を許さない形にした。
+- `nodesrc/test_stdlib_string_char_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_stdlib_string_char_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent1-string-char-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+
+この issue はまだ open のまま継続する。`string_char` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。

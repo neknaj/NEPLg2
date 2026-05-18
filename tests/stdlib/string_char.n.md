@@ -4,8 +4,18 @@
 
 ## string_char_count_access_and_slice
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
 ```neplg2
 #entry main
 #target std
@@ -42,13 +52,23 @@ fn main <()*>i32> ():
         |> checks_push expect_str_ok "slice 1..3" str_slice_chars_result s 1 3 "あ💯"
         |> checks_push assert is_err<char,str> str_char_at_result s 3
         |> checks_push assert is_err<str,str> str_slice_chars_result s 2 1
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 ## string_next_char_and_contains
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
 ```neplg2
 #entry main
 #target std
@@ -86,13 +106,18 @@ fn main <()*>i32> ():
         |> checks_push assert not str_starts_with_char s 'あ'
         |> checks_push assert str_contains_char s 'あ'
         |> checks_push assert not str_contains_char s 'Z'
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 ## string_and_byte_builders_append_char
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 #entry main
 #target std
@@ -142,5 +167,6 @@ fn main <()*>i32> ():
         checks_new
         |> checks_push assert_str_eq "Aあ!" text
         |> checks_push bytes_check
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
