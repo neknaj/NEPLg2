@@ -1420,3 +1420,21 @@ rendering-only 2 件は `checks_print_report` で deterministic stdout report �
 focused doctest 実行では default 60000ms と 300000ms の両方で compile timeout したため、これは report contract の問題から切り分け、`ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865` として compiler/static-check performance 側に分離した。
 
 この issue はまだ open のまま継続する。他の `ret:` 依存 fixture と、timeout せず stdout contract を実行できる compiler/static-check 性能改善が残っている。
+
+## 2026-05-18 text_utf8 stdout report metadata migration
+
+`ISS-20260518T093656235Z-TEXT-UTF8-DOCTESTS-STILL-USE-RET-MET-62B43D19` として、`tests/stdlib/text_utf8.n.md` の 9 doctest を `ret: 0` から stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- 9 件すべてに `neplg2:test[stdio, normalize_newlines]`、deterministic `stdout:`、`exit_code: 0` を追加した。
+- `text_utf8_decode_next_reads_char_offsets` と `text_utf8_encode_char_returns_bytebuf` は `Checks` を作るだけで report を出していなかったため、`checks_print_report` の結果を `checks_exit_code` へ渡す形にした。
+- `nodesrc/test_stdlib_text_utf8_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_stdlib_text_utf8_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-text-utf8-report-metadata.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+
+この issue はまだ open のまま継続する。`text_utf8` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。

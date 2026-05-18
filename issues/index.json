@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T09:28:58.269Z",
+  "generated_at": "2026-05-18T09:39:24.557Z",
   "counts": {
-    "total": 990,
+    "total": 991,
     "open": 5,
-    "resolved": 985,
+    "resolved": 986,
     "by_area": {
       "stdlib": {
         "total": 270,
@@ -12,9 +12,9 @@
         "resolved": 267
       },
       "TEST": {
-        "total": 41,
+        "total": 42,
         "open": 1,
-        "resolved": 40
+        "resolved": 41
       },
       "selfhost": {
         "total": 70,
@@ -12518,6 +12518,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T063826900Z-MEMORY-SAFETY-DOCTESTS-STILL-EXPECT--7293BDED.md"
+    },
+    {
+      "id": "ISS-20260518T093656235Z-TEXT-UTF8-DOCTESTS-STILL-USE-RET-MET-62B43D19",
+      "title": "text_utf8 doctests still use ret metadata instead of stdout reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/text_utf8.n.md, nodesrc/test_stdlib_text_utf8_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T093656235Z-TEXT-UTF8-DOCTESTS-STILL-USE-RET-MET-62B43D19.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

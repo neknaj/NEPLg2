@@ -41604,3 +41604,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build --release`: passed
   - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/agent1-bytebuilder-leb-timeout-fixed.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
   - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-bytebuilder-textutf8-fixed.json -j 1 --dist web/dist --assert-io`: total=12, passed=12
+
+## 2026-05-18 Agent 1 text_utf8 stdout report metadata 移行
+
+- `ISS-20260518T093656235Z-TEXT-UTF8-DOCTESTS-STILL-USE-RET-MET-62B43D19` を作成して resolved にした。`plan.md` は変更していない。
+- `tests/stdlib/text_utf8.n.md` の 9 doctest は UTF-8 safety boundary を検証しているが、manifest は `ret: 0` の exit-code-only contract に残っていた。
+- 9 件すべてを `neplg2:test[stdio, normalize_newlines]`、`stdout:`、`exit_code: 0` へ移行した。
+- report を出していなかった decode / encode 2 case は `checks_print_report` の結果を `checks_exit_code` に渡す形へ直した。
+- `nodesrc/test_stdlib_text_utf8_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの退行を source policy にした。
+- focused verification:
+  - `node nodesrc/test_stdlib_text_utf8_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-text-utf8-report-metadata.json -j 1 --dist web/dist --assert-io`: total=9, passed=9

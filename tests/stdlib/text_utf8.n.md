@@ -5,8 +5,11 @@
 このケースは、UTF-8 checked conversion が日本語を含む有効な byte 列を `str` として受け入れることを確認します。
 source text の通常入力が invalid byte 対策によって退行しないことが目的です。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -32,8 +35,13 @@ fn main <()*>i32> ():
 
 `text_utf8_decode_next` が raw bytes から char と次 byte offset を返し、byte length と char count を混同しないことを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #indent 4
@@ -74,15 +82,19 @@ fn main <()*>i32> ():
             Option::None:
                 checks_push checks_new Result<(),str>::Err "missing byte buffer"
     io_bytebuf_free bytes
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 ## text_utf8_encode_char_returns_bytebuf
 
 `text_utf8_encode_char` が `char` を UTF-8 `ByteBuf` として返し、既存 checked conversion と接続できることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -105,7 +117,8 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "encoded bytes rejected"
                 Result::Ok text:
                     set checks checks_push checks check_str_eq "あ" text
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 ## bytebuf_to_utf8_str_rejects_invalid_leading_byte
@@ -113,8 +126,11 @@ fn main <()*>i32> ():
 このケースは、continuation byte 単体を `str` に変換しないことを確認します。
 source loader が byte offset / span の前提を壊す入力を境界で拒否するための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -156,8 +172,11 @@ fn main <()*>i32> ():
 このケースは、`alloc/io` の `ByteBuf -> str` 境界そのものが invalid UTF-8 を拒否することを確認します。
 raw bytes が必要な場合は `ByteBuf` のまま扱い、`str` に変換する経路では UTF-8 保証を破らないための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -198,8 +217,11 @@ fn main <()*>i32> ():
 このケースは、overlong encoding を continuation byte の個数だけで受け入れないことを確認します。
 UTF-8 scalar value の制約まで含めて検証するための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -263,8 +285,11 @@ fn main <()*>i32> ():
 このケースは、file read の checked text API が invalid UTF-8 を errno 84 として拒否することを確認します。
 binary 読み込みは `ByteBuf` のまま扱い、source text 読み込みだけを checked API に寄せるための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -311,8 +336,11 @@ fn main <()*>i32> ():
 このケースは、通常の `fs_read_to_string` も invalid UTF-8 を errno 84 として拒否することを確認します。
 `str` 型の UTF-8 保証をファイル読み込みの標準入口でも守るための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -359,8 +387,11 @@ fn main <()*>i32> ():
 このケースは、`std/io` の `ReadStream::Bytes` を text として読むときにも checked conversion が使われることを確認します。
 target facade 経由で unchecked `str` が作られる経路を残さないための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
