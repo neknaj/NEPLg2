@@ -70,6 +70,7 @@ pub enum SelfhostDiagnosticCode:
     Lexer <SelfhostLexerDiagnosticCode>
     Parser <SelfhostParserDiagnosticCode>
     Resolve <SelfhostResolveDiagnosticCode>
+    Checker <SelfhostCheckerDiagnosticCode>
     Cli <SelfhostCliDiagnosticCode>
 
 impl Clone for SelfhostDiagnosticCode:
@@ -150,6 +151,21 @@ impl Clone for SelfhostResolveDiagnosticCode:
 
 impl Copy for SelfhostResolveDiagnosticCode:
     fn copy_mark <(SelfhostResolveDiagnosticCode)->SelfhostResolveDiagnosticCode> (self):
+        self
+
+//: SelfhostCheckerDiagnosticCode: checker / typed validation diagnostic の[分類/ぶんるい]
+pub enum SelfhostCheckerDiagnosticCode:
+    ModuleItemIndex
+    ModuleItemSpanInvalid
+    RawTextWithoutBlock
+    RawBlockEmpty
+
+impl Clone for SelfhostCheckerDiagnosticCode:
+    fn clone <(&SelfhostCheckerDiagnosticCode)->SelfhostCheckerDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostCheckerDiagnosticCode:
+    fn copy_mark <(SelfhostCheckerDiagnosticCode)->SelfhostCheckerDiagnosticCode> (self):
         self
 
 //: SelfhostCliDiagnosticCode: CLI option / usage diagnostic の[分類/ぶんるい]
@@ -279,6 +295,18 @@ pub fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (c
         SelfhostResolveDiagnosticCode::ModuleGraphInternal:
             "resolve.import_graph.internal"
 
+//: selfhost_checker_diag_code_name: checker diagnostic code の stable string を[返/かえ]す
+pub fn selfhost_checker_diag_code_name <(SelfhostCheckerDiagnosticCode)->str> (code):
+    match code:
+        SelfhostCheckerDiagnosticCode::ModuleItemIndex:
+            "checker.module.item_index"
+        SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid:
+            "checker.module.item_span_invalid"
+        SelfhostCheckerDiagnosticCode::RawTextWithoutBlock:
+            "checker.module.raw_text_without_block"
+        SelfhostCheckerDiagnosticCode::RawBlockEmpty:
+            "checker.module.raw_block_empty"
+
 //: selfhost_cli_diag_code_name: CLI diagnostic code の stable string を[返/かえ]す
 pub fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
     match code:
@@ -300,6 +328,8 @@ pub fn selfhost_diag_code_name <(SelfhostDiagnosticCode)->str> (code):
             selfhost_parser_diag_code_name parser_code
         SelfhostDiagnosticCode::Resolve resolve_code:
             selfhost_resolve_diag_code_name resolve_code
+        SelfhostDiagnosticCode::Checker checker_code:
+            selfhost_checker_diag_code_name checker_code
         SelfhostDiagnosticCode::Cli cli_code:
             selfhost_cli_diag_code_name cli_code
 

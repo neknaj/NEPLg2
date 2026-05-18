@@ -5,7 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - `syntax`、`module`、`resolve`、`check`、`hir`、`resource`、`mono`、`codegen` の依存方向を束ねます。
-//: - CLI 層から渡された root path と compile options を pure core の request として受け取り、VFS loader から root module を読みます。
+//: - CLI 層から渡された root path と compile options を pure core の request として受け取り、VFS loader から root module を読み、checker 境界へ接続します。
 //:
 //: [注意/ちゅうい]:
 //: - filesystem や stdio は扱いません。CLI 層が source map / virtual file system を構築して渡す設計にします。
@@ -19,10 +19,13 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "core/math" as *
+//:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/core/pipeline" as *
 //:| #import "neplg2/core/module/loader" as *
 //:| #import "neplg2/core/options" as *
+//:| #import "neplg2/core/syntax/ast/module_ast" as *
 //: fn main <()*>i32> ():
 //:     match selfhost_vfs_new:
 //:         Result::Ok vfs0:
@@ -53,6 +56,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "neplg2/core/check/checker" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/loader" as *
 #import "neplg2/core/options" as *
@@ -133,6 +137,15 @@ pub fn selfhost_pipeline_loaded_root_path <(&SelfhostPipelineLoadedRoot)->str> (
 //: selfhost_pipeline_loaded_root_options: loaded root に付随する compile options を[返/かえ]す
 pub fn selfhost_pipeline_loaded_root_options <(&SelfhostPipelineLoadedRoot)->SelfhostCompileOptions> (loaded):
     *field::get_ref loaded "options"
+
+//: selfhost_pipeline_check_loaded_root: loaded root の module item stream を checker へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - pipeline が root load で止まらず、parse 済み AST を最初の checker stage へ接続できるようにします。
+//: - この関数は loaded root を borrow するだけで、AST buffer の所有権を移動しません。
+pub fn selfhost_pipeline_check_loaded_root <(&SelfhostPipelineLoadedRoot)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (loaded):
+    let ast <&SelfhostModuleAst> selfhost_pipeline_loaded_root_ast loaded
+    selfhost_check_module_ast ast
 
 //: selfhost_pipeline_loaded_root_free: loaded root が所有する AST buffer を[解放/かいほう]する
 pub fn selfhost_pipeline_loaded_root_free <(SelfhostPipelineLoadedRoot)*>()> (loaded):

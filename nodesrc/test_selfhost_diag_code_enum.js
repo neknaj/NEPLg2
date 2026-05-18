@@ -90,12 +90,12 @@ walk('stdlib/neplg2');
 
 assert.match(
   diag,
-  /(?:pub\s+)?enum\s+SelfhostDiagnosticCode:[\s\S]*Loader\s+<SelfhostLoaderDiagnosticCode>[\s\S]*Lexer\s+<SelfhostLexerDiagnosticCode>[\s\S]*Parser\s+<SelfhostParserDiagnosticCode>[\s\S]*Resolve\s+<SelfhostResolveDiagnosticCode>[\s\S]*Cli\s+<SelfhostCliDiagnosticCode>/,
+  /(?:pub\s+)?enum\s+SelfhostDiagnosticCode:[\s\S]*Loader\s+<SelfhostLoaderDiagnosticCode>[\s\S]*Lexer\s+<SelfhostLexerDiagnosticCode>[\s\S]*Parser\s+<SelfhostParserDiagnosticCode>[\s\S]*Resolve\s+<SelfhostResolveDiagnosticCode>[\s\S]*Checker\s+<SelfhostCheckerDiagnosticCode>[\s\S]*Cli\s+<SelfhostCliDiagnosticCode>/,
   'SelfhostDiagnosticCode must be a hierarchical enum',
 );
 assert.deepEqual(
   enumVariants('SelfhostDiagnosticCode'),
-  ['Loader', 'Lexer', 'Parser', 'Resolve', 'Cli'],
+  ['Loader', 'Lexer', 'Parser', 'Resolve', 'Checker', 'Cli'],
   'SelfhostDiagnosticCode category additions must update the self-host diagnostic policy',
 );
 assert.match(diag, /code\s+<SelfhostDiagnosticCode>/, 'SelfhostDiagnostic.code must be typed');
@@ -107,7 +107,7 @@ assert.doesNotMatch(
 );
 assert.match(
   diag,
-  /(?:pub\s+)?fn\s+selfhost_diag_code_name\s+<\(SelfhostDiagnosticCode\)->str>[\s\S]*SelfhostDiagnosticCode::Loader[\s\S]*SelfhostDiagnosticCode::Lexer[\s\S]*SelfhostDiagnosticCode::Parser[\s\S]*SelfhostDiagnosticCode::Resolve[\s\S]*SelfhostDiagnosticCode::Cli/,
+  /(?:pub\s+)?fn\s+selfhost_diag_code_name\s+<\(SelfhostDiagnosticCode\)->str>[\s\S]*SelfhostDiagnosticCode::Loader[\s\S]*SelfhostDiagnosticCode::Lexer[\s\S]*SelfhostDiagnosticCode::Parser[\s\S]*SelfhostDiagnosticCode::Resolve[\s\S]*SelfhostDiagnosticCode::Checker[\s\S]*SelfhostDiagnosticCode::Cli/,
   'SelfhostDiagnosticCode string conversion must cover every category',
 );
 assert.doesNotMatch(
@@ -135,6 +135,11 @@ assert.doesNotMatch(
     enumName: 'SelfhostResolveDiagnosticCode',
     functionName: 'selfhost_resolve_diag_code_name',
     prefix: 'resolve.',
+  },
+  {
+    enumName: 'SelfhostCheckerDiagnosticCode',
+    functionName: 'selfhost_checker_diag_code_name',
+    prefix: 'checker.',
   },
   {
     enumName: 'SelfhostCliDiagnosticCode',

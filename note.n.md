@@ -41815,3 +41815,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 現行 `stdlib/neplg2/` も 39 files / 約 10,239 行で、`core/syntax/lexer.nepl`、`core/hir/hir.nepl`、`core/syntax/token.nepl`、`core/ty/ty.nepl` が既に大きい。
 - `doc/neplg2/self_host_source_tree_layout_review_20260518.md` を追加し、`core/proof/` を汎用 fact / obligation / solver として置く方針、Resource IR subdomain の階層、abstraction / generics / trait の配置、巨大 file 分割基準、self-host 実装へ戻る前の適用順を整理した。
 - `doc/neplg2/self_host_plan.md` と self-host parent issue から新しい layout review doc を参照した。次に checker 実装へ戻る場合も、`checker.nepl` を巨大化させず `core/check/module.nepl` など final hierarchy に実装本体を置く。
+
+## 2026-05-18 Agent 1 self-host checker module boundary
+
+- `ISS-20260518T141535025Z-SELF-HOST-CHECKER-REMAINS-A-STAGE0-M-40624575` を fixed にした。`plan.md` は変更していない。
+- 前段で確認した Rust compiler の flat 構造を self-host 側へ持ち込まないため、`checker.nepl` は public facade / orchestration に戻し、module-level validation 本体を `stdlib/neplg2/core/check/module.nepl` に置いた。
+- `SelfhostModuleItemKind` の exhaustive match で `SelfhostModuleCheckSummary` を構築し、doc comment / directive / declaration / raw backend block を型付き item kind から数えるようにした。文字列 kind や stdlib allowlist は使っていない。
+- raw backend block は `SelfhostModuleRawState` で検査し、block 外 raw text と空 `#wasm:` / `#llvm-ir:` block を checker diagnostic にする。
+- checker diagnostic code は `SelfhostDiagnosticCode::Checker(SelfhostCheckerDiagnosticCode)` に追加し、既存の文字列 diagnostic id へ戻らないよう `nodesrc/test_selfhost_diag_code_enum.js` と report contract を更新した。
+- `selfhost_pipeline_check_loaded_root` を追加し、VFS load 済み AST を checker boundary へ接続した。
+- diagnostic primary label は Resource IR owner check が `SelfhostDiagnosticLabel` の span metadata を owner payload と誤分類したため、`ISS-20260518T142248720Z-RESOURCE-IR-OWNER-CHECK-MISCLASSIFIE-8A3C73E5` として分離した。これは checker の仕様を弱めるためではなく、Resource IR 側の根本修正対象として扱う。
+- focused verification:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl -i stdlib/neplg2/core/pipeline.nepl -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-checker-module.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+  - `node nodesrc/test_selfhost_checker_report_contract.js`: passed
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

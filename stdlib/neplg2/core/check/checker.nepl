@@ -1,26 +1,46 @@
 #indent 4
 
 //: # checker
-//: NEPLg2.0 の typecheck orchestration を置くモジュールです。
+//: NEPLg2.0 self-host compiler の checker orchestration を置くモジュールです。
 //:
 //: [目的/もくてき]:
-//: - expression reduction、declaration check、overload、trait、effect、pattern check の依存方向を束ねます。
-//: - Stage 0 では `check/` の責務境界を marker API で固定します。
+//: - module item validation、declaration check、expression reduction、overload、trait、effect、pattern check の依存方向を束ねます。
+//: - 実装本体は stage / domain ごとの module に置き、この file は public boundary と orchestration に限定します。
 //:
 //: [注意/ちゅうい]:
-//: - 巨大な typecheck を再作成しないよう、個別 pass を後続 issue で分割して追加します。
+//: - `check/module.nepl` は parse 済み module item stream の検査だけを担当します。type / lifetime / effect / Resource IR の証明は後続 stage で追加します。
+//: - `checker.nepl` に巨大な pass 実装を積み増さず、各 pass は final hierarchy に分割して追加します。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - `selfhost_checker_stage0` は小さな module AST を作って `selfhost_check_module_ast` を呼ぶため O(n) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
 //:| #import "neplg2/core/check/checker" as *
-//: fn main <()->i32> ():
+//: fn main <()*>i32> ():
 //:     selfhost_checker_stage0
 //: ```
-pub fn selfhost_checker_stage0 <()->i32> ():
-    0
+
+pub #import "./module" as @merge
+
+#import "core/result" as *
+#import "core/math" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+
+//: selfhost_checker_stage0: checker orchestration の smoke API
+pub fn selfhost_checker_stage0 <()*>i32> ():
+    match selfhost_parse_module_source "#entry main\nfn main <()->i32> ():\n    0\n":
+        Result::Ok ast:
+            match selfhost_check_module_ast &ast:
+                Result::Ok summary:
+                    let n <i32> selfhost_module_check_summary_item_count summary
+                    selfhost_module_ast_free ast
+                    if eq n 2 0 1
+                Result::Err _diag:
+                    selfhost_module_ast_free ast
+                    1
+        Result::Err _diag:
+            1
