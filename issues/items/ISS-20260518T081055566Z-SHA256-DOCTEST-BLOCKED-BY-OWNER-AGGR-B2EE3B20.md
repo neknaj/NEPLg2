@@ -2,8 +2,8 @@
 id: ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20
 title: "sha256 doctest blocked by owner aggregate field access boundary"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-18
@@ -32,16 +32,32 @@ target: "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256/api.nepl, nepl-core/sr
 
 SHA-256 実装は input buffer owner を `Sha256` aggregate に保持するが、現在の compiler/source capability boundary では `sha256/api.nepl` の実装 source が `ctx.buffer` を読む権限を証明できていない。さらに doctest helper が `Sha256UpdateError.ctx` を `get e "ctx"` で取り出す経路も owner-backed aggregate field access として拒否される。
 
-修正では、`Sha256` が owner-preserving public accessor/result API を持つべきか、compiler-owned stdlib implementation source の owner aggregate field proof が不足しているのかを切り分ける必要がある。通常 source で owner aggregate field access を許す方向には戻さない。
+根本原因は、2 つの異なる境界が混ざっていたことにある。
+
+- stdlib 実装側の `sha256/api.nepl` は compiler-owned source だが、`ctx.buffer` の dotted access では source capability scanner に構造化された owner aggregate field access 証拠が残らない。
+- doctest 側の helper は通常利用者 source として扱われるため、`get e "error"` / `get e "ctx"` で owner-backed aggregate の内部 field を読むこと自体が設計上許されない。
+
+`type.owner_aggregate.field_access_restricted` 自体は正しい検査なので、通常 source へ owner aggregate field access を開放してはいけない。修正では compiler 検査を緩めず、stdlib の実装 source と公開 API の責務を分ける。
 
 ## 影響
 
-The canonical hash doctest cannot be used as a focused regression while SHA256 owner aggregate access is rejected, and future hash/string changes may need to skip the suite even though artifact hashing depends on it.
+解決前は canonical hash doctest が focused regression として使えず、string / hash の安全性変更時に SHA256 経路を一緒に確認できなかった。
+
+解決後は、通常 source が owner-backed aggregate field を直接読む経路を開かずに、SHA256 doctest を再び focused regression として使える。
 
 ## 修正方針
 
-Investigate whether Sha256 should expose owner-preserving accessors or whether compiler-owned stdlib implementation source proof should cover this owner aggregate field access. Do not weaken the owner aggregate restriction for ordinary source.
+以下の方針で修正した。
+
+- `sha256/api.nepl` の `Sha256.buffer` access は `core/field` の明示呼び出しに統一し、compiler-owned stdlib source の構造化証拠が見える形にする。
+- `Sha256UpdateError` には `sha256_update_error_kind(&Sha256UpdateError) -> StdErrorKind` と `sha256_update_error_ctx(Sha256UpdateError) -> Sha256` を追加し、error kind の borrow read と state owner の消費回収を分離する。
+- `stdlib/tests/hash.n.md` は通常 source として直接 field access せず、公開 accessor 経由で error kind と state owner を扱う。
+- source policy に `ctx.buffer` direct access の禁止と accessor 存在確認を追加し、同じ regression を検出できるようにする。
 
 ## 検証
 
-Run node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree --dist web/dist -j 1 --assert-io and keep owner aggregate ordinary-source memory safety regressions passing.
+2026-05-18 Agent 1:
+
+- `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`: passed
+- `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree -o tmp/agent1-sha256-owner-aggregate-boundary-hash.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-sha256-owner-aggregate-boundary-memory-safety.json -j 1 --dist web/dist --assert-io`: total=52, passed=52

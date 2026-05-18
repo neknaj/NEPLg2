@@ -8,6 +8,7 @@
 #indent 4
 
 #import "alloc/collections/vec" as *
+#import "core/field" as field
 #import "core/result" as *
 #import "core/traits/copy" as *
 
@@ -29,6 +30,23 @@ pub struct Sha256:
 pub struct Sha256UpdateError:
     ctx <Sha256>
     error <StdErrorKind>
+
+//: sha256_update_error_kind: update [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - `Sha256UpdateError` は `Sha256` owner を[含/ふく]む owner-backed aggregate なので、caller が field を直接読むのではなく、この accessor から Copy な error kind だけを[確認/かくにん]します。
+pub fn sha256_update_error_kind <(&Sha256UpdateError)->StdErrorKind> (e):
+    *field::get_ref e "error"
+
+//: sha256_update_error_ctx: update [失敗/しっぱい]で[戻/もど]された `Sha256` owner を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - `sha256_update` が失敗した後も、caller が state owner を回収して `sha256_free` などで閉じられるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `Sha256UpdateError` を消費します。error kind も必要な場合は、先に `sha256_update_error_kind &e` で読んでから owner を取り出します。
+pub fn sha256_update_error_ctx <(Sha256UpdateError)->Sha256> (e):
+    field::get e "ctx"
 
 //: Sha256State: SHA-256 compression の 8 word state
 //:

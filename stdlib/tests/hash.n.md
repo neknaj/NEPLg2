@@ -31,8 +31,8 @@ fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (
             let b <i32> string_byte_index::string_byte_at_checked_or_unreachable text cursor
             match sha256_update current b:
                 Result::Err e:
-                    set failure get e "error"
-                    set current get e "ctx"
+                    set failure sha256_update_error_kind &e
+                    set current sha256_update_error_ctx e
                     set failed true
                 Result::Ok next_ctx:
                     set current next_ctx

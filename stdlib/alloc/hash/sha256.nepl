@@ -15,7 +15,7 @@
 //: ### [注意/ちゅうい]
 //: - ここは互換 import path のための facade です。新しい処理本体は submodule に置きます。
 //: - `sha256_update` の `byte` は lower 8 bit だけを[使用/しよう]します。
-//: - `sha256_update` 失敗時は `Sha256UpdateError.ctx` で state owner が[戻/もど]ります。
+//: - `sha256_update` 失敗時は `sha256_update_error_ctx` で state owner を[回収/かいしゅう]します。
 //: - `sha256_finalize` は state を[消費/しょうひ]し、内部 buffer を[解放/かいほう]してから digest を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]

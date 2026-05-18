@@ -68,4 +68,23 @@ assert.doesNotMatch(
     'sha256_rounds_loop must not shadow the working variable e with an error payload binding'
 );
 
+const api = sources.get('stdlib/alloc/hash/sha256/api.nepl');
+assert.doesNotMatch(
+    api,
+    /\bctx\.buffer\b/,
+    'sha256 api must use explicit owner aggregate field accessors so source proof is visible'
+);
+
+const types = sources.get('stdlib/alloc/hash/sha256/types.nepl');
+assert.match(
+    types,
+    /pub\s+fn\s+sha256_update_error_kind\s+<\(&Sha256UpdateError\)->StdErrorKind>/,
+    'Sha256UpdateError must expose a borrowed error-kind accessor'
+);
+assert.match(
+    types,
+    /pub\s+fn\s+sha256_update_error_ctx\s+<\(Sha256UpdateError\)->Sha256>/,
+    'Sha256UpdateError must expose an owner-consuming ctx accessor'
+);
+
 console.log('sha256 unsafe unwrap regression passed');

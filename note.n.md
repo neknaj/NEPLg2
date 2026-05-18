@@ -41558,3 +41558,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib\tests\string.n.md --no-tree -o tmp\agent1-string-byte-index-proof-string-tests.json -j 1 --dist web\dist --assert-io`: total=9, passed=9
 - 切り分け済み失敗:
   - `node nodesrc/tests.js -i stdlib\tests\string.n.md -i stdlib\tests\hash.n.md --no-tree -o tmp\agent1-string-byte-index-proof-string-hash.json -j 1 --dist web\dist --assert-io`: total=10, passed=9, failed=1。失敗は `stdlib/tests/hash.n.md::doctest#1` の `type.owner_aggregate.field_access_restricted` で、SHA256 `ctx.buffer` / update error `ctx` field access の別 issue。
+
+## 2026-05-18 Agent 1 SHA256 owner aggregate field 境界修正
+
+- `ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20` を resolved にした。`plan.md` は変更していない。
+- 根本原因は、`Sha256` / `Sha256UpdateError` が owner-backed aggregate であるにもかかわらず、実装内では `ctx.buffer` dotted access、doctest 側では `get e "error"` / `get e "ctx"` の通常 source field access を使っていたことだった。
+- `sha256/api.nepl` は `core/field` の明示呼び出しに統一し、compiler-owned stdlib source に owner aggregate field access の構造化証拠が残るようにした。
+- `sha256/types.nepl` に `sha256_update_error_kind(&Sha256UpdateError) -> StdErrorKind` と `sha256_update_error_ctx(Sha256UpdateError) -> Sha256` を追加し、borrow read と owner 回収を分けた。通常 source へ owner aggregate field access は開放していない。
+- focused verification:
+  - `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree -o tmp/agent1-sha256-owner-aggregate-boundary-hash.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-sha256-owner-aggregate-boundary-memory-safety.json -j 1 --dist web/dist --assert-io`: total=52, passed=52

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T08:12:29.259Z",
+  "generated_at": "2026-05-18T08:24:47.241Z",
   "counts": {
     "total": 989,
-    "open": 6,
-    "resolved": 983,
+    "open": 5,
+    "resolved": 984,
     "by_area": {
       "stdlib": {
         "total": 269,
-        "open": 4,
-        "resolved": 265
+        "open": 3,
+        "resolved": 266
       },
       "TEST": {
         "total": 41,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20",
-      "title": "sha256 doctest blocked by owner aggregate field access boundary",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-18",
-      "updated": "2026-05-18",
-      "target": "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256/api.nepl, nepl-core/src/source_capability/owner_aggregate",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -11783,6 +11768,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1.md"
+    },
+    {
+      "id": "ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20",
+      "title": "sha256 doctest blocked by owner aggregate field access boundary",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256/api.nepl, nepl-core/src/source_capability/owner_aggregate",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

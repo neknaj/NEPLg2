@@ -34,9 +34,9 @@ pub fn new_sha256 <()*>Result<Sha256, StdErrorKind>> ():
 //:
 //: [注意/ちゅうい]:
 //: - 返された state を[使/つか]って[次/つぎ]の update / finalize を[呼/よ]んでください。
-//: - `Err` の[場合/ばあい]も state owner は `Sha256UpdateError.ctx` に[戻/もど]るため、caller が `sha256_free` などで[閉/と]じます。
+//: - `Err` の[場合/ばあい]も state owner は `sha256_update_error_ctx` で[戻/もど]るため、caller が `sha256_free` などで[閉/と]じます。
 pub fn sha256_update <(Sha256, i32)*>Result<Sha256, Sha256UpdateError>> (ctx, byte):
-    match push<i32> ctx.buffer and byte 255:
+    match push<i32> field::get ctx "buffer" and byte 255:
         Result::Err e:
             let error <StdErrorKind> field::get e "error"
             let returned <Vec<i32>> field::get e "vec"
@@ -49,7 +49,7 @@ pub fn sha256_update <(Sha256, i32)*>Result<Sha256, Sha256UpdateError>> (ctx, by
 //: [目的/もくてき]:
 //: - `sha256_update` 失敗後に返った state や、finalize せず破棄する state の owner を明示的に閉じます。
 pub fn sha256_free <(Sha256)->()> (ctx):
-    free<i32> ctx.buffer
+    free<i32> field::get ctx "buffer"
 
 //: sha256_finalize: 32 byte SHA-256 digest を[返/かえ]す
 //:
@@ -57,7 +57,7 @@ pub fn sha256_free <(Sha256)->()> (ctx):
 //: - 入力 buffer を borrow して padding / compression を[行/おこな]い、digest を[作成/さくせい]します。
 //: - digest 作成後、state が[保持/ほじ]していた入力 buffer を[解放/かいほう]します。
 pub fn sha256_finalize <(Sha256)*>Result<Vec<i32>, StdErrorKind>> (ctx):
-    let buf <Vec<i32>> ctx.buffer
+    let buf <Vec<i32>> field::get ctx "buffer"
     let msg_len <i32> len<i32> &buf
     let total_len <i32> sha256_total_len msg_len
     match sha256_process_blocks &buf msg_len total_len 0 sha256_initial_state:

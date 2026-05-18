@@ -675,3 +675,11 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 `checked_string_byte_index` は `0 <= idx < len(s)` を確認した場合だけ witness を返し、raw layout reader `string_byte_at_checked` はこの witness を要求する。既存 stdlib / selfhost hot path は `string_byte_at_checked_or_unreachable` へ移行したが、この helper も checked factory を必ず通るため、範囲外 index が raw read に届かない。root facade / access / byte_index の public unchecked reader、public constructor、任意 `i32` からの checked reader 呼び出しは source policy と memory safety doctest で固定した。
 
 この親 issue は引き続き open とする。今回閉じたのは string byte reader の public unchecked surface であり、`RegionToken` の compiler-issued owner token 化、`OwnedStringRegion` / `OwnedBuffer<T>`、initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-18 Agent 1 SHA256 owner aggregate field 境界追記
+
+`ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20` を解決した。SHA256 incremental state は `Sha256.buffer` として `Vec<i32>` owner を保持しているため、通常 source から aggregate field を直接読む設計にはできない。
+
+修正では `sha256/api.nepl` の実装内 field access を `core/field` 経由に揃え、compiler-owned stdlib source の owner aggregate field access 証拠が構造化された形で残るようにした。利用者側には `sha256_update_error_kind(&Sha256UpdateError)` と `sha256_update_error_ctx(Sha256UpdateError)` を公開し、error kind の borrow read と state owner の消費回収を分離した。
+
+この親 issue は引き続き open とする。今回閉じたのは SHA256 の owner aggregate field boundary であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行は Stage 6 残件として継続する。
