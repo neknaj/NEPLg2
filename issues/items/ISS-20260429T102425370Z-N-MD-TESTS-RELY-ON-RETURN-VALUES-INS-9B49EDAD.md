@@ -1591,3 +1591,16 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
 
 この issue はまだ open のまま継続する。`io.n.md` の target subcase は移行済みだが、他の `checks_exit_code` + stdout fixture 未固定の doctest が残っている。
+
+## 2026-05-18 pipe_collections stdout report metadata migration
+
+`ISS-20260518T233744382Z-PIPE-COLLECTIONS-DOCTESTS-RELY-ON-RE-4299CCE8` として、`tests/stdlib/pipe_collections.n.md` の 8 doctest を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- List / Stack / RingBuffer / Queue の ret-only case を `std/test::Checks` report へ変換し、len と get/pop/peek の観測結果を stdout fixture に固定した。
+- BTreeMap / BTreeSet / HashMap / HashSet の既存 `checks_print_report` case は検査ロジックを維持し、manifest 側で stdout/exit_code contract を固定した。
+- `nodesrc/test_stdlib_pipe_collections_report_contract.js` を追加し、8 件すべてで `ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+この issue はまだ open のまま継続する。`pipe_collections` は移行済みだが、他の `.n.md` / stdlib doc-comment fixture に stdout fixture 未固定の report case が残っている。

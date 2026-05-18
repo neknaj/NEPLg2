@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T23:32:52.371Z",
+  "generated_at": "2026-05-18T23:39:33.416Z",
   "counts": {
-    "total": 1029,
+    "total": 1030,
     "open": 5,
-    "resolved": 1024,
+    "resolved": 1025,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 51,
+        "total": 52,
         "open": 1,
-        "resolved": 50
+        "resolved": 51
       },
       "selfhost": {
         "total": 72,
@@ -13073,6 +13073,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T233122315Z-IO-FACADE-MISSING-FILE-DOCTEST-PRINT-159D708E.md"
+    },
+    {
+      "id": "ISS-20260518T233744382Z-PIPE-COLLECTIONS-DOCTESTS-RELY-ON-RE-4299CCE8",
+      "title": "pipe_collections doctests rely on return codes or unpinned reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/pipe_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T233744382Z-PIPE-COLLECTIONS-DOCTESTS-RELY-ON-RE-4299CCE8.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

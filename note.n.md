@@ -42135,3 +42135,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 根本原因は、`tests/stdlib/io.n.md::io_fs_missing_file_is_io_error` が `checks_print_report` を呼んでいるにもかかわらず、manifest に stdout / exit_code expectation がなく、missing-file read の `IoError` assertion report を固定していなかったことだった。
 - 対象 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。通常の I/O roundtrip stdout fixture は既存 contract として維持した。
 - `nodesrc/test_stdlib_io_nmd_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+
+## 2026-05-18 Agent 1 pipe_collections stdout report metadata 移行
+
+- `ISS-20260518T233744382Z-PIPE-COLLECTIONS-DOCTESTS-RELY-ON-RE-4299CCE8` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/pipe_collections.n.md` の 4 doctest が `ret: 1` だけで合否を返し、別の 4 doctest は `checks_print_report` を呼んでいるのに stdout / exit_code expectation がなかったことだった。
+- 8 doctest すべてを `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。List / Stack / RingBuffer / Queue は `std/test::Checks` report へ変換し、BTree / Hash 系は既存 report logic を維持して manifest contract を追加した。
+- `nodesrc/test_stdlib_pipe_collections_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
