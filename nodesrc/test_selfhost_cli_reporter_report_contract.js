@@ -32,6 +32,17 @@ for (const index of [0, 2]) {
     );
 }
 
+assert.match(
+    parsed.doctests[0].code,
+    /#import\s+"neplg2\/cli\/reporter\/render\/single"\s+as\s+\*/,
+    "single diagnostic render doctest must avoid importing the full reporter facade",
+);
+assert.match(
+    parsed.doctests[2].code,
+    /#import\s+"neplg2\/cli\/reporter\/render\/collection"\s+as\s+\*/,
+    "collection render doctest must avoid importing the full reporter facade",
+);
+
 const writer = parsed.doctests[1];
 assert.equal(writer.ret, null, "selfhost_cli_reporter doctest#2 must not use ret: as an exit-code substitute");
 assert.equal(writer.exit_code, 0, "selfhost_cli_reporter doctest#2 must fix exit_code");
@@ -49,6 +60,11 @@ assert.equal(
     writer.stderr,
     "error[parser.token.index_unavailable]: bad input\n",
     "selfhost_cli_reporter doctest#2 must keep human stderr as the observable output",
+);
+assert.match(
+    writer.code,
+    /#import\s+"neplg2\/cli\/reporter\/write"\s+as\s+\*/,
+    "writer doctest must import the stdio write boundary without the full reporter facade",
 );
 
 console.log("selfhost CLI reporter report contract passed");

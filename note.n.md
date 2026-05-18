@@ -1,3 +1,25 @@
+# 2026-05-18 Agent 1 selfhost CLI reporter compile timeout 修正
+
+- `ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の raw pointer alias summary / raw identity return summary が、`StringBuilder` / `ByteBuilder` のような owner token を内包する owner carrier の `len` / `cap` など plain `i32` metadata field を public raw carrier として扱っていたこと。
+- 修正後は `TypeCtx` の compiler-memory type 証明に基づき、`MemPtr` は non-owning raw pointer、`RegionToken` / structural owner carrier は free obligation owner として分離した。stdlib 名の allowlist ではなく、owner token を含む型性質から summary propagation を止める。
+- reporter は facade、single renderer、collection renderer、stdio write boundary に分割し、render-only doctest が不要な stdio / collection 依存を読み込まないようにした。single renderer は `&SelfhostDiagnostic` を受け、diagnostic owner の不要な move を避ける。
+- 最小再現 `append_six` は当初 `resource_effect_boundaries` が 155 秒級だったが、修正後は `elapsed_ms=6059`, `resource_effect_boundaries=67ms`, `resource_static_check=2833ms` まで改善した。
+- 検証:
+  - `cargo test -p nepl-core summary_filter -- --nocapture`
+  - `cargo test -p nepl-core summary_carrier -- --nocapture`
+  - `cargo build -p nepl-cli`
+  - `target\debug\nepl-cli.exe --check -i tmp\agent1_append_six.nepl --target std` with `NEPL_COMPILE_STAGE_TIMING=1`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests\stdlib\selfhost_cli_reporter.n.md --no-tree -o tmp\agent1-selfhost-cli-reporter-split-borrow.json -j 1 --dist web\dist --assert-io`: total=3, passed=3
+  - `node nodesrc/test_selfhost_cli_reporter_boundary.js`
+  - `node nodesrc/test_selfhost_cli_reporter_report_contract.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/test_abstraction_static_verification_policy.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の Resource IR summary 性能・正確性改善として、owner carrier と raw pointer carrier の責務分離を追加した。
+
 # 2026-05-18 Agent 1 selfhost CLI reporter stdout report metadata 固定
 
 - `ISS-20260518T024038881Z-SELFHOST-CLI-REPORTER-DOCTESTS-STILL-E474D880` を追加し、fixed / resolved にした。`plan.md` は変更していない。

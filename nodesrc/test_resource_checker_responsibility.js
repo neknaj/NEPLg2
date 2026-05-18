@@ -231,6 +231,7 @@ for (const moduleName of [
     'effect_return_pointer.rs',
     'effect_return_protection.rs',
     'effect_return_summary_filter.rs',
+    'effect_return_summary_filter_tests.rs',
     'coverage.rs',
     'coverage_hir.rs',
     'coverage_hir_projection.rs',
@@ -594,8 +595,10 @@ const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
 const effectReturnEscape = readResource('effect_return_escape.rs');
 const effectReturnSummaryFilter = readResource('effect_return_summary_filter.rs');
+const effectReturnSummaryFilterTests = readResource('effect_return_summary_filter_tests.rs');
 const effectSummary = readResource('effect_summary.rs');
 const effectSummaryIdentity = readResource('effect_summary_identity.rs');
+const rawPointerType = readResource('raw_pointer_type.rs');
 const resourceDump = readResource('dump.rs');
 const addressProjection = readResource('address_projection.rs');
 const scalarPrimitive = readResource('scalar_primitive.rs');
@@ -1504,7 +1507,7 @@ assertContains(
 );
 assertContains(
     effectReturnSummaryFilter,
-    'fn raw_identity_projection_has_summary_opaque_owner_protection',
+    'fn raw_identity_projection_has_summary_owner_carrier_protection',
     'effect_return_summary_filter.rs must keep internal provenance summary filtering separate from public escape filtering',
 );
 assertNotContains(
@@ -1514,13 +1517,33 @@ assertNotContains(
 );
 assertContains(
     effectReturnSummaryFilter,
-    'types.resolve_named_type_id(types.resolve_id(ty)) == types.str()',
-    'effect_return_summary_filter.rs must suppress opaque str raw identities from summaries',
+    'resolved == types.str() || type_is_owner_token(types, resolved)',
+    'effect_return_summary_filter.rs must suppress opaque str and owner-token raw identities from summaries',
 );
 assertContains(
     effectReturnSummaryFilter,
-    'summary_filter_keeps_region_token_owner_provenance',
-    'effect_return_summary_filter.rs must keep RegionToken provenance summaries for checked MemPtr proof',
+    'raw_identity_type_is_structural_owner_carrier',
+    'effect_return_summary_filter.rs must suppress structural owner carriers without stdlib allowlists',
+);
+assertContains(
+    effectReturnSummaryFilterTests,
+    'summary_filter_hides_owner_token_raw_identity',
+    'effect_return_summary_filter.rs must hide owner token raw identity summaries',
+);
+assertContains(
+    effectReturnSummaryFilterTests,
+    'summary_filter_hides_owner_token_inside_aggregate',
+    'effect_return_summary_filter.rs must hide structural owner-carrier summaries even when the aggregate has plain i32 fields',
+);
+assertContains(
+    rawPointerType,
+    'raw_identity_type_is_structural_owner_carrier',
+    'raw_pointer_type.rs must suppress structural owner carriers without stdlib allowlists',
+);
+assertContains(
+    readResource('raw_pointer_type_tests.rs'),
+    'summary_carrier_excludes_owner_token_carriers',
+    'raw_pointer_type_tests.rs must cover owner-token carriers with plain i32 metadata fields',
 );
 assertContains(
     effectSummaryIdentity,
@@ -1796,6 +1819,7 @@ const maxLines = new Map([
     ['effect_return_pointer.rs', 120],
     ['effect_return_protection.rs', 80],
     ['effect_return_summary_filter.rs', 260],
+    ['effect_return_summary_filter_tests.rs', 160],
     ['function_alias.rs', 140],
     ['coverage.rs', 280],
     ['coverage_hir.rs', 240],

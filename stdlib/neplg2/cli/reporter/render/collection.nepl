@@ -1,0 +1,55 @@
+#indent 4
+
+//: # reporter/render/collection
+//: `SelfhostDiagnostics` collection の renderer です。
+//:
+//: [目的/もくてき]:
+//: - diagnostic collection traversal と single diagnostic rendering を分け、collection owner / borrow 境界を読みやすくします。
+//: - stdio write は `reporter/write` に分け、この module は文字列生成だけを担当します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 件数 k、総出力 byte 数 n として O(k + n) です。
+
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "neplg2/core/infra/diag" as *
+#import "./single" as *
+
+//: selfhost_cli_render_diagnostics_human: diagnostic collection を stderr 用 text にする
+pub fn selfhost_cli_render_diagnostics_human <(&SelfhostDiagnostics)->str> (diagnostics):
+    let n <i32> selfhost_diagnostics_len diagnostics
+    let mut sb <StringBuilder> string_builder_new
+    let mut i <i32> 0
+    while lt i n:
+        do:
+            match selfhost_diagnostics_get diagnostics i:
+                Option::Some diag:
+                    set sb sb_append sb selfhost_cli_render_diagnostic_human &diag
+                Option::None:
+                    ()
+            set i add i 1
+    sb_build sb
+
+//: selfhost_cli_render_diagnostics_json: diagnostic collection を compact JSON array にする
+pub fn selfhost_cli_render_diagnostics_json <(&SelfhostDiagnostics)->str> (diagnostics):
+    let n <i32> selfhost_diagnostics_len diagnostics
+    let mut sb <StringBuilder> string_builder_new
+    set sb sb_append sb "["
+    let mut i <i32> 0
+    while lt i n:
+        do:
+            if:
+                lt 0 i
+                then:
+                    set sb sb_append sb ","
+                else:
+                    ()
+            match selfhost_diagnostics_get diagnostics i:
+                Option::Some diag:
+                    set sb sb_append sb selfhost_cli_render_diagnostic_json &diag
+                Option::None:
+                    set sb sb_append sb "null"
+            set i add i 1
+    set sb sb_append sb "]"
+    sb_build sb
