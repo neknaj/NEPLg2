@@ -725,8 +725,8 @@ mod tests {
     use super::*;
     use crate::diagnostic_codes::EffectDiagnosticCode;
     use crate::resource::{
-        BorrowState, CellState, OwnerState, Place, RawAddressViewKind, RawMemoryOp,
-        ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCheckDiagnostic,
+        BorrowState, CellState, OwnerState, Place, RawAddressAliasKind, RawAddressViewKind,
+        RawMemoryOp, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCheckDiagnostic,
         ResourceCheckOperation, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
         ResourceId, ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
     };
@@ -756,6 +756,12 @@ mod tests {
 
     fn raw_address_view_capabilities(span: Span) -> SourceCapabilities {
         use_site_capabilities(SourceCapabilityUseSite::RawAddressViewBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    fn raw_address_alias_capabilities(span: Span) -> SourceCapabilities {
+        use_site_capabilities(SourceCapabilityUseSite::RawAddressAliasBoundary {
             span: SourceCapabilitySpan::from_span(span),
         })
     }
@@ -1182,6 +1188,28 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_maps_raw_address_alias_outside_boundary_to_resource_raw_code() {
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+            function: String::from("mem_ptr_wrap"),
+            kind: RawAddressAliasKind::InternalHelper,
+            span: Span::dummy(),
+        };
+
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
+
+        assert_eq!(
+            error.code,
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                crate::diagnostic_codes::ResourceRawDiagnosticCode::MemoryOutsideBoundary,
+            ))
+        );
+        assert!(error
+            .message
+            .contains("raw address alias 'internal_helper'"));
+        assert!(error.message.contains("outside raw-memory boundary"));
+    }
+
+    #[test]
     fn resource_effect_gate_allows_raw_memory_inside_raw_boundary() {
         let mut source_map = SourceMap::new();
         let raw_file = source_map.add("stdlib/core/mem/raw.nepl", String::new());
@@ -1211,6 +1239,24 @@ mod tests {
         let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
             function: String::from("mem_ptr_add"),
             kind: RawAddressViewKind::MemPtrOffset,
+            span,
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &diagnostic,
+            Some(&source_map),
+        ));
+    }
+
+    #[test]
+    fn resource_effect_gate_allows_raw_address_alias_inside_raw_boundary() {
+        let mut source_map = SourceMap::new();
+        let raw_file = source_map.add("stdlib/core/mem/internal.nepl", String::new());
+        let span = Span::new(raw_file, 0, 1);
+        source_map.set_capabilities(raw_file, raw_address_alias_capabilities(span));
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+            function: String::from("mem_ptr_wrap"),
+            kind: RawAddressAliasKind::InternalHelper,
             span,
         };
 
@@ -1309,6 +1355,10 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
             span,
             ..
@@ -1358,6 +1408,16 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
             };
             source_map
                 .map(|map| map.raw_address_view_boundary_allowed_at(span))
+                .unwrap_or(false)
+        }
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+            ..
+        } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.raw_address_alias_boundary_allowed_at(span))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {
@@ -1472,6 +1532,18 @@ fn resource_effect_boundary_diagnostic_to_error(
             code,
             format!(
                 "function '{}' creates raw address view '{}' outside raw-memory boundary",
+                function, kind
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+            function,
+            kind,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "function '{}' creates raw address alias '{}' outside raw-memory boundary",
                 function, kind
             ),
             *span,

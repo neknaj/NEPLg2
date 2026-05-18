@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-16
+updated: 2026-05-18
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -633,3 +633,11 @@ Stage 6 では raw memory operation は compiler-owned raw-memory boundary の s
 `MemPtr<u8>` は non-owning view であり、free obligation owner は `RegionToken<u8>` / `ByteBuf` / `ByteBuilder` 側に集約する必要がある。`io_bytebuf_from_owned_ptr` と `byte_builder_from_owned_ptr` はこの境界を public source から迂回でき、doctest でも fake huge ByteBuf を作る fixture に使われていた。修正後は raw `MemPtr` ingestion helper を削除し、ByteBuf/ByteBuilder owner は checked allocation / `RegionToken` finalization からだけ作る。
 
 この親 issue は引き続き open とする。今回閉じたのは byte buffer API の raw MemPtr owner forging entry であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-18 Agent 1 internal raw address helper 境界追記
+
+`ISS-20260518T052853094Z-USER-SOURCE-CAN-FORGE-RAW-MEMPTR-THR-109B2F18` で、ordinary source が `core/mem/internal` を import して `mem_ptr_wrap` / `mem_ptr_addr` を直接呼ぶ raw pointer identity 偽造経路を分離して修正した。
+
+Resource IR は raw address alias と raw address view を `InternalHelper` / `Transparent` / `NonOwningProjection` の enum 種別として保持する。`mem_ptr_wrap` / `region_new` は raw address alias boundary、`mem_ptr_addr` / `region_token_raw_ref` / `str_addr` は raw address view boundary として effect gate に渡し、`region_ptr` / `region_ptr_at` は checked public projection として残す。source capability proof も alias boundary と view boundary を別 fact として証明するため、raw helper 名の file/module allowlist ではなく、compiler-owned source の exact use-site evidence からだけ許可できる。
+
+この親 issue は引き続き open とする。今回閉じたのは raw memory backed API 移行中に残っていた `core/mem/internal` 直接 import による raw identity 偽造入口であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。

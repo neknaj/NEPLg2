@@ -547,6 +547,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 source,
                 target,
                 span,
+                ..
             } => {
                 let moves_into_owner_wrapper = raw_owner_alias_moves_into_wrapper(source, target);
                 let source_transfers_owner = moves_into_owner_wrapper

@@ -54,17 +54,27 @@ impl MemoryHelperPrimitive {
         matches!(self, Self::MemPtrAddr | Self::RegionPtr | Self::StrAddr)
     }
 
-    pub(crate) const fn is_raw_address_view_boundary_evidence(self) -> bool {
+    pub(crate) const fn is_raw_address_alias_boundary_evidence(self) -> bool {
         match self {
-            Self::MemPtrWrap
-            | Self::MemPtrAddr
+            Self::MemPtrWrap | Self::RegionNew => true,
+            Self::MemPtrAddr
             | Self::MemPtrAdd
             | Self::RegionPtr
             | Self::RegionPtrAt
             | Self::RegionTokenRawRef
             | Self::StrAddr
+            | Self::StrFromAddrUnchecked => false,
+        }
+    }
+
+    pub(crate) const fn is_raw_address_view_boundary_evidence(self) -> bool {
+        match self {
+            Self::MemPtrAddr
+            | Self::MemPtrAdd
+            | Self::RegionTokenRawRef
+            | Self::StrAddr
             | Self::StrFromAddrUnchecked => true,
-            Self::RegionNew => false,
+            Self::MemPtrWrap | Self::RegionNew | Self::RegionPtr | Self::RegionPtrAt => false,
         }
     }
 }

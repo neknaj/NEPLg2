@@ -11,6 +11,7 @@ use crate::span::Span;
 pub(in crate::source_capability) enum SourceCapabilityProofFact {
     RawMemoryStructuralBoundary,
     RawAddressViewBoundary,
+    RawAddressAliasBoundary,
     RawMemoryOperationBoundary(RawMemoryOp),
     RawBodyMemoryOperationBoundary(RawBodyMemoryOp),
     OwnerAggregateFieldBoundary,
@@ -50,6 +51,11 @@ impl SourceCapabilityProof {
             }
             SourceCapabilityProofFact::RawAddressViewBoundary => {
                 self.insert_use_site(SourceCapabilityUseSite::RawAddressViewBoundary {
+                    span: Self::site_span(span),
+                });
+            }
+            SourceCapabilityProofFact::RawAddressAliasBoundary => {
+                self.insert_use_site(SourceCapabilityUseSite::RawAddressAliasBoundary {
                     span: Self::site_span(span),
                 });
             }

@@ -150,6 +150,7 @@ pub enum ResourceOp {
     RawAddressAlias {
         source: Place,
         target: Place,
+        kind: RawAddressAliasKind,
         span: Span,
     },
     RawAddressView {
@@ -200,6 +201,7 @@ pub enum RawAddressViewKind {
     Offset,
     MemPtrOffset,
     NonOwningProjection,
+    InternalHelper,
 }
 
 impl fmt::Display for RawAddressViewKind {
@@ -208,6 +210,23 @@ impl fmt::Display for RawAddressViewKind {
             RawAddressViewKind::Offset => "offset",
             RawAddressViewKind::MemPtrOffset => "mem_ptr_offset",
             RawAddressViewKind::NonOwningProjection => "non_owning_projection",
+            RawAddressViewKind::InternalHelper => "internal_helper",
+        };
+        f.write_str(name)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RawAddressAliasKind {
+    Transparent,
+    InternalHelper,
+}
+
+impl fmt::Display for RawAddressAliasKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            RawAddressAliasKind::Transparent => "transparent",
+            RawAddressAliasKind::InternalHelper => "internal_helper",
         };
         f.write_str(name)
     }

@@ -4,7 +4,9 @@ use alloc::vec::Vec;
 use crate::span::Span;
 use crate::types::TypeId;
 
-use super::model::{Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp};
+use super::model::{
+    Place, PlaceProjection, RawAddressAliasKind, RawAddressViewKind, ResourceOffset, ResourceOp,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawAddressSource {
@@ -12,6 +14,7 @@ pub(super) struct RawAddressSource {
     pub(super) offset: RawAddressOffset,
     pub(super) explicit_offset: bool,
     pub(super) non_owning_view: bool,
+    pub(super) internal_view: bool,
 }
 
 pub(super) struct RawAddressPlace {
@@ -21,7 +24,9 @@ pub(super) struct RawAddressPlace {
 
 impl RawAddressSource {
     pub(super) fn into_place_and_view(self, raw_ty: TypeId) -> RawAddressPlace {
-        let view_kind = if self.non_owning_view {
+        let view_kind = if self.internal_view {
+            Some(RawAddressViewKind::InternalHelper)
+        } else if self.non_owning_view {
             Some(RawAddressViewKind::NonOwningProjection)
         } else if self.explicit_offset {
             Some(RawAddressViewKind::Offset)
@@ -61,6 +66,11 @@ impl RawAddressSource {
         self
     }
 
+    pub(super) fn into_internal_view(mut self) -> Self {
+        self.internal_view = true;
+        self
+    }
+
     pub(super) fn with_added_offset(mut self, offset: RawAddressOffset) -> Self {
         self.offset = self.offset.add(offset);
         self.explicit_offset = true;
@@ -92,6 +102,7 @@ pub(super) fn push_raw_address_op(
         ops.push(ResourceOp::RawAddressAlias {
             source,
             target,
+            kind: RawAddressAliasKind::Transparent,
             span,
         });
     }

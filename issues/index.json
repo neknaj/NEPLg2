@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T05:17:12.590Z",
+  "generated_at": "2026-05-18T06:00:37.322Z",
   "counts": {
-    "total": 980,
+    "total": 981,
     "open": 5,
-    "resolved": 975,
+    "resolved": 976,
     "by_area": {
       "stdlib": {
         "total": 264,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 500,
+        "total": 501,
         "open": 0,
-        "resolved": 500
+        "resolved": 501
       },
       "CORE": {
         "total": 4,
@@ -153,7 +153,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-16",
+      "updated": "2026-05-18",
       "target": "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs",
       "legacy_id": "",
       "source": "",
@@ -623,6 +623,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T201648863Z-RESOURCEIR-VARIANT-OWNER-RESERVATION-F28E5200.md"
+    },
+    {
+      "id": "ISS-20260518T052853094Z-USER-SOURCE-CAN-FORGE-RAW-MEMPTR-THR-109B2F18",
+      "title": "user source can forge raw MemPtr through core/mem/internal helpers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/model.rs, nepl-core/src/resource/effect_check.rs, nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/source_capability/raw_builtin_evidence.rs, nepl-core/src/compiler.rs, tests/compiler/intrinsic.n.md, stdlib/core/mem/internal.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T052853094Z-USER-SOURCE-CAN-FORGE-RAW-MEMPTR-THR-109B2F18.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

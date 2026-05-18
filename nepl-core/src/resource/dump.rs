@@ -282,11 +282,13 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
         ResourceOp::RawAddressAlias {
             source,
             target,
+            kind,
             span,
         } => {
             let _ = writeln!(
                 out,
-                "raw_address_alias {} -> {} span={}:{}-{}",
+                "raw_address_alias {} {} -> {} span={}:{}-{}",
+                kind,
                 dump_place(source),
                 dump_place(target),
                 span.file_id.0,
@@ -455,6 +457,7 @@ fn dump_raw_address_view_kind(kind: super::model::RawAddressViewKind) -> &'stati
         super::model::RawAddressViewKind::Offset => "offset",
         super::model::RawAddressViewKind::MemPtrOffset => "mem_ptr_offset",
         super::model::RawAddressViewKind::NonOwningProjection => "non_owning_projection",
+        super::model::RawAddressViewKind::InternalHelper => "internal_helper",
     }
 }
 

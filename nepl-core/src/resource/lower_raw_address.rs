@@ -19,7 +19,8 @@ use super::lower_raw_address_place::{
 pub(super) use super::lower_raw_address_return::push_transparent_raw_address_return_projection;
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
 use super::model::{
-    Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp, StorageOrigin,
+    Place, PlaceProjection, RawAddressAliasKind, RawAddressViewKind, ResourceOffset, ResourceOp,
+    StorageOrigin,
 };
 use super::place_utils::reference_target_place;
 use super::result_variant::ResultVariant;
@@ -42,6 +43,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             ops.push(ResourceOp::RawAddressAlias {
                 source: raw.clone(),
                 target: mem_ptr_raw_field_place(env.types, output, env.types.i32()),
+                kind: RawAddressAliasKind::InternalHelper,
                 span,
             });
             true
@@ -53,7 +55,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             push_raw_address_op(
                 mem_ptr_raw_field_place(env.types, ptr, output.ty),
                 output.clone(),
-                Some(RawAddressViewKind::NonOwningProjection),
+                Some(RawAddressViewKind::InternalHelper),
                 ops,
                 span,
             );
@@ -87,6 +89,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             ops.push(ResourceOp::RawAddressAlias {
                 source: mem_ptr_raw_field_place(env.types, ptr, env.types.i32()),
                 target,
+                kind: RawAddressAliasKind::InternalHelper,
                 span,
             });
             true
@@ -143,7 +146,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             push_raw_address_op(
                 source.base,
                 reference_target_place(output, target_ty),
-                Some(RawAddressViewKind::NonOwningProjection),
+                Some(RawAddressViewKind::InternalHelper),
                 ops,
                 span,
             );
@@ -221,14 +224,14 @@ fn raw_address_source_from_actual_named_expr(
     match MemoryHelperPrimitive::from_symbol(name) {
         Some(MemoryHelperPrimitive::MemPtrAddr) if args.len() == 1 && arg_places.len() == 1 => {
             return raw_address_source_from_actual_arg(0, args, arg_places, env)
-                .map(RawAddressSource::into_non_owning_view);
+                .map(RawAddressSource::into_internal_view);
         }
         Some(MemoryHelperPrimitive::MemPtrWrap) if args.len() == 1 && arg_places.len() == 1 => {
             return raw_address_source_from_actual_arg(0, args, arg_places, env);
         }
         Some(MemoryHelperPrimitive::StrAddr) if args.len() == 1 && arg_places.len() == 1 => {
             return raw_address_source_from_actual_arg(0, args, arg_places, env)
-                .map(RawAddressSource::into_non_owning_view);
+                .map(RawAddressSource::into_internal_view);
         }
         Some(MemoryHelperPrimitive::MemPtrAdd) if args.len() >= 2 && arg_places.len() >= 2 => {
             return raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
@@ -323,6 +326,7 @@ fn raw_address_source_from_actual_arg(
         offset: RawAddressOffset::Known(0),
         explicit_offset: false,
         non_owning_view: false,
+        internal_view: false,
     })
 }
 
@@ -338,6 +342,7 @@ fn region_token_raw_source_from_actual_arg(
         offset: RawAddressOffset::Known(0),
         explicit_offset: false,
         non_owning_view: false,
+        internal_view: false,
     })
 }
 

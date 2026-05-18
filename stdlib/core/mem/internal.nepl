@@ -6,7 +6,8 @@
 //: - `MemPtr` と raw `i32` address の相互変換、`RegionToken` の owner token 構築を internal boundary に閉じます。
 //: - public `core/mem` facade からは再公開せず、raw-memory-backed stdlib implementation だけが明示的に import します。
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -30,7 +31,8 @@
 //: - これは storage owner を作る API ではありません。
 //: - public source へ露出すると arbitrary address から `MemPtr` を forged できるため、root facade からは公開しません。
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -52,7 +54,8 @@ pub fn mem_ptr_wrap <.T> <(i32)->MemPtr<.T>> (raw):
 //: - 返り値は non-owning raw view であり、free obligation owner ではありません。
 //: - public source へ露出すると bounds / provenance / owner discipline を迂回できるため、root facade からは公開しません。
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -88,7 +91,8 @@ pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
 //: - 呼び出し側は ptr が allocator から得た owned storage であることを保証します。
 //: - public source へ露出すると non-owning pointer から owner token を forged できるため、root facade からは公開しません。
 //:
-//: neplg2:test
+//: neplg2:test[compile_fail]
+//: diag_code: resource.raw.memory_outside_boundary
 //: ```neplg2
 //:| #entry main
 //:| #target std

@@ -17,8 +17,8 @@ use crate::source_capability::owner_aggregate::{
     owner_aggregate_symbol_evidence, OwnerAggregateEvidenceContext,
 };
 use crate::source_capability::proof_builder::{SourceCapabilityProof, SourceCapabilityProofFact};
+use crate::source_capability::raw_builtin_evidence::collect_raw_builtin_evidence;
 use crate::source_capability::raw_evidence_gate::raw_symbol_shadow_allows_evidence;
-use crate::source_capability::raw_memory::{RawAddressViewEvidence, RawMemoryStructuralEvidence};
 use crate::source_capability::raw_operation_proof::RawOperationBoundaryContract;
 use crate::source_capability::scope::SourceCapabilityScope;
 use crate::span::Span;
@@ -148,28 +148,6 @@ fn collect_raw_symbol_evidence(
         }
     }
     collect_raw_builtin_evidence(sink, symbol, span);
-}
-
-fn collect_raw_builtin_evidence(
-    sink: &mut impl SourceCapabilityProofSink,
-    symbol: &str,
-    span: Span,
-) {
-    if RawMemoryStructuralEvidence::from_symbol(symbol).is_some() {
-        sink.proof_mut()
-            .insert_fact(SourceCapabilityProofFact::RawMemoryStructuralBoundary, span);
-    }
-    if RawAddressViewEvidence::from_symbol(symbol).is_some() {
-        sink.proof_mut()
-            .insert_fact(SourceCapabilityProofFact::RawAddressViewBoundary, span);
-    }
-    if let Some(operation) = raw_memory_op_from_name(symbol) {
-        sink.proof_mut().insert_fact(
-            SourceCapabilityProofFact::RawMemoryOperationBoundary(operation),
-            span,
-        );
-        sink.record_raw_operation_evidence(operation);
-    }
 }
 
 fn collect_raw_body_evidence(sink: &mut impl SourceCapabilityProofSink, body: HirBody, span: Span) {

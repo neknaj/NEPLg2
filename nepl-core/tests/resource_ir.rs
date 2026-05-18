@@ -16,17 +16,17 @@ use nepl_core::resource::{
     lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
     resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
     BorrowKind, BorrowState, CellState, EffectOp, ExternalIoOp, NondetOp, OwnerState, Place,
-    PlaceProjection, PlaceRoot, RawAddressViewKind, RawMemoryOp, ResourceAutoDrop,
-    ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
-    ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred, ResourceCheckDiagnostic,
-    ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact, ResourceCoverageDiagnostic,
-    ResourceCoverageKind, ResourceCoveragePlaceOperation, ResourceDropElaborationHirBridgeError,
-    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
-    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceFunctionCheck, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule,
-    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
-    ResourceTerminator, StorageOrigin, UnknownEffectReason,
+    PlaceProjection, PlaceRoot, RawAddressAliasKind, RawAddressViewKind, RawMemoryOp,
+    ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
+    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
+    ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError, ResourceDropPoint,
+    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
+    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceI32RelationOp, ResourceId,
+    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
 use nepl_core::source_map::CompilerMemoryType;
 use nepl_core::span::{FileId, Span};
@@ -6221,6 +6221,7 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
                     ResourceOp::RawAddressAlias {
                         source: data_ref_address,
                         target: data_ref.clone(),
+                        kind: RawAddressAliasKind::Transparent,
                         span,
                     },
                     ResourceOp::Read {
@@ -6249,6 +6250,7 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
                     ResourceOp::RawAddressAlias {
                         source: data_raw,
                         target: raw_addr.clone(),
+                        kind: RawAddressAliasKind::Transparent,
                         span,
                     },
                     ResourceOp::RawMemory {
@@ -6487,6 +6489,7 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_helper() {
                         ResourceOp::RawAddressAlias {
                             source: ptr.clone(),
                             target: returned.clone(),
+                            kind: RawAddressAliasKind::Transparent,
                             span,
                         },
                         ResourceOp::Expr {
@@ -8357,6 +8360,7 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
                         ResourceOp::RawAddressAlias {
                             source: ptr.clone(),
                             target: returned.clone(),
+                            kind: RawAddressAliasKind::Transparent,
                             span,
                         },
                         ResourceOp::Expr {
@@ -9444,6 +9448,7 @@ fn resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free() {
             ResourceOp::RawAddressAlias {
                 source: p.clone(),
                 target: alias.clone(),
+                kind: RawAddressAliasKind::Transparent,
                 span,
             },
             ResourceOp::RawMemory {

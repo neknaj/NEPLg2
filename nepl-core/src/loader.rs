@@ -785,6 +785,7 @@ mod tests {
     trait SourceCapabilitiesTestExt {
         fn allows_raw_memory_structural_boundary(&self) -> bool;
         fn allows_raw_address_view_boundary(&self) -> bool;
+        fn allows_raw_address_alias_boundary(&self) -> bool;
         fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool;
         fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool;
         fn allows_owner_aggregate_field_boundary(&self) -> bool;
@@ -805,6 +806,15 @@ mod tests {
         fn allows_raw_address_view_boundary(&self) -> bool {
             self.use_sites_for_tests()
                 .any(|site| matches!(site, SourceCapabilityUseSite::RawAddressViewBoundary { .. }))
+        }
+
+        fn allows_raw_address_alias_boundary(&self) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::RawAddressAliasBoundary { .. }
+                )
+            })
         }
 
         fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool {
@@ -1924,8 +1934,9 @@ mod tests {
         );
         assert!(
             !capabilities.allows_raw_memory_structural_boundary()
-                && !capabilities.allows_raw_address_view_boundary(),
-            "owner-token helper calls are not direct representation or raw-address-view evidence"
+                && !capabilities.allows_raw_address_view_boundary()
+                && capabilities.allows_raw_address_alias_boundary(),
+            "owner-token helper calls prove raw-address alias authority, not representation or raw-address-view authority"
         );
     }
 
@@ -1964,6 +1975,27 @@ mod tests {
             !capabilities.allows_raw_memory_structural_boundary()
                 && capabilities.allows_raw_address_view_boundary(),
             "raw address helper calls prove raw-address-view use, not representation access"
+        );
+        assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
+    }
+
+    #[test]
+    fn raw_memory_boundary_accepts_raw_address_alias_helper_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "internal.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->MemPtr<i32>> (raw):\n    mem_ptr_wrap raw\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_structural_boundary()
+                && !capabilities.allows_raw_address_view_boundary()
+                && capabilities.allows_raw_address_alias_boundary(),
+            "raw address alias helpers prove alias authority, not view or representation access"
         );
         assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load));
     }

@@ -31,3 +31,19 @@ impl RawAddressViewEvidence {
         None
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::source_capability) enum RawAddressAliasEvidence {
+    MemoryHelperPrimitive,
+}
+
+impl RawAddressAliasEvidence {
+    pub(in crate::source_capability) fn from_symbol(name: &str) -> Option<Self> {
+        if MemoryHelperPrimitive::from_symbol(name)
+            .is_some_and(MemoryHelperPrimitive::is_raw_address_alias_boundary_evidence)
+        {
+            return Some(Self::MemoryHelperPrimitive);
+        }
+        None
+    }
+}

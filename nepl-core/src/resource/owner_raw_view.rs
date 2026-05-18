@@ -28,7 +28,10 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases.clear_raw_address_facts(target);
             storage_origins.clear(target);
         }
-        if matches!(kind, RawAddressViewKind::NonOwningProjection) {
+        if matches!(
+            kind,
+            RawAddressViewKind::NonOwningProjection | RawAddressViewKind::InternalHelper
+        ) {
             raw_views.mark_non_owning_projection(target);
         } else if raw_views.contains_non_owning_projection(source) {
             raw_views.mark_non_owning_projection(target);
