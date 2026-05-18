@@ -1,3 +1,23 @@
+# 2026-05-18 Agent 1 ByteBuilder structural empty storage 修正
+
+- `ISS-20260518T130359928Z-BYTEBUILDER-EMPTY-STORAGE-STILL-USES-D46A4A9A` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`byte_builder_empty_region` を public から外した後も、`ByteBuilder` の内部 empty state が `region_new(mem_ptr_wrap 0, 0)` の zero-size `RegionToken` sentinel として残っていたこと。
+- `ByteBuilderStorage::Empty | Owned(RegionToken<u8>)` を導入し、`ByteBuilder` は `storage` / `len` / `cap` を持つ形にした。`reserve` / `append` / `finish` / `free` は storage enum を `match` し、`Owned` branch だけが `RegionToken<u8>` を borrow / realloc / dealloc / finish する。
+- source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStorage::Empty` constructor、`Owned(region)` wrapping、storage match を要求し、`byte_builder_empty_region`、zero-size `region_new` sentinel、旧 `"region"` field access の再導入を拒否する。
+- 検証:
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuilder.nepl -i stdlib/alloc/io/bytebuilder/types.nepl -i stdlib/alloc/io/bytebuilder/storage.nepl -i stdlib/alloc/io/bytebuilder/append.nepl -i stdlib/alloc/io/bytebuilder/build.nepl --no-tree -o tmp/agent1-bytebuilder-storage-state.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuilder-storage-bytebuf.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-bytebuilder-storage-memory-safety.json -j 1 --dist web/dist --assert-io`: total=60, passed=60
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の raw-memory-backed stdlib owner boundary として、ByteBuilder の empty storage を enum state へ移した。
+
 # 2026-05-18 Agent 1 Stage 6 source policy drift 修正
 
 - `ISS-20260518T121306047Z-STAGE-6-SOURCE-POLICY-REGRESSIONS-DR-966050CB` を追加し、fixed / resolved にした。`plan.md` は変更していない。

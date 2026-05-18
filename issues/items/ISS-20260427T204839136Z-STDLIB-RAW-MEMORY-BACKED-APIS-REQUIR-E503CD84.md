@@ -188,7 +188,7 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` で、`ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field を削除した。
 
-`MemPtr` は non-owning pointer / projection として固定する方針であり、owned byte storage を `Option<MemPtr<u8>>` field に置く設計は Stage 6 の過渡例外を stdlib public state に残していた。修正後は `ByteBuf.region` / `ByteBuilder.region` が `RegionToken<u8>` owner を保持し、payload pointer は `io_bytebuf_data_ptr_ref` / `byte_builder_data_ptr_ref` で参照から non-owning view として得る。
+`MemPtr` は non-owning pointer / projection として固定する方針であり、owned byte storage を `Option<MemPtr<u8>>` field に置く設計は Stage 6 の過渡例外を stdlib public state に残していた。この時点の修正では `ByteBuf.region` / `ByteBuilder.region` が `RegionToken<u8>` owner を保持し、payload pointer は `io_bytebuf_data_ptr_ref` / `byte_builder_data_ptr_ref` で参照から non-owning view として得る形に移した。後続の 2026-05-18 追記で、現在の `ByteBuf` / `ByteBuilder` はそれぞれ storage enum によって empty state と owned state を分離している。
 
 この移行中に ResourceIR function summary が `region_ptr` 由来の non-owning projection に `mem_ptr_add` を重ねた値を owner alias として扱い、append path を maybe leak と誤診断する問題も露出した。stdlib allowlist で回避せず、summary traversal に raw view state を持たせ、non-owning projection 由来の offset view が owner alias を伝播しないよう compiler 側を修正した。
 
@@ -324,7 +324,7 @@ focused verification の過程で、Resource owner checker が non-Copy `Read` �
 
 `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` で、`ByteBuf` の empty storage を private sentinel helper から完全に外し、`ByteBufStorage::Empty | Owned(RegionToken<u8>)` へ移した。
 
-これにより `ByteBuf` は空状態で free obligation owner payload を持たず、`io_bytebuf_free` / `io_bytebuf_data_ptr_ref` は enum `match` の網羅性で empty branch と owned branch を分ける。`ByteBuilder` 側にはまだ empty `RegionToken` sentinel が残るため、byte buffer 全体の最終形は `ByteBuilderStorage` または `OwnedBytes` / compiler-issued owner token への後続移行としてこの親 issue で継続する。
+これにより `ByteBuf` は空状態で free obligation owner payload を持たず、`io_bytebuf_free` / `io_bytebuf_data_ptr_ref` は enum `match` の網羅性で empty branch と owned branch を分ける。当時 `ByteBuilder` 側には empty `RegionToken` sentinel が残っていたため、この親 issue の後続作業として `ByteBuilderStorage` または `OwnedBytes` / compiler-issued owner token への移行を継続することにした。
 
 同じ focused verification で、`std/fs/dir/read_fd.nepl` が削除済みの `Vec.data` field と `Vec<str>` raw storage sort に依存していることを確認した。これは別 issue `ISS-20260514T172450328Z-FS-DIR-READER-STILL-DEPENDS-ON-RAW-V-05400C14` として記録し、この親 issue の raw-memory-backed stdlib API migration 残件として継続する。
 
@@ -721,3 +721,11 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 修正後は raw copy helper を private に閉じ、public API は `byte_builder_push_str` と `byte_builder_push_str_slice` に限定した。full append は `len s` と `string_data_ptr s` を同じ `str` から導出し、slice append は `0 <= start <= end <= len(s)` を確認してから pointer と length を導出する。`StringBuilder` 側もこの typed helper に委譲するため、source object と readable extent の対応を caller convention ではなく stdlib API 境界で保持できる。
 
 この親 issue は引き続き open とする。今回閉じたのは ByteBuilder の public raw pointer/length append surface であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-18 Agent 1 ByteBuilder structural empty storage 追記
+
+`ISS-20260518T130359928Z-BYTEBUILDER-EMPTY-STORAGE-STILL-USES-D46A4A9A` を解決した。`ByteBuilder` は public `byte_builder_empty_region` を削除した後も、内部では `region_new(mem_ptr_wrap 0, 0)` により empty storage を zero-size `RegionToken<u8>` sentinel として表していた。
+
+修正後は `ByteBuilderStorage::Empty | Owned(RegionToken<u8>)` を導入し、`ByteBuilder` は `storage: ByteBuilderStorage`、`len`、`cap` を持つ。`byte_builder_empty` は owner payload を持たない `Empty` を返し、`byte_builder_from_owned_region` だけが `Owned(region)` を作る。`byte_builder_reserve` / `byte_builder_push_u8` / `byte_builder_push_bytes_ref` / `byte_builder_finish` / `byte_builder_free` は storage enum を `match` し、free obligation owner を持つ branch だけが `RegionToken<u8>` を消費または借用する。
+
+source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStorage::Empty` constructor、`Owned(region)` wrapping、append/free/reserve の storage match を要求し、`byte_builder_empty_region`、zero-size `region_new` sentinel、旧 `"region"` field access の再導入を拒否する。これで ByteBuf / ByteBuilder の空 storage はどちらも enum state として表現され、次の残件は forgeable `RegionToken` を compiler-issued owner token / `OwnedBytes` / `OwnedBuffer<T>` へ移すことである。

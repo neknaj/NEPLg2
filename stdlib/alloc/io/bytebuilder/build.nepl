@@ -44,32 +44,37 @@
 pub fn byte_builder_finish <(ByteBuilder)->Result<ByteBuf, StdErrorKind>> (builder):
     let len0 <i32> get builder "len"
     let cap0 <i32> get builder "cap"
+    let storage <ByteBuilderStorage> get builder "storage"
     if:
         le len0 0
         then:
-            byte_builder_free builder
-            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+            match storage:
+                ByteBuilderStorage::Empty:
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+                ByteBuilderStorage::Owned region:
+                    byte_builder_dealloc_owned_region region
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
         else:
-            if:
-                eq len0 cap0
-                then:
+            match storage:
+                ByteBuilderStorage::Empty:
+                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                ByteBuilderStorage::Owned region:
                     if:
                         le cap0 0
                         then:
+                            byte_builder_dealloc_owned_region region
                             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
                         else:
-                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region get builder "region" len0
-                else:
-                    if:
-                        le cap0 0
-                        then:
-                            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
-                        else:
-                            match byte_builder_realloc_region_or_free get builder "region" len0:
-                                Result::Ok region:
+                            if:
+                                eq len0 cap0
+                                then:
                                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region len0
-                                Result::Err e:
-                                    Result<ByteBuf, StdErrorKind>::Err e
+                                else:
+                                    match byte_builder_realloc_region_or_free region len0:
+                                        Result::Ok next_region:
+                                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region next_region len0
+                                        Result::Err e:
+                                            Result<ByteBuf, StdErrorKind>::Err e
 
 //: io_bytebuf_from_char_utf8_result: char 1 つを UTF-8 `ByteBuf` へ encode する
 //:

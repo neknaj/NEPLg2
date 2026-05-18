@@ -19,8 +19,14 @@ function implementationLineCount(src) {
 function assertByteBuilderOwnerBoundary(code) {
     assert.match(
         code,
-        /struct\s+ByteBuilder:\s+region\s+<RegionToken<u8>>\s+len\s+<i32>\s+cap\s+<i32>/,
-        'ByteBuilder must keep byte storage ownership in a RegionToken field',
+        /enum\s+ByteBuilderStorage:\s+Empty\s+Owned\s+<RegionToken<u8>>/,
+        'ByteBuilder storage state must distinguish empty storage from owned RegionToken payload structurally',
+    );
+
+    assert.match(
+        code,
+        /struct\s+ByteBuilder:\s+storage\s+<ByteBuilderStorage>\s+len\s+<i32>\s+cap\s+<i32>/,
+        'ByteBuilder must keep byte storage ownership in ByteBuilderStorage instead of a loose RegionToken field',
     );
 
     assert.match(
@@ -31,14 +37,32 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.doesNotMatch(
         code,
-        /\bpub\s+fn\s+byte_builder_empty_region\b/,
-        'ByteBuilder empty RegionToken sentinel helper must not be public API',
+        /\b(?:pub\s+)?fn\s+byte_builder_empty_region\b/,
+        'ByteBuilder must not encode empty storage with a zero-size RegionToken sentinel helper',
+    );
+
+    assert.doesNotMatch(
+        code,
+        /\bregion_new\b[\s\S]{0,80}\b0\b/,
+        'ByteBuilder empty storage must not forge a zero-size RegionToken sentinel',
     );
 
     assert.match(
         code,
         /\bpub\s+fn\s+byte_builder_empty\s+<\(\)->ByteBuilder>/,
         'ByteBuilder typed empty constructor must remain public',
+    );
+
+    assert.match(
+        code,
+        /\bpub\s+fn\s+byte_builder_empty\s+<\(\)->ByteBuilder>\s+\(\):\s+ByteBuilder\s+ByteBuilderStorage::Empty\s+0\s+0\b/,
+        'ByteBuilder typed empty constructor must use the structural empty storage state',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_from_owned_region\s+<\(RegionToken<u8>,i32,i32\)->ByteBuilder>[\s\S]*?\bByteBuilder\s+\(ByteBuilderStorage::Owned\s+region\)\s+len0\s+cap0\b/,
+        'ByteBuilder owned region constructor must wrap the RegionToken in ByteBuilderStorage::Owned',
     );
 
     assert.doesNotMatch(
@@ -49,7 +73,13 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.doesNotMatch(
         code,
-        /\bResult<ByteBuilder,[^>]+>::Ok\s+ByteBuilder\s+(?!byte_builder_empty_region\b|region\b)/,
+        /\bByteBuilder\s+byte_builder_empty_region\b/,
+        'ByteBuilder constructor call sites must not use an empty RegionToken sentinel',
+    );
+
+    assert.doesNotMatch(
+        code,
+        /\bResult<ByteBuilder,[^>]+>::Ok\s+ByteBuilder\b/,
         'ByteBuilder Result return paths must use the centralized owned region constructor',
     );
 
@@ -91,14 +121,32 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bget_ref\s+&reserved\s+"region"[\s\S]*\bregion_ptr\s+region_ref\b/,
-        'ByteBuilder append paths must borrow RegionToken and write through a non-owning pointer view',
+        /\bfn\s+byte_builder_free\s+<\(ByteBuilder\)->\(\)>[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_dealloc_owned_region\s+region\b/,
+        'ByteBuilder free must match storage state and consume only the Owned RegionToken payload',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_reserve\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\balloc_region_bytes<u8>\s+next_cap[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_realloc_region_or_free\s+region\s+next_cap\b/,
+        'ByteBuilder reserve must allocate only from Empty and reallocate only from the Owned RegionToken payload',
+    );
+
+    assert.match(
+        code,
+        /\bget_ref\s+&reserved\s+"storage"[\s\S]*?\bmatch\s+storage_ref:[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bregion_ptr\s+region\b/,
+        'ByteBuilder append paths must match storage state and borrow a non-owning pointer view only from Owned payload',
     );
 
     assert.match(
         code,
         /\bfn\s+byte_builder_with_len\s+<\(ByteBuilder,i32\)->ByteBuilder>/,
         'ByteBuilder must centralize len updates that preserve the storage owner field',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_with_len\s+<\(ByteBuilder,i32\)->ByteBuilder>[\s\S]*?\bByteBuilder\s+get\s+builder\s+"storage"\s+new_len\s+cap0\b/,
+        'ByteBuilder len update helper must preserve the ByteBuilderStorage owner field',
     );
 
     for (const [name, pattern] of [

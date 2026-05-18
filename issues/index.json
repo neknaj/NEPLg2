@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T12:56:53.614Z",
+  "generated_at": "2026-05-18T13:18:22.394Z",
   "counts": {
-    "total": 1001,
+    "total": 1002,
     "open": 5,
-    "resolved": 996,
+    "resolved": 997,
     "by_area": {
       "stdlib": {
-        "total": 274,
+        "total": 275,
         "open": 3,
-        "resolved": 271
+        "resolved": 272
       },
       "TEST": {
         "total": 42,
@@ -11948,6 +11948,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237.md"
+    },
+    {
+      "id": "ISS-20260518T130359928Z-BYTEBUILDER-EMPTY-STORAGE-STILL-USES-D46A4A9A",
+      "title": "ByteBuilder empty storage still uses zero-size RegionToken sentinel",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/io/bytebuilder/types.nepl, stdlib/alloc/io/bytebuilder/storage.nepl, stdlib/alloc/io/bytebuilder/append.nepl, stdlib/alloc/io/bytebuilder/build.nepl, nodesrc/source_policy/stdlib_builder_owner.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T130359928Z-BYTEBUILDER-EMPTY-STORAGE-STILL-USES-D46A4A9A.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

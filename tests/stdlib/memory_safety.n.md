@@ -1103,7 +1103,7 @@ fn main <()->i32> ():
     load_i32 0
 ```
 
-## ByteBuilder の empty RegionToken sentinel helper は公開しない
+## ByteBuilder の empty RegionToken sentinel helper は存在しない
 
 neplg2:test[compile_fail]
 diag_code: resolve.identifier.undefined

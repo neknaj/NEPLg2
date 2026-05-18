@@ -6,7 +6,7 @@
 //: - storage owner を取り出して包み直さずに field 全体で移す helper をここへ集約します。
 //:
 //: [注意/ちゅうい]:
-//: - 空 storage は `size=0` の sentinel `RegionToken`、所有 storage は正の size を持つ `RegionToken` で表します。
+//: - 空 storage は enum の `Empty`、所有 storage は `Owned(region)` として表します。
 //: - この module は raw memory operation を直接持ちません。
 //:
 //: neplg2:test
@@ -27,6 +27,17 @@
 #import "core/mem/internal" as *
 #import "core/option" as *
 
+//: ## ByteBuilderStorage
+//: `ByteBuilder` の storage owner state
+//:
+//: ### [目的/もくてき]
+//: - allocation を[持/も]たない空 builder と、free obligation を[持/も]つ byte 領域を enum として[分/わ]けます。
+//: - 空状態を zero-size `RegionToken` sentinel で[表/あらわ]さず、`match` の[網羅性/もうらせい]で cleanup と pointer projection の有無を[決/き]めます。
+//: - `Owned` payload だけが storage owner token を[保持/ほじ]するため、空 builder と owner token の不正な組み合わせを source type で[表現/ひょうげん]できません。
+pub enum ByteBuilderStorage:
+    Empty
+    Owned <RegionToken<u8>>
+
 //: ## ByteBuilder
 //: growable な[所有/しょゆう] byte buffer builder
 //:
@@ -38,25 +49,21 @@
 //: - `ByteBuilder` は[所有権/しょゆうけん]を[持/も]つので `Copy` / `Clone` を[実装/じっそう]しません。
 //: - `push_*` / `reserve` / `finish` は builder を[消費/しょうひ]し、成功時は[新/あたら]しい builder または `ByteBuf` を[返/かえ]します。
 //: - 失敗時は builder 内部 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
-//: - `region` は storage owner token です。payload pointer が必要な処理は参照から非所有 view を取り出します。
+//: - `storage` は `ByteBuilderStorage::Empty` または `ByteBuilderStorage::Owned(region)` です。payload pointer が必要な処理は `Owned` branch の参照から非所有 view を取り出します。
 pub struct ByteBuilder:
-    region <RegionToken<u8>>
+    storage <ByteBuilderStorage>
     len <i32>
     cap <i32>
-
-fn byte_builder_empty_region <()->RegionToken<u8>> ():
-    let ptr <MemPtr<u8>> mem_ptr_wrap 0
-    region_new ptr 0
 
 //: byte_builder_empty: storage を持たない空 builder を返す
 //:
 //: [目的/もくてき]:
-//: - `cap=0` の zero-length sentinel token によって「解放責務が無い」空 storage を表します。
+//: - `ByteBuilderStorage::Empty` によって「解放責務が無い」空 storage を表します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。
 pub fn byte_builder_empty <()->ByteBuilder> ():
-    ByteBuilder byte_builder_empty_region 0 0
+    ByteBuilder ByteBuilderStorage::Empty 0 0
 
 //: byte_builder_from_owned_region: 所有 byte 領域 token を `ByteBuilder` に包む
 //:
@@ -67,7 +74,7 @@ pub fn byte_builder_empty <()->ByteBuilder> ():
 //: - `cap0` は正でなければなりません。空 builder は `byte_builder_empty` を使ってください。
 //: - 呼び出し後、`region` は返った builder が所有します。
 pub fn byte_builder_from_owned_region <(RegionToken<u8>,i32,i32)->ByteBuilder> (region, len0, cap0):
-    ByteBuilder region len0 cap0
+    ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0
 
 //: byte_builder_with_len: builder の storage owner を保ったまま length だけ更新する
 //:
@@ -78,20 +85,29 @@ pub fn byte_builder_from_owned_region <(RegionToken<u8>,i32,i32)->ByteBuilder> (
 //: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `byte_builder_reserve` で済ませます。
 pub fn byte_builder_with_len <(ByteBuilder,i32)->ByteBuilder> (builder, new_len):
     let cap0 <i32> get builder "cap"
-    ByteBuilder get builder "region" new_len cap0
+    ByteBuilder get builder "storage" new_len cap0
 
 pub fn byte_builder_data_ptr_ref <(&ByteBuilder)->MemPtr<u8>> (builder):
-    let region_ref <&RegionToken<u8>> get_ref builder "region"
-    region_ptr region_ref
+    let storage_ref <&ByteBuilderStorage> get_ref builder "storage"
+    match storage_ref:
+        ByteBuilderStorage::Empty:
+            mem_ptr_wrap 0
+        ByteBuilderStorage::Owned region:
+            region_ptr region
 
 pub fn byte_builder_ptr_ref <(&ByteBuilder)->Option<MemPtr<u8>>> (builder):
     let cap0 <i32> *get_ref builder "cap"
-    if:
-        le cap0 0
-        then:
+    let storage_ref <&ByteBuilderStorage> get_ref builder "storage"
+    match storage_ref:
+        ByteBuilderStorage::Empty:
             none<MemPtr<u8>>
-        else:
-            some<MemPtr<u8>> byte_builder_data_ptr_ref builder
+        ByteBuilderStorage::Owned _region:
+            if:
+                le cap0 0
+                then:
+                    none<MemPtr<u8>>
+                else:
+                    some<MemPtr<u8>> byte_builder_data_ptr_ref builder
 
 //: byte_builder_len: builder に現在入っている byte 数を返す
 //:

@@ -60,14 +60,19 @@ pub fn byte_builder_push_u8 <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind
                     byte_builder_free reserved
                     Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
                 else:
-                    let region_ref <&RegionToken<u8>> get_ref &reserved "region"
-                    let ptr <MemPtr<u8>> region_ptr region_ref
-                    match store_u8 mem_ptr_add ptr len0 byte:
-                        Result::Ok _:
-                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 1
-                        Result::Err _e:
+                    let storage_ref <&ByteBuilderStorage> get_ref &reserved "storage"
+                    match storage_ref:
+                        ByteBuilderStorage::Empty:
                             byte_builder_free reserved
                             Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                        ByteBuilderStorage::Owned region:
+                            let ptr <MemPtr<u8>> region_ptr region
+                            match store_u8 mem_ptr_add ptr len0 byte:
+                                Result::Ok _:
+                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 1
+                                Result::Err _e:
+                                    byte_builder_free reserved
+                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 //: byte_builder_push_ascii: ASCII char を 1 byte として[追加/ついか]する
 //:
@@ -164,15 +169,20 @@ fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)->Result<ByteBuilde
                                     byte_builder_free reserved
                                     Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
                                 else:
-                                    let region_ref <&RegionToken<u8>> get_ref &reserved "region"
-                                    let ptr <MemPtr<u8>> region_ptr region_ref
-                                    let dst <MemPtr<u8>> mem_ptr_add ptr len0
-                                    match mem_copy<u8> dst *src data_len:
-                                        Result::Ok _:
-                                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 data_len
-                                        Result::Err _e:
+                                    let storage_ref <&ByteBuilderStorage> get_ref &reserved "storage"
+                                    match storage_ref:
+                                        ByteBuilderStorage::Empty:
                                             byte_builder_free reserved
                                             Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                        ByteBuilderStorage::Owned region:
+                                            let ptr <MemPtr<u8>> region_ptr region
+                                            let dst <MemPtr<u8>> mem_ptr_add ptr len0
+                                            match mem_copy<u8> dst *src data_len:
+                                                Result::Ok _:
+                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 data_len
+                                                Result::Err _e:
+                                                    byte_builder_free reserved
+                                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 //: byte_builder_push_str: `str` 全体の byte 表現を[追加/ついか]する
 //:

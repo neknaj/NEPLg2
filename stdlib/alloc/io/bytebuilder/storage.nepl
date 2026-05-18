@@ -74,7 +74,6 @@ pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
 //:
 //: [注意/ちゅうい]:
 //: - token は必ず `dealloc_region` へ渡し、compiler が token owner の消費を直接追跡できる形にします。
-//: - zero-size sentinel は allocator 側では解放対象でないため、owner-consuming destructor に渡して no-op として閉じます。
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
@@ -124,7 +123,11 @@ pub fn byte_builder_realloc_region_or_free <(RegionToken<u8>,i32)->Result<Region
 //: [目的/もくてき]:
 //: - builder の `RegionToken<u8>` を取り出し、token の size に従って owned storage を解放します。
 pub fn byte_builder_free <(ByteBuilder)->()> (builder):
-    byte_builder_dealloc_owned_region get builder "region"
+    match get builder "storage":
+        ByteBuilderStorage::Empty:
+            ()
+        ByteBuilderStorage::Owned region:
+            byte_builder_dealloc_owned_region region
 
 //: byte_builder_next_capacity: 必要 byte 数を満たす次 capacity を計算する
 //:
@@ -191,17 +194,27 @@ pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind
                             byte_builder_free builder
                             Result<ByteBuilder, StdErrorKind>::Err e
                         Result::Ok next_cap:
-                            if:
-                                le cap0 0
-                                then:
-                                    match alloc_region_bytes<u8> next_cap:
-                                        Result::Ok region:
-                                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region len0 next_cap
-                                        Result::Err _e:
-                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                                else:
-                                    match byte_builder_realloc_region_or_free get builder "region" next_cap:
-                                        Result::Ok region:
-                                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region len0 next_cap
-                                        Result::Err e:
-                                            Result<ByteBuilder, StdErrorKind>::Err e
+                            match get builder "storage":
+                                ByteBuilderStorage::Empty:
+                                    if:
+                                        or gt len0 0 gt cap0 0
+                                        then:
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                        else:
+                                            match alloc_region_bytes<u8> next_cap:
+                                                Result::Ok region:
+                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region len0 next_cap
+                                                Result::Err _e:
+                                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                ByteBuilderStorage::Owned region:
+                                    if:
+                                        le cap0 0
+                                        then:
+                                            byte_builder_dealloc_owned_region region
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                        else:
+                                            match byte_builder_realloc_region_or_free region next_cap:
+                                                Result::Ok next_region:
+                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region next_region len0 next_cap
+                                                Result::Err e:
+                                                    Result<ByteBuilder, StdErrorKind>::Err e
