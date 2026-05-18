@@ -895,6 +895,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T115751573Z-BYTEBUILDER-PUBLIC-RAW-BYTE-APPEND-D-D94BB3A0` は 2026-05-18 に修正した。`byte_builder_push_bytes_ref` は public API として `MemPtr<u8>` と length を直接受け取り、`mem_copy` の source extent proof を caller convention に依存させていた。修正後は raw copy helper を private にし、public API を `byte_builder_push_str` と `byte_builder_push_str_slice` に置き換えた。full string append は同じ `str` から `len` と `string_data_ptr` を導出し、slice append は `0 <= start <= end <= len(s)` を確認してから pointer と length を導出する。これは stdlib module 名や helper 名の allowlist ではなく、source object から readable extent を導出する typed API を通して、Stage 6 の raw-memory-backed public surface を閉じる整理である。
 
+`ISS-20260518T121306047Z-STAGE-6-SOURCE-POLICY-REGRESSIONS-DR-966050CB` は 2026-05-18 に修正した。Stage 6 の stdlib boundary refactor 後、source policy の一部が旧 module layout や旧 doctest count を前提にしていたため、`builder_ext` の raw evidence 期待、cliarg report count、selfhost reporter split、compile_fail diag metadata を現在の構造へ合わせた。これは検査を弱める変更ではなく、source policy が typed helper boundary と diagnostic metadata を正しく監視できるようにする保守である。同時に、`string_byte_at_checked_or_unreachable` の trap-based helper は別 issue として分離し、source policy の warning を実装問題として追跡する。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

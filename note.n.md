@@ -1,3 +1,20 @@
+# 2026-05-18 Agent 1 Stage 6 source policy drift 修正
+
+- `ISS-20260518T121306047Z-STAGE-6-SOURCE-POLICY-REGRESSIONS-DR-966050CB` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、Stage 6 の raw-memory boundary refactor 後に source policy が旧 module layout / 旧 doctest count / 旧 reporter facade を前提にしていたこと。
+- `builder_ext.nepl` は raw memory helper を直接持たない StringBuilder wrapper として監視するようにし、ByteBuilder typed source helper へ委譲した新構造と揃えた。
+- cliarg report contract は bounded C string conversion の stdout report doctest を含む 7 件へ更新し、`memory_safety.n.md` の missing `diag_code` も `type.overload.no_match` として固定した。
+- selfhost diagnostic reporter policy は split 後の render module を読み、`selfhost_diag_code_name` 経由の typed code rendering を確認するようにした。
+- 検証:
+  - `node nodesrc/test_stdlib_string_facade_boundary.js`
+  - `node nodesrc/test_stdlib_cliarg_report_contract.js`
+  - `node nodesrc/test_selfhost_diag_code_enum.js`
+  - `node nodesrc/test_doctest_diag_code_metadata.js`
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-source-policy-stage6-drift-memory-safety.json -j 1 --dist web\dist --assert-io`: total=60, passed=60
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 対象 4 policy は pass。残る warning は `ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237` として分離。
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の source policy が現行 typed helper boundary を監視できるようにした。
+
 # 2026-05-18 Agent 1 ByteBuilder typed source copy 境界修正
 
 - `ISS-20260518T115751573Z-BYTEBUILDER-PUBLIC-RAW-BYTE-APPEND-D-D94BB3A0` を追加し、fixed / resolved にした。`plan.md` は変更していない。

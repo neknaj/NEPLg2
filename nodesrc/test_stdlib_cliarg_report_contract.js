@@ -11,9 +11,10 @@ const parsed = parseFile(file);
 const reports = new Map([
     [0, 'cliarg_basic'],
     [3, 'cliarg_get_rejects_out_of_range'],
+    [4, 'cliarg_cstr_bounded_conversion_reports'],
 ]);
 
-assert.equal(parsed.doctests.length, 6, 'stdlib/tests/cliarg.n.md doctest count changed');
+assert.equal(parsed.doctests.length, 7, 'stdlib/tests/cliarg.n.md doctest count changed');
 
 for (const [index, name] of reports.entries()) {
     const doctest = parsed.doctests[index];

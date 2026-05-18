@@ -68,7 +68,10 @@ function assertLeafCodeMapping({ enumName, functionName, prefix }) {
 }
 
 const diag = read('stdlib/neplg2/core/infra/diag.nepl');
-const reporter = read('stdlib/neplg2/cli/reporter.nepl');
+const reporter = [
+  read('stdlib/neplg2/cli/reporter/render/single.nepl'),
+  read('stdlib/neplg2/cli/reporter/render/collection.nepl'),
+].join('\n');
 const lexer = read('stdlib/neplg2/core/syntax/lexer.nepl');
 const neplg2Files = [];
 
@@ -141,7 +144,7 @@ assert.doesNotMatch(
 ].forEach(assertLeafCodeMapping);
 assert.match(
   reporter,
-  /selfhost_diag_code_name\s+field::get\s+diag\s+"code"/,
+  /selfhost_diag_code_name\s+\*field::get_ref\s+diag\s+"code"/,
   'reporter must render diagnostic codes through selfhost_diag_code_name',
 );
 assert.doesNotMatch(lexer, /\b(?:pub\s+)?enum\s+LexErrorCode:/, 'lexer must use the shared selfhost lexer diagnostic enum');

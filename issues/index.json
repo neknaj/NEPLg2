@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T12:06:25.602Z",
+  "generated_at": "2026-05-18T12:16:33.840Z",
   "counts": {
-    "total": 999,
-    "open": 5,
-    "resolved": 994,
+    "total": 1001,
+    "open": 6,
+    "resolved": 995,
     "by_area": {
       "stdlib": {
-        "total": 273,
-        "open": 3,
+        "total": 274,
+        "open": 4,
         "resolved": 270
       },
       "TEST": {
@@ -82,9 +82,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 12,
+        "total": 13,
         "open": 0,
-        "resolved": 12
+        "resolved": 13
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -158,6 +158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237",
+      "title": "string byte index checked-or-unreachable helper keeps unsafe trap surface",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/string/byte_index.nepl, nodesrc/test_stdlib_no_unsafe_helpers.js, nodesrc/test_stdlib_string_access_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -8168,6 +8183,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T135819737Z-STDLIB-SOURCE-POLICY-LINE-LIMITS-C-4D318A9B.md"
+    },
+    {
+      "id": "ISS-20260518T121306047Z-STAGE-6-SOURCE-POLICY-REGRESSIONS-DR-966050CB",
+      "title": "Stage 6 source-policy regressions drift after stdlib boundary refactors",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nodesrc/test_stdlib_string_facade_boundary.js, nodesrc/test_stdlib_cliarg_report_contract.js, nodesrc/test_doctest_diag_code_metadata.js, nodesrc/test_selfhost_diag_code_enum.js, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T121306047Z-STAGE-6-SOURCE-POLICY-REGRESSIONS-DR-966050CB.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",

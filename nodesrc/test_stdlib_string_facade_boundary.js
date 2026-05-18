@@ -79,7 +79,6 @@ for (const relPath of [
     'stdlib/alloc/string/storage.nepl',
     'stdlib/alloc/string/utf8.nepl',
     'stdlib/alloc/string/concat.nepl',
-    'stdlib/alloc/string/builder_ext.nepl',
     'stdlib/alloc/string/integer/format.nepl',
     'stdlib/alloc/string/float/format.nepl',
 ]) {
@@ -96,6 +95,7 @@ for (const relPath of [
     'stdlib/alloc/string/builder/build.nepl',
     'stdlib/alloc/string/builder/reserve.nepl',
     'stdlib/alloc/string/builder/types.nepl',
+    'stdlib/alloc/string/builder_ext.nepl',
 ]) {
     const code = stripNeplComments(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
     assert.doesNotMatch(

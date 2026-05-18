@@ -1277,6 +1277,7 @@ fn main <()*>i32> ():
 ## alloc/string/byte_index は任意の i32 を raw byte reader に渡せない
 
 neplg2:test[compile_fail]
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
