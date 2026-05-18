@@ -11,6 +11,7 @@
 #indent 4
 
 #import "core/math" as *
+#import "core/option" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
 #import "alloc/string/utf8" as *
@@ -52,4 +53,8 @@ pub fn str_utf8_is_boundary <(str,i32)->bool> (s, idx):
                                 then:
                                     false
                                 else:
-                                    not string_utf8_is_continuation string_byte_at_checked_or_unreachable s idx
+                                    match checked_string_byte_at s idx:
+                                        Option::Some b:
+                                            not string_utf8_is_continuation b
+                                        Option::None:
+                                            false

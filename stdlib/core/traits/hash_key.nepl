@@ -19,6 +19,7 @@
 
 #import "core/math" as *
 #import "core/cast" as *
+#import "core/option" as *
 #import "alloc/hash/hash32" as *
 #import "alloc/hash/fnv1a32" as *
 #import "alloc/string" as *
@@ -29,10 +30,13 @@ pub fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
         ge idx n
         then h
         else:
-            let b <i32> string_byte_at_checked_or_unreachable s idx
-            let next_idx <i32> add idx 1
-            let next_h <Fnv1a32> fnv1a32_update h b
-            hashkey_bytes_loop s n next_idx next_h
+            match checked_string_byte_at s idx:
+                Option::Some b:
+                    let next_idx <i32> add idx 1
+                    let next_h <Fnv1a32> fnv1a32_update h b
+                    hashkey_bytes_loop s n next_idx next_h
+                Option::None:
+                    h
 
 //: ## HashKey
 //: hash collection が key に[要求/ようきゅう]する[同値性/どうちせい]と hash [計算/けいさん]

@@ -4,6 +4,7 @@
 #import "alloc/string/byte_index" as *
 #import "core/field" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "./classify" as *
 #import "./types" as *
@@ -30,6 +31,7 @@
 //:| #target std
 //:| #import "neplg2/cli/args/emit" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main <()->i32> ():
 //:     match selfhost_cli_parse_emit_set_value "wasm,llvm-min":
 //:         Result::Ok emit:
@@ -108,7 +110,7 @@ pub fn selfhost_cli_parse_emit_set_value <(str)->Result<SelfhostCliEmitSet,Selfh
                             then:
                                 true
                             else:
-                                eq string_byte_at_checked_or_unreachable value i ','
+                                string_byte_eq value i ','
                     if:
                         split
                         then:

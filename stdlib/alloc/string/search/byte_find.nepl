@@ -33,10 +33,8 @@ pub fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
     while lt i sep_len:
         do:
             let rd_off <i32> add pos i;
-            let bs <i32> string_byte_at_checked_or_unreachable s rd_off;
-            let bp <i32> string_byte_at_checked_or_unreachable sep i;
             if:
-                eq bs bp
+                string_bytes_eq s rd_off sep i
                 then set i <i32> add i 1
                 else:
                     set ok 0

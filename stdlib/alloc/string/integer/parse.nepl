@@ -16,10 +16,18 @@
 #import "core/cast" as *
 #import "core/char" as *
 #import "core/field" as *
+#import "core/option" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
 #import "alloc/string/slice" as *
 #import "./common" as *
+
+fn integer_parse_byte_or_invalid <(str,i32)->i32> (s, idx):
+    match checked_string_byte_at s idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
 
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
@@ -230,7 +238,7 @@ pub fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
                 then:
                     set ok 0;
                 else:
-                    let first <i32> string_byte_at_checked_or_unreachable s 0;
+                    let first <i32> integer_parse_byte_or_invalid s 0;
                     if:
                         eq first '-'
                         then:
@@ -238,7 +246,7 @@ pub fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
                         else:
                             while lt i n:
                                 do:
-                                    let digit_chr <i32> string_byte_at_checked_or_unreachable s i;
+                                    let digit_chr <i32> integer_parse_byte_or_invalid s i;
                                     match digit_from_char digit_chr:
                                         Result::Ok digit:
                                             if:
@@ -364,7 +372,7 @@ pub fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
         then:
             Result::Err<i128,i32> 1
         else:
-            let first <i32> string_byte_at_checked_or_unreachable s 0;
+            let first <i32> integer_parse_byte_or_invalid s 0;
             let neg <bool> eq first '-';
             let body <str> if neg:
                 then str_slice s 1 n

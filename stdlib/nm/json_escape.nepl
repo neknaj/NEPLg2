@@ -32,6 +32,7 @@
 #import "alloc/string" as *
 #import "alloc/string/byte_index" as *
 #import "core/math" as *
+#import "core/option" as *
 
 //: json_escape_byte_into: JSON 文字列用に 1 byte を builder へ追加する
 //:
@@ -79,9 +80,12 @@ pub fn json_escape_into <(StringBuilder,str)->StringBuilder> (sb, s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> string_byte_at_checked_or_unreachable s i;
-            set out json_escape_byte_into out ch;
-            set i add i 1;
+            match checked_string_byte_at s i:
+                Option::Some ch:
+                    set out json_escape_byte_into out ch;
+                    set i add i 1;
+                Option::None:
+                    set i n;
     out
 
 //: json_escape_builder_into: builder の内容を JSON escape して別 builder へ移す

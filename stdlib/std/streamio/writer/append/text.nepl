@@ -11,6 +11,7 @@
 #import "alloc/string/byte_index" as *
 #import "std/streamio/writer/state" as *
 #import "core/math" as *
+#import "core/option" as *
 
 //: ## append_str_impl
 //: `str` を buffered sink へ[追記/ついき]する
@@ -24,7 +25,10 @@ pub fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> string_byte_at_checked_or_unreachable s i;
-            set ww push_u8_impl ww ch;
-            set i add i 1;
+            match checked_string_byte_at s i:
+                Option::Some ch:
+                    set ww push_u8_impl ww ch;
+                    set i add i 1;
+                Option::None:
+                    set i n;
     ww

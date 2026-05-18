@@ -218,7 +218,7 @@ const appendStrMatch = appendTextCode.match(/(?:pub\s+)?fn\s+append_str_impl\b([
 assert.ok(appendStrMatch, 'append_str_impl body must be found');
 assert.match(
     appendStrMatch[1],
-    /\bstring_byte_at_checked_or_unreachable\s+s\s+i\b/,
+    /\bchecked_string_byte_at\s+s\s+i\b/,
     'append_str_impl must use alloc/string byte access instead of raw data loads',
 );
 assert.doesNotMatch(

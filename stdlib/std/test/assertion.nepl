@@ -33,10 +33,8 @@ pub fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,total,i):
         then:
             true
         else:
-            let ba <i32> string_byte_at_checked_or_unreachable a i
-            let bb <i32> string_byte_at_checked_or_unreachable b i
             if:
-                eq ba bb
+                string_bytes_eq a i b i
                 then:
                     test_str_eq_loop a b total add i 1
                 else:

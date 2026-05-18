@@ -71,12 +71,12 @@ fn scanner_string_addr <(str)->i32> (s):
 pub fn scanner_str_byte_len <(str)->i32> (s):
     load_i32 scanner_string_addr s
 
-//: scanner_string_byte_at_checked_or_unreachable: 範囲確認済み index の byte を scanner 内部で読む
+//: scanner_string_byte_at_checked_raw: 範囲確認済み index の byte を scanner 内部で読む
 //:
 //: [注意/ちゅうい]:
 //: - `idx` は必ず `0 <= idx < scanner_str_byte_len(s)` を満たす前提です。
 //: - この helper は公開しません。scanner 利用者は範囲を正規化する public helper を使います。
-fn scanner_string_byte_at_checked_or_unreachable <(str,i32)->i32> (s, idx):
+fn scanner_string_byte_at_checked_raw <(str,i32)->i32> (s, idx):
     load_u8 <i32> add scanner_string_addr s <i32> add 4 idx
 
 pub fn scanner_byte_is_ascii_digit <(i32)->bool> (b):
@@ -175,7 +175,7 @@ pub fn str_find_byte_range <(str,i32,i32,i32)->i32> (s, start, end, needle):
             while and lt i limit lt found 0:
                 do:
                     if:
-                        eq scanner_string_byte_at_checked_or_unreachable s i needle
+                        eq scanner_string_byte_at_checked_raw s i needle
                         then set found i
                         else set i add i 1
             found
@@ -206,7 +206,7 @@ pub fn str_line_end <(str,i32)->i32> (s, start):
     while and lt i n not done:
         do:
             if:
-                eq scanner_string_byte_at_checked_or_unreachable s i '\n'
+                eq scanner_string_byte_at_checked_raw s i '\n'
                 then set done true
                 else set i add i 1
     i
@@ -232,7 +232,7 @@ pub fn str_next_line_pos <(str,i32)->i32> (s, line_end):
                     n
                 else:
                     if:
-                        eq scanner_string_byte_at_checked_or_unreachable s line_end '\n'
+                        eq scanner_string_byte_at_checked_raw s line_end '\n'
                         then add line_end 1
                         else line_end
 
@@ -253,7 +253,7 @@ pub fn str_skip_inline_space_range <(str,i32,i32)->i32> (s, start, end):
     while and lt i limit not done:
         do:
             if:
-                scanner_byte_is_ascii_inline_space scanner_string_byte_at_checked_or_unreachable s i
+                scanner_byte_is_ascii_inline_space scanner_string_byte_at_checked_raw s i
                 then set i add i 1
                 else set done true
     i
@@ -275,7 +275,7 @@ pub fn str_word_end_inline_space_range <(str,i32,i32)->i32> (s, start, end):
     while and lt i limit not done:
         do:
             if:
-                scanner_byte_is_ascii_inline_space scanner_string_byte_at_checked_or_unreachable s i
+                scanner_byte_is_ascii_inline_space scanner_string_byte_at_checked_raw s i
                 then set done true
                 else set i add i 1
     i

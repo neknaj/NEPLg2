@@ -51,10 +51,30 @@ assert.match(
 );
 assert.match(
     byteIndexCode,
-    /fn\s+string_byte_at_checked_or_unreachable[\s\S]*match\s+checked_string_byte_index\s+s\s+idx:[\s\S]*Option::Some\s+proof:[\s\S]*string_byte_at_checked\s+s\s+proof[\s\S]*Option::None:[\s\S]*#intrinsic\s+"unreachable"/,
-    'checked_or_unreachable must check before raw byte access',
+    /fn\s+checked_string_byte_at[\s\S]*match\s+checked_string_byte_index\s+s\s+idx:[\s\S]*Option::Some\s+proof:[\s\S]*some<i32>\s+string_byte_at_checked\s+s\s+proof[\s\S]*Option::None:[\s\S]*none<i32>/,
+    'checked_string_byte_at must return Option evidence instead of trapping',
+);
+assert.doesNotMatch(
+    byteIndexCode,
+    /\bstring_byte_at_checked_or_unreachable\b|#intrinsic\s+"unreachable"/,
+    'string/byte_index must not keep the transitional trap helper',
+);
+assert.match(
+    byteIndexCode,
+    /fn\s+string_byte_eq[\s\S]*match\s+checked_string_byte_at\s+s\s+idx:[\s\S]*Option::Some\s+actual:[\s\S]*eq\s+actual\s+expected[\s\S]*Option::None:[\s\S]*false/,
+    'string_byte_eq must fold checked byte evidence into a safe comparison',
+);
+assert.match(
+    byteIndexCode,
+    /fn\s+string_bytes_eq[\s\S]*match\s+checked_string_byte_at\s+a\s+a_idx:[\s\S]*match\s+checked_string_byte_at\s+b\s+b_idx:[\s\S]*eq\s+ba\s+bb/,
+    'string_bytes_eq must require checked byte evidence for both strings',
+);
+assert.match(
+    byteIndexCode,
+    /fn\s+string_bytes_cmp[\s\S]*Option<i32>[\s\S]*match\s+checked_string_byte_at\s+a\s+a_idx:[\s\S]*match\s+checked_string_byte_at\s+b\s+b_idx:[\s\S]*some<i32>\s+-1[\s\S]*some<i32>\s+1[\s\S]*some<i32>\s+0/,
+    'string_bytes_cmp must expose byte ordering only after checked evidence for both strings',
 );
 assert.ok(implementationLineCount(accessSrc) <= 130, `${accessRelPath} should stay narrowly scoped`);
-assert.ok(implementationLineCount(byteIndexSrc) <= 120, `${byteIndexRelPath} should stay narrowly scoped`);
+assert.ok(implementationLineCount(byteIndexSrc) <= 180, `${byteIndexRelPath} should stay narrowly scoped`);
 
 console.log('alloc/string access boundary regression passed');

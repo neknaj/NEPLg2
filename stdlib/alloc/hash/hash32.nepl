@@ -18,6 +18,7 @@
 
 #import "core/math" as *
 #import "core/cast" as *
+#import "core/option" as *
 #import "alloc/string/access" as string
 #import "alloc/string/byte_index" as string_byte_index
 #import "alloc/hash/fnv1a32" as *
@@ -42,10 +43,13 @@ pub fn hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
         ge idx n
         then h
         else:
-            let b <i32> string_byte_index::string_byte_at_checked_or_unreachable s idx
-            let next_idx <i32> add idx 1
-            let next_h <Fnv1a32> fnv1a32_update h b
-            hash_bytes_loop s n next_idx next_h
+            match string_byte_index::checked_string_byte_at s idx:
+                Option::Some b:
+                    let next_idx <i32> add idx 1
+                    let next_h <Fnv1a32> fnv1a32_update h b
+                    hash_bytes_loop s n next_idx next_h
+                Option::None:
+                    h
 
 //: ## hash32
 //: `bool` を 32-bit ハッシュへ[変換/へんかん]する

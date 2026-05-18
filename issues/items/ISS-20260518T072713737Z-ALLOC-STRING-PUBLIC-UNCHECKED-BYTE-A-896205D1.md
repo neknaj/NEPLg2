@@ -44,7 +44,7 @@ target: "stdlib/alloc/string/access.nepl, stdlib/alloc/string/byte_index.nepl, s
 
 Root `alloc/string` と `alloc/string/access` の利用者は unchecked reader に到達しない。通常の byte access は `Option<i32>` を返す `byte_at` を使う。
 
-stdlib / selfhost の高速 scanner / parser / hashing loop は `string_byte_at_checked_or_unreachable` へ移行した。この helper は任意 index を受け取るが、内部で必ず `checked_string_byte_index` の witness を作ってから `string_byte_at_checked` を呼ぶため、範囲外 index で raw read へ進まない。precondition 違反時は raw memory access ではなく `unreachable` で停止する。
+後続の `ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237` で、移行用の trap-based public helper も削除した。stdlib / selfhost の高速 scanner / parser / hashing loop は、`checked_string_byte_at`、checked byte comparison helper、または module-private sentinel adapter を使い、範囲証明失敗を `Option::None` や既存の失敗値として明示する。
 
 ## 修正方針
 
@@ -52,8 +52,9 @@ stdlib / selfhost の高速 scanner / parser / hashing loop は `string_byte_at_
 2. Root `alloc/string` facade は unchecked byte reader を再公開しない。
 3. `alloc/string/unchecked_access` は削除し、public unchecked raw reader を残さない。
 4. `StringByteIndex` は private witness とし、checked factory だけが constructor を使う。
-5. `string_byte_at_checked` は witness を要求する。移行用の `string_byte_at_checked_or_unreachable` も必ず checked factory を経由する。
+5. `string_byte_at_checked` は witness を要求し、public API からは任意 `i32` で直接呼べない。
 6. stdlib / selfhost call site は `alloc/string/byte_index` の checked helper へ移行し、source policy と memory safety doctest で退行を拒否する。
+7. follow-up issue で public trap helper を削除し、hot path も checked result / checked compare / private sentinel adapter へ移行する。
 
 ## 検証
 

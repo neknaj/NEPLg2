@@ -26,6 +26,8 @@
 //:| #target std
 //:| #import "alloc/string/search" as string_search
 //:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/module/stdlib_map" as *
 //: fn main <()*>i32> ():
 //:     let map <SelfhostModulePathMap> selfhost_module_path_map_new "user" "stdlib";
@@ -48,12 +50,20 @@
 #import "alloc/string/concat" as string_concat
 #import "core/field" as field
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/import_spec" as *
 #import "core/field" as *
+
+fn selfhost_stdlib_map_byte_or_end <(str,i32)->i32> (path, idx):
+    match string_byte_index::checked_string_byte_at path idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
 
 //: SelfhostModulePathKind: 解決後 module path が属する logical root
 //:
@@ -205,7 +215,7 @@ pub fn selfhost_module_path_last_slash_loop <(str,i32,i32,i32)->i32> (path, n, i
     let mut found <i32> last
     while lt i n:
         do:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable path i
+            let ch <i32> selfhost_stdlib_map_byte_or_end path i
             if:
                 eq ch '/'
                 then:

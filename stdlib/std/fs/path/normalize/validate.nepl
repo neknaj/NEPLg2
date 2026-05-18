@@ -12,6 +12,7 @@
 #import "alloc/string" as *
 #import "alloc/string/byte_index" as *
 #import "core/math" as *
+#import "core/option" as *
 
 //: fs_path_has_forbidden_host_byte: WASI guest path と host path の混同を招く byte を検出する
 //:
@@ -32,11 +33,14 @@ pub fn fs_path_has_forbidden_host_byte <(str)->bool> (path):
     let mut found <bool> false
     while and not found lt i n:
         do:
-            let ch <i32> string_byte_at_checked_or_unreachable path i
-            if:
-                or eq ch '\\' eq ch ':'
-                then:
-                    set found true
-                else:
-                    set i add i 1
+            match checked_string_byte_at path i:
+                Option::Some ch:
+                    if:
+                        or eq ch '\\' eq ch ':'
+                        then:
+                            set found true
+                        else:
+                            set i add i 1
+                Option::None:
+                    set i n
     found

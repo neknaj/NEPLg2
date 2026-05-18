@@ -41738,3 +41738,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `typecheck/effect_check.rs` は既に `raw_memory_intrinsic_op_from_name` を直接消費していたが、`resource/lower_raw_memory.rs` だけは `intrinsic_is_raw_memory_effect` boolean gate の後で helper-name classifier へ再分類していた。
 - Resource IR lowering も `raw_memory_intrinsic_op_from_name(name)` を直接消費するようにして、raw intrinsic operation proof を typecheck と Resource IR で同じ typed classifier に揃えた。
 - `nodesrc/test_resource_checker_responsibility.js` に regression を追加し、`lower_raw_memory.rs` が `intrinsic_is_raw_memory_effect` を再導入しないことを固定した。
+
+## 2026-05-18 Agent 1 string byte public trap helper 削除
+
+- `ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`StringByteIndex` witness 化後も移行用 public helper が任意 `i32` を受け、proof failure を `unreachable` trap に変換していたことだった。raw read 前に factory を通っていても、caller が `Option` / witness を match しない public infallible API は Stage 6 の検査方針と矛盾する。
+- `alloc/string/byte_index` の public surface を `checked_string_byte_at`、`string_byte_eq`、`string_bytes_eq`、`string_bytes_cmp` に整理し、raw layout read は private witness を要求する `string_byte_at_checked` に閉じた。
+- stdlib / selfhost / nm / fs / streamio / hash / lexer / parser の call site は checked API へ移行した。sentinel loop は module-private adapter で `Option::None` を `-1` などの既存 failure value に変換し、trap helper を再導入しない。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 6 進捗と関連 issue を、public trap helper 削除後の状態へ更新した。
+- focused verification:
+  - `node nodesrc/test_stdlib_string_access_boundary.js`: passed
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_search_boundary.js`: passed
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib\alloc\string\byte_index.nepl --no-tree -o tmp\agent1-string-byte-index-byte-index.json -j 1 --dist web\dist --assert-io`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib\alloc\string\search -i stdlib\alloc\string\slice -i stdlib\alloc\string\integer\parse.nepl -i stdlib\alloc\string\float\parse.nepl --no-tree -o tmp\agent1-string-byte-index-string-focused.json -j 1 --dist web\dist --assert-io`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib\nm\json_escape.nepl -i stdlib\nm\html_escape.nepl -i stdlib\nm\html_inline.nepl -i stdlib\nm\parser\scanner.nepl -i stdlib\nm\parser\json_inline.nepl --no-tree -o tmp\agent1-string-byte-index-nm-focused.json -j 1 --dist web\dist --assert-io`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib\neplg2\core\syntax\lexer.nepl -i stdlib\neplg2\core\module\import_scan.nepl -i stdlib\neplg2\core\module\import_spec.nepl -i stdlib\neplg2\core\module\stdlib_map.nepl -i stdlib\neplg2\core\infra\text.nepl -i stdlib\neplg2\cli\args\emit.nepl --no-tree -o tmp\agent1-string-byte-index-selfhost-focused.json -j 1 --dist web\dist --assert-io`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib\alloc\hash\hash32.nepl -i stdlib\core\traits\hash.nepl -i stdlib\core\traits\hash_key.nepl -i stdlib\tests\hash.n.md --no-tree -o tmp\agent1-string-byte-index-hash-focused.json -j 1 --dist web\dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-string-byte-index-memory-safety.json -j 1 --dist web\dist --assert-io`: total=60, passed=60

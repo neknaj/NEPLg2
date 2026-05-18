@@ -48,6 +48,13 @@
 #import "neplg2/core/infra/span" as *
 #import "core/field" as *
 
+fn source_text_byte_or_end <(str,i32)->i32> (source, idx):
+    match string_byte_index::checked_string_byte_at source idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
+
 //: SelfhostSourceText: 1 [入力/にゅうりょく] source と line start table
 //:
 //: [目的/もくてき]:
@@ -107,7 +114,7 @@ pub fn source_text_next_index_after_cr <(str,i32,i32)->i32> (source, n, idx):
     if:
         lt next_idx n
         then:
-            let next_ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source next_idx
+            let next_ch <i32> source_text_byte_or_end source next_idx
             match next_ch:
                 '\n':
                     add idx 2
@@ -142,7 +149,7 @@ pub fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>,
     let mut failed <bool> false
     while and lt i n not failed:
         do:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source i
+            let ch <i32> source_text_byte_or_end source i
             match ch:
                 '\n':
                     let pushed <SourceTextLineStartPush> source_text_push_line_start out add i 1
@@ -261,7 +268,7 @@ pub fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
             raw_end
         else:
             let last_idx <i32> sub raw_end 1
-            let last <i32> string_byte_index::string_byte_at_checked_or_unreachable source last_idx
+            let last <i32> source_text_byte_or_end source last_idx
             match last:
                 '\n':
                     if:
@@ -270,7 +277,7 @@ pub fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
                             last_idx
                         else:
                             let prev_idx <i32> sub last_idx 1
-                            let prev <i32> string_byte_index::string_byte_at_checked_or_unreachable source prev_idx
+                            let prev <i32> source_text_byte_or_end source prev_idx
                             match prev:
                                 '\r':
                                     prev_idx

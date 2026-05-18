@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T12:16:33.840Z",
+  "generated_at": "2026-05-18T12:56:53.614Z",
   "counts": {
     "total": 1001,
-    "open": 6,
-    "resolved": 995,
+    "open": 5,
+    "resolved": 996,
     "by_area": {
       "stdlib": {
         "total": 274,
-        "open": 4,
-        "resolved": 270
+        "open": 3,
+        "resolved": 271
       },
       "TEST": {
         "total": 42,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237",
-      "title": "string byte index checked-or-unreachable helper keeps unsafe trap surface",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-18",
-      "updated": "2026-05-18",
-      "target": "stdlib/alloc/string/byte_index.nepl, nodesrc/test_stdlib_no_unsafe_helpers.js, nodesrc/test_stdlib_string_access_boundary.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -11948,6 +11933,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T115751573Z-BYTEBUILDER-PUBLIC-RAW-BYTE-APPEND-D-D94BB3A0.md"
+    },
+    {
+      "id": "ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237",
+      "title": "string byte index checked-or-unreachable helper keeps unsafe trap surface",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/string/byte_index.nepl, nodesrc/test_stdlib_no_unsafe_helpers.js, nodesrc/test_stdlib_string_access_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

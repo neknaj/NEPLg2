@@ -5,7 +5,7 @@
 //: - block / inline JSON serializer は構造の出力に集中し、byte scan の境界条件はこの module でレビューできるようにします。
 //:
 //: [実装/じっそう]:
-//: - 入力は `str` と byte index で扱い、ASCII marker を `string_byte_at_checked_or_unreachable` で判定します。
+//: - 入力は `str` と byte index で扱い、ASCII marker を checked byte API で判定します。
 //: - heading level や delimiter のような有限条件は小さい helper に分け、呼び出し側へ magic offset を広げません。
 //:
 //: [注意/ちゅうい]:
@@ -22,6 +22,7 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser/scanner" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let ok_heading <bool> eq nm_heading_level "### title" 3
 //:     let ok_hr <bool> is_hr "---"
@@ -35,6 +36,14 @@
 #import "alloc/string/byte_index" as *
 #import "alloc/string/scanner" as strscan
 #import "core/math" as *
+#import "core/option" as *
+
+fn nm_scanner_byte_or_end <(str,i32)->i32> (s, idx):
+    match checked_string_byte_at s idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
 
 //: nm_read_line: 入力から 1 行を切り出す
 //:
@@ -62,14 +71,14 @@ pub fn nm_read_line <(str,i32)->str> (s, pos):
 pub fn nm_heading_level <(str)->i32> (line):
     let n <i32> len line;
     let mut i <i32> 0;
-    while and lt i n and lt i 6 eq string_byte_at_checked_or_unreachable line i '#':
+    while and lt i n and lt i 6 string_byte_eq line i '#':
         do:
             set i add i 1
     if:
         and gt i 0 lt i n
         then:
             if:
-                eq string_byte_at_checked_or_unreachable line i ' '
+                string_byte_eq line i ' '
                 then i
                 else 0
         else:
@@ -186,7 +195,7 @@ pub fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
     let mut found <i32> -1;
     while and lt j n lt found 0:
         do:
-            let c0 <i32> string_byte_at_checked_or_unreachable s j;
+            let c0 <i32> nm_scanner_byte_or_end s j;
             if:
                 eq delim 1
                 then:
@@ -198,7 +207,7 @@ pub fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
                     if:
                         and eq c0 '$' lt add j 1 n
                         then:
-                            let c1 <i32> string_byte_at_checked_or_unreachable s add j 1;
+                            let c1 <i32> nm_scanner_byte_or_end s add j 1;
                             if:
                                 eq c1 '$'
                                 then set found j
@@ -220,7 +229,7 @@ pub fn nm_find_gloss_slash <(str,i32,i32)->i32> (s, start, end):
     let mut found <i32> -1;
     while and lt i end lt found 0:
         do:
-            let ch <i32> string_byte_at_checked_or_unreachable s i;
+            let ch <i32> nm_scanner_byte_or_end s i;
             match ch:
                 '[':
                     set depth add depth 1

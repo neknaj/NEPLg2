@@ -8,7 +8,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `StringByteIndex` の constructor は private です。caller は `checked_string_byte_index` の結果を match してだけ witness を得られます。
-//: - `string_byte_at_checked_or_unreachable` は既存 scanner / parser hot path の移行用 helper です。範囲外なら raw read の前に unreachable で停止します。
+//: - 任意の `i32` index から byte を読む入口は `Option` を返す checked API に閉じ、範囲外を trap で隠しません。
 
 #indent 4
 
@@ -36,28 +36,30 @@ struct StringByteIndex:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 //:
-//: neplg2:test[stdio, normalize_newlines]
-//: exit_code: 0
-//: stdout: "test_report name=\"string_byte_index_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"byte 0\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"byte 1\" expected=\"90\" actual=\"90\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"idx 2 rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/option" as *
-//:| #import "std/test" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
+//:     let ok0 <bool> match checked_string_byte_index "AZ" 0:
+//:         Option::Some proof:
+//:             eq string_byte_at_checked "AZ" proof 'A'
+//:         Option::None:
+//:             false
+//:     let ok1 <bool> match checked_string_byte_index "AZ" 1:
+//:         Option::Some proof:
+//:             eq string_byte_at_checked "AZ" proof 'Z'
+//:         Option::None:
+//:             false
 //:     let rejected <bool> match checked_string_byte_index "AZ" 2:
 //:         Option::Some proof:
 //:             false
 //:         Option::None:
 //:             true
-//:     let report:
-//:         test_report_new "string_byte_index_doc"
-//:         |> test_report_push assert_eq_i32 "byte 0" 'A' string_byte_at_checked_or_unreachable "AZ" 0
-//:         |> test_report_push assert_eq_i32 "byte 1" 'Z' string_byte_at_checked_or_unreachable "AZ" 1
-//:         |> test_report_push assert "idx 2 rejected" rejected
-//:     let shown test_report_print_stdout report
-//:     test_report_exit_code shown
+//:     if and ok0 and ok1 rejected 0 1
 //: ```
 pub fn checked_string_byte_index <(str,i32)->Option<StringByteIndex>> (s, idx):
     let n <i32> string_access::len s
@@ -98,17 +100,129 @@ pub fn string_byte_at_checked <(str,StringByteIndex)->i32> (s, idx):
     let raw_idx <i32> string_byte_index_value idx
     load_u8 <i32> add string_byte_access_addr s <i32> add 4 raw_idx
 
-//: string_byte_at_checked_or_unreachable: 範囲外なら raw read の前に停止する byte reader
+//: checked_string_byte_at: 範囲確認済み byte を `Option` で読む
 //:
 //: [目的/もくてき]:
-//: - 既に loop invariant で範囲内であることが分かっている既存 hot path を、public unchecked raw reader なしで移行します。
-//: - 実装上も必ず `checked_string_byte_index` の witness を経由するため、範囲外 index で raw read へ進みません。
+//: - 任意の `i32` index から byte を読む caller に、範囲証明の成功/失敗を `Option` として扱わせます。
+//: - raw layout read は `StringByteIndex` witness を得られた場合だけ行います。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_byte_at_checked_or_unreachable <(str,i32)->i32> (s, idx):
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/byte_index" as *
+//:| #import "core/option" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     match checked_string_byte_at "AZ" 1:
+//:         Option::Some b:
+//:             if eq b 'Z' 0 1
+//:         Option::None:
+//:             1
+//: ```
+pub fn checked_string_byte_at <(str,i32)->Option<i32>> (s, idx):
     match checked_string_byte_index s idx:
         Option::Some proof:
-            string_byte_at_checked s proof
+            some<i32> string_byte_at_checked s proof
         Option::None:
-            #intrinsic "unreachable" <> ()
+            none<i32>
+
+//: string_byte_eq: byte index の値が期待 byte と一致するかを checked に判定する
+//:
+//: [目的/もくてき]:
+//: - scanner / parser が `idx` の byte と ASCII marker を比較するとき、範囲外を `false` として扱います。
+//: - caller が `StringByteIndex` を捨てて trap helper に戻らないよう、頻出の比較を汎用 checked helper に集約します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/byte_index" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if and string_byte_eq "AZ" 0 'A' not string_byte_eq "AZ" 2 'Z' 0 1
+//: ```
+pub fn string_byte_eq <(str,i32,i32)->bool> (s, idx, expected):
+    match checked_string_byte_at s idx:
+        Option::Some actual:
+            eq actual expected
+        Option::None:
+            false
+
+//: string_bytes_eq: 2 つの文字列 byte が同じかを checked に判定する
+//:
+//: [目的/もくてき]:
+//: - byte 列比較 loop で両側の範囲証明を個別に扱い、どちらかが範囲外なら一致しないものとして返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/byte_index" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if and string_bytes_eq "AZ" 0 "A" 0 not string_bytes_eq "AZ" 1 "A" 0 0 1
+//: ```
+pub fn string_bytes_eq <(str,i32,str,i32)->bool> (a, a_idx, b, b_idx):
+    match checked_string_byte_at a a_idx:
+        Option::Some ba:
+            match checked_string_byte_at b b_idx:
+                Option::Some bb:
+                    eq ba bb
+                Option::None:
+                    false
+        Option::None:
+            false
+
+//: string_bytes_cmp: 2 つの文字列 byte を checked に比較する
+//:
+//: [目的/もくてき]:
+//: - sort や辞書順比較で、両側の byte が存在することを確認した場合だけ `-1` / `0` / `1` を返します。
+//: - どちらかが範囲外なら `Option::None` を返し、caller に不変条件違反の処理を明示させます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/byte_index" as *
+//:| #import "core/option" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     match string_bytes_cmp "A" 0 "Z" 0:
+//:         Option::Some ord:
+//:             if lt ord 0 0 1
+//:         Option::None:
+//:             1
+//: ```
+pub fn string_bytes_cmp <(str,i32,str,i32)->Option<i32>> (a, a_idx, b, b_idx):
+    match checked_string_byte_at a a_idx:
+        Option::Some ba:
+            match checked_string_byte_at b b_idx:
+                Option::Some bb:
+                    if:
+                        lt ba bb
+                        then:
+                            some<i32> -1
+                        else:
+                            if:
+                                gt ba bb
+                                then:
+                                    some<i32> 1
+                                else:
+                                    some<i32> 0
+                Option::None:
+                    none<i32>
+        Option::None:
+            none<i32>

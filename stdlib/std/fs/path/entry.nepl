@@ -42,20 +42,22 @@ pub fn fs_str_lt <(str,str)->bool> (a, b):
     let mut answer <bool> false
     while and not done lt i n:
         do:
-            let ba <i32> string_byte_at_checked_or_unreachable a i
-            let bb <i32> string_byte_at_checked_or_unreachable b i
-            if:
-                lt ba bb
-                then:
-                    set answer true
-                    set done true
-                else:
+            match string_bytes_cmp a i b i:
+                Option::Some ordering:
                     if:
-                        gt ba bb
+                        lt ordering 0
                         then:
+                            set answer true
                             set done true
                         else:
-                            set i add i 1
+                            if:
+                                gt ordering 0
+                                then:
+                                    set done true
+                                else:
+                                    set i add i 1
+                Option::None:
+                    set done true
     if:
         done
         then answer

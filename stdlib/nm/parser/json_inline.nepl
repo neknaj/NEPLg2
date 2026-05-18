@@ -21,6 +21,7 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser/json_inline" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let j <str> nm_inline_to_json "a [b/r] $x$"
 //:     if and str_starts_with j "[{\"t\":\"text\"" gt len j 0 0 1
@@ -32,8 +33,16 @@
 #import "alloc/string/byte_index" as *
 #import "alloc/string/scanner" as scanner
 #import "core/math" as *
+#import "core/option" as *
 #import "../json_escape" as json
 #import "./scanner" as scan
+
+fn nm_json_inline_byte_or_end <(str,i32)->i32> (s, idx):
+    match checked_string_byte_at s idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
 
 //: nm_inline_to_json_into: inline markup を JSON array として builder へ追加する
 //:
@@ -55,12 +64,12 @@ pub fn nm_inline_to_json_into <(StringBuilder,str)->StringBuilder> (out, s):
     let mut has <bool> false;
     while lt i n:
         do:
-            let ch <i32> string_byte_at_checked_or_unreachable s i;
+            let ch <i32> nm_json_inline_byte_or_end s i;
             match ch:
                 '$':
                     let mut delim <i32> 1;
                     if:
-                        and lt add i 1 n eq string_byte_at_checked_or_unreachable s add i 1 '$'
+                        and lt add i 1 n string_byte_eq s add i 1 '$'
                         then set delim 2
                         else ()
                     let math_end <i32> scan::nm_find_math_end s add i delim delim;
@@ -98,7 +107,7 @@ pub fn nm_inline_to_json_into <(StringBuilder,str)->StringBuilder> (out, s):
                     let mut next_is_paren <bool> false;
                     if:
                         and ge close 0 lt add close 1 n
-                        then set next_is_paren eq string_byte_at_checked_or_unreachable s add close 1 '('
+                        then set next_is_paren string_byte_eq s add close 1 '('
                         else ()
                     if:
                         and ge close 0 and ge slash 0 not next_is_paren

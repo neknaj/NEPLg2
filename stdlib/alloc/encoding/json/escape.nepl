@@ -16,6 +16,7 @@
 #import "alloc/string/slice" as slice
 #import "./types" as *
 #import "core/math" as *
+#import "core/option" as *
 
 //: json_escape_kind: 1 byte を JSON escape 分類へ変換する
 //:
@@ -68,25 +69,28 @@ pub fn json_escape <(str)->str> (s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable s i;
-            match json_escape_kind ch:
-                JsonEscapeKind::Backslash:
-                    set out sb::sb_append out "\\\\";
-                JsonEscapeKind::Quote:
-                    set out sb::sb_append out "\\\"";
-                JsonEscapeKind::Newline:
-                    set out sb::sb_append out "\\n";
-                JsonEscapeKind::CarriageReturn:
-                    set out sb::sb_append out "\\r";
-                JsonEscapeKind::Tab:
-                    set out sb::sb_append out "\\t";
-                JsonEscapeKind::Backspace:
-                    set out sb::sb_append out "\\b";
-                JsonEscapeKind::FormFeed:
-                    set out sb::sb_append out "\\f";
-                JsonEscapeKind::Plain:
-                    set out sb::sb_append out slice::str_slice s i add i 1;
-            set i add i 1;
+            match string_byte_index::checked_string_byte_at s i:
+                Option::Some ch:
+                    match json_escape_kind ch:
+                        JsonEscapeKind::Backslash:
+                            set out sb::sb_append out "\\\\";
+                        JsonEscapeKind::Quote:
+                            set out sb::sb_append out "\\\"";
+                        JsonEscapeKind::Newline:
+                            set out sb::sb_append out "\\n";
+                        JsonEscapeKind::CarriageReturn:
+                            set out sb::sb_append out "\\r";
+                        JsonEscapeKind::Tab:
+                            set out sb::sb_append out "\\t";
+                        JsonEscapeKind::Backspace:
+                            set out sb::sb_append out "\\b";
+                        JsonEscapeKind::FormFeed:
+                            set out sb::sb_append out "\\f";
+                        JsonEscapeKind::Plain:
+                            set out sb::sb_append out slice::str_slice s i add i 1;
+                    set i add i 1;
+                Option::None:
+                    set i n;
     sb::sb_build out
 
 //: json_quote_string: JSON string literal を作る

@@ -36,6 +36,13 @@
 #import "neplg2/core/syntax/token" as *
 #import "core/field" as *
 
+fn lex_byte_or_end <(str,i32)->i32> (source, idx):
+    match string_byte_index::checked_string_byte_at source idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
+
 //: LexDiagnostic: lexer error を[構造化/こうぞうか]して[返/かえ]す値
 pub struct LexDiagnostic:
     code <SelfhostLexerDiagnosticCode>
@@ -126,7 +133,7 @@ pub fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 '\n':
                     idx
@@ -140,9 +147,9 @@ pub fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
         then:
             false
         else:
-            let c0 <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
-            let c1 <i32> string_byte_index::string_byte_at_checked_or_unreachable source add idx 1
-            let c2 <i32> string_byte_index::string_byte_at_checked_or_unreachable source add idx 2
+            let c0 <i32> lex_byte_or_end source idx
+            let c1 <i32> lex_byte_or_end source add idx 1
+            let c2 <i32> lex_byte_or_end source add idx 2
             if:
                 and eq c0 '/' and eq c1 '/' eq c2 ':'
                 then:
@@ -154,7 +161,7 @@ pub fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
                             if:
                                 lt add idx 3 n
                                 then:
-                                    not eq string_byte_index::string_byte_at_checked_or_unreachable source add idx 3 '/'
+                                    not eq lex_byte_or_end source add idx 3 '/'
                                 else:
                                     true
                         else:
@@ -171,7 +178,7 @@ pub fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 '\t':
                     lex_skip_trivia source n add idx 1
@@ -183,7 +190,7 @@ pub fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
                     if:
                         lt add idx 1 n
                         then:
-                            let next <i32> string_byte_index::string_byte_at_checked_or_unreachable source add idx 1
+                            let next <i32> lex_byte_or_end source add idx 1
                             if:
                                 eq next '/'
                                 then:
@@ -207,7 +214,7 @@ pub fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             if:
                 lex_is_ident_continue ch
                 then:
@@ -229,7 +236,7 @@ pub fn lex_hex_int_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             if:
                 lex_is_hex_digit ch
                 then:
@@ -244,7 +251,7 @@ pub fn lex_number_end_loop <(str,i32,i32,bool)->i32> (source, n, idx, seen_dot):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             if:
                 lex_is_digit ch
                 then:
@@ -268,7 +275,7 @@ pub fn lex_range_has_dot <(str,i32,i32)->bool> (source, idx, end):
         then:
             false
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             if:
                 eq ch '.'
                 then:
@@ -287,7 +294,7 @@ pub fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             -1
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 '"':
                     idx
@@ -313,7 +320,7 @@ pub fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             -1
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 '\'':
                     idx
@@ -344,7 +351,7 @@ pub fn lex_line_indent_width <(str,i32,i32,i32,i32)->i32> (source, n, idx, inden
         then:
             width
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 ' ':
                     lex_line_indent_width source n add idx 1 indent_unit add width 1
@@ -362,7 +369,7 @@ pub fn lex_line_content_start <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 ' ':
                     lex_line_content_start source n add idx 1
@@ -380,7 +387,7 @@ pub fn lex_line_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 '\n':
                     idx
@@ -394,7 +401,7 @@ pub fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_st
         then:
             true
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source content_start
+            let ch <i32> lex_byte_or_end source content_start
             match ch:
                 '\n':
                     true
@@ -402,7 +409,7 @@ pub fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_st
                     if:
                         lt add content_start 1 n
                         then:
-                            eq string_byte_index::string_byte_at_checked_or_unreachable source add content_start 1 '/'
+                            eq lex_byte_or_end source add content_start 1 '/'
                         else:
                             false
                 _:
@@ -415,7 +422,7 @@ pub fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
         then:
             true
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 ' ':
                     true
@@ -443,7 +450,7 @@ pub fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 ' ':
                     lex_skip_horizontal source n add idx 1
@@ -461,7 +468,7 @@ pub fn lex_parse_indent_digits <(str,i32,i32,i32,bool)->i32> (source, n, idx, ac
         then:
             if seen acc -1
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             if:
                 lex_is_digit ch
                 then:
@@ -529,7 +536,7 @@ pub fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> lex_byte_or_end source idx
             match ch:
                 ']':
                     add idx 1
@@ -543,8 +550,8 @@ pub fn lex_directive_match_key_at <(str,i32,i32)->i32> (source, n, start):
     if:
         lt add start 2 n
         then:
-            let first <i32> string_byte_index::string_byte_at_checked_or_unreachable source add start 1
-            let second <i32> string_byte_index::string_byte_at_checked_or_unreachable source add start 2
+            let first <i32> lex_byte_or_end source add start 1
+            let second <i32> lex_byte_or_end source add start 2
             add mul first 256 second
         else:
             0
@@ -666,8 +673,8 @@ pub fn lex_doc_comment_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file
 //: - 先に byte length bucket で 2 byte 以上の候補に絞ってから呼びます。
 //: - key 値は lexer の内部実装です。同じ prefix の非 keyword は equality check で `None` に戻します。
 pub fn lex_keyword_match_key <(str)->i32> (lexeme):
-    let first <i32> string_byte_index::string_byte_at_checked_or_unreachable lexeme 0
-    let second <i32> string_byte_index::string_byte_at_checked_or_unreachable lexeme 1
+    let first <i32> lex_byte_or_end lexeme 0
+    let second <i32> lex_byte_or_end lexeme 1
     add mul first 256 second
 
 //: lex_keyword_kind_if_eq: key arm の keyword 候補を実文字列で検証する
@@ -845,7 +852,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
         then:
             selfhost_token_new TokenKind::Eof source_span_empty file_id start
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source start
+            let ch <i32> lex_byte_or_end source start
             match ch:
                 '\n':
                     lex_structural_token TokenKind::Newline file_id start
@@ -853,9 +860,9 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 2 n
                         then:
-                            let next <i32> string_byte_index::string_byte_at_checked_or_unreachable source add start 1
+                            let next <i32> lex_byte_or_end source add start 1
                             if:
-                                and eq next '#' eq string_byte_index::string_byte_at_checked_or_unreachable source add start 2 ':'
+                                and eq next '#' eq lex_byte_or_end source add start 2 ':'
                                 then:
                                     lex_mlstr_token source n file_id start
                                 else:
@@ -874,7 +881,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 1 n
                         then:
-                            let next <i32> string_byte_index::string_byte_at_checked_or_unreachable source add start 1
+                            let next <i32> lex_byte_or_end source add start 1
                             if:
                                 eq next ':'
                                 then:
@@ -889,7 +896,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 1 n
                         then:
-                            let next <i32> string_byte_index::string_byte_at_checked_or_unreachable source add start 1
+                            let next <i32> lex_byte_or_end source add start 1
                             if:
                                 eq next '>'
                                 then:
@@ -914,7 +921,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         lt arrow_end n
                         then:
                             if:
-                                eq string_byte_index::string_byte_at_checked_or_unreachable source arrow_end '>'
+                                eq lex_byte_or_end source arrow_end '>'
                                 then:
                                     lex_token_slice TokenKind::Arrow source file_id start add arrow_end 1
                                 else:
@@ -927,7 +934,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         lt arrow_end n
                         then:
                             if:
-                                eq string_byte_index::string_byte_at_checked_or_unreachable source arrow_end '>'
+                                eq lex_byte_or_end source arrow_end '>'
                                 then:
                                     lex_token_slice TokenKind::Arrow source file_id start add arrow_end 1
                                 else:
@@ -970,7 +977,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                                     if:
                                         and eq ch '0' lt add start 1 n
                                         then:
-                                            let next <i32> string_byte_index::string_byte_at_checked_or_unreachable source add start 1
+                                            let next <i32> lex_byte_or_end source add start 1
                                             if:
                                                 or eq next 'x' eq next 'X'
                                                 then:

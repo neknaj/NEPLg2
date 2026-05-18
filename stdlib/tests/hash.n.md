@@ -28,15 +28,18 @@ fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (
     let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
     while and lt cursor n not failed:
         do:
-            let b <i32> string_byte_index::string_byte_at_checked_or_unreachable text cursor
-            match sha256_update current b:
-                Result::Err e:
-                    set failure sha256_update_error_kind &e
-                    set current sha256_update_error_ctx e
-                    set failed true
-                Result::Ok next_ctx:
-                    set current next_ctx
-                    set cursor add cursor 1
+            match string_byte_index::checked_string_byte_at text cursor:
+                Option::Some b:
+                    match sha256_update current b:
+                        Result::Err e:
+                            set failure sha256_update_error_kind &e
+                            set current sha256_update_error_ctx e
+                            set failed true
+                        Result::Ok next_ctx:
+                            set current next_ctx
+                            set cursor add cursor 1
+                Option::None:
+                    set cursor n
     if:
         failed
         then:

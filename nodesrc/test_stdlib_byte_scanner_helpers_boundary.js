@@ -58,8 +58,9 @@ for (const fnName of [
 
 assert.match(scannerSrc, /\bfn\s+scanner_string_addr\b/, 'alloc/string/scanner.nepl must own its private str raw-address helper');
 assert.doesNotMatch(scannerSrc, /\bpub\s+fn\s+scanner_string_addr\b/, 'scanner_string_addr must not be public');
-assert.match(scannerSrc, /\bfn\s+scanner_string_byte_at_checked_or_unreachable\b/, 'alloc/string/scanner.nepl must own its private checked byte reader');
-assert.doesNotMatch(scannerSrc, /\bpub\s+fn\s+scanner_string_byte_at_checked_or_unreachable\b/, 'scanner_string_byte_at_checked_or_unreachable must not be public');
+assert.match(scannerSrc, /\bfn\s+scanner_string_byte_at_checked_raw\b/, 'alloc/string/scanner.nepl must own its private checked byte reader');
+assert.doesNotMatch(scannerSrc, /\bpub\s+fn\s+scanner_string_byte_at_checked_raw\b/, 'scanner_string_byte_at_checked_raw must not be public');
+assert.doesNotMatch(scannerSrc, /\bscanner_string_byte_at_checked_or_unreachable\b/, 'scanner byte reader must not use the transitional trap-helper name');
 
 assert.match(
     stringSrc,

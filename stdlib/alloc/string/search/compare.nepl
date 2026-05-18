@@ -54,10 +54,8 @@ pub fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
         then:
             true
         else:
-            let ba <i32> string_byte_at_checked_or_unreachable a i;
-            let bb <i32> string_byte_at_checked_or_unreachable b i;
             if:
-                eq ba bb
+                string_bytes_eq a i b i
                 then str_eq_loop a b n <i32> add i 1
                 else false
 
@@ -127,10 +125,8 @@ pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
         then true
         else:
             let s_off <i32> add start i;
-            let bs <i32> string_byte_at_checked_or_unreachable s s_off;
-            let bp <i32> string_byte_at_checked_or_unreachable pat i;
             if:
-                eq bs bp
+                string_bytes_eq s s_off pat i
                 then str_eq_at s pat start n <i32> add i 1
                 else false
 

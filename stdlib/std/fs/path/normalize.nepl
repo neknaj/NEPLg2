@@ -46,7 +46,7 @@ pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
             Result<StringBuilder,i32>::Err fs_errno_notcapable
         else:
             if:
-                and gt path_len 0 eq string_byte_at_checked_or_unreachable path 0 47
+                and gt path_len 0 string_byte_eq path 0 47
                 then:
                     Result<StringBuilder,i32>::Err fs_errno_notcapable
                 else:

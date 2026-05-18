@@ -50,16 +50,20 @@
 #import "alloc/string/access" as string
 #import "alloc/string/byte_index" as string_byte_index
 #import "core/math" as *
+#import "core/option" as *
 
 pub fn trait_hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
     if:
         ge idx n
         then h
         else:
-            let b <i32> string_byte_index::string_byte_at_checked_or_unreachable s idx
-            let next_idx <i32> add idx 1
-            let next_h <Fnv1a32> fnv1a32_update h b
-            trait_hash_bytes_loop s n next_idx next_h
+            match string_byte_index::checked_string_byte_at s idx:
+                Option::Some b:
+                    let next_idx <i32> add idx 1
+                    let next_h <Fnv1a32> fnv1a32_update h b
+                    trait_hash_bytes_loop s n next_idx next_h
+                Option::None:
+                    h
 
 //: Hash: map / set [向/む]け 32-bit ハッシュ[能力/のうりょく]
 //:

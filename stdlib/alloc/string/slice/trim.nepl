@@ -11,6 +11,7 @@
 #indent 4
 
 #import "core/math" as *
+#import "core/option" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
 #import "alloc/string/search" as *
@@ -47,7 +48,7 @@
 pub fn str_trim_suffix_cr <(str)->str> (s):
     let n <i32> len s
     if:
-        and gt n 0 eq string_byte_at_checked_or_unreachable s sub n 1 '\r'
+        and gt n 0 string_byte_eq s sub n 1 '\r'
         then str_slice s 0 sub n 1
         else s
 
@@ -81,7 +82,7 @@ pub fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
         then set e0 n
         else ()
     if:
-        and gt e0 s0 eq string_byte_at_checked_or_unreachable s sub e0 1 '\r'
+        and gt e0 s0 string_byte_eq s sub e0 1 '\r'
         then str_slice s s0 sub e0 1
         else str_slice s s0 e0
 
@@ -110,11 +111,14 @@ pub fn str_trim <(str)->str> (s):
             if:
                 lt start end
                 then:
-                    let b <i32> string_byte_at_checked_or_unreachable s start;
-                    if:
-                        str_is_space b
-                        then set start <i32> add start 1
-                        else set done 1
+                    match checked_string_byte_at s start:
+                        Option::Some b:
+                            if:
+                                str_is_space b
+                                then set start <i32> add start 1
+                                else set done 1
+                        Option::None:
+                            set done 1
                 else:
                     set done 1
     let mut done2 <i32> 0;
@@ -124,11 +128,14 @@ pub fn str_trim <(str)->str> (s):
                 lt start end
                 then:
                     let idx <i32> sub end 1;
-                    let b <i32> string_byte_at_checked_or_unreachable s idx;
-                    if:
-                        str_is_space b
-                        then set end <i32> sub end 1
-                        else set done2 1
+                    match checked_string_byte_at s idx:
+                        Option::Some b:
+                            if:
+                                str_is_space b
+                                then set end <i32> sub end 1
+                                else set done2 1
+                        Option::None:
+                            set done2 1
                 else:
                     set done2 1
     str_slice s start end

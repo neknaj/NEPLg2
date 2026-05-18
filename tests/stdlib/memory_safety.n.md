@@ -1244,7 +1244,7 @@ fn main <()*>i32> ():
     scanner_string_byte_at_unchecked "abc" 99
 ```
 
-## string scanner の checked-or-unreachable byte reader も公開しない
+## string scanner の checked raw byte reader も公開しない
 
 neplg2:test[compile_fail]
 diag_code: resolve.identifier.undefined
@@ -1256,7 +1256,7 @@ diag_code: resolve.identifier.undefined
 #import "alloc/string/scanner" as *
 
 fn main <()*>i32> ():
-    scanner_string_byte_at_checked_or_unreachable "abc" 99
+    scanner_string_byte_at_checked_raw "abc" 99
 ```
 
 ## alloc/string facade は unchecked byte reader を公開しない

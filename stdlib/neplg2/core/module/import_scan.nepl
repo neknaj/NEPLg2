@@ -65,6 +65,13 @@
 #import "core/field" as *
 #import "core/math" as *
 
+fn selfhost_import_scan_byte_or_end <(str,i32)->i32> (source, idx):
+    match string_byte_index::checked_string_byte_at source idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
+
 //: SelfhostImportRecord: graph 構築に必要な import directive 情報
 //:
 //: [目的/もくてき]:
@@ -99,7 +106,7 @@ pub fn selfhost_import_scan_line_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> selfhost_import_scan_byte_or_end source idx
             if:
                 or eq ch '\n' eq ch '\r'
                 then:
@@ -114,13 +121,13 @@ pub fn selfhost_import_scan_next_line <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source idx
+            let ch <i32> selfhost_import_scan_byte_or_end source idx
             if:
                 eq ch '\r'
                 then:
                     let next <i32> add idx 1
                     if:
-                        and lt next n eq string_byte_index::string_byte_at_checked_or_unreachable source next '\n'
+                        and lt next n eq selfhost_import_scan_byte_or_end source next '\n'
                         then:
                             add next 1
                         else:
@@ -146,7 +153,7 @@ pub fn selfhost_import_scan_is_import_line <(str,i32,i32)->bool> (source, line_s
                 then:
                     false
                 else:
-                    let ch <i32> string_byte_index::string_byte_at_checked_or_unreachable source after
+                    let ch <i32> selfhost_import_scan_byte_or_end source after
                     or eq ch ' ' eq ch '\t'
 
 //: selfhost_import_record_from_line: top-level import directive 行から record を[作/つく]る
