@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T22:17:18.252Z",
+  "generated_at": "2026-05-18T22:27:38.055Z",
   "counts": {
-    "total": 1020,
+    "total": 1021,
     "open": 5,
-    "resolved": 1015,
+    "resolved": 1016,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -82,9 +82,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 13,
+        "total": 14,
         "open": 0,
-        "resolved": 13
+        "resolved": 14
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -8228,6 +8228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T121306047Z-STAGE-6-SOURCE-POLICY-REGRESSIONS-DR-966050CB.md"
+    },
+    {
+      "id": "ISS-20260518T222113382Z-COLLECTION-OWNER-RETURNING-ERROR-ACC-F869A5C5",
+      "title": "collection owner-returning error accessor policy is Vec-specific",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nodesrc/test_stdlib_collection_cleanup_contract.js, nodesrc/run_source_policy_regressions.js, issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T222113382Z-COLLECTION-OWNER-RETURNING-ERROR-ACC-F869A5C5.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",

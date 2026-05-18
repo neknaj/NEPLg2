@@ -42050,3 +42050,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl --no-tree -o tmp/agent1-stdio-read-buffer-doc.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
   - `node nodesrc/tests.js -i tests/stdlib/stdio_read_raw_boundary.n.md --no-tree -o tmp/agent1-stdio-read-raw-boundary.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
   - `node nodesrc/tests.js -i stdlib/std/stdio/read.nepl -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/agent1-stdio-read-typed-boundary.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+
+## 2026-05-18 Agent 1 collection owner recovery policy 汎用化
+
+- `ISS-20260518T222113382Z-COLLECTION-OWNER-RETURNING-ERROR-ACC-F869A5C5` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Copy-only 期間の owner-returning error accessor 監視が Vec 専用 policy と個別 doctest に偏っており、新しい collection family が同種の `Error<T> -> Collection<T>` recovery surface を unconstrained で追加しても横断的に検出できないことだった。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` は、関数名の個別 family list ではなく、関数型シグネチャから `Error<...>` 値を消費して generic owner を返す accessor を検出する。`Vec` / `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` / `List` / `BTreeMap` / `BTreeSet` / `HashMap` / `HashSet` と internal grow region recovery がすべて `Copy` bound を維持していることを監視する。
+- focused verification:
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed

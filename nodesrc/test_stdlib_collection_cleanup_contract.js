@@ -8,6 +8,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const collectionsRoot = path.join(repoRoot, 'stdlib/alloc/collections');
 
 const inspected = [];
+const ownerAccessorInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -16,6 +17,16 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
     for (let index = 0; index < lines.length; index += 1) {
         const signature = parseFunctionSignature(lines[index]);
         if (!signature || !isCleanupFunction(signature.name)) {
+            const generics = parseGenericParameters(signature?.afterName ?? '');
+            const typeSignature = parseTypeSignature(signature?.afterName ?? '');
+            if (signature && generics.length > 0 && isOwnerReturningErrorAccessor(signature.name, typeSignature)) {
+                ownerAccessorInspected.push(`${relPath}:${signature.name}`);
+                const missingCopy = generics.filter((generic) => !/\bCopy\b/.test(generic.bound ?? ''));
+                if (missingCopy.length > 0) {
+                    const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} owner-returning error accessor generic(s) ${names} must carry Copy until collection drop traversal exists`);
+                }
+            }
             continue;
         }
 
@@ -23,7 +34,6 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
         if (generics.length === 0) {
             continue;
         }
-
         inspected.push(`${relPath}:${signature.name}`);
         const missingCopy = generics.filter((generic) => !/\bCopy\b/.test(generic.bound ?? ''));
         if (missingCopy.length > 0) {
@@ -55,7 +65,34 @@ for (const expected of [
     );
 }
 
-assert.deepEqual(violations, [], `generic collection cleanup APIs must remain Copy-only:\n${violations.join('\n')}`);
+assert.ok(
+    ownerAccessorInspected.length >= 14,
+    `collection owner accessor policy must inspect the current generic error owner surface, inspected only ${ownerAccessorInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_error_vec',
+    'stdlib/alloc/collections/vec/mutation/push.nepl:vec_realloc_region_error_region',
+    'stdlib/alloc/collections/vec/types.nepl:vec_transform_error_vec',
+    'stdlib/alloc/collections/vec/sort/merge/api.nepl:vec_sort_merge_error_vec',
+    'stdlib/alloc/collections/stack/types.nepl:stack_push_error_stack',
+    'stdlib/alloc/collections/queue/types.nepl:queue_push_error_queue',
+    'stdlib/alloc/collections/deque/types.nepl:deque_push_error_deque',
+    'stdlib/alloc/collections/ringbuffer/types.nepl:ringbuffer_push_error_buffer',
+    'stdlib/alloc/collections/binary_heap/types.nepl:binary_heap_push_error_heap',
+    'stdlib/alloc/collections/list/types.nepl:list_push_error_list',
+    'stdlib/alloc/collections/btreemap/types.nepl:btreemap_insert_error_owner',
+    'stdlib/alloc/collections/btreeset/types.nepl:btreeset_insert_error_owner',
+    'stdlib/alloc/collections/hashmap/types.nepl:hashmap_update_error_owner',
+    'stdlib/alloc/collections/hashset/types.nepl:hashset_update_error_owner',
+]) {
+    assert.ok(
+        ownerAccessorInspected.some((entry) => entry.includes(expected)),
+        `collection owner accessor policy did not inspect expected error owner accessor: ${expected}`,
+    );
+}
+
+assert.deepEqual(violations, [], `generic collection cleanup and owner recovery APIs must remain Copy-only:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
 
@@ -91,26 +128,27 @@ function isCleanupFunction(name) {
     return /(?:^|_)(?:clear|free)(?:_|$)/.test(name) || /\bcleanup\b/.test(name);
 }
 
+function isOwnerReturningErrorAccessor(name, typeSignature) {
+    if (!typeSignature || !/(?:^|_)error_/.test(name)) {
+        return false;
+    }
+
+    const functionType = parseUnaryFunctionType(typeSignature);
+    if (!functionType) {
+        return false;
+    }
+
+    return !functionType.parameter.trimStart().startsWith('&')
+        && /\b[A-Za-z_][A-Za-z0-9_]*Error</.test(functionType.parameter)
+        && /<\./.test(functionType.returnType);
+}
+
 function parseGenericParameters(afterName) {
     if (!afterName.startsWith('<') || afterName.startsWith('<(')) {
         return [];
     }
 
-    let depth = 0;
-    let end = -1;
-    for (let i = 0; i < afterName.length; i += 1) {
-        const ch = afterName[i];
-        if (ch === '<') {
-            depth += 1;
-        } else if (ch === '>') {
-            depth -= 1;
-            if (depth === 0) {
-                end = i;
-                break;
-            }
-        }
-    }
-
+    const end = topLevelAngleEnd(afterName);
     if (end === -1) {
         return [];
     }
@@ -130,6 +168,72 @@ function parseGenericParameters(afterName) {
             return { name: match[1], bound: match[2]?.trim() };
         })
         .filter((entry) => entry !== null);
+}
+
+function parseTypeSignature(afterName) {
+    let rest = afterName.trimStart();
+    if (!rest.startsWith('<')) {
+        return null;
+    }
+    if (!rest.startsWith('<(')) {
+        const genericEnd = topLevelAngleEnd(rest);
+        if (genericEnd === -1) {
+            return null;
+        }
+        rest = rest.slice(genericEnd + 1).trimStart();
+    }
+    if (!rest.startsWith('<')) {
+        return null;
+    }
+    const typeEnd = topLevelAngleEnd(rest);
+    if (typeEnd === -1) {
+        return null;
+    }
+    return rest.slice(0, typeEnd + 1);
+}
+
+function parseUnaryFunctionType(typeSignature) {
+    if (!typeSignature.startsWith('<(') || !typeSignature.endsWith('>')) {
+        return null;
+    }
+
+    const body = typeSignature.slice(1, -1);
+    let angleDepth = 0;
+    let parenDepth = 0;
+    for (let i = 0; i < body.length; i += 1) {
+        const ch = body[i];
+        if (ch === '<') {
+            angleDepth += 1;
+        } else if (ch === '>') {
+            angleDepth -= 1;
+        } else if (ch === '(' && angleDepth === 0) {
+            parenDepth += 1;
+        } else if (ch === ')' && angleDepth === 0) {
+            parenDepth -= 1;
+            if (parenDepth === 0 && body.slice(i + 1, i + 3) === '->') {
+                const parameter = body.slice(1, i).trim();
+                const returnType = body.slice(i + 3).trim();
+                return { parameter, returnType };
+            }
+        }
+    }
+    return null;
+}
+
+function topLevelAngleEnd(text) {
+    let depth = 0;
+    for (let i = 0; i < text.length; i += 1) {
+        const ch = text[i];
+        if (ch === '<') {
+            depth += 1;
+        } else if (ch === '>' && text[i - 1] !== '-') {
+            depth -= 1;
+            if (depth === 0) {
+                return i;
+            }
+        }
+    }
+    return -1;
 }
 
 function splitTopLevel(text, delimiter) {
