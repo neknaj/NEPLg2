@@ -42101,3 +42101,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_string_nmd_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/agent1-string-nmd-report.json -j 1 --dist web/dist --assert-io`: total=17, passed=17
+
+## 2026-05-18 Agent 1 traits_order stdout report metadata 移行
+
+- `ISS-20260518T230457387Z-TRAITS-ORDER-VEC-SORT-DOCTEST-HIDES--411C5DF7` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/traits_order.n.md` の vec sort doctest が 4 つの sorted-position check を単一 bool と `ret: 0` に潰し、どの位置が壊れたかを stdout fixture に残していなかったことだった。
+- vec sort doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行し、4 つの位置確認を `std/test::Checks` report に分解した。
+- `nodesrc/test_stdlib_traits_order_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_stdlib_traits_order_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/traits_order.n.md --no-tree -o tmp/agent1-traits-order-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3

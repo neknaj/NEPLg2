@@ -1529,3 +1529,21 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/agent1-string-nmd-report.json -j 1 --dist web/dist --assert-io`: total=17, passed=17
 
 この issue はまだ open のまま継続する。`tests/stdlib/string.n.md` の対象 subcase は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 traits_order vec sort stdout report metadata migration
+
+`ISS-20260518T230457387Z-TRAITS-ORDER-VEC-SORT-DOCTEST-HIDES--411C5DF7` として、`tests/stdlib/traits_order.n.md` の vec sort doctest を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `Vec<i32>` sort 結果の 4 位置確認を単一 bool から `std/test::Checks` の 4 assertion に分解した。
+- `checks_print_report` の結果を `checks_exit_code` へ渡し、どの位置が壊れたかを stdout fixture に固定した。
+- `nodesrc/test_stdlib_traits_order_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_stdlib_traits_order_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/traits_order.n.md --no-tree -o tmp/agent1-traits-order-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+
+この issue はまだ open のまま継続する。`traits_order` の target subcase は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。

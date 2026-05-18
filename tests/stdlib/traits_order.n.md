@@ -46,8 +46,14 @@ fn main <()->i32> ():
 
 ## vec sort は core/traits/ord を[使/つか]って[昇順/しょうじゅん]に[整列/せいれつ]する
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #target std
@@ -87,7 +93,13 @@ fn main <()*>i32> ():
             eq x 4
         Option::None:
             false
-    let ok <bool> and and b0 b1 and b2 b3;
+    let checks:
+        checks_new
+        |> checks_push assert b0
+        |> checks_push assert b1
+        |> checks_push assert b2
+        |> checks_push assert b3
     free<i32> s;
-    if ok 0 1
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```

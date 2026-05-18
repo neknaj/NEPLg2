@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T23:02:13.088Z",
+  "generated_at": "2026-05-18T23:06:58.798Z",
   "counts": {
-    "total": 1025,
+    "total": 1026,
     "open": 5,
-    "resolved": 1020,
+    "resolved": 1021,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 47,
+        "total": 48,
         "open": 1,
-        "resolved": 46
+        "resolved": 47
       },
       "selfhost": {
         "total": 72,
@@ -13013,6 +13013,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T225609837Z-STRING-BUILDER-LINEAR-BUILD-DOCTEST--3BC303FD.md"
+    },
+    {
+      "id": "ISS-20260518T230457387Z-TRAITS-ORDER-VEC-SORT-DOCTEST-HIDES--411C5DF7",
+      "title": "traits_order vec sort doctest hides assertion detail behind ret metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/traits_order.n.md, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T230457387Z-TRAITS-ORDER-VEC-SORT-DOCTEST-HIDES--411C5DF7.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
