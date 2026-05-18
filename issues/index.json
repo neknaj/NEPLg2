@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T06:13:22.425Z",
+  "generated_at": "2026-05-18T06:27:26.970Z",
   "counts": {
-    "total": 982,
+    "total": 983,
     "open": 5,
-    "resolved": 977,
+    "resolved": 978,
     "by_area": {
       "stdlib": {
-        "total": 264,
+        "total": 265,
         "open": 3,
-        "resolved": 261
+        "resolved": 262
       },
       "TEST": {
         "total": 41,
@@ -11693,6 +11693,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T022816487Z-BINARYHEAPPOP-EXPOSES-OWNER-FIELDS-W-9B47EE6B.md"
+    },
+    {
+      "id": "ISS-20260518T062457553Z-VEC-DATA-MEM-PTR-BOUNDARY-LACKS-DIRE-DF309C77",
+      "title": "Vec data_mem_ptr boundary lacks direct checked-store regression",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/memory_safety.n.md, issues/items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T062457553Z-VEC-DATA-MEM-PTR-BOUNDARY-LACKS-DIRE-DF309C77.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

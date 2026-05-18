@@ -992,6 +992,27 @@ fn main <()->i32> ():
     0
 ```
 
+## Vec の data_mem_ptr は通常 source の storage 書き込み証明にならない
+
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let v <Vec<i32>> unwrap_ok new<i32>
+    let p <MemPtr<i32>> data_mem_ptr<i32> &v
+    let _r <Result<(),str>> store_i32 p 99
+    free<i32> v
+    0
+```
+
 ## core/mem facade は raw allocator を公開しない
 
 neplg2:test[compile_fail]
