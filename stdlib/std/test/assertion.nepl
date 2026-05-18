@@ -3,6 +3,7 @@
 #import "core/math" as *
 #import "core/result" as *
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "std/test/types" as *
 
 //: # test/assertion

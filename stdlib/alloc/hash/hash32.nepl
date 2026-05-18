@@ -19,6 +19,7 @@
 #import "core/math" as *
 #import "core/cast" as *
 #import "alloc/string/access" as string
+#import "alloc/string/unchecked_access" as string_unchecked
 #import "alloc/hash/fnv1a32" as *
 
 //: ## mix
@@ -41,7 +42,7 @@ pub fn hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
         ge idx n
         then h
         else:
-            let b <i32> string::string_byte_at_unchecked s idx
+            let b <i32> string_unchecked::string_byte_at_unchecked s idx
             let next_idx <i32> add idx 1
             let next_h <Fnv1a32> fnv1a32_update h b
             hash_bytes_loop s n next_idx next_h

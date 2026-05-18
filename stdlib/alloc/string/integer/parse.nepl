@@ -17,6 +17,7 @@
 #import "core/char" as *
 #import "core/field" as *
 #import "alloc/string/access" as *
+#import "alloc/string/unchecked_access" as *
 #import "alloc/string/slice" as *
 #import "./common" as *
 

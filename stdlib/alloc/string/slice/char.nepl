@@ -15,6 +15,7 @@
 #import "core/char" as *
 #import "core/field" as *
 #import "alloc/string/access" as *
+#import "alloc/string/unchecked_access" as *
 #import "alloc/string/search" as *
 #import "alloc/string/utf8" as *
 #import "alloc/string/char_offsets" as *

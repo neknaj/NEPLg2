@@ -877,6 +877,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25` も同じ 2026-05-18 に修正した。`alloc/string/scanner` の public range helper は入力範囲を正規化してから internal byte reader を使う設計だが、`scanner_string_byte_at_unchecked` 自体も public だったため、direct import caller が範囲正規化を迂回できた。修正後は scanner 内部の unchecked byte reader を private にし、public surface は range helper と byte classification helper に限定した。これにより scanner module の raw string layout read は compiler-owned source 内部の proof boundary に戻り、source policy と memory safety doctest が public unchecked reader の再導入を拒否する。
 
+`ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1` は 2026-05-18 に一次修正した。`alloc/string/access` に public `string_byte_at_unchecked` が残っていると、root `alloc/string` facade 経由の通常 import から raw string layout reader に到達でき、`byte_at` の bounds proof を迂回できる。修正後は `access.nepl` を safe public API に寄せ、`byte_at` が `len` で範囲確認した後に private `string_byte_at_checked_raw` へ委譲する。既存 stdlib / selfhost の範囲証明済み hot path は明示的な `alloc/string/unchecked_access` import へ移し、root facade はこの module を再公開しない。これは accidental public exposure を閉じる Stage 6 の前進だが、`unchecked_access` 自体はまだ proof/witness を型に持たない過渡境界である。完了には bounded byte index、range scanner API、または compiler-owned private boundary への再設計が必要であり、同 issue は open のまま残す。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

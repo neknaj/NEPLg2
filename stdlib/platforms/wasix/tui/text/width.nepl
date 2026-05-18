@@ -14,6 +14,7 @@
 #import "core/math" as *
 #import "core/traits/copy" as *
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 
 //: TuiTextByteKind: TUI text scan が扱う UTF-8 先頭 byte の分類
 //:

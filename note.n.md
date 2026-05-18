@@ -41519,3 +41519,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/run_doctest.js -i tests\stdlib\memory_safety.n.md -n 37 --dist web\dist`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-18 Agent 1 alloc/string unchecked byte public facade 境界修正
+
+- `ISS-20260518T072713737Z-ALLOC-STRING-PUBLIC-UNCHECKED-BYTE-A-896205D1` を進めた。`plan.md` は変更していない。
+- 根本原因は、`alloc/string/access` の public `string_byte_at_unchecked` が root `alloc/string` facade からも見え、通常 caller が `byte_at` の bounds check を迂回して raw string layout reader を直接呼べることだった。
+- 修正後は `alloc/string/access` を safe public API に寄せ、`byte_at` が `len` で範囲確認した後に private `string_byte_at_checked_raw` を呼ぶ。root `alloc/string` は unchecked reader を再公開しない。
+- 既存 stdlib / selfhost の範囲証明済み hot path は、明示的な `alloc/string/unchecked_access` import へ移した。これは proof/witness 化までの過渡境界であり、issue は open のまま維持する。
+- source policy と memory safety doctest には、root `alloc/string` import と direct `alloc/string/access` import から unchecked reader を呼べない regression を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_string_access_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-string-unchecked-access-boundary-memory-safety.json -j 1 --dist web\dist --assert-io`: total=49, passed=49
+  - `node nodesrc/tests.js -i stdlib\alloc\string\access.nepl -i stdlib\alloc\string\unchecked_access.nepl --no-tree -o tmp\agent1-string-unchecked-access-boundary-docs.json -j 1 --dist web\dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib\tests\string.n.md --no-tree -o tmp\agent1-string-unchecked-access-boundary-string-tests.json -j 1 --dist web\dist --assert-io`: total=9, passed=9

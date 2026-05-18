@@ -30,6 +30,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "core/math" as *
 
 //: json_escape_byte_into: JSON 文字列用に 1 byte を builder へ追加する

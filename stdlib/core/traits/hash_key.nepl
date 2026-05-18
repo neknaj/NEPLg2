@@ -22,6 +22,7 @@
 #import "alloc/hash/hash32" as *
 #import "alloc/hash/fnv1a32" as *
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 
 pub fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
     if:

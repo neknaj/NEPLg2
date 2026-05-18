@@ -12,6 +12,7 @@
 
 #import "core/math" as *
 #import "alloc/string/access" as *
+#import "alloc/string/unchecked_access" as *
 #import "alloc/string/utf8" as *
 
 //: str_utf8_is_boundary: byte index が UTF-8 文字境界か判定する

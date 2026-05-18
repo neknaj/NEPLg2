@@ -7,7 +7,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - index は byte index です。Unicode scalar index ではありません。
-//: - `string_byte_at_unchecked` は呼び出し側が範囲確認済みであることを前提にします。
+//: - 公開 byte access は `byte_at` で範囲を確認し、範囲外は `Option::None` で返します。
 
 #indent 4
 
@@ -19,7 +19,7 @@
 //: string_access_addr: `str` の内部アドレスを access module 内部で取り出す
 //:
 //: [目的/もくてき]:
-//: - `len` と `string_byte_at_unchecked` の実装だけが、`str` の基底 raw address を使えるようにします。
+//: - `len` と `byte_at` の実装だけが、`str` の基底 raw address を使えるようにします。
 //:
 //: [注意/ちゅうい]:
 //: - この helper は公開しません。通常の利用者は `len` / `byte_at` / `str_byte_len` を使います。
@@ -104,20 +104,20 @@ pub fn byte_at <(str,i32)->Option<i32>> (s, idx):
                 then:
                     none<i32>
                 else:
-                    some<i32> string_byte_at_unchecked s idx
+                    some<i32> string_byte_at_checked_raw s idx
 
-//: string_byte_at_unchecked: 範囲確認なしで `str` の本文 1 バイトを読む
+//: string_byte_at_checked_raw: 範囲確認後に `str` の本文 1 バイトを読む内部 helper
 //:
 //: [目的/もくてき]:
-//: - ループ内部で範囲確認済みの byte index から高速に 1 バイトを読みます。
+//: - `byte_at` が範囲確認した byte index から 1 バイトを読みます。
 //:
 //: [実装/じっそう]:
 //: - `string_access_addr` で文字列ヘッダの生アドレスを内部的に取り出し、4 バイトの長さヘッダを飛ばして `load_u8` します。
 //:
 //: [注意/ちゅうい]:
-//: - idx が範囲外の場合は未定義動作です。公開 API では `byte_at` を使ってください。
+//: - この helper は公開しません。public caller は `byte_at` を使います。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_byte_at_unchecked <(str,i32)->i32> (s, idx):
+fn string_byte_at_checked_raw <(str,i32)->i32> (s, idx):
     load_u8 <i32> add string_access_addr s <i32> add 4 idx

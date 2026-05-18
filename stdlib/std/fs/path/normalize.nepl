@@ -12,6 +12,7 @@
 
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "std/fs/constants" as *

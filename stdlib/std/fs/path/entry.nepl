@@ -8,6 +8,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "alloc/string/storage" as *
 #import "alloc/string/utf8" as *
 #import "alloc/collections/vec" as v

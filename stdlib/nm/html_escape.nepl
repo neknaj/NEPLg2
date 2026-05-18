@@ -29,6 +29,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "core/math" as *
 
 //: HtmlEscapeKind: HTML text escape の分類

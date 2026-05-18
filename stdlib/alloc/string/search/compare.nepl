@@ -12,6 +12,7 @@
 
 #import "core/math" as *
 #import "alloc/string/access" as *
+#import "alloc/string/unchecked_access" as *
 
 //: str_eq: 2 つの文字列が byte 列として等しいか判定する
 //:

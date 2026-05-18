@@ -42,6 +42,7 @@
 //: ```
 
 #import "alloc/string/access" as string_access
+#import "alloc/string/unchecked_access" as string_unchecked_access
 #import "alloc/string/search" as string_search
 #import "alloc/string/slice" as string_slice
 #import "alloc/string/concat" as string_concat
@@ -204,7 +205,7 @@ pub fn selfhost_module_path_last_slash_loop <(str,i32,i32,i32)->i32> (path, n, i
     let mut found <i32> last
     while lt i n:
         do:
-            let ch <i32> string_access::string_byte_at_unchecked path i
+            let ch <i32> string_unchecked_access::string_byte_at_unchecked path i
             if:
                 eq ch '/'
                 then:

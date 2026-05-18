@@ -12,6 +12,7 @@
 
 #import "core/math" as *
 #import "alloc/string/access" as *
+#import "alloc/string/unchecked_access" as *
 
 //: str_match_at: split/search 用の位置一致判定
 //:

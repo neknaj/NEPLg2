@@ -10,6 +10,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "core/math" as *
 
 //: fs_path_has_forbidden_host_byte: WASI guest path と host path の混同を招く byte を検出する

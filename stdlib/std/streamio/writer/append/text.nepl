@@ -8,6 +8,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "std/streamio/writer/state" as *
 #import "core/math" as *
 

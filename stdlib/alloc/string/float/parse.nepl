@@ -16,6 +16,7 @@
 #import "core/cast" as *
 #import "core/char" as *
 #import "alloc/string/access" as *
+#import "alloc/string/unchecked_access" as *
 
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0

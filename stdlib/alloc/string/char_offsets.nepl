@@ -14,6 +14,7 @@
 #import "core/math" as *
 #import "core/field" as *
 #import "alloc/string/access" as *
+#import "alloc/string/unchecked_access" as *
 #import "alloc/string/utf8" as *
 
 //: str_utf8_step_width_at: byte offset にある UTF-8 scalar value の byte 幅を返す

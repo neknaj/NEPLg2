@@ -32,6 +32,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/unchecked_access" as *
 #import "alloc/string/scanner" as strscan
 #import "core/math" as *
 

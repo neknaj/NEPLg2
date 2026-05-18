@@ -11,6 +11,7 @@
 #indent 4
 
 #import "alloc/string/access" as string
+#import "alloc/string/unchecked_access" as string_unchecked
 #import "alloc/string/builder" as sb
 #import "alloc/string/slice" as slice
 #import "./types" as *
@@ -67,7 +68,7 @@ pub fn json_escape <(str)->str> (s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> string::string_byte_at_unchecked s i;
+            let ch <i32> string_unchecked::string_byte_at_unchecked s i;
             match json_escape_kind ch:
                 JsonEscapeKind::Backslash:
                     set out sb::sb_append out "\\\\";
