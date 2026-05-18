@@ -41641,3 +41641,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - owner checker は direct output span と iovec payload を同じ generic extent proof path で検査する。host-visible span については allocation extent と長さの完全一致ではなく、allocation extent が span を覆うことを証明する。
 - regression として fd_read iovec subspan 許可、random_get output owner extent mismatch 拒否、random_get bounded initialized range の境界外 read 拒否を追加した。
 - 監査中に、`args_get` / `environ_get` / `poll_oneoff` など dependent length が必要な ABI span はまだ contract 未収録であることを切り分け、`ISS-20260518T103254297Z-HOST-MEMORY-CONTRACT-STILL-NEEDS-FUL-BB27C558` を追加した。これは個別 module allowlist ではなく、`HostMemorySpan` と prior-call proof artifact で扱う。
+
+## 2026-05-18 Agent 1 same-call WASI host memory span coverage
+
+- `ISS-20260518T103254297Z-HOST-MEMORY-CONTRACT-STILL-NEEDS-FUL-BB27C558` を fixed にした。`plan.md` は変更していない。
+- `HostMemoryLength::ArgScaled` を追加し、`poll_oneoff` の table span や iovec descriptor の `count * size` を typed contract で表せるようにした。
+- path 系、`fd_seek` / `fd_tell`、`poll_oneoff`、`sock_accept` / `sock_recv` / `sock_send` の same-call pointer span を `HostMemorySpan` に追加した。
+- owner checker は iovec descriptor の owner extent も `iov_count * 8` として証明するようにした。
+- `owner_host_memory_span.rs` を追加し、span contract の owner 側 dispatch を `owner_external_io.rs` から分離した。
+- regression として全追加 span の contract-table 一致、fd_write iovec descriptor extent mismatch、path_open path owner extent mismatch、path_open uninitialized path input rejection を追加した。
+- `args_get` / `environ_get` は call 自体に長さを持たないため、prior `*_sizes_get` output cell と later owner extent を接続する別 issue `ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146` に分離した。

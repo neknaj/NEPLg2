@@ -85,6 +85,8 @@ mod effect_summary_seed_walk;
 mod external_io_iov_layout;
 mod function_alias;
 mod host_memory_contract;
+#[cfg(test)]
+mod host_memory_contract_tests;
 mod i32_call_facts;
 mod initialized;
 mod initialized_alias;
@@ -187,6 +189,7 @@ mod owner_extent_compare;
 mod owner_extent_coverage;
 mod owner_external_io;
 mod owner_flow;
+mod owner_host_memory_span;
 mod owner_match_payload;
 mod owner_raw_address;
 mod owner_raw_memory;

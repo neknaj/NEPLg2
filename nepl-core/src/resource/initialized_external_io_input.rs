@@ -31,7 +31,7 @@ impl ResourceCheckEngine<'_> {
                             cells,
                             raw_aliases,
                             address,
-                            length.resolve(args, self.types.i32()).as_ref(),
+                            length.resolve(args, self.types.i32(), raw_aliases).as_ref(),
                             span,
                         );
                     }
@@ -45,7 +45,7 @@ impl ResourceCheckEngine<'_> {
                     direction: HostMemoryDirection::Output,
                     ..
                 } => {}
-                HostMemorySpan::IovDescriptor { iovs_arg } => {
+                HostMemorySpan::IovDescriptor { iovs_arg, .. } => {
                     available &= self.ensure_iov_descriptor_cells_available(
                         cells,
                         raw_aliases,

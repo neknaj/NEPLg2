@@ -67,7 +67,7 @@ impl ResourceCheckEngine<'_> {
                 let Some(address) = args.get(address_arg) else {
                     return;
                 };
-                let Some(length) = length.resolve(args, self.types.i32()) else {
+                let Some(length) = length.resolve(args, self.types.i32(), raw_aliases) else {
                     return;
                 };
                 let address = raw_aliases.canonicalize(address);

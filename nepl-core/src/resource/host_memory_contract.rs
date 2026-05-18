@@ -1,5 +1,6 @@
 use crate::types::TypeId;
 
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{EffectOp, ExternalIoOp, NondetOp, Place};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +18,7 @@ pub(super) enum HostMemoryDirectUnit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum HostMemoryLength {
     Arg(usize),
+    ArgScaled { arg: usize, bytes_per_item: i32 },
     ConstI32(i32),
 }
 
@@ -30,6 +32,7 @@ pub(super) enum HostMemorySpan {
     },
     IovDescriptor {
         iovs_arg: usize,
+        iov_count_arg: usize,
     },
     IovPayload {
         iovs_arg: usize,
@@ -40,16 +43,31 @@ pub(super) enum HostMemorySpan {
 }
 
 impl HostMemoryLength {
-    pub(super) fn resolve(self, args: &[Place], i32_ty: TypeId) -> Option<Place> {
+    pub(super) fn resolve(
+        self,
+        args: &[Place],
+        i32_ty: TypeId,
+        raw_aliases: &RawCellAddressAliases,
+    ) -> Option<Place> {
         match self {
             HostMemoryLength::Arg(index) => args.get(index).cloned(),
+            HostMemoryLength::ArgScaled {
+                arg,
+                bytes_per_item,
+            } => {
+                let arg = args.get(arg)?;
+                raw_aliases
+                    .i32_value(arg)
+                    .and_then(|value| value.checked_mul(bytes_per_item))
+                    .map(|value| Place::i32_constant(value, i32_ty))
+            }
             HostMemoryLength::ConstI32(value) => Some(Place::i32_constant(value, i32_ty)),
         }
     }
 }
 
 const FD_READ_SPANS: &[HostMemorySpan] = &[
-    HostMemorySpan::IovDescriptor { iovs_arg: 1 },
+    iov_descriptor(1, 2),
     HostMemorySpan::IovPayload {
         iovs_arg: 1,
         iov_count_arg: 2,
@@ -59,7 +77,7 @@ const FD_READ_SPANS: &[HostMemorySpan] = &[
     i32_output(3),
 ];
 const FD_WRITE_SPANS: &[HostMemorySpan] = &[
-    HostMemorySpan::IovDescriptor { iovs_arg: 1 },
+    iov_descriptor(1, 2),
     HostMemorySpan::IovPayload {
         iovs_arg: 1,
         iov_count_arg: 2,
@@ -69,7 +87,7 @@ const FD_WRITE_SPANS: &[HostMemorySpan] = &[
     i32_output(3),
 ];
 const FD_PREAD_SPANS: &[HostMemorySpan] = &[
-    HostMemorySpan::IovDescriptor { iovs_arg: 1 },
+    iov_descriptor(1, 2),
     HostMemorySpan::IovPayload {
         iovs_arg: 1,
         iov_count_arg: 2,
@@ -79,7 +97,7 @@ const FD_PREAD_SPANS: &[HostMemorySpan] = &[
     i32_output(4),
 ];
 const FD_PWRITE_SPANS: &[HostMemorySpan] = &[
-    HostMemorySpan::IovDescriptor { iovs_arg: 1 },
+    iov_descriptor(1, 2),
     HostMemorySpan::IovPayload {
         iovs_arg: 1,
         iov_count_arg: 2,
@@ -96,9 +114,72 @@ const FD_FILESTAT_GET_SPANS: &[HostMemorySpan] = &[bytes_output(1, HostMemoryLen
 const FD_PRESTAT_GET_SPANS: &[HostMemorySpan] = &[bytes_output(1, HostMemoryLength::ConstI32(8))];
 const PATH_OPEN_SPANS: &[HostMemorySpan] =
     &[bytes_input(1, HostMemoryLength::Arg(2)), i32_output(8)];
+const PATH_CREATE_DIRECTORY_SPANS: &[HostMemorySpan] = &[bytes_input(1, HostMemoryLength::Arg(2))];
 const PATH_FILESTAT_GET_SPANS: &[HostMemorySpan] = &[
     bytes_input(2, HostMemoryLength::Arg(3)),
     bytes_output(4, HostMemoryLength::ConstI32(64)),
+];
+const PATH_FILESTAT_SET_TIMES_SPANS: &[HostMemorySpan] =
+    &[bytes_input(2, HostMemoryLength::Arg(3))];
+const PATH_LINK_SPANS: &[HostMemorySpan] = &[
+    bytes_input(2, HostMemoryLength::Arg(3)),
+    bytes_input(5, HostMemoryLength::Arg(6)),
+];
+const PATH_READLINK_SPANS: &[HostMemorySpan] = &[
+    bytes_input(1, HostMemoryLength::Arg(2)),
+    bytes_output(3, HostMemoryLength::Arg(4)),
+    i32_output(5),
+];
+const PATH_REMOVE_DIRECTORY_SPANS: &[HostMemorySpan] = &[bytes_input(1, HostMemoryLength::Arg(2))];
+const PATH_RENAME_SPANS: &[HostMemorySpan] = &[
+    bytes_input(1, HostMemoryLength::Arg(2)),
+    bytes_input(4, HostMemoryLength::Arg(5)),
+];
+const PATH_SYMLINK_SPANS: &[HostMemorySpan] = &[
+    bytes_input(0, HostMemoryLength::Arg(1)),
+    bytes_input(3, HostMemoryLength::Arg(4)),
+];
+const PATH_UNLINK_FILE_SPANS: &[HostMemorySpan] = &[bytes_input(1, HostMemoryLength::Arg(2))];
+const FD_SEEK_SPANS: &[HostMemorySpan] = &[bytes_output(3, HostMemoryLength::ConstI32(8))];
+const FD_TELL_SPANS: &[HostMemorySpan] = &[bytes_output(1, HostMemoryLength::ConstI32(8))];
+const POLL_ONEOFF_SPANS: &[HostMemorySpan] = &[
+    bytes_input(
+        0,
+        HostMemoryLength::ArgScaled {
+            arg: 2,
+            bytes_per_item: 48,
+        },
+    ),
+    bytes_output(
+        1,
+        HostMemoryLength::ArgScaled {
+            arg: 2,
+            bytes_per_item: 32,
+        },
+    ),
+    i32_output(3),
+];
+const SOCK_ACCEPT_SPANS: &[HostMemorySpan] = &[i32_output(2)];
+const SOCK_RECV_SPANS: &[HostMemorySpan] = &[
+    iov_descriptor(1, 2),
+    HostMemorySpan::IovPayload {
+        iovs_arg: 1,
+        iov_count_arg: 2,
+        transferred_count_arg: Some(4),
+        direction: HostMemoryDirection::Output,
+    },
+    i32_output(4),
+    i32_output(5),
+];
+const SOCK_SEND_SPANS: &[HostMemorySpan] = &[
+    iov_descriptor(1, 2),
+    HostMemorySpan::IovPayload {
+        iovs_arg: 1,
+        iov_count_arg: 2,
+        transferred_count_arg: None,
+        direction: HostMemoryDirection::Input,
+    },
+    i32_output(4),
 ];
 const ARGS_SIZES_GET_SPANS: &[HostMemorySpan] = &[i32_output(0), i32_output(1)];
 const RANDOM_GET_SPANS: &[HostMemorySpan] = &[bytes_output(0, HostMemoryLength::Arg(1))];
@@ -134,17 +215,23 @@ fn external_io_host_memory_spans(operation: ExternalIoOp) -> &'static [HostMemor
         ExternalIoOp::FdFilestatGet => FD_FILESTAT_GET_SPANS,
         ExternalIoOp::FdPrestatGet => FD_PRESTAT_GET_SPANS,
         ExternalIoOp::PathOpen => PATH_OPEN_SPANS,
+        ExternalIoOp::PathCreateDirectory => PATH_CREATE_DIRECTORY_SPANS,
         ExternalIoOp::PathFilestatGet => PATH_FILESTAT_GET_SPANS,
+        ExternalIoOp::PathFilestatSetTimes => PATH_FILESTAT_SET_TIMES_SPANS,
+        ExternalIoOp::PathLink => PATH_LINK_SPANS,
+        ExternalIoOp::PathReadlink => PATH_READLINK_SPANS,
+        ExternalIoOp::PathRemoveDirectory => PATH_REMOVE_DIRECTORY_SPANS,
+        ExternalIoOp::PathRename => PATH_RENAME_SPANS,
+        ExternalIoOp::PathSymlink => PATH_SYMLINK_SPANS,
+        ExternalIoOp::PathUnlinkFile => PATH_UNLINK_FILE_SPANS,
+        ExternalIoOp::FdSeek => FD_SEEK_SPANS,
+        ExternalIoOp::FdTell => FD_TELL_SPANS,
+        ExternalIoOp::PollOneoff => POLL_ONEOFF_SPANS,
+        ExternalIoOp::SockAccept => SOCK_ACCEPT_SPANS,
+        ExternalIoOp::SockRecv => SOCK_RECV_SPANS,
+        ExternalIoOp::SockSend => SOCK_SEND_SPANS,
         ExternalIoOp::ArgsSizesGet | ExternalIoOp::EnvironSizesGet => ARGS_SIZES_GET_SPANS,
-        ExternalIoOp::PathCreateDirectory
-        | ExternalIoOp::PathFilestatSetTimes
-        | ExternalIoOp::PathLink
-        | ExternalIoOp::PathReadlink
-        | ExternalIoOp::PathRemoveDirectory
-        | ExternalIoOp::PathRename
-        | ExternalIoOp::PathSymlink
-        | ExternalIoOp::PathUnlinkFile
-        | ExternalIoOp::FdAdvise
+        ExternalIoOp::FdAdvise
         | ExternalIoOp::FdAllocate
         | ExternalIoOp::FdClose
         | ExternalIoOp::FdDatasync
@@ -153,19 +240,20 @@ fn external_io_host_memory_spans(operation: ExternalIoOp) -> &'static [HostMemor
         | ExternalIoOp::FdFilestatSetSize
         | ExternalIoOp::FdFilestatSetTimes
         | ExternalIoOp::FdRenumber
-        | ExternalIoOp::FdSeek
         | ExternalIoOp::FdSync
-        | ExternalIoOp::FdTell
-        | ExternalIoOp::PollOneoff
         | ExternalIoOp::ProcExit
         | ExternalIoOp::ProcRaise
         | ExternalIoOp::SchedYield
-        | ExternalIoOp::SockAccept
-        | ExternalIoOp::SockRecv
-        | ExternalIoOp::SockSend
         | ExternalIoOp::SockShutdown
         | ExternalIoOp::ArgsGet
         | ExternalIoOp::EnvironGet => EMPTY_SPANS,
+    }
+}
+
+const fn iov_descriptor(iovs_arg: usize, iov_count_arg: usize) -> HostMemorySpan {
+    HostMemorySpan::IovDescriptor {
+        iovs_arg,
+        iov_count_arg,
     }
 }
 

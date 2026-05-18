@@ -7,7 +7,7 @@ use crate::span::Span;
 use super::external_io_iov_layout::{
     iov_buffer_pointer_cells, iov_length_cell, raw_cell_is_under_any_address,
 };
-use super::host_memory_contract::{host_memory_spans, HostMemorySpan};
+use super::host_memory_contract::host_memory_spans;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, OwnerStorageExtent, Place};
 use super::owner_alias::resolve_owner_alias_place;
@@ -29,41 +29,18 @@ impl ResourceOwnerCheckEngine<'_> {
     ) -> bool {
         let mut available = true;
         for contract in host_memory_spans(effect) {
-            match *contract {
-                HostMemorySpan::Direct {
-                    address_arg,
-                    length,
-                    ..
-                } => {
-                    let Some(address) = args.get(address_arg) else {
-                        continue;
-                    };
-                    let Some(length) = length.resolve(args, self.types.i32()) else {
-                        continue;
-                    };
-                    available &= self.ensure_external_io_payload_extent_available(
-                        owners,
-                        raw_aliases,
-                        address,
-                        &length,
-                        span,
-                    );
-                }
-                HostMemorySpan::IovPayload { iovs_arg, .. } => {
-                    available &= self.ensure_iov_payload_owner_extents_available(
-                        owners,
-                        raw_aliases,
-                        args.get(iovs_arg),
-                        span,
-                    );
-                }
-                HostMemorySpan::IovDescriptor { .. } => {}
-            }
+            available &= self.ensure_host_memory_contract_owner_span_available(
+                owners,
+                raw_aliases,
+                contract,
+                args,
+                span,
+            );
         }
         available
     }
 
-    fn ensure_iov_payload_owner_extents_available(
+    pub(super) fn ensure_iov_payload_owner_extents_available(
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
@@ -113,7 +90,7 @@ impl ResourceOwnerCheckEngine<'_> {
         available
     }
 
-    fn ensure_external_io_payload_extent_available(
+    pub(super) fn ensure_external_io_payload_extent_available(
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,

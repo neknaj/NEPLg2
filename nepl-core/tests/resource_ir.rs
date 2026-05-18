@@ -18530,6 +18530,26 @@ fn resource_ir_owner_check_fd_write_rejects_iovec_payload_extent_mismatch() {
 }
 
 #[test]
+fn resource_ir_owner_check_fd_write_rejects_iovec_descriptor_extent_mismatch() {
+    let (resource, types) =
+        external_io_iov_owner_resource_with_iov_storage(ExternalIoOp::FdWrite, 8, 8, 4);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "fd_write must prove the iovec descriptor span against the descriptor owner extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_fd_read_accepts_iovec_payload_extent_match() {
     let (resource, types) = external_io_iov_owner_resource(ExternalIoOp::FdRead, 8, 8);
     let report = check_resource_owner_obligations(&resource, &types);
@@ -18645,10 +18665,141 @@ fn resource_ir_cell_check_random_get_initializes_only_reported_byte_range() {
     );
 }
 
+#[test]
+fn resource_ir_owner_check_path_open_rejects_path_extent_mismatch() {
+    let (resource, types) = path_open_owner_resource(1, 8);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "path_open must prove the path input span against the backing owner extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_path_open_rejects_uninitialized_path_input() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let dirfd = Place::temporary(ResourceId(0), i32_ty);
+    let path_len = Place::temporary(ResourceId(1), i32_ty);
+    let zero = Place::temporary(ResourceId(2), i32_ty);
+    let path = Place::temporary(ResourceId(3), i32_ty);
+    let fd_out = Place::temporary(ResourceId(4), i32_ty);
+    let errno = Place::temporary(ResourceId(5), i32_ty);
+    let fd_out_len = Place::temporary(ResourceId(6), i32_ty);
+    let path_cell = path
+        .clone()
+        .with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::Unknown),
+            i32_ty,
+        )
+        .with_projection(PlaceProjection::Deref, i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(3),
+                output: dirfd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(8),
+                output: path_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: zero.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: fd_out_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: path.clone(),
+                args: vec![path_len.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: fd_out.clone(),
+                args: vec![fd_out_len],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("path_open"),
+                },
+                args: vec![
+                    dirfd,
+                    path,
+                    path_len,
+                    zero.clone(),
+                    zero.clone(),
+                    zero.clone(),
+                    zero.clone(),
+                    zero.clone(),
+                    fd_out,
+                ],
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::PathOpen,
+                },
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place == &path_cell
+        )),
+        "path_open must reject uninitialized path bytes before the host reads them: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
 fn external_io_iov_owner_resource(
     operation: ExternalIoOp,
     allocation_len: i32,
     iov_len: i32,
+) -> (ResourceModule, TypeCtx) {
+    external_io_iov_owner_resource_with_iov_storage(operation, allocation_len, iov_len, 8)
+}
+
+fn external_io_iov_owner_resource_with_iov_storage(
+    operation: ExternalIoOp,
+    allocation_len: i32,
+    iov_len: i32,
+    iov_storage_bytes: i32,
 ) -> (ResourceModule, TypeCtx) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
@@ -18706,7 +18857,7 @@ fn external_io_iov_owner_resource(
                 span,
             },
             ResourceOp::Expr {
-                kind: ResourceExprKind::LiteralI32(8),
+                kind: ResourceExprKind::LiteralI32(iov_storage_bytes),
                 output: iov_storage_len.clone(),
                 ty: i32_ty,
                 span,
@@ -18778,6 +18929,122 @@ fn external_io_iov_owner_resource(
                 operation: RawMemoryOp::Dealloc,
                 output: free_payload,
                 args: vec![payload, alloc_len],
+                span,
+            },
+        ],
+    );
+    (resource, types)
+}
+
+fn path_open_owner_resource(allocation_len: i32, path_len_bytes: i32) -> (ResourceModule, TypeCtx) {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let dirfd = Place::temporary(ResourceId(0), i32_ty);
+    let alloc_len = Place::temporary(ResourceId(1), i32_ty);
+    let path_len = Place::temporary(ResourceId(2), i32_ty);
+    let fd_out_len = Place::temporary(ResourceId(3), i32_ty);
+    let zero = Place::temporary(ResourceId(4), i32_ty);
+    let fill = Place::temporary(ResourceId(5), i32_ty);
+    let path = Place::temporary(ResourceId(6), i32_ty);
+    let fd_out = Place::temporary(ResourceId(7), i32_ty);
+    let fill_path = Place::temporary(ResourceId(8), unit_ty);
+    let errno = Place::temporary(ResourceId(9), i32_ty);
+    let free_fd_out = Place::temporary(ResourceId(10), unit_ty);
+    let free_path = Place::temporary(ResourceId(11), unit_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(3),
+                output: dirfd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(allocation_len),
+                output: alloc_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(path_len_bytes),
+                output: path_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: fd_out_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: zero.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(47),
+                output: fill.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: path.clone(),
+                args: vec![alloc_len.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: fd_out.clone(),
+                args: vec![fd_out_len.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::FillBytes,
+                output: fill_path,
+                args: vec![path.clone(), alloc_len.clone(), fill],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("path_open"),
+                },
+                args: vec![
+                    dirfd,
+                    path.clone(),
+                    path_len,
+                    zero.clone(),
+                    zero.clone(),
+                    zero.clone(),
+                    zero.clone(),
+                    zero,
+                    fd_out.clone(),
+                ],
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::PathOpen,
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: free_fd_out,
+                args: vec![fd_out, fd_out_len],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: free_path,
+                args: vec![path, alloc_len],
                 span,
             },
         ],

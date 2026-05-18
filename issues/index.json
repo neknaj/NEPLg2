@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T10:33:30.138Z",
+  "generated_at": "2026-05-18T10:52:45.809Z",
   "counts": {
-    "total": 994,
+    "total": 995,
     "open": 6,
-    "resolved": 988,
+    "resolved": 989,
     "by_area": {
       "core": {
-        "total": 506,
+        "total": 507,
         "open": 1,
-        "resolved": 505
+        "resolved": 506
       },
       "stdlib": {
         "total": 270,
@@ -130,8 +130,8 @@
   },
   "issues": [
     {
-      "id": "ISS-20260518T103254297Z-HOST-MEMORY-CONTRACT-STILL-NEEDS-FUL-BB27C558",
-      "title": "Host memory contract still needs full WASI ABI span coverage",
+      "id": "ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146",
+      "title": "args_get and environ_get need dependent host span proof",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -142,7 +142,7 @@
       "target": "nepl-core/src/resource/host_memory_contract.rs, nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/owner_external_io.rs",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260518T103254297Z-HOST-MEMORY-CONTRACT-STILL-NEEDS-FUL-BB27C558.md"
+      "file": "items/ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -7733,6 +7733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T102739347Z-HOST-VISIBLE-MEMORY-SPANS-LACK-GENER-D965031F.md"
+    },
+    {
+      "id": "ISS-20260518T103254297Z-HOST-MEMORY-CONTRACT-STILL-NEEDS-FUL-BB27C558",
+      "title": "Host memory contract needs same-call WASI ABI span coverage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/host_memory_contract.rs, nepl-core/src/resource/owner_host_memory_span.rs, nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/owner_external_io.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T103254297Z-HOST-MEMORY-CONTRACT-STILL-NEEDS-FUL-BB27C558.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
