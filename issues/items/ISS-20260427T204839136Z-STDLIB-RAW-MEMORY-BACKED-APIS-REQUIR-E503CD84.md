@@ -737,3 +737,9 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 修正後は `ByteBuilderStorage::Empty | Owned(RegionToken<u8>)` を導入し、`ByteBuilder` は `storage: ByteBuilderStorage`、`len`、`cap` を持つ。`byte_builder_empty` は owner payload を持たない `Empty` を返し、`byte_builder_from_owned_region` だけが `Owned(region)` を作る。`byte_builder_reserve` / `byte_builder_push_u8` / `byte_builder_push_bytes_ref` / `byte_builder_finish` / `byte_builder_free` は storage enum を `match` し、free obligation owner を持つ branch だけが `RegionToken<u8>` を消費または借用する。
 
 source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStorage::Empty` constructor、`Owned(region)` wrapping、append/free/reserve の storage match を要求し、`byte_builder_empty_region`、zero-size `region_new` sentinel、旧 `"region"` field access の再導入を拒否する。これで ByteBuf / ByteBuilder の空 storage はどちらも enum state として表現され、次の残件は forgeable `RegionToken` を compiler-issued owner token / `OwnedBytes` / `OwnedBuffer<T>` へ移すことである。
+
+## 2026-05-18 Agent 1 ByteBuf removed-helper doctest raw fixture 整理追記
+
+`ISS-20260518T200613054Z-BYTEBUF-DOCTEST-IMPORTS-RAW-INTERNAL-387EC456` を解決した。`io_bytebuf_from_owned_ptr` が削除済みであることを確認する compile-fail doctest が、`core/mem/internal` と `mem_ptr_wrap` を使って raw `MemPtr` fixture を作っていた。
+
+修正後の doctest は `alloc/io` だけを import し、`io_bytebuf_from_owned_ptr 0 1` が未定義になることを確認する。source policy もこの removed-helper fixture に raw memory module import や raw `MemPtr` construction が戻らないことを監視する。これは ByteBuf owner boundary の本体修正ではなく、Stage 6 の regression fixture が raw boundary privilege を正常な前提として示さないための整理である。

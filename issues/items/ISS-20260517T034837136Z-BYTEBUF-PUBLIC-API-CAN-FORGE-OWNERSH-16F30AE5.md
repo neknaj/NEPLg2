@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: bug
 created: 2026-05-17
-updated: 2026-05-17
+updated: 2026-05-18
 target: "stdlib/alloc/io/bytebuf.nepl, stdlib/alloc/io/bytebuilder/types.nepl, nodesrc/test_stdlib_io_bytebuf_owner_boundary.js, tests/stdlib/bytebuf_result.n.md"
 ---
 
@@ -64,3 +64,9 @@ Remove raw MemPtr ingestion helpers; ByteBuf/ByteBuilder ownership must be creat
 - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuilder.nepl --no-tree -o tmp/alloc-io-bytebuilder-module-no-raw-owner-forge.json -j 1`: 1/1 passed
 - `node nodesrc/issues.js check --dir issues`: passed
 - `git diff --check`: passed
+
+## 2026-05-18 Agent 1 追跡修正
+
+`ISS-20260518T200613054Z-BYTEBUF-DOCTEST-IMPORTS-RAW-INTERNAL-387EC456` として、removed-helper compile-fail doctest に残っていた raw internal fixture 依存を分離して修正した。
+
+`io_bytebuf_from_owned_ptr` の未定義性を確認するだけなら、`core/mem/internal` を import して `mem_ptr_wrap` から `MemPtr<u8>` を作る必要はない。修正後の doctest は `alloc/io` だけを import し、削除済み helper が解決できないことを直接確認する。`nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` もこの fixture に raw memory module import や `mem_ptr_wrap` が戻らないことを監視する。

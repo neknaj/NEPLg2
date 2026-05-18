@@ -41976,3 +41976,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/agent1-vec-doctest-no-raw-address.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree -o tmp/agent1-vec-data-mem-ptr-doc-no-raw-address.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
   - `node nodesrc/issues.js check`: passed
+
+## 2026-05-18 Agent 1 ByteBuf removed-helper doctest raw fixture 整理
+
+- `ISS-20260518T200613054Z-BYTEBUF-DOCTEST-IMPORTS-RAW-INTERNAL-387EC456` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`io_bytebuf_from_owned_ptr` が削除済みであることを確認する compile-fail doctest が、helper の未定義性を検査するだけの目的に対して不要な `core/mem/internal` import と `mem_ptr_wrap` raw `MemPtr` construction を残していたことだった。
+- `tests/stdlib/bytebuf_result.n.md` の removed-helper doctest は `alloc/io` だけを import し、`io_bytebuf_from_owned_ptr 0 1` が `resolve.identifier.undefined` になることを確認する形へ変更した。これにより ByteBuf owner boundary regression が raw pointer fixture privilege に依存しない。
+- `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` に、同 doctest が `core/mem` / `core/mem/internal` / `mem_ptr_wrap` を使わないことを監視する policy を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuf-result-no-raw-internal.json -j 1 --dist web/dist --assert-io`: total=7, passed=7
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed

@@ -22,6 +22,8 @@ const fsRelPath = 'stdlib/std/fs/read/fd.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
 const fsRawRelPath = 'stdlib/std/fs/raw/fd_io.nepl';
 const fsRawSrc = fs.readFileSync(path.join(repoRoot, fsRawRelPath), 'utf8');
+const bytebufResultRelPath = 'tests/stdlib/bytebuf_result.n.md';
+const bytebufResultSrc = fs.readFileSync(path.join(repoRoot, bytebufResultRelPath), 'utf8');
 
 const code = src
     .split(/\r?\n/)
@@ -39,6 +41,16 @@ const traitsCode = traitsSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+
+function markdownSection(src, heading) {
+    const start = src.indexOf(`## ${heading}`);
+    assert.notEqual(start, -1, `${heading} doctest section must exist`);
+    const rest = src.slice(start);
+    const next = rest.slice(1).search(/\n## /);
+    return next === -1 ? rest : rest.slice(0, next + 1);
+}
+
+const removedOwnerHelperDoctest = markdownSection(bytebufResultSrc, 'io_bytebuf_rejects_raw_memptr_ownership_forging');
 
 assert.match(rootCode, /pub\s+#import\s+"\.\/io\/bytebuf"\s+as\s+\*/, 'alloc/io root must re-export ByteBuf APIs');
 assert.match(rootCode, /pub\s+#import\s+"\.\/io\/bytebuilder"\s+as\s+\*/, 'alloc/io root must re-export ByteBuilder APIs');
@@ -122,6 +134,24 @@ assert.doesNotMatch(
     code,
     /\b(?:pub\s+)?fn\s+io_bytebuf_from_owned_ptr\b/,
     'ByteBuf must not provide a raw MemPtr ownership-forging helper',
+);
+
+assert.doesNotMatch(
+    removedOwnerHelperDoctest,
+    /#import\s+"core\/mem(?:\/internal)?"\s+as\s+\*/,
+    'removed io_bytebuf_from_owned_ptr compile-fail doctest must not import raw memory modules',
+);
+
+assert.doesNotMatch(
+    removedOwnerHelperDoctest,
+    /\bmem_ptr_wrap\b/,
+    'removed io_bytebuf_from_owned_ptr compile-fail doctest must not forge a MemPtr fixture',
+);
+
+assert.match(
+    removedOwnerHelperDoctest,
+    /\bio_bytebuf_from_owned_ptr\s+0\s+1\b/,
+    'removed io_bytebuf_from_owned_ptr compile-fail doctest must prove helper unavailability without raw MemPtr construction',
 );
 
 assert.doesNotMatch(

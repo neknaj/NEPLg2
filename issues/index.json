@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T20:01:58.841Z",
+  "generated_at": "2026-05-18T20:13:35.475Z",
   "counts": {
-    "total": 1013,
+    "total": 1014,
     "open": 5,
-    "resolved": 1008,
+    "resolved": 1009,
     "by_area": {
       "stdlib": {
-        "total": 280,
+        "total": 281,
         "open": 3,
-        "resolved": 277
+        "resolved": 278
       },
       "TEST": {
         "total": 42,
@@ -11838,7 +11838,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-05-17",
-      "updated": "2026-05-17",
+      "updated": "2026-05-18",
       "target": "stdlib/alloc/io/bytebuf.nepl, stdlib/alloc/io/bytebuilder/types.nepl, nodesrc/test_stdlib_io_bytebuf_owner_boundary.js, tests/stdlib/bytebuf_result.n.md",
       "legacy_id": "",
       "source": "",
@@ -12098,6 +12098,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T195527913Z-VEC-DOCTEST-RAW-ADDRESS-OBSERVATI-6CAB0F41.md"
+    },
+    {
+      "id": "ISS-20260518T200613054Z-BYTEBUF-DOCTEST-IMPORTS-RAW-INTERNAL-387EC456",
+      "title": "ByteBuf removed-helper doctest imports raw internal MemPtr helper",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/bytebuf_result.n.md, nodesrc/test_stdlib_io_bytebuf_owner_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T200613054Z-BYTEBUF-DOCTEST-IMPORTS-RAW-INTERNAL-387EC456.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

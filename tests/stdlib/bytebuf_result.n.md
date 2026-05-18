@@ -186,11 +186,9 @@ diag_codes: resolve.identifier.undefined
 #target std
 
 #import "alloc/io" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
 
 fn main <()*>i32> ():
-    let _buf <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 1
+    let _buf <ByteBuf> io_bytebuf_from_owned_ptr 0 1
     0
 ```
 
