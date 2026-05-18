@@ -7,13 +7,21 @@
 - `Serialize` trait が `Stringify` や[個別/こべつ][変換/へんかん][関数/かんすう]に[直接/ちょくせつ][依存/いぞん]しない[共通/きょうつう] helper として[使/つか]えることを[確/たし]かめます。
 - `bool` / `i32` / `i64` / `str` の[代表的/だいひょうてき]な[直列化/ちょくれつか][結果/けっか]が[期待/きたい]どおりかを[確認/かくにん]します。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #target std
 #import "std/test" as *
 #import "core/traits/serialize" as *
 #import "core/result" as *
+#import "core/cast" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -32,7 +40,13 @@ fn main <()*>i32> ():
 - `Deserialize` trait が `str` から[基本型/きほんがた]を[復元/ふくげん]できることを[確/たし]かめます。
 - [解析/かいせき][失敗/しっぱい]が `StdErrorKind::ParseError` に[正規化/せいきか]されることを[確認/かくにん]します。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std

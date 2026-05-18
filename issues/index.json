@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T23:39:33.416Z",
+  "generated_at": "2026-05-18T23:47:00.132Z",
   "counts": {
-    "total": 1030,
+    "total": 1031,
     "open": 5,
-    "resolved": 1025,
+    "resolved": 1026,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 52,
+        "total": 53,
         "open": 1,
-        "resolved": 51
+        "resolved": 52
       },
       "selfhost": {
         "total": 72,
@@ -13088,6 +13088,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T233744382Z-PIPE-COLLECTIONS-DOCTESTS-RELY-ON-RE-4299CCE8.md"
+    },
+    {
+      "id": "ISS-20260518T234533962Z-TRAITS-SERDE-DOCTESTS-HAVE-STALE-CAS-6FFB03CF",
+      "title": "traits_serde doctests have stale cast import and unpinned reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/traits_serde.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T234533962Z-TRAITS-SERDE-DOCTESTS-HAVE-STALE-CAS-6FFB03CF.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

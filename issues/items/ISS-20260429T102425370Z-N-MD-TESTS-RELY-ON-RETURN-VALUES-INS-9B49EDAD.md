@@ -1604,3 +1604,16 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
 
 この issue はまだ open のまま継続する。`pipe_collections` は移行済みだが、他の `.n.md` / stdlib doc-comment fixture に stdout fixture 未固定の report case が残っている。
+
+## 2026-05-18 traits_serde stdout report metadata and import migration
+
+`ISS-20260518T234533962Z-TRAITS-SERDE-DOCTESTS-HAVE-STALE-CAS-6FFB03CF` として、`tests/stdlib/traits_serde.n.md` の 2 doctest を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- serialize doctest は `<i64> cast 9001` を使うのに `core/cast` を import しておらず、現行 main で compile failure になっていたため、明示 import を追加した。
+- serialize / deserialize の既存 `checks_print_report` logic は維持し、4 assertions / 3 assertions の stdout report を manifest に固定した。
+- `nodesrc/test_stdlib_traits_serde_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code、serialize doctest の `core/cast` import を source policy で固定した。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+この issue はまだ open のまま継続する。`traits_serde` は移行済みだが、他の `.n.md` / stdlib doc-comment fixture に stdout fixture 未固定の report case が残っている。

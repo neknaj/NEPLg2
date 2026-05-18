@@ -42142,3 +42142,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 根本原因は、`tests/stdlib/pipe_collections.n.md` の 4 doctest が `ret: 1` だけで合否を返し、別の 4 doctest は `checks_print_report` を呼んでいるのに stdout / exit_code expectation がなかったことだった。
 - 8 doctest すべてを `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。List / Stack / RingBuffer / Queue は `std/test::Checks` report へ変換し、BTree / Hash 系は既存 report logic を維持して manifest contract を追加した。
 - `nodesrc/test_stdlib_pipe_collections_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+
+## 2026-05-18 Agent 1 traits_serde stdout report metadata と import drift 修正
+
+- `ISS-20260518T234533962Z-TRAITS-SERDE-DOCTESTS-HAVE-STALE-CAS-6FFB03CF` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/traits_serde.n.md::serialize_trait_for_primitives` が `<i64> cast 9001` を使うのに `core/cast` を import しておらず、現行 main で compile failure になっていたことだった。さらに serialize / deserialize の両 doctest は `checks_print_report` を呼んでいるのに stdout / exit_code expectation がなかった。
+- serialize doctest に `#import "core/cast" as *` を追加し、2 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。
+- `nodesrc/test_stdlib_traits_serde_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、`core/cast` import drift を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
