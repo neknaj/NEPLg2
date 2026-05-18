@@ -41459,3 +41459,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core --tests`: passed
   - `trunk build`: passed
   - `node nodesrc/tests.js -i stdlib\core\mem\pointer --no-tree -o tmp\agent1-core-mem-pointer-regiontoken-provenance.json -j 1 --dist web\dist --assert-io`: total=16, passed=16
+
+## 2026-05-18 Agent 1 Vec data_mem_ptr checked store 境界 regression 追加
+
+- `ISS-20260518T062457553Z-VEC-DATA-MEM-PTR-BOUNDARY-LACKS-DIRE-DF309C77` を追加して fixed にした。`plan.md` は変更していない。
+- 調査で、通常 source が `alloc/collections/vec` root facade から `data_mem_ptr<i32> &v` を取得し、それを `store_i32` に渡す経路は現行 compiler で `resource.raw.memory_outside_boundary` として拒否されることを確認した。
+- ただしこの境界は Stage 6 の重要な safety contract であり、直接 regression がなかったため、`tests/stdlib/memory_safety.n.md` に compile-fail fixture を追加した。
+- この regression は `data_mem_ptr` を final public API として承認するものではなく、`MemPtr` が non-owning view であり、通常 source が `Vec` backing storage の mutation authority を得られないことを固定するためのもの。
+- focused verification:
+  - `node nodesrc/run_doctest.js -i tests\stdlib\memory_safety.n.md -n 37 --dist web\dist`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

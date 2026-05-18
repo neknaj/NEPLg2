@@ -641,3 +641,11 @@ Stage 6 では raw memory operation は compiler-owned raw-memory boundary の s
 Resource IR は raw address alias と raw address view を `InternalHelper` / `Transparent` / `NonOwningProjection` の enum 種別として保持する。`mem_ptr_wrap` / `region_new` は raw address alias boundary、`mem_ptr_addr` / `region_token_raw_ref` / `str_addr` は raw address view boundary として effect gate に渡し、`region_ptr` / `region_ptr_at` は checked public projection として残す。source capability proof も alias boundary と view boundary を別 fact として証明するため、raw helper 名の file/module allowlist ではなく、compiler-owned source の exact use-site evidence からだけ許可できる。
 
 この親 issue は引き続き open とする。今回閉じたのは raw memory backed API 移行中に残っていた `core/mem/internal` 直接 import による raw identity 偽造入口であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-18 Agent 1 Vec data_mem_ptr checked-store regression 追記
+
+`ISS-20260518T062457553Z-VEC-DATA-MEM-PTR-BOUNDARY-LACKS-DIRE-DF309C77` として、safe `Vec` root facade から `data_mem_ptr<T>` を取得し、それを通常 source の checked store authority として使えないことを直接固定した。
+
+`data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` は現行の Copy-only collection 実装で内部 storage view として使われているが、`MemPtr<T>` は free obligation owner ではなく non-owning view である。今回の regression は、ordinary source が `Vec<i32>` の backing view を取り出して `store_i32` へ渡すと `resource.raw.memory_outside_boundary` で拒否されることを `tests/stdlib/memory_safety.n.md` に追加した。これにより、将来の Resource IR return summary / checked MemPtr provenance 修正が、collection mutation API と initialized/drop state discipline を迂回する方向へ退行した場合に検出できる。
+
+この親 issue は引き続き open とする。今回閉じたのは regression gap であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行は継続する。
