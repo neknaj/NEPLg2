@@ -1,3 +1,17 @@
+# 2026-05-18 Agent 1 BinaryHeapPop owner accessor 固定
+
+- `ISS-20260518T022816487Z-BINARYHEAPPOP-EXPOSES-OWNER-FIELDS-W-9B47EE6B` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`BinaryHeapPop<T>` が更新後 `BinaryHeap<T>` owner と `Option<T>` item を持つ owner-preserving result であるにもかかわらず、public accessor がなく、`pop` と doctest が `field::get` / `field::get_ref` で内部 layout に直接依存していたこと。
+- `binary_heap_pop_item<T>(&BinaryHeapPop<T>) -> Option<T>` と `binary_heap_pop_heap<T>(BinaryHeapPop<T>) -> BinaryHeap<T>` を追加し、`pop` と binary heap doctest を accessor 経由へ統一した。
+- accessor は現行 Copy-only collection 契約に合わせて `.T: Copy` とし、non-Copy payload の move-out / drop traversal は `OwnedBuffer<T>` と Resource IR の initialized/moved state 完成後に扱う方針を明示した。
+- `nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js` に accessor signature、`pop` の accessor 経由 cleanup、doctest の direct `BinaryHeapPop` field projection 禁止を追加した。
+- `tests/stdlib/collection_cleanup_contract.n.md` に `BinaryHeapPop<CleanupPayload>` から heap owner を取り出す compile-fail regression を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib\tests\binary_heap.n.md -i tests\stdlib\collection_cleanup_contract.n.md --no-tree -o tmp\agent1-binary-heap-pop-accessors.json -j 1 --dist web\dist --assert-io`: total=32, passed=32
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の collection owner surface として、BinaryHeap の pop result 分解を accessor API に閉じた。
+
 # 2026-05-18 Agent 1 selfhost CLI args doc-comment stdout report 固定
 
 - `ISS-20260518T022058895Z-SELFHOST-CLI-ARGS-DOC-COMMENT-DOCTES-2AECEA64` を追加し、fixed / resolved にした。`plan.md` は変更していない。

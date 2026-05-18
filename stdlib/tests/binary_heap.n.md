@@ -142,11 +142,9 @@ stdout: "test_report name=\"binary_heap_pop_max_returns_owner\" count=3 failed=0
 
 #import "alloc/collections/binary_heap" as *
 #import "alloc/diag/error" as *
-#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/field" as *
 #import "std/test" as *
 
 fn main <()*>i32> ():
@@ -156,8 +154,8 @@ fn main <()*>i32> ():
         |> push 9 |> uwok
         |> push 1 |> uwok
     let popped <BinaryHeapPop<i32>> pop_max<i32> hp0;
-    let item <Option<i32>> *field::get_ref &popped "item";
-    let hp1 <BinaryHeap<i32>> field::get popped "heap";
+    let item <Option<i32>> binary_heap_pop_item<i32> &popped;
+    let hp1 <BinaryHeap<i32>> binary_heap_pop_heap<i32> popped;
     let ok_item <bool> match item:
         Option::Some v:
             eq v 9
@@ -191,11 +189,9 @@ stdout: "test_report name=\"binary_heap_grow_preserves_order\" count=2 failed=0\
 
 #import "alloc/collections/binary_heap" as *
 #import "alloc/diag/error" as *
-#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/field" as *
 #import "std/test" as *
 
 fn main <()*>i32> ():
@@ -206,11 +202,11 @@ fn main <()*>i32> ():
         |> push 1 |> uwok
         |> push 7 |> uwok
     let p0 <BinaryHeapPop<i32>> pop_max<i32> hp0;
-    let item0 <Option<i32>> *field::get_ref &p0 "item";
-    let hp1 <BinaryHeap<i32>> field::get p0 "heap";
+    let item0 <Option<i32>> binary_heap_pop_item<i32> &p0;
+    let hp1 <BinaryHeap<i32>> binary_heap_pop_heap<i32> p0;
     let p1 <BinaryHeapPop<i32>> pop_max<i32> hp1;
-    let item1 <Option<i32>> *field::get_ref &p1 "item";
-    let hp2 <BinaryHeap<i32>> field::get p1 "heap";
+    let item1 <Option<i32>> binary_heap_pop_item<i32> &p1;
+    let hp2 <BinaryHeap<i32>> binary_heap_pop_heap<i32> p1;
     let ok0 <bool> match item0:
         Option::Some v:
             eq v 9

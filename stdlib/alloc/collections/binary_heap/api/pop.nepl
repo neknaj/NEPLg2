@@ -17,7 +17,6 @@
 #import "../storage" as *
 #import "../order" as *
 #import "./cleanup" as *
-#import "core/field" as *
 
 //: ## pop_max
 //: [最大/さいだい][要素/ようそ]を[取/と]り[出/だ]し、[更新後/こうしんご]の heap と[値/あたい]を[返/かえ]す
@@ -51,6 +50,33 @@ pub fn pop_max <.T: Ord&Copy> <(BinaryHeap<.T>)*>BinaryHeapPop<.T>> (hp):
                     let next_hp <BinaryHeap<.T>> BinaryHeap<.T> last_idx cap0 items
                     BinaryHeapPop<.T> next_hp root
 
+//: ## binary_heap_pop_item
+//: `BinaryHeapPop` を[借用/しゃくよう]し、[取/と]り[出/だ]した[値/あたい]を[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - `pop_max` の[結果/けっか]から `item` を[取得/しゅとく]します。
+//: - `BinaryHeapPop` は[更新後/こうしんご]の heap owner を[含/ふく]むため、利用側が struct field を直接 projection せず、この API を[通/とお]して[読/よ]みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+pub fn binary_heap_pop_item <.T: Copy> <(&BinaryHeapPop<.T>)->Option<.T>> (p):
+    *field::get_ref p "item"
+
+//: ## binary_heap_pop_heap
+//: `BinaryHeapPop` を[消費/しょうひ]し、[更新後/こうしんご]の heap owner を[取/と]り[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - `pop_max` の[結果/けっか]から、[次/つぎ]に[使/つか]う `BinaryHeap` owner を[移動/いどう]します。
+//: - owner を[含/ふく]む field projection は binary heap 実装境界の責務に[閉/と]じ、caller はこの関数で owner flow を[継続/けいぞく]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `BinaryHeapPop` には[取/と]り[出/だ]した `Option<T>` も[含/ふく]まれます。この accessor はその item を[返/かえ]さないため、現行の drop traversal 未実装段階では `.T: Copy` に[限定/げんてい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+pub fn binary_heap_pop_heap <.T: Copy> <(BinaryHeapPop<.T>)->BinaryHeap<.T>> (p):
+    field::get p "heap"
+
 //: ## pop
 //: heap を[消費/しょうひ]して[最大/さいだい][要素/ようそ]だけを[返/かえ]す
 //:
@@ -76,6 +102,6 @@ pub fn pop_max <.T: Ord&Copy> <(BinaryHeap<.T>)*>BinaryHeapPop<.T>> (hp):
 //: ```
 pub fn pop <.T: Ord&Copy> <(BinaryHeap<.T>)*>Option<.T>> (hp):
     let p <BinaryHeapPop<.T>> pop_max<.T> hp
-    let item <Option<.T>> *field::get_ref &p "item"
-    free<.T> field::get p "heap"
+    let item <Option<.T>> binary_heap_pop_item<.T> &p
+    free<.T> binary_heap_pop_heap<.T> p
     item

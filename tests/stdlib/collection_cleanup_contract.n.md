@@ -92,6 +92,27 @@ fn main <()->i32> ():
     0
 ```
 
+## binary_heap_pop_heap_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/binary_heap" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn recover_heap_from_pop <(BinaryHeapPop<CleanupPayload>)->BinaryHeap<CleanupPayload>> (p):
+    binary_heap_pop_heap<CleanupPayload> p
+
+fn main <()->i32> ():
+    0
+```
+
 ## vec_root_facade_hides_alloc_empty_helper
 
 neplg2:test[compile_fail]

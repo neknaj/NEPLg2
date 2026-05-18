@@ -87,9 +87,15 @@ assert.match(apiObserverCode, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)
 assert.doesNotMatch(apiObserverCode, /fn\s+(?:len_ref|cap_ref|is_empty_ref|peek_ref)\b/, 'BinaryHeap must not keep duplicate *_ref observer surfaces');
 assert.doesNotMatch(apiObserverCode, /fn\s+(?:len|cap|is_empty|peek)\s+<[^>]+>\s+<\(BinaryHeap<\.T>\)/, 'BinaryHeap observers must not consume the owner');
 assert.match(apiPopCode, /fn\s+pop_max\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>\)\*>BinaryHeapPop<\.T>>/, 'BinaryHeap.pop_max must preserve the updated owner');
-assert.match(apiPopCode, /fn\s+pop\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>\)\*>Option<\.T>>[\s\S]*free<\.T>\s+field::get\s+p\s+"heap"/, 'BinaryHeap.pop must clean up the updated heap owner');
+assert.match(apiPopCode, /fn\s+binary_heap_pop_item\s+<\.T:\s*Copy>\s+<\(&BinaryHeapPop<\.T>\)->Option<\.T>>[\s\S]*field::get_ref\s+p\s+"item"/, 'BinaryHeapPop item access must be a public borrowed accessor');
+assert.match(apiPopCode, /fn\s+binary_heap_pop_heap\s+<\.T:\s*Copy>\s+<\(BinaryHeapPop<\.T>\)->BinaryHeap<\.T>>[\s\S]*field::get\s+p\s+"heap"/, 'BinaryHeapPop heap extraction must be a public consuming accessor');
+assert.match(apiPopCode, /fn\s+pop\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>\)\*>Option<\.T>>[\s\S]*binary_heap_pop_item<\.T>\s+&p[\s\S]*free<\.T>\s+binary_heap_pop_heap<\.T>\s+p/, 'BinaryHeap.pop must clean up the updated heap owner through the public accessor');
 assert.match(apiCleanupCode, /fn\s+free\s+<\.T:\s*Copy>\s+<\(BinaryHeap<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Copy-only Vec<Option<T>> owner');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'BinaryHeap must not reintroduce raw header or raw element storage');
+
+const binaryHeapStdlibTests = fs.readFileSync(path.join(repoRoot, 'stdlib/tests/binary_heap.n.md'), 'utf8');
+assert.match(binaryHeapStdlibTests, /\bbinary_heap_pop_item<i32>\s+&(?:popped|p[0-9])\b/, 'stdlib/tests/binary_heap.n.md must exercise BinaryHeapPop item accessor');
+assert.match(binaryHeapStdlibTests, /\bbinary_heap_pop_heap<i32>\s+(?:popped|p[0-9])\b/, 'stdlib/tests/binary_heap.n.md must exercise BinaryHeapPop heap accessor');
 
 for (const testPath of [
     'stdlib/tests/binary_heap.n.md',
@@ -99,6 +105,7 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /\b(?:len_ref|cap_ref|is_empty_ref|peek_ref)<i32>/, `${testPath} must not use removed BinaryHeap *_ref observers`);
     assert.doesNotMatch(testSrc, /\b(?:len|cap|is_empty|peek)(?:<i32>)?\s+hp[0-9]?\b/, `${testPath} must not call BinaryHeap observers by value`);
     assert.doesNotMatch(testSrc, /\bhp[0-9]?\s+\|>\s+peek(?:<i32>)?\b/, `${testPath} must not pipe BinaryHeap owners into peek`);
+    assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?(?:popped|p[0-9])\s+"(?:item|heap)"/, `${testPath} must not project BinaryHeapPop fields directly`);
 }
 
 console.log('binary heap unsafe unwrap regression passed');
