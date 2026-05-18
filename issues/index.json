@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T05:05:55.719Z",
+  "generated_at": "2026-05-18T05:17:12.590Z",
   "counts": {
-    "total": 979,
+    "total": 980,
     "open": 5,
-    "resolved": 974,
+    "resolved": 975,
     "by_area": {
       "stdlib": {
         "total": 264,
@@ -12,9 +12,9 @@
         "resolved": 261
       },
       "TEST": {
-        "total": 40,
+        "total": 41,
         "open": 1,
-        "resolved": 39
+        "resolved": 40
       },
       "selfhost": {
         "total": 70,
@@ -12353,6 +12353,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865.md"
+    },
+    {
+      "id": "ISS-20260518T051123451Z-COLLECTION-CLEANUP-CONTRACT-LACKS-GE-63D5D8EE",
+      "title": "collection cleanup contract lacks generic source policy",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nodesrc/test_stdlib_collection_cleanup_contract.js, nodesrc/run_source_policy_regressions.js, issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T051123451Z-COLLECTION-CLEANUP-CONTRACT-LACKS-GE-63D5D8EE.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

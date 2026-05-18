@@ -1,3 +1,19 @@
+# 2026-05-18 Agent 1 collection cleanup 横断 Copy-only policy 追加
+
+- `ISS-20260518T051123451Z-COLLECTION-CLEANUP-CONTRACT-LACKS-GE-63D5D8EE` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`RV-STDLIB-004` の現行 mitigation が collection family ごとの個別 source policy に分散しており、新規 generic `free` / `clear` / cleanup helper が non-Copy payload を再び受け入れても横断的に検出できないこと。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` を追加し、`stdlib/alloc/collections/**/*.nepl` の cleanup API surface を走査して、generic cleanup signature の全 generic parameter が `Copy` bound を持つことを要求するようにした。
+- この修正は non-Copy collection の完成ではなく、`OwnedBuffer<T>` / initialized prefix / moved slot / drop traversal / compiler-issued owner token が完成するまで unsupported non-Copy cleanup surface を閉じる回帰ガードである。
+- `nodesrc/run_source_policy_regressions.js` に登録し、`Vec.free` / `Vec.clear` / `vec_free_storage` / `HashMap.free` / `HashSet.free` / `Queue` / `Deque` など既存の主要 cleanup signature を実際に検査していることも固定した。
+- 検証:
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_hashmap_storage_contract.js`
+  - `node nodesrc/test_stdlib_hashset_storage_contract.js`
+  - `node nodesrc/tests.js -i tests\stdlib\collection_cleanup_contract.n.md --no-tree -o tmp\agent1-collection-cleanup-contract-source-policy.json -j 1 --dist web\dist --assert-io`: total=27, passed=27
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 / RV-STDLIB-004 の transitional safety boundary として、collection cleanup の Copy-only 契約を横断 policy で固定した。
+
 # 2026-05-18 Agent 1 selfhost CLI reporter compile timeout 修正
 
 - `ISS-20260518T030154409Z-SELFHOST-CLI-REPORTER-DOCTESTS-EXCEE-6D30C865` を fixed / resolved にした。`plan.md` は変更していない。
