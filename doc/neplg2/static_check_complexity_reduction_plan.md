@@ -902,6 +902,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T121306047Z-STAGE-6-SOURCE-POLICY-REGRESSIONS-DR-966050CB` は 2026-05-18 に修正した。Stage 6 の stdlib boundary refactor 後、source policy の一部が旧 module layout や旧 doctest count を前提にしていたため、`builder_ext` の raw evidence 期待、cliarg report count、selfhost reporter split、compile_fail diag metadata を現在の構造へ合わせた。これは検査を弱める変更ではなく、source policy が typed helper boundary と diagnostic metadata を正しく監視できるようにする保守である。同時監査で分離した trap-based byte helper issue は、上記 `ISS-20260518T121529150Z-STRING-BYTE-INDEX-CHECKED-OR-UNREACH-4C77E237` として public API 削除まで完了した。
 
+`ISS-20260518T132553358Z-BINARYHEAP-PUSH-GROW-FAILURE-DESTROY-FC308045` は 2026-05-18 に修正した。`BinaryHeap.push` は owner-consuming API であるにもかかわらず、grow allocation failure では旧 `Vec<Option<T>>` storage を内部で `free` して `Diag` だけを返していた。これは caller が cleanup / retry を選べず、Resource IR が failure path の owner transfer を API 型から証明しにくい構造だった。修正後は `BinaryHeapPushError<T>` を導入し、`push<T>` を `Result<BinaryHeap<T>, BinaryHeapPushError<T>>` に変更した。failure payload は `heap: BinaryHeap<T>` と `diag: Diag` を持ち、success / failure は typed `Result::Ok` / `Result::Err` constructor で直接構築する。source policy は旧 grow failure branch の `vec::free<Option<T>> items` と `err<BinaryHeap<T>, Diag> e` への退行を拒否するため、Stage 6 の owner-preserving fallible update 方針が BinaryHeap にも適用される。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

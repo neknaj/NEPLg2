@@ -1,3 +1,17 @@
+# 2026-05-18 Agent 1 BinaryHeap push grow failure owner 修正
+
+- `ISS-20260518T132553358Z-BINARYHEAP-PUSH-GROW-FAILURE-DESTROY-FC308045` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`BinaryHeap.push` が `BinaryHeap<T>` owner を消費するにもかかわらず、grow allocation failure で旧 `Vec<Option<T>>` storage を内部で `free` し、caller には `Diag` だけを返していたこと。
+- `BinaryHeapPushError<T>` を導入し、`push<T>` を `Result<BinaryHeap<T>, BinaryHeapPushError<T>>` へ変更した。failure payload には元 heap owner と diagnostic を入れ、caller が `binary_heap_push_error_diag<T>` / `binary_heap_push_error_heap<T>` で diagnostic と owner を明示的に扱えるようにした。
+- source policy は `BinaryHeapPushError<T>`、新しい `push` signature、grow failure での owner-returning `Result::Err` を要求し、旧 `vec::free<Option<T>> items` + `err<BinaryHeap<T>, Diag> e` 経路の再導入を拒否する。
+- 検証:
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap/types.nepl -i stdlib/alloc/collections/binary_heap/api/push.nepl -i stdlib/alloc/collections/binary_heap/api/observer.nepl -i stdlib/alloc/collections/binary_heap/api/pop.nepl -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/agent1-binary-heap-push-owner-3.json -j 1 --dist web/dist --assert-io`: total=14, passed=14
+  - `node nodesrc/test_stdlib_documentation_contract.js`
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の collection owner-preserving fallible update として、BinaryHeap push の grow failure owner loss を閉じた。
+
 # 2026-05-18 Agent 1 ByteBuilder structural empty storage 修正
 
 - `ISS-20260518T130359928Z-BYTEBUILDER-EMPTY-STORAGE-STILL-USES-D46A4A9A` を追加し、fixed / resolved にした。`plan.md` は変更していない。

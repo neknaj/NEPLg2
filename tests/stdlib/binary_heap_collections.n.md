@@ -107,7 +107,7 @@ stdout: "test_report name=\"binary_heap_push_from_zero_capacity\" count=1 failed
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
-    let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 42;
+    let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 42;
     let ok <bool> match peek<i32> &hp1:
         Option::Some v:
             eq v 42

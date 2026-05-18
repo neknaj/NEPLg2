@@ -69,6 +69,9 @@ for (const submodule of ['create', 'observer', 'push', 'pop', 'cleanup']) {
     );
 }
 assert.match(typesCode, /struct\s+BinaryHeap<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'BinaryHeap must keep typed Vec<Option<T>> storage in its public owner struct');
+assert.match(typesCode, /struct\s+BinaryHeapPushError<\.T>:[\s\S]*heap\s+<BinaryHeap<\.T>>[\s\S]*diag\s+<Diag>/, 'BinaryHeap.push failure payload must carry the consumed heap owner and diagnostic');
+assert.match(typesCode, /fn\s+binary_heap_push_error_diag\s+<\.T>\s+<\(&BinaryHeapPushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/, 'BinaryHeapPushError diag access must borrow the error payload');
+assert.match(typesCode, /fn\s+binary_heap_push_error_heap\s+<\.T:\s*Copy>\s+<\(BinaryHeapPushError<\.T>\)->BinaryHeap<\.T>>[\s\S]*field::get\s+e\s+"heap"/, 'BinaryHeapPushError heap extraction must move the returned owner and remain Copy-only while BinaryHeap is Copy-only');
 assert.match(typesCode, /struct\s+BinaryHeapPop<\.T>:[\s\S]*heap\s+<BinaryHeap<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'BinaryHeap must expose an owner-preserving pop result');
 assert.match(storageCode, /fn\s+heap_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'BinaryHeap must read initialized slot state through Option<T>');
 assert.match(storageCode, /fn\s+heap_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'BinaryHeap must update slot state through Vec<Option<T>> replacement');
@@ -77,8 +80,9 @@ assert.match(orderCode, /fn\s+heap_sift_up\s+<\.T:\s*Ord&Copy>/, 'BinaryHeap ord
 assert.match(orderCode, /fn\s+heap_sift_down\s+<\.T:\s*Ord&Copy>/, 'BinaryHeap order module must own sift-down');
 assert.match(apiCreateCode, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.new must expose allocation as an impure Result<BinaryHeap<T>, Diag>');
 assert.match(apiCreateCode, /fn\s+with_capacity\s+<\.T:\s*Copy>\s+<\(i32\)\*>Result<BinaryHeap<\.T>, Diag>>[\s\S]*heap_normalize_capacity\s+cap[\s\S]*heap_alloc_slots<\.T>\s+cap0/, 'BinaryHeap.with_capacity must own initial allocation');
-assert.match(apiPushCode, /fn\s+push\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>,\.T\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.push must expose heap mutation as an impure Result<BinaryHeap<T>, Diag>');
-assert.match(apiPushCode, /match\s+heap_alloc_slots<\.T>\s+grown_cap:[\s\S]*Result::Err\s+e:[\s\S]*vec::free<Option<\.T>>\s+items[\s\S]*err<BinaryHeap<\.T>,\s*Diag>\s+e/, 'BinaryHeap.push must close old storage when grow allocation fails');
+assert.match(apiPushCode, /fn\s+push\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>,\.T\)\*>Result<BinaryHeap<\.T>,\s*BinaryHeapPushError<\.T>>>/, 'BinaryHeap.push must expose heap mutation as an owner-preserving Result<BinaryHeap<T>, BinaryHeapPushError<T>>');
+assert.match(apiPushCode, /match\s+heap_alloc_slots<\.T>\s+grown_cap:[\s\S]*Result::Err\s+e:[\s\S]*Result::Err<BinaryHeap<\.T>,\s*BinaryHeapPushError<\.T>>\s+BinaryHeapPushError<\.T>\s+\(BinaryHeap<\.T>\s+len0\s+cap0\s+items\)\s+e/, 'BinaryHeap.push grow failure must return the consumed heap owner in BinaryHeapPushError');
+assert.doesNotMatch(apiPushCode, /Result::Err\s+e:[\s\S]{0,120}vec::free<Option<\.T>>\s+items[\s\S]{0,120}err<BinaryHeap<\.T>,\s*Diag>\s+e/, 'BinaryHeap.push must not destroy the consumed heap owner and return Diag only on grow failure');
 assert.match(apiObserverCode, /fn\s+len\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.len must borrow the owner');
 assert.match(apiObserverCode, /#import\s+"core\/math"\s+as\s+\*/, 'BinaryHeap observer module must own the math operators used by is_empty and peek');
 assert.match(apiObserverCode, /fn\s+cap\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.cap must borrow the owner');

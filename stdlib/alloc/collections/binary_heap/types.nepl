@@ -2,12 +2,15 @@
 //: `BinaryHeap` の型定義
 //:
 //: ### [目的/もくてき]
-//: - heap 本体と owner-preserving pop result の型を定義します。
+//: - heap 本体、owner-preserving push error、owner-preserving pop result の型を定義します。
 //: - heap storage invariant を 1 [箇所/かしょ]で確認できるようにします。
 
 #indent 4
 
 #import "core/option" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 
 //: ## BinaryHeap
@@ -22,6 +25,87 @@ pub struct BinaryHeap<.T>:
     len <i32>
     cap <i32>
     items <Vec<Option<.T>>>
+
+//: ## BinaryHeapPushError
+//: `push` の grow [失敗/しっぱい]で[戻/もど]る error payload
+//:
+//: ### [目的/もくてき]
+//: - `push` が[消費/しょうひ]した heap owner を `heap` に[戻/もど]し、caller が cleanup や[再試行/さいしこう]を[選/えら]べるようにします。
+//: - `Diag` だけを[返/かえ]して heap owner の[行方/ゆくえ]を実装 discipline に[隠/かく]すことを[避/さ]けます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok new<i32>;
+//:     match push<i32> hp0 7:
+//:         Result::Ok hp1:
+//:             free<i32> hp1;
+//:             0
+//:         Result::Err e:
+//:             let hp2 <BinaryHeap<i32>> binary_heap_push_error_heap<i32> e;
+//:             free<i32> hp2;
+//:             1
+//: ```
+pub struct BinaryHeapPushError<.T>:
+    heap <BinaryHeap<.T>>
+    diag <Diag>
+
+//: ## binary_heap_push_error_diag
+//: `push` [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok new<i32>;
+//:     match push<i32> hp0 7:
+//:         Result::Ok hp1:
+//:             free<i32> hp1;
+//:             0
+//:         Result::Err e:
+//:             let _d <Diag> binary_heap_push_error_diag<i32> &e;
+//:             let hp2 <BinaryHeap<i32>> binary_heap_push_error_heap<i32> e;
+//:             free<i32> hp2;
+//:             1
+//: ```
+pub fn binary_heap_push_error_diag <.T> <(&BinaryHeapPushError<.T>)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: ## binary_heap_push_error_heap
+//: `push` [失敗/しっぱい]で[戻/もど]された heap owner を[取/と]り[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 BinaryHeap は `Vec<Option<T>>` storage を Copy-only payload に[限定/げんてい]しているため、この accessor も `.T: Copy` に[限定/げんてい]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok with_capacity<i32> 1;
+//:     match push<i32> hp0 7:
+//:         Result::Ok hp1:
+//:             free<i32> hp1;
+//:             0
+//:         Result::Err e:
+//:             let hp2 <BinaryHeap<i32>> binary_heap_push_error_heap<i32> e;
+//:             free<i32> hp2;
+//:             1
+//: ```
+pub fn binary_heap_push_error_heap <.T: Copy> <(BinaryHeapPushError<.T>)->BinaryHeap<.T>> (e):
+    field::get e "heap"
 
 //: ## BinaryHeapPop
 //: `pop_max` の[結果/けっか]

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T13:18:22.394Z",
+  "generated_at": "2026-05-18T13:37:58.238Z",
   "counts": {
-    "total": 1002,
+    "total": 1003,
     "open": 5,
-    "resolved": 997,
+    "resolved": 998,
     "by_area": {
       "stdlib": {
-        "total": 275,
+        "total": 276,
         "open": 3,
-        "resolved": 272
+        "resolved": 273
       },
       "TEST": {
         "total": 42,
@@ -11963,6 +11963,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T130359928Z-BYTEBUILDER-EMPTY-STORAGE-STILL-USES-D46A4A9A.md"
+    },
+    {
+      "id": "ISS-20260518T132553358Z-BINARYHEAP-PUSH-GROW-FAILURE-DESTROY-FC308045",
+      "title": "BinaryHeap.push grow failure destroys the consumed heap owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/collections/binary_heap/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T132553358Z-BINARYHEAP-PUSH-GROW-FAILURE-DESTROY-FC308045.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

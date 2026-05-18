@@ -91,9 +91,9 @@ pub fn binary_heap_pop_heap <.T: Copy> <(BinaryHeapPop<.T>)->BinaryHeap<.T>> (p)
 //:| #import "core/option" as *
 //: fn main <()*>i32> ():
 //:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
-//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 4;
-//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp1 9;
-//:     let hp3 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp2 1;
+//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 4;
+//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp1 9;
+//:     let hp3 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp2 1;
 //:     match pop<i32> hp3:
 //:         Option::Some v:
 //:             if eq v 9 1 0
