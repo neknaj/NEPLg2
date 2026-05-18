@@ -744,6 +744,12 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 
 修正後の doctest は `alloc/io` だけを import し、`io_bytebuf_from_owned_ptr 0 1` が未定義になることを確認する。source policy もこの removed-helper fixture に raw memory module import や raw `MemPtr` construction が戻らないことを監視する。これは ByteBuf owner boundary の本体修正ではなく、Stage 6 の regression fixture が raw boundary privilege を正常な前提として示さないための整理である。
 
+## 2026-05-18 Agent 1 stdio read raw fd_read helper 境界追記
+
+`ISS-20260518T213314500Z-STD-STDIO-READ-BUFFER-EXPOSES-RAW-ME-5BAB55A1` を解決した。`std/stdio/read/buffer` の raw `MemPtr` fd_read helper は direct import で public に見えていたため、caller が任意の iov / nread / data pointer と length を組み合わせて fd_read 境界へ渡せた。
+
+修正後は `stdio_fd_read_into_result` を private helper に戻し、lower-level な fd_read slice wrapper も public surface に出さない。public surface は `stdio_read_all_buffer_result` / `stdio_read_line_buffer_result` に限定し、iov / nread scratch、destination buffer、non-owning `MemPtr` view、fd_read loop、cleanup を `std/stdio/read/buffer` の local `RegionToken<u8>` owner 境界へ集約した。`read_all` / `read_line` は buffer module 外で raw fd_read span を再構築せず、高水準 `ByteBuf` API へ委譲するため、fd_read payload extent は caller convention ではなく source object と local owner proof に接続される。
+
 ## 2026-05-18 Agent 1 fs directory entry raw byte conversion 境界追記
 
 `ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92` を解決した。`std/fs/path/entry` は safe path facade から re-export される module であるにもかかわらず、`fs_string_from_bytes(i32,i32)` を public に持ち、任意 raw address を `mem_ptr_wrap` で `MemPtr<u8>` へ包んで directory entry name の `str` 化を行っていた。

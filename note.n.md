@@ -42036,3 +42036,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/stdio_write_raw_boundary.n.md --no-tree -o tmp/agent1-stdio-write-raw-boundary.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
   - `node nodesrc/tests.js -i stdlib/std/stdio/write.nepl -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/agent1-stdio-write-typed-boundary.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
   - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/agent1-streamio-stdio-write-boundary-j4.json -j 4 --dist web/dist --assert-io`: total=15, passed=15
+
+## 2026-05-18 Agent 1 stdio read raw fd_read helper 境界修正
+
+- `ISS-20260518T213314500Z-STD-STDIO-READ-BUFFER-EXPOSES-RAW-ME-5BAB55A1` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`std/stdio/read/buffer` が direct import 可能な module であり、`stdio_fd_read_into_result(i32, MemPtr<u8>, MemPtr<u8>, MemPtr<u8>, i32)` を public にしていたことだった。これにより通常 source が `RegionToken` 所有 buffer から導出された範囲ではなく、任意の `MemPtr` / length pair を fd_read 境界へ渡せた。
+- raw `MemPtr` helper は buffer module private に戻し、borrowed `RegionToken` slice wrapper を public にする設計は破棄した。borrowed token 越しの external IO payload extent proof を API 利用者へ押し出すと ResourceIR の証明境界が弱くなるため、public API は `stdio_read_all_buffer_result` / `stdio_read_line_buffer_result` の高水準 `ByteBuf` read boundary に限定した。
+- `read/buffer` が iov / nread scratch、destination buffer、non-owning `MemPtr` view、fd_read loop、cleanup、`ByteBuf` finalization を local `RegionToken<u8>` owner 境界で持つ。`read_all` / `read_line` は buffer module 外で fd_read 用の raw pointer span を組み立てず、高水準 buffer API へ委譲する形にした。
+- source policy と compile-fail doctest は、safe facade と direct buffer module import の両方で raw fd_read helper と lower-level fd_read slice wrapper が公開されないこと、read/bytes・read/text が raw fd_read span を再構築しないことを固定する。
+- focused verification:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl --no-tree -o tmp/agent1-stdio-read-buffer-doc.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_raw_boundary.n.md --no-tree -o tmp/agent1-stdio-read-raw-boundary.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read.nepl -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/agent1-stdio-read-typed-boundary.json -j 1 --dist web/dist --assert-io`: total=3, passed=3

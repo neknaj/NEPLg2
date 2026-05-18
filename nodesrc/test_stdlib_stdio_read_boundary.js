@@ -284,6 +284,36 @@ for (const helper of [
     assert.doesNotMatch(readTextCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/read/buffer`);
     assert.match(readBufferCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/read/buffer`);
 }
+assert.doesNotMatch(
+    readBufferCode,
+    /\bpub\s+fn\s+stdio_fd_read_into_result\b/,
+    'stdio_fd_read_into_result must not be public because raw MemPtr fd_read spans must stay inside read/buffer',
+);
+assert.doesNotMatch(
+    readBufferCode,
+    /\b(?:pub\s+)?fn\s+stdio_fd_read_region_slice_result\b/,
+    'stdio read buffer must not expose a lower-level fd_read wrapper that accepts caller-selected buffer slices',
+);
+assert.match(
+    readBufferCode,
+    /\bpub\s+fn\s+stdio_read_all_buffer_result\s+<\(\)\*>Result<ByteBuf,\s*StdErrorKind>>/,
+    'stdio read buffer must expose the high-level read-all ByteBuf boundary',
+);
+assert.match(
+    readBufferCode,
+    /\bpub\s+fn\s+stdio_read_line_buffer_result\s+<\(\)\*>Result<ByteBuf,\s*StdErrorKind>>/,
+    'stdio read buffer must expose the high-level read-line ByteBuf boundary',
+);
+assert.match(
+    readBufferCode,
+    /\bfn\s+stdio_read_all_buffer_result\b[\s\S]*\balloc_region<u8>\s+8[\s\S]*\balloc_region<u8>\s+4[\s\S]*\brealloc_region_bytes_keep<u8>[\s\S]*\bstdio_fd_read_into_result\b[\s\S]*\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region[\s\S]*\bstdio_finish_read_buffer\b/,
+    'read-all buffer boundary must own fd_read scratch allocation, growth, cleanup, and exact-size ByteBuf finalization',
+);
+assert.match(
+    readBufferCode,
+    /\bfn\s+stdio_read_line_buffer_result\b[\s\S]*\balloc_region<u8>\s+8[\s\S]*\balloc_region<u8>\s+4[\s\S]*\bstdio_fd_read_into_result\b[\s\S]*\bload_u8\s+write_ptr[\s\S]*\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region[\s\S]*\bstdio_finish_read_buffer\b/,
+    'read-line buffer boundary must own fd_read scratch allocation, byte inspection, cleanup, and ByteBuf finalization',
+);
 
 assert.match(
     readCode,
@@ -369,28 +399,13 @@ const readAllMatch = readBytesCode.match(
 assert.ok(readAllMatch, 'stdio_read_all_bytes_result body must be found');
 assert.match(
     readAllMatch[1],
-    /\bstdio_fd_read_into_result\b/,
-    'read_all must use the stdio fd_read scratch boundary helper',
+    /\bstdio_read_all_buffer_result\b/,
+    'read_all bytes facade must delegate to the high-level stdio read buffer boundary',
 );
-assert.match(
+assert.doesNotMatch(
     readAllMatch[1],
-    /\bstdio_finish_read_buffer\b/,
-    'read_all must return an exact-size ByteBuf through stdio_finish_read_buffer',
-);
-assert.match(
-    readAllMatch[1],
-    /\balloc_region<u8>/,
-    'read_all buffer and scratch allocation must use RegionToken owners',
-);
-assert.match(
-    readAllMatch[1],
-    /\brealloc_region_bytes_keep<u8>/,
-    'read_all grow path must keep buffer ownership in RegionToken',
-);
-assert.match(
-    readAllMatch[1],
-    /\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region\b/,
-    'read_all private fd_read scratch owners must be explicitly consumed through typed owner cleanup',
+    /\b(?:stdio_fd_read_into_result|mem_ptr_add|region_ptr|alloc_region|realloc_region_bytes_keep|dealloc_region)\b/,
+    'read_all bytes facade must not reconstruct fd_read scratch, raw views, or buffer ownership outside read/buffer',
 );
 assert.doesNotMatch(
     readAllMatch[1],
@@ -406,6 +421,16 @@ assert.doesNotMatch(
     readTextCode,
     /#import\s+"core\/mem\/raw"\s+as\s+\*/,
     'std/stdio/read/text must not import raw memory after read_line moves to RegionToken and checked scalar access',
+);
+assert.match(
+    readTextCode,
+    /fn\s+stdio_read_line_result\s+<\(\)\*>\s*Result<str\s*,\s*StdErrorKind>>\s+\(\):[\s\S]*\bmatch\s+stdio_read_line_buffer_result\b[\s\S]*\btext_bytebuf_to_utf8_str_result\s+bytes\b/,
+    'stdio_read_line_result must delegate raw line reading to read/buffer and only perform UTF-8 conversion',
+);
+assert.doesNotMatch(
+    readTextCode,
+    /\b(?:stdio_fd_read_into_result|stdio_fd_read_region_slice_result|alloc_region|dealloc_region|region_ptr|mem_ptr_add|store_u8|load_u8)\b/,
+    'read/text must not own fd_read scratch, raw views, or byte inspection after read_line moves to read/buffer',
 );
 
 assert.match(

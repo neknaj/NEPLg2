@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T21:23:21.562Z",
+  "generated_at": "2026-05-18T21:59:31.982Z",
   "counts": {
-    "total": 1018,
+    "total": 1019,
     "open": 5,
-    "resolved": 1013,
+    "resolved": 1014,
     "by_area": {
       "stdlib": {
-        "total": 284,
+        "total": 285,
         "open": 3,
-        "resolved": 281
+        "resolved": 282
       },
       "TEST": {
         "total": 43,
@@ -12158,6 +12158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T210549005Z-STD-STDIO-WRITE-FACADE-EXPOSES-RAW-M-11591E6E.md"
+    },
+    {
+      "id": "ISS-20260518T213314500Z-STD-STDIO-READ-BUFFER-EXPOSES-RAW-ME-5BAB55A1",
+      "title": "std/stdio read buffer exposes raw MemPtr fd_read helper",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/std/stdio/read/buffer.nepl, stdlib/std/stdio/read/bytes.nepl, stdlib/std/stdio/read/text.nepl, nodesrc/test_stdlib_stdio_read_boundary.js, tests/stdlib/stdio_read_raw_boundary.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T213314500Z-STD-STDIO-READ-BUFFER-EXPOSES-RAW-ME-5BAB55A1.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

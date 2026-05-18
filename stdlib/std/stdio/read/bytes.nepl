@@ -12,8 +12,6 @@
 #indent 4
 
 #import "alloc/io" as *
-#import "core/math" as *
-#import "core/mem" as *
 #import "core/result" as *
 #import "./buffer" as *
 
@@ -24,10 +22,10 @@
 //: - `std/streamio` や `StreamScanner` の binary read [入口/いりぐち]として、stdin [全体/ぜんたい]を `ByteBuf` として[保持/ほじ]します。
 //:
 //: ### [実装/じっそう]
-//: - 64KiB から[開始/かいし]して buffer を[必要/ひつよう]に[応/おう]じて[拡張/かくちょう]し、EOF まで `fd_read` を[反復/はんぷく]します。
+//: - `stdio_read_all_buffer_result` へ委譲し、`fd_read` scratch と raw memory boundary は `read/buffer` に集約します。
 //: - [返/かえ]り[値/あたい]の `ByteBuf` は[呼/よ]び[出/だ]し[側/がわ]が[所有/しょゆう]します。
 //: - allocation failure / invalid read boundary / fd_read failure は、それぞれ `StdErrorKind` として[返/かえ]します。
-//: - growable buffer と scratch buffer は `RegionToken<u8>` が所有し、`MemPtr` は `region_ptr` から得る non-owning view としてだけ使います。
+//: - この facade は raw `MemPtr` を扱わず、typed `ByteBuf` API だけを公開します。
 //:
 //: ### [注意/ちゅうい]
 //: - text helper `read_all` とは[別経路/べつけいろ]です。text [変換/へんかん]を[伴/ともな]わないため、NUL を[含/ふく]む入力もそのまま[保持/ほじ]します。
@@ -35,110 +33,7 @@
 //: ### [計算量/けいさんりょう]
 //: - [読/よ]み[込/こ]んだ byte [数/すう]を n として O(n) です。
 pub fn stdio_read_all_bytes_result <()*>Result<ByteBuf, StdErrorKind>> ():
-    let mut cap <i32> 65536;
-    match alloc_region<u8> cap:
-        Result::Err _e:
-            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
-        Result::Ok buf0_region:
-            let mut buf_region <RegionToken<u8>> buf0_region;
-            match alloc_region<u8> 8:
-                Result::Err _e:
-                    stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
-                Result::Ok iov_region:
-                    let iov <MemPtr<u8>> region_ptr &iov_region
-                    match alloc_region<u8> 4:
-                        Result::Err _e:
-                            match dealloc_region<u8> iov_region:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
-                            stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
-                        Result::Ok nread_region:
-                            let nread_ptr <MemPtr<u8>> region_ptr &nread_region
-                            let mut read_len <i32> 0;
-                            let mut done <i32> 0;
-                            let mut failed <i32> 0;
-                            let mut failure <StdErrorKind> StdErrorKind::Failure;
-
-                            while eq done 0:
-                                do:
-                                    if:
-                                        eq read_len cap
-                                        then:
-                                            let new_cap <i32> mul cap 2;
-                                            if:
-                                                le new_cap cap
-                                                then:
-                                                    set failed 1;
-                                                    set failure StdErrorKind::CapacityExceeded;
-                                                    set done 1;
-                                                else:
-                                                    if:
-                                                        not alloc_payload_fits new_cap
-                                                        then:
-                                                            set failed 1;
-                                                            set failure StdErrorKind::CapacityExceeded;
-                                                            set done 1;
-                                                        else:
-                                                            match realloc_region_bytes_keep<u8> buf_region new_cap:
-                                                                Result::Ok new_region:
-                                                                    set buf_region new_region;
-                                                                    set cap new_cap;
-                                                                Result::Err e:
-                                                                    let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
-                                                                    set buf_region old_region;
-                                                                    set failed 1;
-                                                                    set failure StdErrorKind::OutOfMemory;
-                                                                    set done 1;
-                                        else:
-                                            ();
-
-                                    if:
-                                        eq done 0
-                                        then:
-                                            let remaining <i32> sub cap read_len;
-                                            let write_base <MemPtr<u8>> region_ptr &buf_region
-                                            let write_ptr <MemPtr<u8>> mem_ptr_add write_base read_len
-                                            match stdio_fd_read_into_result 0 iov nread_ptr write_ptr remaining:
-                                                Result::Err e:
-                                                    set failed 1;
-                                                    set failure e;
-                                                    set done 1;
-                                                Result::Ok n:
-                                                    if:
-                                                        or lt n 0 gt n remaining
-                                                        then:
-                                                            set failed 1;
-                                                            set failure StdErrorKind::InvalidOperation;
-                                                            set done 1;
-                                                        else:
-                                                            if:
-                                                                eq n 0
-                                                                then:
-                                                                    set done 1;
-                                                                else:
-                                                                    set read_len add read_len n;
-                                        else:
-                                            ();
-
-                            match dealloc_region<u8> nread_region:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
-                            match dealloc_region<u8> iov_region:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
-
-                            if:
-                                eq failed 1
-                                then:
-                                    stdio_discard_read_buffer buf_region failure
-                                else:
-                                    stdio_finish_read_buffer buf_region read_len
+    stdio_read_all_buffer_result
 
 //: ## stdio_read_all_bytes
 //: stdin の[残/のこ]りを `ByteBuf` として[読/よ]み[込/こ]む互換 facade
