@@ -1707,6 +1707,7 @@ const maxLines = new Map([
     ['owner_raw_view.rs', 180],
     ['owner_raw_view_model.rs', 60],
     ['owner_raw_view_table.rs', 160],
+    ['owner_release.rs', 170],
     ['owner_summary.rs', 460],
     ['owner_summary_canonicalize.rs', 240],
     ['owner_summary_consumed.rs', 80],
@@ -1750,6 +1751,8 @@ const maxLines = new Map([
     ['owner_return.rs', 220],
     ['owner_return_apply.rs', 410],
     ['owner_return_apply_extent.rs', 120],
+    ['owner_return_apply_place.rs', 80],
+    ['owner_return_apply_projection.rs', 220],
     ['owner_return_apply_source.rs', 180],
     ['owner_return_unknown.rs', 180],
     ['owner_return_view.rs', 80],
@@ -1913,6 +1916,7 @@ const maxLines = new Map([
     ['owner_state.rs', 400],
     ['place_utils.rs', 460],
     ['raw_pointer_type.rs', 120],
+    ['raw_pointer_type_tests.rs', 80],
     ['storage_origin.rs', 320],
 ]);
 

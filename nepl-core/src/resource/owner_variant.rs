@@ -12,7 +12,7 @@ use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::summarize_owner_storage_extent;
 use super::owner_raw_view::RawAddressViewTable;
-use super::owner_return_apply_source::summary_projection_place;
+use super::owner_return_apply_place::summary_projection_place;
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_variant_apply::{

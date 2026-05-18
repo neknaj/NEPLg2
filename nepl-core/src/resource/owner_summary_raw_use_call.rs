@@ -1,5 +1,5 @@
 use super::model::{Place, ResourceCallTarget};
-use super::owner_return_apply_source::owner_projection_source_place_for_arg;
+use super::owner_return_apply_place::owner_projection_source_place_for_arg;
 use super::owner_summary_raw_transfer::place_matches_any_alias;
 use super::summary::{OwnerProjectionSource, OwnerReturnSummary, OwnerReturnSummaryIndex};
 

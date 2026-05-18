@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T01:47:39.268Z",
+  "generated_at": "2026-05-18T02:04:39.473Z",
   "counts": {
-    "total": 973,
+    "total": 974,
     "open": 5,
-    "resolved": 968,
+    "resolved": 969,
     "by_area": {
       "stdlib": {
         "total": 262,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 499,
+        "total": 500,
         "open": 0,
-        "resolved": 499
+        "resolved": 500
       },
       "CORE": {
         "total": 4,
@@ -7628,6 +7628,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T013143510Z-RESOURCE-IR-RAW-IDENTITY-ESCAPE-MISS-DB101F7A.md"
+    },
+    {
+      "id": "ISS-20260518T015305820Z-RESOURCE-OWNER-FLOW-RESPONSIBILITY-L-ED29F73C",
+      "title": "Resource owner checker responsibility limits fail after checker growth",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_release.rs, nepl-core/src/resource/owner_return_apply.rs, nepl-core/src/resource/owner_return_apply_projection.rs, nepl-core/src/resource/owner_return_apply_source.rs, nepl-core/src/resource/owner_return_apply_place.rs, nepl-core/src/resource/raw_pointer_type.rs, nepl-core/src/resource/raw_pointer_type_tests.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T015305820Z-RESOURCE-OWNER-FLOW-RESPONSIBILITY-L-ED29F73C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

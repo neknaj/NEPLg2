@@ -4,7 +4,6 @@ use crate::span::Span;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place};
-use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::instantiate_owner_extent_summary;
 use super::owner_raw_view::RawAddressViewTable;
@@ -12,25 +11,33 @@ use super::owner_return_apply_extent::apply_returned_owner_extent;
 use super::owner_return_apply_place::owner_projection_source_place;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerNonOwningRawViewKind, OwnerProjectionSource, OwnerReturnSummary};
+use super::summary::{
+    OwnerConsumedExtentRequirement, OwnerProjectionReturnSummary, OwnerProjectionSource,
+};
 
 impl ResourceOwnerCheckEngine<'_> {
-    pub(super) fn apply_owner_return_summary(
+    pub(super) fn apply_owner_projection_return_summary(
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
-        variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
         args: &[Place],
-        summary: &OwnerReturnSummary,
+        summary: &OwnerProjectionReturnSummary,
+        consumed_extent_requirements: &[OwnerConsumedExtentRequirement],
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         span: Span,
     ) {
         let mut transferred = false;
+        if owners.state(output).is_none() {
+            owners.set_state(output, OwnerState::NoFreeObligation);
+        }
+        if self.has_transferable_owner(owners, raw_aliases, output) {
+            return;
+        }
         for (parameter_index, arg) in summary
             .parameter_indices
             .iter()
@@ -79,7 +86,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     arg,
                     args,
                     &source,
-                    &summary.consumed_extent_requirements,
+                    consumed_extent_requirements,
                     span,
                 ) {
                     continue;
@@ -150,7 +157,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     &source_place,
                     args,
                     source,
-                    &summary.consumed_extent_requirements,
+                    consumed_extent_requirements,
                     span,
                 ) {
                     continue;
@@ -187,59 +194,5 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);
         }
-        for marker in &summary.non_owning_raw_view_returns {
-            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
-            match marker.kind {
-                OwnerNonOwningRawViewKind::AliasView => raw_views.mark_non_owning(&marker_place),
-                OwnerNonOwningRawViewKind::ProjectionView => {
-                    raw_views.mark_non_owning_projection(&marker_place)
-                }
-            }
-        }
-        for projection in &summary.projection_returns {
-            let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
-            self.apply_owner_projection_return_summary(
-                owners,
-                raw_aliases,
-                raw_views,
-                storage_origins,
-                &output_projection,
-                args,
-                projection,
-                &summary.consumed_extent_requirements,
-                variant_owner_effects,
-                span,
-            );
-        }
-        for marker in &summary.projection_markers {
-            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
-            if owners.state(&marker_place).is_none() {
-                owners.set_state(&marker_place, OwnerState::NoFreeObligation);
-            }
-        }
-        for marker in &summary.storage_origin_markers {
-            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
-            storage_origins.mark_origin(&marker_place, marker.origin);
-        }
-        self.consume_owner_summary_parameters(
-            owners,
-            raw_aliases,
-            raw_views,
-            storage_origins,
-            args,
-            summary,
-            variant_owner_effects,
-            span,
-        );
-    }
-
-    pub(super) fn has_transferable_owner(
-        &self,
-        owners: &OwnerTable,
-        raw_aliases: &RawCellAddressAliases,
-        place: &Place,
-    ) -> bool {
-        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
-        owners.has_transferable_owner(&resolved_place)
     }
 }

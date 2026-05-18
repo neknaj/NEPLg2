@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{I32ValueCondition, Place};
-use super::owner_return_apply_source::owner_projection_source_place_for_arg;
+use super::owner_return_apply_place::owner_projection_source_place_for_arg;
 use super::owner_summary_record::OwnerParameterConditionSource;
 use super::owner_summary_variant_conditions::extend_owner_projection_source;
 use super::place_utils::place_suffix_after_prefix;

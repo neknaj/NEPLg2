@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerStorageExtent, Place, ResourceI32RelationOp};
-use super::owner_return_apply_source::owner_projection_source_place;
+use super::owner_return_apply_place::owner_projection_source_place;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_summary_variant_conditions::extend_owner_projection_source;
 use super::place_utils::{place_suffix_after_prefix, push_unique_place};

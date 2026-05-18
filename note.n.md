@@ -41313,3 +41313,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 15 --dist web/dist`: passed
   - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 16 --dist web/dist`: passed
   - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 17 --dist web/dist`: passed
+
+## 2026-05-18 Agent 1 Resource owner checker 責務分割 policy 修正
+
+- `ISS-20260518T015305820Z-RESOURCE-OWNER-FLOW-RESPONSIBILITY-L-ED29F73C` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR owner checker の実装修正が続いた結果、`owner_flow.rs` に release / availability が戻り、owner return summary application では root return と projection return、source place helper、copy-owner-view 判定が再集中していたことだった。さらに前回追加した raw pointer carrier regression test が `raw_pointer_type.rs` 本体へ入り、policy line limit を超えていた。
+- 修正後は `owner_release.rs`、`owner_return_apply_projection.rs`、`owner_return_apply_place.rs`、`raw_pointer_type_tests.rs` を追加し、既存 semantics を維持したまま責務境界を module と source policy に戻した。
+- focused verification:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo test -p nepl-core raw_pointer_type -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core resource_ir_owner_check -- --nocapture`: 99 passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --all --check`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: CRLF warnings only

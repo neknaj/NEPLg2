@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use super::model::{Place, ResourceCallTarget};
 use super::owner_raw_view::RawAddressViewTable;
-use super::owner_return_apply_source::owner_projection_source_place_for_arg;
+use super::owner_return_apply_place::owner_projection_source_place_for_arg;
 use super::owner_summary_raw_transfer::push_transferred_value_aliases;
 use super::place_utils::place_with_suffix;
 use super::summary::{

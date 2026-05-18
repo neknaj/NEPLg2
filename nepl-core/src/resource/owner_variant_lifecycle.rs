@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::model::Place;
-use super::owner_return_apply_source::summary_projection_place;
+use super::owner_return_apply_place::summary_projection_place;
 use super::owner_variant::{
     PendingUnreachableVariant, PendingVariantOwnerConsumption, PendingVariantOwnerEffects,
     PendingVariantOwnerReturn, PendingVariantOwnerReturnSource,

@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::owner_extent::instantiate_owner_extent_summary;
-use super::owner_return_apply_source::{
+use super::owner_return_apply_place::{
     owner_projection_source_place_for_arg, summary_projection_place,
 };
 use super::owner_variant::{
