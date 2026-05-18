@@ -5,7 +5,11 @@
 このケースは、存在しないファイルを読んだときに `fs_read_to_string` が `Err` を返すことを確認します。
 ファイルシステム依存の失敗を成功扱いしないことが目的です。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -31,8 +35,11 @@ fn main <()*>i32> ():
 このケースは、`ByteBuf` を `fs_bytes_to_string` で `str` に戻せることを確認します。
 host filesystem の preopen に依存しない形で、`std/fs` の binary helper が `ByteBuf` 前提で保たれていることを確認するのが目的です。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -57,8 +64,11 @@ fn main <()*>i32> ():
 このケースは、`fs_write_to_string` が存在しないファイルを作成し、既存ファイルを truncate してから内容を書き直すことを確認します。
 self-host compiler が同じ output path へ artifact を再生成するとき、古い内容が末尾に残らないことが目的です。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -93,8 +103,14 @@ fn main <()*>i32> ():
 このケースは、`fs_write_to_bytes` が text ではなく binary buffer として NUL byte を含む内容をそのまま保存できることを確認します。
 `.wasm` artifact は NUL を含むため、文字列 roundtrip だけでは write API の十分な回帰テストになりません。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #indent 4
@@ -148,8 +164,14 @@ fn main <()*>i32> ():
 このケースは、`fs_exists` / `fs_is_file` / `fs_is_dir` が読み込み副作用なしで file kind を判定できることを確認します。
 stdlib discovery が候補 path を read 失敗で分類しないための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #indent 4
@@ -179,8 +201,13 @@ fn main <()*>i32> ():
 このケースは、相対 path 正規化が `.` と内部 `..` を畳みつつ、preopen root 外へ出る `..` を拒否することを確認します。
 host path 文字列を caller が手作業で扱う経路を増やさないための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #indent 4
@@ -217,8 +244,14 @@ fn main <()*>i32> ():
 このケースは、`fs_read_dir` が directory entry 名だけを安定した byte 順で返すことを確認します。
 host filesystem の列挙順が違っても self-host compiler の discovery 結果がぶれないようにするための回帰テストです。
 
-neplg2:test[skip]
-ret: 0
+neplg2:test[skip, stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #indent 4
@@ -264,8 +297,13 @@ fn main <()*>i32> ():
 このケースは、directory entry sort が `Vec` の公開 API 経由で `str` view を並べ替えることを確認します。
 host filesystem に依存せず、`fs_read_dir` の sort 境界だけを直接検証するための回帰テストです。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #indent 4

@@ -1547,3 +1547,21 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/traits_order.n.md --no-tree -o tmp/agent1-traits-order-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
 
 この issue はまだ open のまま継続する。`traits_order` の target subcase は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 fs facade stdout report metadata migration
+
+`ISS-20260518T230932301Z-FS-DOCTESTS-PRINT-REPORTS-BUT-KEEP-R-9E9FDEC4` として、`tests/stdlib/fs.n.md` の 8 doctest を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- missing file read、ByteBuf string roundtrip、string write/truncate、binary write/read、file kind、path normalize、read_dir、sort helper の report を stdout fixture に固定した。
+- skip 中の `fs_read_dir_returns_sorted_entries` も manifest contract として `skip, stdio, normalize_newlines` と deterministic stdout を持つようにした。
+- `nodesrc/test_stdlib_fs_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_stdlib_fs_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-nmd-report.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
+
+この issue はまだ open のまま継続する。`fs.n.md` は移行済みで、残る ret-only assertion fixture は core-only `stdlib/core/test.nepl` の扱い確認が中心である。

@@ -42111,3 +42111,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_traits_order_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/traits_order.n.md --no-tree -o tmp/agent1-traits-order-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+
+## 2026-05-18 Agent 1 fs.n.md stdout report metadata 移行
+
+- `ISS-20260518T230932301Z-FS-DOCTESTS-PRINT-REPORTS-BUT-KEEP-R-9E9FDEC4` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/fs.n.md` の 8 doctest が `checks_print_report` を呼んでいるにもかかわらず、manifest 側は `ret:` または stdout / exit_code expectation 省略に留まり、read / write / normalize / directory sort の assertion detail を fixture に固定していなかったことだった。
+- 8 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。skip 中の read_dir case も manifest contract として stdout expectation を持つ。
+- `nodesrc/test_stdlib_fs_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_stdlib_fs_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-nmd-report.json -j 1 --dist web/dist --assert-io`: total=8, passed=8

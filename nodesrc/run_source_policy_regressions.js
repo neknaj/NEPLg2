@@ -10,6 +10,7 @@ const warnOnly = process.argv.includes("--warn-only");
 const checks = [
     "nodesrc/test_stdlib_match_decision_trees.js",
     "nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_fs_report_contract.js",
     "nodesrc/test_run_test_wasi_tmp_dir.js",
     "nodesrc/test_run_test_wasix_missing_wasmer_fallback.js",
     "nodesrc/test_run_test_timing_metadata.js",
