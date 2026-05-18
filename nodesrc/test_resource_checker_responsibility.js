@@ -715,6 +715,16 @@ assertContains(
     'pub(super) fn raw_memory_call_uses_direct_raw_address',
     'lower_raw_memory.rs',
 );
+assertContains(
+    lowerRawMemory,
+    'raw_memory_intrinsic_op_from_name(name)',
+    'lower_raw_memory.rs must consume the typed raw-memory intrinsic classifier directly',
+);
+assertNotContains(
+    lowerRawMemory,
+    'intrinsic_is_raw_memory_effect',
+    'lower_raw_memory.rs must not combine a boolean intrinsic gate with helper-name reclassification',
+);
 assertContains(lowerCall, 'pub(super) fn call_effect_skeleton', 'lower_call.rs');
 assertContains(lowerCall, 'pub(super) fn lower_call_target', 'lower_call.rs');
 assertContains(lowerCall, 'pub(super) fn func_ref_base_name', 'lower_call.rs');

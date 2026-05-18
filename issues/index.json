@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T11:16:10.243Z",
+  "generated_at": "2026-05-18T11:23:14.949Z",
   "counts": {
-    "total": 995,
+    "total": 996,
     "open": 5,
-    "resolved": 990,
+    "resolved": 991,
     "by_area": {
       "stdlib": {
         "total": 270,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 507,
+        "total": 508,
         "open": 0,
-        "resolved": 507
+        "resolved": 508
       },
       "CORE": {
         "total": 4,
@@ -7748,6 +7748,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146.md"
+    },
+    {
+      "id": "ISS-20260518T112010000Z-RESOURCE-LOWERING-RAW-MEMORY-INTRINS-A25124A3",
+      "title": "Resource lowering raw memory intrinsic classifier still uses boolean gate",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/lower_raw_memory.rs, nepl-core/src/effects.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T112010000Z-RESOURCE-LOWERING-RAW-MEMORY-INTRINS-A25124A3.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

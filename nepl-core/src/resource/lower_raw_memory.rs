@@ -1,5 +1,5 @@
 use crate::effects::{
-    intrinsic_is_raw_memory_effect, raw_memory_op_from_name as effect_raw_memory_op_from_name,
+    raw_memory_intrinsic_op_from_name, raw_memory_op_from_name as effect_raw_memory_op_from_name,
 };
 use crate::hir::{FuncRef, HirExpr};
 use crate::resource_primitives::type_is_raw_pointer;
@@ -15,11 +15,7 @@ pub(super) fn raw_memory_op_from_callee(callee: &FuncRef) -> Option<RawMemoryOp>
 }
 
 pub(super) fn raw_memory_op_from_intrinsic(name: &str) -> Option<RawMemoryOp> {
-    if intrinsic_is_raw_memory_effect(name) {
-        raw_memory_op_from_name(name)
-    } else {
-        None
-    }
+    raw_memory_intrinsic_op_from_name(name)
 }
 
 pub(super) fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {

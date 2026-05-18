@@ -41667,3 +41667,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir unknown_offset -- --nocapture`: passed
   - `cargo fmt --all -- --check`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
+
+## 2026-05-18 Agent 1 Resource lowering raw intrinsic classifier 直結
+
+- `ISS-20260518T112010000Z-RESOURCE-LOWERING-RAW-MEMORY-INTRINS-A25124A3` を作成して fixed にした。`plan.md` は変更していない。
+- `typecheck/effect_check.rs` は既に `raw_memory_intrinsic_op_from_name` を直接消費していたが、`resource/lower_raw_memory.rs` だけは `intrinsic_is_raw_memory_effect` boolean gate の後で helper-name classifier へ再分類していた。
+- Resource IR lowering も `raw_memory_intrinsic_op_from_name(name)` を直接消費するようにして、raw intrinsic operation proof を typecheck と Resource IR で同じ typed classifier に揃えた。
+- `nodesrc/test_resource_checker_responsibility.js` に regression を追加し、`lower_raw_memory.rs` が `intrinsic_is_raw_memory_effect` を再導入しないことを固定した。
