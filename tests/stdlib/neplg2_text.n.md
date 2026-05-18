@@ -2,8 +2,16 @@
 
 ## builds_line_map_for_lf_and_eof
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
 ```neplg2
 #entry main
 #target std
@@ -60,8 +68,15 @@ fn main <()*>i32> ():
 
 ## trims_crlf_line_spans
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
 ```neplg2
 #entry main
 #target std
@@ -110,8 +125,14 @@ fn main <()*>i32> ():
 
 ## rejects_out_of_range_offsets_and_lines
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #target std
@@ -145,8 +166,16 @@ fn main <()*>i32> ():
 
 ## builds_large_line_map_without_stack_growth
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
 ```neplg2
 #entry main
 #target std

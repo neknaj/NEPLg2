@@ -1474,3 +1474,21 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent1-string-char-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
 
 この issue はまだ open のまま継続する。`string_char` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。
+
+## 2026-05-18 neplg2_text stdout report metadata migration
+
+`ISS-20260518T224250390Z-NEPLG2-TEXT-DOCTESTS-STILL-USE-RET-M-82850ECD` として、`tests/stdlib/neplg2_text.n.md` の 4 doctest を `ret: 0` から stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- line map / CRLF span / out-of-range / large line-map の selfhost source text 検査結果を `std/test::Checks` の stdout report として fixture に固定した。
+- 既存の `checks_print_report` -> `checks_exit_code` の順序は維持し、manifest だけで success/failure detail が分かるようにした。
+- `nodesrc/test_selfhost_source_text_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_selfhost_source_text_report_contract.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/agent1-neplg2-text-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4
+
+この issue はまだ open のまま継続する。`neplg2_text` は移行済みだが、他の `ret:` 依存 fixture と report 省略検出 policy の一般化が残っている。

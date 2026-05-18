@@ -124,6 +124,7 @@ const checks = [
     "nodesrc/test_selfhost_def_id_absence.js",
     "nodesrc/test_selfhost_hir_expr_payload.js",
     "nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js",
+    "nodesrc/test_selfhost_source_text_report_contract.js",
     "nodesrc/test_selfhost_source_text_no_recursive_line_map.js",
     "nodesrc/test_selfhost_string_helpers_boundary.js",
     "nodesrc/test_selfhost_parser_tokenkind_match.js",

@@ -42071,3 +42071,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_string_char_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent1-string-char-report.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+
+## 2026-05-18 Agent 1 neplg2_text stdout report metadata 移行
+
+- `ISS-20260518T224250390Z-NEPLG2-TEXT-DOCTESTS-STILL-USE-RET-M-82850ECD` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/neplg2_text.n.md` の 4 doctest が `checks_print_report` を呼んでいるにもかかわらず `ret: 0` のままで、selfhost source text の line map / CRLF span / out-of-range / large line-map の assertion detail を stdout fixture として固定していなかったことだった。
+- 4 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行し、既存の `checks_print_report` -> `checks_exit_code` の順序を fixture と source policy の両方で固定した。
+- `nodesrc/test_selfhost_source_text_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- focused verification:
+  - `node nodesrc/test_selfhost_source_text_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/agent1-neplg2-text-report.json -j 1 --dist web/dist --assert-io`: total=4, passed=4

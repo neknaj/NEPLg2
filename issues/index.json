@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T22:40:00.682Z",
+  "generated_at": "2026-05-18T22:45:33.534Z",
   "counts": {
-    "total": 1022,
+    "total": 1023,
     "open": 5,
-    "resolved": 1017,
+    "resolved": 1018,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 44,
+        "total": 45,
         "open": 1,
-        "resolved": 43
+        "resolved": 44
       },
       "selfhost": {
         "total": 72,
@@ -12968,6 +12968,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T223426080Z-STRING-CHAR-DOCTESTS-STILL-USE-RET-W-0FE6D028.md"
+    },
+    {
+      "id": "ISS-20260518T224250390Z-NEPLG2-TEXT-DOCTESTS-STILL-USE-RET-M-82850ECD",
+      "title": "neplg2_text doctests still use ret metadata instead of stdout reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/neplg2_text.n.md, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T224250390Z-NEPLG2-TEXT-DOCTESTS-STILL-USE-RET-M-82850ECD.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
