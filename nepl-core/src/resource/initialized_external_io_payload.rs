@@ -1,10 +1,8 @@
 use super::cell_state::CellTable;
 use super::cell_state_raw_range::InitializedRawRangeUnit;
+use super::external_io_iov_layout::{iov_buffer_pointer_cells, raw_cell_is_under_any_address};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_external_io_iov_layout::{
-    iov_buffer_pointer_cells, raw_cell_is_under_any_address,
-};
 use super::model::Place;
 use super::place_utils::raw_memory_cell_place;
 

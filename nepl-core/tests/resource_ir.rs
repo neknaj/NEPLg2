@@ -18492,6 +18492,196 @@ fn resource_ir_cell_check_fd_read_reports_uninitialized_iovec_descriptor() {
 }
 
 #[test]
+fn resource_ir_owner_check_fd_read_rejects_iovec_payload_extent_mismatch() {
+    let (resource, types) = external_io_iov_owner_resource(ExternalIoOp::FdRead, 1, 8);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "fd_read must prove iovec payload length against the backing owner extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_fd_write_rejects_iovec_payload_extent_mismatch() {
+    let (resource, types) = external_io_iov_owner_resource(ExternalIoOp::FdWrite, 1, 8);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "fd_write must prove iovec payload length against the backing owner extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_fd_read_accepts_iovec_payload_extent_match() {
+    let (resource, types) = external_io_iov_owner_resource(ExternalIoOp::FdRead, 8, 8);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "matching fd_read iovec payload length and owner extent must be accepted: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+fn external_io_iov_owner_resource(
+    operation: ExternalIoOp,
+    allocation_len: i32,
+    iov_len: i32,
+) -> (ResourceModule, TypeCtx) {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let iov_count = Place::temporary(ResourceId(1), i32_ty);
+    let alloc_len = Place::temporary(ResourceId(2), i32_ty);
+    let payload_len = Place::temporary(ResourceId(3), i32_ty);
+    let iov_storage_len = Place::temporary(ResourceId(4), i32_ty);
+    let out_storage_len = Place::temporary(ResourceId(5), i32_ty);
+    let payload = Place::temporary(ResourceId(6), i32_ty);
+    let payload_view = Place::temporary(ResourceId(7), i32_ty);
+    let iov = Place::temporary(ResourceId(8), i32_ty);
+    let out_ptr = Place::temporary(ResourceId(9), i32_ty);
+    let store_payload = Place::temporary(ResourceId(10), unit_ty);
+    let iov_len_cell = iov.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
+        i32_ty,
+    );
+    let store_len = Place::temporary(ResourceId(11), unit_ty);
+    let errno = Place::temporary(ResourceId(12), i32_ty);
+    let free_out = Place::temporary(ResourceId(13), unit_ty);
+    let free_iov = Place::temporary(ResourceId(14), unit_ty);
+    let free_payload = Place::temporary(ResourceId(15), unit_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: fd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(1),
+                output: iov_count.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(allocation_len),
+                output: alloc_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(iov_len),
+                output: payload_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(8),
+                output: iov_storage_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: out_storage_len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: payload.clone(),
+                args: vec![alloc_len.clone()],
+                span,
+            },
+            ResourceOp::RawAddressView {
+                source: payload.clone(),
+                target: payload_view.clone(),
+                kind: RawAddressViewKind::NonOwningProjection,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: iov.clone(),
+                args: vec![iov_storage_len.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: out_ptr.clone(),
+                args: vec![out_storage_len.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_payload,
+                args: vec![iov.clone(), payload_view],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_len,
+                args: vec![iov_len_cell, payload_len],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: operation.as_str().to_string(),
+                },
+                args: vec![fd, iov.clone(), iov_count, out_ptr.clone()],
+                effect: EffectOp::ExternalIo { operation },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: free_out,
+                args: vec![out_ptr, out_storage_len],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: free_iov,
+                args: vec![iov, iov_storage_len],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: free_payload,
+                args: vec![payload, alloc_len],
+                span,
+            },
+        ],
+    );
+    (resource, types)
+}
+
+#[test]
 fn resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee() {
     let source = r#"
 #entry main

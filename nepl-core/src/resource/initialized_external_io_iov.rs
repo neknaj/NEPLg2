@@ -1,11 +1,11 @@
 use crate::span::Span;
 
 use super::cell_state::CellTable;
-use super::initialized::ResourceCheckEngine;
-use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_external_io_iov_layout::{
+use super::external_io_iov_layout::{
     iov_buffer_pointer_cells, iov_length_cell, raw_cell_is_under_any_address,
 };
+use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{CellState, Place};
 use super::place_utils::raw_memory_unknown_offset_cell_place;
 use super::report::ResourceCheckOperation;

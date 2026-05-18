@@ -41615,3 +41615,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_text_utf8_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-text-utf8-report-metadata.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+
+## 2026-05-18 Agent 1 Resource IR external IO iovec owner extent 証明
+
+- `ISS-20260518T095629679Z-RESOURCE-IR-EXTERNAL-IO-IOVEC-PAYLOA-EBED3E34` を作成して resolved にした。`plan.md` は変更していない。
+- 根本原因は、`fd_read` / `fd_write` の iovec payload が initialized checker では扱われていた一方で、owner checker が `EffectOp::ExternalIo` の host-visible span を `OwnerStorageExtent` と照合していなかったことだった。
+- `external_io_iov_layout.rs` を shared helper にし、initialized checker と owner checker が同じ iovec descriptor 解釈を使うようにした。
+- `external_io_iov_contract.rs` は `ExternalIoOp` の exhaustive match で iovec payload を持つ operation を分類する。stdlib module 名や helper 名の allowlist ではなく、typed effect operation から検査対象を決める。
+- `owner_external_io.rs` は descriptor cell から payload pointer / length を導出し、raw alias で backing owner へ解決して、payload length と allocation / RegionToken extent を証明する。mismatch は `ResourceOwnerOperation::ExternalIoPayloadExtent` として診断する。
+- 非所有 raw address view を descriptor cell に保存する場合は free obligation を移動せず、non-owning alias として残すようにした。これにより `MemPtr = non-owning pointer` / `RegionToken = free obligation owner` の分離と external IO proof がつながる。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_fd_ -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir scratch_cleanup -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --all -- --check`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

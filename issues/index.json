@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T09:39:24.557Z",
+  "generated_at": "2026-05-18T10:11:34.824Z",
   "counts": {
-    "total": 991,
+    "total": 992,
     "open": 5,
-    "resolved": 986,
+    "resolved": 987,
     "by_area": {
       "stdlib": {
         "total": 270,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 503,
+        "total": 504,
         "open": 0,
-        "resolved": 503
+        "resolved": 504
       },
       "CORE": {
         "total": 4,
@@ -7688,6 +7688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T085107445Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-D-3FB2EE7D.md"
+    },
+    {
+      "id": "ISS-20260518T095629679Z-RESOURCE-IR-EXTERNAL-IO-IOVEC-PAYLOA-EBED3E34",
+      "title": "Resource IR external IO iovec payload extent is not owner-proven",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nepl-core/src/resource/owner_external_io.rs; nepl-core/src/resource/external_io_iov_layout.rs; nepl-core/tests/resource_ir.rs; doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T095629679Z-RESOURCE-IR-EXTERNAL-IO-IOVEC-PAYLOA-EBED3E34.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

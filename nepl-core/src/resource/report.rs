@@ -192,6 +192,7 @@ pub enum ResourceOwnerOperation {
     DeallocExtent,
     ReallocInput,
     ReallocExtent,
+    ExternalIoPayloadExtent,
     RawMemoryLoadCell,
     RawMemoryStoreValue,
     CallArgument,

@@ -91,7 +91,6 @@ impl ResourceOwnerCheckEngine<'_> {
             TypeKind::I32
         ) || raw_views.contains_non_owning(value))
             && raw_views.contains_non_owning(value)
-            && !self.has_transferable_owner(owners, raw_aliases, value)
             && !owners.has_tracked_state_under(value)
             && raw_aliases
                 .aliases_for(value)

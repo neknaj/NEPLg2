@@ -689,3 +689,11 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 修正では `sha256/api.nepl` の実装内 field access を `core/field` 経由に揃え、compiler-owned stdlib source の owner aggregate field access 証拠が構造化された形で残るようにした。利用者側には `sha256_update_error_kind(&Sha256UpdateError)` と `sha256_update_error_ctx(Sha256UpdateError)` を公開し、error kind の borrow read と state owner の消費回収を分離した。
 
 この親 issue は引き続き open とする。今回閉じたのは SHA256 の owner aggregate field boundary であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal の最終移行は Stage 6 残件として継続する。
+
+## 2026-05-18 Agent 1 external IO iovec owner extent 追記
+
+`ISS-20260518T095629679Z-RESOURCE-IR-EXTERNAL-IO-IOVEC-PAYLOA-EBED3E34` を解決した。`stdio` / `fs` の fd read/write scratch は `RegionToken` owner と non-owning `MemPtr` view へ移行済みだったが、Resource IR owner checker は external IO の iovec payload span を `OwnerStorageExtent` と照合していなかった。
+
+修正後は `ExternalIoOp` の typed match から iovec payload を持つ `fd_read` / `fd_write` / `fd_pread` / `fd_pwrite` を分類し、shared iovec layout helper で descriptor cell から payload pointer と length を導出する。payload pointer は raw alias を通じて backing owner へ解決し、length が allocation / RegionToken extent と一致しない場合は `ResourceOwnerOperation::ExternalIoPayloadExtent` として拒否する。
+
+同時に、非所有 raw address view を iovec descriptor へ保存する場合に free obligation を移動せず、descriptor cell へ non-owning alias を残すようにした。これは stdlib 名 allowlist ではなく、Resource IR の raw view mark、alias table、owner extent proof を接続する修正であり、Stage 6 の `MemPtr = non-owning pointer` / `RegionToken = free obligation owner` 分離を compiler 側でも強める。

@@ -466,6 +466,12 @@ impl ResourceOwnerCheckEngine<'_> {
                         variant_owner_effects,
                         args,
                         *span,
+                    ) && self.ensure_external_io_owner_spans_available(
+                        owners,
+                        raw_aliases,
+                        effect,
+                        args,
+                        *span,
                     ) {
                         self.apply_call_return_owner(
                             owners,

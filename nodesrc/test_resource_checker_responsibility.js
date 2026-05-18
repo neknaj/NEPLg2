@@ -132,6 +132,7 @@ for (const moduleName of [
     'owner_consumption_extent.rs',
     'owner_drop.rs',
     'owner_expr.rs',
+    'owner_external_io.rs',
     'owner_extent.rs',
     'owner_extent_check.rs',
     'owner_extent_compare.rs',
@@ -289,10 +290,11 @@ for (const moduleName of [
     'initialized_drop_scope.rs',
     'i32_call_facts.rs',
     'initialized_external_io.rs',
+    'external_io_iov_contract.rs',
+    'external_io_iov_layout.rs',
     'initialized_external_io_effect.rs',
     'initialized_external_io_input.rs',
     'initialized_external_io_iov.rs',
-    'initialized_external_io_iov_layout.rs',
     'initialized_external_io_payload.rs',
     'initialized_raw_fill.rs',
     'initialized_raw_memory.rs',
@@ -367,6 +369,7 @@ for (const moduleDecl of [
     'mod owner_consumption_extent;',
     'mod owner_drop;',
     'mod owner_expr;',
+    'mod owner_external_io;',
     'mod owner_extent;',
     'mod owner_extent_check;',
     'mod owner_extent_compare;',
@@ -510,10 +513,11 @@ for (const moduleDecl of [
     'mod initialized_drop_scope;',
     'mod i32_call_facts;',
     'mod initialized_external_io;',
+    'mod external_io_iov_contract;',
+    'mod external_io_iov_layout;',
     'mod initialized_external_io_input;',
     'mod initialized_external_io_effect;',
     'mod initialized_external_io_iov;',
-    'mod initialized_external_io_iov_layout;',
     'mod initialized_external_io_payload;',
     'mod initialized_raw_fill;',
     'mod initialized_raw_memory;',
@@ -838,12 +842,12 @@ assertNotContains(
 );
 assertContains(
     coverageHirProjection,
-    'raw_memory_op_from_intrinsic(name), Some(RawMemoryOp::Load)',
+    'raw_memory_op_from_intrinsic(name),\n                Some(RawMemoryOp::Load | RawMemoryOp::LoadU8)',
     'coverage_hir_projection.rs raw load coverage classifier',
 );
 assertContains(
     coverageHirProjection,
-    'raw_memory_op_from_callee(callee), Some(RawMemoryOp::Load)',
+    'raw_memory_op_from_callee(callee),\n                Some(RawMemoryOp::Load | RawMemoryOp::LoadU8)',
     'coverage_hir_projection.rs raw load coverage classifier',
 );
 assertContains(
@@ -1424,7 +1428,7 @@ assertContains(
 );
 assertContains(
     rawOwnerAliasPolicy,
-    'RawAddressViewKind::NonOwningProjection => RawOwnerAliasTransferKind::NonOwningProjection',
+    'RawAddressViewKind::NonOwningProjection | RawAddressViewKind::InternalHelper => {\n            RawOwnerAliasTransferKind::NonOwningProjection',
     'owner_summary_raw_transfer.rs raw owner alias policy',
 );
 assertMatches(
@@ -1517,8 +1521,8 @@ assertNotContains(
 );
 assertContains(
     effectReturnSummaryFilter,
-    'resolved == types.str() || type_is_owner_token(types, resolved)',
-    'effect_return_summary_filter.rs must suppress opaque str and owner-token raw identities from summaries',
+    'resolved == types.str()\n        || (!type_is_owner_token(types, resolved)\n            && raw_identity_type_is_structural_owner_carrier(types, resolved))',
+    'effect_return_summary_filter.rs must keep direct owner-token provenance while suppressing opaque str and structural owner carriers',
 );
 assertContains(
     effectReturnSummaryFilter,
@@ -1527,8 +1531,8 @@ assertContains(
 );
 assertContains(
     effectReturnSummaryFilterTests,
-    'summary_filter_hides_owner_token_raw_identity',
-    'effect_return_summary_filter.rs must hide owner token raw identity summaries',
+    'summary_filter_keeps_direct_owner_token_internal_provenance',
+    'effect_return_summary_filter.rs must keep direct owner-token internal provenance summaries',
 );
 assertContains(
     effectReturnSummaryFilterTests,
@@ -1720,6 +1724,7 @@ const maxLines = new Map([
     ['owner_consumption_extent.rs', 80],
     ['owner_drop.rs', 180],
     ['owner_expr.rs', 80],
+    ['owner_external_io.rs', 180],
     ['owner_extent.rs', 240],
     ['owner_extent_check.rs', 100],
     ['owner_extent_compare.rs', 80],
@@ -1819,7 +1824,7 @@ const maxLines = new Map([
     ['effect_return_pointer.rs', 120],
     ['effect_return_protection.rs', 80],
     ['effect_return_summary_filter.rs', 260],
-    ['effect_return_summary_filter_tests.rs', 160],
+    ['effect_return_summary_filter_tests.rs', 180],
     ['function_alias.rs', 140],
     ['coverage.rs', 280],
     ['coverage_hir.rs', 240],
@@ -1868,7 +1873,7 @@ const maxLines = new Map([
     ['initialized_alias_difference.rs', 80],
     ['initialized_alias_difference_flow.rs', 120],
     ['initialized_alias_flow.rs', 550],
-    ['initialized_alias_flow_tests.rs', 180],
+    ['initialized_alias_flow_tests.rs', 240],
     ['initialized_alias_i32_condition.rs', 200],
     ['initialized_alias_i32_condition_context.rs', 120],
     ['initialized_alias_i32_condition_tests.rs', 80],
@@ -1894,10 +1899,11 @@ const maxLines = new Map([
     ['initialized_drop_scope.rs', 80],
     ['i32_call_facts.rs', 180],
     ['initialized_external_io.rs', 140],
+    ['external_io_iov_contract.rs', 80],
+    ['external_io_iov_layout.rs', 120],
     ['initialized_external_io_effect.rs', 90],
     ['initialized_external_io_input.rs', 80],
     ['initialized_external_io_iov.rs', 130],
-    ['initialized_external_io_iov_layout.rs', 120],
     ['initialized_external_io_payload.rs', 90],
     ['initialized_raw_fill.rs', 120],
     ['initialized_raw_memory.rs', 190],
@@ -1933,7 +1939,7 @@ const maxLines = new Map([
     ['initialized_variant.rs', 500],
     ['compiler_memory_place.rs', 120],
     ['compiler_memory_place_tests.rs', 140],
-    ['model.rs', 590],
+    ['model.rs', 620],
     ['scalar_primitive.rs', 80],
     ['owner_control.rs', 680],
     ['owner_drop_scope.rs', 260],
