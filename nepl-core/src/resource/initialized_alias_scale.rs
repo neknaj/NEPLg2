@@ -46,6 +46,22 @@ impl I32ScaleFacts {
         out
     }
 
+    pub(super) fn scaled_targets_for_source_aliases(
+        &self,
+        aliases: &[Place],
+        scale: usize,
+    ) -> Vec<Place> {
+        let mut out = Vec::new();
+        for alias in aliases {
+            for fact in &self.facts {
+                if fact.source == *alias && fact.scale == scale && !out.contains(&fact.target) {
+                    out.push(fact.target.clone());
+                }
+            }
+        }
+        out
+    }
+
     pub(super) fn facts_with_replaced_prefix(&self, source: &Place, target: &Place) -> Self {
         let mut out = I32ScaleFacts::default();
         for fact in &self.facts {

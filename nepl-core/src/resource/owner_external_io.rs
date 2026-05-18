@@ -8,6 +8,7 @@ use super::external_io_iov_layout::{
     iov_buffer_pointer_cells, iov_length_cell, raw_cell_is_under_any_address,
 };
 use super::host_memory_contract::host_memory_spans;
+use super::host_size_contract::dependent_host_memory_spans;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, OwnerStorageExtent, Place};
 use super::owner_alias::resolve_owner_alias_place;
@@ -22,7 +23,7 @@ impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn ensure_external_io_owner_spans_available(
         &mut self,
         owners: &OwnerTable,
-        raw_aliases: &RawCellAddressAliases,
+        raw_aliases: &mut RawCellAddressAliases,
         effect: &super::model::EffectOp,
         args: &[Place],
         span: Span,
@@ -36,6 +37,18 @@ impl ResourceOwnerCheckEngine<'_> {
                 args,
                 span,
             );
+        }
+        for contract in dependent_host_memory_spans(effect) {
+            available &= self.ensure_dependent_host_memory_owner_span_available(
+                owners,
+                raw_aliases,
+                contract,
+                args,
+                span,
+            );
+        }
+        if available {
+            self.record_host_size_outputs(raw_aliases, effect, args);
         }
         available
     }

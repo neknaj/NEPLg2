@@ -18787,6 +18787,87 @@ fn resource_ir_cell_check_path_open_rejects_uninitialized_path_input() {
     );
 }
 
+#[test]
+fn resource_ir_owner_check_args_get_accepts_sizes_get_dependent_extent_proof() {
+    let (resource, types) = args_get_dependent_host_span_resource(true, true, false, false);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "args_get must accept pointer table and byte buffer extents derived from args_sizes_get proof: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_environ_get_accepts_sizes_get_dependent_extent_proof() {
+    let (resource, types) = args_get_dependent_host_span_resource(true, true, false, true);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "environ_get must accept pointer table and byte buffer extents derived from environ_sizes_get proof: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_args_get_rejects_missing_sizes_get_proof() {
+    let (resource, types) = args_get_dependent_host_span_resource(false, true, false, false);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "args_get must reject host output owners when no prior args_sizes_get proof exists: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_args_get_rejects_unscaled_pointer_table_extent() {
+    let (resource, types) = args_get_dependent_host_span_resource(true, false, false, false);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "args_get must require the pointer table owner extent to be argc * pointer_width, not argc bytes: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_args_get_without_sizes_get_does_not_initialize_unknown_offset() {
+    let (resource, types) = args_get_dependent_host_span_resource(false, true, true, false);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            }
+        )),
+        "args_get without a sizes_get proof must not mark argv as unknown-offset initialized: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
 fn external_io_iov_owner_resource(
     operation: ExternalIoOp,
     allocation_len: i32,
@@ -18934,6 +19015,197 @@ fn external_io_iov_owner_resource_with_iov_storage(
         ],
     );
     (resource, types)
+}
+
+fn args_get_dependent_host_span_resource(
+    include_sizes_get: bool,
+    scale_pointer_table: bool,
+    read_after_args_get: bool,
+    use_environ: bool,
+) -> (ResourceModule, TypeCtx) {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let four = Place::temporary(ResourceId(0), i32_ty);
+    let argc_cell = Place::temporary(ResourceId(1), i32_ty);
+    let argv_buf_size_cell = Place::temporary(ResourceId(2), i32_ty);
+    let argc = Place::temporary(ResourceId(3), i32_ty);
+    let argv_buf_size = Place::temporary(ResourceId(4), i32_ty);
+    let table_bytes = Place::temporary(ResourceId(5), i32_ty);
+    let argv = Place::temporary(ResourceId(6), i32_ty);
+    let argv_buf = Place::temporary(ResourceId(7), i32_ty);
+    let sizes_errno = Place::temporary(ResourceId(8), i32_ty);
+    let args_errno = Place::temporary(ResourceId(9), i32_ty);
+    let read_argv = Place::temporary(ResourceId(10), i32_ty);
+    let free_argv_buf = Place::temporary(ResourceId(11), unit_ty);
+    let free_argv = Place::temporary(ResourceId(12), unit_ty);
+    let free_argv_buf_size_cell = Place::temporary(ResourceId(13), unit_ty);
+    let free_argc_cell = Place::temporary(ResourceId(14), unit_ty);
+    let sizes_name = if use_environ {
+        "environ_sizes_get"
+    } else {
+        "args_sizes_get"
+    };
+    let sizes_operation = if use_environ {
+        ExternalIoOp::EnvironSizesGet
+    } else {
+        ExternalIoOp::ArgsSizesGet
+    };
+    let get_name = if use_environ {
+        "environ_get"
+    } else {
+        "args_get"
+    };
+    let get_operation = if use_environ {
+        ExternalIoOp::EnvironGet
+    } else {
+        ExternalIoOp::ArgsGet
+    };
+    let mut ops = vec![
+        ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(4),
+            output: four.clone(),
+            ty: i32_ty,
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            output: argc_cell.clone(),
+            args: vec![four.clone()],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            output: argv_buf_size_cell.clone(),
+            args: vec![four.clone()],
+            span,
+        },
+    ];
+    if include_sizes_get {
+        ops.push(ResourceOp::Call {
+            output: sizes_errno,
+            target: ResourceCallTarget::Builtin {
+                name: String::from(sizes_name),
+            },
+            args: vec![argc_cell.clone(), argv_buf_size_cell.clone()],
+            effect: EffectOp::ExternalIo {
+                operation: sizes_operation,
+            },
+            span,
+        });
+    }
+    if include_sizes_get {
+        ops.extend([
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: argc.clone(),
+                args: vec![argc_cell.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: argv_buf_size.clone(),
+                args: vec![argv_buf_size_cell.clone()],
+                span,
+            },
+        ]);
+    } else {
+        ops.extend([
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(1),
+                output: argc.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: argv_buf_size.clone(),
+                ty: i32_ty,
+                span,
+            },
+        ]);
+    }
+    if scale_pointer_table {
+        ops.push(ResourceOp::Call {
+            output: table_bytes.clone(),
+            target: ResourceCallTarget::User {
+                name: String::from("mul__i32_i32__i32__pure"),
+                type_args: Vec::new(),
+            },
+            args: vec![argc.clone(), four.clone()],
+            effect: EffectOp::Pure,
+            span,
+        });
+    }
+    let argv_extent = if scale_pointer_table {
+        table_bytes.clone()
+    } else {
+        argc.clone()
+    };
+    ops.extend([
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            output: argv.clone(),
+            args: vec![argv_extent.clone()],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            output: argv_buf.clone(),
+            args: vec![argv_buf_size.clone()],
+            span,
+        },
+        ResourceOp::Call {
+            output: args_errno,
+            target: ResourceCallTarget::Builtin {
+                name: String::from(get_name),
+            },
+            args: vec![argv.clone(), argv_buf.clone()],
+            effect: EffectOp::ExternalIo {
+                operation: get_operation,
+            },
+            span,
+        },
+    ]);
+    if read_after_args_get {
+        ops.push(ResourceOp::RawMemory {
+            operation: RawMemoryOp::Load,
+            output: read_argv,
+            args: vec![argv.clone()],
+            span,
+        });
+    }
+    ops.extend([
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: free_argv_buf,
+            args: vec![argv_buf, argv_buf_size],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: free_argv,
+            args: vec![argv, argv_extent],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: free_argv_buf_size_cell,
+            args: vec![argv_buf_size_cell, four.clone()],
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: free_argc_cell,
+            args: vec![argc_cell, four],
+            span,
+        },
+    ]);
+    (manual_resource_module(unit_ty, span, ops), types)
 }
 
 fn path_open_owner_resource(allocation_len: i32, path_len_bytes: i32) -> (ResourceModule, TypeCtx) {

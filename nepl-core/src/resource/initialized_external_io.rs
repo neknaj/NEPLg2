@@ -3,9 +3,10 @@ use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::host_memory_contract::{
     host_memory_spans, HostMemoryDirectUnit, HostMemoryDirection, HostMemorySpan,
 };
+use super::host_size_contract::{dependent_host_memory_spans, host_size_outputs};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{EffectOp, ExternalIoOp, Place};
+use super::model::{EffectOp, Place};
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_external_io_initialized_effect(
@@ -18,24 +19,11 @@ impl ResourceCheckEngine<'_> {
         for contract in host_memory_spans(effect) {
             self.apply_host_memory_initialized_output(cells, raw_aliases, contract, args);
         }
-        match effect {
-            EffectOp::ExternalIo {
-                operation: ExternalIoOp::ArgsGet | ExternalIoOp::EnvironGet,
-            } => {
-                self.mark_unknown_offset_raw_cell_initialized_for_arg(
-                    cells,
-                    raw_aliases,
-                    args.first(),
-                    self.types.i32(),
-                );
-                self.mark_unknown_offset_raw_cell_initialized_for_arg(
-                    cells,
-                    raw_aliases,
-                    args.get(1),
-                    self.types.i32(),
-                );
-            }
-            _ => {}
+        for output in host_size_outputs(effect) {
+            self.record_host_size_output(raw_aliases, output, args);
+        }
+        for contract in dependent_host_memory_spans(effect) {
+            self.apply_dependent_host_memory_initialized_output(cells, raw_aliases, contract, args);
         }
     }
 

@@ -94,6 +94,14 @@ impl RawCellAddressAliases {
         out
     }
 
+    pub(super) fn i32_scaled_targets(&self, source: &Place, scale: usize) -> Vec<Place> {
+        self.i32_scales
+            .scaled_targets_for_source_aliases(&self.scalar_aliases_for(source), scale)
+            .into_iter()
+            .map(|target| self.canonicalize_scalar(&target))
+            .collect()
+    }
+
     pub(super) fn i32_difference_sources(&self, place: &Place) -> Vec<(Place, Place)> {
         self.i32_differences
             .difference_sources_for_aliases(&self.scalar_aliases_for(place))

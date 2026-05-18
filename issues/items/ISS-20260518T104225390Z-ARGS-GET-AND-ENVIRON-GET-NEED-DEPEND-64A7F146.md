@@ -2,13 +2,13 @@
 id: ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146
 title: "args_get and environ_get need dependent host span proof"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-18
 updated: 2026-05-18
-target: "nepl-core/src/resource/host_memory_contract.rs, nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/owner_external_io.rs"
+target: "nepl-core/src/resource/host_size_contract.rs, nepl-core/src/resource/host_dependent_length.rs, nepl-core/src/resource/initialized_host_dependent.rs, nepl-core/src/resource/owner_host_dependent_span.rs, nepl-core/src/resource/initialized_alias_host_size.rs"
 ---
 
 # ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146: args_get and environ_get need dependent host span proof
@@ -42,3 +42,12 @@ Record typed host sizing facts when args_sizes_get/environ_sizes_get initialize 
 ## 検証
 
 Add Resource IR tests for args_get/environ_get rejecting missing or mismatched prior sizing proof and accepting buffers allocated from proven sizes; run focused initialized/owner checks, policy checks, and cargo check.
+
+## 解決内容
+
+- `HostSizeKind` / `HostSizeOutput` / `HostDependentMemorySpan` を追加し、`args_sizes_get` / `environ_sizes_get` が返す count と buffer-size cell を typed proof artifact として表現した。
+- `RawCellAddressAliases` に host-size fact を持たせ、scalar load/copy/move/merge/clear と同じ規則で proof を伝搬するようにした。
+- `HostDependentLength::HostSizeScaled` と `i32_scaled_targets` を使い、argv/environ pointer table の owner extent が `argc/envc * 4` から導出された allocation であることを証明するようにした。
+- initialized checker は `args_get` / `environ_get` を unknown-offset 全体初期化として扱わず、prior size proof がある場合だけ pointer table と byte buffer の bounded initialized range を記録する。
+- owner checker は same-call host span と同じ generic extent proof path で dependent host span を検査し、prior size proof がない場合や pointer table を unscaled count だけで確保した場合を `ExternalIoPayloadExtent` として拒否する。
+- regression として args/environ の成功経路、missing sizes proof、unscaled pointer table、unknown-offset initialization 再導入禁止を追加した。

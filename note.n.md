@@ -41651,3 +41651,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `owner_host_memory_span.rs` を追加し、span contract の owner 側 dispatch を `owner_external_io.rs` から分離した。
 - regression として全追加 span の contract-table 一致、fd_write iovec descriptor extent mismatch、path_open path owner extent mismatch、path_open uninitialized path input rejection を追加した。
 - `args_get` / `environ_get` は call 自体に長さを持たないため、prior `*_sizes_get` output cell と later owner extent を接続する別 issue `ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146` に分離した。
+
+## 2026-05-18 Agent 1 args/environ dependent host span proof
+
+- `ISS-20260518T104225390Z-ARGS-GET-AND-ENVIRON-GET-NEED-DEPEND-64A7F146` を fixed にした。`plan.md` は変更していない。
+- `args_sizes_get` / `environ_sizes_get` の out cell を `HostSizeKind` 付き proof artifact として `RawCellAddressAliases` に記録し、scalar load/copy/move/merge と同じ規則で伝搬するようにした。
+- `args_get` / `environ_get` は `HostDependentMemorySpan` と `HostDependentLength` を使い、byte buffer は prior buffer-size proof、pointer table は `count * 4` の scaled proof から owner extent を検査する。
+- initialized checker の旧 `args_get` / `environ_get` unknown-offset 全体初期化を削除し、prior host-size proof がある範囲だけを bounded initialized range として扱うようにした。
+- stdlib module 名や WASI operation 名を「信頼済み」として列挙するのではなく、host size output cell、Resource IR scalar fact、owner extent coverage proof を接続する汎用 proof path にした。
+- focused verification:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir dependent_extent_proof -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir missing_sizes_get_proof -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir unscaled_pointer_table_extent -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir unknown_offset -- --nocapture`: passed
+  - `cargo fmt --all -- --check`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
