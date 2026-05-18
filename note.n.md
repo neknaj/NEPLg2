@@ -41807,3 +41807,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/deque.nepl -i stdlib/alloc/collections/deque/types.nepl -i stdlib/alloc/collections/deque/api.nepl -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/agent1-deque-push-owner-second.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+
+## 2026-05-18 Agent 1 self-host source tree layout 再検討
+
+- `ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649` を作成して fixed にした。`plan.md` は変更していない。
+- self-host 実装をさらに進める前に、現行 Rust compiler の分量と構造を監査した。`nepl-core/src` は 382 files / 約 79,607 行で、root 直下だけでも 36 files / 約 27,732 行ある。`parser.rs`、`codegen_llvm.rs`、`codegen_wasm.rs`、`compiler.rs`、`types.rs`、`loader.rs` が大きく、NEPL 側へそのまま移植すると flat な巨大 compiler tree になる。
+- 現行 `stdlib/neplg2/` も 39 files / 約 10,239 行で、`core/syntax/lexer.nepl`、`core/hir/hir.nepl`、`core/syntax/token.nepl`、`core/ty/ty.nepl` が既に大きい。
+- `doc/neplg2/self_host_source_tree_layout_review_20260518.md` を追加し、`core/proof/` を汎用 fact / obligation / solver として置く方針、Resource IR subdomain の階層、abstraction / generics / trait の配置、巨大 file 分割基準、self-host 実装へ戻る前の適用順を整理した。
+- `doc/neplg2/self_host_plan.md` と self-host parent issue から新しい layout review doc を参照した。次に checker 実装へ戻る場合も、`checker.nepl` を巨大化させず `core/check/module.nepl` など final hierarchy に実装本体を置く。

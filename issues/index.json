@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T13:56:26.052Z",
+  "generated_at": "2026-05-18T14:13:14.104Z",
   "counts": {
-    "total": 1004,
+    "total": 1005,
     "open": 5,
-    "resolved": 999,
+    "resolved": 1000,
     "by_area": {
       "stdlib": {
         "total": 277,
@@ -17,9 +17,9 @@
         "resolved": 41
       },
       "selfhost": {
-        "total": 70,
+        "total": 71,
         "open": 1,
-        "resolved": 69
+        "resolved": 70
       },
       "cli": {
         "total": 19,
@@ -8918,6 +8918,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T004559104Z-SELFHOST-MODULE-GRAPH-KEEPS-OBSOLETE-8DDB7A8E.md"
+    },
+    {
+      "id": "ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649",
+      "title": "self-host source tree plan must be revalidated against the current Rust compiler structure",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "doc/neplg2/self_host_source_tree_layout_review_20260518.md, doc/neplg2/self_host_plan.md, issues/items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

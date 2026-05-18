@@ -1,6 +1,6 @@
 # NEPLg2.0 セルフホスト詳細実装計画
 
-最終更新: 2026-04-26
+最終更新: 2026-05-18
 
 ---
 
@@ -13,6 +13,8 @@ NEPLg3 向けの `doc/neplg3/impl/compiler_structure.md` は、ディレクト�
 ただし、NEPLg2.0 では現行の `#import`、angle bracket 型注釈、`fn` 糖衣構文、現行 HIR / WASM / LLVM backend を正とする。
 
 branch、commit、Rust 側 compiler 修正の取り込み、self-host 実装中に発覚した Rust 側 Issue の提出規則は [self_host_execution_plan.md](./self_host_execution_plan.md) を正とする。
+
+2026-05-18 時点の Rust 実装の分量と構造を踏まえた self-host 版の詳細なディレクトリ構造・ファイル分割方針は [self_host_source_tree_layout_review_20260518.md](./self_host_source_tree_layout_review_20260518.md) を正とする。今後の self-host 実装では、同文書に反して `checker.nepl`、`pipeline.nepl`、parser、typecheck、Resource IR、codegen の巨大 flat file を増やさない。
 
 ---
 
@@ -57,6 +59,8 @@ branch、commit、Rust 側 compiler 修正の取り込み、self-host 実装中�
 ## 5. 推奨ディレクトリ構造
 
 `doc/neplg3/impl/compiler_structure.md` の分割を参考にするが、NEPLg2.0 の現行 pipeline に合わせて責務を調整する。
+
+この節の構造は 2026-04-26 時点の初期 skeleton である。2026-05-18 以降に実装を追加する場合は、[self_host_source_tree_layout_review_20260518.md](./self_host_source_tree_layout_review_20260518.md) の階層化方針を優先し、root 直下や `core/check/checker.nepl` などに実装本体を積み増さない。
 
 ```text
 stdlib/neplg2/
