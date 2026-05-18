@@ -20,10 +20,11 @@
 #import "std/fs/raw" as *
 #import "core/field" as *
 
-//: fs_write_fd_mem_result: fd へ raw memory range をすべて書き込む
+//: fs_write_fd_mem_result: fd へ raw memory range をすべて書き込む内部 helper
 //:
 //: 目的:
 //: - `ByteBuf` の storage を確定した後、partial write を処理しながら全 byte を書き込みます。
+//: - public caller には `fs_write_fd_bytes` の `ByteBuf` owner 境界だけを公開し、この raw span helper は fd module 内部に閉じます。
 //:
 //: 実装(アルゴリズム):
 //: - 1 要素 iovec を使って `fd_write` を呼び、partial write の場合は offset を進めて再試行します。
@@ -32,10 +33,11 @@
 //:
 //: 注意(重要):
 //: - この関数は raw memory range を借りて書き込むだけで、data owner は解放しません。
+//: - `MemPtr` と byte length の対応は `fs_write_fd_bytes` が `ByteBuf` から同時に導出します。外部 caller に任意の pointer/length pair を渡させません。
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-pub fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
+fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
     if:
         le data_len 0
         then:

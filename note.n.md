@@ -42015,3 +42015,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/agent1-selfhost-req-report-contract.json -j 1 --dist web/dist --assert-io`: total=6, passed=6
   - `node nodesrc/issues.js check`: passed
   - `git diff --check`: passed
+
+## 2026-05-18 Agent 1 fs write raw span writer 境界修正
+
+- `ISS-20260518T205653919Z-STD-FS-WRITE-FACADE-EXPOSES-RAW-MEMP-A8C64961` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`std/fs/write` が `std/fs/write/fd` を re-export する一方で、fd write loop の内部 helper `fs_write_fd_mem_result(i32, MemPtr<u8>, i32)` も public のまま残っていたことだった。これにより通常 source が `ByteBuf` owner から導出された readable span ではなく、任意の `MemPtr` と任意 length を組み合わせて raw ABI write boundary に渡せた。
+- `fs_write_fd_mem_result` は private helper に戻し、public API は `fs_write_fd_bytes(fd, ByteBuf)` と path/string wrapper に限定した。`fs_write_fd_bytes` が `ByteBuf` owner から `data` と `data_len` を同時に取り出すため、`MemPtr = non-owning pointer` 方針を弱めずに fd write implementation boundary を維持する。
+- source policy は raw span writer の `pub fn` 再導入を拒否し、compile-fail doctest は `std/fs/write` facade と direct `std/fs/write/fd` import の両方から `fs_write_fd_mem_result` が見えないことを固定する。

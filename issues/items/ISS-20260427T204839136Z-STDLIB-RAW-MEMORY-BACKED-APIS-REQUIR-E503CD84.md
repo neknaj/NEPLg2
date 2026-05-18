@@ -749,3 +749,9 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 `ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92` を解決した。`std/fs/path/entry` は safe path facade から re-export される module であるにもかかわらず、`fs_string_from_bytes(i32,i32)` を public に持ち、任意 raw address を `mem_ptr_wrap` で `MemPtr<u8>` へ包んで directory entry name の `str` 化を行っていた。
 
 修正後は directory entry byte conversion を `std/fs/dir/read_fd` の private `fs_dirent_name_to_string(MemPtr<u8>, i32)` に閉じた。`fs_read_dir_fd` は `fd_readdir` buffer を所有する `RegionToken<u8>` から得た `buf_ptr` に `mem_ptr_add` して name pointer を作るため、safe path facade は raw `i32` address conversion を公開しない。source policy と compile-fail doctest は、`std/fs/path` から `fs_string_from_bytes` が戻らないこと、`dir/read_fd` が raw address を再包装しないことを監視する。
+
+## 2026-05-18 Agent 1 fs write raw span writer 境界追記
+
+`ISS-20260518T205653919Z-STD-FS-WRITE-FACADE-EXPOSES-RAW-MEMP-A8C64961` を解決した。`std/fs/write` は `std/fs/write/fd` を re-export しており、`fs_write_fd_mem_result(i32, MemPtr<u8>, i32)` が public のままだったため、通常 source が `ByteBuf` owner 境界を通らず任意の pointer/length pair を fd write loop へ渡せた。
+
+修正後は `fs_write_fd_mem_result` を `std/fs/write/fd` 内の private helper に閉じ、public fd write API は `fs_write_fd_bytes(fd, ByteBuf)` に限定した。`ByteBuf` から `data` と `data_len` を同時に導出した場合だけ raw ABI write helper へ進むため、`MemPtr = non-owning pointer` と owner-backed readable extent の対応を caller convention に押し出さない。source policy と compile-fail doctest は、safe facade と direct fd module import の両方で raw span writer が公開されないことを監視する。

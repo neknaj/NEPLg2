@@ -916,6 +916,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92` は 2026-05-18 に修正した。`std/fs/path/entry` は safe path facade から re-export される module だったが、`fs_string_from_bytes(i32,i32)` を public に持ち、任意 raw address を `mem_ptr_wrap` で `MemPtr<u8>` に包んで directory entry name の `str` 化を行っていた。修正後は conversion を `std/fs/dir/read_fd` の private `fs_dirent_name_to_string(MemPtr<u8>, i32)` へ移し、`fs_read_dir_fd` は `fd_readdir` buffer の `RegionToken` から導出した `buf_ptr` に `mem_ptr_add` して name pointer を得る。これにより safe path facade は raw `i32` address conversion を公開せず、directory entry raw byte handling は raw ABI boundary 内の source proof と owner/view 分離に従う。
 
+`ISS-20260518T205653919Z-STD-FS-WRITE-FACADE-EXPOSES-RAW-MEMP-A8C64961` は 2026-05-18 に修正した。`std/fs/write` facade は `std/fs/write/fd` を再公開しているため、`fs_write_fd_mem_result(i32, MemPtr<u8>, i32)` が public のままだと通常 source が `ByteBuf` owner 境界を迂回し、任意の non-owning pointer と任意 length を raw fd write loop へ渡せる。修正後はこの helper を fd module private に戻し、public fd write は `fs_write_fd_bytes(fd, ByteBuf)` へ限定した。`ByteBuf` から `data` と `data_len` を同時に導出してから内部 helper へ渡すため、readable span の証明を caller convention ではなく owner-backed API shape に残す。source policy と compile-fail doctest は、safe facade と direct fd module import の両方で raw span writer が公開されないことを固定する。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

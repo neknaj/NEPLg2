@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T20:48:06.424Z",
+  "generated_at": "2026-05-18T20:58:59.335Z",
   "counts": {
-    "total": 1016,
+    "total": 1017,
     "open": 5,
-    "resolved": 1011,
+    "resolved": 1012,
     "by_area": {
       "stdlib": {
-        "total": 282,
+        "total": 283,
         "open": 3,
-        "resolved": 279
+        "resolved": 280
       },
       "TEST": {
         "total": 43,
@@ -12128,6 +12128,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T203331363Z-STD-FS-PATH-ENTRY-EXPOSES-RAW-DIRECT-E3B0CD92.md"
+    },
+    {
+      "id": "ISS-20260518T205653919Z-STD-FS-WRITE-FACADE-EXPOSES-RAW-MEMP-A8C64961",
+      "title": "std/fs write facade exposes raw MemPtr span writer",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/std/fs/write/fd.nepl, stdlib/std/fs/write.nepl, nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T205653919Z-STD-FS-WRITE-FACADE-EXPOSES-RAW-MEMP-A8C64961.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
