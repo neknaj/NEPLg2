@@ -893,6 +893,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260518T114636396Z-CLIARG-C-STRING-CONVERSION-LACKS-ARG-21786F27` は 2026-05-18 に修正した。`std/env/cliarg/cstr` は C string を `MemPtr<u8>` だけで受け、NUL が見つかるまで走査していたため、`cliarg_get_checked` が保持している `argv_buf_raw` / `buf_size` の owner extent proof を C string conversion へ渡していなかった。修正後は unbounded `cstr_len_result` / `cstr_len` / `cstr_to_str` を削除し、`cstr_len_bounded_result(data, max_len)` と `cstr_to_str_bounded_result(data, max_len)` に置き換えた。`cliarg_get_checked` は `arg_ptr - argv_buf_raw` を検査してから `buf_size - arg_offset` を渡すため、C string の NUL 探索は argv byte buffer の残り範囲内に閉じる。さらに `string_from_utf8_mem_result` によって external argv bytes の UTF-8 妥当性を確認してから `str` を構築するため、raw memory backed external input を unchecked string construction へ直結しない。これは stdlib module allowlist ではなく、caller が持つ buffer extent proof を API signature に残して source policy と doctest で監視する Stage 6 の境界整理である。
 
+`ISS-20260518T115751573Z-BYTEBUILDER-PUBLIC-RAW-BYTE-APPEND-D-D94BB3A0` は 2026-05-18 に修正した。`byte_builder_push_bytes_ref` は public API として `MemPtr<u8>` と length を直接受け取り、`mem_copy` の source extent proof を caller convention に依存させていた。修正後は raw copy helper を private にし、public API を `byte_builder_push_str` と `byte_builder_push_str_slice` に置き換えた。full string append は同じ `str` から `len` と `string_data_ptr` を導出し、slice append は `0 <= start <= end <= len(s)` を確認してから pointer と length を導出する。これは stdlib module 名や helper 名の allowlist ではなく、source object から readable extent を導出する typed API を通して、Stage 6 の raw-memory-backed public surface を閉じる整理である。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

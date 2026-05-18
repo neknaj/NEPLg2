@@ -31,6 +31,8 @@
 
 #import "alloc/diag/error" as *
 #import "alloc/io/bytebuf" as *
+#import "alloc/string/access" as *
+#import "alloc/string/storage" as *
 #import "core/char" as *
 #import "core/field" as *
 #import "core/mem" as *
@@ -131,14 +133,14 @@ pub fn byte_builder_push_char_utf8 <(ByteBuilder,char)->Result<ByteBuilder, StdE
         Result::Ok b0:
             byte_builder_push_utf8_tail b0 c count
 
-//: byte_builder_push_bytes_ref: 参照 byte [列/れつ]を[末尾/まつび]へ[複製/ふくせい]する
+//: byte_builder_push_bytes_ref: 参照 byte [列/れつ]を[末尾/まつび]へ[複製/ふくせい]する内部 helper
 //:
 //: [目的/もくてき]:
-//: - 既存 buffer の slice や固定 header を builder に[追加/ついか]します。
+//: - typed public helper が source object から導出した pointer と byte 数を builder に追加します。
 //:
 //: [注意/ちゅうい]:
 //: - source の[所有権/しょゆうけん]は[移動/いどう]しません。
-pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)->Result<ByteBuilder, StdErrorKind>> (builder, src, data_len):
+fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)->Result<ByteBuilder, StdErrorKind>> (builder, src, data_len):
     if:
         lt data_len 0
         then:
@@ -171,6 +173,50 @@ pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)->Result<ByteBu
                                         Result::Err _e:
                                             byte_builder_free reserved
                                             Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+//: byte_builder_push_str: `str` 全体の byte 表現を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - caller が raw pointer と length を直接組み合わせず、`str` の長さから読み取り範囲を導出して builder に複製します。
+//:
+//: [注意/ちゅうい]:
+//: - `str` の所有権は移動しません。
+//: - 失敗時は入力 builder を解放し、`Err` を返します。
+pub fn byte_builder_push_str <(ByteBuilder,str)->Result<ByteBuilder, StdErrorKind>> (builder, s):
+    let s_len <i32> len s
+    if:
+        eq s_len 0
+        then:
+            Result<ByteBuilder, StdErrorKind>::Ok builder
+        else:
+            let src <MemPtr<u8>> string_data_ptr s
+            byte_builder_push_bytes_ref builder &src s_len
+
+//: byte_builder_push_str_slice: `str` の byte 範囲を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `str` の byte 範囲 `[start, end)` を builder に複製します。
+//: - `0 <= start <= end <= len(s)` を確認し、source pointer と copy length を同じ関数内で導出します。
+//:
+//: [注意/ちゅうい]:
+//: - この helper は byte 範囲が UTF-8 文字境界かどうかを検査しません。text API は呼び出し前に `str_utf8_is_boundary` で確認してください。
+//: - 範囲が不正な場合は入力 builder を解放し、`InvalidOperation` を返します。
+pub fn byte_builder_push_str_slice <(ByteBuilder,str,i32,i32)->Result<ByteBuilder, StdErrorKind>> (builder, s, start, end):
+    let n <i32> len s
+    if:
+        or lt start 0 or lt end start gt end n
+        then:
+            byte_builder_free builder
+            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            let data_len <i32> sub end start
+            if:
+                eq data_len 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok builder
+                else:
+                    let src <MemPtr<u8>> mem_ptr_add string_data_ptr s start
+                    byte_builder_push_bytes_ref builder &src data_len
 
 //: byte_builder_push_bytebuf: `ByteBuf` の[内容/ないよう]を[追加/ついか]して入力 buffer を[解放/かいほう]する
 //:

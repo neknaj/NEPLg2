@@ -29,7 +29,7 @@
 //:
 //: [実装/じっそう]:
 //: - `str_slice_result` と同じ丸め規則で start/end を正規化し、UTF-8 境界を確認します。
-//: - builder capacity を確保してから、元文字列の data pointer + start から `out_len` byte を `mem_copy` します。
+//: - builder capacity と copy は `byte_builder_push_str_slice` に委譲し、元文字列の data pointer と byte length は typed helper 内で導出します。
 //:
 //: [注意/ちゅうい]:
 //: - 失敗時は入力 builder を解放して `Err` を返します。
@@ -62,8 +62,7 @@ pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder
                 then:
                     Result<StringBuilder,str>::Ok sb
                 else:
-                    let src <MemPtr<u8>> mem_ptr_add string_data_ptr s s0
-                    match byte_builder_push_bytes_ref string_builder_into_byte_builder sb &src out_len:
+                    match byte_builder_push_str_slice string_builder_into_byte_builder sb s s0 e0:
                         Result::Ok bytes:
                             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                         Result::Err e:

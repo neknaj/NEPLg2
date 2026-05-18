@@ -26,7 +26,7 @@
 //: - `s` の byte 列を builder の末尾へ copy し、更新後の builder を返します。
 //:
 //: [実装/じっそう]:
-//: - source `str` の data pointer は borrow view として扱い、copy と grow は `byte_builder_push_bytes_ref` に委譲します。
+//: - source `str` の長さと data pointer の対応は `byte_builder_push_str` に閉じ、StringBuilder 側は raw pointer/length pair を直接組み立てません。
 //:
 //: [注意/ちゅうい]:
 //: - `s` は source として参照されるだけで、builder は `str` owner を保持しません。
@@ -41,8 +41,7 @@ pub fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s)
         then:
             Result<StringBuilder,str>::Ok sb
         else:
-            let src <MemPtr<u8>> string_data_ptr s
-            match byte_builder_push_bytes_ref string_builder_into_byte_builder sb &src s_len:
+            match byte_builder_push_str string_builder_into_byte_builder sb s:
                 Result::Ok bytes:
                     Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:

@@ -105,7 +105,8 @@ function assertByteBuilderOwnerBoundary(code) {
         ['byte_builder_free', /\bfn\s+byte_builder_free\s+<\(ByteBuilder\)->\(\)>/],
         ['byte_builder_reserve', /\bfn\s+byte_builder_reserve\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
         ['byte_builder_push_u8', /\bfn\s+byte_builder_push_u8\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
-        ['byte_builder_push_bytes_ref', /\bfn\s+byte_builder_push_bytes_ref\s+<\(ByteBuilder,&MemPtr<u8>,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
+        ['byte_builder_push_str', /\bfn\s+byte_builder_push_str\s+<\(ByteBuilder,str\)->Result<ByteBuilder,\s*StdErrorKind>>/],
+        ['byte_builder_push_str_slice', /\bfn\s+byte_builder_push_str_slice\s+<\(ByteBuilder,str,i32,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
         ['byte_builder_finish', /\bfn\s+byte_builder_finish\s+<\(ByteBuilder\)->Result<ByteBuf,\s*StdErrorKind>>/],
     ]) {
         assert.match(
@@ -114,6 +115,30 @@ function assertByteBuilderOwnerBoundary(code) {
             `${name} must expose a pure safe surface; raw memory effects remain checked inside the source boundary`,
         );
     }
+
+    assert.doesNotMatch(
+        code,
+        /\bpub\s+fn\s+byte_builder_push_bytes_ref\b/,
+        'ByteBuilder must not expose raw MemPtr plus length append as public API',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_push_bytes_ref\s+<\(ByteBuilder,&MemPtr<u8>,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/,
+        'ByteBuilder may keep the raw copy helper only as a private implementation detail',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_push_str\s+<\(ByteBuilder,str\)->Result<ByteBuilder,\s*StdErrorKind>>[\s\S]*\blet\s+s_len\s+<i32>\s+len\s+s[\s\S]*\blet\s+src\s+<MemPtr<u8>>\s+string_data_ptr\s+s[\s\S]*\bbyte_builder_push_bytes_ref\s+builder\s+&src\s+s_len/,
+        'ByteBuilder full string append must derive source pointer and length from the same str value',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_push_str_slice\s+<\(ByteBuilder,str,i32,i32\)->Result<ByteBuilder,\s*StdErrorKind>>[\s\S]*\blet\s+n\s+<i32>\s+len\s+s[\s\S]*\bor\s+lt\s+start\s+0\s+or\s+lt\s+end\s+start\s+gt\s+end\s+n[\s\S]*\blet\s+data_len\s+<i32>\s+sub\s+end\s+start[\s\S]*\blet\s+src\s+<MemPtr<u8>>\s+mem_ptr_add\s+string_data_ptr\s+s\s+start[\s\S]*\bbyte_builder_push_bytes_ref\s+builder\s+&src\s+data_len/,
+        'ByteBuilder string slice append must prove the readable range from str length before raw copy',
+    );
 
     assert.match(
         code,
@@ -179,8 +204,14 @@ function assertStringBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bbyte_builder_push_bytes_ref\b[\s\S]*\bbyte_builder_push_char_utf8\b[\s\S]*\bbyte_builder_push_ascii\b[\s\S]*\bbyte_builder_push_u8\b/,
-        'StringBuilder append APIs must delegate all byte writes to ByteBuilder',
+        /\bbyte_builder_push_str\b[\s\S]*\bbyte_builder_push_char_utf8\b[\s\S]*\bbyte_builder_push_ascii\b[\s\S]*\bbyte_builder_push_u8\b/,
+        'StringBuilder append APIs must delegate all byte writes to typed ByteBuilder helpers',
+    );
+
+    assert.match(
+        code,
+        /\bbyte_builder_push_str_slice\b/,
+        'StringBuilder slice append must delegate source range copy to the typed ByteBuilder slice helper',
     );
 
     assert.match(

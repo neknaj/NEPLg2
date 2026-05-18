@@ -22,6 +22,7 @@ const stringBuilderTypesSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/
 const stringBuilderReserveSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/reserve.nepl'), 'utf8');
 const stringBuilderAppendSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/append.nepl'), 'utf8');
 const stringBuilderBuildSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/build.nepl'), 'utf8');
+const stringBuilderExtSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder_ext.nepl'), 'utf8');
 
 const ioRootCode = stripNeplComments(ioRootSrc);
 const ioByteBuilderFacadeCode = stripNeplComments(ioByteBuilderFacadeSrc);
@@ -37,6 +38,7 @@ const stringBuilderCode = stripNeplComments([
     stringBuilderReserveSrc,
     stringBuilderAppendSrc,
     stringBuilderBuildSrc,
+    stringBuilderExtSrc,
 ].join('\n'));
 
 function implementationLineCount(src) {

@@ -713,3 +713,11 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 修正後は `ExternalIoOp` の typed match から iovec payload を持つ `fd_read` / `fd_write` / `fd_pread` / `fd_pwrite` を分類し、shared iovec layout helper で descriptor cell から payload pointer と length を導出する。payload pointer は raw alias を通じて backing owner へ解決し、length が allocation / RegionToken extent と一致しない場合は `ResourceOwnerOperation::ExternalIoPayloadExtent` として拒否する。
 
 同時に、非所有 raw address view を iovec descriptor へ保存する場合に free obligation を移動せず、descriptor cell へ non-owning alias を残すようにした。これは stdlib 名 allowlist ではなく、Resource IR の raw view mark、alias table、owner extent proof を接続する修正であり、Stage 6 の `MemPtr = non-owning pointer` / `RegionToken = free obligation owner` 分離を compiler 側でも強める。
+
+## 2026-05-18 Agent 1 ByteBuilder typed source copy 境界追記
+
+`ISS-20260518T115751573Z-BYTEBUILDER-PUBLIC-RAW-BYTE-APPEND-D-D94BB3A0` を解決した。`byte_builder_push_bytes_ref` は `alloc/io/bytebuilder` facade から public に見えており、通常 source が任意の `MemPtr<u8>` と任意 length を組み合わせて `mem_copy` へ到達できた。`StringBuilder` の既存 caller は `str` の length / pointer や UTF-8 境界確認済み slice から pair を作っていたが、その証明は public API signature に残っていなかった。
+
+修正後は raw copy helper を private に閉じ、public API は `byte_builder_push_str` と `byte_builder_push_str_slice` に限定した。full append は `len s` と `string_data_ptr s` を同じ `str` から導出し、slice append は `0 <= start <= end <= len(s)` を確認してから pointer と length を導出する。`StringBuilder` 側もこの typed helper に委譲するため、source object と readable extent の対応を caller convention ではなく stdlib API 境界で保持できる。
+
+この親 issue は引き続き open とする。今回閉じたのは ByteBuilder の public raw pointer/length append surface であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。

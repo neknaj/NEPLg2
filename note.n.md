@@ -1,3 +1,17 @@
+# 2026-05-18 Agent 1 ByteBuilder typed source copy 境界修正
+
+- `ISS-20260518T115751573Z-BYTEBUILDER-PUBLIC-RAW-BYTE-APPEND-D-D94BB3A0` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`byte_builder_push_bytes_ref(ByteBuilder, &MemPtr<u8>, i32)` が `alloc/io/bytebuilder` facade から public に見え、caller が source object から導出されていない pointer/length pair を `mem_copy` へ渡せたこと。
+- raw copy helper は private に閉じ、public API は `byte_builder_push_str` と `byte_builder_push_str_slice` にした。full append は同じ `str` から `len` と `string_data_ptr` を導出し、slice append は `0 <= start <= end <= len(s)` を確認してから pointer と byte length を導出する。
+- `StringBuilder` の full append / slice append は typed ByteBuilder helper に委譲し、StringBuilder 側で raw pointer/length pair を直接組み立てない形にした。
+- 検証:
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i stdlib\alloc\io\bytebuilder -i stdlib\alloc\string\builder -i stdlib\alloc\string\builder_ext.nepl --no-tree -o tmp\agent1-bytebuilder-typed-source-copy-docs-after.json -j 1 --dist web\dist --assert-io`: total=6, passed=6
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-bytebuilder-typed-source-copy-memory-safety-after.json -j 1 --dist web\dist --assert-io`: total=60, passed=60
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の raw-memory-backed stdlib public/internal 境界として、ByteBuilder の raw pointer/length append surface を閉じた。
+
 # 2026-05-18 Agent 1 cliarg C string bounded 境界修正
 
 - `ISS-20260518T114636396Z-CLIARG-C-STRING-CONVERSION-LACKS-ARG-21786F27` を追加し、fixed / resolved にした。`plan.md` は変更していない。

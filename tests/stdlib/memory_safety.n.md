@@ -1398,3 +1398,30 @@ fn main <()*>i32> ():
     let p <MemPtr<u8>> string_data_ptr "nep\0";
     cstr_to_str p
 ```
+
+## alloc/io/bytebuilder は raw pointer と length の append を公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io/bytebuilder" as *
+#import "alloc/string/storage" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match byte_builder_new:
+        Result::Ok b:
+            let p <MemPtr<u8>> string_data_ptr "abc";
+            match byte_builder_push_bytes_ref b &p 3:
+                Result::Ok next:
+                    byte_builder_free next
+                    0
+                Result::Err _:
+                    1
+        Result::Err _:
+            1
+```

@@ -74,11 +74,13 @@ const builderTypesCode = stripNeplComments(builderTypesSrc);
 const builderReserveCode = stripNeplComments(builderReserveSrc);
 const builderAppendCode = stripNeplComments(builderAppendSrc);
 const builderBuildCode = stripNeplComments(builderBuildSrc);
+const builderExtCode = stripNeplComments(builderExtSrc);
 const builderCombinedCode = [
     builderTypesCode,
     builderReserveCode,
     builderAppendCode,
     builderBuildCode,
+    builderExtCode,
 ].join('\n');
 const searchCode = stripNeplComments(searchSrc);
 const searchCompareCode = stripNeplComments(searchCompareSrc);
@@ -96,7 +98,6 @@ const floatCode = stripNeplComments(floatSrc);
 const floatFormatCode = stripNeplComments(floatFormatSrc);
 const floatParseCode = stripNeplComments(floatParseSrc);
 const concatCode = stripNeplComments(concatSrc);
-const builderExtCode = stripNeplComments(builderExtSrc);
 const findCode = stripNeplComments(findSrc);
 const fromU128Radix = integerFormatCode.match(/(?:pub\s+)?fn\s+from_u128_radix[\s\S]*?(?=\n(?:pub\s+)?fn\s+from_i128|\n\/\/ from_i128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/(?:pub\s+)?fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\n(?:pub\s+)?fn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
