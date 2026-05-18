@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T16:46:32.154Z",
+  "generated_at": "2026-05-18T17:03:08.178Z",
   "counts": {
-    "total": 1008,
+    "total": 1009,
     "open": 5,
-    "resolved": 1003,
+    "resolved": 1004,
     "by_area": {
       "stdlib": {
         "total": 277,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 510,
+        "total": 511,
         "open": 0,
-        "resolved": 510
+        "resolved": 511
       },
       "CORE": {
         "total": 4,
@@ -7778,6 +7778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E.md"
+    },
+    {
+      "id": "ISS-20260518T165601592Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-7475D872",
+      "title": "resource checker responsibility policy omits host memory modules",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T165601592Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-7475D872.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

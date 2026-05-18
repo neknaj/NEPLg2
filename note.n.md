@@ -41877,3 +41877,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_treat_raw_cell_payload_as_storage_owner -- --nocapture`: passed
   - `trunk build`: passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl -i stdlib/neplg2/core/pipeline.nepl -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-resource-diag-label-checker-after-rawptr.json -j 1 --dist web/dist --assert-io`: total=5, passed=3, failed=2。残りは `ISS-20260518T145905099Z-RESOURCE-IR-FD-WRITE-PAYLOAD-EXTENT--C471191E`。
+
+## 2026-05-18 Agent 1 Resource checker responsibility policy 同期
+
+- `ISS-20260518T165601592Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-7475D872` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Stage 6 の fd_write payload extent proof で追加した `host_memory_address.rs` / `owner_host_memory_summary.rs` が Resource IR module として存在するのに、`nodesrc/test_resource_checker_responsibility.js` の required module list と line-limit map へ登録されていなかったことだった。source policy が新規 Resource IR module の責務肥大を検出できない状態になっていた。
+- policy への登録だけでなく、監視を有効化したことで露出した責務肥大も整理した。`owner_external_io.rs` は外部 I/O owner span orchestration に戻し、iovec payload / payload extent proof を `owner_external_io_payload.rs` に分離した。
+- `owner_host_memory_span.rs` から iovec descriptor extent proof を `owner_host_iov_descriptor.rs` に分離し、host memory contract dispatch と descriptor-specific length proof を分けた。
+- `owner_summary_raw_use_walk.rs` から branch merge を `owner_summary_raw_use_branch.rs` へ分離し、raw owner alias walk と branch output merge の責務を分けた。
+- focused verification:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
