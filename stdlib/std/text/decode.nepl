@@ -41,7 +41,7 @@ pub fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErro
         then:
             Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
         else:
-            match text_utf8_byte_at data i:
+            match text_utf8_byte_at_checked data byte_len i:
                 Result::Err e:
                     Result<CharUtf8Step, StdErrorKind>::Err e
                 Result::Ok b0:
@@ -59,7 +59,7 @@ pub fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErro
                                         then:
                                             Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
                                         else:
-                                            match text_utf8_byte_at data add i 1:
+                                            match text_utf8_byte_at_checked data byte_len add i 1:
                                                 Result::Err e:
                                                     Result<CharUtf8Step, StdErrorKind>::Err e
                                                 Result::Ok b1:
@@ -77,11 +77,11 @@ pub fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErro
                                         then:
                                             Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
                                         else:
-                                            match text_utf8_byte_at data add i 1:
+                                            match text_utf8_byte_at_checked data byte_len add i 1:
                                                 Result::Err e:
                                                     Result<CharUtf8Step, StdErrorKind>::Err e
                                                 Result::Ok b1:
-                                                    match text_utf8_byte_at data add i 2:
+                                                    match text_utf8_byte_at_checked data byte_len add i 2:
                                                         Result::Err e:
                                                             Result<CharUtf8Step, StdErrorKind>::Err e
                                                         Result::Ok b2:
@@ -112,15 +112,15 @@ pub fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErro
                                         then:
                                             Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
                                         else:
-                                            match text_utf8_byte_at data add i 1:
+                                            match text_utf8_byte_at_checked data byte_len add i 1:
                                                 Result::Err e:
                                                     Result<CharUtf8Step, StdErrorKind>::Err e
                                                 Result::Ok b1:
-                                                    match text_utf8_byte_at data add i 2:
+                                                    match text_utf8_byte_at_checked data byte_len add i 2:
                                                         Result::Err e:
                                                             Result<CharUtf8Step, StdErrorKind>::Err e
                                                         Result::Ok b2:
-                                                            match text_utf8_byte_at data add i 3:
+                                                            match text_utf8_byte_at_checked data byte_len add i 3:
                                                                 Result::Err e:
                                                                     Result<CharUtf8Step, StdErrorKind>::Err e
                                                                 Result::Ok b3:

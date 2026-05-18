@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T11:23:14.949Z",
+  "generated_at": "2026-05-18T11:40:33.693Z",
   "counts": {
-    "total": 996,
+    "total": 997,
     "open": 5,
-    "resolved": 991,
+    "resolved": 992,
     "by_area": {
       "stdlib": {
-        "total": 270,
+        "total": 271,
         "open": 3,
-        "resolved": 267
+        "resolved": 268
       },
       "TEST": {
         "total": 42,
@@ -11873,6 +11873,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20.md"
+    },
+    {
+      "id": "ISS-20260518T112925248Z-UTF-8-RAW-BYTE-READERS-EXPOSE-UNCHEC-35257411",
+      "title": "UTF-8 raw byte readers expose unchecked public index boundary",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "stdlib/alloc/string/utf8.nepl, stdlib/std/text/validate.nepl, stdlib/std/text/decode.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T112925248Z-UTF-8-RAW-BYTE-READERS-EXPOSE-UNCHEC-35257411.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

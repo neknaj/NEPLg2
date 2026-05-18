@@ -682,6 +682,14 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 
 この親 issue は引き続き open とする。今回閉じたのは string byte reader の public unchecked surface であり、`RegionToken` の compiler-issued owner token 化、`OwnedStringRegion` / `OwnedBuffer<T>`、initialized prefix / collection drop traversal は Stage 6 残件として継続する。
 
+## 2026-05-18 Agent 1 UTF-8 raw byte reader 境界追記
+
+`ISS-20260518T112925248Z-UTF-8-RAW-BYTE-READERS-EXPOSE-UNCHEC-35257411` を解決した。`alloc/string/utf8` と `std/text/validate` は root facade からは raw helper を再公開していなかったが、explicit submodule import では `string_utf8_byte_at` / `text_utf8_byte_at` と sequence validator が public に見えていた。これは `validate_mem` / `decode_next` が持つ byte_len discipline を通らない単一 byte raw read surface であり、Stage 6 の raw-memory-backed API 境界として不十分だった。
+
+修正後、`alloc/string/utf8` の単一 byte reader と sequence validator は private に閉じ、内部では `string_utf8_byte_at_checked(data, byte_len, idx)` を必ず通す。`std/text/validate` は `decode` との共有に必要な `text_utf8_byte_at_checked(data, byte_len, idx)` だけを public に残し、旧 helper 名と sequence validator は公開しない。source policy と memory-safety doctest は、byte_len を持たない raw byte reader と public sequence validator の再導入を拒否する。
+
+この親 issue は引き続き open とする。今回閉じたのは UTF-8 validation submodule の unchecked public byte-reader surface であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
 ## 2026-05-18 Agent 1 SHA256 owner aggregate field 境界追記
 
 `ISS-20260518T081055566Z-SHA256-DOCTEST-BLOCKED-BY-OWNER-AGGR-B2EE3B20` を解決した。SHA256 incremental state は `Sha256.buffer` として `Vec<i32>` owner を保持しているため、通常 source から aggregate field を直接読む設計にはできない。

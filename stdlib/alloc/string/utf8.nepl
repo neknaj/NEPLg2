@@ -20,6 +20,21 @@
 //:
 //: [目的/もくてき]:
 //: - UTF-8 検証の分岐を enum と `match` にし、if の深いネストに戻らないようにします。
+//:
+//: neplg2:test
+//: ret: 1
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//: fn main <()->i32> ():
+//:     match string_utf8_lead_kind 65:
+//:         StringUtf8LeadKind::Ascii:
+//:             1
+//:         _:
+//:             0
+//: ```
 pub enum StringUtf8LeadKind:
     Ascii
     Two
@@ -56,21 +71,26 @@ pub fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
                                 else:
                                     StringUtf8LeadKind::Invalid
 
-pub fn string_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32,str>> (data, idx):
-    let ptr <MemPtr<u8>> mem_ptr_add data idx
-    match load_u8 ptr:
-        Option::Some b:
-            Result<i32,str>::Ok b
-        Option::None:
-            Result<i32,str>::Err "string.utf8 invalid pointer"
+fn string_utf8_byte_at_checked <(MemPtr<u8>,i32,i32)->Result<i32,str>> (data, byte_len, idx):
+    if:
+        or lt idx 0 le byte_len idx
+        then:
+            Result<i32,str>::Err "string.utf8 index out of range"
+        else:
+            let ptr <MemPtr<u8>> mem_ptr_add data idx
+            match load_u8 ptr:
+                Option::Some b:
+                    Result<i32,str>::Ok b
+                Option::None:
+                    Result<i32,str>::Err "string.utf8 invalid pointer"
 
-pub fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byte_len):
+fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byte_len):
     if:
         gt add i 2 byte_len
         then:
             Result<(),str>::Err "string.utf8 truncated sequence"
         else:
-            match string_utf8_byte_at data add i 1:
+            match string_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
                     Result<(),str>::Err e
                 Result::Ok b1:
@@ -81,17 +101,17 @@ pub fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i,
                         else:
                             Result<(),str>::Err "string.utf8 invalid continuation"
 
-pub fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
     if:
         gt add i 3 byte_len
         then:
             Result<(),str>::Err "string.utf8 truncated sequence"
         else:
-            match string_utf8_byte_at data add i 1:
+            match string_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
                     Result<(),str>::Err e
                 Result::Ok b1:
-                    match string_utf8_byte_at data add i 2:
+                    match string_utf8_byte_at_checked data byte_len add i 2:
                         Result::Err e:
                             Result<(),str>::Err e
                         Result::Ok b2:
@@ -114,21 +134,21 @@ pub fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (da
                                 else:
                                     Result<(),str>::Err "string.utf8 invalid three-byte sequence"
 
-pub fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
     if:
         gt add i 4 byte_len
         then:
             Result<(),str>::Err "string.utf8 truncated sequence"
         else:
-            match string_utf8_byte_at data add i 1:
+            match string_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
                     Result<(),str>::Err e
                 Result::Ok b1:
-                    match string_utf8_byte_at data add i 2:
+                    match string_utf8_byte_at_checked data byte_len add i 2:
                         Result::Err e:
                             Result<(),str>::Err e
                         Result::Ok b2:
-                            match string_utf8_byte_at data add i 3:
+                            match string_utf8_byte_at_checked data byte_len add i 3:
                                 Result::Err e:
                                     Result<(),str>::Err e
                                 Result::Ok b3:
@@ -164,6 +184,27 @@ pub fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (dat
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
+//:
+//: neplg2:test
+//: ret: 1
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/access" as *
+//:| #import "alloc/string/storage" as *
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <str> "nep"
+//:     let data <MemPtr<u8>> string_data_ptr s
+//:     match string_utf8_validate_mem data len s:
+//:         Result::Err _e:
+//:             0
+//:         Result::Ok _:
+//:             1
+//: ```
 pub fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_len):
     if:
         lt byte_len 0
@@ -180,7 +221,7 @@ pub fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_l
                         then:
                             set done 1
                         else:
-                            match string_utf8_byte_at data i:
+                            match string_utf8_byte_at_checked data byte_len i:
                                 Result::Err e:
                                     set res Result<(),str>::Err e
                                     set done 1

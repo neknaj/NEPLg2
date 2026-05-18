@@ -1,3 +1,21 @@
+# 2026-05-18 Agent 1 UTF-8 raw byte reader public 境界修正
+
+- `ISS-20260518T112925248Z-UTF-8-RAW-BYTE-READERS-EXPOSE-UNCHEC-35257411` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`alloc/string/utf8` と `std/text/validate` が root facade から raw helper を再公開していなくても、explicit submodule import では `string_utf8_byte_at` / `text_utf8_byte_at` と sequence validator を public にしていたこと。これは `validate_mem` / `decode_next` の byte_len discipline を通らない単一 byte raw read surface だった。
+- `alloc/string/utf8` の raw byte reader と sequence validator は private に閉じ、内部 reader は `string_utf8_byte_at_checked(data, byte_len, idx)` として負 index / `idx >= byte_len` を raw pointer 計算前に拒否するようにした。
+- `std/text/validate` は `decode` との共有に必要な `text_utf8_byte_at_checked(data, byte_len, idx)` だけを public に残し、`std/text/decode` はすべての byte read に byte_len を渡すようにした。旧 helper 名と public sequence validator は source policy と memory-safety doctest で再導入を拒否する。
+- stdlib documentation policy に合わせ、`std/text/validate` と `alloc/string/utf8` に実行可能な doc-comment doctest を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_string_utf8_boundary.js`
+  - `node nodesrc/test_stdlib_text_boundary.js`
+  - `node nodesrc/test_stdlib_documentation_contract.js`
+  - `node nodesrc/tests.js -i stdlib\std\text\validate.nepl -i stdlib\alloc\string\utf8.nepl --no-tree -o tmp\agent1-utf8-raw-byte-reader-boundary-doc-tests.json -j 1 --dist web\dist --assert-io`: total=6, passed=6
+  - `node nodesrc/tests.js -i tests\stdlib\memory_safety.n.md --no-tree -o tmp\agent1-utf8-raw-byte-reader-boundary-memory-safety-final.json -j 1 --dist web\dist --assert-io`: total=57, passed=57
+  - `node nodesrc/tests.js -i stdlib\std\text -i tests\stdlib\text_utf8.n.md --no-tree -o tmp\agent1-utf8-raw-byte-reader-boundary-text-focused.json -j 1 --dist web\dist --assert-io`: total=13, passed=13
+  - `node nodesrc/tests.js -i stdlib\alloc\string\utf8.nepl -i stdlib\alloc\string\storage.nepl -i stdlib\alloc\io\bytebuf.nepl --no-tree -o tmp\agent1-utf8-raw-byte-reader-boundary-string-focused.json -j 1 --dist web\dist --assert-io`: total=3, passed=3
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正 Stage 6 の raw-memory-backed stdlib public/internal 境界として、UTF-8 validation / decode の unchecked public byte-reader surface を閉じた。
+
 # 2026-05-18 Agent 1 alloc/string scanner unchecked byte reader public 境界修正
 
 - `ISS-20260518T072300172Z-ALLOC-STRING-SCANNER-EXPOSES-UNCHECK-BE608F25` を追加し、fixed / resolved にした。`plan.md` は変更していない。

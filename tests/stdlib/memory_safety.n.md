@@ -1318,3 +1318,49 @@ diag_code: resolve.identifier.undefined
 fn main <()*>i32> ():
     string_byte_at_unchecked "abc" 99
 ```
+
+## alloc/string/utf8 の raw byte reader は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/utf8" as *
+
+fn main <()*>i32> ():
+    string_utf8_byte_at "abc" 0
+```
+
+## alloc/string/utf8 の sequence validator は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/utf8" as *
+
+fn main <()*>i32> ():
+    string_utf8_validate_two "abc" 0 3
+    0
+```
+
+## std/text/validate の旧 raw byte reader 名は公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/text/validate" as *
+
+fn main <()*>i32> ():
+    text_utf8_byte_at "abc" 0
+```

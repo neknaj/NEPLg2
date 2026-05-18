@@ -41,13 +41,34 @@ for (const helper of [
     'text_utf8_in_range',
     'text_utf8_is_continuation',
     'text_utf8_lead_kind',
-    'text_utf8_byte_at',
+    'text_utf8_byte_at_checked',
     'text_utf8_validate_mem',
 ]) {
     assert.match(validateCode, new RegExp(`\\b${helper}\\b`), `${helper} must stay in std/text/validate`);
     assert.doesNotMatch(decodeCode, new RegExp(`\\b(?:enum|fn)\\s+${helper}\\b`), `${helper} must not be defined in std/text/decode`);
     assert.doesNotMatch(convertCode, new RegExp(`\\b(?:enum|fn)\\s+${helper}\\b`), `${helper} must not be defined in std/text/convert`);
 }
+
+assert.doesNotMatch(
+    validateCode,
+    /\bpub\s+fn\s+text_utf8_validate_(?:two|three|four)\b/,
+    'std/text sequence validators must stay private implementation details',
+);
+assert.doesNotMatch(
+    validateCode,
+    /\bfn\s+text_utf8_byte_at\b/,
+    'std/text must not expose the old unchecked byte reader name',
+);
+assert.match(
+    validateCode,
+    /\bfn\s+text_utf8_byte_at_checked\b[\s\S]*or\s+lt\s+idx\s+0\s+le\s+byte_len\s+idx[\s\S]*let\s+ptr\s+<MemPtr<u8>>\s+mem_ptr_add\s+data\s+idx[\s\S]*match\s+load_u8\s+ptr:/,
+    'std/text checked byte reader must carry byte_len and keep mem_ptr_add as call-head evidence',
+);
+assert.match(
+    decodeCode,
+    /\btext_utf8_byte_at_checked\s+data\s+byte_len\s+i\b/,
+    'std/text decode must use the byte_len-carrying checked reader for the leading byte',
+);
 
 for (const helper of [
     'text_is_valid_scalar',
