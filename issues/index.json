@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-18T23:13:10.227Z",
+  "generated_at": "2026-05-18T23:26:47.821Z",
   "counts": {
-    "total": 1027,
+    "total": 1028,
     "open": 5,
-    "resolved": 1022,
+    "resolved": 1023,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 49,
+        "total": 50,
         "open": 1,
-        "resolved": 48
+        "resolved": 49
       },
       "selfhost": {
         "total": 72,
@@ -13043,6 +13043,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T230932301Z-FS-DOCTESTS-PRINT-REPORTS-BUT-KEEP-R-9E9FDEC4.md"
+    },
+    {
+      "id": "ISS-20260518T232455691Z-TRAITS-HASH-DOCTESTS-PRINT-REPORTS-W-234B8FA6",
+      "title": "traits_hash doctests print reports without stdout fixtures",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-18",
+      "updated": "2026-05-18",
+      "target": "tests/stdlib/traits_hash.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260518T232455691Z-TRAITS-HASH-DOCTESTS-PRINT-REPORTS-W-234B8FA6.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

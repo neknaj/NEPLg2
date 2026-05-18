@@ -42121,3 +42121,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_fs_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-nmd-report.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
+
+## 2026-05-18 Agent 1 traits_hash stdout report metadata 移行
+
+- `ISS-20260518T232455691Z-TRAITS-HASH-DOCTESTS-PRINT-REPORTS-W-234B8FA6` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/traits_hash.n.md` の 3 runtime doctest が `checks_print_report` を呼んでいるにもかかわらず、manifest に stdout / exit_code expectation がなく、HashKey / Hasher abstraction の assertion count と report format を固定していなかったことだった。
+- primitive Hash trait、custom HashMap key/hasher、custom HashSet key/hasher の doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。
+- `nodesrc/test_stdlib_traits_hash_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、report 出力なしの exit-code-only 退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。

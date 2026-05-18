@@ -1565,3 +1565,16 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/agent1-fs-nmd-report.json -j 1 --dist web/dist --assert-io`: total=8, passed=8
 
 この issue はまだ open のまま継続する。`fs.n.md` は移行済みで、残る ret-only assertion fixture は core-only `stdlib/core/test.nepl` の扱い確認が中心である。
+
+## 2026-05-18 traits_hash stdout report metadata migration
+
+`ISS-20260518T232455691Z-TRAITS-HASH-DOCTESTS-PRINT-REPORTS-W-234B8FA6` として、`tests/stdlib/traits_hash.n.md` の runtime doctest 3 件を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- primitive Hash trait、HashMap custom key/hasher、HashSet custom key/hasher の assertion report を manifest の stdout fixture に固定した。
+- 3 件とも `checks_print_report` は呼んでいたが、これまでは stdout expectation がなく report format / assertion count の退行を検出できなかった。
+- `nodesrc/test_stdlib_traits_hash_report_contract.js` を追加し、`ret:` 不使用、stdout fixture、report print -> exit code の順序を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+この issue はまだ open のまま継続する。`traits_hash` の target subcase は移行済みだが、`checks_exit_code` を使いながら manifest stdout/exit_code を持たない fixture がまだ残っているため、report 省略検出と段階的移行を続ける。

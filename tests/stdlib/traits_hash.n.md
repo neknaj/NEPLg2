@@ -7,7 +7,13 @@
 - `Hash` trait が `i32` / `str` の[既存/きそん]ハッシュ[実装/じっそう]を[共通/きょうつう] helper から[呼/よ]べることを[確/たし]かめます。
 - `hash32_by_trait` が[決定的/けっていてき]で、[異/こと]なる[値/あたい]に[対/たい]して[区別/くべつ]できることを[確認/かくにん]します。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -138,7 +144,13 @@ fn main <()->i32> ():
 - `hashmap` が key の `HashKey` trait と標準 `Copy` bound を[分離/ぶんり]した API に[移行/いこう]したことを[確/たし]かめます。
 - custom key [型/かた]に `HashKey` と custom hasher [向/む]け `hash32` overload を[定義/ていぎ]すれば、その[意味論/いみろん]で insert/get が[成立/せいりつ]することを[確認/かくにん]します。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -274,7 +286,12 @@ fn main <()*>i32> ():
 - `hashset` が key の `HashKey` trait と標準 `Copy` bound を[分離/ぶんり]した API に[移行/いこう]したことを[確/たし]かめます。
 - custom key [型/かた]に `HashKey` と custom hasher [向/む]け `hash32` overload を[定義/ていぎ]すれば、その[意味論/いみろん]で insert/contains が[成立/せいりつ]することを[確認/かくにん]します。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 #entry main
 #target std
