@@ -76,6 +76,7 @@ const checks = [
     "nodesrc/test_stdlib_segment_tree_borrowed_observers.js",
     "nodesrc/test_stdlib_segment_tree_update_error_owner.js",
     "nodesrc/test_stdlib_stack_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_collection_cleanup_contract.js",
     "nodesrc/test_stdlib_hashmap_storage_contract.js",
     "nodesrc/test_stdlib_hashset_storage_contract.js",
     "nodesrc/test_stdlib_hash_string_access_boundary.js",
