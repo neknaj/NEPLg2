@@ -10,7 +10,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceMatchPattern};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
-use super::owner_extent::summarize_owner_storage_extent;
+use super::owner_extent::summarize_owner_storage_extent_for_owner;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_place::summary_projection_place;
 use super::owner_state::OwnerTable;
@@ -430,9 +430,10 @@ impl PendingVariantOwnerEffects {
                         OwnerVariantConsumedExtentRequirement {
                             variant: normalize_variant_name(&entry.variant),
                             owner: consumed,
-                            extent: summarize_owner_storage_extent(
+                            extent: summarize_owner_storage_extent_for_owner(
                                 raw_aliases,
                                 parameter_condition_sources,
+                                &source,
                                 &requirement.expected,
                             ),
                             operation: requirement.operation,
@@ -463,9 +464,10 @@ impl PendingVariantOwnerEffects {
                                 OwnerVariantConsumedExtentRequirement {
                                     variant: normalize_variant_name(&entry.variant),
                                     owner: parameter_source.clone(),
-                                    extent: summarize_owner_storage_extent(
+                                    extent: summarize_owner_storage_extent_for_owner(
                                         raw_aliases,
                                         parameter_condition_sources,
+                                        &source,
                                         &requirement.expected,
                                     ),
                                     operation: requirement.operation,
@@ -483,9 +485,10 @@ impl PendingVariantOwnerEffects {
                                         PendingVariantOwnerReturnSource::Parameter {
                                             returned_extent,
                                             ..
-                                        } => summarize_owner_storage_extent(
+                                        } => summarize_owner_storage_extent_for_owner(
                                             raw_aliases,
                                             parameter_condition_sources,
+                                            &source,
                                             returned_extent,
                                         ),
                                         PendingVariantOwnerReturnSource::Fresh { .. }
@@ -503,6 +506,8 @@ impl PendingVariantOwnerEffects {
                     }
                 }
                 PendingVariantOwnerReturnSource::Fresh { extent } => {
+                    let target =
+                        summary_projection_place(result, &entry.target_suffix, entry.target_ty);
                     push_unique_variant_projection_return(
                         return_out,
                         OwnerVariantProjectionReturn {
@@ -510,9 +515,10 @@ impl PendingVariantOwnerEffects {
                             suffix: entry.target_suffix.clone(),
                             ty: entry.target_ty,
                             owner: OwnerProjectionReturnOwner::Fresh {
-                                extent: summarize_owner_storage_extent(
+                                extent: summarize_owner_storage_extent_for_owner(
                                     raw_aliases,
                                     parameter_condition_sources,
+                                    &target,
                                     extent,
                                 ),
                             },
@@ -520,6 +526,8 @@ impl PendingVariantOwnerEffects {
                     );
                 }
                 PendingVariantOwnerReturnSource::UnknownSource { extent } => {
+                    let target =
+                        summary_projection_place(result, &entry.target_suffix, entry.target_ty);
                     push_unique_variant_projection_return(
                         return_out,
                         OwnerVariantProjectionReturn {
@@ -527,9 +535,10 @@ impl PendingVariantOwnerEffects {
                             suffix: entry.target_suffix.clone(),
                             ty: entry.target_ty,
                             owner: OwnerProjectionReturnOwner::UnknownSource {
-                                extent: summarize_owner_storage_extent(
+                                extent: summarize_owner_storage_extent_for_owner(
                                     raw_aliases,
                                     parameter_condition_sources,
+                                    &target,
                                     extent,
                                 ),
                             },

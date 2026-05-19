@@ -9,7 +9,9 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
+use super::owner_summary_host_size_return::record_host_size_returns;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
+use super::owner_summary_type_size_return::record_type_size_returns;
 use super::owner_summary_variant_conditions::{
     collect_owner_variant_known_payload_conditions, collect_owner_variant_payload_conditions,
 };
@@ -22,7 +24,8 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerVariantCondition, OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
+    OwnerHostSizeReturn, OwnerTypeSizeReturn, OwnerVariantCondition,
+    OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
     OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
@@ -44,6 +47,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     parameter_condition_sources: &[OwnerParameterConditionSource],
     ops: &[ResourceOp],
     return_value: &Place,
+    host_size_out: &mut Vec<OwnerHostSizeReturn>,
+    type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let mut engine = ResourceOwnerCheckEngine {
@@ -109,6 +114,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     then_value,
                     condition_fact.as_ref().map(|fact| (fact, true)),
                     None,
+                    host_size_out,
+                    type_size_out,
                     return_out,
                 );
                 let mut else_owners = owners.clone();
@@ -145,6 +152,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     else_value,
                     condition_fact.as_ref().map(|fact| (fact, false)),
                     None,
+                    host_size_out,
+                    type_size_out,
                     return_out,
                 );
             }
@@ -179,6 +188,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         &arm.value,
                         None,
                         Some((scrutinee, arm, *span)),
+                        host_size_out,
+                        type_size_out,
                         return_out,
                     );
                 }
@@ -231,6 +242,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
     path_value: &Place,
     branch_condition: Option<(&ResourceConditionFact, bool)>,
     match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
+    host_size_out: &mut Vec<OwnerHostSizeReturn>,
+    type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let mut path_engine = ResourceOwnerCheckEngine {
@@ -280,6 +293,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
             parameter_condition_sources,
             path_ops,
             path_value,
+            host_size_out,
+            type_size_out,
             return_out,
         );
         return;
@@ -322,6 +337,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
         path_value,
         &path_raw_aliases,
     );
+    record_host_size_returns(host_size_out, &path_raw_aliases, path_value);
+    record_type_size_returns(type_size_out, &path_raw_aliases, path_value);
 
     let (projection_returns, returned_sources) = returned_owner_returns_for_value(
         &path_owners,

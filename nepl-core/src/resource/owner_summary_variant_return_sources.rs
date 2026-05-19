@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
-use super::owner_extent::summarize_owner_storage_extent;
+use super::owner_extent::summarize_owner_storage_extent_for_owner;
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::{
     owner_source_for_storage, record_projection_owner_return, record_root_owner_return,
@@ -37,9 +37,10 @@ pub(super) fn returned_owner_returns_for_value(
                     &mut unused_return_extents,
                     &mut returned_sources,
                     source,
-                    summarize_owner_storage_extent(
+                    summarize_owner_storage_extent_for_owner(
                         raw_aliases,
                         parameter_condition_sources,
+                        &resolved_value,
                         &extent,
                     ),
                 );
@@ -73,9 +74,10 @@ pub(super) fn returned_owner_returns_for_value(
                         suffix,
                         entry.place.ty,
                         *storage,
-                        summarize_owner_storage_extent(
+                        summarize_owner_storage_extent_for_owner(
                             raw_aliases,
                             parameter_condition_sources,
+                            &entry.place,
                             extent,
                         ),
                         parameter_storage_sources,
@@ -111,9 +113,10 @@ pub(super) fn returned_owner_returns_for_value(
                     aliased.suffix,
                     aliased.entry.place.ty,
                     *storage,
-                    summarize_owner_storage_extent(
+                    summarize_owner_storage_extent_for_owner(
                         raw_aliases,
                         parameter_condition_sources,
+                        &aliased.entry.place,
                         extent,
                     ),
                     parameter_storage_sources,

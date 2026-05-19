@@ -13,7 +13,9 @@ use super::initialized_alias_rank::{
 };
 use super::initialized_alias_relation::I32RelationFacts;
 use super::initialized_alias_scalar::I32AliasFacts;
+use super::initialized_alias_scalar_copy::ScalarFactCopies;
 use super::initialized_alias_scale::I32ScaleFacts;
+use super::initialized_alias_type_size::I32TypeSizeFacts;
 use super::initialized_alias_utils::{
     groups_overlap, place_without_suffix, push_unique_projected_alias,
 };
@@ -41,6 +43,7 @@ pub(super) struct RawCellAddressAliases {
     pub(super) i32_relations: I32RelationFacts,
     pub(super) i32_scales: I32ScaleFacts,
     pub(super) i32_offsets: I32OffsetFacts,
+    pub(super) i32_type_sizes: I32TypeSizeFacts,
     pub(super) host_size_facts: HostSizeFacts,
 }
 
@@ -70,25 +73,9 @@ impl RawCellAddressAliases {
         if source == target {
             return;
         }
-        let fact_copies = self.i32_facts.facts_with_replaced_prefix(source, target);
-        let difference_copies = self
-            .i32_differences
-            .facts_with_replaced_prefix(source, target);
-        let relation_copies = self
-            .i32_relations
-            .facts_with_replaced_prefix(source, target);
-        let scale_copies = self.i32_scales.facts_with_replaced_prefix(source, target);
-        let offset_copies = self.i32_offsets.facts_with_replaced_prefix(source, target);
-        let host_size_copies = self
-            .host_size_facts
-            .facts_with_replaced_prefix(source, target);
+        let fact_copies = self.scalar_fact_copies_for_aliases(source, target);
         self.clear_scalar_metadata(target);
-        self.i32_facts.extend(fact_copies);
-        self.i32_differences.extend(difference_copies);
-        self.i32_relations.extend(relation_copies);
-        self.i32_scales.extend(scale_copies);
-        self.i32_offsets.extend(offset_copies);
-        self.host_size_facts.extend(host_size_copies);
+        fact_copies.apply_to(self);
         self.scalar_origins.copy_stable_origin(source, target);
     }
 
@@ -101,18 +88,7 @@ impl RawCellAddressAliases {
         if source == target {
             return;
         }
-        let fact_copies = self.i32_facts.facts_with_replaced_prefix(source, target);
-        let difference_copies = self
-            .i32_differences
-            .facts_with_replaced_prefix(source, target);
-        let relation_copies = self
-            .i32_relations
-            .facts_with_replaced_prefix(source, target);
-        let scale_copies = self.i32_scales.facts_with_replaced_prefix(source, target);
-        let offset_copies = self.i32_offsets.facts_with_replaced_prefix(source, target);
-        let host_size_copies = self
-            .host_size_facts
-            .facts_with_replaced_prefix(source, target);
+        let fact_copies = self.scalar_fact_copies_for_aliases(source, target);
         let groups = self.groups_with_replaced_prefix(source, target);
         if clear_target {
             self.clear(target);
@@ -120,14 +96,22 @@ impl RawCellAddressAliases {
         for group in groups {
             self.union_group(&group);
         }
-        self.i32_facts.extend(fact_copies);
-        self.i32_differences.extend(difference_copies);
-        self.i32_relations.extend(relation_copies);
-        self.i32_scales.extend(scale_copies);
-        self.i32_offsets.extend(offset_copies);
-        self.host_size_facts.extend(host_size_copies);
+        fact_copies.apply_to(self);
         self.raw_view_origins.copy_stable_origin(source, target);
         self.scalar_origins.copy_stable_origin(source, target);
+    }
+
+    fn scalar_fact_copies_for_aliases(&self, source: &Place, target: &Place) -> ScalarFactCopies {
+        let mut sources = Vec::new();
+        push_unique_place(&mut sources, source);
+        for alias in self.scalar_aliases_for(source) {
+            push_unique_place(&mut sources, &alias);
+        }
+        let mut copies = ScalarFactCopies::default();
+        for source in sources {
+            copies.extend_from(self, &source, target);
+        }
+        copies
     }
 
     /// Records an explicit raw-address relation while preserving any already-tracked aliases and
@@ -194,6 +178,9 @@ impl RawCellAddressAliases {
             .facts_with_replaced_prefix(source, target);
         let moved_scales = self.i32_scales.facts_with_replaced_prefix(source, target);
         let moved_offsets = self.i32_offsets.facts_with_replaced_prefix(source, target);
+        let moved_type_sizes = self
+            .i32_type_sizes
+            .facts_with_replaced_prefix(source, target);
         let moved_host_sizes = self
             .host_size_facts
             .facts_with_replaced_prefix(source, target);
@@ -223,6 +210,7 @@ impl RawCellAddressAliases {
         self.i32_relations.extend(moved_relations);
         self.i32_scales.extend(moved_scales);
         self.i32_offsets.extend(moved_offsets);
+        self.i32_type_sizes.extend(moved_type_sizes);
         self.host_size_facts.extend(moved_host_sizes);
     }
 
@@ -391,6 +379,7 @@ impl RawCellAddressAliases {
         self.i32_relations.clear_prefix(place);
         self.i32_scales.clear_prefix(place);
         self.i32_offsets.clear_prefix(place);
+        self.i32_type_sizes.clear_prefix(place);
         self.host_size_facts.clear_prefix(place);
     }
 
@@ -425,6 +414,8 @@ impl RawCellAddressAliases {
             I32RelationFacts::merge_paths(paths.iter().map(|path| &path.i32_relations));
         out.i32_scales = I32ScaleFacts::merge_paths(paths.iter().map(|path| &path.i32_scales));
         out.i32_offsets = I32OffsetFacts::merge_paths(paths.iter().map(|path| &path.i32_offsets));
+        out.i32_type_sizes =
+            I32TypeSizeFacts::merge_paths(paths.iter().map(|path| &path.i32_type_sizes));
         out.host_size_facts =
             HostSizeFacts::merge_paths(paths.iter().map(|path| &path.host_size_facts));
         out

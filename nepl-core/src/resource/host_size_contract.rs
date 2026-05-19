@@ -1,7 +1,7 @@
 use super::host_memory_contract::HostMemoryDirection;
 use super::model::{EffectOp, ExternalIoOp};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum HostSizeKind {
     ArgsCount,
     ArgsBufferBytes,

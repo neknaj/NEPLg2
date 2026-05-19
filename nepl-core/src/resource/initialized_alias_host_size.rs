@@ -37,6 +37,13 @@ impl HostSizeFacts {
         out
     }
 
+    pub(super) fn all_facts(&self) -> Vec<(Place, HostSizeKind)> {
+        self.facts
+            .iter()
+            .map(|fact| (fact.place.clone(), fact.kind))
+            .collect()
+    }
+
     pub(super) fn facts_with_replaced_prefix(&self, source: &Place, target: &Place) -> Self {
         let mut out = HostSizeFacts::default();
         for fact in &self.facts {
@@ -97,9 +104,31 @@ impl RawCellAddressAliases {
     pub(super) fn host_size_places(&self, kind: HostSizeKind) -> Vec<Place> {
         let mut out = Vec::new();
         for place in self.host_size_facts.places_for_kind(kind) {
-            let place = self.canonicalize_scalar(&place);
             push_unique_place(&mut out, &place);
+            push_unique_place(&mut out, &self.canonicalize_scalar(&place));
         }
         out
+    }
+
+    pub(super) fn host_size_fact_places(&self) -> Vec<(Place, HostSizeKind)> {
+        let mut out = Vec::new();
+        for (place, kind) in self.host_size_facts.all_facts() {
+            push_unique_host_size_fact(&mut out, place.clone(), kind);
+            push_unique_host_size_fact(&mut out, self.canonicalize_scalar(&place), kind);
+        }
+        out
+    }
+}
+
+fn push_unique_host_size_fact(
+    out: &mut Vec<(Place, HostSizeKind)>,
+    place: Place,
+    kind: HostSizeKind,
+) {
+    if !out
+        .iter()
+        .any(|(existing_place, existing_kind)| *existing_place == place && *existing_kind == kind)
+    {
+        out.push((place, kind));
     }
 }

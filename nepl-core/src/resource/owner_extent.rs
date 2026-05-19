@@ -2,7 +2,10 @@ use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerStorageExtent, Place, ResourceI32RelationOp};
-use super::owner_return_apply_place::owner_projection_source_place;
+pub(super) use super::owner_extent_summary::{
+    instantiate_owner_extent_summary, instantiate_summary_type, merge_owner_extent_summaries,
+    summarize_owner_storage_extent_for_owner,
+};
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_summary_variant_conditions::extend_owner_projection_source;
 use super::place_utils::{place_suffix_after_prefix, push_unique_place};
@@ -33,7 +36,45 @@ pub(super) fn prove_owner_extent_matches_argument(
         OwnerStorageExtent::PayloadBytes { bytes } => {
             prove_scalar_places_equal(raw_aliases, bytes, actual)
         }
+        OwnerStorageExtent::PayloadBytesScaled { source, scale } => {
+            prove_scaled_place_equals(raw_aliases, source, *scale, actual)
+        }
         OwnerStorageExtent::RegionTokenSize => OwnerExtentProof::Unknown,
+    }
+}
+
+pub(super) fn prove_owner_extent_matches_storage(
+    raw_aliases: &RawCellAddressAliases,
+    extent: &OwnerStorageExtent,
+    expected: &OwnerStorageExtent,
+) -> OwnerExtentProof {
+    match expected {
+        OwnerStorageExtent::Unknown => OwnerExtentProof::Proven,
+        OwnerStorageExtent::RegionTokenSize => OwnerExtentProof::Unknown,
+        OwnerStorageExtent::PayloadBytes { bytes } => {
+            prove_owner_extent_matches_argument(raw_aliases, extent, bytes)
+        }
+        OwnerStorageExtent::PayloadBytesScaled { source, scale } => match extent {
+            OwnerStorageExtent::PayloadBytes { bytes } => {
+                prove_scaled_place_equals(raw_aliases, source, *scale, bytes)
+            }
+            OwnerStorageExtent::PayloadBytesScaled {
+                source: extent_source,
+                scale: extent_scale,
+            } => {
+                if extent_scale == scale
+                    && prove_scalar_places_equal(raw_aliases, extent_source, source)
+                        == OwnerExtentProof::Proven
+                {
+                    OwnerExtentProof::Proven
+                } else {
+                    OwnerExtentProof::Mismatch
+                }
+            }
+            OwnerStorageExtent::Unknown | OwnerStorageExtent::RegionTokenSize => {
+                OwnerExtentProof::Unknown
+            }
+        },
     }
 }
 
@@ -47,9 +88,10 @@ pub(super) fn summarize_consumed_extent_requirements(
 ) -> Vec<OwnerConsumedExtentRequirement> {
     let mut out = Vec::new();
     for requirement in requirements {
-        let extent = summarize_owner_storage_extent(
+        let extent = summarize_owner_storage_extent_for_owner(
             raw_aliases,
             parameter_condition_sources,
+            &requirement.owner,
             &requirement.expected,
         );
         if matches!(extent, OwnerExtentSummary::Unknown) {
@@ -69,68 +111,6 @@ pub(super) fn summarize_consumed_extent_requirements(
         }
     }
     out
-}
-
-pub(super) fn summarize_owner_storage_extent(
-    raw_aliases: &RawCellAddressAliases,
-    parameter_condition_sources: &[OwnerParameterConditionSource],
-    extent: &OwnerStorageExtent,
-) -> OwnerExtentSummary {
-    match extent {
-        OwnerStorageExtent::Unknown => OwnerExtentSummary::Unknown,
-        OwnerStorageExtent::RegionTokenSize => OwnerExtentSummary::RegionTokenSize,
-        OwnerStorageExtent::PayloadBytes { bytes } => {
-            if let Some(value) = raw_aliases.i32_value(bytes) {
-                return OwnerExtentSummary::PayloadBytesI32Constant {
-                    value,
-                    ty: bytes.ty,
-                };
-            }
-            for place_alias in raw_aliases.scalar_aliases_for_value(bytes) {
-                for source in parameter_condition_sources {
-                    for param_alias in raw_aliases.scalar_aliases_for_value(&source.place) {
-                        let Some(suffix) = place_suffix_after_prefix(&place_alias, &param_alias)
-                        else {
-                            continue;
-                        };
-                        return OwnerExtentSummary::PayloadBytesParameter(
-                            extend_owner_projection_source(&source.source, suffix, place_alias.ty),
-                        );
-                    }
-                }
-            }
-            OwnerExtentSummary::Unknown
-        }
-    }
-}
-
-pub(super) fn instantiate_owner_extent_summary(
-    args: &[Place],
-    summary: &OwnerExtentSummary,
-) -> OwnerStorageExtent {
-    match summary {
-        OwnerExtentSummary::Unknown => OwnerStorageExtent::Unknown,
-        OwnerExtentSummary::RegionTokenSize => OwnerStorageExtent::RegionTokenSize,
-        OwnerExtentSummary::PayloadBytesParameter(source) => {
-            owner_projection_source_place(args, source)
-                .map(|place| OwnerStorageExtent::payload_bytes(&place))
-                .unwrap_or(OwnerStorageExtent::Unknown)
-        }
-        OwnerExtentSummary::PayloadBytesI32Constant { value, ty } => {
-            OwnerStorageExtent::payload_bytes(&Place::i32_constant(*value, *ty))
-        }
-    }
-}
-
-pub(super) fn merge_owner_extent_summaries(
-    left: OwnerExtentSummary,
-    right: OwnerExtentSummary,
-) -> OwnerExtentSummary {
-    if left == right {
-        left
-    } else {
-        OwnerExtentSummary::Unknown
-    }
 }
 
 fn prove_scalar_places_equal(
@@ -163,7 +143,35 @@ fn prove_scalar_places_equal(
     ) {
         (Some(left), Some(right)) if left == right => OwnerExtentProof::Proven,
         (Some(_), Some(_)) => OwnerExtentProof::Mismatch,
-        _ => OwnerExtentProof::Mismatch,
+        _ => OwnerExtentProof::Unknown,
+    }
+}
+
+fn prove_scaled_place_equals(
+    raw_aliases: &RawCellAddressAliases,
+    source: &Place,
+    scale: usize,
+    actual: &Place,
+) -> OwnerExtentProof {
+    if scale == 1 {
+        return prove_scalar_places_equal(raw_aliases, source, actual);
+    }
+    if let Some((actual_source, actual_scale)) = raw_aliases.i32_scaled_source(actual) {
+        if actual_scale == scale && raw_aliases.canonicalize_scalar(source) == actual_source {
+            return OwnerExtentProof::Proven;
+        }
+    }
+    match (raw_aliases.i32_value(source), raw_aliases.i32_value(actual)) {
+        (Some(source), Some(actual)) => {
+            let Some(scale) = i32::try_from(scale).ok() else {
+                return OwnerExtentProof::Mismatch;
+            };
+            match source.checked_mul(scale) {
+                Some(expected) if expected == actual => OwnerExtentProof::Proven,
+                Some(_) | None => OwnerExtentProof::Mismatch,
+            }
+        }
+        _ => OwnerExtentProof::Unknown,
     }
 }
 

@@ -2,6 +2,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::types::{TypeCtx, TypeId};
+
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::owner_extent::instantiate_owner_extent_summary;
@@ -9,14 +11,13 @@ use super::owner_return_apply_place::{
     owner_projection_source_place_for_arg, summary_projection_place,
 };
 use super::owner_variant::{
-    PendingUnreachableVariant, PendingVariantOwnerConsumption, PendingVariantOwnerEffects,
+    PendingVariantOwnerConsumption, PendingVariantOwnerEffects,
     PendingVariantOwnerExtentRequirement, PendingVariantOwnerReturn,
     PendingVariantOwnerReturnSource, PendingVariantPayloadValueCondition,
 };
-use super::owner_variant_condition_truth::owner_value_condition_truth;
 use super::owner_variant_value_condition::PendingVariantValueCondition;
 use super::summary::{
-    OwnerProjectionReturnOwner, OwnerProjectionSource, OwnerReturnSummary, OwnerVariantCondition,
+    OwnerProjectionReturnOwner, OwnerProjectionSource, OwnerReturnSummary,
     OwnerVariantConsumedExtentRequirement,
 };
 use super::variant_name::normalize_variant_name;
@@ -24,9 +25,11 @@ use super::variant_name::normalize_variant_name;
 impl PendingVariantOwnerEffects {
     pub(super) fn record_call(
         &mut self,
+        types: &TypeCtx,
         raw_aliases: &RawCellAddressAliases,
         output: &Place,
         args: &[Place],
+        type_args: &[TypeId],
         summary: &OwnerReturnSummary,
     ) {
         self.clear_result(output);
@@ -66,7 +69,10 @@ impl PendingVariantOwnerEffects {
                 suffix: Vec::new(),
                 ty: arg.ty,
                 extent: pending_variant_extent_requirement_for_source(
+                    types,
                     args,
+                    &summary.type_params,
+                    type_args,
                     &summary.variant_consumed_extent_requirements,
                     &entry.variant,
                     &source,
@@ -95,7 +101,10 @@ impl PendingVariantOwnerEffects {
                 suffix: entry.source.suffix.clone(),
                 ty: source_place.ty,
                 extent: pending_variant_extent_requirement_for_source(
+                    types,
                     args,
+                    &summary.type_params,
+                    type_args,
                     &summary.variant_consumed_extent_requirements,
                     &entry.variant,
                     &entry.source,
@@ -116,22 +125,43 @@ impl PendingVariantOwnerEffects {
                         source_suffix: source.suffix.clone(),
                         source_ty: summary_projection_place(arg, &source.suffix, source.ty).ty,
                         extent_requirement: pending_variant_extent_requirement_for_source(
+                            types,
                             args,
+                            &summary.type_params,
+                            type_args,
                             &summary.variant_consumed_extent_requirements,
                             &entry.variant,
                             source,
                         ),
-                        returned_extent: instantiate_owner_extent_summary(args, returned_extent),
+                        returned_extent: instantiate_owner_extent_summary(
+                            types,
+                            &summary.type_params,
+                            type_args,
+                            args,
+                            returned_extent,
+                        ),
                     }
                 }
                 OwnerProjectionReturnOwner::Fresh { extent } => {
                     PendingVariantOwnerReturnSource::Fresh {
-                        extent: instantiate_owner_extent_summary(args, extent),
+                        extent: instantiate_owner_extent_summary(
+                            types,
+                            &summary.type_params,
+                            type_args,
+                            args,
+                            extent,
+                        ),
                     }
                 }
                 OwnerProjectionReturnOwner::UnknownSource { extent } => {
                     PendingVariantOwnerReturnSource::UnknownSource {
-                        extent: instantiate_owner_extent_summary(args, extent),
+                        extent: instantiate_owner_extent_summary(
+                            types,
+                            &summary.type_params,
+                            type_args,
+                            args,
+                            extent,
+                        ),
                     }
                 }
                 OwnerProjectionReturnOwner::Maybe => PendingVariantOwnerReturnSource::Maybe,
@@ -154,48 +184,13 @@ impl PendingVariantOwnerEffects {
             });
         }
     }
-
-    fn record_unreachable_variants(
-        &mut self,
-        raw_aliases: &RawCellAddressAliases,
-        output: &Place,
-        args: &[Place],
-        conditions: &[OwnerVariantCondition],
-    ) {
-        let mut variants = Vec::new();
-        for condition in conditions {
-            if !variants.iter().any(|variant| variant == &condition.variant) {
-                variants.push(condition.variant.clone());
-            }
-        }
-        for variant in variants {
-            let mut saw_condition = false;
-            let mut all_conditions_false = true;
-            for condition in conditions
-                .iter()
-                .filter(|condition| condition.variant == variant)
-            {
-                saw_condition = true;
-                match owner_value_condition_truth(raw_aliases, args, &condition.condition) {
-                    Some(false) => {}
-                    Some(true) | None => {
-                        all_conditions_false = false;
-                        break;
-                    }
-                }
-            }
-            if saw_condition && all_conditions_false {
-                self.push_unique_unreachable(PendingUnreachableVariant {
-                    result: output.clone(),
-                    variant: normalize_variant_name(&variant),
-                });
-            }
-        }
-    }
 }
 
 fn pending_variant_extent_requirement_for_source(
+    types: &TypeCtx,
     args: &[Place],
+    summary_type_params: &[TypeId],
+    type_args: &[TypeId],
     requirements: &[OwnerVariantConsumedExtentRequirement],
     variant: &str,
     source: &OwnerProjectionSource,
@@ -204,7 +199,13 @@ fn pending_variant_extent_requirement_for_source(
     let requirement = requirements
         .iter()
         .find(|requirement| requirement.variant == variant && requirement.owner == *source)?;
-    let expected = instantiate_owner_extent_summary(args, &requirement.extent);
+    let expected = instantiate_owner_extent_summary(
+        types,
+        summary_type_params,
+        type_args,
+        args,
+        &requirement.extent,
+    );
     if matches!(expected, super::model::OwnerStorageExtent::Unknown) {
         return None;
     }

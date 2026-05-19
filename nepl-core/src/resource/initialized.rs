@@ -703,6 +703,10 @@ impl ResourceCheckEngine<'_> {
                 cells.mark_initialized(output);
                 raw_aliases.set_i32_value(output, value);
             }
+            ResourceExprKind::LayoutSizeOf(ty) => {
+                cells.mark_initialized(output);
+                raw_aliases.set_i32_type_size(output, ty);
+            }
             ResourceExprKind::Literal
             | ResourceExprKind::Block
             | ResourceExprKind::Let
@@ -720,8 +724,10 @@ impl ResourceCheckEngine<'_> {
             | ResourceExprKind::Construct
             | ResourceExprKind::Borrow => {}
         }
-        if !matches!(kind, ResourceExprKind::LiteralI32(_))
-            && !expr_kind_preserves_raw_alias(kind)
+        if !matches!(
+            kind,
+            ResourceExprKind::LiteralI32(_) | ResourceExprKind::LayoutSizeOf(_)
+        ) && !expr_kind_preserves_raw_alias(kind)
             && !(matches!(kind, ResourceExprKind::Deref)
                 && type_preserves_raw_address_alias(self.types, output.ty))
         {

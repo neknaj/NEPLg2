@@ -42,6 +42,8 @@ fn owner_return_summary_has_facts(summary: &OwnerReturnSummary) -> bool {
         || !summary.consumed_parameter_sources.is_empty()
         || !summary.consumed_extent_requirements.is_empty()
         || !summary.host_memory_span_requirements.is_empty()
+        || !summary.host_size_returns.is_empty()
+        || !summary.type_size_returns.is_empty()
         || !summary.variant_consumed_parameter_indices.is_empty()
         || !summary.variant_consumed_parameter_sources.is_empty()
         || !summary.variant_consumed_extent_requirements.is_empty()

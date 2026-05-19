@@ -112,6 +112,7 @@ fn expr_kind_replaces_transparent_value_alias(kind: ResourceExprKind) -> bool {
         kind,
         ResourceExprKind::Literal
             | ResourceExprKind::LiteralI32(_)
+            | ResourceExprKind::LayoutSizeOf(_)
             | ResourceExprKind::FunctionValue
             | ResourceExprKind::Intrinsic
             | ResourceExprKind::Loop

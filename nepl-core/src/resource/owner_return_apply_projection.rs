@@ -15,6 +15,7 @@ use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
     OwnerConsumedExtentRequirement, OwnerProjectionReturnSummary, OwnerProjectionSource,
+    OwnerReturnSummary,
 };
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -26,6 +27,8 @@ impl ResourceOwnerCheckEngine<'_> {
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         args: &[Place],
+        type_args: &[crate::types::TypeId],
+        owner_summary: &OwnerReturnSummary,
         summary: &OwnerProjectionReturnSummary,
         consumed_extent_requirements: &[OwnerConsumedExtentRequirement],
         variant_owner_effects: &mut PendingVariantOwnerEffects,
@@ -85,6 +88,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     raw_aliases,
                     arg,
                     args,
+                    type_args,
+                    owner_summary,
                     &source,
                     consumed_extent_requirements,
                     span,
@@ -102,7 +107,10 @@ impl ResourceOwnerCheckEngine<'_> {
                     span,
                 );
                 apply_returned_owner_extent(
+                    self.types,
                     owners,
+                    &owner_summary.type_params,
+                    type_args,
                     args,
                     output,
                     &source,
@@ -156,6 +164,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     raw_aliases,
                     &source_place,
                     args,
+                    type_args,
+                    owner_summary,
                     source,
                     consumed_extent_requirements,
                     span,
@@ -173,7 +183,10 @@ impl ResourceOwnerCheckEngine<'_> {
                     span,
                 );
                 apply_returned_owner_extent(
+                    self.types,
                     owners,
+                    &owner_summary.type_params,
+                    type_args,
                     args,
                     output,
                     source,
@@ -189,7 +202,13 @@ impl ResourceOwnerCheckEngine<'_> {
         } else if summary.returns_fresh_owner && !transferred {
             owners.allocate_with_extent(
                 output,
-                instantiate_owner_extent_summary(args, &summary.returns_fresh_owner_extent),
+                instantiate_owner_extent_summary(
+                    self.types,
+                    &owner_summary.type_params,
+                    type_args,
+                    args,
+                    &summary.returns_fresh_owner_extent,
+                ),
             );
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);

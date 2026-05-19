@@ -16,9 +16,9 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerReturnSummaryIndex, OwnerVariantCondition, OwnerVariantConsumedExtentRequirement,
-    OwnerVariantParameterIndex, OwnerVariantPayloadCondition, OwnerVariantProjectionReturn,
-    OwnerVariantProjectionSource,
+    OwnerHostSizeReturn, OwnerReturnSummaryIndex, OwnerTypeSizeReturn, OwnerVariantCondition,
+    OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
+    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_return(
@@ -34,6 +34,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     parameter_condition_sources: &[OwnerParameterConditionSource],
     ops: &[ResourceOp],
     return_value: &Place,
+    host_size_out: &mut Vec<OwnerHostSizeReturn>,
+    type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let engine = ResourceOwnerCheckEngine {
@@ -79,6 +81,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
         parameter_condition_sources,
         ops,
         return_value,
+        host_size_out,
+        type_size_out,
         return_out,
     );
 }

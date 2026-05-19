@@ -279,6 +279,10 @@ fn propagate_i32_scalar_op(
                 raw_aliases.clear(output);
                 raw_aliases.set_i32_value(output, *value);
             }
+            ResourceExprKind::LayoutSizeOf(ty) => {
+                raw_aliases.clear(output);
+                raw_aliases.set_i32_type_size(output, *ty);
+            }
             ResourceExprKind::LocalRead
             | ResourceExprKind::Call
             | ResourceExprKind::IndirectCall

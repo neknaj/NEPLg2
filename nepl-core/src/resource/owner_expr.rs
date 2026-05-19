@@ -11,6 +11,7 @@ impl ResourceOwnerCheckEngine<'_> {
     ) {
         match kind {
             ResourceExprKind::LiteralI32(value) => raw_aliases.set_i32_value(output, value),
+            ResourceExprKind::LayoutSizeOf(ty) => raw_aliases.set_i32_type_size(output, ty),
             ResourceExprKind::LocalRead
             | ResourceExprKind::Call
             | ResourceExprKind::IndirectCall

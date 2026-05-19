@@ -6,7 +6,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
-use super::owner_extent::instantiate_owner_extent_summary;
+use super::owner_extent::{instantiate_owner_extent_summary, instantiate_summary_type};
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_extent::apply_returned_owner_extent;
 use super::owner_return_apply_place::owner_projection_source_place;
@@ -27,6 +27,7 @@ impl ResourceOwnerCheckEngine<'_> {
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
         args: &[Place],
+        type_args: &[crate::types::TypeId],
         summary: &OwnerReturnSummary,
         span: Span,
     ) {
@@ -39,6 +40,16 @@ impl ResourceOwnerCheckEngine<'_> {
             span,
         ) {
             return;
+        }
+        for marker in &summary.host_size_returns {
+            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
+            raw_aliases.set_host_size_kind(&marker_place, marker.kind);
+        }
+        for marker in &summary.type_size_returns {
+            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
+            let element_ty =
+                instantiate_summary_type(&summary.type_params, type_args, marker.element_ty);
+            raw_aliases.set_i32_type_size(&marker_place, element_ty);
         }
         let mut transferred = false;
         for (parameter_index, arg) in summary
@@ -88,6 +99,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     raw_aliases,
                     arg,
                     args,
+                    type_args,
+                    summary,
                     &source,
                     &summary.consumed_extent_requirements,
                     span,
@@ -105,7 +118,10 @@ impl ResourceOwnerCheckEngine<'_> {
                     span,
                 );
                 apply_returned_owner_extent(
+                    self.types,
                     owners,
+                    &summary.type_params,
+                    type_args,
                     args,
                     output,
                     &source,
@@ -159,6 +175,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     raw_aliases,
                     &source_place,
                     args,
+                    type_args,
+                    summary,
                     source,
                     &summary.consumed_extent_requirements,
                     span,
@@ -176,7 +194,10 @@ impl ResourceOwnerCheckEngine<'_> {
                     span,
                 );
                 apply_returned_owner_extent(
+                    self.types,
                     owners,
+                    &summary.type_params,
+                    type_args,
                     args,
                     output,
                     source,
@@ -192,7 +213,13 @@ impl ResourceOwnerCheckEngine<'_> {
         } else if summary.returns_fresh_owner && !transferred {
             owners.allocate_with_extent(
                 output,
-                instantiate_owner_extent_summary(args, &summary.returns_fresh_owner_extent),
+                instantiate_owner_extent_summary(
+                    self.types,
+                    &summary.type_params,
+                    type_args,
+                    args,
+                    &summary.returns_fresh_owner_extent,
+                ),
             );
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);
@@ -215,6 +242,8 @@ impl ResourceOwnerCheckEngine<'_> {
                 storage_origins,
                 &output_projection,
                 args,
+                type_args,
+                summary,
                 projection,
                 &summary.consumed_extent_requirements,
                 variant_owner_effects,
@@ -237,6 +266,7 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_views,
             storage_origins,
             args,
+            type_args,
             summary,
             variant_owner_effects,
             span,

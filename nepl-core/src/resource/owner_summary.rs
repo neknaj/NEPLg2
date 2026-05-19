@@ -9,7 +9,7 @@ use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_p
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::{
     merge_owner_extent_summaries, summarize_consumed_extent_requirements,
-    summarize_owner_storage_extent,
+    summarize_owner_storage_extent_for_owner,
 };
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
@@ -23,7 +23,9 @@ use super::owner_summary_record::{
     record_projection_owner_return, record_root_owner_return,
 };
 use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_from_return;
+use super::owner_summary_size_return::record_size_returns;
 use super::owner_summary_storage_origin::record_storage_origin_marker;
+use super::owner_summary_type_params::owner_summary_type_params;
 use super::owner_summary_update::update_owner_return_summary;
 use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
 use super::owner_summary_variant_projection::finalize_variant_projection_returns;
@@ -32,8 +34,7 @@ use super::place_utils::place_suffix_after_prefix;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
-use super::summary::OwnerExtentSummary;
-use super::summary::{OwnerReturnSummary, OwnerReturnSummaryIndex};
+use super::summary::{OwnerExtentSummary, OwnerReturnSummary, OwnerReturnSummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_owner_return_summaries(
@@ -98,6 +99,8 @@ fn function_owner_return_summary(
     let mut projection_returns = Vec::new();
     let mut projection_markers = Vec::new();
     let mut storage_origin_markers = Vec::new();
+    let mut host_size_returns = Vec::new();
+    let mut type_size_returns = Vec::new();
     let mut variant_consumed_parameter_indices = Vec::new();
     let mut variant_consumed_parameter_sources = Vec::new();
     let mut variant_consumed_extent_requirements = Vec::new();
@@ -138,6 +141,8 @@ fn function_owner_return_summary(
                 &parameter_condition_sources,
                 &block.ops,
                 value,
+                &mut host_size_returns,
+                &mut type_size_returns,
                 &mut variant_projection_returns,
             );
             collect_resolved_parameter_variants_from_return(
@@ -161,16 +166,18 @@ fn function_owner_return_summary(
                                 &mut parameter_return_extents,
                                 &mut returned_sources,
                                 source,
-                                summarize_owner_storage_extent(
+                                summarize_owner_storage_extent_for_owner(
                                     &raw_aliases,
                                     &parameter_condition_sources,
+                                    &resolved_value,
                                     &extent,
                                 ),
                             );
                         } else {
-                            let extent_summary = summarize_owner_storage_extent(
+                            let extent_summary = summarize_owner_storage_extent_for_owner(
                                 &raw_aliases,
                                 &parameter_condition_sources,
+                                &resolved_value,
                                 &extent,
                             );
                             if returns_fresh_owner {
@@ -226,9 +233,10 @@ fn function_owner_return_summary(
                                 suffix,
                                 entry.place.ty,
                                 storage,
-                                summarize_owner_storage_extent(
+                                summarize_owner_storage_extent_for_owner(
                                     &raw_aliases,
                                     &parameter_condition_sources,
+                                    &entry.place,
                                     &extent,
                                 ),
                                 &parameter_storage_sources,
@@ -282,9 +290,10 @@ fn function_owner_return_summary(
                             aliased.suffix,
                             aliased.entry.place.ty,
                             storage,
-                            summarize_owner_storage_extent(
+                            summarize_owner_storage_extent_for_owner(
                                 &raw_aliases,
                                 &parameter_condition_sources,
+                                &aliased.entry.place,
                                 &extent,
                             ),
                             &parameter_storage_sources,
@@ -328,6 +337,13 @@ fn function_owner_return_summary(
                     &mut non_owning_raw_view_returns,
                 );
             }
+            record_size_returns(
+                &mut host_size_returns,
+                &mut type_size_returns,
+                &raw_aliases,
+                value,
+                &resolved_value,
+            );
             for entry in storage_origins.entries_under(&resolved_value) {
                 if let Some(suffix) = place_suffix_after_prefix(&entry.place, &resolved_value) {
                     if returned_projection_is_non_owning_raw_view(
@@ -350,9 +366,10 @@ fn function_owner_return_summary(
                                 suffix,
                                 entry.place.ty,
                                 storage,
-                                summarize_owner_storage_extent(
+                                summarize_owner_storage_extent_for_owner(
                                     &raw_aliases,
                                     &parameter_condition_sources,
+                                    &resolved_origin_place,
                                     &extent,
                                 ),
                                 &parameter_storage_sources,
@@ -421,6 +438,7 @@ fn function_owner_return_summary(
     let host_memory_span_requirements = engine.host_memory_span_requirements.clone();
     OwnerReturnSummary {
         function: function.name.clone(),
+        type_params: owner_summary_type_params(types, function),
         parameter_indices,
         parameter_sources,
         parameter_return_extents,
@@ -428,6 +446,8 @@ fn function_owner_return_summary(
         consumed_parameter_sources,
         consumed_extent_requirements,
         host_memory_span_requirements,
+        host_size_returns,
+        type_size_returns,
         variant_consumed_parameter_indices,
         variant_consumed_parameter_sources,
         variant_consumed_extent_requirements,

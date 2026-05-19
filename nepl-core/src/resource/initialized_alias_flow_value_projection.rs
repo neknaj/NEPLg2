@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::types::{TypeCtx, TypeId};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias_flow::{
@@ -36,6 +36,7 @@ pub(super) fn function_value_projection_return_aliases(
         .params
         .iter()
         .enumerate()
+        .filter(|(_, param)| type_can_seed_value_projection_summary(types, param.place.ty))
         .map(|(index, param)| ValueProjectionAlias {
             place: param.place.clone(),
             parameter_index: index,
@@ -64,6 +65,31 @@ pub(super) fn function_value_projection_return_aliases(
 
 fn function_allows_value_projection_summary(function: &ResourceFunction) -> bool {
     function_has_simple_value_projection_body(function)
+}
+
+fn type_can_seed_value_projection_summary(types: &TypeCtx, ty: TypeId) -> bool {
+    match types.get_ref(types.resolve_id(ty)) {
+        TypeKind::Struct { .. }
+        | TypeKind::Enum { .. }
+        | TypeKind::Tuple { .. }
+        | TypeKind::Apply { .. }
+        | TypeKind::Reference(_, _)
+        | TypeKind::Box(_) => true,
+        TypeKind::Named(_) => {
+            let resolved = types.resolve_named_type_id(ty);
+            resolved != ty && type_can_seed_value_projection_summary(types, resolved)
+        }
+        TypeKind::Unit
+        | TypeKind::I32
+        | TypeKind::U8
+        | TypeKind::F32
+        | TypeKind::Bool
+        | TypeKind::Char
+        | TypeKind::Str
+        | TypeKind::Never
+        | TypeKind::Function { .. }
+        | TypeKind::Var(_) => false,
+    }
 }
 
 fn function_has_simple_value_projection_body(function: &ResourceFunction) -> bool {

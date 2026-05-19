@@ -24,7 +24,7 @@ impl ResourceOwnerCheckEngine<'_> {
         apply_unconditional_summary: bool,
         span: Span,
     ) {
-        let ResourceCallTarget::User { name, .. } = target else {
+        let ResourceCallTarget::User { name, type_args } = target else {
             return;
         };
         match raw_address_return_ownership(name) {
@@ -53,11 +53,19 @@ impl ResourceOwnerCheckEngine<'_> {
                 variant_owner_effects,
                 output,
                 args,
+                type_args,
                 summary,
                 span,
             );
         }
-        variant_owner_effects.record_call(raw_aliases, output, args, summary);
+        variant_owner_effects.record_call(
+            self.types,
+            raw_aliases,
+            output,
+            args,
+            type_args,
+            summary,
+        );
     }
 
     pub(super) fn apply_indirect_call_return_owner(
@@ -107,10 +115,18 @@ impl ResourceOwnerCheckEngine<'_> {
                     variant_owner_effects,
                     output,
                     args,
+                    &[],
                     summary,
                     span,
                 );
-                variant_owner_effects.record_call(raw_aliases, output, args, summary);
+                variant_owner_effects.record_call(
+                    self.types,
+                    raw_aliases,
+                    output,
+                    args,
+                    &[],
+                    summary,
+                );
                 if self.has_transferable_owner(owners, raw_aliases, output) {
                     return;
                 }

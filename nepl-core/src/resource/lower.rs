@@ -25,7 +25,7 @@ use super::lower_call::{
 };
 use super::lower_condition::resource_condition_fact;
 use super::lower_layout_intrinsic::{
-    layout_intrinsic_i32_value, layout_intrinsic_i32_value_from_callee,
+    layout_intrinsic_i32_value, layout_intrinsic_i32_value_from_callee, size_of_type_arg,
 };
 use super::lower_match::{
     borrowed_match_payload_source, resource_match_scrutinee_place, type_is_reference_to_enum,
@@ -269,6 +269,10 @@ fn lower_hir_function_skeleton(
     function: &HirFunction,
     env: &LoweringEnvironment,
 ) -> ResourceFunction {
+    let type_params = match env.types.get_ref(function.func_ty) {
+        TypeKind::Function { type_params, .. } => type_params.clone(),
+        _ => Vec::new(),
+    };
     let params = function
         .params
         .iter()
@@ -315,6 +319,7 @@ fn lower_hir_function_skeleton(
     ResourceFunction {
         name: function.name.clone(),
         origin_name: function.origin_name.clone(),
+        type_params,
         params,
         result: function.result,
         effect: function.effect,
@@ -785,6 +790,9 @@ pub(super) fn lower_expr_skeleton(
             } else {
                 let kind = layout_intrinsic_i32_value(name, type_args, env)
                     .map(ResourceExprKind::LiteralI32)
+                    .or_else(|| {
+                        size_of_type_arg(name, type_args).map(ResourceExprKind::LayoutSizeOf)
+                    })
                     .unwrap_or(ResourceExprKind::Intrinsic);
                 let output = push_expr(ops, kind, expr, ctx);
                 push_named_raw_address_semantics(

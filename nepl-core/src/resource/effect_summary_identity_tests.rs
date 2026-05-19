@@ -68,6 +68,7 @@ fn empty_function(name: &str, result: crate::types::TypeId) -> ResourceFunction 
     ResourceFunction {
         name: name.to_string(),
         origin_name: name.to_string(),
+        type_params: vec![],
         params: vec![],
         result,
         effect: Effect::Pure,

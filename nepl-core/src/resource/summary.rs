@@ -2,6 +2,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use super::host_memory_contract::HostMemorySpan;
+use super::host_size_contract::HostSizeKind;
 use super::model::{I32ValueCondition, PlaceProjection, StorageOrigin};
 use super::report::ResourceOwnerOperation;
 use super::summary_index::{FunctionSummary, SummaryIndex};
@@ -27,6 +28,7 @@ impl FunctionSummary for BorrowTokenReturnSummary {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct OwnerReturnSummary {
     pub(super) function: String,
+    pub(super) type_params: Vec<TypeId>,
     pub(super) parameter_indices: Vec<usize>,
     pub(super) parameter_sources: Vec<OwnerProjectionSource>,
     pub(super) parameter_return_extents: Vec<OwnerParameterReturnExtent>,
@@ -34,6 +36,8 @@ pub(super) struct OwnerReturnSummary {
     pub(super) consumed_parameter_sources: Vec<OwnerProjectionSource>,
     pub(super) consumed_extent_requirements: Vec<OwnerConsumedExtentRequirement>,
     pub(super) host_memory_span_requirements: Vec<OwnerHostMemorySpanRequirement>,
+    pub(super) host_size_returns: Vec<OwnerHostSizeReturn>,
+    pub(super) type_size_returns: Vec<OwnerTypeSizeReturn>,
     pub(super) variant_consumed_parameter_indices: Vec<OwnerVariantParameterIndex>,
     pub(super) variant_consumed_parameter_sources: Vec<OwnerVariantProjectionSource>,
     pub(super) variant_consumed_extent_requirements: Vec<OwnerVariantConsumedExtentRequirement>,
@@ -69,7 +73,18 @@ pub(super) struct OwnerProjectionSource {
 pub(super) enum OwnerExtentSummary {
     Unknown,
     PayloadBytesParameter(OwnerProjectionSource),
-    PayloadBytesI32Constant { value: i32, ty: TypeId },
+    PayloadBytesParameterScaled {
+        source: OwnerProjectionSource,
+        scale: usize,
+    },
+    PayloadBytesParameterTypeSize {
+        source: OwnerProjectionSource,
+        element_ty: TypeId,
+    },
+    PayloadBytesI32Constant {
+        value: i32,
+        ty: TypeId,
+    },
     RegionTokenSize,
 }
 
@@ -91,6 +106,20 @@ pub(super) enum OwnerHostMemoryArgSummary {
     Unknown { ty: TypeId },
     Parameter(OwnerProjectionSource),
     I32Constant { value: i32, ty: TypeId },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct OwnerHostSizeReturn {
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) kind: HostSizeKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct OwnerTypeSizeReturn {
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) element_ty: TypeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

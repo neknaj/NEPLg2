@@ -2,8 +2,8 @@
 id: ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977
 title: "cliarg args_get dependent owner proof fails after NM effect summary unblocks"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-19
@@ -42,7 +42,26 @@ Trace HostSize proof and owner storage extent propagation from cli_args_sizes_re
 
 ## 検証
 
-Run focused Resource IR args_get/environ_get owner tests, cliarg source policy, cliarg doctests, examples/nm.nepl stage-timing compile probe, issue check, and diff check.
+- `cargo test -p nepl-core initialized_alias --lib`: pass
+- `cargo test -p nepl-core owner_summary --lib`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_cliarg_get_accepts_region_token_return_summary -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_get -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_get_accepts_host_size_return_summary -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_sizes_get_accepts_known_offset_output_cell -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_sizes_get_rejects_known_offset_beyond_owner -- --nocapture`: pass
+- `node nodesrc/test_resource_checker_responsibility.js`: pass
+- `node nodesrc/issues.js check`: pass
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+- `git diff --check`: pass
+
+## 解決内容
+
+- `args_get` / `environ_get` の dependent host span proof を stdlib 名の allowlist ではなく、Resource IR の HostSize / TypeSize / OwnerExtent summary から復元する設計にした。
+- deferred host payload extent requirement が `buffer + offset` を owner 基準の address として記録し、後段で offset を再加算していたため、8 byte の metadata owner に対して 12 byte を要求する二重 offset を修正した。
+- raw i32 leaf と field-projection leaf の canonicalization 差で HostSize fact が失われないよう、scalar fact copy を source だけでなく scalar alias 群から収集するようにした。
+- scalar leaf そのものを value-projection raw alias summary として seeded parameter にしないよう、value projection summary は aggregate / pointer / named-to-projectable な型に限定した。
+- summary type parameter を収集して `size_of<T>` 由来の extent summary を call-site type argument で instantiate できるようにした。
+- owner extent / coverage / summary / variant / initialized alias の責務分割を更新し、追加した証明器周辺の module が行数監視の対象になるようにした。
 
 ## 関連
 

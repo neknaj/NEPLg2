@@ -44,6 +44,7 @@ fn function_with_ops(name: &str, ops: Vec<ResourceOp>) -> ResourceFunction {
     ResourceFunction {
         name: name.to_string(),
         origin_name: name.to_string(),
+        type_params: vec![],
         params: vec![],
         result: TypeId(0),
         effect: Effect::Pure,

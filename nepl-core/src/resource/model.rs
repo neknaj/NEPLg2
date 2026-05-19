@@ -32,6 +32,7 @@ pub struct ResourceModule {
 pub struct ResourceFunction {
     pub name: String,
     pub origin_name: String,
+    pub type_params: Vec<TypeId>,
     pub params: Vec<ResourceLocal>,
     pub result: TypeId,
     pub effect: Effect,
@@ -236,6 +237,7 @@ impl fmt::Display for RawAddressAliasKind {
 pub enum ResourceExprKind {
     Literal,
     LiteralI32(i32),
+    LayoutSizeOf(TypeId),
     LocalRead,
     FunctionValue,
     Call,
@@ -528,6 +530,7 @@ pub enum OwnerState {
 pub enum OwnerStorageExtent {
     Unknown,
     PayloadBytes { bytes: Box<Place> },
+    PayloadBytesScaled { source: Box<Place>, scale: usize },
     RegionTokenSize,
 }
 
@@ -535,6 +538,17 @@ impl OwnerStorageExtent {
     pub fn payload_bytes(bytes: &Place) -> Self {
         Self::PayloadBytes {
             bytes: Box::new(bytes.clone()),
+        }
+    }
+
+    pub fn payload_bytes_scaled(source: &Place, scale: usize) -> Self {
+        if scale == 1 {
+            Self::payload_bytes(source)
+        } else {
+            Self::PayloadBytesScaled {
+                source: Box::new(source.clone()),
+                scale,
+            }
         }
     }
 }

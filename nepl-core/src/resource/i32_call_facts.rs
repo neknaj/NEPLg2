@@ -52,6 +52,10 @@ fn record_i32_scale_result(
         raw_aliases.add_i32_scale(right, output, scale);
     } else if let Some(scale) = positive_i32_value_as_usize(raw_aliases, right) {
         raw_aliases.add_i32_scale(left, output, scale);
+    } else if let Some(ty) = raw_aliases.i32_type_size(left) {
+        raw_aliases.add_i32_type_size_scale(right, output, ty);
+    } else if let Some(ty) = raw_aliases.i32_type_size(right) {
+        raw_aliases.add_i32_type_size_scale(left, output, ty);
     }
 }
 

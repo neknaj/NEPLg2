@@ -23,6 +23,7 @@ fn source(parameter_index: usize) -> OwnerProjectionSource {
 fn update_owner_return_summary_ignores_fact_order() {
     let first = OwnerReturnSummary {
         function: String::from("f"),
+        type_params: Vec::new(),
         parameter_indices: vec![1, 0],
         parameter_sources: Vec::new(),
         parameter_return_extents: vec![
@@ -39,6 +40,8 @@ fn update_owner_return_summary_ignores_fact_order() {
         consumed_parameter_sources: Vec::new(),
         consumed_extent_requirements: Vec::new(),
         host_memory_span_requirements: Vec::new(),
+        host_size_returns: Vec::new(),
+        type_size_returns: Vec::new(),
         variant_consumed_parameter_indices: Vec::new(),
         variant_consumed_parameter_sources: Vec::new(),
         variant_consumed_extent_requirements: Vec::new(),
@@ -94,6 +97,7 @@ fn update_owner_return_summary_canonicalizes_nested_conditions() {
 fn empty_summary(function: &str) -> OwnerReturnSummary {
     OwnerReturnSummary {
         function: String::from(function),
+        type_params: Vec::new(),
         parameter_indices: Vec::new(),
         parameter_sources: Vec::new(),
         parameter_return_extents: Vec::new(),
@@ -101,6 +105,8 @@ fn empty_summary(function: &str) -> OwnerReturnSummary {
         consumed_parameter_sources: Vec::new(),
         consumed_extent_requirements: Vec::new(),
         host_memory_span_requirements: Vec::new(),
+        host_size_returns: Vec::new(),
+        type_size_returns: Vec::new(),
         variant_consumed_parameter_indices: Vec::new(),
         variant_consumed_parameter_sources: Vec::new(),
         variant_consumed_extent_requirements: Vec::new(),

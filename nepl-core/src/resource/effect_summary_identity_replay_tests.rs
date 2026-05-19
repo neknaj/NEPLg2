@@ -48,6 +48,7 @@ fn callee_function(i32_ty: TypeId, span: Span) -> ResourceFunction {
     ResourceFunction {
         name: "callee".to_string(),
         origin_name: "callee".to_string(),
+        type_params: Vec::new(),
         params: vec![param("p", i32_ty, &source)],
         result: i32_ty,
         effect: Effect::Pure,
@@ -71,6 +72,7 @@ fn caller_function(i32_ty: TypeId, span: Span) -> ResourceFunction {
     ResourceFunction {
         name: "caller".to_string(),
         origin_name: "caller".to_string(),
+        type_params: Vec::new(),
         params: vec![param("p", i32_ty, &source)],
         result: i32_ty,
         effect: Effect::Pure,

@@ -14,7 +14,6 @@ use super::model::{OwnerState, OwnerStorageExtent, Place};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::{OwnerExtentProof, PendingOwnerExtentRequirement};
-use super::owner_extent_compare::comparable_owner_extent;
 use super::owner_extent_coverage::prove_owner_extent_covers_argument;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
@@ -93,6 +92,16 @@ impl ResourceOwnerCheckEngine<'_> {
         span: Span,
     ) -> bool {
         let buffer = host_memory_address_place(self.types, raw_aliases, buffer);
+        if let Some(result) = self.try_ensure_known_host_payload_extent_available(
+            owners,
+            raw_aliases,
+            &buffer,
+            length,
+            direction,
+            span,
+        ) {
+            return result;
+        }
         let resolved = resolve_owner_alias_place(owners, raw_aliases, &buffer);
         let state = owners
             .state(&resolved)
@@ -124,7 +133,8 @@ impl ResourceOwnerCheckEngine<'_> {
             );
             return false;
         };
-        let extent = comparable_owner_extent(&resolved, extent.clone());
+        let extent =
+            super::owner_extent_compare::comparable_owner_extent(&resolved, extent.clone());
         match prove_owner_extent_covers_argument(raw_aliases, &extent, length) {
             OwnerExtentProof::Proven => true,
             OwnerExtentProof::Unknown => {

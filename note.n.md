@@ -1,3 +1,26 @@
+# 2026-05-19 Agent 1 cliarg args_get dependent owner proof 修正
+
+- `ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は2つあった。1つ目は deferred host payload extent requirement が `buffer + offset` を owner address として記録し、後段で offset を再加算していたため、RegionToken metadata の 8 byte owner に 12 byte を要求していたこと。
+- 2つ目は HostSize / TypeSize の scalar fact が raw address leaf と field-projection leaf の canonicalization 差で伝播しきらず、`args_sizes_get` で得た size proof を `args_get` の dependent span proof に接続できなかったこと。
+- `owner_host_payload_extent` の deferred proof は owner base address と required extent を分けて記録するようにし、二重 offset を解消した。
+- `RawCellAddressAliases` の scalar fact copy は source だけでなく scalar alias 群から I32 / relation / scale / offset / TypeSize / HostSize facts を収集してから target に適用するようにした。
+- `OwnerExtentSummary` は RegionToken size、HostSize return、TypeSize return、scaled payload bytes を summary として保持し、call-site type argument で instantiate するようにした。stdlib 関数名の allowlist は追加していない。
+- scalar leaf そのものが value-projection raw alias summary として seeded parameter にならないよう、projection summary の seed 対象を aggregate / pointer / named-to-projectable な型に制限した。
+- 肥大化した resource checker 周辺は `owner_extent_summary`、`owner_extent_expected`、`owner_extent_coverage_place`、`owner_return_apply_consumption`、`owner_summary_type_params`、`owner_summary_size_return`、`owner_variant_unreachable`、`initialized_alias_scalar_copy`、`type_var` に分割し、`nodesrc/test_resource_checker_responsibility.js` の監視対象へ追加した。
+- 検証:
+  - `cargo test -p nepl-core initialized_alias --lib`: pass
+  - `cargo test -p nepl-core owner_summary --lib`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_cliarg_get_accepts_region_token_return_summary -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_get -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_get_accepts_host_size_return_summary -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_sizes_get_accepts_known_offset_output_cell -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_args_sizes_get_rejects_known_offset_beyond_owner -- --nocapture`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass
+
 # 2026-05-19 Agent 1 enum-backed owner storage raw pointer summary 修正
 
 - `ISS-20260519T092414550Z-RESOURCE-RAW-POINTER-SUMMARY-TREATS--CFB63B46` を追加し、fixed / resolved にした。`plan.md` は変更していない。

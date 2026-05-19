@@ -191,6 +191,7 @@ fn function(
     ResourceFunction {
         name: name.to_string(),
         origin_name: name.to_string(),
+        type_params: Vec::new(),
         params,
         result,
         effect: Effect::Pure,

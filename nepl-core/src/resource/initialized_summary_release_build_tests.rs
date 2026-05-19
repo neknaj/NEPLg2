@@ -80,6 +80,7 @@ fn raw_copy_from_view_function(
     ResourceFunction {
         name: name.to_string(),
         origin_name: name.to_string(),
+        type_params: Vec::new(),
         params: vec![ResourceLocal {
             name: "source".to_string(),
             ty: source_ty,
