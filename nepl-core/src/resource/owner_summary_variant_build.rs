@@ -45,7 +45,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
         owner_extent_requirements: Vec::new(),
-        host_memory_span_requirements: Vec::new(),
+        memory_span_requirements: Vec::new(),
         params: &function.params,
     };
     let mut owners = OwnerTable::default();

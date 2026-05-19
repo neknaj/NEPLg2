@@ -61,17 +61,31 @@ fn checked_mem_ptr_access_proof(
     pointer_aliases: &RawPointerAliasTable,
     raw: &Place,
 ) -> CheckedMemPtrAccessProof {
-    if identities
-        .operations(raw)
-        .into_iter()
-        .any(|operation| raw_memory_op_produces_identity(&operation))
-    {
+    if checked_mem_ptr_raw_has_internal_allocation_identity(identities, pointer_aliases, raw) {
         return CheckedMemPtrAccessProof::InternalAllocationIdentity;
     }
     if checked_mem_ptr_raw_is_null_sentinel(pointer_aliases, raw) {
         return CheckedMemPtrAccessProof::NullSentinel;
     }
     CheckedMemPtrAccessProof::Unproven
+}
+
+fn checked_mem_ptr_raw_has_internal_allocation_identity(
+    identities: &RawIdentityTable,
+    pointer_aliases: &RawPointerAliasTable,
+    raw: &Place,
+) -> bool {
+    raw_and_mem_ptr_view_places(raw).iter().any(|place| {
+        pointer_aliases
+            .group_for_or_singleton(place)
+            .iter()
+            .any(|alias| {
+                identities
+                    .operations(alias)
+                    .into_iter()
+                    .any(|operation| raw_memory_op_produces_identity(&operation))
+            })
+    })
 }
 
 fn checked_mem_ptr_raw_is_null_sentinel(

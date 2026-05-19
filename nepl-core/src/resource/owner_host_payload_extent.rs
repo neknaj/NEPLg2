@@ -91,17 +91,19 @@ impl ResourceOwnerCheckEngine<'_> {
         buffer: &Place,
         length: &Place,
         direction: HostMemoryDirection,
+        operation: ResourceOwnerOperation,
         span: Span,
     ) -> Option<bool> {
         let candidate = find_host_payload_owner(owners, raw_aliases, buffer)?;
         match prove_host_payload_extent_covers_argument(raw_aliases, &candidate, length) {
             Some((OwnerExtentProof::Proven, _)) => Some(true),
             Some((OwnerExtentProof::Unknown, required_extent)) => {
-                if self.try_record_deferred_direct_host_memory_span_requirement(
+                if self.try_record_deferred_direct_memory_span_requirement(
                     raw_aliases,
                     &candidate.address_base,
                     &required_extent,
                     direction,
+                    operation,
                 ) {
                     return Some(true);
                 }
@@ -109,17 +111,12 @@ impl ResourceOwnerCheckEngine<'_> {
                     .push(PendingOwnerExtentRequirement {
                         owner: candidate.owner,
                         expected: OwnerStorageExtent::payload_bytes(&required_extent),
-                        operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                        operation,
                     });
                 Some(true)
             }
             Some((OwnerExtentProof::Mismatch, _)) => {
-                self.push_unavailable(
-                    ResourceOwnerOperation::ExternalIoPayloadExtent,
-                    &candidate.owner,
-                    candidate.state,
-                    span,
-                );
+                self.push_unavailable(operation, &candidate.owner, candidate.state, span);
                 Some(false)
             }
             None => None,

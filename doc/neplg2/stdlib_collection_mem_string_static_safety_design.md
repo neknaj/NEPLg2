@@ -324,6 +324,12 @@ Resource IR / typecheck / match check は次を必須にする。
 - `std/stdio/write/fd.nepl` も `iov` / `nwritten` scratch owner を `RegionToken<u8>` に移し、raw iovec layout は `std/stdio/raw.nepl` の `stdio_fd_write_from_result` へ閉じた。stdout/stderr write path では `MemPtr<u8>` を free owner として扱わない。
 - `Vec<T>` は `buffer: OwnedBuffer<T>` だけを持つ public facade へ移行した。`OwnedBuffer<T>` が `len/cap/storage` と storage owner enum を保持し、observer / mutation / transform / sort wrapper はすべて `OwnedBuffer<T>` 経由で storage を参照または消費する。source policy は旧 `Vec<T> len cap storage` constructor と `Vec<T>` 直下の `len/cap/storage` field の復活を拒否する。残件は initialized prefix、move-out / replace / drop traversal、compiler-issued owner token の接続である。
 
+2026-05-19 追記:
+
+- Resource IR owner summary は host memory span だけでなく raw memory operation の readable / writable span も caller requirement として要約する。`string_from_mem_unchecked_result` / `string_from_utf8_mem_result` のような stdlib callee 内 raw span helper は、caller 側の `RegionToken` extent と length の照合を要求する。
+- これは `MemPtr<T>` に owner 責務を戻す変更ではない。`MemPtr<T>` は non-owning view のままで、proof は backing owner と span requirement の対応から導出する。
+- `cstr_to_str_bounded_result` のような loop-guarded scanner では、`while i < max_len` と `load_u8(mem_ptr_add p i)` から `p[0..max_len]` を要約する汎用 path-conditioned span proof がまだ不足している。これは [ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D](../../issues/items/ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D.md) で扱う。
+
 ### Stage B: `core/mem` の internal/public 分離
 
 - 前提として、typecheck の import visibility が `pub` / private item boundary を binding authority として扱う必要がある。現状の blocker は [ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573](../../issues/items/ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573.md) で追跡する。

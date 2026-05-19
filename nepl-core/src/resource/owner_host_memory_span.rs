@@ -6,47 +6,30 @@ use super::model::Place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::report::ResourceOwnerOperation;
 
 impl ResourceOwnerCheckEngine<'_> {
-    pub(super) fn ensure_host_memory_contract_owner_span_available(
+    pub(super) fn ensure_memory_contract_owner_span_available(
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
         raw_views: &RawAddressViewTable,
         contract: &HostMemorySpan,
         args: &[Place],
+        operation: ResourceOwnerOperation,
         span: Span,
     ) -> bool {
         match *contract {
-            HostMemorySpan::Direct {
-                address_arg,
-                length,
-                direction,
-                ..
-            } => {
-                let Some(address) = args.get(address_arg) else {
-                    return true;
-                };
-                let Some(length) = length.resolve(args, self.types.i32(), raw_aliases) else {
-                    if self.try_record_deferred_host_memory_span_requirement(
-                        raw_aliases,
-                        contract,
-                        args,
-                    ) {
-                        return true;
-                    }
-                    return true;
-                };
-                self.ensure_external_io_payload_extent_available(
+            HostMemorySpan::Direct { .. } => self
+                .ensure_direct_memory_contract_owner_span_available(
                     owners,
                     raw_aliases,
                     raw_views,
-                    address,
-                    &length,
-                    direction,
+                    contract,
+                    args,
+                    operation,
                     span,
-                )
-            }
+                ),
             HostMemorySpan::IovPayload {
                 iovs_arg,
                 iov_count_arg,
@@ -59,6 +42,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 args.get(iovs_arg),
                 args.get(iov_count_arg),
                 direction,
+                operation,
                 span,
             ),
             HostMemorySpan::IovDescriptor {
@@ -72,6 +56,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 iovs_arg,
                 iov_count_arg,
                 contract,
+                operation,
                 span,
             ),
         }

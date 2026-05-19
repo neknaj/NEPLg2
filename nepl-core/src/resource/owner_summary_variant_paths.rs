@@ -58,7 +58,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
         owner_extent_requirements: engine.owner_extent_requirements.clone(),
-        host_memory_span_requirements: engine.host_memory_span_requirements.clone(),
+        memory_span_requirements: engine.memory_span_requirements.clone(),
         params: engine.params,
     };
     let mut owners = owners.clone();
@@ -253,7 +253,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
         owner_extent_requirements: engine.owner_extent_requirements.clone(),
-        host_memory_span_requirements: engine.host_memory_span_requirements.clone(),
+        memory_span_requirements: engine.memory_span_requirements.clone(),
         params: engine.params,
     };
     let mut path_owners = owners.clone();

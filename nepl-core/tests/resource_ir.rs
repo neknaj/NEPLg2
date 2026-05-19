@@ -3701,7 +3701,7 @@ fn main <()*>i32> ():
             0
 "#;
 
-    compile_resource_source_with_target(source, CompileTarget::Wasm)
+    compile_resource_source_as_compiler_owned(source, CompileTarget::Wasm)
         .expect("null MemPtr sentinel must be allowed to reach checked load guard");
 }
 
@@ -14071,6 +14071,67 @@ fn main <()* >i32> ():
         "string_from_mem_unchecked_result copies bytes and must not reserve the source str: {:#?}",
         diagnostics
     );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_string_from_mem_oversized_region_span() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string/storage" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let p <MemPtr<u8>> region_ptr &region
+            let copied_len <i32> match string_from_mem_unchecked_result p 100:
+                Result::Ok copied:
+                    1
+                Result::Err _e:
+                    0
+            match dealloc_region region:
+                Result::Ok _:
+                    copied_len
+                Result::Err _e:
+                    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.owner.unavailable",
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_string_from_mem_string_source_span() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string/storage" as *
+#import "alloc/string/access" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let src <str> "A"
+    match string_from_mem_unchecked_result string_data_ptr src 1:
+        Result::Ok copied:
+            1
+        Result::Err _e:
+            0
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("string-backed span should satisfy raw memory span summary proof");
 }
 
 #[test]

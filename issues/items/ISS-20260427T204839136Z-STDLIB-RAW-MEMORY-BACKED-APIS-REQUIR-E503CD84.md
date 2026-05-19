@@ -793,3 +793,11 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 修正後は `stdlib/alloc/collections/vec/raw.nepl` と `vec/raw/element.nepl` を削除し、Copy element の raw load/store は `get` / `pop` / `push` / `replace` / `map` / `filter` / `partition` / `take_while` / `drop_while` の検査済み分岐と同じ source file 内に置いた。これにより public/direct-import 可能な unchecked element helper は残らず、source policy は `vec/raw` facade の復活、`../raw` import 依存、shared `vec_read_at` / `vec_write_at` helper の復活を拒否する。
 
 この親 issue は引き続き open とする。今回閉じたのは Vec Copy element raw helper の public bypass であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / moved slot / non-Copy drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-19 Agent 1 Resource IR raw memory span summary 追記
+
+`ISS-20260519T142436433Z-RESOURCE-IR-RAW-MEMORY-SPAN-SUMMARIE-FB862D7E` を解決した。raw-memory-backed stdlib API の direct import surface を狭めても、compiler-owned stdlib callee 内の `load_u8` / `mem_copy` / `fill` が caller 側で owner extent requirement に戻らなければ、`MemPtr = non-owning pointer` の設計は caller convention に依存したままになる。
+
+修正後は Resource IR summary の `host_memory_span_requirements` を operation 付きの `memory_span_requirements` へ広げ、external IO payload span と raw memory payload span を同じ owner extent proof machinery で扱う。`string_from_mem_unchecked_result` / `string_from_utf8_mem_result` へ 1 byte region と length 100 を渡す direct import は `resource.owner.unavailable` で拒否されるため、raw string construction の span proof は stdlib module 名 allowlist ではなく callee summary と backing owner extent の照合に移った。
+
+一方で、loop 条件付き scanner の `load_u8(mem_ptr_add p i)` から `p[0..max_len]` を要約する汎用 path-conditioned span proof はまだ不足している。これは `ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D` として分離し、この親 issue の Stage 6 core 残件として継続する。個別 `cstr` 用証明器ではなく、bounded scanner 全体へ適用する Resource IR summary proof として実装する。

@@ -10,9 +10,6 @@ ret: 123
 #target std
 
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -184,9 +181,6 @@ ret: 321
 #target std
 
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/option" as *
 
@@ -371,9 +365,6 @@ ret: 1
 #target std
 
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/option" as *
 #import "core/math" as *
@@ -444,9 +435,6 @@ ret: 1
 #target std
 
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/math" as *
 
@@ -1212,6 +1200,68 @@ diag_code: resolve.identifier.undefined
 
 fn main <()*>str> ():
     string_from_addr_unchecked 0
+```
+
+## string_from_mem_unchecked_result は caller の MemPtr span 証明を要求する
+
+neplg2:test[compile_fail]
+diag_code: resource.owner.unavailable
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/storage" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let p <MemPtr<u8>> region_ptr &region
+            let copied_len <i32> match string_from_mem_unchecked_result p 100:
+                Result::Ok copied:
+                    1
+                Result::Err _e:
+                    0
+            match dealloc_region region:
+                Result::Ok _:
+                    copied_len
+                Result::Err _e:
+                    0
+```
+
+## string_from_utf8_mem_result も caller の MemPtr span 証明を要求する
+
+neplg2:test[compile_fail]
+diag_code: resource.owner.unavailable
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string/storage" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let p <MemPtr<u8>> region_ptr &region
+            let copied_len <i32> match string_from_utf8_mem_result p 100:
+                Result::Ok copied:
+                    1
+                Result::Err _e:
+                    0
+            match dealloc_region region:
+                Result::Ok _:
+                    copied_len
+                Result::Err _e:
+                    0
 ```
 
 ## string scanner の raw address observer は公開しない

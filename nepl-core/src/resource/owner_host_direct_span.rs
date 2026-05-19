@@ -1,6 +1,6 @@
 use crate::span::Span;
 
-use super::host_memory_contract::{HostMemoryDirection, HostMemoryLength, HostMemorySpan};
+use super::host_memory_contract::HostMemorySpan;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::owner_check::ResourceOwnerCheckEngine;
@@ -9,24 +9,28 @@ use super::owner_state::OwnerTable;
 use super::report::ResourceOwnerOperation;
 
 impl ResourceOwnerCheckEngine<'_> {
-    pub(super) fn ensure_iov_descriptor_owner_extent_available(
+    pub(super) fn ensure_direct_memory_contract_owner_span_available(
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
         raw_views: &RawAddressViewTable,
-        args: &[Place],
-        iovs_arg: usize,
-        iov_count_arg: usize,
         contract: &HostMemorySpan,
+        args: &[Place],
         operation: ResourceOwnerOperation,
         span: Span,
     ) -> bool {
-        let Some(iovs) = args.get(iovs_arg) else {
+        let HostMemorySpan::Direct {
+            address_arg,
+            length,
+            direction,
+            ..
+        } = *contract
+        else {
             return true;
         };
-        let length = HostMemoryLength::ArgScaled {
-            arg: iov_count_arg,
-            bytes_per_item: 8,
+
+        let Some(address) = args.get(address_arg) else {
+            return true;
         };
         let Some(length) = length.resolve(args, self.types.i32(), raw_aliases) else {
             if self.try_record_deferred_memory_span_requirement(
@@ -43,9 +47,9 @@ impl ResourceOwnerCheckEngine<'_> {
             owners,
             raw_aliases,
             raw_views,
-            iovs,
+            address,
             &length,
-            HostMemoryDirection::Input,
+            direction,
             operation,
             span,
         )

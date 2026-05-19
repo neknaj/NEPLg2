@@ -74,7 +74,7 @@ fn function_owner_return_summary(
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
         owner_extent_requirements: Vec::new(),
-        host_memory_span_requirements: Vec::new(),
+        memory_span_requirements: Vec::new(),
         params: &function.params,
     };
     let mut owners = OwnerTable::default();
@@ -435,7 +435,7 @@ fn function_owner_return_summary(
         &consumed_parameter_indices,
         &consumed_parameter_sources,
     );
-    let host_memory_span_requirements = engine.host_memory_span_requirements.clone();
+    let memory_span_requirements = engine.memory_span_requirements.clone();
     OwnerReturnSummary {
         function: function.name.clone(),
         type_params: owner_summary_type_params(types, function),
@@ -445,7 +445,7 @@ fn function_owner_return_summary(
         consumed_parameter_indices,
         consumed_parameter_sources,
         consumed_extent_requirements,
-        host_memory_span_requirements,
+        memory_span_requirements,
         host_size_returns,
         type_size_returns,
         variant_consumed_parameter_indices,

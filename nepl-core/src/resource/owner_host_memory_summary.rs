@@ -18,38 +18,39 @@ use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_place::owner_projection_source_place;
 use super::owner_state::OwnerTable;
 use super::place_utils::{place_suffix_after_prefix, push_unique_place};
-use super::summary::{
-    OwnerHostMemoryArgSummary, OwnerHostMemorySpanRequirement, OwnerProjectionSource,
-};
+use super::report::ResourceOwnerOperation;
+use super::summary::{OwnerMemoryArgSummary, OwnerMemorySpanRequirement, OwnerProjectionSource};
 
 impl ResourceOwnerCheckEngine<'_> {
-    pub(super) fn try_record_deferred_host_memory_span_requirement(
+    pub(super) fn try_record_deferred_memory_span_requirement(
         &mut self,
         raw_aliases: &RawCellAddressAliases,
         contract: &HostMemorySpan,
         args: &[Place],
+        operation: ResourceOwnerOperation,
     ) -> bool {
         let Some(requirement) =
-            summarize_host_memory_span_requirement(raw_aliases, self.params, contract, args)
+            summarize_memory_span_requirement(raw_aliases, self.params, contract, args, operation)
         else {
             return false;
         };
         if !self
-            .host_memory_span_requirements
+            .memory_span_requirements
             .iter()
             .any(|existing| existing == &requirement)
         {
-            self.host_memory_span_requirements.push(requirement);
+            self.memory_span_requirements.push(requirement);
         }
         true
     }
 
-    pub(super) fn try_record_deferred_direct_host_memory_span_requirement(
+    pub(super) fn try_record_deferred_direct_memory_span_requirement(
         &mut self,
         raw_aliases: &RawCellAddressAliases,
         address: &Place,
         length: &Place,
         direction: HostMemoryDirection,
+        operation: ResourceOwnerOperation,
     ) -> bool {
         let contract = HostMemorySpan::Direct {
             address_arg: 0,
@@ -61,37 +62,40 @@ impl ResourceOwnerCheckEngine<'_> {
         if let Some((base_address, base_length)) =
             direct_symbolic_slice_base_requirement(raw_aliases, address, length)
         {
-            return self.try_record_deferred_host_memory_span_requirement(
+            return self.try_record_deferred_memory_span_requirement(
                 raw_aliases,
                 &contract,
                 &[base_address, base_length],
+                operation,
             );
         }
-        self.try_record_deferred_host_memory_span_requirement(
+        self.try_record_deferred_memory_span_requirement(
             raw_aliases,
             &contract,
             &[address.clone(), length.clone()],
+            operation,
         )
     }
 
-    pub(super) fn apply_owner_host_memory_span_requirements(
+    pub(super) fn apply_owner_memory_span_requirements(
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
         raw_views: &RawAddressViewTable,
         args: &[Place],
-        requirements: &[OwnerHostMemorySpanRequirement],
+        requirements: &[OwnerMemorySpanRequirement],
         span: Span,
     ) -> bool {
         let mut available = true;
         for requirement in requirements {
-            let instantiated_args = instantiate_host_memory_requirement_args(args, requirement);
-            available &= self.ensure_host_memory_contract_owner_span_available(
+            let instantiated_args = instantiate_memory_requirement_args(args, requirement);
+            available &= self.ensure_memory_contract_owner_span_available(
                 owners,
                 raw_aliases,
                 raw_views,
                 &requirement.span,
                 &instantiated_args,
+                requirement.operation,
                 span,
             );
         }
@@ -99,24 +103,26 @@ impl ResourceOwnerCheckEngine<'_> {
     }
 }
 
-fn summarize_host_memory_span_requirement(
+fn summarize_memory_span_requirement(
     raw_aliases: &RawCellAddressAliases,
     params: &[ResourceLocal],
     contract: &HostMemorySpan,
     args: &[Place],
-) -> Option<OwnerHostMemorySpanRequirement> {
+    operation: ResourceOwnerOperation,
+) -> Option<OwnerMemorySpanRequirement> {
     let referenced = referenced_host_memory_args(contract);
     let mut summarized_args = args
         .iter()
-        .map(|arg| OwnerHostMemoryArgSummary::Unknown { ty: arg.ty })
+        .map(|arg| OwnerMemoryArgSummary::Unknown { ty: arg.ty })
         .collect::<Vec<_>>();
     for (index, role) in referenced {
         let arg = args.get(index)?;
-        summarized_args[index] = summarize_host_memory_arg(raw_aliases, params, arg, role)?;
+        summarized_args[index] = summarize_memory_arg(raw_aliases, params, arg, role)?;
     }
-    Some(OwnerHostMemorySpanRequirement {
+    Some(OwnerMemorySpanRequirement {
         span: *contract,
         args: summarized_args,
+        operation,
     })
 }
 
@@ -165,14 +171,14 @@ fn push_host_memory_length_arg(
     }
 }
 
-fn summarize_host_memory_arg(
+fn summarize_memory_arg(
     raw_aliases: &RawCellAddressAliases,
     params: &[ResourceLocal],
     arg: &Place,
     role: HostMemoryArgRole,
-) -> Option<OwnerHostMemoryArgSummary> {
+) -> Option<OwnerMemoryArgSummary> {
     if let Some(value) = i32_constant_value(raw_aliases, arg) {
-        return Some(OwnerHostMemoryArgSummary::I32Constant { value, ty: arg.ty });
+        return Some(OwnerMemoryArgSummary::I32Constant { value, ty: arg.ty });
     }
     match role {
         HostMemoryArgRole::Address => {
@@ -182,7 +188,7 @@ fn summarize_host_memory_arg(
             parameter_scalar_source_for_host_memory_arg(raw_aliases, params, arg)
         }
     }
-    .map(OwnerHostMemoryArgSummary::Parameter)
+    .map(OwnerMemoryArgSummary::Parameter)
 }
 
 fn direct_symbolic_slice_base_requirement(
@@ -193,6 +199,11 @@ fn direct_symbolic_slice_base_requirement(
     let (base_address, offset) = address_without_symbolic_offset(address)?;
     if raw_aliases.i32_condition_truth(&offset, I32ValueCondition::NonNegative) != Some(true) {
         return None;
+    }
+    if raw_aliases.i32_value(length) == Some(1) {
+        for base_length in raw_aliases.i32_strict_upper_bound_candidates(&offset) {
+            return Some((base_address, base_length));
+        }
     }
     for (base_length, subtrahend) in raw_aliases.i32_difference_sources(length) {
         if raw_aliases.canonicalize_scalar(&subtrahend) != raw_aliases.canonicalize_scalar(&offset)
@@ -316,27 +327,24 @@ fn place_has_raw_address_projection(place: &Place) -> bool {
     })
 }
 
-fn instantiate_host_memory_requirement_args(
+fn instantiate_memory_requirement_args(
     args: &[Place],
-    requirement: &OwnerHostMemorySpanRequirement,
+    requirement: &OwnerMemorySpanRequirement,
 ) -> Vec<Place> {
     requirement
         .args
         .iter()
-        .map(|arg| instantiate_host_memory_requirement_arg(args, arg))
+        .map(|arg| instantiate_memory_requirement_arg(args, arg))
         .collect()
 }
 
-fn instantiate_host_memory_requirement_arg(
-    args: &[Place],
-    arg: &OwnerHostMemoryArgSummary,
-) -> Place {
+fn instantiate_memory_requirement_arg(args: &[Place], arg: &OwnerMemoryArgSummary) -> Place {
     match arg {
-        OwnerHostMemoryArgSummary::Unknown { ty } => Place::unknown(*ty),
-        OwnerHostMemoryArgSummary::Parameter(source) => {
+        OwnerMemoryArgSummary::Unknown { ty } => Place::unknown(*ty),
+        OwnerMemoryArgSummary::Parameter(source) => {
             owner_projection_source_place(args, source).unwrap_or_else(|| Place::unknown(source.ty))
         }
-        OwnerHostMemoryArgSummary::I32Constant { value, ty } => Place::i32_constant(*value, *ty),
+        OwnerMemoryArgSummary::I32Constant { value, ty } => Place::i32_constant(*value, *ty),
     }
 }
 

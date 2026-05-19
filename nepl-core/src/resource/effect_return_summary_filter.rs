@@ -37,26 +37,41 @@ fn raw_identity_projection_has_summary_owner_carrier_protection(
     suffix: &[PlaceProjection],
 ) -> bool {
     let mut current_ty = types.resolve_named_type_id(types.resolve_id(root_ty));
-    if raw_identity_type_blocks_internal_summary(types, current_ty) {
+    if raw_identity_type_blocks_structural_summary(types, current_ty) {
         return true;
     }
     for projection in suffix {
-        if raw_identity_type_blocks_internal_summary(types, current_ty) {
+        if raw_identity_type_blocks_structural_summary(types, current_ty) {
             return true;
         }
         current_ty = projection_result_type(types, current_ty, projection).unwrap_or(current_ty);
-        if raw_identity_type_blocks_internal_summary(types, current_ty) {
+        if raw_identity_type_blocks_structural_summary(types, current_ty) {
             return true;
         }
     }
     false
 }
 
-fn raw_identity_type_blocks_internal_summary(types: &TypeCtx, ty: TypeId) -> bool {
+fn raw_identity_type_blocks_structural_summary(types: &TypeCtx, ty: TypeId) -> bool {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
     resolved == types.str()
         || (!type_is_owner_token(types, resolved)
+            && !raw_identity_type_is_enum_like(types, resolved)
             && raw_identity_type_is_structural_owner_carrier(types, resolved))
+}
+
+fn raw_identity_type_is_enum_like(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Enum { .. } => true,
+        TypeKind::Apply { base, .. } => {
+            matches!(
+                types.get_ref(types.resolve_named_type_id(*base)),
+                TypeKind::Enum { .. }
+            )
+        }
+        _ => false,
+    }
 }
 
 fn raw_identity_type_can_propagate_public_escape(
@@ -72,7 +87,7 @@ fn raw_identity_type_can_propagate_public_escape(
     if type_is_owner_token(types, resolved) {
         return true;
     }
-    if raw_identity_type_blocks_internal_summary(types, resolved) {
+    if raw_identity_type_blocks_structural_summary(types, resolved) {
         return false;
     }
     if seen.contains(&resolved) {

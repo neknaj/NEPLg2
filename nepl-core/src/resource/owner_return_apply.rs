@@ -31,12 +31,12 @@ impl ResourceOwnerCheckEngine<'_> {
         summary: &OwnerReturnSummary,
         span: Span,
     ) {
-        if !self.apply_owner_host_memory_span_requirements(
+        if !self.apply_owner_memory_span_requirements(
             owners,
             raw_aliases,
             raw_views,
             args,
-            &summary.host_memory_span_requirements,
+            &summary.memory_span_requirements,
             span,
         ) {
             return;

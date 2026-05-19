@@ -42544,3 +42544,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `sort_merge` / `sort_merge_ret` は引き続き `Vec` owner 由来の data view と scratch `RegionToken` owner を使う。ordinary source から unchecked `MemPtr` helper を呼べる bypass は残さない。
 - `nodesrc/test_stdlib_vec_sort_module_split.js`、`nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_vec_borrowed_observers.js` を新しい設計に合わせ、direct-importable raw merge helper module が存在しないことを検査対象にした。
 - `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に Stage 6 の更新として反映した。
+
+## 2026-05-19 Agent 1 Resource IR raw memory span summary 証明
+
+- `ISS-20260519T142436433Z-RESOURCE-IR-RAW-MEMORY-SPAN-SUMMARIE-FB862D7E` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の owner summary が host-visible memory span だけを caller requirement にしており、`RawMemoryOp::LoadU8` / `StoreU8` / `BulkCopy` / `BulkMove` / `FillBytes` / `Fill` が stdlib callee 内に隠れる場合、caller 側で `MemPtr` の backing owner extent と length の対応を再証明していなかったことだった。
+- 修正後は `host_memory_span_requirements` を operation 付きの `memory_span_requirements` へ広げ、external IO と raw memory operation が同じ owner extent proof machinery を使う。diagnostic operation は `ExternalIoPayloadExtent` と `RawMemoryPayloadExtent` の enum で分けるため、検査を文字列や module allowlist には戻していない。
+- `owner_raw_memory.rs` は raw load/store/copy/fill から readable / writable span requirement を生成する。`alloc_raw` / `dealloc_raw` のように owner model より下層で compiler-owned raw address を扱う箇所は、所有者が無いだけでは誤診断しない。一方で caller 由来の `MemPtr` は summary requirement として call site に持ち帰り、`RegionToken` extent と照合する。
+- `string_from_mem_unchecked_result p 100` と `string_from_utf8_mem_result p 100` を 1 byte region へ渡す direct import は `resource.owner.unavailable` で拒否されるようにした。
+- 作業中に、`cstr_to_str_bounded_result` の `while i < max_len` 条件下で行う `load_u8(mem_ptr_add p i)` が `p[0..max_len]` の summary requirement にならない別問題を確認し、`ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D` として分離した。これは loop/path condition を汎用 span proof として summary 化する次の Stage 6 core issue である。
+
+## 2026-05-19 Agent 1 Result owner token payload provenance 復旧
+
+- `ISS-20260519T154609873Z-RESOURCE-RAW-IDENTITY-SUMMARY-BLOCKS-E4C8EDF4` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、enum-backed owner carrier の performance pruning が `Result<RegionToken<T>, E>` の enum root まで internal raw identity summary から遮断し、`Result::Ok` payload に allocator / region raw identity provenance が届かなくなっていたことだった。
+- 修正後は structural owner carrier aggregate root は引き続き summary carrier から除外しつつ、enum payload は variant-gated provenance として辿れる。これにより `alloc_region -> region_ptr/region_ptr_at -> store/load/fill` の checked MemPtr 証明が復旧した。
+- checked MemPtr proof は exact raw field だけでなく pointer alias group も確認する。これは `RegionToken.raw` と `MemPtr.raw` の alias を Resource IR から辿るもので、stdlib 名や関数名の allowlist ではない。
+- `compile_accepts_checked_mem_ptr_wrapper_with_null_sentinel` は通常 source から internal helper を許す古い前提をやめ、compiler-owned boundary source の regression として残した。
+- focused verification:
+  - `cargo test -p nepl-core --lib effect_return_summary_filter -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_mem_ptr_wrapper_with_null_sentinel -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_region_pointer_from_region_provenance -- --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_region_ptr_at_from_region_provenance -- --exact --nocapture`: passed

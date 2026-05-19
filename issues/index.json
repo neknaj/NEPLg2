@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T13:59:53.373Z",
+  "generated_at": "2026-05-19T15:49:09.049Z",
   "counts": {
-    "total": 1059,
-    "open": 4,
-    "resolved": 1055,
+    "total": 1062,
+    "open": 5,
+    "resolved": 1057,
     "by_area": {
+      "core": {
+        "total": 522,
+        "open": 1,
+        "resolved": 521
+      },
       "stdlib": {
         "total": 291,
         "open": 3,
@@ -20,11 +25,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 519,
-        "open": 0,
-        "resolved": 519
       },
       "CORE": {
         "total": 5,
@@ -129,6 +129,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D",
+      "title": "Resource IR raw span summaries miss loop-guarded symbolic byte loads",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/owner_host_memory_summary.rs, nepl-core/src/resource/owner_control.rs, nepl-core/src/resource/owner_summary.rs, stdlib/std/env/cliarg/cstr.nepl, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -638,6 +653,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T060850538Z-CHECKED-MEMPTR-PROVENANCE-REJECTS-RE-CA3CAB00.md"
+    },
+    {
+      "id": "ISS-20260519T154609873Z-RESOURCE-RAW-IDENTITY-SUMMARY-BLOCKS-E4C8EDF4",
+      "title": "Resource raw identity summary blocks Result owner token payload provenance",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/effect_return_summary_filter.rs; nepl-core/src/resource/effect_checked_memptr.rs; nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T154609873Z-RESOURCE-RAW-IDENTITY-SUMMARY-BLOCKS-E4C8EDF4.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",
@@ -7928,6 +7958,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977.md"
+    },
+    {
+      "id": "ISS-20260519T142436433Z-RESOURCE-IR-RAW-MEMORY-SPAN-SUMMARIE-FB862D7E",
+      "title": "Resource IR raw memory span summaries miss MemPtr extent proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_raw_memory_cell.rs, nepl-core/src/resource/owner_raw_memory_span.rs, nepl-core/src/resource/owner_host_memory_summary.rs, nepl-core/src/resource/owner_host_direct_span.rs, nepl-core/src/resource/owner_host_payload_extent.rs, nepl-core/src/resource/effect_return_summary_filter.rs, nepl-core/src/resource/effect_checked_memptr.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T142436433Z-RESOURCE-IR-RAW-MEMORY-SPAN-SUMMARIE-FB862D7E.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

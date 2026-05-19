@@ -25,7 +25,7 @@ use super::place_utils::{
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{ResourceOwnerCheckDeferred, ResourceOwnerDiagnostic, ResourceOwnerOperation};
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerHostMemorySpanRequirement, OwnerReturnSummaryIndex};
+use super::summary::{OwnerMemorySpanRequirement, OwnerReturnSummaryIndex};
 
 pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) function: &'a str,
@@ -34,7 +34,7 @@ pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) diagnostics: Vec<ResourceOwnerDiagnostic>,
     pub(super) deferred: ResourceOwnerCheckDeferred,
     pub(super) owner_extent_requirements: Vec<PendingOwnerExtentRequirement>,
-    pub(super) host_memory_span_requirements: Vec<OwnerHostMemorySpanRequirement>,
+    pub(super) memory_span_requirements: Vec<OwnerMemorySpanRequirement>,
     pub(super) params: &'a [ResourceLocal],
 }
 
