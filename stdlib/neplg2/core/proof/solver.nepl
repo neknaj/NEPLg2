@@ -338,6 +338,28 @@ fn selfhost_proof_module_declaration_head_allowed <(SelfhostModuleDeclarationKin
                 SelfhostModuleDeclarationHeadKind::GenericParams:
                     true
 
+//: selfhost_proof_module_declaration_visibility_allowed: declaration kind ごとの visibility 規則を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `impl` は AST と export model が visibility を持たないため、`pub impl` を header proof で拒否します。
+//: - `fn` / `struct` / `enum` / `trait` は visibility を typed evidence として後続 resolve/export 検査へ渡せるため、ここでは両方を受け入れます。
+fn selfhost_proof_module_declaration_visibility_allowed <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationVisibility)->bool> (decl_kind, visibility):
+    match visibility:
+        SelfhostModuleDeclarationVisibility::Private:
+            true
+        SelfhostModuleDeclarationVisibility::Public:
+            match decl_kind:
+                SelfhostModuleDeclarationKind::Function:
+                    true
+                SelfhostModuleDeclarationKind::Struct:
+                    true
+                SelfhostModuleDeclarationKind::Enum:
+                    true
+                SelfhostModuleDeclarationKind::Trait:
+                    true
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+
 fn selfhost_proof_module_declaration_header_spans_valid <(SelfhostModuleDeclarationHeader)->bool> (header):
     and and source_span_is_valid header.header_span source_span_is_valid header.keyword_span selfhost_proof_span_contains_span header.header_span header.keyword_span
 
@@ -356,7 +378,7 @@ fn selfhost_proof_module_declaration_item_kind_supports <(SelfhostModuleDeclarat
             false
 
 fn selfhost_proof_module_declaration_header_supports <(SelfhostModuleDeclarationHeader,SelfhostModuleDeclarationKind)->bool> (header, kind):
-    and and selfhost_proof_module_declaration_kind_eq header.kind kind selfhost_proof_module_declaration_header_spans_valid header selfhost_proof_module_declaration_header_head_valid header
+    and and and selfhost_proof_module_declaration_kind_eq header.kind kind selfhost_proof_module_declaration_header_spans_valid header selfhost_proof_module_declaration_header_head_valid header selfhost_proof_module_declaration_visibility_allowed header.kind header.visibility
 
 fn selfhost_proof_module_declaration_header_missing <(SelfhostModuleDeclarationKind,SelfhostSourceSpan)->SelfhostProofResult> (kind, span):
     selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDeclarationHeaderMissing selfhost_module_declaration_header_issue_new kind span

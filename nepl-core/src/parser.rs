@@ -715,7 +715,16 @@ impl Parser {
                 Some(TokenKind::KwEnum) => self.parse_enum(),
                 Some(TokenKind::KwFn) => self.parse_fn(),
                 Some(TokenKind::KwTrait) => self.parse_trait(),
-                Some(TokenKind::KwImpl) => self.parse_impl(),
+                Some(TokenKind::KwImpl) => {
+                    let span = self.peek_span().unwrap_or_else(Span::dummy);
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::ImplVisibilityInvalid),
+                        "impl declarations cannot be public",
+                        span,
+                    );
+                    self.next();
+                    None
+                }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
                     self.push_error_with_code(
@@ -1280,7 +1289,6 @@ impl Parser {
     }
 
     fn parse_impl(&mut self) -> Option<Stmt> {
-        let _vis = self.parse_visibility(); // impl の公開可視性は現状未使用
         let kw_span = self.expect_with_span(&TokenKind::KwImpl)?;
         let type_params = self.parse_generic_params();
 

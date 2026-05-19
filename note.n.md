@@ -42840,3 +42840,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-module-check-public-surface-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-module-check-public-surface-checker-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-module-check-public-surface-proof-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 pub impl visibility 黙殺の拒否
+
+- `ISS-20260519T225608654Z-PUB-IMPL-VISIBILITY-IS-ACCEPTED-AND--755AB6F3` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Rust parser が `pub impl` を受理して `parse_impl` 内の `_vis` として捨てていた一方で、`ImplDef` には visibility field がなく、self-host declaration header proof も `Impl` + `Public` を拒否していなかったこと。
+- Rust 側は `ParserDiagnosticCode::ImplVisibilityInvalid` / `parser.impl.visibility_invalid` を追加し、`pub impl` を generic token error ではなく typed diagnostic enum で拒否するようにした。`parse_impl` から visibility parse を削除したため、存在しない AST field へ暗黙に捨てる経路は残していない。
+- self-host 側は `selfhost_proof_module_declaration_visibility_allowed` を追加し、`SelfhostModuleDeclarationVisibility::Public` の場合に declaration kind を `match` で網羅して `Impl` だけ拒否する。checker は従来どおり proof refutation を diagnostic に変換するだけで、checker-local special-case は増やしていない。
+- `tests/compiler/impl_visibility.n.md`、`tests/stdlib/neplg2_proof.n.md`、`tests/stdlib/neplg2_checker_impl_visibility.n.md` に回帰テストを追加した。
+- 検証中に `tests/stdlib/neplg2_checker.n.md::doctest#1` が default 60000ms compile timeout をわずかに超えることを確認した。120000ms では 5/5 passed、該当 compile_ms は約 61208ms。timeout延長で隠さず `ISS-20260519T232628976Z-SELF-HOST-CHECKER-DOCTEST-SUMMARY-CA-2E6B074B` として分離した。
+- focused verification:
+  - `cargo test -p nepl-core diagnostic_codes --lib -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: passed
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/compiler/impl_visibility.n.md --no-tree -o tmp/agent1-pub-impl-visibility.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-pub-impl-proof.json -j 1 --dist web/dist --assert-io`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker_impl_visibility.n.md --no-tree -o tmp/agent1-pub-impl-checker-impl-visibility.json -j 1 --dist web/dist --assert-io`: 1/1 passed

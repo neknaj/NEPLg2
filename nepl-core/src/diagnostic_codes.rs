@@ -46,6 +46,7 @@ pub enum ParserDiagnosticCode {
     TypeExprInvalid,
     IdentifierReservedKeyword,
     ExternSignatureInvalid,
+    ImplVisibilityInvalid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -280,6 +281,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Parser(ParserDiagnosticCode::TypeExprInvalid),
     DiagnosticCode::Parser(ParserDiagnosticCode::IdentifierReservedKeyword),
     DiagnosticCode::Parser(ParserDiagnosticCode::ExternSignatureInvalid),
+    DiagnosticCode::Parser(ParserDiagnosticCode::ImplVisibilityInvalid),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::IdentifierUndefined),
     DiagnosticCode::Type(TypeDiagnosticCode::VariableUndefined),
     DiagnosticCode::Type(TypeDiagnosticCode::ReturnTypeMismatch),
@@ -645,6 +647,7 @@ impl ParserDiagnosticCode {
             ParserDiagnosticCode::TypeExprInvalid => "parser.type_expr.invalid",
             ParserDiagnosticCode::IdentifierReservedKeyword => "parser.identifier.reserved_keyword",
             ParserDiagnosticCode::ExternSignatureInvalid => "parser.extern_signature.invalid",
+            ParserDiagnosticCode::ImplVisibilityInvalid => "parser.impl.visibility_invalid",
         }
     }
 
@@ -658,6 +661,7 @@ impl ParserDiagnosticCode {
                 "reserved keyword cannot be used as identifier"
             }
             ParserDiagnosticCode::ExternSignatureInvalid => "invalid #extern signature",
+            ParserDiagnosticCode::ImplVisibilityInvalid => "impl declarations cannot be public",
         }
     }
 }

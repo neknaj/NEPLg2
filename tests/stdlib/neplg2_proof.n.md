@@ -286,10 +286,11 @@ fn main <()*>i32> ():
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
 stdout: mlstr:
-    ##: Checked [ok,ok,ok]
+    ##: Checked [ok,ok,ok,ok]
     ##: [0] ok
     ##: [1] ok
     ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #target std
@@ -371,10 +372,17 @@ fn main <()*>i32> ():
     let missing_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl none<SelfhostModuleDeclarationHeader> header_span
     let invalid_header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some<SelfhostModuleDeclarationHead> head
     let invalid_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some<SelfhostModuleDeclarationHeader> invalid_header header_span
+    let impl_header_span <SelfhostSourceSpan> source_span_new 0 0 22
+    let impl_keyword_span <SelfhostSourceSpan> source_span_new 0 4 8
+    let impl_head_span <SelfhostSourceSpan> source_span_new 0 9 13
+    let impl_head <SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name impl_head_span
+    let public_impl_header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public impl_header_span impl_keyword_span some<SelfhostModuleDeclarationHead> impl_head
+    let public_impl_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::ImplDecl some<SelfhostModuleDeclarationHeader> public_impl_header impl_header_span
     let checks0 checks_new
     let checks1 checks_push checks0 check_header_proven selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function valid_fact
     let checks2 checks_push checks1 check_header_missing selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function missing_fact
     let checks3 checks_push checks2 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function invalid_fact
-    let shown checks_print_report checks3
+    let checks4 checks_push checks3 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Impl public_impl_fact
+    let shown checks_print_report checks4
     checks_exit_code shown
 ```
