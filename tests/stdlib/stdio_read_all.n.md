@@ -57,7 +57,7 @@ fn main <()*>i32> ():
 このケースは、stdin binary read の Result API が正常入力を `ByteBuf` として返すことを確認します。
 text 変換や UTF-8 検証へ進む前の I/O 境界で、成功と失敗を区別できる API を固定するのが目的です。
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
 stdin: "abc"
 stdout: "abcChecked [ok]\n[0] ok\n"
 exit_code: 0

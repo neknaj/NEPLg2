@@ -42296,3 +42296,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 根本原因は、`tests/stdlib/traits_serde.n.md::serialize_trait_for_primitives` が `<i64> cast 9001` を使うのに `core/cast` を import しておらず、現行 main で compile failure になっていたことだった。さらに serialize / deserialize の両 doctest は `checks_print_report` を呼んでいるのに stdout / exit_code expectation がなかった。
 - serialize doctest に `#import "core/cast" as *` を追加し、2 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。
 - `nodesrc/test_stdlib_traits_serde_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、`core/cast` import drift を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+
+## 2026-05-19 Agent 1 .n.md report metadata general policy
+
+- `ISS-20260519T015240790Z-N-MD-REPORT-METADATA-POLICY-MISSES-S-8E4C48FA` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、report-style `.n.md` doctest が個別 contract に登録されていない場合、`checks_print_report` / `test_report_print_stdout` や `checks_exit_code` / `test_report_exit_code` を使っていても、`stdout:` / `exit_code:` / `stdio` / `normalize_newlines` metadata の欠落を横断的に検出できなかったことだった。
+- `nodesrc/test_nmd_report_metadata_policy.js` を追加し、active `.n.md` report doctest に report print、report-derived exit、stdio tag、normalize_newlines tag、stdout fixture、exit_code fixture、ret 不使用を要求する source policy を整備した。
+- `tests/compiler/overload.n.md` の stdout report 固定済み 15 doctest に `exit_code: 0` を追加し、`tests/stdlib/stdio_read_all.n.md` の report doctest に `stdio, normalize_newlines` tag を追加した。
+- `nodesrc/run_source_policy_regressions.js` に新 policy を登録した。今後 `.n.md` 側で report metadata を落とす退行は per-file contract がなくても検出される。
+- focused verification:
+  - `node nodesrc/test_nmd_report_metadata_policy.js`: passed
+  - `node nodesrc/run_doctest.js -i tests\compiler\overload.n.md -n 8 --dist web\dist`: passed
+  - `node nodesrc/run_doctest.js -i tests\stdlib\stdio_read_all.n.md -n 2 --dist web\dist`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i tests\compiler\overload.n.md -i tests\stdlib\stdio_read_all.n.md --no-tree -o tmp\agent1-nmd-report-metadata-policy.json -j 1 --dist web\dist --assert-io`: 300 秒で timeout。`overload.n.md` 全体は重いため、local では代表 doctest と policy に絞った。

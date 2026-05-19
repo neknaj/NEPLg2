@@ -1750,3 +1750,27 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
 
 この issue はまだ open のまま継続する。`traits_serde` は移行済みだが、他の `.n.md` / stdlib doc-comment fixture に stdout fixture 未固定の report case が残っている。
+
+## 2026-05-19 .n.md report metadata general policy
+
+`ISS-20260519T015240790Z-N-MD-REPORT-METADATA-POLICY-MISSES-S-8E4C48FA` として、`.n.md` 全体の report metadata 退行を検出する source policy を追加した。
+
+移行内容:
+
+- `nodesrc/test_nmd_report_metadata_policy.js` を追加し、`tests` / `tutorials` / `stdlib` / `examples` 配下の `.n.md` を横断して、active report doctest が `stdio, normalize_newlines`、`stdout:`、`exit_code:`、report print helper、report-derived exit helper をすべて持つことを検査するようにした。
+- `tests/compiler/overload.n.md` の stdout report 固定済み 15 doctest に `exit_code: 0` を追加した。
+- `tests/stdlib/stdio_read_all.n.md` の report doctest に `stdio, normalize_newlines` tag を追加した。
+- `nodesrc/run_source_policy_regressions.js` に新 policy を登録し、個別 contract 未登録の `.n.md` が report metadata を落としても検出できるようにした。
+
+検証:
+
+- `node nodesrc/test_nmd_report_metadata_policy.js`: passed
+- `node nodesrc/run_doctest.js -i tests\compiler\overload.n.md -n 8 --dist web\dist`: passed
+- `node nodesrc/run_doctest.js -i tests\stdlib\stdio_read_all.n.md -n 2 --dist web\dist`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+制限:
+
+- `tests/compiler/overload.n.md` 全体の aggregate run は 300 秒で timeout した。今回の変更は manifest metadata 追加であり、代表 doctest と source policy で local 確認し、全体 run は CI 側に委ねる。
+
+この issue はまだ open のまま継続する。`.n.md` report metadata の一般 policy は整備したが、stdlib doc-comment doctest 側の stdout report 未固定と、core-only `ret:` fixture の扱い整理が残っている。

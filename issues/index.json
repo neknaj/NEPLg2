@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T01:40:17.638Z",
+  "generated_at": "2026-05-19T02:01:36.443Z",
   "counts": {
-    "total": 1043,
+    "total": 1044,
     "open": 5,
-    "resolved": 1038,
+    "resolved": 1039,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 62,
+        "total": 63,
         "open": 1,
-        "resolved": 61
+        "resolved": 62
       },
       "selfhost": {
         "total": 74,
@@ -13283,6 +13283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T011047746Z-STDLIB-JSON-DOCTEST-PRINTS-CHECKS-RE-3C7D519B.md"
+    },
+    {
+      "id": "ISS-20260519T015240790Z-N-MD-REPORT-METADATA-POLICY-MISSES-S-8E4C48FA",
+      "title": ".n.md report metadata policy misses stdout/exit_code regressions",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "tests/**/*.n.md, tutorials/**/*.n.md, stdlib/**/*.n.md, examples/**/*.n.md, nodesrc/run_source_policy_regressions.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T015240790Z-N-MD-REPORT-METADATA-POLICY-MISSES-S-8E4C48FA.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

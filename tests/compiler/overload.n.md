@@ -233,6 +233,7 @@ fn main <()->i32> ():
 ## overload_len_for_string_and_vec
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_len_for_string_and_vec\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"Vec len overload selected\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"str len overload selected\" expected=\"1001\" actual=\"1001\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -271,6 +272,7 @@ fn main <()*>i32> ():
 ## overload_new_with_pipe_vec
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_new_with_pipe_vec\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"pipe keeps Vec constructor overload\" expected=\"2\" actual=\"2\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -303,6 +305,7 @@ fn main <()*>i32> ():
 ## overload_pair_field_from_generic_result_keeps_tuple_type
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_pair_field_from_generic_result_keeps_tuple_type\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"generic Result tuple field keeps Vec type\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -341,6 +344,7 @@ fn main <()*>i32> ():
 ## overload_result_inferred_from_outer_arg_context
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_result_inferred_from_outer_arg_context\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"outer bool argument context selects bool overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -370,6 +374,7 @@ fn main <()*>i32> ():
 ## overload_star_import_prefers_concrete_over_generic_new
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_star_import_prefers_concrete_over_generic_new\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"let annotation selects Vec new overload\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -441,6 +446,7 @@ fn main <()->i32> ():
 ## overload_nested_len_with_stack_and_string
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_nested_len_with_stack_and_string\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"str len overload selected\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"Stack len overload selected\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -469,6 +475,7 @@ fn main <()*>i32> ():
 ## overload_nested_call_arg_position_len
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_nested_call_arg_position_len\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested str_trim result selects str len overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -492,6 +499,7 @@ fn main <()*>i32> ():
 ## overload_nested_call_arg_position_bool_chain
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested bool chain keeps comparison overloads\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -512,6 +520,7 @@ fn main <()*>i32> ():
 ## overload_nested_call_arg_position_bool_chain_literals
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain_literals\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"literal locals keep comparison overloads\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -536,6 +545,7 @@ fn main <()*>i32> ():
 ## overload_new_resolve_with_typed_block_context
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_new_resolve_with_typed_block_context\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"typed block selects Stack new overload\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"typed block selects Vec new overload\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -570,6 +580,7 @@ fn main <()*>i32> ():
 ## overload_new_resolve_with_typed_block_and_pipe
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_new_resolve_with_typed_block_and_pipe\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"typed block pipe selects Stack push overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -600,6 +611,7 @@ fn main <()*>i32> ():
 ## overload_nested_call_arg_position_add_sub
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_nested_call_arg_position_add_sub\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested add/sub resolves numeric overloads\" expected=\"15\" actual=\"15\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -620,6 +632,7 @@ fn main <()*>i32> ():
 ## overload_nested_call_chain_add_mul
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_nested_call_chain_add_mul\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nested add/mul call chain resolves numeric overloads\" expected=\"15\" actual=\"15\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -709,6 +722,7 @@ fn main <()->i32> ():
 ## overload_select_by_parameter_context
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_select_by_parameter_context\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parameter context selects i32 and bool overloads\" expected=\"12\" actual=\"12\" message=\"\"\n"
 ```neplg2
 #entry main
@@ -741,6 +755,7 @@ fn main <()*>i32> ():
 ## overload_select_by_explicit_result_ascription
 
 neplg2:test[stdio, normalize_newlines]
+exit_code: 0
 stdout: "test_report name=\"overload_select_by_explicit_result_ascription\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"explicit result ascription selects bool overload\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
