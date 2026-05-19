@@ -1,3 +1,13 @@
+# 2026-05-19 Agent 1 diag stdout report 固定
+
+- `ISS-20260519T000515443Z-DIAG-DOCTESTS-PRINT-CHECKS-REPORTS-W-C859A6D5` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/tests/diag.n.md` の2件が `diag_to_string` / `diags_to_string` の重要な表示仕様を検査しながら、旧 `checks_*` report のstdoutをfixtureとして固定していなかったこと。
+- 両 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行し、named `TestReport` で改行を含む expected / actual を固定した。
+- `nodesrc/test_stdlib_diag_nmd_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、旧 `checks_*` への退行を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_diag_nmd_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md --no-tree -o tmp/agent1-diag-nmd-report-contract.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+
 # 2026-05-19 Agent 1 BTreeSet stdout report 固定
 
 - `ISS-20260518T235853308Z-BTREESET-DOCTESTS-STILL-USE-LEGACY-C-D8F1A58D` を追加し、fixed / resolved にした。`plan.md` は変更していない。

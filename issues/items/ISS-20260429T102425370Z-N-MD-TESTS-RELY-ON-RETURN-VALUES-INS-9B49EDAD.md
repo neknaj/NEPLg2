@@ -92,6 +92,19 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。他の stdlib / selfhost fixture に残る stdout report 未固定を引き続き移行する。
 
+## 2026-05-19 diag stdout report migration
+
+`stdlib/tests/diag.n.md` の 2 doctest を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- `diag_to_string` の kind / span / note / help / source 表示を、`diag string` assertion の expected / actual として固定した。
+- `diags_to_string` の warn / info 順序を、`diags order` assertion の expected / actual として固定した。
+- 改行を含む expected / actual が report 上では JSON escaped text になるため、stdout fixture でも `\\n` として固定した。
+- `nodesrc/test_stdlib_diag_nmd_report_contract.js` を追加し、`ret:`、stdout-less report、旧 `checks_*` 形式へ戻らないようにした。
+
+この issue はまだ open のまま継続する。他の diagnostic / stdlib fixture に残る stdout report 未固定を引き続き移行する。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。
