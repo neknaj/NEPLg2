@@ -190,6 +190,17 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。今回の移行後、直近の stdout fixture なし `checks_print_report` queue は json 1件である。
 
+## 2026-05-19 stdlib json stdout report migration
+
+`ISS-20260519T011047746Z-STDLIB-JSON-DOCTEST-PRINTS-CHECKS-RE-3C7D519B` として、`stdlib/tests/json.n.md` の `json_main` を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `JsonValue` の null / bool / number / string / array / object constructor と accessor の 13 assertion を既存順序のまま stdout fixture に固定した。
+- `nodesrc/test_stdlib_json_nmd_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、JSON constructor / accessor assertion 欠落を source policy で監視する。
+
+今回の移行で、直近で把握していた stdout fixture なし `checks_print_report` queue は解消した。この issue は、より広い ret-only fixture と一般 lint 強化の確認が残るため open のまま継続する。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

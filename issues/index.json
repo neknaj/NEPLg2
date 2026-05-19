@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T01:05:42.410Z",
+  "generated_at": "2026-05-19T01:13:59.595Z",
   "counts": {
-    "total": 1041,
+    "total": 1042,
     "open": 5,
-    "resolved": 1036,
+    "resolved": 1037,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 61,
+        "total": 62,
         "open": 1,
-        "resolved": 60
+        "resolved": 61
       },
       "selfhost": {
         "total": 74,
@@ -13253,6 +13253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T004049268Z-VEC-DROP-LAST-DOC-COMMENT-DOCTEST-PR-9BA3CF28.md"
+    },
+    {
+      "id": "ISS-20260519T011047746Z-STDLIB-JSON-DOCTEST-PRINTS-CHECKS-RE-3C7D519B",
+      "title": "stdlib json doctest prints checks report without stdout fixture",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/tests/json.n.md, nodesrc/test_stdlib_json_nmd_report_contract.js, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T011047746Z-STDLIB-JSON-DOCTEST-PRINTS-CHECKS-RE-3C7D519B.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

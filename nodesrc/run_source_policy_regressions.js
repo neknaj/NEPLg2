@@ -159,6 +159,7 @@ const checks = [
     "nodesrc/test_stdlib_diag_nmd_report_contract.js",
     "nodesrc/test_stdlib_rand_report_contract.js",
     "nodesrc/test_stdlib_fs_nmd_report_contract.js",
+    "nodesrc/test_stdlib_json_nmd_report_contract.js",
     "nodesrc/test_stdlib_error_nmd_report_contract.js",
     "nodesrc/test_stdlib_hash_nmd_report_contract.js",
     "nodesrc/test_stdlib_vec_pop_doc_report_contract.js",

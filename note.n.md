@@ -1,3 +1,16 @@
+# 2026-05-19 Agent 1 stdlib json stdout report 固定
+
+- `ISS-20260519T011047746Z-STDLIB-JSON-DOCTEST-PRINTS-CHECKS-RE-3C7D519B` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/tests/json.n.md` が JSON value constructor / accessor を 13 assertion で検査していながら、manifest が stdout と exit code を固定していなかったこと。
+- `json_main` を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。
+- `nodesrc/test_stdlib_json_nmd_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、JSON constructor / accessor assertion 欠落を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_json_nmd_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/agent1-json-nmd-report-contract.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-19 Agent 1 selfhost name_resolver add-result accessor / stdout report 固定
 
 - `ISS-20260519T010217734Z-SELFHOST-NAME-RESOLVER-DOCTESTS-USE--3A40ADE1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
