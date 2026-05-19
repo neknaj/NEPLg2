@@ -714,6 +714,12 @@ scanner の public helper は `str_find_byte_range` / `str_line_end` / `str_next
 
 修正後は unbounded public API を削除し、`cstr_len_bounded_result(data, max_len)` と `cstr_to_str_bounded_result(data, max_len)` に一本化した。`cliarg_get_checked` は `arg_offset = arg_ptr - argv_buf_raw` を検査し、`buf_size - arg_offset` を C string conversion へ渡す。さらに `cstr_to_str_bounded_result` は `string_from_utf8_mem_result` を使うため、外部 argv byte 列を UTF-8 検証なしに `str` へ昇格する経路も閉じた。
 
+## 2026-05-19 cliarg raw helper public surface 整理追記
+
+`ISS-20260519T173256333Z-STD-ENV-CLIARG-RAW-MEMPTR-HELPERS-RE-6C50B75B` で、`std/env/cliarg/raw.nepl` の implementation-only raw helper 公開面を閉じた。
+
+`cli_args_sizes_result` / scratch zeroing / checked byte load / LLVM cmdline shim は root facade から直接使わない実装詳細なので private にし、公開 helper は `cliarg_count_result` / `cliarg_get_checked` に限定した。これにより `MemPtr<u8>` と size/offset を受け取る raw argv helper へ ordinary source が direct import で依存する経路を減らした。親 issue の残件は引き続き `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal と、collection free の drop traversal である。
+
 この親 issue は引き続き open とする。今回閉じたのは argv C string conversion の buffer extent proof 漏れであり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
 
 ## 2026-05-18 Agent 1 SHA256 owner aggregate field 境界追記

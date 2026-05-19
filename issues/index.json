@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T17:25:01.858Z",
+  "generated_at": "2026-05-19T17:37:24.834Z",
   "counts": {
-    "total": 1065,
+    "total": 1066,
     "open": 4,
-    "resolved": 1061,
+    "resolved": 1062,
     "by_area": {
       "stdlib": {
-        "total": 292,
+        "total": 293,
         "open": 3,
-        "resolved": 289
+        "resolved": 290
       },
       "selfhost": {
         "total": 74,
@@ -12518,6 +12518,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T170102229Z-COLLECTION-POP-OWNER-ACCESSORS-LACK--B71B4C03.md"
+    },
+    {
+      "id": "ISS-20260519T173256333Z-STD-ENV-CLIARG-RAW-MEMPTR-HELPERS-RE-6C50B75B",
+      "title": "std/env cliarg raw MemPtr helpers remain public",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/std/env/cliarg/raw.nepl; nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js; tests/stdlib/cliarg_raw_boundary.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T173256333Z-STD-ENV-CLIARG-RAW-MEMPTR-HELPERS-RE-6C50B75B.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

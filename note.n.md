@@ -42615,3 +42615,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `Vec` / `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` の現行 pop owner accessor がすべて検査対象になる assertion を追加した。
 - focused verification:
   - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+
+## 2026-05-19 Agent 1 cliarg raw helper 公開面の縮小
+
+- `ISS-20260519T173256333Z-STD-ENV-CLIARG-RAW-MEMPTR-HELPERS-RE-6C50B75B` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`std/env/cliarg/raw.nepl` が root facade から raw argv scratch を分離した後も、`cli_args_sizes_result` / scratch zeroing / byte load / LLVM shim を `pub` のまま残し、ordinary source が raw `MemPtr<u8>` helper へ直接依存できる公開面を残していたことだった。
+- `cliarg_count_result` と `cliarg_get_checked` は root-facing checked helper として公開を維持し、implementation-only helper と `CliArgSizes` は private にした。Resource IR の dependent host-span proof は維持し、公開 API surface だけを狭めている。
+- `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` に raw helper が `pub` に戻らない policy を追加し、`tests/stdlib/cliarg_raw_boundary.n.md` に direct import compile_fail を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/cliarg_raw_boundary.n.md --no-tree -o tmp/agent1-cliarg-raw-boundary-public-helpers.json -j 1 --dist web/dist --assert-io`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl -i stdlib/std/env/cliarg/raw.nepl -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-raw-boundary-modules.json -j 1 --dist web/dist --assert-io`: 10/10 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_cliarg_get_accepts_region_token_return_summary -- --exact --nocapture`: passed

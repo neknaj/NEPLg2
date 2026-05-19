@@ -86,6 +86,20 @@ assert.doesNotMatch(cstrDoc, /\b(?:alloc_region|dealloc_region|store_u8|mem_ptr_
 assert.doesNotMatch(allCode, /\bfn\s+cli_i32_ptr\b/, 'cliarg must not reintroduce MemPtr<i32> out-pointer projections across WASI boundaries');
 assert.match(rawCode, /\b(?:store_i32|load_i32|store_u8|load_u8|mem_ptr_addr)\b/, 'cliarg raw argv implementation must carry source-level raw memory evidence');
 assert.match(cstrCode, /\bload_u8\b/, 'cliarg cstr conversion must carry source-level checked byte-load evidence');
+assert.doesNotMatch(rawCode, /\bpub\s+struct\s+CliArgSizes\b/, 'cliarg raw argv metadata struct must remain private to the raw boundary');
+for (const pattern of [
+    /\bpub\s+fn\s+cli_args_sizes_result\b/,
+    /\bpub\s+fn\s+cli_zero_u8_buffer_result\b/,
+    /\bpub\s+fn\s+cli_zero_i32_slots_result\b/,
+    /\bpub\s+fn\s+cli_load_u8_result\b/,
+    /\bpub\s+fn\s+__cli_copy_to_cstr\b/,
+    /\bpub\s+fn\s+__cli_open_cmdline\b/,
+    /\bpub\s+fn\s+__cli_read_cmdline\b/,
+    /\bpub\s+fn\s+args_sizes_get\b/,
+    /\bpub\s+fn\s+args_get\b/,
+]) {
+    assert.doesNotMatch(rawCode, pattern, 'cliarg raw module must not expose implementation-only raw MemPtr or LLVM shim helpers');
+}
 assert.match(rawCode, /fn\s+cli_args_sizes_result\s+<\(MemPtr<u8>\)\*>Result<CliArgSizes,i32>>\s+\(meta\):[\s\S]*store_i32\s+meta_raw\s+0[\s\S]*store_i32\s+add\s+meta_raw\s+4\s+0[\s\S]*args_sizes_get\s+meta_raw\s+add\s+meta_raw\s+4[\s\S]*load_i32\s+meta_raw[\s\S]*load_i32\s+add\s+meta_raw\s+4/, 'cliarg sizes must initialize and read WASI out pointers in one raw-address boundary');
 assert.match(rawCode, /fn\s+cliarg_get_checked\s+<\(i32\)\*>Option<str>>\s+\(idx\):[\s\S]*cli_args_sizes_result\s+meta[\s\S]*cli_zero_i32_slots_result\s+argv\s+argv_size[\s\S]*cli_zero_u8_buffer_result\s+argv_buf\s+buf_size[\s\S]*store_i32\s+arg_slot_raw\s+0[\s\S]*args_get\s+argv_raw\s+argv_buf_raw[\s\S]*load_i32\s+arg_slot_raw/, 'cliarg_get_checked must initialize argv scratch and read arg slots in one raw-address boundary');
 assert.match(rawCode, /fn\s+cliarg_get_checked\s+<\(i32\)\*>Option<str>>\s+\(idx\):[\s\S]*\bor\s+lt\s+idx\s+0\s+or\s+ge\s+idx\s+argc\s+le\s+buf_size\s+0[\s\S]*let\s+arg_slot_raw\s+<i32>\s+add\s+argv_raw\s+mul\s+idx\s+4/, 'cliarg_get_checked must reject negative indexes before computing the argv slot address');
