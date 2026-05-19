@@ -14896,46 +14896,32 @@ fn main <()* >()> ():
 }
 
 #[test]
-fn resource_ir_owner_check_keeps_byte_builder_source_ref_deallocatable() {
+fn resource_ir_owner_check_keeps_byte_builder_string_source_usable() {
     let source = r#"
 #entry main
 #indent 4
 #target std
 #import "alloc/io" as *
-#import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
+#import "alloc/string" as *
 #import "core/math" as *
 #import "core/result" as *
 
-fn free_src <(RegionToken<u8>)* >()> (src):
-    match dealloc_region<u8> src:
-        Result::Ok _:
-            ()
-        Result::Err _:
-            ()
-
 fn main <()* >()> ():
-    match alloc_region_bytes<u8> 10:
+    let text <str> "abcdefghij"
+    match byte_builder_with_capacity 2:
         Result::Err _e:
             ()
-        Result::Ok src_region:
-            let src <MemPtr<u8>> region_ptr &src_region
-            match byte_builder_with_capacity 2:
+        Result::Ok b0:
+            match byte_builder_push_str b0 text:
                 Result::Err _e:
-                    free_src src_region
-                Result::Ok b0:
-                    match byte_builder_push_bytes_ref b0 &src 10:
+                    ()
+                Result::Ok b1:
+                    let keep_len <i32> len text
+                    match byte_builder_finish b1:
+                        Result::Ok bytes:
+                            io_bytebuf_free bytes
                         Result::Err _e:
-                            free_src src_region
-                        Result::Ok b1:
-                            free_src src_region
-                            match byte_builder_finish b1:
-                                Result::Ok bytes:
-                                    io_bytebuf_free bytes
-                                Result::Err _e:
-                                    ()
+                            ()
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -14950,13 +14936,13 @@ fn main <()* >()> ():
                 ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
                     | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
                     | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. }
-                    if function.starts_with("main__") || function.starts_with("free_src__")
+                    if function.starts_with("main__")
             )
         })
         .collect::<Vec<_>>();
     assert!(
         diagnostics.is_empty(),
-        "borrowed ByteBuilder source MemPtr must remain deallocatable by the caller: {:#?}\nresource:\n{}",
+        "ByteBuilder string append must not consume or reserve the source str: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );

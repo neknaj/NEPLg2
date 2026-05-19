@@ -1,3 +1,13 @@
+# 2026-05-19 Agent 1 ByteBuilder Resource IR regression の public boundary 修正
+
+- `ISS-20260519T172250950Z-RESOURCE-IR-BYTEBUILDER-REGRESSION-C-5E7800F8` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`byte_builder_push_bytes_ref` を private helper に戻した後も、Resource IR の回帰テストが旧 public raw `MemPtr` append helper を直接呼ぶ source のまま残っていたこと。
+- テストは `byte_builder_push_str` 経由に変更し、append 後に同じ `text: str` の `len text` を読むことで、typed public wrapper 経由の copy が source object を消費または reserve しないことを検査する形にした。
+- raw pointer/length pair は再公開せず、private raw copy helper は monomorphized stdlib implementation の内部として Resource IR が検査する。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_byte_builder_string_source_usable -- --exact --nocapture`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+
 # 2026-05-19 Agent 1 Resource IR scratch cleanup regression の public boundary 修正
 
 - `ISS-20260519T171550554Z-RESOURCE-IR-SCRATCH-CLEANUP-REGRESSI-41096EA9` を追加し、fixed / resolved にした。`plan.md` は変更していない。
