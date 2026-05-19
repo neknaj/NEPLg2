@@ -11,9 +11,48 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
 
+//: SelfhostRawBackendOpenBlock: raw backend block が text をまだ[持/も]たない[状態/じょうたい]
+pub struct SelfhostRawBackendOpenBlock:
+    kind <SelfhostRawBackendKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostRawBackendOpenBlock:
+    fn clone <(&SelfhostRawBackendOpenBlock)->SelfhostRawBackendOpenBlock> (self):
+        *self
+
+impl Copy for SelfhostRawBackendOpenBlock:
+    fn copy_mark <(SelfhostRawBackendOpenBlock)->SelfhostRawBackendOpenBlock> (self):
+        self
+
+//: SelfhostRawBackendState: raw backend stream の proof state
+//:
+//: [目的/もくてき]:
+//: - `#wasm:` / `#llvmir:` block と raw text の対応を checker-local state machine ではなく proof obligation の state として[扱/あつか]います。
+pub enum SelfhostRawBackendState:
+    Normal
+    OpenEmpty <SelfhostRawBackendOpenBlock>
+    OpenReady <SelfhostRawBackendKind>
+
+impl Clone for SelfhostRawBackendState:
+    fn clone <(&SelfhostRawBackendState)->SelfhostRawBackendState> (self):
+        *self
+
+impl Copy for SelfhostRawBackendState:
+    fn copy_mark <(SelfhostRawBackendState)->SelfhostRawBackendState> (self):
+        self
+
+//: selfhost_raw_backend_open_block_new: empty raw backend block state payload を[作/つく]る
+pub fn selfhost_raw_backend_open_block_new <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostRawBackendOpenBlock> (kind, span):
+    SelfhostRawBackendOpenBlock kind span
+
+//: selfhost_raw_backend_state_start: block item から empty block state を[作/つく]る
+pub fn selfhost_raw_backend_state_start <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostRawBackendState> (kind, span):
+    SelfhostRawBackendState::OpenEmpty selfhost_raw_backend_open_block_new kind span
+
 //: SelfhostProofObligation: solver が[証明/しょうめい]する typed obligation
 pub enum SelfhostProofObligation:
     SourceSpanValid <SelfhostSourceSpan>
+    RawBackendTransition <SelfhostRawBackendState>
 
 impl Clone for SelfhostProofObligation:
     fn clone <(&SelfhostProofObligation)->SelfhostProofObligation> (self):
@@ -28,3 +67,5 @@ pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProo
     match obligation:
         SelfhostProofObligation::SourceSpanValid _span:
             SelfhostProofDomain::Source
+        SelfhostProofObligation::RawBackendTransition _state:
+            SelfhostProofDomain::Module

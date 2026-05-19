@@ -8,11 +8,12 @@
 //: - solver の分岐は enum の exhaustive match で[書/か]き、文字列 category や module allowlist による許可を置きません。
 //:
 //: [初期/しょき][範囲/はんい]:
-//: - ここでは source span validity の proof だけを実装します。
+//: - source span validity と raw backend block transition の proof を実装します。
 //: - type / trait / effect / Resource IR の obligation は同じ enum / match 構造へ追加し、専用 checker-local proof を増やさない方針を固定します。
 
 #import "core/field" as field
 #import "core/math" as *
+#import "core/result" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
@@ -26,22 +27,156 @@ pub fn selfhost_proof_source_span_eq <(SelfhostSourceSpan,SelfhostSourceSpan)->b
 pub fn selfhost_proof_source_span_fact_supports <(SelfhostSourceSpanFact,SelfhostSourceSpan)->bool> (fact, span):
     and selfhost_proof_source_span_eq fact.span span source_span_is_valid span
 
-//: selfhost_proof_fact_supports_obligation: fact が obligation を[満/み]たすか[判定/はんてい]する
-pub fn selfhost_proof_fact_supports_obligation <(SelfhostProofFact,SelfhostProofObligation)->bool> (fact, obligation):
-    match obligation:
-        SelfhostProofObligation::SourceSpanValid span:
-            match fact:
-                SelfhostProofFact::SourceSpanObserved span_fact:
-                    selfhost_proof_source_span_fact_supports span_fact span
+//: selfhost_proof_solve_source_span_valid: source span validity obligation を[解/と]く
+pub fn selfhost_proof_solve_source_span_valid <(SelfhostSourceSpanFact,SelfhostSourceSpan)->SelfhostProofResult> (fact, span):
+    if:
+        selfhost_proof_source_span_fact_supports fact span
+        then:
+            selfhost_proof_result_proven SelfhostProofEvidence::SourceSpanValid
+        else:
+            selfhost_proof_result_refuted SelfhostProofRefutation::SourceSpanInvalid span
+
+//: selfhost_raw_backend_text_matches: raw text item が open backend と[一致/いっち]するか[返/かえ]す
+pub fn selfhost_raw_backend_text_matches <(SelfhostRawBackendKind,SelfhostRawBackendItemFact)->bool> (open_kind, item):
+    match open_kind:
+        SelfhostRawBackendKind::Wasm:
+            match item.kind:
+                SelfhostRawBackendItemKind::WasmText:
+                    true
+                SelfhostRawBackendItemKind::LlvmIrText:
+                    false
+                SelfhostRawBackendItemKind::NonRaw:
+                    false
+                SelfhostRawBackendItemKind::StreamEnd:
+                    false
+                SelfhostRawBackendItemKind::WasmBlock:
+                    false
+                SelfhostRawBackendItemKind::LlvmIrBlock:
+                    false
+        SelfhostRawBackendKind::LlvmIr:
+            match item.kind:
+                SelfhostRawBackendItemKind::LlvmIrText:
+                    true
+                SelfhostRawBackendItemKind::WasmText:
+                    false
+                SelfhostRawBackendItemKind::NonRaw:
+                    false
+                SelfhostRawBackendItemKind::StreamEnd:
+                    false
+                SelfhostRawBackendItemKind::WasmBlock:
+                    false
+                SelfhostRawBackendItemKind::LlvmIrBlock:
+                    false
+
+//: selfhost_proof_raw_backend_proven: raw backend next state evidence を[返/かえ]す
+pub fn selfhost_proof_raw_backend_proven <(SelfhostRawBackendState)->SelfhostProofResult> (state):
+    selfhost_proof_result_proven SelfhostProofEvidence::RawBackendTransition state
+
+//: selfhost_proof_raw_backend_start: raw backend block の開始を[証明/しょうめい]する
+pub fn selfhost_proof_raw_backend_start <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostProofResult> (kind, span):
+    selfhost_proof_raw_backend_proven selfhost_raw_backend_state_start kind span
+
+//: selfhost_proof_raw_backend_text_without_block: raw text が block の[外/そと]にある refutation を[返/かえ]す
+pub fn selfhost_proof_raw_backend_text_without_block <(SelfhostRawBackendItemFact)->SelfhostProofResult> (item):
+    selfhost_proof_result_refuted SelfhostProofRefutation::RawBackendTextWithoutBlock item
+
+//: selfhost_proof_raw_backend_empty_block: empty raw block refutation を[返/かえ]す
+pub fn selfhost_proof_raw_backend_empty_block <(SelfhostRawBackendOpenBlock)->SelfhostProofResult> (open_block):
+    selfhost_proof_result_refuted SelfhostProofRefutation::RawBackendBlockEmpty open_block
+
+//: selfhost_proof_solve_raw_backend_normal: Normal state の raw backend transition を[解/と]く
+pub fn selfhost_proof_solve_raw_backend_normal <(SelfhostRawBackendItemFact)->SelfhostProofResult> (item):
+    match item.kind:
+        SelfhostRawBackendItemKind::NonRaw:
+            selfhost_proof_raw_backend_proven SelfhostRawBackendState::Normal
+        SelfhostRawBackendItemKind::StreamEnd:
+            selfhost_proof_raw_backend_proven SelfhostRawBackendState::Normal
+        SelfhostRawBackendItemKind::WasmBlock:
+            selfhost_proof_raw_backend_start SelfhostRawBackendKind::Wasm item.span
+        SelfhostRawBackendItemKind::LlvmIrBlock:
+            selfhost_proof_raw_backend_start SelfhostRawBackendKind::LlvmIr item.span
+        SelfhostRawBackendItemKind::WasmText:
+            selfhost_proof_raw_backend_text_without_block item
+        SelfhostRawBackendItemKind::LlvmIrText:
+            selfhost_proof_raw_backend_text_without_block item
+
+//: selfhost_proof_solve_raw_backend_empty: empty block state の raw backend transition を[解/と]く
+pub fn selfhost_proof_solve_raw_backend_empty <(SelfhostRawBackendOpenBlock,SelfhostRawBackendItemFact)->SelfhostProofResult> (open_block, item):
+    match item.kind:
+        SelfhostRawBackendItemKind::WasmText:
+            if:
+                selfhost_raw_backend_text_matches open_block.kind item
+                then:
+                    selfhost_proof_raw_backend_proven SelfhostRawBackendState::OpenReady open_block.kind
+                else:
+                    selfhost_proof_raw_backend_text_without_block item
+        SelfhostRawBackendItemKind::LlvmIrText:
+            if:
+                selfhost_raw_backend_text_matches open_block.kind item
+                then:
+                    selfhost_proof_raw_backend_proven SelfhostRawBackendState::OpenReady open_block.kind
+                else:
+                    selfhost_proof_raw_backend_text_without_block item
+        SelfhostRawBackendItemKind::NonRaw:
+            selfhost_proof_raw_backend_empty_block open_block
+        SelfhostRawBackendItemKind::StreamEnd:
+            selfhost_proof_raw_backend_empty_block open_block
+        SelfhostRawBackendItemKind::WasmBlock:
+            selfhost_proof_raw_backend_empty_block open_block
+        SelfhostRawBackendItemKind::LlvmIrBlock:
+            selfhost_proof_raw_backend_empty_block open_block
+
+//: selfhost_proof_solve_raw_backend_ready: text を持つ block state の transition を[解/と]く
+pub fn selfhost_proof_solve_raw_backend_ready <(SelfhostRawBackendKind,SelfhostRawBackendItemFact)->SelfhostProofResult> (open_kind, item):
+    match item.kind:
+        SelfhostRawBackendItemKind::WasmText:
+            if:
+                selfhost_raw_backend_text_matches open_kind item
+                then:
+                    selfhost_proof_raw_backend_proven SelfhostRawBackendState::OpenReady open_kind
+                else:
+                    selfhost_proof_raw_backend_text_without_block item
+        SelfhostRawBackendItemKind::LlvmIrText:
+            if:
+                selfhost_raw_backend_text_matches open_kind item
+                then:
+                    selfhost_proof_raw_backend_proven SelfhostRawBackendState::OpenReady open_kind
+                else:
+                    selfhost_proof_raw_backend_text_without_block item
+        SelfhostRawBackendItemKind::NonRaw:
+            selfhost_proof_raw_backend_proven SelfhostRawBackendState::Normal
+        SelfhostRawBackendItemKind::StreamEnd:
+            selfhost_proof_raw_backend_proven SelfhostRawBackendState::Normal
+        SelfhostRawBackendItemKind::WasmBlock:
+            selfhost_proof_raw_backend_start SelfhostRawBackendKind::Wasm item.span
+        SelfhostRawBackendItemKind::LlvmIrBlock:
+            selfhost_proof_raw_backend_start SelfhostRawBackendKind::LlvmIr item.span
+
+//: selfhost_proof_solve_raw_backend_transition: raw backend transition obligation を[解/と]く
+pub fn selfhost_proof_solve_raw_backend_transition <(SelfhostRawBackendItemFact,SelfhostRawBackendState)->SelfhostProofResult> (item, state):
+    match state:
+        SelfhostRawBackendState::Normal:
+            selfhost_proof_solve_raw_backend_normal item
+        SelfhostRawBackendState::OpenEmpty open_block:
+            selfhost_proof_solve_raw_backend_empty open_block item
+        SelfhostRawBackendState::OpenReady kind:
+            selfhost_proof_solve_raw_backend_ready kind item
 
 //: selfhost_proof_solve: query を[解/と]いて typed result を[返/かえ]す
 pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
-    if:
-        selfhost_proof_fact_supports_obligation query.fact query.obligation
-        then:
-            selfhost_proof_result_proven
-        else:
-            selfhost_proof_result_refuted
+    match query.obligation:
+        SelfhostProofObligation::SourceSpanValid span:
+            match query.fact:
+                SelfhostProofFact::SourceSpanObserved span_fact:
+                    selfhost_proof_solve_source_span_valid span_fact span
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+        SelfhostProofObligation::RawBackendTransition state:
+            match query.fact:
+                SelfhostProofFact::RawBackendItemObserved item:
+                    selfhost_proof_solve_raw_backend_transition item state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
 
 //: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
 pub fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostProofQuery> (span):
@@ -52,3 +187,21 @@ pub fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostPro
 //: selfhost_proof_source_span_valid: source span validity を proof solver 経由で[検査/けんさ]する
 pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->bool> (span):
     selfhost_proof_result_is_proven selfhost_proof_solve selfhost_proof_query_source_span_valid span
+
+//: selfhost_proof_query_raw_backend_transition: raw backend transition query を[作/つく]る
+pub fn selfhost_proof_query_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->SelfhostProofQuery> (state, item):
+    let fact <SelfhostProofFact> SelfhostProofFact::RawBackendItemObserved item
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::RawBackendTransition state
+    selfhost_proof_query_new fact obligation
+
+//: selfhost_proof_raw_backend_transition: raw backend transition の evidence を next state として[取/と]り[出/だ]す
+pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostProofRefutation>> (state, item):
+    match selfhost_proof_solve selfhost_proof_query_raw_backend_transition state item:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::RawBackendTransition next_state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Ok next_state
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation

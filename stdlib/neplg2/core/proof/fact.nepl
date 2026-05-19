@@ -49,9 +49,65 @@ impl Copy for SelfhostSourceSpanFact:
     fn copy_mark <(SelfhostSourceSpanFact)->SelfhostSourceSpanFact> (self):
         self
 
+//: selfhost_source_span_fact_new: source span fact を[作/つく]る
+pub fn selfhost_source_span_fact_new <(SelfhostSourceSpan)->SelfhostSourceSpanFact> (span):
+    SelfhostSourceSpanFact span
+
+//: SelfhostRawBackendKind: raw backend block の[種類/しゅるい]
+pub enum SelfhostRawBackendKind:
+    Wasm
+    LlvmIr
+
+impl Clone for SelfhostRawBackendKind:
+    fn clone <(&SelfhostRawBackendKind)->SelfhostRawBackendKind> (self):
+        *self
+
+impl Copy for SelfhostRawBackendKind:
+    fn copy_mark <(SelfhostRawBackendKind)->SelfhostRawBackendKind> (self):
+        self
+
+//: SelfhostRawBackendItemKind: raw backend 状態検査へ渡す item [分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - parser の module item kind を proof solver が必要とする raw backend 関連の観測へ[縮約/しゅくやく]します。
+//: - 非 raw item と stream end も enum variant として明示し、block close / empty block 検査を checker-local state machine にしないようにします。
+pub enum SelfhostRawBackendItemKind:
+    NonRaw
+    StreamEnd
+    WasmBlock
+    LlvmIrBlock
+    WasmText
+    LlvmIrText
+
+impl Clone for SelfhostRawBackendItemKind:
+    fn clone <(&SelfhostRawBackendItemKind)->SelfhostRawBackendItemKind> (self):
+        *self
+
+impl Copy for SelfhostRawBackendItemKind:
+    fn copy_mark <(SelfhostRawBackendItemKind)->SelfhostRawBackendItemKind> (self):
+        self
+
+//: SelfhostRawBackendItemFact: raw backend item の typed observation
+pub struct SelfhostRawBackendItemFact:
+    kind <SelfhostRawBackendItemKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostRawBackendItemFact:
+    fn clone <(&SelfhostRawBackendItemFact)->SelfhostRawBackendItemFact> (self):
+        *self
+
+impl Copy for SelfhostRawBackendItemFact:
+    fn copy_mark <(SelfhostRawBackendItemFact)->SelfhostRawBackendItemFact> (self):
+        self
+
+//: selfhost_raw_backend_item_fact_new: raw backend item fact を[作/つく]る
+pub fn selfhost_raw_backend_item_fact_new <(SelfhostRawBackendItemKind,SelfhostSourceSpan)->SelfhostRawBackendItemFact> (kind, span):
+    SelfhostRawBackendItemFact kind span
+
 //: SelfhostProofFact: solver に渡す typed fact
 pub enum SelfhostProofFact:
     SourceSpanObserved <SelfhostSourceSpanFact>
+    RawBackendItemObserved <SelfhostRawBackendItemFact>
 
 impl Clone for SelfhostProofFact:
     fn clone <(&SelfhostProofFact)->SelfhostProofFact> (self):
@@ -61,12 +117,10 @@ impl Copy for SelfhostProofFact:
     fn copy_mark <(SelfhostProofFact)->SelfhostProofFact> (self):
         self
 
-//: selfhost_source_span_fact_new: source span fact を[作/つく]る
-pub fn selfhost_source_span_fact_new <(SelfhostSourceSpan)->SelfhostSourceSpanFact> (span):
-    SelfhostSourceSpanFact span
-
 //: selfhost_proof_fact_domain: fact の domain を[返/かえ]す
 pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fact):
     match fact:
         SelfhostProofFact::SourceSpanObserved _span_fact:
             SelfhostProofDomain::Source
+        SelfhostProofFact::RawBackendItemObserved _item_fact:
+            SelfhostProofDomain::Module

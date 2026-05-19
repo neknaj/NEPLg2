@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 self-host raw backend transition proof 化
+
+- `ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`core/proof/` の入口を追加した後も、raw backend block の `Normal / empty / ready` state machine が `check/module.nepl` に残り、checker-local proof pattern が温存されていたこと。
+- `SelfhostRawBackendItemFact`、`SelfhostRawBackendState`、`SelfhostProofObligation::RawBackendTransition` を追加し、raw backend item observation と transition state を proof の typed fact / obligation にした。
+- `SelfhostProofResult` は `Proven(SelfhostProofEvidence)` / `Refuted(SelfhostProofRefutation)` の enum に変更し、成功 evidence と失敗 refutation を型で分けた。raw backend transition は next state を evidence として返し、orphan raw text / empty raw block は typed refutation として返す。
+- `check/module.nepl` から `SelfhostModuleRawState` と checker-local transition helper を削除し、module item kind を `SelfhostRawBackendItemKind` に写して `selfhost_proof_raw_backend_transition` を呼ぶ構造にした。module checker は typed refutation から diagnostic を作る責務だけを持つ。
+- 検証:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-raw-backend-proof-nmd.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-selfhost-raw-backend-proof-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-raw-backend-module-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-raw-backend-checker-nmd.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+
 # 2026-05-20 Agent 1 self-host proof entry point の追加
 
 - `ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062` を追加し、fixed / resolved にした。`plan.md` は変更していない。

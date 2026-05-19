@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T21:00:03.659Z",
+  "generated_at": "2026-05-19T21:17:39.673Z",
   "counts": {
-    "total": 1075,
+    "total": 1076,
     "open": 4,
-    "resolved": 1071,
+    "resolved": 1072,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 75,
+        "total": 76,
         "open": 1,
-        "resolved": 74
+        "resolved": 75
       },
       "cli": {
         "total": 19,
@@ -9278,6 +9278,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062.md"
+    },
+    {
+      "id": "ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2",
+      "title": "Self-host raw backend block validation remains checker-local proof",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/**, stdlib/neplg2/core/check/module.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

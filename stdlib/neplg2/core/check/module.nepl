@@ -75,29 +75,10 @@ impl Copy for SelfhostModuleCheckSummary:
     fn copy_mark <(SelfhostModuleCheckSummary)->SelfhostModuleCheckSummary> (self):
         self
 
-//: SelfhostModuleRawState: module item stream 走査中の raw backend block 状態
-//:
-//: [目的/もくてき]:
-//: - raw text が対応する raw block の中にあることを、文字列ではなく enum 状態で検査します。
-pub enum SelfhostModuleRawState:
-    Normal
-    WasmEmpty <SelfhostSourceSpan>
-    WasmReady
-    LlvmIrEmpty <SelfhostSourceSpan>
-    LlvmIrReady
-
-impl Clone for SelfhostModuleRawState:
-    fn clone <(&SelfhostModuleRawState)->SelfhostModuleRawState> (self):
-        *self
-
-impl Copy for SelfhostModuleRawState:
-    fn copy_mark <(SelfhostModuleRawState)->SelfhostModuleRawState> (self):
-        self
-
 //: SelfhostModuleCheckStep: 1 item 検査後の summary と raw state
 pub struct SelfhostModuleCheckStep:
     summary <SelfhostModuleCheckSummary>
-    raw_state <SelfhostModuleRawState>
+    raw_state <SelfhostRawBackendState>
 
 impl Clone for SelfhostModuleCheckStep:
     fn clone <(&SelfhostModuleCheckStep)->SelfhostModuleCheckStep> (self):
@@ -202,146 +183,88 @@ pub fn selfhost_module_check_labeled_diag <(SelfhostCheckerDiagnosticCode,str,Se
 pub fn selfhost_module_check_raw_block_empty_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items" span "raw backend block starts here"
 
-pub fn selfhost_module_check_finish_raw_state <(SelfhostModuleRawState)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state):
-    match state:
-        SelfhostModuleRawState::Normal:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::Normal
-        SelfhostModuleRawState::WasmReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::Normal
-        SelfhostModuleRawState::LlvmIrReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::Normal
-        SelfhostModuleRawState::WasmEmpty span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_raw_block_empty_diag span
-        SelfhostModuleRawState::LlvmIrEmpty span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_raw_block_empty_diag span
-
-pub fn selfhost_module_check_start_raw_state <(SelfhostModuleItem)->SelfhostModuleRawState> (item):
-    match item.kind:
-        SelfhostModuleItemKind::WasmBlock:
-            SelfhostModuleRawState::WasmEmpty item.span
-        SelfhostModuleItemKind::LlvmIrBlock:
-            SelfhostModuleRawState::LlvmIrEmpty item.span
-        SelfhostModuleItemKind::DocComment:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::MlstrLine:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::EntryDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::TargetDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::ImportDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::UseDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::IfTargetDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::IfProfileDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::CapabilityDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::PreludeDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::NoPreludeDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::IntrinsicDirective:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::WasmText:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::LlvmIrText:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::FunctionDecl:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::StructDecl:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::EnumDecl:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::TraitDecl:
-            SelfhostModuleRawState::Normal
-        SelfhostModuleItemKind::ImplDecl:
-            SelfhostModuleRawState::Normal
-
-pub fn selfhost_module_check_wasm_text_state <(SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state, item):
-    match state:
-        SelfhostModuleRawState::WasmEmpty _span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::WasmReady
-        SelfhostModuleRawState::WasmReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::WasmReady
-        SelfhostModuleRawState::Normal:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared without a matching #wasm block" item.span "raw text appears here"
-        SelfhostModuleRawState::LlvmIrEmpty _span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared inside an llvmir block" item.span "raw text appears here"
-        SelfhostModuleRawState::LlvmIrReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "wasm raw text appeared inside an llvmir block" item.span "raw text appears here"
-
-pub fn selfhost_module_check_llvmir_text_state <(SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state, item):
-    match state:
-        SelfhostModuleRawState::LlvmIrEmpty _span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::LlvmIrReady
-        SelfhostModuleRawState::LlvmIrReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok SelfhostModuleRawState::LlvmIrReady
-        SelfhostModuleRawState::Normal:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared without a matching #llvmir block" item.span "raw text appears here"
-        SelfhostModuleRawState::WasmEmpty _span:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared inside a wasm block" item.span "raw text appears here"
-        SelfhostModuleRawState::WasmReady:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "llvmir raw text appeared inside a wasm block" item.span "raw text appears here"
-
-pub fn selfhost_module_check_non_raw_state <(SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state, item):
-    match selfhost_module_check_finish_raw_state state:
-        Result::Ok _:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Ok selfhost_module_check_start_raw_state item
-        Result::Err diag:
-            Result<SelfhostModuleRawState,SelfhostDiagnostic>::Err diag
-
-pub fn selfhost_module_check_step_new <(SelfhostModuleCheckSummary,SelfhostModuleRawState)->SelfhostModuleCheckStep> (summary, raw_state):
+pub fn selfhost_module_check_step_new <(SelfhostModuleCheckSummary,SelfhostRawBackendState)->SelfhostModuleCheckStep> (summary, raw_state):
     SelfhostModuleCheckStep summary raw_state
 
-pub fn selfhost_module_check_item_raw_state <(SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleRawState,SelfhostDiagnostic>> (state, item):
-    match item.kind:
-        SelfhostModuleItemKind::WasmText:
-            selfhost_module_check_wasm_text_state state item
-        SelfhostModuleItemKind::LlvmIrText:
-            selfhost_module_check_llvmir_text_state state item
-        SelfhostModuleItemKind::DocComment:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::MlstrLine:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::EntryDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::TargetDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::ImportDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::UseDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::IfTargetDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::IfProfileDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::CapabilityDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::PreludeDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::NoPreludeDirective:
-            selfhost_module_check_non_raw_state state item
-        SelfhostModuleItemKind::IntrinsicDirective:
-            selfhost_module_check_non_raw_state state item
+pub fn selfhost_module_raw_backend_item_kind <(SelfhostModuleItemKind)->SelfhostRawBackendItemKind> (kind):
+    match kind:
         SelfhostModuleItemKind::WasmBlock:
-            selfhost_module_check_non_raw_state state item
+            SelfhostRawBackendItemKind::WasmBlock
         SelfhostModuleItemKind::LlvmIrBlock:
-            selfhost_module_check_non_raw_state state item
+            SelfhostRawBackendItemKind::LlvmIrBlock
+        SelfhostModuleItemKind::WasmText:
+            SelfhostRawBackendItemKind::WasmText
+        SelfhostModuleItemKind::LlvmIrText:
+            SelfhostRawBackendItemKind::LlvmIrText
+        SelfhostModuleItemKind::DocComment:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::MlstrLine:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::EntryDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::TargetDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::ImportDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::UseDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::IfTargetDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::IfProfileDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::CapabilityDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::PreludeDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::NoPreludeDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::IntrinsicDirective:
+            SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::FunctionDecl:
-            selfhost_module_check_non_raw_state state item
+            SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::StructDecl:
-            selfhost_module_check_non_raw_state state item
+            SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::EnumDecl:
-            selfhost_module_check_non_raw_state state item
+            SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::TraitDecl:
-            selfhost_module_check_non_raw_state state item
+            SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::ImplDecl:
-            selfhost_module_check_non_raw_state state item
+            SelfhostRawBackendItemKind::NonRaw
 
-pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, item):
+pub fn selfhost_module_raw_backend_item_fact <(SelfhostModuleItem)->SelfhostRawBackendItemFact> (item):
+    selfhost_raw_backend_item_fact_new selfhost_module_raw_backend_item_kind item.kind item.span
+
+pub fn selfhost_module_check_unexpected_proof_diag <()->SelfhostDiagnostic> ():
+    let span <SelfhostSourceSpan> source_span_empty 0 0
+    selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module checker received an unexpected proof result" span "unexpected proof result"
+
+pub fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDiagnostic> (refutation):
+    match refutation:
+        SelfhostProofRefutation::RawBackendTextWithoutBlock item:
+            selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "raw backend text appeared without a matching raw block" item.span "raw text appears here"
+        SelfhostProofRefutation::RawBackendBlockEmpty open_block:
+            selfhost_module_check_raw_block_empty_diag open_block.span
+        SelfhostProofRefutation::SourceSpanInvalid span:
+            selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" span "invalid module item span"
+        SelfhostProofRefutation::FactObligationMismatch:
+            selfhost_module_check_unexpected_proof_diag
+
+pub fn selfhost_module_check_raw_backend_fact <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state, item):
+    match selfhost_proof_raw_backend_transition state item:
+        Result::Ok next_state:
+            Result<SelfhostRawBackendState,SelfhostDiagnostic>::Ok next_state
+        Result::Err refutation:
+            Result<SelfhostRawBackendState,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+
+pub fn selfhost_module_check_item_raw_state <(SelfhostRawBackendState,SelfhostModuleItem)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state, item):
+    selfhost_module_check_raw_backend_fact state selfhost_module_raw_backend_item_fact item
+
+pub fn selfhost_module_check_finish_raw_state <(SelfhostRawBackendState)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state):
+    let span <SelfhostSourceSpan> source_span_empty 0 0
+    let item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
+    selfhost_module_check_raw_backend_fact state item
+
+pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, item):
     if:
         selfhost_proof_source_span_valid item.span
         then:
@@ -354,7 +277,7 @@ pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostModuleRaw
         else:
             Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" item.span "invalid module item span"
 
-pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModuleCheckSummary,SelfhostModuleRawState)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast, n, idx, summary, raw_state):
+pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModuleCheckSummary,SelfhostRawBackendState)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast, n, idx, summary, raw_state):
     if:
         ge idx n
         then:
@@ -378,4 +301,4 @@ pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModul
 //: selfhost_check_module_ast: module item stream を[検査/けんさ]して summary を[返/かえ]す
 pub fn selfhost_check_module_ast <(&SelfhostModuleAst)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast):
     let n <i32> selfhost_module_ast_len ast
-    selfhost_check_module_ast_loop ast n 0 selfhost_module_check_summary_new SelfhostModuleRawState::Normal
+    selfhost_check_module_ast_loop ast n 0 selfhost_module_check_summary_new SelfhostRawBackendState::Normal

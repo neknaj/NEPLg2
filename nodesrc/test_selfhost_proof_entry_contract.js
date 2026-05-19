@@ -43,15 +43,38 @@ assert.match(proofFacade, /pub #import "\.\/proof\/solver" as \*/);
 assert.match(proofFact, /pub enum SelfhostProofDomain:/, "proof domain must be a typed enum");
 assert.match(proofFact, /pub enum SelfhostProofFact:/, "proof facts must be typed enum payloads");
 assert.match(proofObligation, /pub enum SelfhostProofObligation:/, "proof obligations must be typed enum payloads");
-assert.match(proofQuery, /pub enum SelfhostProofResultKind:/, "proof results must use enum kind");
+assert.match(proofQuery, /pub enum SelfhostProofEvidence:/, "proof success must return typed evidence");
+assert.match(proofQuery, /pub enum SelfhostProofRefutation:/, "proof failure must return typed refutation");
+assert.match(proofQuery, /pub enum SelfhostProofResult:/, "proof results must be an evidence/refutation enum");
 assert.match(proofQuery, /fact <SelfhostProofFact>/, "proof query must carry a typed fact");
 assert.match(proofQuery, /obligation <SelfhostProofObligation>/, "proof query must carry a typed obligation");
+assert.match(proofFact, /RawBackendItemObserved <SelfhostRawBackendItemFact>/, "raw backend facts must enter proof as typed facts");
+assert.match(
+    proofObligation,
+    /RawBackendTransition <SelfhostRawBackendState>/,
+    "raw backend transitions must enter proof as typed obligations",
+);
+assert.match(
+    proofQuery,
+    /RawBackendTransition <SelfhostRawBackendState>/,
+    "raw backend transition evidence must carry the next typed state",
+);
+assert.match(
+    proofQuery,
+    /RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>/,
+    "raw backend empty-block failures must be typed refutations",
+);
 
-const solverBlock = functionBlock(proofSolver, "selfhost_proof_fact_supports_obligation");
-assert.match(solverBlock, /\bmatch\s+obligation:/, "solver must match on obligation enum");
-assert.match(solverBlock, /\bmatch\s+fact:/, "solver must match on fact enum");
+const solverBlock = functionBlock(proofSolver, "selfhost_proof_solve");
+assert.match(solverBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver must match on obligation enum");
+assert.match(solverBlock, /\bmatch\s+(?:query\.)?fact:/, "solver must match on fact enum");
 assert.doesNotMatch(solverBlock, /^\s*_:/m, "solver must not hide new fact/obligation variants behind wildcard arms");
 assert.doesNotMatch(solverBlock, /"[A-Za-z0-9_.:-]+"/, "proof solver must not depend on string codes or module names");
+assert.match(
+    proofSolver,
+    /(?:pub\s+)?fn\s+selfhost_proof_solve_raw_backend_transition\b[\s\S]*match\s+state:/,
+    "raw backend state transitions must live in the proof solver",
+);
 
 assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");
 assert.match(
@@ -63,6 +86,16 @@ assert.doesNotMatch(
     moduleChecker,
     /source_span_is_valid\s+item\.span/,
     "module checker must not bypass proof for module item span validation",
+);
+assert.doesNotMatch(
+    moduleChecker,
+    /enum\s+SelfhostModuleRawState:/,
+    "module checker must not own a checker-local raw backend proof state enum",
+);
+assert.match(
+    moduleChecker,
+    /selfhost_proof_raw_backend_transition\s+state\s+item/,
+    "module checker must ask the proof solver for raw backend transitions",
 );
 assert.doesNotMatch(
     checker,

@@ -5,23 +5,45 @@
 //:
 //: [目的/もくてき]:
 //: - proof engine の public boundary を `SelfhostProofQuery -> SelfhostProofResult` に[揃/そろ]えます。
-//: - result は自由文字列ではなく enum kind として[保持/ほじ]し、後続の diagnostic 生成境界で必要に応じて表示文字列へ[変換/へんかん]します。
+//: - result は自由文字列ではなく、成功 evidence または失敗 refutation の enum payload として[保持/ほじ]します。
 
 #import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
 
-//: SelfhostProofResultKind: proof query の[結果/けっか][分類/ぶんるい]
-pub enum SelfhostProofResultKind:
-    Proven
-    Refuted
+//: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
+//:
+//: [目的/もくてき]:
+//: - 成功した proof が何を証明したかを enum payload として残し、caller が証明の種類を match で確認できるようにします。
+pub enum SelfhostProofEvidence:
+    SourceSpanValid
+    RawBackendTransition <SelfhostRawBackendState>
 
-impl Clone for SelfhostProofResultKind:
-    fn clone <(&SelfhostProofResultKind)->SelfhostProofResultKind> (self):
+impl Clone for SelfhostProofEvidence:
+    fn clone <(&SelfhostProofEvidence)->SelfhostProofEvidence> (self):
         *self
 
-impl Copy for SelfhostProofResultKind:
-    fn copy_mark <(SelfhostProofResultKind)->SelfhostProofResultKind> (self):
+impl Copy for SelfhostProofEvidence:
+    fn copy_mark <(SelfhostProofEvidence)->SelfhostProofEvidence> (self):
+        self
+
+//: SelfhostProofRefutation: proof が[不成立/ふせいりつ]だった[理由/りゆう]
+//:
+//: [目的/もくてき]:
+//: - proof 失敗を diagnostic 文字列へ直行させず、caller が typed reason を match して domain ごとの diagnostic へ[変換/へんかん]できるようにします。
+pub enum SelfhostProofRefutation:
+    FactObligationMismatch
+    SourceSpanInvalid <SelfhostSourceSpan>
+    RawBackendTextWithoutBlock <SelfhostRawBackendItemFact>
+    RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>
+
+impl Clone for SelfhostProofRefutation:
+    fn clone <(&SelfhostProofRefutation)->SelfhostProofRefutation> (self):
+        *self
+
+impl Copy for SelfhostProofRefutation:
+    fn copy_mark <(SelfhostProofRefutation)->SelfhostProofRefutation> (self):
         self
 
 //: SelfhostProofQuery: 1 つの fact と obligation の[照合/しょうごう] query
@@ -41,8 +63,9 @@ impl Copy for SelfhostProofQuery:
         self
 
 //: SelfhostProofResult: proof query の typed result
-pub struct SelfhostProofResult:
-    kind <SelfhostProofResultKind>
+pub enum SelfhostProofResult:
+    Proven <SelfhostProofEvidence>
+    Refuted <SelfhostProofRefutation>
 
 impl Clone for SelfhostProofResult:
     fn clone <(&SelfhostProofResult)->SelfhostProofResult> (self):
@@ -56,22 +79,18 @@ impl Copy for SelfhostProofResult:
 pub fn selfhost_proof_query_new <(SelfhostProofFact,SelfhostProofObligation)->SelfhostProofQuery> (fact, obligation):
     SelfhostProofQuery fact obligation
 
-//: selfhost_proof_result_new: proof result を[作/つく]る
-pub fn selfhost_proof_result_new <(SelfhostProofResultKind)->SelfhostProofResult> (kind):
-    SelfhostProofResult kind
-
 //: selfhost_proof_result_proven: proven result を[作/つく]る
-pub fn selfhost_proof_result_proven <()->SelfhostProofResult> ():
-    selfhost_proof_result_new SelfhostProofResultKind::Proven
+pub fn selfhost_proof_result_proven <(SelfhostProofEvidence)->SelfhostProofResult> (evidence):
+    SelfhostProofResult::Proven evidence
 
 //: selfhost_proof_result_refuted: refuted result を[作/つく]る
-pub fn selfhost_proof_result_refuted <()->SelfhostProofResult> ():
-    selfhost_proof_result_new SelfhostProofResultKind::Refuted
+pub fn selfhost_proof_result_refuted <(SelfhostProofRefutation)->SelfhostProofResult> (refutation):
+    SelfhostProofResult::Refuted refutation
 
 //: selfhost_proof_result_is_proven: proof result が[証明/しょうめい][成功/せいこう]か[返/かえ]す
 pub fn selfhost_proof_result_is_proven <(SelfhostProofResult)->bool> (result):
-    match result.kind:
-        SelfhostProofResultKind::Proven:
+    match result:
+        SelfhostProofResult::Proven _evidence:
             true
-        SelfhostProofResultKind::Refuted:
+        SelfhostProofResult::Refuted _refutation:
             false
