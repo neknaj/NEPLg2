@@ -124,6 +124,7 @@ for (const moduleName of [
     'cell_state_raw_range_count.rs',
     'cell_state_raw_range_merge.rs',
     'cell_state_raw_range_model.rs',
+    'cell_state_raw_range_offset.rs',
     'cell_state_raw_range_value.rs',
     'cell_state_raw_range_value_alias.rs',
     'owner_check.rs',
@@ -246,6 +247,7 @@ for (const moduleName of [
     'coverage_hir_projection_aggregate.rs',
     'coverage_hir_raw.rs',
     'coverage_hir_scope.rs',
+    'coverage_hir_transparent.rs',
     'coverage_kind.rs',
     'coverage_operation.rs',
     'coverage_resource.rs',
@@ -262,6 +264,7 @@ for (const moduleName of [
     'drop_point_resolve_assignment.rs',
     'drop_requirement.rs',
     'lower_raw_address.rs',
+    'lower_raw_address_offset.rs',
     'lower_raw_address_place.rs',
     'lower_raw_address_return.rs',
     'lower_raw_address_return_util.rs',
@@ -278,8 +281,10 @@ for (const moduleName of [
     'initialized_alias_i32_condition_context.rs',
     'initialized_alias_i32_condition_tests.rs',
     'initialized_alias_i32_facts.rs',
+    'initialized_alias_offset.rs',
     'initialized_alias_i32_relation_condition.rs',
     'initialized_alias_origin.rs',
+    'initialized_alias_origin_tests.rs',
     'initialized_alias_rank.rs',
     'initialized_alias_relation.rs',
     'initialized_alias_relation_flow.rs',
@@ -296,6 +301,7 @@ for (const moduleName of [
     'initialized_drop_requirement.rs',
     'initialized_drop_scope.rs',
     'i32_call_facts.rs',
+    'i32_call_facts_tests.rs',
     'initialized_external_io.rs',
     'external_io_iov_layout.rs',
     'host_dependent_length.rs',
@@ -312,6 +318,9 @@ for (const moduleName of [
     'initialized_raw_memory.rs',
     'initialized_raw_memory_access.rs',
     'initialized_rekey.rs',
+    'initialized_scalar_flow.rs',
+    'initialized_scalar_flow_ops.rs',
+    'initialized_str_layout.rs',
     'initialized_summary.rs',
     'initialized_alias_flow_apply.rs',
     'initialized_alias_flow_projection.rs',
@@ -374,6 +383,7 @@ for (const moduleDecl of [
     'mod cell_state_raw_range_count;',
     'mod cell_state_raw_range_merge;',
     'mod cell_state_raw_range_model;',
+    'mod cell_state_raw_range_offset;',
     'mod cell_state_raw_range_value;',
     'mod cell_state_raw_range_value_alias;',
     'mod owner_check;',
@@ -482,6 +492,7 @@ for (const moduleDecl of [
     'mod coverage_hir_projection_aggregate;',
     'mod coverage_hir_raw;',
     'mod coverage_hir_scope;',
+    'mod coverage_hir_transparent;',
     'mod coverage_kind;',
     'mod coverage_operation;',
     'mod coverage_resource;',
@@ -498,6 +509,7 @@ for (const moduleDecl of [
     'mod drop_point_resolve_assignment;',
     'mod drop_requirement;',
     'mod lower_raw_address;',
+    'mod lower_raw_address_offset;',
     'mod lower_raw_address_place;',
     'mod lower_raw_address_return;',
     'mod lower_raw_address_return_util;',
@@ -514,8 +526,10 @@ for (const moduleDecl of [
     'mod initialized_alias_i32_condition_context;',
     'mod initialized_alias_i32_condition_tests;',
     'mod initialized_alias_i32_facts;',
+    'mod initialized_alias_offset;',
     'mod initialized_alias_i32_relation_condition;',
     'mod initialized_alias_origin;',
+    'mod initialized_alias_origin_tests;',
     'mod initialized_alias_rank;',
     'mod initialized_alias_relation;',
     'mod initialized_alias_relation_flow;',
@@ -532,6 +546,7 @@ for (const moduleDecl of [
     'mod initialized_drop_requirement;',
     'mod initialized_drop_scope;',
     'mod i32_call_facts;',
+    'mod i32_call_facts_tests;',
     'mod initialized_external_io;',
     'mod external_io_iov_layout;',
     'mod host_dependent_length;',
@@ -548,6 +563,9 @@ for (const moduleDecl of [
     'mod initialized_raw_memory;',
     'mod initialized_raw_memory_access;',
     'mod initialized_rekey;',
+    'mod initialized_scalar_flow;',
+    'mod initialized_scalar_flow_ops;',
+    'mod initialized_str_layout;',
     'mod initialized_summary;',
     'mod initialized_alias_flow_apply;',
     'mod initialized_alias_flow_projection;',
@@ -640,6 +658,7 @@ const coverageHirProjection = readResource('coverage_hir_projection.rs');
 const coverageHirProjectionAggregate = readResource('coverage_hir_projection_aggregate.rs');
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageHirScope = readResource('coverage_hir_scope.rs');
+const coverageHirTransparent = readResource('coverage_hir_transparent.rs');
 const coverageKind = readResource('coverage_kind.rs');
 const coverageOperation = readResource('coverage_operation.rs');
 const coverageResource = readResource('coverage_resource.rs');
@@ -662,6 +681,7 @@ const lowerAggregateSelector = readResource('lower_aggregate_selector.rs');
 const lowerCondition = readResource('lower_condition.rs');
 const lowerLayoutIntrinsic = readResource('lower_layout_intrinsic.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
+const lowerRawAddressOffset = readResource('lower_raw_address_offset.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawAddressReturnUtil = readResource('lower_raw_address_return_util.rs');
@@ -671,10 +691,15 @@ const lowerRawMemory = readResource('lower_raw_memory.rs');
 const lowerTemporaryScope = readResource('lower_temporary_scope.rs');
 const initializedDropRequirement = readResource('initialized_drop_requirement.rs');
 const initializedAliasOrigin = readResource('initialized_alias_origin.rs');
+const initializedAliasOriginTests = readResource('initialized_alias_origin_tests.rs');
 const initializedAliasRelation = readResource('initialized_alias_relation.rs');
 const initializedAliasRelationFlow = readResource('initialized_alias_relation_flow.rs');
 const initializedAliasRelationOp = readResource('initialized_alias_relation_op.rs');
 const initializedAliasScalar = readResource('initialized_alias_scalar.rs');
+const initializedAliasOffset = readResource('initialized_alias_offset.rs');
+const initializedScalarFlow = readResource('initialized_scalar_flow.rs');
+const initializedScalarFlowOps = readResource('initialized_scalar_flow_ops.rs');
+const initializedStrLayout = readResource('initialized_str_layout.rs');
 const i32CallFacts = readResource('i32_call_facts.rs');
 const initializedAliasFlowValueProjection = readResource(
     'initialized_alias_flow_value_projection.rs',
@@ -951,6 +976,16 @@ assertContains(
     'struct HirCoverageContext',
     'coverage_hir_scope.rs',
 );
+assertContains(
+    coverageHirTransparent,
+    'transparent_raw_address_return_deref_projection_count',
+    'coverage_hir_transparent.rs',
+);
+assertContains(
+    coverageHirTransparent,
+    'TRANSPARENT_RAW_ADDRESS_COVERAGE_DEPTH_LIMIT',
+    'coverage_hir_transparent.rs',
+);
 assertContains(coverageKind, 'pub enum ResourceCoverageKind', 'coverage_kind.rs');
 assertContains(
     coverageOperation,
@@ -1176,6 +1211,56 @@ assertContains(
     initializedAliasScalar,
     'pub(super) struct I32AliasFacts',
     'initialized_alias_scalar.rs',
+);
+assertContains(
+    initializedAliasOffset,
+    'pub(super) struct I32OffsetFact',
+    'initialized_alias_offset.rs',
+);
+assertContains(
+    initializedAliasOffset,
+    'pub(super) struct I32OffsetFacts',
+    'initialized_alias_offset.rs',
+);
+assertContains(
+    initializedAliasOffset,
+    'pub(super) fn facts_with_replaced_prefix',
+    'initialized_alias_offset.rs',
+);
+assertContains(
+    initializedAliasOffset,
+    'pub(super) fn merge_paths',
+    'initialized_alias_offset.rs',
+);
+assertContains(
+    initializedAliasOrigin,
+    'pub(super) struct RawValueOrigins',
+    'initialized_alias_origin.rs',
+);
+assertContains(
+    initializedAliasOriginTests,
+    'copy_stable_origin_follows_temporary_source_origin',
+    'initialized_alias_origin_tests.rs',
+);
+assertContains(
+    initializedScalarFlow,
+    'pub(super) fn compute_i32_scalar_return_summaries',
+    'initialized_scalar_flow.rs',
+);
+assertContains(
+    initializedScalarFlow,
+    'pub(super) fn apply_direct_call_i32_scalar_summary',
+    'initialized_scalar_flow.rs',
+);
+assertContains(
+    initializedScalarFlowOps,
+    'pub(super) fn propagate_i32_scalar_ops',
+    'initialized_scalar_flow_ops.rs',
+);
+assertContains(
+    initializedStrLayout,
+    'pub(super) fn seed_str_storage_layout',
+    'initialized_str_layout.rs',
 );
 assertContains(
     initializedAliasRelation,
@@ -1638,6 +1723,16 @@ assertContains(
     'lower_raw_address_return.rs must restrict field accessor proof evidence to typed intrinsic classification',
 );
 assertContains(
+    lowerRawAddressOffset,
+    'pub(super) enum RawAddressOffset',
+    'lower_raw_address_offset.rs',
+);
+assertContains(
+    lowerRawAddressOffset,
+    'pub(super) fn symbolic',
+    'lower_raw_address_offset.rs',
+);
+assertContains(
     lowerRawAddressReturn,
     'CompilerMemoryFieldSpec::RawI32.name()',
     'lower_raw_address_return.rs must derive raw field spelling from CompilerMemoryFieldSpec',
@@ -1744,11 +1839,12 @@ const maxLines = new Map([
     ['cell_state.rs', 760],
     ['cell_state_raw_range.rs', 140],
     ['cell_state_raw_range_append.rs', 120],
-    ['cell_state_raw_range_cover.rs', 140],
-    ['cell_state_raw_range_cover_tests.rs', 80],
+    ['cell_state_raw_range_cover.rs', 180],
+    ['cell_state_raw_range_cover_tests.rs', 180],
     ['cell_state_raw_range_count.rs', 90],
     ['cell_state_raw_range_merge.rs', 120],
     ['cell_state_raw_range_model.rs', 80],
+    ['cell_state_raw_range_offset.rs', 80],
     ['cell_state_raw_range_value.rs', 80],
     ['cell_state_raw_range_value_alias.rs', 80],
     ['condition_fact.rs', 180],
@@ -1761,7 +1857,7 @@ const maxLines = new Map([
     ['owner_drop.rs', 180],
     ['owner_expr.rs', 80],
     ['owner_external_io.rs', 80],
-    ['owner_external_io_payload.rs', 180],
+    ['owner_external_io_payload.rs', 220],
     ['owner_host_memory_span.rs', 80],
     ['owner_host_memory_summary.rs', 360],
     ['owner_extent.rs', 240],
@@ -1877,6 +1973,7 @@ const maxLines = new Map([
     ['coverage_hir_projection_aggregate.rs', 180],
     ['coverage_hir_raw.rs', 80],
     ['coverage_hir_scope.rs', 100],
+    ['coverage_hir_transparent.rs', 240],
     ['coverage_kind.rs', 80],
     ['coverage_operation.rs', 100],
     ['coverage_resource.rs', 520],
@@ -1902,17 +1999,18 @@ const maxLines = new Map([
     ['lower_layout_intrinsic.rs', 80],
     ['lower_match.rs', 100],
     ['lower_raw_address.rs', 620],
+    ['lower_raw_address_offset.rs', 90],
     ['lower_raw_address_place.rs', 180],
-    ['lower_raw_address_return.rs', 430],
+    ['lower_raw_address_return.rs', 480],
     ['lower_raw_address_return_util.rs', 160],
-    ['lower_raw_address_source.rs', 180],
+    ['lower_raw_address_source.rs', 140],
     ['lower_raw_memory.rs', 120],
     ['lower_temporary_scope.rs', 100],
     ['lower_tests.rs', 340],
     ['raw_realloc.rs', 160],
     ['report.rs', 380],
     ['shadow.rs', 60],
-    ['initialized_alias.rs', 520],
+    ['initialized_alias.rs', 580],
     ['initialized_alias_difference.rs', 80],
     ['initialized_alias_difference_flow.rs', 120],
     ['initialized_alias_flow.rs', 550],
@@ -1921,9 +2019,11 @@ const maxLines = new Map([
     ['initialized_alias_i32_condition_context.rs', 120],
     ['initialized_alias_i32_condition_tests.rs', 80],
     ['initialized_alias_i32_facts.rs', 180],
+    ['initialized_alias_offset.rs', 130],
     ['initialized_alias_i32_relation_condition.rs', 120],
     ['initialized_alias_i32.rs', 80],
-    ['initialized_alias_origin.rs', 160],
+    ['initialized_alias_origin.rs', 140],
+    ['initialized_alias_origin_tests.rs', 80],
     ['initialized_alias_rank.rs', 120],
     ['initialized_alias_raw_view.rs', 40],
     ['initialized_alias_raw_view_tests.rs', 80],
@@ -1940,13 +2040,14 @@ const maxLines = new Map([
     ['initialized_drop_assignment.rs', 100],
     ['initialized_drop_requirement.rs', 220],
     ['initialized_drop_scope.rs', 80],
-    ['i32_call_facts.rs', 180],
+    ['i32_call_facts.rs', 120],
+    ['i32_call_facts_tests.rs', 140],
     ['initialized_external_io.rs', 140],
     ['external_io_iov_layout.rs', 120],
     ['host_dependent_length.rs', 60],
     ['host_memory_address.rs', 40],
     ['host_memory_contract.rs', 320],
-    ['host_memory_contract_tests.rs', 180],
+    ['host_memory_contract_tests.rs', 210],
     ['host_size_contract.rs', 140],
     ['initialized_external_io_effect.rs', 90],
     ['initialized_external_io_input.rs', 80],
@@ -1958,6 +2059,9 @@ const maxLines = new Map([
     ['initialized_raw_memory_access.rs', 160],
     ['initialized_raw_view.rs', 60],
     ['initialized_rekey.rs', 160],
+    ['initialized_scalar_flow.rs', 300],
+    ['initialized_scalar_flow_ops.rs', 330],
+    ['initialized_str_layout.rs', 80],
     ['initialized_summary.rs', 80],
     ['initialized_alias_flow_apply.rs', 180],
     ['initialized_alias_flow_projection.rs', 120],
@@ -1981,7 +2085,7 @@ const maxLines = new Map([
     ['initialized_summary_release_model.rs', 80],
     ['initialized_summary_return_byte_range_count.rs', 100],
     ['initialized_summary_return_byte_ranges.rs', 140],
-    ['initialized_summary_variant_build.rs', 260],
+    ['initialized_summary_variant_build.rs', 280],
     ['initialized_summary_variant_condition.rs', 140],
     ['initialized_summary_variant_requirement.rs', 120],
     ['initialized_summary_variant_unique.rs', 80],

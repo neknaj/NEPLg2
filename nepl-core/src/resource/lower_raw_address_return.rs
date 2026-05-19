@@ -14,6 +14,7 @@ use crate::types::{TypeId, TypeKind};
 use super::compiler_memory_place::region_token_raw_field_place;
 use super::lower::LoweringEnvironment;
 use super::lower_call::func_ref_base_name;
+use super::lower_raw_address_offset::RawAddressOffset;
 use super::lower_raw_address_place::{
     raw_address_alias_target, raw_address_place_from_actual_argument,
     region_token_place_from_actual_arg,
@@ -22,7 +23,7 @@ use super::lower_raw_address_return_util::{
     function_param_index, i32_const_from_return_expr, literal_field_name,
     raw_address_offset_from_return_expr,
 };
-use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
+use super::lower_raw_address_source::{push_raw_address_op, RawAddressSource};
 use super::model::{Place, ResourceOp};
 use super::scalar_primitive::I32ArithmeticPrimitive;
 

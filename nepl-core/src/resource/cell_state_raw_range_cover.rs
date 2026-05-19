@@ -2,10 +2,9 @@ extern crate alloc;
 
 use super::cell_state::place_suffix_after_address_prefix;
 use super::cell_state_raw_range_model::{InitializedRawByteRange, InitializedRawRangeUnit};
+use super::cell_state_raw_range_offset::NormalizedRawOffset;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{
-    I32ValueCondition, Place, PlaceProjection, ResourceI32RelationOp, ResourceOffset,
-};
+use super::model::{I32ValueCondition, Place, ResourceI32RelationOp};
 
 pub(super) fn raw_byte_range_address_covers(
     range: &InitializedRawByteRange,
@@ -174,60 +173,4 @@ fn symbolic_offset_end_is_in_byte_range(
                     || raw_aliases.i32_relation_truth(&target, ResourceI32RelationOp::Eq, count)
                         == Some(true))
         })
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum NormalizedRawOffset {
-    Known(usize),
-    Symbolic {
-        place: Place,
-        known: usize,
-    },
-    ScaledSymbolic {
-        place: Place,
-        scale: usize,
-        known: usize,
-    },
-}
-
-impl NormalizedRawOffset {
-    fn from_suffix(suffix: &[PlaceProjection]) -> Option<Self> {
-        let mut known = 0usize;
-        let mut symbolic = None;
-        let mut scaled = None;
-        for projection in suffix {
-            let PlaceProjection::StorageOffset(offset) = projection else {
-                return None;
-            };
-            match offset {
-                ResourceOffset::Known(bytes) => {
-                    known = known.checked_add(*bytes)?;
-                }
-                ResourceOffset::Symbolic { place } => {
-                    if symbolic.is_some() || scaled.is_some() {
-                        return None;
-                    }
-                    symbolic = Some((**place).clone());
-                }
-                ResourceOffset::ScaledSymbolic { place, scale } => {
-                    if symbolic.is_some() || scaled.is_some() {
-                        return None;
-                    }
-                    scaled = Some(((**place).clone(), *scale));
-                }
-                ResourceOffset::Unknown => return None,
-            }
-        }
-        if let Some(place) = symbolic {
-            Some(Self::Symbolic { place, known })
-        } else if let Some((place, scale)) = scaled {
-            Some(Self::ScaledSymbolic {
-                place,
-                scale,
-                known,
-            })
-        } else {
-            Some(Self::Known(known))
-        }
-    }
 }

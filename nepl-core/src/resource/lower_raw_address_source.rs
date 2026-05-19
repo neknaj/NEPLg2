@@ -1,9 +1,9 @@
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::span::Span;
 use crate::types::TypeId;
 
+use super::lower_raw_address_offset::RawAddressOffset;
 use super::model::{
     Place, PlaceProjection, RawAddressAliasKind, RawAddressViewKind, ResourceOffset, ResourceOp,
 };
@@ -121,74 +121,5 @@ pub(super) fn push_raw_address_op(
             kind: RawAddressAliasKind::Transparent,
             span,
         });
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum RawAddressOffset {
-    Known(i64),
-    Symbolic { place: Box<Place> },
-    SymbolicPlusKnown { place: Box<Place>, bytes: i64 },
-    Unknown,
-}
-
-impl RawAddressOffset {
-    pub(super) fn symbolic(place: &Place) -> Self {
-        if matches!(place.root, super::model::PlaceRoot::Unknown) {
-            RawAddressOffset::Unknown
-        } else {
-            RawAddressOffset::Symbolic {
-                place: Box::new(place.clone()),
-            }
-        }
-    }
-
-    fn add(self, rhs: RawAddressOffset) -> Self {
-        match (self, rhs) {
-            (offset, RawAddressOffset::Known(0)) => offset,
-            (RawAddressOffset::Known(0), offset) => offset,
-            (RawAddressOffset::Known(lhs), RawAddressOffset::Known(rhs)) => lhs
-                .checked_add(rhs)
-                .map(RawAddressOffset::Known)
-                .unwrap_or(RawAddressOffset::Unknown),
-            (RawAddressOffset::Symbolic { place }, RawAddressOffset::Known(bytes))
-            | (RawAddressOffset::Known(bytes), RawAddressOffset::Symbolic { place }) => {
-                RawAddressOffset::SymbolicPlusKnown { place, bytes }
-            }
-            (
-                RawAddressOffset::SymbolicPlusKnown { place, bytes },
-                RawAddressOffset::Known(rhs),
-            )
-            | (
-                RawAddressOffset::Known(rhs),
-                RawAddressOffset::SymbolicPlusKnown { place, bytes },
-            ) => bytes
-                .checked_add(rhs)
-                .map(|bytes| RawAddressOffset::SymbolicPlusKnown { place, bytes })
-                .unwrap_or(RawAddressOffset::Unknown),
-            _ => RawAddressOffset::Unknown,
-        }
-    }
-
-    fn sub(self, rhs: RawAddressOffset) -> Self {
-        match (self, rhs) {
-            (offset, RawAddressOffset::Known(0)) => offset,
-            (RawAddressOffset::Known(lhs), RawAddressOffset::Known(rhs)) => lhs
-                .checked_sub(rhs)
-                .map(RawAddressOffset::Known)
-                .unwrap_or(RawAddressOffset::Unknown),
-            (RawAddressOffset::Symbolic { place }, RawAddressOffset::Known(bytes)) => bytes
-                .checked_neg()
-                .map(|bytes| RawAddressOffset::SymbolicPlusKnown { place, bytes })
-                .unwrap_or(RawAddressOffset::Unknown),
-            (
-                RawAddressOffset::SymbolicPlusKnown { place, bytes },
-                RawAddressOffset::Known(rhs),
-            ) => bytes
-                .checked_sub(rhs)
-                .map(|bytes| RawAddressOffset::SymbolicPlusKnown { place, bytes })
-                .unwrap_or(RawAddressOffset::Unknown),
-            _ => RawAddressOffset::Unknown,
-        }
     }
 }

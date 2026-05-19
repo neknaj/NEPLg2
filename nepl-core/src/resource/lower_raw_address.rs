@@ -12,12 +12,13 @@ use super::lower_call::func_ref_base_name;
 use super::lower_layout_intrinsic::{
     layout_intrinsic_i64_value, layout_intrinsic_i64_value_from_callee,
 };
+use super::lower_raw_address_offset::RawAddressOffset;
 use super::lower_raw_address_place::{
     raw_address_alias_target, raw_address_place_from_actual_argument, reference_target_type,
     region_token_place_from_actual_arg,
 };
 pub(super) use super::lower_raw_address_return::push_transparent_raw_address_return_projection;
-use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
+use super::lower_raw_address_source::{push_raw_address_op, RawAddressSource};
 use super::model::{
     Place, PlaceProjection, RawAddressAliasKind, RawAddressViewKind, ResourceOffset, ResourceOp,
     StorageOrigin,

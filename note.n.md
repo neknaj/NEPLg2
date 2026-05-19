@@ -42351,3 +42351,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_utf8_validation_doc_report_contract.js`: passed
   - `node nodesrc/tests.js -i stdlib\std\text\validate.nepl -i stdlib\alloc\string\utf8.nepl --no-tree -o tmp\agent1-utf8-validation-doc-report.json -j 1 --dist web\dist --assert-io`: total=6, passed=6
+
+## 2026-05-19 Agent 1 Resource IR responsibility policy 監視漏れ修正
+
+- `ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR module 追加後に `nodesrc/test_resource_checker_responsibility.js` の監視対象が追従せず、`initialized_alias_offset.rs` / `initialized_scalar_flow.rs` / `initialized_str_layout.rs` が line-limit と required-symbol policy の外に出ていたことだった。missing module check が先に失敗していたため、既存 module の責務再集中も見えにくくなっていた。
+- 単なる allowlist 追加ではなく、raw range offset normalization、transparent raw-address return coverage proof、i32 call facts tests、i32 scalar propagation ops、raw-address offset model、raw value origin tests を sibling module に分離した。
+- `nodesrc/test_resource_checker_responsibility.js` は全 Resource IR module を監視し、追加した module の要点 symbol を確認するように更新した。静的検査大規模修正 stage は Resource IR / source policy 保守段階で、実装自体の誤りを検出しやすくするための guardrail を復旧した。
+- focused verification:
+  - `cargo fmt -p nepl-core -- --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core records_i32_offset_for_symbolic_add_even_when_source_value_is_known --lib -- --nocapture`: passed
+  - `cargo test -p nepl-core copy_stable_origin_follows_temporary_source_origin --lib -- --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_lowering_preserves_transparent_region_ptr_wrapper --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-core fd_readdir --test resource_ir -- --nocapture`: 3 tests passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed

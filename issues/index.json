@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T05:47:06.343Z",
+  "generated_at": "2026-05-19T06:23:16.013Z",
   "counts": {
     "total": 1048,
-    "open": 6,
-    "resolved": 1042,
+    "open": 5,
+    "resolved": 1043,
     "by_area": {
-      "CORE": {
-        "total": 5,
-        "open": 1,
-        "resolved": 4
-      },
       "stdlib": {
         "total": 286,
         "open": 3,
@@ -35,6 +30,11 @@
         "total": 513,
         "open": 0,
         "resolved": 513
+      },
+      "CORE": {
+        "total": 5,
+        "open": 0,
+        "resolved": 5
       },
       "resource": {
         "total": 3,
@@ -129,21 +129,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378",
-      "title": "Resource checker source policy does not monitor initialized_alias_offset module",
-      "area": "CORE",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-19",
-      "updated": "2026-05-19",
-      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/initialized_alias_offset.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -7853,6 +7838,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T022952260Z-CLI-INTEGRATION-FIXTURES-USE-STALE-N-4910B9AC.md"
+    },
+    {
+      "id": "ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378",
+      "title": "Resource checker source policy misses new Resource IR modules and responsibility splits",
+      "area": "CORE",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/*",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

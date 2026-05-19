@@ -9,7 +9,7 @@ use super::lower_layout_intrinsic::{
     layout_intrinsic_i64_value, layout_intrinsic_i64_value_from_callee,
 };
 use super::lower_raw_address::i32_const_from_actual_arg;
-use super::lower_raw_address_source::RawAddressOffset;
+use super::lower_raw_address_offset::RawAddressOffset;
 use super::model::Place;
 use super::scalar_primitive::I32ArithmeticPrimitive;
 
