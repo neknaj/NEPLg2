@@ -1,3 +1,14 @@
+# 2026-05-19 Agent 1 BTreeSet stdout report 固定
+
+- `ISS-20260518T235853308Z-BTREESET-DOCTESTS-STILL-USE-LEGACY-C-D8F1A58D` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/tests/btreeset.n.md` の5件がすべて旧 `checks_*` report を呼んでいたにもかかわらず、manifest が stdout / exit_code を固定していなかったこと。
+- `stdlib/tests/btreemap.n.md` は canonical `TestReport` に移行済みだったため、BTreeSet 側も同じ collection family の契約へ揃えた。
+- insert / growth boundary / contains + remove / duplicate insert / borrowed observer の観測を named `TestReport` に集約し、success stdout fixture に assertion label と expected / actual を残すようにした。
+- `nodesrc/test_stdlib_btreeset_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、旧 `checks_*` への退行を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_btreeset_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/btreeset.n.md --no-tree -o tmp/agent1-btreeset-report-contract.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+
 # 2026-05-19 Agent 1 BTree search doc-comment stdout report 固定
 
 - `ISS-20260518T235356351Z-BTREE-SEARCH-DOC-COMMENT-DOCTESTS-US-91A1AB3D` を追加し、fixed / resolved にした。`plan.md` は変更していない。

@@ -80,6 +80,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。他の doc-comment / `.n.md` fixture に残る return-value-only または stdout-less assertion report を引き続き移行する。
 
+## 2026-05-18 BTreeSet stdout report migration
+
+`stdlib/tests/btreeset.n.md` の 5 doctest を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、`stdout:` を追加した。
+- insert / growth boundary / contains + remove / duplicate insert / borrowed observer の観測結果を assertion label と expected / actual 付きで固定した。
+- `nodesrc/test_stdlib_btreeset_report_contract.js` を追加し、`ret:`、stdout-less report、旧 `checks_*` 形式へ戻らないようにした。
+
+この issue はまだ open のまま継続する。他の stdlib / selfhost fixture に残る stdout report 未固定を引き続き移行する。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。
