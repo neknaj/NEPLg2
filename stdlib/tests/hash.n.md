@@ -2,7 +2,9 @@
 
 ## hash_main
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"hash_main\" count=9 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fnv1a32 finalize\" expected=\"-468965076\" actual=\"-468965076\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"hash32 trait stable\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"hash32 trait differentiates\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"sha256 empty length\" expected=\"32\" actual=\"32\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"sha256 empty bytes\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"sha256 abc length\" expected=\"32\" actual=\"32\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"sha256 abc bytes\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"sha256 multi length\" expected=\"32\" actual=\"32\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"sha256 multi bytes\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -13,6 +15,7 @@ neplg2:test
 #import "alloc/hash/sha256" as *
 #import "core/traits/hash" as *
 #import "std/test" as *
+#import "alloc/string" as text
 #import "alloc/collections/vec" as *
 #import "alloc/string/access" as string
 #import "alloc/string/byte_index" as string_byte_index
@@ -280,48 +283,54 @@ fn sha256_expected_byte <(i32,i32)->i32> (kind, idx):
         _:
             #intrinsic "unreachable" <> ()
 
-fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,TestReport)*>TestReport> (digest, kind, idx, checks):
+fn sha256_digest_matches_loop <(&Vec<i32>,i32,i32)->bool> (digest, kind, idx):
     if:
         ge idx 32
         then:
-            checks
+            true
         else:
             match get<i32> digest idx:
                 Option::None:
-                    let next_checks checks_push checks Result<(),str>::Err "sha256 digest missing byte"
-                    sha256_check_digest_loop digest kind add idx 1 next_checks
+                    false
                 Option::Some actual:
-                    let next_checks checks_push checks check_eq_i32 sha256_expected_byte kind idx actual
-                    sha256_check_digest_loop digest kind add idx 1 next_checks
+                    and eq sha256_expected_byte kind idx actual sha256_digest_matches_loop digest kind add idx 1
 
-fn sha256_check_result <(Result<Vec<i32>, StdErrorKind>,i32,TestReport)*>TestReport> (digest_result, kind, checks):
+fn sha256_digest_matches <(&Vec<i32>,i32)->bool> (digest, kind):
+    sha256_digest_matches_loop digest kind 0
+
+fn sha256_push_digest_checks <(TestReport,str,Result<Vec<i32>, StdErrorKind>,i32)*>TestReport> (report, label, digest_result, kind):
     match digest_result:
-        Result::Err _e:
-            checks_push checks Result<(),str>::Err "sha256 digest returned error"
+        Result::Err e:
+            test_report_push report test_assertion_fail label std_error_kind_str e
         Result::Ok digest:
             let digest_len <i32> len<i32> &digest
-            let checks1 checks_push checks check_eq_i32 32 digest_len
-            let checks2 sha256_check_digest_loop &digest kind 0 checks1
+            let len_label <str> text::concat label " length"
+            let bytes_label <str> text::concat label " bytes"
+            let report1 test_report_push report assert_eq_i32 len_label 32 digest_len
+            let report2 test_report_push report1 assert bytes_label sha256_digest_matches &digest kind
             free<i32> digest
-            checks2
+            report2
 
 fn main <()*>i32> ():
     let h0 new_fnv1a32
     let h1 fnv1a32_update h0 97
     let result fnv1a32_finalize h1
+    let hash_same_a <i32> hash32_by_trait 123456
+    let hash_same_b <i32> hash32_by_trait 123456
+    let hash_other <i32> hash32_by_trait 123457
 
     let empty_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text ""
     let abc_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abc"
     let multi_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
 
-    let checks0:
-        checks_new
-        |> checks_push check_eq_i32 -468965076 result
-        |> checks_push check_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456
-        |> checks_push check ne hash32_by_trait 123456 hash32_by_trait 123457
-    let checks1 sha256_check_result empty_digest 0 checks0
-    let checks2 sha256_check_result abc_digest 1 checks1
-    let checks3 sha256_check_result multi_digest 2 checks2
-    let shown checks_print_report checks3;
-    checks_exit_code shown
+    let report0:
+        test_report_new "hash_main"
+        |> test_report_push assert_eq_i32 "fnv1a32 finalize" -468965076 result
+        |> test_report_push assert "hash32 trait stable" eq hash_same_a hash_same_b
+        |> test_report_push assert "hash32 trait differentiates" ne hash_same_a hash_other
+    let report1 sha256_push_digest_checks report0 "sha256 empty" empty_digest 0
+    let report2 sha256_push_digest_checks report1 "sha256 abc" abc_digest 1
+    let report3 sha256_push_digest_checks report2 "sha256 multi" multi_digest 2
+    let shown test_report_print_stdout report3
+    test_report_exit_code shown
 ```

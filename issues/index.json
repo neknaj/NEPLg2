@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T00:29:01.223Z",
+  "generated_at": "2026-05-19T00:38:20.825Z",
   "counts": {
-    "total": 1037,
+    "total": 1038,
     "open": 5,
-    "resolved": 1032,
+    "resolved": 1033,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 59,
+        "total": 60,
         "open": 1,
-        "resolved": 58
+        "resolved": 59
       },
       "selfhost": {
         "total": 72,
@@ -13193,6 +13193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T002114564Z-STDLIB-ERROR-DOCTESTS-PRINT-CHECKS-R-1C74A208.md"
+    },
+    {
+      "id": "ISS-20260519T003305752Z-STDLIB-HASH-DOCTEST-PRINTS-CHECKS-RE-3BC249ED",
+      "title": "stdlib hash doctest prints checks report without stdout fixture",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/tests/hash.n.md, nodesrc/test_stdlib_hash_nmd_report_contract.js, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T003305752Z-STDLIB-HASH-DOCTEST-PRINTS-CHECKS-RE-3BC249ED.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

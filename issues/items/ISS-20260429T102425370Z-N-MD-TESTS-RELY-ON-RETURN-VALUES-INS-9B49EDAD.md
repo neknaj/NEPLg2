@@ -142,6 +142,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。他の stdlib / selfhost fixture に残る stdout report 未固定を引き続き移行する。
 
+## 2026-05-19 stdlib hash stdout report migration
+
+`ISS-20260519T003305752Z-STDLIB-HASH-DOCTEST-PRINTS-CHECKS-RE-3BC249ED` として、`stdlib/tests/hash.n.md` の `hash_main` を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- FNV-1a 既知値、Hash trait の同一入力安定性と別入力差分、SHA-256 empty / abc / multi-block digest を 9 assertion に整理した。
+- SHA-256 digest は stdout 上では digest family ごとの pass/fail に集約し、source 側では `sha256_digest_matches_loop` が32 byteすべてを照合する。
+- `nodesrc/test_stdlib_hash_nmd_report_contract.js` を追加し、`ret:`、stdout-less report、旧 `checks_*` 形式、byte-level digest proof 欠落へ戻らないようにした。
+
+この issue はまだ open のまま継続する。今回の移行後、stdout fixture なし `checks_print_report` 残件は7件である。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。
