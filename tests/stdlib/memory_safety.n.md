@@ -281,6 +281,37 @@ fn main <()*>i32> ():
                     ok
 ```
 
+## cstr_to_str_bounded_result は symbolic scan で領域長を超える証明を要求する
+
+neplg2:test[compile_fail]
+diag_code: resource.owner.unavailable
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/env/cliarg/cstr" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let p <MemPtr<u8>> region_ptr &region
+            let status <i32> match cstr_to_str_bounded_result p 100:
+                Result::Ok _s:
+                    1
+                Result::Err _e:
+                    0
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    status
+                Result::Err _e:
+                    0
+```
+
 ## region_ptr_at は型付き projection の alignment を検査する
 
 neplg2:test

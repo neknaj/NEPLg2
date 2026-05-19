@@ -1,3 +1,21 @@
+# 2026-05-19 Agent 1 Resource IR loop 条件付き raw span 証明修正
+
+- `ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、Resource IR の condition fact lowering が `and flag (lt i max_len)` のような複合条件で未認識 boolean conjunct を含むと、認識可能な `i < max_len` fact まで捨てていたこと。
+- `lower_condition` は認識できる child fact を `All` / `Any` として保持するようにし、loop/path condition から symbolic offset の上限証明を導出できるようにした。未認識条件を許可証明に変換するのではなく、sound な branch で既知 fact だけを使う。
+- `i = 0` などの scalar value assignment から non-negative / equality fact を導出し、`cstr_len_bounded_result` は source 上で `0 <= i < max_len` を明示する loop guard にした。
+- checked `MemPtr` wrapper 経由の summary application でも `memory_span_requirements` を caller に適用し、non-owning input payload の deferred span requirement も no-free-obligation 判定より先に記録するようにした。
+- `resource_ir_lowering_keeps_known_conjuncts_in_partial_loop_condition_fact` と `resource_ir_owner_check_rejects_cstr_bounded_oversized_region_span` を追加し、`tests/stdlib/memory_safety.n.md` に同じ compile-fail doctest を追加した。
+- `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` は、bounded cstr loop が `0 <= i < max_len` を source proof として明示することを監視するように更新した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_keeps_known_conjuncts_in_partial_loop_condition_fact -- --exact --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_cstr_bounded_oversized_region_span -- --exact --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_string_from_mem_oversized_region_span -- --exact --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-cstr-bounded-memory-safety.json -j 1`: total=63, passed=63
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+
 # 2026-05-19 Agent 1 VecSortMergeError doctest owner aggregate 境界修正
 
 - `ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56` を fixed / resolved にした。`plan.md` は変更していない。

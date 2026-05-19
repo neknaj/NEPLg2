@@ -2975,6 +2975,75 @@ fn main <(i32)->i32> (len):
 }
 
 #[test]
+fn resource_ir_lowering_keeps_known_conjuncts_in_partial_loop_condition_fact() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasm
+
+#import "core/math" as *
+
+fn main <(bool,i32)->i32> (flag, len):
+    let mut i <i32> 0
+    while and flag lt i len:
+        do:
+            set i add i 1
+    i
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main resource function");
+    let condition_fact = main
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .find_map(|op| match op {
+            ResourceOp::Loop {
+                condition_fact: Some(fact),
+                ..
+            } => Some(fact),
+            _ => None,
+        })
+        .expect("loop condition fact");
+
+    assert!(
+        condition_fact_contains_i32_relation(condition_fact, "i", ResourceI32RelationOp::Lt, "len"),
+        "known lt conjunct should survive unsupported boolean conjuncts:\n{}",
+        resource.dump_text()
+    );
+}
+
+fn condition_fact_contains_i32_relation(
+    fact: &ResourceConditionFact,
+    left_name: &str,
+    expected_op: ResourceI32RelationOp,
+    right_name: &str,
+) -> bool {
+    match fact {
+        ResourceConditionFact::I32Relation { left, op, right } => {
+            *op == expected_op
+                && matches!(&left.root, PlaceRoot::Local(name) if name == left_name)
+                && matches!(&right.root, PlaceRoot::Local(name) if name == right_name)
+        }
+        ResourceConditionFact::Any(facts) | ResourceConditionFact::All(facts) => {
+            facts.iter().any(|fact| {
+                condition_fact_contains_i32_relation(fact, left_name, expected_op, right_name)
+            })
+        }
+        ResourceConditionFact::EqZero { .. }
+        | ResourceConditionFact::NeZero { .. }
+        | ResourceConditionFact::Positive { .. }
+        | ResourceConditionFact::NonPositive { .. }
+        | ResourceConditionFact::Negative { .. }
+        | ResourceConditionFact::NonNegative { .. } => false,
+    }
+}
+
+#[test]
 fn resource_ir_lowering_uses_wasi_import_symbol_for_external_io_effect() {
     let source = r#"
 #target wasi
@@ -14100,6 +14169,41 @@ fn main <()*>i32> ():
             match dealloc_region region:
                 Result::Ok _:
                     copied_len
+                Result::Err _e:
+                    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.owner.unavailable",
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_cstr_bounded_oversized_region_span() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "std/env/cliarg/cstr" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let p <MemPtr<u8>> region_ptr &region
+            let status <i32> match cstr_to_str_bounded_result p 100:
+                Result::Ok _s:
+                    1
+                Result::Err _e:
+                    0
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    status
                 Result::Err _e:
                     0
 "#;

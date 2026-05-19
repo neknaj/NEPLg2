@@ -113,6 +113,15 @@ impl ResourceOwnerCheckEngine<'_> {
             .state(&resolved)
             .unwrap_or(OwnerState::NoFreeObligation);
         let OwnerState::Live { extent, .. } = &state else {
+            if self.try_record_deferred_direct_memory_span_requirement(
+                raw_aliases,
+                &buffer,
+                length,
+                direction,
+                operation,
+            ) {
+                return true;
+            }
             if direction == HostMemoryDirection::Input
                 && non_owning_input_payload_has_no_free_obligation(
                     owners,
@@ -121,15 +130,6 @@ impl ResourceOwnerCheckEngine<'_> {
                     &buffer,
                 )
             {
-                return true;
-            }
-            if self.try_record_deferred_direct_memory_span_requirement(
-                raw_aliases,
-                &buffer,
-                length,
-                direction,
-                operation,
-            ) {
                 return true;
             }
             if operation == ResourceOwnerOperation::RawMemoryPayloadExtent {

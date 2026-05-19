@@ -57,6 +57,15 @@ impl ResourceOwnerCheckEngine<'_> {
                 summary,
                 span,
             );
+        } else if !self.apply_owner_memory_span_requirements(
+            owners,
+            raw_aliases,
+            raw_views,
+            args,
+            &summary.memory_span_requirements,
+            span,
+        ) {
+            return;
         }
         variant_owner_effects.record_call(
             self.types,

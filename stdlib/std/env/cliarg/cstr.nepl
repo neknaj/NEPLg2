@@ -64,7 +64,7 @@ pub fn cstr_len_bounded_result <(MemPtr<u8>,i32)*>Result<i32,str>> (p, max_len):
             let mut i <i32> 0
             let mut done <i32> 0
             let mut ok <i32> 1
-            while and and eq done 0 eq ok 1 lt i max_len:
+            while and and and eq done 0 eq ok 1 ge i 0 lt i max_len:
                 do:
                     match load_u8 mem_ptr_add p i:
                         Option::Some b:

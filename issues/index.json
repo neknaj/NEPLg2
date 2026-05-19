@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T15:49:09.049Z",
+  "generated_at": "2026-05-19T16:49:06.555Z",
   "counts": {
     "total": 1062,
-    "open": 5,
-    "resolved": 1057,
+    "open": 4,
+    "resolved": 1058,
     "by_area": {
-      "core": {
-        "total": 522,
-        "open": 1,
-        "resolved": 521
-      },
       "stdlib": {
         "total": 291,
         "open": 3,
@@ -25,6 +20,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 522,
+        "open": 0,
+        "resolved": 522
       },
       "CORE": {
         "total": 5,
@@ -129,21 +129,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D",
-      "title": "Resource IR raw span summaries miss loop-guarded symbolic byte loads",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-19",
-      "updated": "2026-05-19",
-      "target": "nepl-core/src/resource/owner_host_memory_summary.rs, nepl-core/src/resource/owner_control.rs, nepl-core/src/resource/owner_summary.rs, stdlib/std/env/cliarg/cstr.nepl, tests/stdlib/memory_safety.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -7973,6 +7958,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T142436433Z-RESOURCE-IR-RAW-MEMORY-SPAN-SUMMARIE-FB862D7E.md"
+    },
+    {
+      "id": "ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D",
+      "title": "Resource IR raw span summaries miss loop-guarded symbolic byte loads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/lower_condition.rs, nepl-core/src/resource/owner_external_io_payload.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/initialized_alias_scalar.rs, nepl-core/tests/resource_ir.rs, stdlib/std/env/cliarg/cstr.nepl, tests/stdlib/memory_safety.n.md, nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

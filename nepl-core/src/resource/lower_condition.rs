@@ -1,4 +1,4 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 
 use crate::hir::{HirExpr, HirExprKind};
 
@@ -37,9 +37,14 @@ fn binary_condition_fact(
     ctx: &LoweringContext,
     fact: fn(Vec<ResourceConditionFact>) -> ResourceConditionFact,
 ) -> Option<ResourceConditionFact> {
-    let left = resource_condition_fact(left, ctx)?;
-    let right = resource_condition_fact(right, ctx)?;
-    Some(fact(vec![left, right]))
+    let mut facts = Vec::new();
+    if let Some(left) = resource_condition_fact(left, ctx) {
+        facts.push(left);
+    }
+    if let Some(right) = resource_condition_fact(right, ctx) {
+        facts.push(right);
+    }
+    (!facts.is_empty()).then(|| fact(facts))
 }
 
 fn zero_comparison_fact(

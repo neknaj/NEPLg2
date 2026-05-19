@@ -15,10 +15,17 @@ pub(super) struct I32AliasFacts {
 impl I32AliasFacts {
     pub(super) fn set_value(&mut self, place: &Place, value: i32) {
         self.values.retain(|fact| fact.place != *place);
+        self.conditions.retain(|fact| fact.place != *place);
         self.values.push(I32ValueFact {
             place: place.clone(),
             value,
         });
+        for condition in conditions_implied_by_i32_value(value) {
+            self.push_condition_fact(I32ConditionFact {
+                place: place.clone(),
+                condition: *condition,
+            });
+        }
     }
 
     pub(super) fn add_condition(&mut self, place: &Place, condition: I32ValueCondition) {
@@ -144,5 +151,16 @@ impl I32AliasFacts {
             return;
         }
         self.conditions.push(fact);
+    }
+}
+
+fn conditions_implied_by_i32_value(value: i32) -> &'static [I32ValueCondition] {
+    use I32ValueCondition::{EqZero, NeZero, Negative, NonNegative, NonPositive, Positive};
+    if value == 0 {
+        &[EqZero, NonNegative, NonPositive]
+    } else if value > 0 {
+        &[NeZero, Positive, NonNegative]
+    } else {
+        &[NeZero, Negative, NonPositive]
     }
 }
