@@ -1,3 +1,16 @@
+# 2026-05-19 Agent 1 ResourceEffect raw identity summary TypeCtx 修正
+
+- `ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、raw identity summary replay の `function_returned_identity_projections_with_engine` が `TypeCtx` を引数で受け取りながら、内部の `ResourceEffectBoundaryEngine` を `types: None` で構築していたこと。
+- これにより本体検査では Copy と扱われる型の `Move` が summary replay では通常 move として扱われ、Copy move 後の identity propagation が summary 経由で失われ得た。
+- `ResourceEffectBoundaryEngine` に `types` を渡すようにし、Copy trait が有効な `i32` parameter を move した後でも raw identity summary call が identity を維持する regression unit test を専用 test module に追加した。
+- `examples/nm.nepl` の full compile timeout はこの修正だけでは解消しなかったため、`ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487` として残件を分離した。修正後 probe でも raw init summary 約86秒、initialized moves 約104秒、effect boundaries 140秒超が残っている。
+- 検証:
+  - `cargo test -p nepl-core resource::effect_summary_identity_replay_tests::raw_identity_summary_replay_uses_typectx_for_copy_moves -- --nocapture`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass
+
 # 2026-05-19 Agent 1 StreamScanner token slice UTF-8 境界修正
 
 - `ISS-20260519T064344008Z-STREAMSCANNER-TOKEN-SLICES-CONSTRUCT-54D1E67F` を追加し、fixed / resolved にした。`plan.md` は変更していない。

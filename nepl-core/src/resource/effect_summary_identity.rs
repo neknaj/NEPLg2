@@ -226,7 +226,7 @@ fn function_returned_identity_projections_with_engine(
         effect: function.effect,
         summaries,
         pointer_summaries,
-        types: None,
+        types,
         track_alloc_identities,
         propagate_return_provenance: true,
         diagnostics: Vec::new(),

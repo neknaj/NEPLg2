@@ -76,6 +76,8 @@ mod effect_summary;
 mod effect_summary_identity;
 mod effect_summary_identity_seed;
 #[cfg(test)]
+mod effect_summary_identity_replay_tests;
+#[cfg(test)]
 mod effect_summary_identity_tests;
 mod effect_summary_pointer;
 mod effect_summary_pointer_filter;

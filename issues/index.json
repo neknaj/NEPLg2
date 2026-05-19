@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T06:55:52.696Z",
+  "generated_at": "2026-05-19T07:51:22.841Z",
   "counts": {
-    "total": 1049,
-    "open": 4,
-    "resolved": 1045,
+    "total": 1051,
+    "open": 5,
+    "resolved": 1046,
     "by_area": {
+      "core": {
+        "total": 515,
+        "open": 1,
+        "resolved": 514
+      },
       "stdlib": {
         "total": 287,
         "open": 3,
@@ -20,11 +25,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 513,
-        "open": 0,
-        "resolved": 513
       },
       "CORE": {
         "total": 5,
@@ -129,6 +129,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487",
+      "title": "NM full compile still exceeds CI budget in Resource IR summary stages",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/**, examples/nm.nepl, stdlib/nm/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -7838,6 +7853,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378.md"
+    },
+    {
+      "id": "ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC",
+      "title": "ResourceEffect raw identity summary replay drops TypeCtx",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/effect_summary_identity.rs; nepl-core/src/resource/effect_summary_identity_replay_tests.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
