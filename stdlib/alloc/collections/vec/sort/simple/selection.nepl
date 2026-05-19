@@ -6,11 +6,13 @@
 
 #indent 4
 
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
-#import "alloc/collections/vec/sort/raw/access" as *
 
 //: sort_selection: selection sort で in-place 整列する
 //:
@@ -27,6 +29,7 @@
 //: - 比較 O(n^2)、追加領域 O(1)
 pub fn sort_selection <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then ()
@@ -38,13 +41,16 @@ pub fn sort_selection <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                     let mut j <i32> add i 1;
                     while lt j n:
                         do:
-                            let a <.T> sort_get_unchecked<.T> v j;
-                            let b <.T> sort_get_unchecked<.T> v min_idx;
+                            let a <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
+                            let b <.T> load<.T> add mem_ptr_addr data mul min_idx size_of<.T>;
                             if:
                                 sort_lt<.T> a b
                                 then set min_idx j
                                 else ()
                             set j add j 1;
-                    sort_swap<.T> v i min_idx;
+                    let left <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>
+                    let right <.T> load<.T> add mem_ptr_addr data mul min_idx size_of<.T>
+                    store<.T> add mem_ptr_addr data mul i size_of<.T> right;
+                    store<.T> add mem_ptr_addr data mul min_idx size_of<.T> left;
                     set i add i 1;
             ()

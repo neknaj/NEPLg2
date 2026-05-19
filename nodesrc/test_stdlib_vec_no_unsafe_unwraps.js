@@ -37,10 +37,6 @@ const relPaths = [
     'stdlib/alloc/collections/vec/sort/simple/selection.nepl',
     'stdlib/alloc/collections/vec/sort/simple/exchange.nepl',
     'stdlib/alloc/collections/vec/sort/simple/gap.nepl',
-    'stdlib/alloc/collections/vec/sort/raw.nepl',
-    'stdlib/alloc/collections/vec/sort/raw/access.nepl',
-    'stdlib/alloc/collections/vec/sort/raw/quick.nepl',
-    'stdlib/alloc/collections/vec/sort/raw/heap.nepl',
     'stdlib/alloc/collections/vec/sort/quick.nepl',
     'stdlib/alloc/collections/vec/sort/heap.nepl',
     'stdlib/alloc/collections/vec/sort/merge.nepl',
@@ -129,10 +125,6 @@ const sortMergeRootCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merg
 const sortMergeBufferCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/buffer.nepl');
 const sortMergeRangeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/range.nepl');
 const sortMergeApiCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/api.nepl');
-const sortRawRootCode = codeByPath.get('stdlib/alloc/collections/vec/sort/raw.nepl');
-const sortRawAccessCode = codeByPath.get('stdlib/alloc/collections/vec/sort/raw/access.nepl');
-const sortRawQuickCode = codeByPath.get('stdlib/alloc/collections/vec/sort/raw/quick.nepl');
-const sortRawHeapCode = codeByPath.get('stdlib/alloc/collections/vec/sort/raw/heap.nepl');
 const sortFamilyCode = relPaths
     .filter((relPath) => relPath.startsWith('stdlib/alloc/collections/vec/sort/'))
     .map((relPath) => codeByPath.get(relPath))
@@ -230,7 +222,20 @@ assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw
 assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw.n.md')), false, 'vec/raw.n.md must not replace the removed unchecked Vec facade');
 assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.nepl')), false, 'vec/raw/element.nepl must not remain as an explicitly importable unchecked Vec element helper');
 assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.n.md')), false, 'vec/raw/element.n.md must not replace the removed unchecked Vec element helper');
+for (const relPath of [
+    'stdlib/alloc/collections/vec/sort/raw.nepl',
+    'stdlib/alloc/collections/vec/sort/raw.n.md',
+    'stdlib/alloc/collections/vec/sort/raw/access.nepl',
+    'stdlib/alloc/collections/vec/sort/raw/access.n.md',
+    'stdlib/alloc/collections/vec/sort/raw/quick.nepl',
+    'stdlib/alloc/collections/vec/sort/raw/quick.n.md',
+    'stdlib/alloc/collections/vec/sort/raw/heap.nepl',
+    'stdlib/alloc/collections/vec/sort/raw/heap.n.md',
+]) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relPath)), false, `${relPath} must not remain as an explicitly importable unchecked Vec sort helper`);
+}
 assert.doesNotMatch(vecCode, /#import\s+"(?:\.\.\/raw|\.\/raw|alloc\/collections\/vec\/raw)"/, 'Vec implementation must not depend on an explicitly importable vec/raw unchecked helper facade');
+assert.doesNotMatch(sortFamilyCode, /#import\s+"(?:\.\.\/raw|\.\/raw|alloc\/collections\/vec\/sort\/raw)(?:\/[^"]*)?"/, 'Vec sort implementation must not depend on an explicitly importable vec/sort/raw unchecked helper facade');
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.doesNotMatch(vecCode, new RegExp(`\\b(?:pub\\s+)?fn\\s+${name}\\b`), `${name} must not reappear as a shared Vec raw helper`);
     assert.doesNotMatch(vecRootCode, new RegExp(`\\b${name}\\b`), `Vec root facade must not expose ${name}`);
@@ -295,8 +300,6 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/types.nepl',
     'stdlib/alloc/collections/vec/sort.nepl',
     'stdlib/alloc/collections/vec/sort/common.nepl',
-    'stdlib/alloc/collections/vec/sort/quick.nepl',
-    'stdlib/alloc/collections/vec/sort/heap.nepl',
     'stdlib/alloc/collections/vec/sort/merge.nepl',
 ]) {
     assert.doesNotMatch(readImplementation(relPath), rawBoundaryEvidencePattern, `${relPath} must not carry direct raw memory boundary evidence`);
@@ -313,9 +316,15 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/transform/filter.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
     'stdlib/alloc/collections/vec/transform/prefix.nepl',
-    'stdlib/alloc/collections/vec/sort/raw/access.nepl',
+    'stdlib/alloc/collections/vec/sort/quick.nepl',
+    'stdlib/alloc/collections/vec/sort/heap.nepl',
+    'stdlib/alloc/collections/vec/sort/simple/insertion.nepl',
+    'stdlib/alloc/collections/vec/sort/simple/selection.nepl',
+    'stdlib/alloc/collections/vec/sort/simple/exchange.nepl',
+    'stdlib/alloc/collections/vec/sort/simple/gap.nepl',
     'stdlib/alloc/collections/vec/sort/merge/api.nepl',
     'stdlib/alloc/collections/vec/sort/merge/buffer.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/range.nepl',
 ]) {
     assert.match(readImplementation(relPath), rawBoundaryEvidencePattern, `${relPath} must carry source-level raw memory boundary evidence`);
 }
@@ -389,27 +398,28 @@ for (const [name, section] of [
 assert.match(sortMergeRootCode, /pub\s+#import\s+"\.\/merge\/api"\s+as\s+\*/, 'sort/merge.nepl must re-export the public merge API');
 assert.doesNotMatch(sortMergeRootCode, /pub\s+#import\s+"\.\/merge\/(?:buffer|range)"\s+as\s+\*/, 'sort/merge.nepl must not re-export raw merge buffer/range helpers');
 assert.doesNotMatch(sortMergeRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'sort/merge.nepl must be a pure facade without implementation bodies');
-for (const name of ['access', 'quick', 'heap']) {
-    assert.match(sortRawRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/raw\\/${name}"\\s+as\\s+\\*`), `sort/raw.nepl must re-export raw/${name}.nepl`);
-}
-assert.doesNotMatch(sortRawRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'sort/raw.nepl must be a pure raw facade without implementation bodies');
 assert.doesNotMatch(codeByPath.get('stdlib/alloc/collections/vec/sort.nepl'), /\bMemPtr\b|sort_i32|sort_slice_quick|sort_quick_range_data|sort_heap_sift_down_data|sort_merge_range_data|sort_buf_/, 'canonical sort facade must not expose raw MemPtr helper names');
 assert.match(sortMergeBufferCode, /fn\s+sort_buf_get\s+<\.T:\s*Copy>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer loads');
 assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer stores as an impure write');
 assert.doesNotMatch(sortFamilyCode, /fn\s+sort_\w+\s+<\.T>\s+</, 'Vec sort raw load/store helpers must not be unconstrained over T');
 assert.doesNotMatch(sortFamilyCode, /fn\s+sort_\w+\s+<\.T:\s*Ord>\s+</, 'Vec sort algorithms must require Ord&Copy until non-Copy move/drop-aware sorting exists');
 assert.doesNotMatch(sortFamilyCode, /\bfn\s+sort_i32\b/, 'Vec sort must not expose the raw sort_i32 adapter through any sort module');
+for (const name of ['sort_get_unchecked', 'sort_set_unchecked', 'sort_get_unchecked_data', 'sort_set_unchecked_data', 'sort_swap_data', 'sort_swap', 'sort_slice_quick']) {
+    assert.doesNotMatch(sortFamilyCode, new RegExp(`\\b(?:pub\\s+)?fn\\s+${name}\\b`), `${name} must not reappear as a shared/direct-importable raw sort helper`);
+}
+for (const name of ['sort_quick_get_data', 'sort_quick_set_data', 'sort_quick_swap_data', 'sort_quick_partition_data', 'sort_quick_range_data', 'sort_heap_get_data', 'sort_heap_set_data', 'sort_heap_swap_data', 'sort_heap_sift_down_data']) {
+    assert.doesNotMatch(sortFamilyCode, new RegExp(`\\bpub\\s+fn\\s+${name}\\b`), `${name} must remain private to the owning sort implementation file`);
+}
 for (const [name, signature] of [
-    ['sort_set_unchecked', /<\(&Vec<\.T>,i32,\.T\)\*>\(\)>/],
-    ['sort_set_unchecked_data', /<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/],
-    ['sort_swap_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
-    ['sort_swap', /<\(&Vec<\.T>,i32,i32\)\*>\(\)>/],
+    ['sort_quick_set_data', /<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/],
+    ['sort_quick_swap_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
     ['sort_quick_partition_data', /<\(MemPtr<\.T>,i32,i32\)\*>i32>/],
     ['sort_quick_range_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
     ['sort_quick', /<\(&Vec<\.T>\)\*>\(\)>/],
-    ['sort_slice_quick', /<\(MemPtr<\.T>,i32\)\*>\(\)>/],
     ['sort_quick_ret', /<\(Vec<\.T>\)\*>Vec<\.T>>/],
     ['sort', /<\(&Vec<\.T>\)\*>\(\)>/],
+    ['sort_heap_set_data', /<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/],
+    ['sort_heap_swap_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
     ['sort_heap_sift_down_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
     ['sort_heap', /<\(&Vec<\.T>\)\*>\(\)>/],
     ['sort_heap_ret', /<\(Vec<\.T>\)\*>Vec<\.T>>/],

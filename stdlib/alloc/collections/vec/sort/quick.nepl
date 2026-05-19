@@ -2,7 +2,7 @@
 //:
 //: [目的/もくてき]:
 //: - Lomuto partition による quick sort を `Vec` API として提供します。
-//: - raw `MemPtr` range traversal は `sort/raw/quick` に分離し、canonical facade からは公開しません。
+//: - raw `MemPtr` range traversal はこの module の `Vec` based wrapper からだけ呼び、direct-import 可能な raw helper module へは出しません。
 //:
 //: [注意/ちゅうい]:
 //: - 平均 O(n log n)、pivot によっては最悪 O(n^2) です。
@@ -10,12 +10,67 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
-#import "alloc/collections/vec/sort/raw/quick" as *
 #import "core/field" as *
+
+//: sort_quick_get_data: quick sort の検査済み range 内で raw data view から Copy 要素を読む
+fn sort_quick_get_data <.T: Copy> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):
+    load<.T> add mem_ptr_addr data_ptr mul idx size_of<.T>
+
+//: sort_quick_set_data: quick sort の検査済み range 内で raw data view へ Copy 要素を書く
+fn sort_quick_set_data <.T: Copy> <(MemPtr<.T>,i32,.T)*>()> (data_ptr, idx, val):
+    store<.T> add mem_ptr_addr data_ptr mul idx size_of<.T> val;
+    ()
+
+//: sort_quick_swap_data: quick sort の検査済み range 内で 2 要素を入れ替える
+fn sort_quick_swap_data <.T: Copy> <(MemPtr<.T>,i32,i32)*>()> (data_ptr, i, j):
+    if:
+        eq i j
+        then ()
+        else:
+            let a <.T> sort_quick_get_data<.T> data_ptr i
+            let b <.T> sort_quick_get_data<.T> data_ptr j
+            sort_quick_set_data<.T> data_ptr i b;
+            sort_quick_set_data<.T> data_ptr j a;
+            ()
+
+//: sort_quick_partition_data: Lomuto partition で pivot 位置を決める
+//:
+//: [注意/ちゅうい]:
+//: - `lo <= hi` と `[lo, hi]` が初期化済み `.T` cell の範囲内であることは `sort_quick` / `sort_quick_ret` が `Vec.len` から保証します。
+fn sort_quick_partition_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)*>i32> (data_ptr, lo, hi):
+    let pivot <.T> sort_quick_get_data<.T> data_ptr hi
+    let mut i <i32> lo;
+    let mut j <i32> lo;
+    while lt j hi:
+        do:
+            let x <.T> sort_quick_get_data<.T> data_ptr j;
+            if:
+                sort_le<.T> x pivot
+                then:
+                    sort_quick_swap_data<.T> data_ptr i j;
+                    set i add i 1;
+                    ()
+                else ()
+            set j add j 1;
+    sort_quick_swap_data<.T> data_ptr i hi;
+    i
+
+//: sort_quick_range_data: quick sort public wrapper が作った raw slice 区間を整列する
+fn sort_quick_range_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)*>()> (data_ptr, lo, hi):
+    if:
+        lt lo hi
+        then:
+            let p <i32> sort_quick_partition_data<.T> data_ptr lo hi;
+            sort_quick_range_data<.T> data_ptr lo sub p 1;
+            sort_quick_range_data<.T> data_ptr add p 1 hi;
+            ()
+        else ()
 
 //: sort_quick: quick sort で `Vec` を in-place 整列する
 //:
@@ -23,7 +78,7 @@
 //: - 追加 allocation なしの既定候補として `Vec` を昇順に並べ替えます。
 //:
 //: [実装/じっそう]:
-//: - `Vec` の `data` と `len` から raw slice 区間を作り、`sort_quick_range_data` を呼びます。
+//: - `Vec` の `data` と `len` から raw slice 区間を作り、この module 内の range traversal を呼びます。
 //:
 //: [注意/ちゅうい]:
 //: - stable ではありません。

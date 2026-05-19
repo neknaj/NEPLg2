@@ -2,7 +2,7 @@
 //:
 //: [目的/もくてき]:
 //: - `[l, r)` の再帰分割と stable merge traversal を所有します。
-//: - raw access の実体は `sort/raw/access` と `merge/buffer` に委譲します。
+//: - raw data access はこの range traversal 内で行い、merge scratch buffer access は `merge/buffer` に委譲します。
 //:
 //: [注意/ちゅうい]:
 //: - `data_ptr` と `buf` は `.T` を `r` 個分まで安全に読み書きできる領域である必要があります。
@@ -11,10 +11,11 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "../common" as *
-#import "../raw/access" as *
 #import "./buffer" as *
 
 //: ## sort_merge_range_data
@@ -84,7 +85,7 @@ pub fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()
             let mut i0 <i32> l;
             while lt i0 r:
                 do:
-                    let x <.T> sort_get_unchecked_data<.T> data_ptr i0;
+                    let x <.T> load<.T> add mem_ptr_addr data_ptr mul i0 size_of<.T>;
                     sort_buf_set<.T> buf i0 x;
                     set i0 add i0 1;
 
@@ -105,11 +106,11 @@ pub fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()
                             if:
                                 sort_lt<.T> b a
                                 then:
-                                    sort_set_unchecked_data<.T> data_ptr k b;
+                                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> b;
                                     set j add j 1;
                                     ()
                                 else:
-                                    sort_set_unchecked_data<.T> data_ptr k a;
+                                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> a;
                                     set i add i 1;
                                     ();
                             set k add k 1;
@@ -119,14 +120,14 @@ pub fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()
             while lt i mid:
                 do:
                     let a <.T> sort_buf_get<.T> buf i;
-                    sort_set_unchecked_data<.T> data_ptr k a;
+                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> a;
                     set i add i 1;
                     set k add k 1;
 
             while lt j r:
                 do:
                     let b <.T> sort_buf_get<.T> buf j;
-                    sort_set_unchecked_data<.T> data_ptr k b;
+                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> b;
                     set j add j 1;
                     set k add k 1;
 

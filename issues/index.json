@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T13:03:11.766Z",
+  "generated_at": "2026-05-19T13:33:56.776Z",
   "counts": {
-    "total": 1056,
-    "open": 4,
-    "resolved": 1052,
+    "total": 1058,
+    "open": 5,
+    "resolved": 1053,
     "by_area": {
       "stdlib": {
-        "total": 288,
-        "open": 3,
-        "resolved": 285
+        "total": 290,
+        "open": 4,
+        "resolved": 286
       },
       "selfhost": {
         "total": 74,
@@ -158,6 +158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56",
+      "title": "sort doctest constructs VecSortMergeError outside owner aggregate boundary",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "tests/stdlib/sort.n.md; stdlib/alloc/collections/vec/sort/merge/api.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -11478,7 +11493,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-14",
-      "updated": "2026-05-15",
+      "updated": "2026-05-19",
       "target": "stdlib/alloc/collections/vec/sort*.nepl, stdlib/alloc/collections/vec/sort/**, tests/stdlib/sort.n.md, nodesrc/test_stdlib_vec_sort_module_split.js, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
       "legacy_id": "",
       "source": "",
@@ -12383,6 +12398,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T124203801Z-VEC-RAW-ELEMENT-HELPERS-ARE-DIRECTLY-85EBD72F.md"
+    },
+    {
+      "id": "ISS-20260519T130927391Z-VEC-SORT-RAW-HELPERS-ARE-DIRECTLY-CA-BE6B177C",
+      "title": "Vec sort raw helpers are directly callable from ordinary source",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/alloc/collections/vec/sort/raw.nepl; stdlib/alloc/collections/vec/sort/raw/{access,quick,heap}.nepl; stdlib/alloc/collections/vec/sort/{quick,heap,common,simple,merge}",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T130927391Z-VEC-SORT-RAW-HELPERS-ARE-DIRECTLY-CA-BE6B177C.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

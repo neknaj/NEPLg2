@@ -27,6 +27,11 @@ function assertNotOwns(moduleSource, name, relPath) {
     assert.doesNotMatch(moduleSource, new RegExp(`fn\\s+${name}\\b`), `${relPath} must not own ${name}`);
 }
 
+function assertPrivateOwns(moduleSource, name, relPath) {
+    assertOwns(moduleSource, name, relPath);
+    assert.doesNotMatch(moduleSource, new RegExp(`pub\\s+fn\\s+${name}\\b`), `${relPath} must keep ${name} private`);
+}
+
 const files = {
     facade: "stdlib/alloc/collections/vec/sort.nepl",
     common: "stdlib/alloc/collections/vec/sort/common.nepl",
@@ -35,10 +40,6 @@ const files = {
     simpleSelection: "stdlib/alloc/collections/vec/sort/simple/selection.nepl",
     simpleExchange: "stdlib/alloc/collections/vec/sort/simple/exchange.nepl",
     simpleGap: "stdlib/alloc/collections/vec/sort/simple/gap.nepl",
-    raw: "stdlib/alloc/collections/vec/sort/raw.nepl",
-    rawAccess: "stdlib/alloc/collections/vec/sort/raw/access.nepl",
-    rawQuick: "stdlib/alloc/collections/vec/sort/raw/quick.nepl",
-    rawHeap: "stdlib/alloc/collections/vec/sort/raw/heap.nepl",
     quick: "stdlib/alloc/collections/vec/sort/quick.nepl",
     heap: "stdlib/alloc/collections/vec/sort/heap.nepl",
     merge: "stdlib/alloc/collections/vec/sort/merge.nepl",
@@ -49,6 +50,16 @@ const files = {
 
 const sources = Object.fromEntries(Object.entries(files).map(([key, relPath]) => [key, read(relPath)]));
 const impl = Object.fromEntries(Object.entries(sources).map(([key, src]) => [key, implementation(src)]));
+const removedRawFiles = [
+    "stdlib/alloc/collections/vec/sort/raw.nepl",
+    "stdlib/alloc/collections/vec/sort/raw.n.md",
+    "stdlib/alloc/collections/vec/sort/raw/access.nepl",
+    "stdlib/alloc/collections/vec/sort/raw/access.n.md",
+    "stdlib/alloc/collections/vec/sort/raw/quick.nepl",
+    "stdlib/alloc/collections/vec/sort/raw/quick.n.md",
+    "stdlib/alloc/collections/vec/sort/raw/heap.nepl",
+    "stdlib/alloc/collections/vec/sort/raw/heap.n.md",
+];
 
 for (const moduleName of ["common", "simple", "quick", "heap", "merge"]) {
     const pattern = new RegExp(`pub\\s+#import\\s+"\\./sort/${moduleName}"\\s+as\\s+\\*`);
@@ -57,18 +68,20 @@ for (const moduleName of ["common", "simple", "quick", "heap", "merge"]) {
 
 assert.doesNotMatch(impl.facade, /\bfn\s+/, "vec/sort facade must not own sort implementations");
 assert.doesNotMatch(impl.simple, /\bfn\s+/, "vec/sort/simple facade must not own sort implementations");
-assert.doesNotMatch(impl.raw, /\bfn\s+/, "vec/sort/raw facade must not own raw sort implementations");
 assert.doesNotMatch(impl.merge, /\bfn\s+/, "vec/sort/merge facade must not own merge sort implementations");
+assert.doesNotMatch(sources.facade, /\bsort\/raw\b/, "vec/sort facade must not expose a raw helper subtree");
+for (const relPath of removedRawFiles) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relPath)), false, `${relPath} must not remain as a directly importable raw sort helper`);
+}
+for (const [key, source] of Object.entries(sources)) {
+    assert.doesNotMatch(source, /#import\s+"(?:\.\/raw|\.\/sort\/raw|\.\.\/raw|alloc\/collections\/vec\/sort\/raw)(?:\/[^"]*)?"/, `${files[key]} must not import the removed vec/sort/raw helper boundary`);
+}
 
 for (const moduleName of ["insertion", "selection", "exchange", "gap"]) {
     const pattern = new RegExp(`pub\\s+#import\\s+"\\./simple/${moduleName}"\\s+as\\s+\\*`);
     assert.match(sources.simple, pattern, `vec/sort/simple facade must re-export simple/${moduleName}`);
 }
 
-for (const moduleName of ["access", "quick", "heap"]) {
-    const pattern = new RegExp(`pub\\s+#import\\s+"\\./raw/${moduleName}"\\s+as\\s+\\*`);
-    assert.match(sources.raw, pattern, `vec/sort/raw facade must re-export raw/${moduleName}`);
-}
 assert.match(sources.merge, /pub\s+#import\s+"\.\/merge\/api"\s+as\s+\*/, "vec/sort/merge facade must re-export only the public merge API");
 assert.doesNotMatch(sources.merge, /pub\s+#import\s+"\.\/merge\/(?:buffer|range)"\s+as\s+\*/, "vec/sort/merge facade must not re-export raw merge buffer/range helpers");
 
@@ -80,10 +93,6 @@ for (const [key, limit] of [
     ["simpleSelection", 80],
     ["simpleExchange", 150],
     ["simpleGap", 150],
-    ["raw", 40],
-    ["rawAccess", 110],
-    ["rawQuick", 90],
-    ["rawHeap", 100],
     ["quick", 150],
     ["heap", 140],
     ["merge", 80],
@@ -112,10 +121,11 @@ for (const name of [
     "sort_set_unchecked_data",
     "sort_swap_data",
     "sort_swap",
+    "sort_slice_quick",
 ]) {
-    assertOwns(impl.rawAccess, name, files.rawAccess);
-    assertNotOwns(impl.common, name, files.common);
-    assertNotOwns(impl.facade, name, files.facade);
+    for (const [key, source] of Object.entries(impl)) {
+        assert.doesNotMatch(source, new RegExp(`\\b(?:pub\\s+)?fn\\s+${name}\\b`), `${files[key]} must not reintroduce shared raw sort helper ${name}`);
+    }
 }
 
 for (const [moduleKey, names] of [
@@ -139,9 +149,8 @@ for (const name of [
     assertOwns(impl.quick, name, files.quick);
     assertNotOwns(impl.facade, name, files.facade);
 }
-for (const name of ["sort_quick_partition_data", "sort_quick_range_data", "sort_slice_quick"]) {
-    assertOwns(impl.rawQuick, name, files.rawQuick);
-    assertNotOwns(impl.quick, name, files.quick);
+for (const name of ["sort_quick_get_data", "sort_quick_set_data", "sort_quick_swap_data", "sort_quick_partition_data", "sort_quick_range_data"]) {
+    assertPrivateOwns(impl.quick, name, files.quick);
     assertNotOwns(impl.facade, name, files.facade);
 }
 for (const [key, source] of Object.entries(impl)) {
@@ -152,9 +161,10 @@ for (const name of ["sort_heap", "sort_heap_ret"]) {
     assertOwns(impl.heap, name, files.heap);
     assertNotOwns(impl.facade, name, files.facade);
 }
-assertOwns(impl.rawHeap, "sort_heap_sift_down_data", files.rawHeap);
-assertNotOwns(impl.heap, "sort_heap_sift_down_data", files.heap);
-assertNotOwns(impl.facade, "sort_heap_sift_down_data", files.facade);
+for (const name of ["sort_heap_get_data", "sort_heap_set_data", "sort_heap_swap_data", "sort_heap_sift_down_data"]) {
+    assertPrivateOwns(impl.heap, name, files.heap);
+    assertNotOwns(impl.facade, name, files.facade);
+}
 
 for (const name of ["sort_buf_get", "sort_buf_set"]) {
     assertOwns(impl.mergeBuffer, name, files.mergeBuffer);

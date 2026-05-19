@@ -6,11 +6,13 @@
 
 #indent 4
 
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
-#import "alloc/collections/vec/sort/raw/access" as *
 
 //: sort_shell: shell sort で in-place 整列する
 //:
@@ -28,6 +30,7 @@
 //: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
 pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then ()
@@ -39,21 +42,22 @@ pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                     let mut i <i32> gap;
                     while lt i n:
                         do:
-                            let temp <.T> sort_get_unchecked<.T> v i;
+                            let temp <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
                             let mut j <i32> i;
 
                             let mut done <i32> 0;
                             while eq done 0:
                                 do:
                                     if:
-                                        and le gap j sort_lt<.T> temp sort_get_unchecked<.T> v sub j gap
+                                        and le gap j sort_lt<.T> temp load<.T> add mem_ptr_addr data mul sub j gap size_of<.T>
                                         then:
-                                            let x <.T> sort_get_unchecked<.T> v sub j gap;
-                                            sort_set_unchecked<.T> v j x;
+                                            let src <i32> sub j gap
+                                            let x <.T> load<.T> add mem_ptr_addr data mul src size_of<.T>;
+                                            store<.T> add mem_ptr_addr data mul j size_of<.T> x;
                                             set j sub j gap;
                                         else set done 1
 
-                            sort_set_unchecked<.T> v j temp;
+                            store<.T> add mem_ptr_addr data mul j size_of<.T> temp;
                             set i add i 1;
                     set gap div_s gap 2;
             ()
@@ -73,6 +77,7 @@ pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
 pub fn sort_comb <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then ()
@@ -103,12 +108,13 @@ pub fn sort_comb <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                             if:
                                 lt next_i n
                                 then:
-                                    let a <.T> sort_get_unchecked<.T> v i;
-                                    let b <.T> sort_get_unchecked<.T> v next_i;
+                                    let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                    let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
                                     if:
                                         sort_lt<.T> b a
                                         then:
-                                            sort_swap<.T> v i next_i;
+                                            store<.T> add mem_ptr_addr data mul i size_of<.T> b;
+                                            store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
                                             set sorted 0;
                                             ()
                                         else ()

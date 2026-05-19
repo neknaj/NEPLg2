@@ -6,11 +6,13 @@
 
 #indent 4
 
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
-#import "alloc/collections/vec/sort/raw/access" as *
 
 //: sort_insertion: insertion sort で in-place 整列する
 //:
@@ -27,6 +29,7 @@
 //: - 平均 / 最悪 O(n^2)、ほぼ整列済みでは O(n) に近づきます。
 pub fn sort_insertion <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then ()
@@ -34,20 +37,22 @@ pub fn sort_insertion <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
             let mut i <i32> 1
             while lt i n:
                 do:
-                    let key <.T> sort_get_unchecked<.T> v i;
+                    let key <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
                     let mut j <i32> sub i 1;
 
                     let mut done <i32> 0;
                     while eq done 0:
                         do:
                             if:
-                                and le 0 j sort_lt<.T> key sort_get_unchecked<.T> v j
+                                and le 0 j sort_lt<.T> key load<.T> add mem_ptr_addr data mul j size_of<.T>
                                 then:
-                                    let x <.T> sort_get_unchecked<.T> v j;
-                                    sort_set_unchecked<.T> v add j 1 x;
+                                    let x <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
+                                    let dst_shift <i32> add j 1
+                                    store<.T> add mem_ptr_addr data mul dst_shift size_of<.T> x;
                                     set j sub j 1;
                                 else set done 1
-                    sort_set_unchecked<.T> v add j 1 key;
+                    let dst_final <i32> add j 1
+                    store<.T> add mem_ptr_addr data mul dst_final size_of<.T> key;
                     set i add i 1;
             ()
 
@@ -66,6 +71,7 @@ pub fn sort_insertion <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: - 平均 / 最悪 O(n^2)
 pub fn sort_gnome <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then ()
@@ -74,10 +80,14 @@ pub fn sort_gnome <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
             while lt i n:
                 do:
                     if:
-                        or eq i 0 sort_le<.T> sort_get_unchecked<.T> v sub i 1 sort_get_unchecked<.T> v i
+                        or eq i 0 sort_le<.T> load<.T> add mem_ptr_addr data mul sub i 1 size_of<.T> load<.T> add mem_ptr_addr data mul i size_of<.T>
                         then set i add i 1
                         else:
-                            sort_swap<.T> v i sub i 1;
+                            let j <i32> sub i 1
+                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>
+                            let b <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>
+                            store<.T> add mem_ptr_addr data mul i size_of<.T> b;
+                            store<.T> add mem_ptr_addr data mul j size_of<.T> a;
                             set i sub i 1;
                     ();
             ()

@@ -1,3 +1,26 @@
+# 2026-05-19 Agent 1 Vec sort raw helper direct import 境界修正
+
+- `ISS-20260519T130927391Z-VEC-SORT-RAW-HELPERS-ARE-DIRECTLY-CA-BE6B177C` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、canonical `alloc/collections/vec/sort` facade から raw helper re-export を外した後も、通常 source が `#import "alloc/collections/vec/sort/raw" as raw` を明示でき、`data_mem_ptr(&v)` と `sort_set_unchecked_data` / `sort_get_unchecked_data` を組み合わせて `Vec.len` / storage view / initialized slot discipline を迂回できたこと。
+- `stdlib/alloc/collections/vec/sort/raw.nepl`、`sort/raw/access.nepl`、`sort/raw/quick.nepl`、`sort/raw/heap.nepl` を削除し、direct-importable な unchecked sort helper module を残さない設計へ改めた。
+- quick / heap の raw load/store/swap/range traversal は、それぞれ `sort_quick` / `sort_heap` と同じ implementation file 内の private helper に閉じた。simple sort と merge range も旧 shared access helper を経由せず、検査済み implementation file 内で raw operation を所有する。
+- `nodesrc/test_stdlib_vec_sort_module_split.js` と `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を更新し、`sort/raw` subtree の復活、shared `sort_get_unchecked*` / `sort_set_unchecked*` / `sort_swap*` / `sort_slice_quick` helper の復活、private raw traversal helper の `pub fn` 化を拒否する。
+- `doc/neplg2/static_check_complexity_reduction_plan.md`、`doc/neplg2/stdlib_collection_mem_string_static_safety_design.md`、関連 issue の説明を、explicit `sort/raw/*` 境界ではなく「各検査済み sort 実装内 private boundary」へ更新した。
+- 追加確認で `tests/stdlib/sort.n.md` の既存 doctest が `VecSortMergeError<i32>` を ordinary source から直接構築していることを検出した。これは owner-backed aggregate constructor restriction が正しく拒否すべき fixture 不備なので、`ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56` として分離した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_sort_module_split.js`: pass
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort -o tmp\\agent1-vec-sort-raw-boundary.json --no-tree -j 4`: total=5, passed=5
+  - `node nodesrc/tests.js -i tests/stdlib/sort_simple.n.md -o tmp\\agent1-vec-sort-raw-boundary-sort-simple.json --no-tree -j 4`: total=1, passed=1
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+  - `cargo run -p nepl-cli -- --target wasi --profile debug --input tmp\\agent1-vec-sort-raw-direct-import.nepl --output tmp\\agent1-vec-sort-raw-direct-import.wasm`: expected failure after `alloc/collections/vec/sort/raw` deletion
+  - `node nodesrc/tests.js -i tests/stdlib/sort.n.md -o tmp\\agent1-vec-sort-raw-boundary-sort.json --no-tree -j 4`: known unrelated failure in `tests\\stdlib\\sort.n.md::doctest#17`; `ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56` として分離
+
 # 2026-05-19 Agent 1 Vec raw element direct import 境界修正
 
 - `ISS-20260519T124203801Z-VEC-RAW-ELEMENT-HELPERS-ARE-DIRECTLY-85EBD72F` を追加し、fixed / resolved にした。`plan.md` は変更していない。

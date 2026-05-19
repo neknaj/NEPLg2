@@ -428,9 +428,17 @@ BFS の距離配列と queue は `Vec<i32>` で初期化し、`v::get` / `v::rep
 
 `ISS-20260514T204735670Z-VEC-SORT-FACADE-RE-EXPORTS-RAW-MEMPT-6646B4EF` として、canonical `alloc/collections/vec/sort` facade が raw `MemPtr` helper と raw slice sort adapter を再公開していた問題を分離して修正した。
 
-今回の修正では、unchecked read/write/swap を `sort/raw/access`、raw quick-sort traversal を `sort/raw/quick`、raw heap helper を `sort/raw/heap` に移し、safe root facade は `sort_quick` / `sort_heap` / `sort_merge` / simple sort / `sort_is_sorted` などの `Vec` API だけを公開する構成にした。`sort_i32` は raw address discipline を ordinary sort facade に固定する入口だったため、互換 alias を残さず削除した。
+今回の修正では、unchecked read/write/swap をいったん `sort/raw/access`、raw quick-sort traversal を `sort/raw/quick`、raw heap helper を `sort/raw/heap` に移し、safe root facade は `sort_quick` / `sort_heap` / `sort_merge` / simple sort / `sort_is_sorted` などの `Vec` API だけを公開する構成にした。`sort_i32` は raw address discipline を ordinary sort facade に固定する入口だったため、互換 alias を残さず削除した。
 
-`sort_is_sorted` は `Vec.get` / `Option` による borrowed observer に変更し、`sort/merge` root facade も public API だけを再公開する。raw traversal を必要とする implementation module は explicit raw submodule を import するため、Stage 6 の safe facade / raw implementation boundary が source layout と source policy の両方で見える。
+`sort_is_sorted` は `Vec.get` / `Option` による borrowed observer に変更し、`sort/merge` root facade も public API だけを再公開する。当時は raw traversal を必要とする implementation module が explicit raw submodule を import する構成にしたが、後続の 2026-05-19 追記で direct-importable raw submodule 自体も削除した。
+
+## 2026-05-19 Agent 1 Vec sort direct import raw boundary 追記
+
+`ISS-20260519T130927391Z-VEC-SORT-RAW-HELPERS-ARE-DIRECTLY-CA-BE6B177C` として、`alloc/collections/vec/sort/raw` を ordinary source から明示 import できること自体が bypass になる問題を追加で修正した。
+
+今回の修正では、`sort/raw` facade と `sort/raw/access` / `sort/raw/quick` / `sort/raw/heap` を削除した。quick / heap / simple / merge range の raw `load` / `store` / swap traversal は、それぞれ範囲、`Vec` storage view、scratch owner を扱う検査済み implementation file 内の private helper に閉じ、public/direct-importable な unchecked sort helper 名を残さない。
+
+これにより、ordinary caller は `data_mem_ptr(&v)` と `sort_set_unchecked_data` のような helper を組み合わせて `Vec.len` / initialized slot discipline を迂回できない。source policy は `sort/raw` 復活、`sort_get_unchecked*` / `sort_set_unchecked*` / `sort_swap*` / `sort_slice_quick` の shared helper 復活、private raw traversal helper の `pub fn` 化を拒否する。
 
 この親 issue は引き続き open とする。今回閉じたのは Vec sort facade の raw re-export であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / non-Copy payload drop traversal は Stage 6 の残件である。
 

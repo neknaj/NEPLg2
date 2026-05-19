@@ -3,7 +3,7 @@
 //: [目的/もくてき]:
 //: - `Vec` based in-place sort algorithms を再 export する canonical facade です。
 //: - 比較・sortedness observer、教育用 simple sort、Lomuto quick sort、heap sort、merge sort を submodule に分けます。
-//: - raw `MemPtr` range traversal は `sort/raw` や `sort/merge/*` の implementation boundary に閉じ、この facade からは公開しません。
+//: - raw `MemPtr` range traversal は各 sort implementation file と merge scratch boundary に閉じ、この facade からは公開しません。
 //:
 //: [注意/ちゅうい]:
 //: - 現行 sort family は raw `load` / `store` による swap と scratch buffer copy を使うため、`.T: Ord&Copy` に限定します。non-Copy payload の sort は `OwnedBuffer<T>` と move/drop-aware algorithm が入るまで提供しません。

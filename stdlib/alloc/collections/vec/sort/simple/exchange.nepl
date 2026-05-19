@@ -6,11 +6,13 @@
 
 #indent 4
 
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
-#import "alloc/collections/vec/sort/raw/access" as *
 
 //: sort_bubble: bubble sort で in-place 整列する
 //:
@@ -27,6 +29,7 @@
 //: - O(n^2)
 pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then ()
@@ -37,11 +40,14 @@ pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                     let mut i <i32> 0;
                     while lt i end:
                         do:
-                            let a <.T> sort_get_unchecked<.T> v i;
-                            let b <.T> sort_get_unchecked<.T> v add i 1;
+                            let next_i <i32> add i 1
+                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                            let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
                             if:
                                 sort_lt<.T> b a
-                                then sort_swap<.T> v i add i 1
+                                then:
+                                    store<.T> add mem_ptr_addr data mul i size_of<.T> b;
+                                    store<.T> add mem_ptr_addr data mul next_i size_of<.T> a
                                 else ()
                             set i add i 1;
                     set end sub end 1;
@@ -63,6 +69,7 @@ pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: - 平均 / 最悪 O(n^2)
 pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
     let n <i32> len<.T> v
+    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
         le n 1
         then ()
@@ -78,12 +85,14 @@ pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                     let mut i <i32> start;
                     while lt i end:
                         do:
-                            let a <.T> sort_get_unchecked<.T> v i;
-                            let b <.T> sort_get_unchecked<.T> v add i 1;
+                            let next_i <i32> add i 1
+                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                            let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
                             if:
                                 sort_lt<.T> b a
                                 then:
-                                    sort_swap<.T> v i add i 1;
+                                    store<.T> add mem_ptr_addr data mul i size_of<.T> b;
+                                    store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
                                     set swapped 1;
                                     ()
                                 else ()
@@ -100,12 +109,14 @@ pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                     let mut j <i32> end;
                     while lt start j:
                         do:
-                            let a <.T> sort_get_unchecked<.T> v sub j 1;
-                            let b <.T> sort_get_unchecked<.T> v j;
+                            let prev_j <i32> sub j 1
+                            let a <.T> load<.T> add mem_ptr_addr data mul prev_j size_of<.T>;
+                            let b <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
                             if:
                                 sort_lt<.T> b a
                                 then:
-                                    sort_swap<.T> v sub j 1 j;
+                                    store<.T> add mem_ptr_addr data mul prev_j size_of<.T> b;
+                                    store<.T> add mem_ptr_addr data mul j size_of<.T> a;
                                     set swapped 1;
                                     ()
                                 else ()

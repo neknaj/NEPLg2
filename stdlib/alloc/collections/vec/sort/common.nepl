@@ -2,7 +2,7 @@
 //:
 //: [目的/もくてき]:
 //: - `Vec` sort family の比較規約と sortedness observer を 1 箇所に集約します。
-//: - canonical sort facade から raw `MemPtr` helper を公開しないよう、unchecked access は `sort/raw/access` に分離します。
+//: - canonical sort facade から raw `MemPtr` helper を公開しないよう、比較規約と sortedness observer だけをここに置きます。
 //:
 //: [注意/ちゅうい]:
 //: - 現行 sort family は raw load/store による in-place swap を使うため、`OwnedBuffer<T>` と move/drop-aware sort が入るまでは `.T: Copy` に限定します。
