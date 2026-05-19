@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T09:33:33.476Z",
+  "generated_at": "2026-05-19T13:03:11.766Z",
   "counts": {
-    "total": 1055,
-    "open": 6,
-    "resolved": 1049,
+    "total": 1056,
+    "open": 4,
+    "resolved": 1052,
     "by_area": {
-      "core": {
-        "total": 519,
-        "open": 2,
-        "resolved": 517
-      },
       "stdlib": {
-        "total": 287,
+        "total": 288,
         "open": 3,
-        "resolved": 284
+        "resolved": 285
       },
       "selfhost": {
         "total": 74,
@@ -25,6 +20,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 519,
+        "open": 0,
+        "resolved": 519
       },
       "CORE": {
         "total": 5,
@@ -129,36 +129,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487",
-      "title": "NM full compile still exceeds CI budget in Resource IR summary stages",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-19",
-      "updated": "2026-05-19",
-      "target": "nepl-core/src/resource/**, examples/nm.nepl, stdlib/nm/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487.md"
-    },
-    {
-      "id": "ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977",
-      "title": "cliarg args_get dependent owner proof fails after NM effect summary unblocks",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-19",
-      "updated": "2026-05-19",
-      "target": "nepl-core/src/resource/owner_host_dependent_span.rs; nepl-core/src/resource/host_dependent_length.rs; stdlib/std/env/cliarg/raw.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -7885,6 +7855,21 @@
       "file": "items/ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC.md"
     },
     {
+      "id": "ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487",
+      "title": "NM full compile still exceeds CI budget in Resource IR summary stages",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/**, examples/nm.nepl, stdlib/nm/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487.md"
+    },
+    {
       "id": "ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9",
       "title": "Resource variant init summary scans non-enum return functions",
       "area": "core",
@@ -7928,6 +7913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T092414550Z-RESOURCE-RAW-POINTER-SUMMARY-TREATS--CFB63B46.md"
+    },
+    {
+      "id": "ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977",
+      "title": "cliarg args_get dependent owner proof fails after NM effect summary unblocks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/owner_host_dependent_span.rs; nepl-core/src/resource/host_dependent_length.rs; stdlib/std/env/cliarg/raw.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
@@ -12368,6 +12368,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T064344008Z-STREAMSCANNER-TOKEN-SLICES-CONSTRUCT-54D1E67F.md"
+    },
+    {
+      "id": "ISS-20260519T124203801Z-VEC-RAW-ELEMENT-HELPERS-ARE-DIRECTLY-85EBD72F",
+      "title": "Vec raw element helpers are directly callable from ordinary source",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/alloc/collections/vec/raw.nepl; stdlib/alloc/collections/vec/raw/element.nepl; stdlib/alloc/collections/vec/{query,mutation,transform}",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T124203801Z-VEC-RAW-ELEMENT-HELPERS-ARE-DIRECTLY-85EBD72F.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

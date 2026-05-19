@@ -5,17 +5,18 @@
 //: - `get` を query facade から[分離/ぶんり]し、範囲検査と empty storage 判定をこの module に[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
-//: - raw storage の読み取りは `vec/raw` helper に[委譲/いじょう]します。
+//: - raw storage の読み取りは、この module の[範囲/はんい][検査/けんさ]を[通/とお]った分岐の中に[閉/と]じます。
 
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../raw" as vec_raw
 #import "../access/data" as vec_data
 #import "core/field" as *
 
@@ -25,7 +26,7 @@
 //: - `idx` が[範囲内/はんいない]なら `Option::Some`、[範囲外/はんいがい]なら `Option::None` を[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - `idx` の[範囲/はんい]を[判定/はんてい]し、[妥当/だとう]な[場合/ばあい]だけ `vec/raw` の typed read helper に[委譲/いじょう]します。
+//: - `idx` の[範囲/はんい]を[判定/はんてい]し、[妥当/だとう]な[場合/ばあい]だけ typed `load` を[行/おこな]います。
 //:
 //: ### [注意/ちゅうい]
 //: - `idx` が[負/ふ]でも `Option::None` です。
@@ -73,4 +74,4 @@ pub fn get <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
                         VecStorage::Empty:
                             none<.T>
                         VecStorage::Owned _region:
-                            some<.T> vec_raw::vec_read_at<.T> v_data idx
+                            some<.T> load<.T> add mem_ptr_addr v_data mul idx size_of<.T>

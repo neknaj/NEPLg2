@@ -775,3 +775,11 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 修正後、`stream_scanner_slice_to_str_result` は range check 後に `string_from_utf8_mem_result` へ委譲する。これにより `ByteBuf` owner から導出した readable span と `str` の UTF-8 invariant が同じ scanner state boundary で接続され、invalid UTF-8 token bytes は `str` として公開されない。source policy は checked constructor 利用と unchecked constructor 退行禁止を監視し、doctest は `ReadStream::Bytes` の invalid token が空 token に丸められることを stdout report として固定する。
 
 この親 issue は引き続き open とする。今回閉じたのは StreamScanner token slice の unchecked string construction であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。
+
+## 2026-05-19 Agent 1 Vec raw element direct import 境界追記
+
+`ISS-20260519T124203801Z-VEC-RAW-ELEMENT-HELPERS-ARE-DIRECTLY-85EBD72F` を解決した。`alloc/collections/vec` root facade から `vec/raw` re-export は削除済みだったが、通常 source は `#import "alloc/collections/vec/raw" as raw` を明示でき、`data_mem_ptr(&v)` と unchecked `vec_write_at` / `vec_read_at` を直接組み合わせられた。この経路は `Vec.len` / storage variant / initialized slot の検査を通らず、raw operation span が compiler-owned stdlib callee 側にあるため caller 側の任意 `MemPtr<T>` と範囲の対応を型で証明していなかった。
+
+修正後は `stdlib/alloc/collections/vec/raw.nepl` と `vec/raw/element.nepl` を削除し、Copy element の raw load/store は `get` / `pop` / `push` / `replace` / `map` / `filter` / `partition` / `take_while` / `drop_while` の検査済み分岐と同じ source file 内に置いた。これにより public/direct-import 可能な unchecked element helper は残らず、source policy は `vec/raw` facade の復活、`../raw` import 依存、shared `vec_read_at` / `vec_write_at` helper の復活を拒否する。
+
+この親 issue は引き続き open とする。今回閉じたのは Vec Copy element raw helper の public bypass であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / moved slot / non-Copy drop traversal は Stage 6 残件として継続する。

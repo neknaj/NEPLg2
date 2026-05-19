@@ -10,6 +10,8 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -18,7 +20,6 @@
 #import "../types" as *
 #import "../storage" as vec_storage
 #import "../mutation/cleanup" as vec_cleanup
-#import "../raw" as vec_raw
 #import "../query/get" as vec_get
 #import "../access/data" as vec_data
 
@@ -94,7 +95,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformErr
                             if:
                                 cond p item
                                 then:
-                                    vec_raw::vec_write_at<.T> out_data write_i item
+                                    store<.T> add mem_ptr_addr out_data mul write_i size_of<.T> item
                                     set write_i add write_i 1
                                 else ()
                         Option::None:
@@ -185,10 +186,10 @@ pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, Vec
                                     if:
                                         cond p item
                                         then:
-                                            vec_raw::vec_write_at<.T> left_data left_i item
+                                            store<.T> add mem_ptr_addr left_data mul left_i size_of<.T> item
                                             set left_i add left_i 1
                                         else:
-                                            vec_raw::vec_write_at<.T> right_data right_i item
+                                            store<.T> add mem_ptr_addr right_data mul right_i size_of<.T> item
                                             set right_i add right_i 1
                                 Option::None:
                                     ()

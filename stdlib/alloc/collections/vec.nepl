@@ -6,9 +6,9 @@
 //: - `alloc/collections` の[他/ほか]の[構造/こうぞう]が[依存/いそん]する[基礎/きそ][配列/はいれつ]として[機能/きのう]します。
 //:
 //: ### [実装/じっそう]
-//: - 実装本体は `vec/types`、`vec/storage`、`vec/access`、`vec/raw`、`vec/mutation`、`vec/query`、`vec/transform`、`vec/sort` が所有します。
+//: - 実装本体は `vec/types`、`vec/storage`、`vec/access`、`vec/mutation`、`vec/query`、`vec/transform`、`vec/sort` が所有します。
 //: - この root file は safe public re-export だけを持つ facade です。`as @merge` により `#import "alloc/collections/vec" as v` の qualified API も維持します。
-//: - unchecked raw element helper は `alloc/collections/vec/raw` を明示 import した実装境界だけで使います。
+//: - unchecked raw element helper は public module として[公開/こうかい]せず、検査済み `Vec` 操作の private helper に[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
 //: - `get` / `pop` は[存在/そんざい]しない[位置/いち]を `Option::None` で[返/かえ]します。

@@ -17,8 +17,6 @@ const vecRelPaths = [
     "stdlib/alloc/collections/vec/access.nepl",
     "stdlib/alloc/collections/vec/access/header.nepl",
     "stdlib/alloc/collections/vec/access/data.nepl",
-    "stdlib/alloc/collections/vec/raw.nepl",
-    "stdlib/alloc/collections/vec/raw/element.nepl",
     "stdlib/alloc/collections/vec/query.nepl",
     "stdlib/alloc/collections/vec/query/get.nepl",
     "stdlib/alloc/collections/vec/query/aggregate.nepl",

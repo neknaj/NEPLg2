@@ -12,7 +12,7 @@
 //: - `as @merge` により `#import "alloc/collections/vec/query" as q` の qualified API も[維持/いじ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - raw storage の読み取りは各実装 submodule から `vec/raw` helper に[委譲/いじょう]します。
+//: - raw storage の読み取りは、範囲検査を所有する submodule の private helper に[閉/と]じます。
 
 #indent 4
 #import "core/field" as *

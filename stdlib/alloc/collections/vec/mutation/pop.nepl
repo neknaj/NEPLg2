@@ -7,12 +7,13 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/field" as field
 #import "../types" as *
 #import "../storage" as vec_storage
-#import "../raw" as vec_raw
 #import "../access/data" as vec_data
 #import "core/field" as *
 
@@ -84,7 +85,7 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
                     VecPop<.T> vec_storage::vec_empty<.T> none<.T>
                 VecStorage::Owned v_region:
                     let next_len <i32> sub v_len 1
-                    let item <.T> vec_raw::vec_read_at<.T> v_data next_len
+                    let item <.T> load<.T> add mem_ptr_addr v_data mul next_len size_of<.T>
                     VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
 
 //: ## drop_last

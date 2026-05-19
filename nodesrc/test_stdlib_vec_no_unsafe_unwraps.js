@@ -17,8 +17,6 @@ const relPaths = [
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/access/header.nepl',
     'stdlib/alloc/collections/vec/access/data.nepl',
-    'stdlib/alloc/collections/vec/raw.nepl',
-    'stdlib/alloc/collections/vec/raw/element.nepl',
     'stdlib/alloc/collections/vec/transform.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
     'stdlib/alloc/collections/vec/transform/filter.nepl',
@@ -110,9 +108,6 @@ const vecAccessRootCode = codeByPath.get('stdlib/alloc/collections/vec/access.ne
 const vecAccessHeaderCode = codeByPath.get('stdlib/alloc/collections/vec/access/header.nepl');
 const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/data.nepl');
 const vecAccessCode = [vecAccessRootCode, vecAccessHeaderCode, vecAccessDataCode].join('\n');
-const vecRawRootCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
-const vecRawElementCode = codeByPath.get('stdlib/alloc/collections/vec/raw/element.nepl');
-const vecRawCode = [vecRawRootCode, vecRawElementCode].join('\n');
 const vecTransformRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
 const vecTransformMapCode = codeByPath.get('stdlib/alloc/collections/vec/transform/map.nepl');
 const vecTransformFilterCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter.nepl');
@@ -129,7 +124,7 @@ const vecMutationReplaceCode = codeByPath.get('stdlib/alloc/collections/vec/muta
 const vecMutationPopCode = codeByPath.get('stdlib/alloc/collections/vec/mutation/pop.nepl');
 const vecMutationCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/mutation/cleanup.nepl');
 const vecMutationCode = [vecMutationRootCode, vecMutationPushCode, vecMutationReplaceCode, vecMutationPopCode, vecMutationCleanupCode].join('\n');
-const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecTransformCode, vecQueryCode, vecMutationCode, vecRootCode].join('\n');
+const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecTransformCode, vecQueryCode, vecMutationCode, vecRootCode].join('\n');
 const sortMergeRootCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
 const sortMergeBufferCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/buffer.nepl');
 const sortMergeRangeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/range.nepl');
@@ -157,7 +152,6 @@ const vecStorageViewSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/c
 const vecStorageApiSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/api.nepl'), 'utf8');
 const popSection = between(vecCode, 'fn pop ', 'fn clear ');
 const popSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/mutation/pop.nepl'), 'utf8');
-const vecRawElementSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.nepl'), 'utf8');
 const vecAccessDataSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/access/data.nepl'), 'utf8');
 const vecStdlibTestSource = fs.readFileSync(path.join(repoRoot, 'stdlib/tests/vec.n.md'), 'utf8');
 const clearSection = between(vecCode, 'fn clear ', 'fn free ');
@@ -232,24 +226,17 @@ assert.doesNotMatch(dataMemPtrUsageExample, /\bcore\/mem\/internal\b|\bmem_ptr_a
 assert.match(dataMemPtrUsageExample, /\blet\s+_data\s+<MemPtr<i32>>\s+data_mem_ptr<i32>\s+&v[\s\S]*\bfree<i32>\s+v/, 'Vec.data_mem_ptr usage example must show typed observer use while retaining the Vec owner for cleanup');
 assert.doesNotMatch(vecStdlibTestSource, /\bcore\/mem\/internal\b|\bmem_ptr_addr\b|data pointer positive/, 'stdlib/tests/vec.n.md must validate public Vec behavior without observing raw backing addresses');
 assert.match(vecStdlibTestSource, /with_capacity starts empty/, 'stdlib/tests/vec.n.md must cover allocation behavior through public Vec observers');
+assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw.nepl')), false, 'vec/raw.nepl must not remain as an explicitly importable unchecked Vec facade');
+assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw.n.md')), false, 'vec/raw.n.md must not replace the removed unchecked Vec facade');
+assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.nepl')), false, 'vec/raw/element.nepl must not remain as an explicitly importable unchecked Vec element helper');
+assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.n.md')), false, 'vec/raw/element.n.md must not replace the removed unchecked Vec element helper');
+assert.doesNotMatch(vecCode, /#import\s+"(?:\.\.\/raw|\.\/raw|alloc\/collections\/vec\/raw)"/, 'Vec implementation must not depend on an explicitly importable vec/raw unchecked helper facade');
 for (const name of ['vec_read_at', 'vec_write_at']) {
-    assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
-    assert.doesNotMatch(vecRootCode, new RegExp(`\\b${name}\\b`), `Vec root facade must not expose ${name}; import alloc/collections/vec/raw explicitly`);
+    assert.doesNotMatch(vecCode, new RegExp(`\\b(?:pub\\s+)?fn\\s+${name}\\b`), `${name} must not reappear as a shared Vec raw helper`);
+    assert.doesNotMatch(vecRootCode, new RegExp(`\\b${name}\\b`), `Vec root facade must not expose ${name}`);
 }
-for (const name of ['element']) {
-    assert.match(vecRawRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/raw\\/${name}"\\s+as\\s+@merge`), `vec/raw.nepl must merge re-export raw/${name}.nepl`);
-}
-for (const name of ['aggregate', 'predicate', 'prefix']) {
-    assert.doesNotMatch(vecRawRootCode, new RegExp(`\\.\\/raw\\/${name}`), `vec/raw.nepl must not re-export raw ${name} callback helpers`);
-    assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw', `${name}.nepl`)), false, `vec/raw/${name}.nepl must not keep unsafe raw callback helpers`);
-}
-assert.doesNotMatch(vecRawRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/raw.nepl must be a pure facade without implementation bodies');
-for (const name of ['vec_read_at', 'vec_write_at']) {
-    assert.match(vecRawElementCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw/element.nepl must own ${name}`);
-}
-assert.match(vecRawElementCode, /fn\s+vec_read_at\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,\s*i32\)->\.T>/, 'Vec raw read helper must remain Copy-only until initialized move-out state exists');
-assert.match(vecRawElementCode, /fn\s+vec_write_at\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,\s*i32,\s*\.T\)->\(\)>/, 'Vec raw write helper must remain Copy-only until overwrite/drop state exists');
-assert.match(vecRawElementSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*vec_read_at<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*vec_write_at<NonCopyPayload>/, 'Vec raw element helpers must reject non-Copy payloads in doctests');
+assert.doesNotMatch(vecTransformPrefixCode, /\bpub\s+fn\s+vec_(?:take_while_len|copy_range_to_raw)\b/, 'Vec prefix raw/boundary helpers must remain private implementation details');
+assert.doesNotMatch(vecCode, /\b(?:pub\s+)?fn\s+vec_(?:get_read_at|push_write_at|replace_write_at|pop_read_at|map_write_at|filter_write_at|prefix_write_at)\b/, 'Vec must not add shared raw element helper declarations just to replace the removed vec/raw facade');
 for (const name of ['map', 'filter', 'partition', 'take_while', 'drop_while']) {
     assert.match(vecTransformCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform facade closure must expose ${name}`);
 }
@@ -301,17 +288,10 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/storage/api.nepl',
     'stdlib/alloc/collections/vec/mutation.nepl',
     'stdlib/alloc/collections/vec/mutation/cleanup.nepl',
-    'stdlib/alloc/collections/vec/mutation/pop.nepl',
-    'stdlib/alloc/collections/vec/mutation/replace.nepl',
     'stdlib/alloc/collections/vec/query.nepl',
     'stdlib/alloc/collections/vec/query/aggregate.nepl',
-    'stdlib/alloc/collections/vec/query/get.nepl',
     'stdlib/alloc/collections/vec/query/predicate.nepl',
-    'stdlib/alloc/collections/vec/raw.nepl',
     'stdlib/alloc/collections/vec/transform.nepl',
-    'stdlib/alloc/collections/vec/transform/filter.nepl',
-    'stdlib/alloc/collections/vec/transform/map.nepl',
-    'stdlib/alloc/collections/vec/transform/prefix.nepl',
     'stdlib/alloc/collections/vec/types.nepl',
     'stdlib/alloc/collections/vec/sort.nepl',
     'stdlib/alloc/collections/vec/sort/common.nepl',
@@ -324,10 +304,15 @@ for (const relPath of [
 for (const relPath of [
     'stdlib/alloc/collections/vec/access/data.nepl',
     'stdlib/alloc/collections/vec/mutation/push.nepl',
-    'stdlib/alloc/collections/vec/raw/element.nepl',
+    'stdlib/alloc/collections/vec/mutation/pop.nepl',
+    'stdlib/alloc/collections/vec/mutation/replace.nepl',
+    'stdlib/alloc/collections/vec/query/get.nepl',
     'stdlib/alloc/collections/vec/storage/alloc.nepl',
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
+    'stdlib/alloc/collections/vec/transform/filter.nepl',
+    'stdlib/alloc/collections/vec/transform/map.nepl',
+    'stdlib/alloc/collections/vec/transform/prefix.nepl',
     'stdlib/alloc/collections/vec/sort/raw/access.nepl',
     'stdlib/alloc/collections/vec/sort/merge/api.nepl',
     'stdlib/alloc/collections/vec/sort/merge/buffer.nepl',
@@ -389,8 +374,8 @@ assert.match(mapSection, /fn\s+map\s+<\.T:\s*Copy,\s*\.U:\s*Copy>/, 'Vec.map mus
 assert.match(vecTransformFilterCode, /fn\s+filter\s+<\.T:\s*Copy>/, 'Vec.filter must require Copy elements for predicate scans and output copy');
 assert.match(vecTransformPrefixCode, /fn\s+take_while\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<Vec<\.T>,\s*VecTransformError<\.T>>>[\s\S]*Result::Err<Vec<\.T>,\s*VecTransformError<\.T>>\s+VecTransformError<\.T>\s+v\s+e/, 'Vec.take_while must require Copy elements and return input owner on output allocation failure');
 assert.match(vecTransformPrefixCode, /fn\s+drop_while\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<Vec<\.T>,\s*VecTransformError<\.T>>>[\s\S]*Result::Err<Vec<\.T>,\s*VecTransformError<\.T>>\s+VecTransformError<\.T>\s+v\s+e/, 'Vec.drop_while must require Copy elements and return input owner on output allocation failure');
-assert.doesNotMatch(vecQueryCode, /vec_raw::vec_read_at<\.T>[\s\S]{0,80}\b(?:p|f)\b|\b(?:p|f)\s+vec_raw::vec_read_at<\.T>/, 'Vec query helpers must not pass raw-loaded elements directly to callbacks');
-assert.doesNotMatch(vecTransformCode, /(?:p|f)\s+vec_raw::vec_read_at<\.T>|vec_raw::vec_write_at<\.[TU]>[\s\S]{0,80}vec_raw::vec_read_at<\.T>/, 'Vec transform helpers must not pass raw-loaded elements directly to callbacks or output storage');
+assert.doesNotMatch(vecQueryAggregateCode + '\n' + vecQueryPredicateCode + '\n' + vecTransformCode, /\b(?:load<|vec_\w+_read_at)\b[\s\S]{0,80}\b(?:p|f)\b|\b(?:p|f)\s+(?:load<|vec_\w+_read_at)\b/, 'Vec callback-facing query/transform helpers must not pass raw-loaded elements directly to callbacks');
+assert.doesNotMatch(vecTransformCode, /\bvec_\w+_write_at<\.[TU]>[\s\S]{0,80}\bvec_\w+_read_at<\.T>/, 'Vec transform helpers must not pipe raw-loaded elements directly into output storage');
 for (const [name, section] of [
     ['count', countSection],
     ['fold', foldSection],

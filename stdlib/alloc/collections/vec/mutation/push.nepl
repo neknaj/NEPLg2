@@ -11,12 +11,12 @@
 
 #import "core/mem" as *
 #import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/mem/allocator" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "../types" as *
-#import "../raw" as vec_raw
 #import "core/field" as *
 
 //: ## push
@@ -203,7 +203,7 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
                                         Result::Ok grown_region:
                                             let next_len <i32> add v_len 1
                                             let grown_data <MemPtr<.T>> region_ptr &grown_region
-                                            vec_raw::vec_write_at<.T> grown_data v_len item
+                                            store<.T> add mem_ptr_addr grown_data mul v_len size_of<.T> item
                                             Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                         Result::Err _e:
                                             Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_cap VecStorage<.T>::Empty)) StdErrorKind::OutOfMemory
@@ -214,7 +214,7 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
                                 Result::Ok grown_region:
                                     let next_len <i32> add v_len 1
                                     let grown_data <MemPtr<.T>> region_ptr &grown_region
-                                    vec_raw::vec_write_at<.T> grown_data v_len item
+                                    store<.T> add mem_ptr_addr grown_data mul v_len size_of<.T> item
                                     Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                 Result::Err e:
                                     let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
@@ -227,5 +227,5 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
                 VecStorage::Owned v_region:
                     let next_len <i32> add v_len 1
                     let v_data <MemPtr<.T>> region_ptr &v_region
-                    vec_raw::vec_write_at<.T> v_data v_len item
+                    store<.T> add mem_ptr_addr v_data mul v_len size_of<.T> item
                     Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len v_cap (VecStorage<.T>::Owned v_region))

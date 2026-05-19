@@ -1,3 +1,22 @@
+# 2026-05-19 Agent 1 Vec raw element direct import 境界修正
+
+- `ISS-20260519T124203801Z-VEC-RAW-ELEMENT-HELPERS-ARE-DIRECTLY-85EBD72F` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、root facade から `vec/raw` re-export を外した後も、通常 source が `#import "alloc/collections/vec/raw" as raw` を明示でき、`data_mem_ptr(&v)` と unchecked `vec_write_at` / `vec_read_at` を組み合わせて `Vec.len` / storage variant / initialized slot の検査を迂回できたこと。
+- `stdlib/alloc/collections/vec/raw.nepl` と `vec/raw/element.nepl` を削除し、direct import 可能な unchecked element helper module を残さない設計へ改めた。
+- `get` / `pop` の raw `load` と、`push` / `replace` / `map` / `filter` / `partition` / `take_while` / `drop_while` の raw `store` は、範囲・storage variant・capacity・output index を検査する同じ source file 内に置いた。新しい private helper 関数は増やさず、stdlib documentation contract の doctest gap も増やしていない。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_vec_borrowed_observers.js` を更新し、`vec/raw` facade / element helper の復活、`../raw` import 依存、shared `vec_read_at` / `vec_write_at` helper の復活を拒否する。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` も direct-import raw helper 方針から、検査済み source file 内 raw operation 方針へ更新した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec -o tmp\\agent1-vec-raw-boundary.json --no-tree -j 4`: total=52, passed=52
+  - `cargo run -p nepl-cli -- --target wasi --profile debug --input tmp\\agent1-vec-raw-direct-import.nepl --output tmp\\agent1-vec-raw-direct-import.wasm`: expected failure after `alloc/collections/vec/raw` deletion
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+
 # 2026-05-19 Agent 1 NM full compile Resource IR summary budget 確認
 
 - `ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487` を fixed / resolved にした。`plan.md` は変更していない。

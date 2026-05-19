@@ -12,7 +12,7 @@
 //: - `as @merge` により `#import "alloc/collections/vec/transform" as t` の qualified API も[維持/いじ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - raw storage の読み書きは各実装 submodule から `vec/raw` helper に[委譲/いじょう]します。
+//: - raw storage の書き込みは、出力 capacity と index 進行を所有する submodule の private helper に[閉/と]じます。
 
 #indent 4
 
