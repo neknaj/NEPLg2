@@ -959,6 +959,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D` は同じ 2026-05-19 に修正した。`cstr_to_str_bounded_result` の `while i < max_len` 内にある `load_u8(mem_ptr_add p i)` が `p[0..max_len]` の requirement へ要約されなかった根本原因は、Resource IR の condition fact lowering が複合 `and` 条件内の未認識 boolean conjunct に引きずられて、認識可能な `i < max_len` fact まで捨てていたことだった。修正後は `and` / `or` を認識済み child fact の `All` / `Any` として保持し、path semantics 上 sound な branch でだけ既知 fact を使う。さらに checked `MemPtr` wrapper 経由でも `memory_span_requirements` を caller へ適用し、`cstr` 側は source 上で `0 <= i < max_len` を明示する。これは `cstr` 専用の証明器ではなく、bounded scanner 全体へ適用できる Resource IR の path-conditioned span obligation として扱う Stage 6 の correctness 修正である。
 
+`ISS-20260519T170102229Z-COLLECTION-POP-OWNER-ACCESSORS-LACK--B71B4C03` は同じ 2026-05-19 に修正した。collection pop result は更新後 owner と取り出した item を同時に保持するため、result を消費して owner だけを返す accessor は、non-Copy payload では item drop / move state を同じ API 境界で証明する必要がある。既存の Vec / Stack / Queue / Deque / RingBuffer / BinaryHeap は個別 policy で Copy-only に保たれていたが、新しい pop result accessor を追加した時に同じ制約を横断的に検出する guard がなかった。修正後は `nodesrc/test_stdlib_collection_cleanup_contract.js` が `Pop<...>` parameter を値渡しで消費し generic owner を返す関数型を構造的に検出し、全 generic parameter に `Copy` bound を要求する。これは collection 名の allowlist ではなく、owner recovery accessor の型形状に基づく Stage 6 の退行検出であり、`OwnedBuffer<T>` / initialized prefix / moved slot / drop traversal が完成するまで unsupported non-Copy payload loss を防ぐ。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

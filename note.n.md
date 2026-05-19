@@ -42355,6 +42355,8 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_stdlib_collection_cleanup_contract.js` は、関数名の個別 family list ではなく、関数型シグネチャから `Error<...>` 値を消費して generic owner を返す accessor を検出する。`Vec` / `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` / `List` / `BTreeMap` / `BTreeSet` / `HashMap` / `HashSet` と internal grow region recovery がすべて `Copy` bound を維持していることを監視する。
 - focused verification:
   - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
   - `node nodesrc/issues.js check`: passed
   - `git diff --check`: passed
@@ -42584,3 +42586,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_mem_ptr_wrapper_with_null_sentinel -- --exact --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_region_pointer_from_region_provenance -- --exact --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir compile_accepts_checked_region_ptr_at_from_region_provenance -- --exact --nocapture`: passed
+
+## 2026-05-19 Agent 1 collection pop owner accessor 横断 policy
+
+- `ISS-20260519T170102229Z-COLLECTION-POP-OWNER-ACCESSORS-LACK--B71B4C03` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Copy-only collection の pop result owner recovery が個別 policy に分散しており、`FooPop<T>` を消費して `Foo<T>` owner だけを返す新 API を追加した時に横断的に検出する guard がなかったことだった。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` に `Pop<...>` parameter の値渡しと generic owner return を関数型から検出する policy を追加した。collection 名ではなく型形状で検出するため、新しい pop result accessor も同じ Copy-only 境界に入る。
+- `Vec` / `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` の現行 pop owner accessor がすべて検査対象になる assertion を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed

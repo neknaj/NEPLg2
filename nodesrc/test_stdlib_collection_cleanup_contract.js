@@ -9,6 +9,7 @@ const collectionsRoot = path.join(repoRoot, 'stdlib/alloc/collections');
 
 const inspected = [];
 const ownerAccessorInspected = [];
+const popOwnerAccessorInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -25,6 +26,14 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (missingCopy.length > 0) {
                     const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                     violations.push(`${relPath}:${index + 1}: ${signature.name} owner-returning error accessor generic(s) ${names} must carry Copy until collection drop traversal exists`);
+                }
+            }
+            if (signature && generics.length > 0 && isOwnerReturningPopAccessor(signature.name, typeSignature)) {
+                popOwnerAccessorInspected.push(`${relPath}:${signature.name}`);
+                const missingCopy = generics.filter((generic) => !/\bCopy\b/.test(generic.bound ?? ''));
+                if (missingCopy.length > 0) {
+                    const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} pop-result owner accessor generic(s) ${names} must carry Copy until collection drop traversal exists`);
                 }
             }
             continue;
@@ -92,6 +101,25 @@ for (const expected of [
     );
 }
 
+assert.ok(
+    popOwnerAccessorInspected.length >= 6,
+    `collection pop owner accessor policy must inspect the current generic pop owner surface, inspected only ${popOwnerAccessorInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/vec/types.nepl:vec_pop_vec',
+    'stdlib/alloc/collections/stack/api.nepl:stack_pop_stack',
+    'stdlib/alloc/collections/queue/types.nepl:queue_pop_queue',
+    'stdlib/alloc/collections/deque/api.nepl:deque_pop_deque',
+    'stdlib/alloc/collections/ringbuffer/types.nepl:ringbuffer_pop_buffer',
+    'stdlib/alloc/collections/binary_heap/api/pop.nepl:binary_heap_pop_heap',
+]) {
+    assert.ok(
+        popOwnerAccessorInspected.some((entry) => entry.includes(expected)),
+        `collection pop owner accessor policy did not inspect expected pop owner accessor: ${expected}`,
+    );
+}
+
 assert.deepEqual(violations, [], `generic collection cleanup and owner recovery APIs must remain Copy-only:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
@@ -140,6 +168,21 @@ function isOwnerReturningErrorAccessor(name, typeSignature) {
 
     return !functionType.parameter.trimStart().startsWith('&')
         && /\b[A-Za-z_][A-Za-z0-9_]*Error</.test(functionType.parameter)
+        && /<\./.test(functionType.returnType);
+}
+
+function isOwnerReturningPopAccessor(name, typeSignature) {
+    if (!typeSignature) {
+        return false;
+    }
+
+    const functionType = parseUnaryFunctionType(typeSignature);
+    if (!functionType) {
+        return false;
+    }
+
+    return !functionType.parameter.trimStart().startsWith('&')
+        && /\b[A-Za-z_][A-Za-z0-9_]*Pop</.test(functionType.parameter)
         && /<\./.test(functionType.returnType);
 }
 
