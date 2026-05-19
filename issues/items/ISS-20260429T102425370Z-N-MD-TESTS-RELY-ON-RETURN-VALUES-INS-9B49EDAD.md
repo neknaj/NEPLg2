@@ -166,6 +166,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。今回の移行後、直近の stdout fixture なし `checks_print_report` queue は HIR 3件、name_resolver 2件、json 1件の6件である。
 
+## 2026-05-19 Selfhost HIR doc-comment accessor and stdout report migration
+
+`ISS-20260519T005214168Z-SELFHOST-HIR-DOCTESTS-USE-OWNER-BACK-EAE6F1EC` として、`stdlib/neplg2/core/hir/hir.nepl` の3つの doc-comment doctest を compile 可能な public API 経由に直し、stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `SelfhostHirModule*Alloc` wrapper から Copy な id / range を borrow で読む accessor と、module owner を wrapper 消費で取り出す `*_into_module` accessor を追加した。
+- doctest から `field::get ... "module"` / `field::get ... "expr_id"` などの owner-backed aggregate direct field access を消し、現行の owner aggregate field gate を緩めずに compile-block を解消した。
+- 3 doctest の `Checked [...]` report を stdout fixture に固定し、`nodesrc/test_selfhost_hir_report_contract.js` で metadata / accessor / direct field access 退行を監視する。
+
+この issue はまだ open のまま継続する。今回の移行後、直近の stdout fixture なし `checks_print_report` queue は name_resolver 2件、json 1件の3件である。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

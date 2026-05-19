@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T00:45:29.972Z",
+  "generated_at": "2026-05-19T00:57:55.639Z",
   "counts": {
-    "total": 1039,
+    "total": 1040,
     "open": 5,
-    "resolved": 1034,
+    "resolved": 1035,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -17,9 +17,9 @@
         "resolved": 60
       },
       "selfhost": {
-        "total": 72,
+        "total": 73,
         "open": 1,
-        "resolved": 71
+        "resolved": 72
       },
       "cli": {
         "total": 19,
@@ -8993,6 +8993,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649.md"
+    },
+    {
+      "id": "ISS-20260519T005214168Z-SELFHOST-HIR-DOCTESTS-USE-OWNER-BACK-EAE6F1EC",
+      "title": "selfhost HIR doctests use owner-backed allocation fields and hide reports",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/neplg2/core/hir/hir.nepl, nodesrc/test_selfhost_hir_report_contract.js, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T005214168Z-SELFHOST-HIR-DOCTESTS-USE-OWNER-BACK-EAE6F1EC.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

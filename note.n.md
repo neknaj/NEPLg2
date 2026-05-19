@@ -1,3 +1,17 @@
+# 2026-05-19 Agent 1 selfhost HIR alloc accessor / stdout report 固定
+
+- `ISS-20260519T005214168Z-SELFHOST-HIR-DOCTESTS-USE-OWNER-BACK-EAE6F1EC` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`SelfhostHirModule*Alloc` が `SelfhostHirModule` owner を含む wrapper なのに、doc-comment doctest が `field::get ... "module"` で direct field projection していたこと。現行の `type.owner_aggregate.field_access_restricted` は正しいため、検査は緩めず public accessor を追加した。
+- Copy な `expr_id` / `function_id` / `child_range` / `param_range` は borrow accessor で読み、module owner は wrapper を消費する `*_into_module` accessor でだけ取り出すようにした。
+- `stdlib/neplg2/core/hir/hir.nepl` の3 doctest を accessor 利用へ移行し、`neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` にした。
+- `nodesrc/test_selfhost_hir_report_contract.js` を追加し、accessor 存在、direct field access 退行、stdout fixture 欠落、`ret:` 代用を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_selfhost_hir_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/hir/hir.nepl --no-tree -o tmp/agent1-hir-accessor-report-contract.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-19 Agent 1 Vec drop_last doc-comment stdout report 固定
 
 - `ISS-20260519T004049268Z-VEC-DROP-LAST-DOC-COMMENT-DOCTEST-PR-9BA3CF28` を追加し、fixed / resolved にした。`plan.md` は変更していない。
