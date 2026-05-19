@@ -42780,3 +42780,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test neplg2 recursive_copy_capability_impl_does_not_prove_itself -- --nocapture`: passed
   - `cargo test -p nepl-core --test drop recursive_drop_capability_impl_does_not_prove_itself -- --nocapture`: passed
   - `cargo test -p nepl-core --test neplg2 recursive_clone_capability_impl_does_not_prove_itself -- --nocapture`: passed
+
+## 2026-05-20 Agent 1 self-host source span proof result 境界修正
+
+- `ISS-20260519T213705215Z-SELF-HOST-SOURCE-SPAN-PROOF-COLLAPSE-EB18F406` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`SelfhostProofResult` が typed evidence/refutation を持っているにもかかわらず、source span validity だけが `bool` helper へ潰され、`check/module.nepl` 側が refutation payload を見ずに diagnostic を作り直していたことだった。
+- `selfhost_proof_source_span_valid` は `Result<(), SelfhostProofRefutation>` を返す API に変更した。unexpected evidence は `FactObligationMismatch` として返し、invalid span は `SelfhostProofRefutation::SourceSpanInvalid` を保持する。
+- `selfhost_proof_result_is_proven` は削除した。proof layer の public boundary から汎用 bool collapse helper をなくし、後続の type / lifetime / owner / effect / Resource IR obligation も `match` による typed result 分岐へ揃える。
+- `check/module.nepl` は `selfhost_module_check_item_span` で proof result を `match` し、typed refutation を `selfhost_module_check_refutation_diag` に渡すようにした。module checker-local な source span 判定や diagnostic 再構築を残さない。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/test_selfhost_checker_report_contract.js`: passed
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-selfhost-source-span-proof-result-proof-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-source-span-proof-result-module-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-source-span-proof-result-proof-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-source-span-proof-result-checker-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed

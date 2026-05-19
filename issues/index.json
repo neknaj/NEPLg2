@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T21:34:45.463Z",
+  "generated_at": "2026-05-19T21:45:22.452Z",
   "counts": {
-    "total": 1077,
+    "total": 1078,
     "open": 4,
-    "resolved": 1073,
+    "resolved": 1074,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 77,
+        "total": 78,
         "open": 1,
-        "resolved": 76
+        "resolved": 77
       },
       "cli": {
         "total": 19,
@@ -9308,6 +9308,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T212225940Z-SELF-HOST-MODULE-DIRECTIVE-MULTIPLIC-33C1FBE9.md"
+    },
+    {
+      "id": "ISS-20260519T213705215Z-SELF-HOST-SOURCE-SPAN-PROOF-COLLAPSE-EB18F406",
+      "title": "Self-host source span proof collapses typed refutation to bool",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/**, stdlib/neplg2/core/check/module.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T213705215Z-SELF-HOST-SOURCE-SPAN-PROOF-COLLAPSE-EB18F406.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

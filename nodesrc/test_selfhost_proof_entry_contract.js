@@ -79,6 +79,11 @@ assert.match(
     /ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>/,
     "module directive duplicate failures must be typed refutations",
 );
+assert.doesNotMatch(
+    proofQuery,
+    /selfhost_proof_result_is_proven/,
+    "proof layer must not provide a public helper that collapses typed proof results to bool",
+);
 
 const solverBlock = functionBlock(proofSolver, "selfhost_proof_solve");
 assert.match(solverBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver must match on obligation enum");
@@ -95,12 +100,22 @@ assert.match(
     /(?:pub\s+)?fn\s+selfhost_proof_solve_module_directive_transition\b[\s\S]*match\s+state:/,
     "module directive singleton transitions must live in the proof solver",
 );
+assert.match(
+    proofSolver,
+    /(?:pub\s+)?fn\s+selfhost_proof_source_span_valid\b[^\n]*Result<\(\),SelfhostProofRefutation>/,
+    "source span validity must preserve typed refutations instead of returning bool",
+);
 
 assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");
 assert.match(
     moduleChecker,
-    /selfhost_proof_source_span_valid\s+item\.span/,
-    "module item span validation must go through the proof solver",
+    /match\s+selfhost_proof_source_span_valid\s+item\.span:/,
+    "module item span validation must match on the proof solver's typed result",
+);
+assert.doesNotMatch(
+    moduleChecker,
+    /if:[\s\S]{0,120}selfhost_proof_source_span_valid\s+item\.span/,
+    "module item span validation must not collapse proof result to a boolean predicate",
 );
 assert.doesNotMatch(
     moduleChecker,

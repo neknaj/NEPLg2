@@ -110,11 +110,3 @@ pub fn selfhost_proof_result_proven <(SelfhostProofEvidence)->SelfhostProofResul
 //: selfhost_proof_result_refuted: refuted result を[作/つく]る
 pub fn selfhost_proof_result_refuted <(SelfhostProofRefutation)->SelfhostProofResult> (refutation):
     SelfhostProofResult::Refuted refutation
-
-//: selfhost_proof_result_is_proven: proof result が[証明/しょうめい][成功/せいこう]か[返/かえ]す
-pub fn selfhost_proof_result_is_proven <(SelfhostProofResult)->bool> (result):
-    match result:
-        SelfhostProofResult::Proven _evidence:
-            true
-        SelfhostProofResult::Refuted _refutation:
-            false

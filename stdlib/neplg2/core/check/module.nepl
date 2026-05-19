@@ -342,15 +342,21 @@ pub fn selfhost_module_check_directive_fact <(SelfhostModuleDirectiveState,Selfh
 pub fn selfhost_module_check_item_directive_state <(SelfhostModuleDirectiveState,SelfhostModuleItem)->Result<SelfhostModuleDirectiveState,SelfhostDiagnostic>> (state, item):
     selfhost_module_check_directive_fact state selfhost_module_directive_item_fact item
 
+pub fn selfhost_module_check_item_span <(SelfhostModuleItem)->Result<(),SelfhostDiagnostic>> (item):
+    match selfhost_proof_source_span_valid item.span:
+        Result::Ok _:
+            Result<(),SelfhostDiagnostic>::Ok ()
+        Result::Err refutation:
+            Result<(),SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+
 pub fn selfhost_module_check_finish_raw_state <(SelfhostRawBackendState)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state):
     let span <SelfhostSourceSpan> source_span_empty 0 0
     let item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
     selfhost_module_check_raw_backend_fact state item
 
 pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, directive_state, item):
-    if:
-        selfhost_proof_source_span_valid item.span
-        then:
+    match selfhost_module_check_item_span item:
+        Result::Ok _:
             match selfhost_module_check_item_raw_state raw_state item:
                 Result::Ok next_state:
                     match selfhost_module_check_item_directive_state directive_state item:
@@ -361,8 +367,8 @@ pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostRawBacken
                             Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
                 Result::Err diag:
                     Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
-        else:
-            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" item.span "invalid module item span"
+        Result::Err diag:
+            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
 
 pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast, n, idx, summary, raw_state, directive_state):
     if:

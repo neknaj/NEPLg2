@@ -20,9 +20,14 @@ pub #import "./proof/solver" as *
 //: ```neplg2
 //:| #entry main
 //:| #target core
+//:| #import "core/result" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/proof" as *
 //: fn main <()->i32> ():
 //:     let span <SelfhostSourceSpan> source_span_new 0 0 3
-//:     if selfhost_proof_source_span_valid span 0 1
+//:     match selfhost_proof_source_span_valid span:
+//:         Result::Ok _:
+//:             0
+//:         Result::Err _:
+//:             1
 //: ```

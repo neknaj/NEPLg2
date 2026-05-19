@@ -13,16 +13,41 @@ stdout: mlstr:
 #target std
 #indent 4
 
+#import "core/result" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof" as *
 #import "std/test" as *
+
+fn check_span_proven <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (result):
+    match result:
+        Result::Ok _:
+            Result<(),str>::Ok ()
+        Result::Err _refutation:
+            Result<(),str>::Err "expected span proof"
+
+fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (result):
+    match result:
+        Result::Err refutation:
+            match refutation:
+                SelfhostProofRefutation::SourceSpanInvalid _span:
+                    Result<(),str>::Ok ()
+                SelfhostProofRefutation::FactObligationMismatch:
+                    Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
+                    Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
+                    Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
+                    Result<(),str>::Err "expected invalid span refutation"
+        Result::Ok _:
+            Result<(),str>::Err "invalid span was accepted"
 
 fn main <()*>i32> ():
     let valid <SelfhostSourceSpan> source_span_new 0 0 4
     let invalid <SelfhostSourceSpan> source_span_new 0 5 2
     let checks0 checks_new
-    let checks1 checks_push checks0 check selfhost_proof_source_span_valid valid
-    let checks2 checks_push checks1 check_ne true selfhost_proof_source_span_valid invalid
+    let checks1 checks_push checks0 check_span_proven selfhost_proof_source_span_valid valid
+    let checks2 checks_push checks1 check_span_invalid selfhost_proof_source_span_valid invalid
     let shown checks_print_report checks2
     checks_exit_code shown
 ```

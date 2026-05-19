@@ -260,9 +260,19 @@ pub fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostPro
     let obligation <SelfhostProofObligation> SelfhostProofObligation::SourceSpanValid span
     selfhost_proof_query_new fact obligation
 
-//: selfhost_proof_source_span_valid: source span validity を proof solver 経由で[検査/けんさ]する
-pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->bool> (span):
-    selfhost_proof_result_is_proven selfhost_proof_solve selfhost_proof_query_source_span_valid span
+//: selfhost_proof_source_span_valid: source span validity の typed result を[返/かえ]す
+pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),SelfhostProofRefutation>> (span):
+    match selfhost_proof_solve selfhost_proof_query_source_span_valid span:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<(),SelfhostProofRefutation>::Ok ()
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+        SelfhostProofResult::Refuted refutation:
+            Result<(),SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_raw_backend_transition: raw backend transition query を[作/つく]る
 pub fn selfhost_proof_query_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->SelfhostProofQuery> (state, item):
