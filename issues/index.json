@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T13:33:56.776Z",
+  "generated_at": "2026-05-19T13:40:13.615Z",
   "counts": {
     "total": 1058,
-    "open": 5,
-    "resolved": 1053,
+    "open": 4,
+    "resolved": 1054,
     "by_area": {
       "stdlib": {
         "total": 290,
-        "open": 4,
-        "resolved": 286
+        "open": 3,
+        "resolved": 287
       },
       "selfhost": {
         "total": 74,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56",
-      "title": "sort doctest constructs VecSortMergeError outside owner aggregate boundary",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-19",
-      "updated": "2026-05-19",
-      "target": "tests/stdlib/sort.n.md; stdlib/alloc/collections/vec/sort/merge/api.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -12413,6 +12398,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T130927391Z-VEC-SORT-RAW-HELPERS-ARE-DIRECTLY-CA-BE6B177C.md"
+    },
+    {
+      "id": "ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56",
+      "title": "sort doctest constructs VecSortMergeError outside owner aggregate boundary",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "tests/stdlib/sort.n.md; stdlib/alloc/collections/vec/sort/merge/api.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

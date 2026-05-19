@@ -24,6 +24,9 @@
 //: ### [目的/もくてき]
 //: - `sort_merge_ret` は `Vec` owner を[消費/しょうひ]する fallible update なので、[失敗/しっぱい]時も caller が cleanup できるように owner を error payload に[含/ふく]めます。
 //: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner の[回収/かいしゅう]と error [確認/かくにん]を別操作にします。
+//:
+//: ### [注意/ちゅうい]
+//: - この payload は `sort_merge_ret` の失敗 branch が返すものです。ordinary source が constructor を直接呼んで owner を捏造する使い方は、owner-backed aggregate constructor restriction により拒否されます。
 pub struct VecSortMergeError<.T>:
     vec <Vec<.T>>
     error <StdErrorKind>

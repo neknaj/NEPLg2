@@ -2,8 +2,8 @@
 id: ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56
 title: "sort doctest constructs VecSortMergeError outside owner aggregate boundary"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-19
@@ -42,3 +42,15 @@ Replace the fixture with a valid public API scenario or add a compiler-owned std
 ## 検証
 
 Run tests/stdlib/sort.n.md, Vec sort source-policy regressions, and owner-backed aggregate constructor restriction regressions.
+
+## 対応
+
+- `tests/stdlib/sort.n.md` の `sort_merge_ret_error_payload_returns_vec_owner` を、直接 constructor が拒否されることを確認する `compile_fail` regression に変更した。
+- `VecSortMergeError` は `sort_merge_ret` の失敗 branch が返す payload であり、ordinary source が直接構築して owner を捏造する使い方は不正だと `merge/api.nepl` のドキュメントに明記した。
+- owner-backed aggregate constructor restriction は緩めず、既存の static safety 方針をそのまま維持した。
+
+## 検証結果
+
+- `node nodesrc/tests.js -i tests/stdlib/sort.n.md -o tmp\agent1-sort-merge-error-doctest.json --no-tree -j 4`: total=20, passed=20
+- `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+- `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: pass

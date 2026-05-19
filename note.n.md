@@ -1,3 +1,15 @@
+# 2026-05-19 Agent 1 VecSortMergeError doctest owner aggregate 境界修正
+
+- `ISS-20260519T133155075Z-SORT-DOCTEST-CONSTRUCTS-VECSORTMERGE-9A671F56` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/sort.n.md` の通常実行 doctest が `VecSortMergeError<i32>` を ordinary source から直接構築し、owner-backed aggregate constructor restriction と矛盾していたこと。
+- `sort_merge_ret_error_payload_returns_vec_owner` は、直接 constructor が `type.owner_aggregate.constructor_restricted` で拒否されることを確認する compile-fail regression へ変更した。
+- `VecSortMergeError` のドキュメントに、この payload は `sort_merge_ret` の失敗 branch から得るものであり、ordinary source が constructor を直接呼んで owner を捏造する使い方は拒否されると明記した。
+- static safety は緩めていない。owner-backed aggregate constructor restriction を維持したまま、doctest 側を現行設計へ合わせた。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/sort.n.md -o tmp\\agent1-sort-merge-error-doctest.json --no-tree -j 4`: total=20, passed=20
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: pass
+
 # 2026-05-19 Agent 1 Vec sort raw helper direct import 境界修正
 
 - `ISS-20260519T130927391Z-VEC-SORT-RAW-HELPERS-ARE-DIRECTLY-CA-BE6B177C` を fixed / resolved にした。`plan.md` は変更していない。

@@ -466,10 +466,10 @@ fn main <()*>i32> ():
     n
 ```
 
-## sort_merge_ret_error_payload_returns_vec_owner
+## sort_merge_error_payload_direct_constructor_is_restricted
 
-neplg2:test
-ret: 1
+neplg2:test[compile_fail]
+diag_codes: type.owner_aggregate.constructor_restricted
 ```neplg2
 #entry main
 #indent 4
@@ -482,11 +482,10 @@ ret: 1
 fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 7;
+    // VecSortMergeError は sort_merge_ret が失敗時に返す owner payload であり、
+    // ordinary source が直接構築して Vec owner を捏造してはいけない。
     let err <VecSortMergeError<i32>> VecSortMergeError<i32> v1 StdErrorKind::OutOfMemory;
-    let returned <Vec<i32>> vec_sort_merge_error_vec<i32> err;
-    let n <i32> len<i32> &returned;
-    free<i32> returned;
-    n
+    0
 ```
 
 ## sort_default_dispatch_i32
