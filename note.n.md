@@ -42684,3 +42684,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/fs_fd_raw_boundary.n.md --no-tree -o tmp/agent1-fs-fd-raw-boundary.json -j 1 --dist web/dist --assert-io`: 4/4 passed
   - `node nodesrc/tests.js -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/write/fd.nepl -i tests/stdlib/fs_write_raw_boundary.n.md --no-tree -o tmp/agent1-fs-fd-raw-boundary-read-write.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 stdio raw MemPtr helper direct import 境界修正
+
+- `ISS-20260519T195128604Z-STD-STDIO-RAW-EXPOSES-PUBLIC-MEMPTR--732B30C2` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`std/stdio/raw.nepl` が root facade から再公開されていなくても、direct import では `stdio_fd_read_mem` / `stdio_fd_write_mem` / `stdio_fd_write_from_result` が `pub fn` として見えており、ordinary source が caller-selected `MemPtr` / length pair を fd I/O helper へ渡せたことだった。
+- `std/stdio/raw` から `MemPtr` wrapper を削除し、raw module には raw `i32` ABI wrapper (`stdio_fd_read_raw` / `stdio_fd_write_raw`) だけを残した。
+- `stdio_fd_read_into_result` は `std/stdio/read/buffer.nepl` の private helper として local `RegionToken<u8>` scratch から raw address を導出し、`stdio_fd_write_from_result` は `std/stdio/write/fd.nepl` の private helper へ移した。
+- public surface は引き続き `str` / `ByteBuf` / `ByteBuilder` / 1 byte の typed wrapper に限定する。`MemPtr` と byte length の対応を利用者 convention へ戻さない。
+- focused verification:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_raw_boundary.n.md --no-tree -o tmp/agent1-stdio-raw-boundary.json -j 1 --dist web/dist --assert-io`: 5/5 passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/read/buffer.nepl --no-tree -o tmp/agent1-stdio-boundary-fd-buffer.json -j 1 --dist web/dist --assert-io`: 3/3 passed

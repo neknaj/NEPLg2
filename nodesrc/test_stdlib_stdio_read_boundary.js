@@ -114,7 +114,21 @@ for (const helper of [
     'stdio_fd_write_mem',
     'stdio_fd_write_from_result',
 ]) {
-    assert.match(rawCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/raw`);
+    assert.doesNotMatch(
+        rawCode,
+        new RegExp(`\\b(?:pub\\s+)?fn\\s+${helper}\\b`),
+        `${helper} must not be public or private API in stdio/raw; MemPtr fd helpers must stay inside owner-boundary modules`,
+    );
+}
+for (const helper of [
+    'stdio_fd_read_raw',
+    'stdio_fd_write_raw',
+]) {
+    assert.match(
+        rawCode,
+        new RegExp(`\\bpub\\s+fn\\s+${helper}\\s+<\\(i32,i32,i32,i32\\)\\*>i32>`),
+        `${helper} must be the only public stdio/raw ABI wrapper shape`,
+    );
 }
 for (const helper of ['std_alloc', 'std_free']) {
     assert.doesNotMatch(
@@ -138,6 +152,16 @@ assert.match(
     writeFdCode,
     /\bfn\s+stdio_write_fd_mem_result\b/,
     'stdio_write_fd_mem_result must exist as the private fd_write loop helper',
+);
+assert.match(
+    writeFdCode,
+    /\bfn\s+stdio_fd_write_from_result\s+<\(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32\)\*>Result<i32,\s*StdErrorKind>>/,
+    'stdio fd_write raw layout helper must exist in stdio/write/fd where scratch RegionToken owners are allocated',
+);
+assert.doesNotMatch(
+    writeFdCode,
+    /\bpub\s+fn\s+stdio_fd_write_from_result\b/,
+    'stdio fd_write raw layout helper must not be public because caller-selected MemPtr spans must not be importable',
 );
 assert.doesNotMatch(
     writeFdCode,
@@ -308,6 +332,16 @@ assert.match(
     readBufferCode,
     /\bfn\s+stdio_read_all_buffer_result\b[\s\S]*\balloc_region<u8>\s+8[\s\S]*\balloc_region<u8>\s+4[\s\S]*\brealloc_region_bytes_keep<u8>[\s\S]*\bstdio_fd_read_into_result\b[\s\S]*\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region[\s\S]*\bstdio_finish_read_buffer\b/,
     'read-all buffer boundary must own fd_read scratch allocation, growth, cleanup, and exact-size ByteBuf finalization',
+);
+assert.match(
+    readBufferCode,
+    /\bfn\s+stdio_fd_read_into_result\b[\s\S]*\bstdio_fd_read_raw\s+fd\s+iov_raw\s+1\s+nread_raw\b/,
+    'stdio fd_read raw layout helper must call the raw ABI using raw addresses derived inside read/buffer owner boundary',
+);
+assert.doesNotMatch(
+    readBufferCode,
+    /\bstdio_fd_read_mem\b/,
+    'stdio read buffer must not depend on a public MemPtr fd_read wrapper in stdio/raw',
 );
 assert.match(
     readBufferCode,

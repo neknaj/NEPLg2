@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T19:42:38.237Z",
+  "generated_at": "2026-05-19T19:58:50.130Z",
   "counts": {
-    "total": 1070,
+    "total": 1071,
     "open": 4,
-    "resolved": 1066,
+    "resolved": 1067,
     "by_area": {
       "stdlib": {
-        "total": 297,
+        "total": 298,
         "open": 3,
-        "resolved": 294
+        "resolved": 295
       },
       "selfhost": {
         "total": 74,
@@ -12593,6 +12593,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T193523555Z-STD-FS-FD-IO-RAW-MEMPTR-HELPERS-REMA-11E47D1F.md"
+    },
+    {
+      "id": "ISS-20260519T195128604Z-STD-STDIO-RAW-EXPOSES-PUBLIC-MEMPTR--732B30C2",
+      "title": "std/stdio/raw exposes public MemPtr fd I/O helpers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/std/stdio/raw.nepl, stdlib/std/stdio/write/fd.nepl, stdlib/std/stdio/read/buffer.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T195128604Z-STD-STDIO-RAW-EXPOSES-PUBLIC-MEMPTR--732B30C2.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

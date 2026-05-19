@@ -13,9 +13,58 @@
 #import "core/field" as *
 #import "core/math" as math
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/stdio/raw" as *
+
+//: ## stdio_fd_write_from_result
+//: fd_write の iovec/nwritten raw layout を stdout/stderr fd 境界へ閉じ込める内部 helper
+//:
+//: ### [目的/もくてき]
+//: - `stdio_write_fd_mem_result` が所有する `iov` 8 byte と `nwritten` 4 byte を初期化し、`fd_write` の結果として書けた byte 数を返します。
+//: - caller-selected `MemPtr` / length pair を受け取るため public API にはせず、この file の typed wrapper からだけ呼びます。
+//:
+//: ### [実装/じっそう]
+//: - `data` の raw address と `data_len` を iovec に store し、`nwritten` を 0 に初期化してから `fd_write` を呼びます。
+//: - raw address の取り出し、ABI layout store、`nwritten` の raw load はこの関数内だけに閉じます。
+//:
+//: ### [注意/ちゅうい]
+//: - `iov` は 8 byte、`nwritten` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
+//: - 呼び出し元の `stdio_write_fd_mem_result` は `iov` / `nwritten` を local `RegionToken<u8>` owner から導出します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn stdio_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32, StdErrorKind>> (fd, iov, nwritten, data, data_len):
+    if:
+        math::lt data_len 0
+        then:
+            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                math::eq data_len 0
+                then:
+                    Result<i32, StdErrorKind>::Ok 0
+                else:
+                    let iov_raw <i32> mem_ptr_addr iov
+                    let nwritten_raw <i32> mem_ptr_addr nwritten
+                    let data_raw <i32> mem_ptr_addr data
+                    if:
+                        math::or math::or math::le iov_raw 0 math::le nwritten_raw 0 math::le data_raw 0
+                        then:
+                            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                        else:
+                            store_i32 iov_raw data_raw
+                            store_i32 math::add iov_raw 4 data_len
+                            store_i32 nwritten_raw 0
+                            let errno <i32> stdio_fd_write_raw fd iov_raw 1 nwritten_raw
+                            if:
+                                math::ne errno 0
+                                then:
+                                    Result<i32, StdErrorKind>::Err StdErrorKind::IoError
+                                else:
+                                    Result<i32, StdErrorKind>::Ok load_i32 nwritten_raw
 
 //: ## stdio_write_fd_mem_result
 //: fd を[指定/してい]して byte span を[書/か]き[出/だ]す内部 helper

@@ -831,3 +831,11 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 修正後は `std/fs/raw/fd_io.nepl` を削除し、fd read の raw layout helper / finish / discard は `std/fs/read/fd.nepl`、fd write の raw layout helper は `std/fs/write/fd.nepl` の private helper に閉じた。read/write loop は引き続き local `RegionToken<u8>` owner から iovec / out-pointer / data view を導出し、public API は `ByteBuf` owner boundary だけを公開する。
 
 これは Resource IR の owner extent proof を弱めるものではない。むしろ `MemPtr = non-owning pointer` の証明対象を API 利用者の convention から owner-boundary module 内の source proof へ寄せる修正であり、source policy と compile-fail doctest で `std/fs/raw/fd_io` file / re-export / public fd I/O raw helper の復活を拒否する。親 issue の残件は引き続き compiler-issued owner token、non-Copy collection drop traversal、collection free の Drop 呼び出しである。
+
+## 2026-05-20 Agent 1 stdio raw MemPtr helper direct import 境界追記
+
+`ISS-20260519T195128604Z-STD-STDIO-RAW-EXPOSES-PUBLIC-MEMPTR--732B30C2` を解決した。`std/stdio/raw.nepl` は `stdio_fd_read_mem` / `stdio_fd_write_mem` / `stdio_fd_write_from_result` を `pub fn` として公開しており、root `std/stdio` facade が raw module を再公開しなくても、通常 source が explicit `std/stdio/raw` import で caller-selected `MemPtr` / length fd I/O helper へ到達できた。
+
+修正後、`std/stdio/raw` に残る通常公開 wrapper は raw `i32` ABI 引数を受ける `stdio_fd_read_raw` / `stdio_fd_write_raw` だけである。`MemPtr` から raw address への変換、iovec / nread / nwritten scratch の初期化、fd_write の result 正規化は `std/stdio/read/buffer.nepl` と `std/stdio/write/fd.nepl` の private helper へ移した。これにより stdio の public surface は `str` / `ByteBuf` / `ByteBuilder` / 1 byte の typed wrapper に限定され、`MemPtr = non-owning pointer` と readable/writable extent の対応を caller convention に戻さない。
+
+source policy と compile-fail doctest は、`std/stdio/raw` の `MemPtr` wrapper 復活、`stdio_fd_write_from_result` の public 化、`stdio_fd_read_into_result` の direct import 可能化を拒否する。この親 issue は引き続き open とし、残件は compiler-issued owner token、non-Copy collection drop traversal、collection free の Drop 呼び出しへ絞る。

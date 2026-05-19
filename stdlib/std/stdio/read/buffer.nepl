@@ -57,7 +57,7 @@ fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result
                             store_i32 iov_raw data_raw
                             store_i32 math::add iov_raw 4 data_len
                             store_i32 nread_raw 0
-                            let errno <i32> stdio_fd_read_mem fd iov 1 nread
+                            let errno <i32> stdio_fd_read_raw fd iov_raw 1 nread_raw
                             if:
                                 math::ne errno 0
                                 then:
