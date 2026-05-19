@@ -117,6 +117,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。他の stdlib fixture に残る stdout report 未固定を引き続き移行する。
 
+## 2026-05-19 stdlib fs stdout report migration
+
+`stdlib/tests/fs.n.md` の `fs_main` を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- missing file read が `Result::Err` になることを、`missing file returns error` assertion として stdout に固定した。
+- unexpected success branch では `test_consume_str s` を呼び、成功payload ownerを report failure 生成前に消費するようにした。
+- `nodesrc/test_stdlib_fs_nmd_report_contract.js` を追加し、`ret:`、stdout-less report、旧 `checks_*` 形式へ戻らないようにした。
+
+この issue はまだ open のまま継続する。他の stdlib fixture に残る stdout report 未固定を引き続き移行する。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

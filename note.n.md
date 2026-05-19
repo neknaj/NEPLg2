@@ -1,3 +1,14 @@
+# 2026-05-19 Agent 1 stdlib fs stdout report 固定
+
+- `ISS-20260519T001423431Z-STDLIB-FS-DOCTEST-PRINTS-CHECKS-REPO-41B6E0F1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/tests/fs.n.md` が missing-file behavior を検査しながら、旧 `checks_*` report のstdoutをfixtureとして固定していなかったこと。
+- `fs_main` を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行し、`missing file returns error` assertionを named `TestReport` として固定した。
+- unexpected success branch では `Result::Ok s` の文字列payloadを `test_consume_str s` で消費し、report移行に伴って所有境界が曖昧にならないようにした。
+- `nodesrc/test_stdlib_fs_nmd_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、旧 `checks_*` への退行を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_fs_nmd_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/fs.n.md --no-tree -o tmp/agent1-stdlib-fs-report-contract.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+
 # 2026-05-19 Agent 1 rand stdout report 固定
 
 - `ISS-20260519T001007508Z-RAND-DOCTEST-PRINTS-CHECKS-REPORT-WI-CA96DF23` を追加し、fixed / resolved にした。`plan.md` は変更していない。

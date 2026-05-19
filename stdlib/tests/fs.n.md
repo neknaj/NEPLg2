@@ -2,7 +2,9 @@
 
 ## fs_main
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"fs_main\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"missing file returns error\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -16,12 +18,15 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks checks_new;
-    match fs_read_to_string "__definitely_missing_file__.txt":
-        Result::Ok s:
-            set checks checks_push checks Result<(),str>::Err "fs_read_to_string unexpectedly succeeded"
-        Result::Err e:
-            set checks checks_push checks Result<(),str>::Ok ();
-    let shown checks_print_report checks;
-    checks_exit_code shown
+    let report:
+        match fs_read_to_string "__definitely_missing_file__.txt":
+            Result::Ok s:
+                let _drop <()> test_consume_str s;
+                test_report_new "fs_main"
+                |> test_report_push test_assertion_failed AssertionKind::Bool "missing file returns error" "true" "false" "fs_read_to_string unexpectedly succeeded"
+            Result::Err e:
+                test_report_new "fs_main"
+                |> test_report_push assert "missing file returns error" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
