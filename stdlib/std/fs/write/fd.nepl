@@ -14,11 +14,59 @@
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/fs/bytes" as *
+#import "std/fs/constants" as *
 #import "std/fs/raw" as *
 #import "core/field" as *
+
+//: fs_fd_write_from_result: WASI fd_write の iov/nwritten scratch を fd write 境界へ閉じ込める内部 helper
+//:
+//: 目的:
+//: - `fd_write` が要求する iovec と nwritten の raw layout をこの module 内で初期化し、書けた byte 数だけを返します。
+//: - public caller には `fs_write_fd_bytes` の `ByteBuf` owner 境界だけを公開し、この raw span helper は fd write loop 内部に閉じます。
+//:
+//: 実装(アルゴリズム):
+//: - `iov` の base/len と `nwritten` の初期値を raw address に対して同じ関数内で store します。
+//: - `fd_write` 成功後、同じ raw address から `nwritten` を load します。
+//:
+//: 注意(重要):
+//: - `iov` は 8 byte、`nwritten` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32,i32>> (fd, iov, nwritten, data, data_len):
+    if:
+        lt data_len 0
+        then:
+            Result<i32,i32>::Err fs_errno_inval
+        else:
+            if:
+                eq data_len 0
+                then:
+                    Result<i32,i32>::Ok 0
+                else:
+                    let iov_raw <i32> mem_ptr_addr iov
+                    let nwritten_raw <i32> mem_ptr_addr nwritten
+                    let data_raw <i32> mem_ptr_addr data
+                    if:
+                        or or le iov_raw 0 le nwritten_raw 0 le data_raw 0
+                        then:
+                            Result<i32,i32>::Err fs_errno_inval
+                        else:
+                            store_i32 iov_raw data_raw
+                            store_i32 add iov_raw 4 data_len
+                            store_i32 nwritten_raw 0
+                            let errno <i32> wasi_fd_write fd iov_raw 1 nwritten_raw
+                            if:
+                                ne errno 0
+                                then:
+                                    Result<i32,i32>::Err errno
+                                else:
+                                    Result<i32,i32>::Ok load_i32 nwritten_raw
 
 //: fs_write_fd_mem_result: fd へ raw memory range をすべて書き込む内部 helper
 //:

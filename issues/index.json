@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T19:17:47.564Z",
+  "generated_at": "2026-05-19T19:42:38.237Z",
   "counts": {
-    "total": 1069,
+    "total": 1070,
     "open": 4,
-    "resolved": 1065,
+    "resolved": 1066,
     "by_area": {
       "stdlib": {
-        "total": 296,
+        "total": 297,
         "open": 3,
-        "resolved": 293
+        "resolved": 294
       },
       "selfhost": {
         "total": 74,
@@ -153,7 +153,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-19",
+      "updated": "2026-05-20",
       "target": "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs",
       "legacy_id": "",
       "source": "",
@@ -12578,6 +12578,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T190908506Z-OWNEDBUFFER-CONFLATES-LOGICAL-LENGTH-60540914.md"
+    },
+    {
+      "id": "ISS-20260519T193523555Z-STD-FS-FD-IO-RAW-MEMPTR-HELPERS-REMA-11E47D1F",
+      "title": "std/fs fd_io raw MemPtr helpers remain directly importable",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/std/fs/raw.nepl, stdlib/std/fs/raw/fd_io.nepl, stdlib/std/fs/read/fd.nepl, stdlib/std/fs/write/fd.nepl, nodesrc/test_stdlib_fs_no_unsafe_unwraps.js, tests/stdlib/fs_fd_raw_boundary.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T193523555Z-STD-FS-FD-IO-RAW-MEMPTR-HELPERS-REMA-11E47D1F.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

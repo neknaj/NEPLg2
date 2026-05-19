@@ -42670,3 +42670,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 現行 public `Vec` API は `.T: Copy` 専用なので、constructor / push / pop / clear / transform の成功 path では `len == initialized_len` を保つ。`push` / `pop` の owner-returning path では `initialized_len` を別に読み、失敗時や empty result の owner に保存する。
 - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は `initialized_len` field と旧 3-field `OwnedBuffer` constructor 形状を監視する。これは stdlib 名や関数名の allowlist ではなく、source 型定義と constructor shape に基づく Stage 6 の退行検出である。
 - 残件は non-Copy payload の moved slot / drop traversal / compiler-issued owner token をこの `initialized_len` に接続すること。
+
+## 2026-05-20 Agent 1 std/fs fd_io raw helper direct import 境界修正
+
+- `ISS-20260519T193523555Z-STD-FS-FD-IO-RAW-MEMPTR-HELPERS-REMA-11E47D1F` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`std/fs/raw/fd_io.nepl` が fd read/write の raw `MemPtr` helper を `pub fn` として持ち、`std/fs/raw` から re-export していたことだった。root `std/fs` facade から raw module を外していても、ordinary source が explicit raw import で caller-selected pointer/length fd I/O helper へ到達できた。
+- `std/fs/raw/fd_io.nepl` は削除した。fd read の `fs_fd_read_into_result` / `fs_discard_read_buffer` / `fs_finish_read_buffer` は `std/fs/read/fd.nepl` の private helper へ、fd write の `fs_fd_write_from_result` は `std/fs/write/fd.nepl` の private helper へ移した。
+- read/write loop は引き続き local `RegionToken<u8>` owner から iovec / nread/nwritten / data view を導出する。public surface は `fs_read_fd_bytes` / `fs_write_fd_bytes` の `ByteBuf` owner 境界だけで、`MemPtr` と byte length を利用者に組ませない。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` を新しい責務分割へ更新し、`std/fs/raw/fd_io` file の復活、raw facade re-export、public raw fd I/O helper の再導入を拒否する。
+- `tests/stdlib/fs_fd_raw_boundary.n.md` を追加し、`std/fs/raw`、direct `std/fs/read/fd`、direct `std/fs/write/fd` import のいずれでも fd read/write raw helper が未定義になることを compile_fail で固定した。
+- focused verification:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/fs_fd_raw_boundary.n.md --no-tree -o tmp/agent1-fs-fd-raw-boundary.json -j 1 --dist web/dist --assert-io`: 4/4 passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/write/fd.nepl -i tests/stdlib/fs_write_raw_boundary.n.md --no-tree -o tmp/agent1-fs-fd-raw-boundary-read-write.json -j 1 --dist web/dist --assert-io`: 3/3 passed

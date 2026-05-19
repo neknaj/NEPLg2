@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-19
+updated: 2026-05-20
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -584,7 +584,7 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 
 `ISS-20260515T200013147Z-STD-FS-FD-READ-SCRATCH-STILL-USES-ME-7F2B4F1E` で、`std/fs/read/fd.nepl` の fd_read growable buffer / iovec / nread scratch を `RegionToken<u8>` owner に移した。
 
-この対応により `std/fs/read` の public read path は `MemPtr<u8>` を free obligation carrier とせず、raw ABI へは `region_ptr` 由来の non-owning view だけを渡す。`std/fs/raw/fd_io.nepl` の finish/discard helper も `RegionToken<u8>` owner を消費するため、read buffer の shrink / ByteBuf 確定 / cleanup が `RegionToken` 境界に揃った。親 issue の残件は `std/fs/dir/read_fd.nepl`、`std/fs/raw/llvm.nepl`、`std/env/cliarg/raw.nepl` などの raw-backed boundary と、最終的な `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal である。
+この対応により `std/fs/read` の public read path は `MemPtr<u8>` を free obligation carrier とせず、raw ABI へは `region_ptr` 由来の non-owning view だけを渡す。当時は finish/discard helper を `std/fs/raw/fd_io.nepl` に置いていたが、2026-05-20 の `ISS-20260519T193523555Z-STD-FS-FD-IO-RAW-MEMPTR-HELPERS-REMA-11E47D1F` で direct import 可能な raw helper module を削除し、これらの helper は `std/fs/read/fd.nepl` の private boundary へ移した。親 issue の残件は最終的な `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal である。
 
 ## 2026-05-16 Agent 1 fs dir read RegionToken owner 境界追記
 
@@ -823,3 +823,11 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 修正後は Resource IR summary の `host_memory_span_requirements` を operation 付きの `memory_span_requirements` へ広げ、external IO payload span と raw memory payload span を同じ owner extent proof machinery で扱う。`string_from_mem_unchecked_result` / `string_from_utf8_mem_result` へ 1 byte region と length 100 を渡す direct import は `resource.owner.unavailable` で拒否されるため、raw string construction の span proof は stdlib module 名 allowlist ではなく callee summary と backing owner extent の照合に移った。
 
 一方で、loop 条件付き scanner の `load_u8(mem_ptr_add p i)` から `p[0..max_len]` を要約する汎用 path-conditioned span proof はまだ不足している。これは `ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D` として分離し、この親 issue の Stage 6 core 残件として継続する。個別 `cstr` 用証明器ではなく、bounded scanner 全体へ適用する Resource IR summary proof として実装する。
+
+## 2026-05-20 Agent 1 std/fs fd_io direct import 境界追記
+
+`ISS-20260519T193523555Z-STD-FS-FD-IO-RAW-MEMPTR-HELPERS-REMA-11E47D1F` を解決した。`std/fs/raw/fd_io.nepl` は `fs_fd_read_into_result` / `fs_fd_write_from_result` を `pub fn` として公開しており、root `std/fs` facade が raw module を再公開しない状態でも、通常 source が explicit `std/fs/raw` / `std/fs/raw/fd_io` import で caller-selected `MemPtr` / length fd I/O helper へ到達できた。
+
+修正後は `std/fs/raw/fd_io.nepl` を削除し、fd read の raw layout helper / finish / discard は `std/fs/read/fd.nepl`、fd write の raw layout helper は `std/fs/write/fd.nepl` の private helper に閉じた。read/write loop は引き続き local `RegionToken<u8>` owner から iovec / out-pointer / data view を導出し、public API は `ByteBuf` owner boundary だけを公開する。
+
+これは Resource IR の owner extent proof を弱めるものではない。むしろ `MemPtr = non-owning pointer` の証明対象を API 利用者の convention から owner-boundary module 内の source proof へ寄せる修正であり、source policy と compile-fail doctest で `std/fs/raw/fd_io` file / re-export / public fd I/O raw helper の復活を拒否する。親 issue の残件は引き続き compiler-issued owner token、non-Copy collection drop traversal、collection free の Drop 呼び出しである。

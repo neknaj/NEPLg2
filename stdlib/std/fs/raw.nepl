@@ -2,32 +2,15 @@
 //: `std/fs` の raw filesystem boundary public facade
 //:
 //: ### 目的
-//: - WASI extern / bare fallback、fd scratch helper、LLVM syscall fallback を既存の `std/fs/raw` import path から公開します。
-//: - target ABI と out-pointer 初期化境界を submodule に分け、public filesystem API から raw syscall details を隔離します。
+//: - WASI extern / bare fallback と LLVM syscall fallback を既存の `std/fs/raw` import path から公開します。
+//: - fd read/write の iovec 初期化 helper は `std/fs/read/fd` と `std/fs/write/fd` の private owner boundary に置き、ここからは公開しません。
 //:
 //: ### 注意
-//: - この module は raw address / iovec / out-pointer を扱います。公開 API から直接使うより、`std/fs` の read/write/path helper を優先してください。
-//: - ここは互換 import path のための facade です。処理本体は `raw/wasi`、`raw/fd_io`、`raw/llvm` に置きます。
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "core/mem" as *
-//:| #import "core/mem/internal" as *
-//:| #import "core/result" as *
-//:| #import "std/fs/raw" as *
-//: fn main <()*>i32> ():
-//:     match fs_fd_read_into_result 0 mem_ptr_wrap 0 mem_ptr_wrap 0 mem_ptr_wrap 0 0:
-//:         Result::Err _e:
-//:             1
-//:         Result::Ok n:
-//:             if eq n 0 then 0 else 2
-//: ```
+//: - この module は raw address / out-pointer を扱います。通常の利用者は `std/fs` の read/write/path helper を使ってください。
+//: - `MemPtr` と byte length を組み合わせる fd I/O helper は direct import 可能な facade に置かず、所有 `RegionToken` から view を導出する module 内部へ閉じます。
 
 #indent 4
 #import "core/math" as *
 
 pub #import "std/fs/raw/wasi" as *
-pub #import "std/fs/raw/fd_io" as *
 pub #import "std/fs/raw/llvm" as *

@@ -16,7 +16,6 @@ const relPaths = [
     'stdlib/std/fs/path/normalize/validate.nepl',
     'stdlib/std/fs/raw.nepl',
     'stdlib/std/fs/raw/wasi.nepl',
-    'stdlib/std/fs/raw/fd_io.nepl',
     'stdlib/std/fs/raw/llvm.nepl',
     'stdlib/std/fs/fd.nepl',
     'stdlib/std/fs/stat.nepl',
@@ -50,7 +49,6 @@ const pathNormalizeBuildCode = codeByPath.get('stdlib/std/fs/path/normalize/buil
 const pathNormalizeRangeStackCode = codeByPath.get('stdlib/std/fs/path/normalize/range_stack.nepl');
 const pathNormalizeValidateCode = codeByPath.get('stdlib/std/fs/path/normalize/validate.nepl');
 const rawCode = codeByPath.get('stdlib/std/fs/raw.nepl');
-const rawFdIoCode = codeByPath.get('stdlib/std/fs/raw/fd_io.nepl');
 const rawLlvmCode = codeByPath.get('stdlib/std/fs/raw/llvm.nepl');
 const fdCode = codeByPath.get('stdlib/std/fs/fd.nepl');
 const statCode = codeByPath.get('stdlib/std/fs/stat.nepl');
@@ -64,6 +62,7 @@ const readPathCode = codeByPath.get('stdlib/std/fs/read/path.nepl');
 const writeCode = codeByPath.get('stdlib/std/fs/write.nepl');
 const writeFdCode = codeByPath.get('stdlib/std/fs/write/fd.nepl');
 const writePathCode = codeByPath.get('stdlib/std/fs/write/path.nepl');
+const removedRawFdIoPath = path.join(repoRoot, 'stdlib/std/fs/raw/fd_io.nepl');
 
 const forbidden = [
     /\bunwrap\b/,
@@ -141,6 +140,10 @@ assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/fd"\s+as\s+\*/, 'std/fs/
 assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/path"\s+as\s+\*/, 'std/fs/read facade must re-export path read helper submodule');
 assert.doesNotMatch(readCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/read root must stay a facade without implementation bodies');
 assert.match(readFdCode, /\bfn\s+fs_read_fd_bytes\b[\s\S]*\balloc_region<u8>\s+cap[\s\S]*\blet\s+mut\s+buf_region\s+<RegionToken<u8>>[\s\S]*\brealloc_region_bytes_keep<u8>\s+buf_region\s+new_cap[\s\S]*\bfs_fd_read_into_result\b[\s\S]*\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region[\s\S]*\bfs_finish_read_buffer\s+buf_region\s+read_len\b/, 'fd read loop must own growable buffer and scratch through RegionToken in std/fs/read/fd');
+assert.doesNotMatch(readFdCode, /\bpub\s+fn\s+fs_fd_read_into_result\b/, 'raw fd_read MemPtr helper must stay private inside std/fs/read/fd');
+assert.match(readFdCode, /\bfn\s+fs_fd_read_into_result\b[\s\S]*\bstore_i32\s+iov_raw\s+data_raw[\s\S]*\bwasi_fd_read\s+fd\s+iov_raw\s+1\s+nread_raw[\s\S]*\bload_i32\s+nread_raw/, 'fd read scratch initialization must stay inside the std/fs/read/fd owner boundary');
+assert.match(readFdCode, /\bfn\s+fs_discard_read_buffer\s+<\(RegionToken<u8>,i32\)\*>/, 'fs read discard helper must consume a RegionToken owner, not a MemPtr owner');
+assert.match(readFdCode, /\bfn\s+fs_finish_read_buffer\s+<\(RegionToken<u8>,i32\)\*>[\s\S]*\brealloc_region_bytes_keep<u8>[\s\S]*\bio_bytebuf_finish_region\b/, 'ByteBuf finish ownership normalization must stay on the RegionToken owner boundary in std/fs/read/fd');
 assert.doesNotMatch(readFdCode, /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/, 'std/fs/read/fd must not import low-level MemPtr owner allocation wrappers');
 assert.doesNotMatch(readFdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/read/fd must not use MemPtr as a read buffer or scratch free-obligation owner');
 assert.match(readPathCode, /\bfn\s+fs_read_to_bytes\b[\s\S]*\bfs_open_read\s+path[\s\S]*\bfs_read_fd_bytes\s+fd[\s\S]*\bfs_close\s+fd/, 'path read API must stay in std/fs/read/path');
@@ -149,8 +152,10 @@ assert.doesNotMatch(readPathCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_raw|fs_fd_
 assert.match(writeCode, /pub\s+#import\s+"std\/fs\/write\/fd"\s+as\s+\*/, 'std/fs/write facade must re-export fd write helper submodule');
 assert.match(writeCode, /pub\s+#import\s+"std\/fs\/write\/path"\s+as\s+\*/, 'std/fs/write facade must re-export path write helper submodule');
 assert.doesNotMatch(writeCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/write root must stay a facade without implementation bodies');
-assert.match(writeFdCode, /\bfn\s+fs_write_fd_mem_result\b[\s\S]*\balloc_region<u8>\s+8[\s\S]*\blet\s+iov_buf\s+<MemPtr<u8>>\s+region_ptr\s+&iov_region[\s\S]*\balloc_region<u8>\s+4[\s\S]*\blet\s+nwritten_buf\s+<MemPtr<u8>>\s+region_ptr\s+&nwritten_region[\s\S]*\bfs_fd_write_from_result\b[\s\S]*\bdealloc_region<u8>\s+nwritten_region[\s\S]*\bdealloc_region<u8>\s+iov_region/, 'fd write loop must own iovec/nwritten scratch through RegionToken and keep raw ABI layout in std/fs/raw/fd_io');
+assert.match(writeFdCode, /\bfn\s+fs_write_fd_mem_result\b[\s\S]*\balloc_region<u8>\s+8[\s\S]*\blet\s+iov_buf\s+<MemPtr<u8>>\s+region_ptr\s+&iov_region[\s\S]*\balloc_region<u8>\s+4[\s\S]*\blet\s+nwritten_buf\s+<MemPtr<u8>>\s+region_ptr\s+&nwritten_region[\s\S]*\bfs_fd_write_from_result\b[\s\S]*\bdealloc_region<u8>\s+nwritten_region[\s\S]*\bdealloc_region<u8>\s+iov_region/, 'fd write loop must own iovec/nwritten scratch through RegionToken and keep raw ABI layout inside std/fs/write/fd');
 assert.doesNotMatch(writeFdCode, /\bpub\s+fn\s+fs_write_fd_mem_result\b/, 'raw MemPtr span writer must stay private inside std/fs/write/fd');
+assert.doesNotMatch(writeFdCode, /\bpub\s+fn\s+fs_fd_write_from_result\b/, 'raw fd_write MemPtr helper must stay private inside std/fs/write/fd');
+assert.match(writeFdCode, /\bfn\s+fs_fd_write_from_result\b[\s\S]*\bstore_i32\s+iov_raw\s+data_raw[\s\S]*\bwasi_fd_write\s+fd\s+iov_raw\s+1\s+nwritten_raw[\s\S]*\bload_i32\s+nwritten_raw/, 'fd write scratch initialization must stay inside the std/fs/write/fd owner boundary');
 assert.doesNotMatch(writeFdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/write/fd must not use MemPtr as a scratch free-obligation owner');
 assert.match(writeFdCode, /\bfn\s+fs_write_fd_bytes\b[\s\S]*\bfs_write_fd_mem_result\s+fd\s+data\s+data_len[\s\S]*\bio_bytebuf_free\s+bytes/, 'ByteBuf-consuming fd write API must stay in std/fs/write/fd and close storage through the ByteBuf owner boundary');
 assert.match(writePathCode, /\bfn\s+fs_write_to_bytes\b[\s\S]*\bfs_open_write\s+path[\s\S]*\bfs_write_fd_bytes\s+fd\s+bytes[\s\S]*\bfs_close\s+fd/, 'path write API must stay in std/fs/write/path');
@@ -198,13 +203,10 @@ assert.doesNotMatch(dirReadFdCode, /\bget\s+entries\s+"data"/, 'fs_read_dir_fd m
 assert.match(dirPathCode, /\bfn\s+fs_read_dir\b[\s\S]*\bfs_open_dir\s+path[\s\S]*\bfs_read_dir_fd\s+fd[\s\S]*\bfs_close\s+fd/, 'path directory listing API must stay in std/fs/dir/path');
 assert.doesNotMatch(dirPathCode, /\b(?:alloc_ptr|wasi_fd_readdir|load_i32|store_i32)\b/, 'std/fs/dir/path must not own fd_readdir raw entry conversion');
 assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/wasi"\s+as\s+\*/, 'std/fs/raw facade must re-export WASI syscall submodule');
-assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/fd_io"\s+as\s+\*/, 'std/fs/raw facade must re-export fd I/O scratch submodule');
+assert.doesNotMatch(rawCode, /#import\s+"std\/fs\/raw\/fd_io"\s+as\s+\*/, 'std/fs/raw facade must not re-export fd I/O MemPtr scratch helpers');
 assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/llvm"\s+as\s+\*/, 'std/fs/raw facade must re-export LLVM fallback submodule');
 assert.doesNotMatch(rawCode, /^\s*(#extern|fn|struct|impl)\s/m, 'std/fs/raw root must stay a facade without syscall or helper bodies');
-assert.match(rawFdIoCode, /\bfn\s+fs_fd_read_into_result\b[\s\S]*\bstore_i32\s+iov_raw\s+data_raw[\s\S]*\bwasi_fd_read\s+fd\s+iov_raw\s+1\s+nread_raw[\s\S]*\bload_i32\s+nread_raw/, 'fd read scratch initialization must stay in std/fs/raw/fd_io');
-assert.match(rawFdIoCode, /\bfn\s+fs_discard_read_buffer\s+<\(RegionToken<u8>,i32\)\*>/, 'fs read discard helper must consume a RegionToken owner, not a MemPtr owner');
-assert.match(rawFdIoCode, /\bfn\s+fs_finish_read_buffer\s+<\(RegionToken<u8>,i32\)\*>[\s\S]*\brealloc_region_bytes_keep<u8>[\s\S]*\bio_bytebuf_finish_region\b/, 'ByteBuf finish ownership normalization must stay on the RegionToken owner boundary in std/fs/raw/fd_io');
-assert.doesNotMatch(rawFdIoCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/raw/fd_io must not keep read buffer ownership in low-level MemPtr allocation wrappers');
+assert.equal(fs.existsSync(removedRawFdIoPath), false, 'std/fs/raw/fd_io must not remain as a direct-importable raw MemPtr helper module');
 assert.match(rawLlvmCode, /\bfn\s+__fs_copy_to_cstr\b[\s\S]*\bfn\s+wasi_path_open\b/, 'LLVM filesystem fallback must stay in std/fs/raw/llvm');
 assert.match(rawLlvmCode, /\bfn\s+__fs_copy_to_cstr\s+<\(i32,i32\)\*>Result<RegionToken<u8>,i32>>[\s\S]*\balloc_region<u8>\s+size[\s\S]*\blet\s+dst\s+<MemPtr<u8>>\s+region_ptr\s+&dst_region[\s\S]*Result<RegionToken<u8>,i32>::Ok\s+dst_region[\s\S]*\blet\s+cpath\s+<MemPtr<u8>>\s+region_ptr\s+&cpath_region[\s\S]*\b__linux_syscall_openat_path\s+mem_ptr_addr\s+cpath[\s\S]*\bdealloc_region<u8>\s+cpath_region/, 'LLVM path_open fallback must own temporary C strings through RegionToken and pass only non-owning views to syscalls');
 assert.doesNotMatch(rawLlvmCode, /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/, 'std/fs/raw/llvm must not import low-level MemPtr owner allocation wrappers');

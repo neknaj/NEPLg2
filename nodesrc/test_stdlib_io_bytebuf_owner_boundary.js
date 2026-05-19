@@ -20,8 +20,6 @@ const traitsRelPath = 'stdlib/alloc/io/traits.nepl';
 const traitsSrc = fs.readFileSync(path.join(repoRoot, traitsRelPath), 'utf8');
 const fsRelPath = 'stdlib/std/fs/read/fd.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
-const fsRawRelPath = 'stdlib/std/fs/raw/fd_io.nepl';
-const fsRawSrc = fs.readFileSync(path.join(repoRoot, fsRawRelPath), 'utf8');
 const bytebufResultRelPath = 'tests/stdlib/bytebuf_result.n.md';
 const bytebufResultSrc = fs.readFileSync(path.join(repoRoot, bytebufResultRelPath), 'utf8');
 
@@ -259,7 +257,7 @@ assert.match(byteBuilderCode, /\b(?:mem_ptr_addr|load_u8|store_u8|mem_copy|Regio
 const fsReadMatch = fsSrc.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
-const fsFinishMatch = fsRawSrc.match(/(?:pub\s+)?fn\s+fs_finish_read_buffer\b([\s\S]*)/);
+const fsFinishMatch = fsSrc.match(/(?:pub\s+)?fn\s+fs_finish_read_buffer\b([\s\S]*?)\n(?:pub\s+)?fn\s+fs_read_fd_bytes\b/);
 assert.ok(fsFinishMatch, 'fs_finish_read_buffer body must be found');
 const fsFinish = fsFinishMatch[1];
 
