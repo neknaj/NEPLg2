@@ -42418,3 +42418,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check`: passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+## 2026-05-19 Agent 1 Resource IR release summary の raw-address carrier seed 絞り込み
+
+- `ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw init summary の release requirement collection が、`str` や plain aggregate から作った non-owning raw view まで parameter raw-address alias として caller 側 requirement へ要約していたことだった。
+- `initialized_summary_seed.rs` を追加し、summary input の raw-address alias seed を TypeCtx に基づく汎用判定へ集約した。`str` / plain aggregate は除外し、top-level raw `i32` と登録済み compiler memory carrier (`MemPtr` / `RegionToken`) は維持する。
+- release requirement の param candidate も同じ判定を使うため、`ResourceCheckEngine` の raw-address view simulation が普通の initialized value から view を作っても、型上 raw cell を保持できない parameter へ requirement を出さない。
+- stdlib/nm 名や関数名の allowlist ではなく、型・Resource IR 上の証明可能性で pruning している。回帰テストでは string view が requirement を出さず、registered raw pointer field は `BulkSource` requirement を保つことを固定した。
+- `examples/nm.nepl` の stage timing probe では `resource_initialized_raw_init_summaries=43194ms`、`resource_initialized_moves=65689ms` まで改善した。full compile は300秒内に完了せず、残る主因は `resource_effect_boundaries` 側として `ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487` を継続する。
+- focused verification:
+  - `cargo test -p nepl-core initialized_summary_ -- --nocapture`: passed
+  - `cargo fmt -p nepl-core -- --check`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed

@@ -26,6 +26,7 @@ pub(super) fn collect_unknown_indirect_call_release_requirements(
         };
         collect_address_release_requirements(
             out,
+            types,
             &address,
             RawCellReleaseRequirementKind::Store,
             raw_aliases,

@@ -20,6 +20,7 @@ use super::initialized_summary_param_byte_ranges::collect_param_initialized_raw_
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_release_build::collect_param_release_requirements_from_ops;
 use super::initialized_summary_return_byte_ranges::collect_return_initialized_raw_byte_ranges;
+use super::initialized_summary_seed::seed_summary_input_place;
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{ResourceFunction, ResourceModule, ResourceTerminator};
@@ -119,12 +120,10 @@ fn function_raw_cell_initialization_summary(
     let mut function_aliases = FunctionAliasTable::default();
     let mut pending_reallocs = PendingRawReallocs::default();
     for param in &function.params {
-        cells.mark_initialized(&param.place);
-        raw_aliases.mark(&param.place);
+        seed_summary_input_place(types, &mut cells, &mut raw_aliases, &param.place);
         if let Some(target_ty) = reference_target_type(types, param.place.ty) {
             let target = reference_target_place(&param.place, target_ty);
-            cells.mark_initialized(&target);
-            raw_aliases.mark(&target);
+            seed_summary_input_place(types, &mut cells, &mut raw_aliases, &target);
         }
     }
 

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T08:29:38.904Z",
+  "generated_at": "2026-05-19T09:03:01.332Z",
   "counts": {
-    "total": 1052,
+    "total": 1053,
     "open": 5,
-    "resolved": 1047,
+    "resolved": 1048,
     "by_area": {
       "core": {
-        "total": 516,
+        "total": 517,
         "open": 1,
-        "resolved": 515
+        "resolved": 516
       },
       "stdlib": {
         "total": 287,
@@ -7883,6 +7883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9.md"
+    },
+    {
+      "id": "ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116",
+      "title": "Resource init summary release requirements seed plain string views as raw-address carriers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/initialized_summary_*",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -166,9 +166,14 @@ mod initialized_summary_param_cells;
 mod initialized_summary_raw_release;
 mod initialized_summary_release;
 mod initialized_summary_release_build;
+#[cfg(test)]
+mod initialized_summary_release_build_tests;
 mod initialized_summary_release_model;
 mod initialized_summary_return_byte_range_count;
 mod initialized_summary_return_byte_ranges;
+mod initialized_summary_seed;
+#[cfg(test)]
+mod initialized_summary_seed_tests;
 mod initialized_summary_variant_build;
 #[cfg(test)]
 mod initialized_summary_variant_build_tests;

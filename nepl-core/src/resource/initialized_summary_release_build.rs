@@ -15,6 +15,7 @@ use super::initialized_summary_indirect_release::{
     collect_unknown_indirect_call_release_requirements, indirect_call_may_release_raw_cells,
 };
 use super::initialized_summary_raw_release::collect_raw_memory_release_requirements;
+use super::initialized_summary_seed::summary_input_type_may_seed_raw_address_alias;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceBlockId, ResourceCallTarget, ResourceLocal, ResourceOp};
 use super::place_utils::{match_bind_payload_place, projected_place_with_concrete_type};
@@ -78,7 +79,14 @@ fn collect_param_release_requirements_from_op(
     match op {
         ResourceOp::RawMemory {
             operation, args, ..
-        } => collect_raw_memory_release_requirements(out, operation, args, raw_aliases, params),
+        } => collect_raw_memory_release_requirements(
+            out,
+            engine.types,
+            operation,
+            args,
+            raw_aliases,
+            params,
+        ),
         ResourceOp::Call { target, args, .. } => collect_call_release_requirements(
             out,
             engine,
@@ -340,12 +348,20 @@ fn collect_function_summary_release_requirements(
             &requirement.suffix,
             requirement.ty,
         );
-        collect_address_release_requirements(out, &address, requirement.kind, raw_aliases, params);
+        collect_address_release_requirements(
+            out,
+            engine.types,
+            &address,
+            requirement.kind,
+            raw_aliases,
+            params,
+        );
     }
 }
 
 pub(super) fn collect_address_release_requirements(
     out: &mut Vec<RawCellReleaseParamRequirement>,
+    types: &crate::types::TypeCtx,
     address: &Place,
     kind: RawCellReleaseRequirementKind,
     raw_aliases: &RawCellAddressAliases,
@@ -354,6 +370,9 @@ pub(super) fn collect_address_release_requirements(
     let address = raw_aliases.canonicalize(address);
     for address_alias in raw_aliases.aliases_for(&address) {
         for (param_index, param) in params.iter().enumerate() {
+            if !summary_input_type_may_seed_raw_address_alias(types, param.place.ty) {
+                continue;
+            }
             for param_alias in raw_aliases.aliases_for(&param.place) {
                 let Some(suffix) = raw_address_suffix_after_address(&address_alias, &param_alias)
                 else {

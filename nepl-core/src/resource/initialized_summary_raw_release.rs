@@ -2,6 +2,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::types::TypeCtx;
+
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{RawCellReleaseParamRequirement, RawCellReleaseRequirementKind};
 use super::initialized_summary_release_build::collect_address_release_requirements;
@@ -9,6 +11,7 @@ use super::model::{Place, RawMemoryOp, ResourceLocal};
 
 pub(super) fn collect_raw_memory_release_requirements(
     out: &mut Vec<RawCellReleaseParamRequirement>,
+    types: &TypeCtx,
     operation: &RawMemoryOp,
     args: &[Place],
     raw_aliases: &RawCellAddressAliases,
@@ -18,7 +21,7 @@ pub(super) fn collect_raw_memory_release_requirements(
         let Some(address) = args.get(arg_index) else {
             continue;
         };
-        collect_address_release_requirements(out, address, kind, raw_aliases, params);
+        collect_address_release_requirements(out, types, address, kind, raw_aliases, params);
     }
 }
 

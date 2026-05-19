@@ -27,6 +27,7 @@ TypeCtx を raw identity summary replay に通しても examples/nm.nepl は 8�
 - `ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC` で raw identity summary replay の `TypeCtx` 欠落は修正した。
 - 修正後 probe でも `resource_initialized_raw_init_summaries=86269ms`、`resource_initialized_function_checks=15228ms`、`resource_initialized_moves=104483ms` で、さらに `resource_effect_boundaries` が 140 秒以上戻らなかった。
 - `ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9` で concrete non-enum return の variant summary replay を型で止めた後、`resource_initialized_raw_init_summaries=76306ms`、`resource_initialized_moves=95503ms` まで改善した。
+- `ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116` で release requirement の parameter seed を raw-address carrier 型に絞った後、`resource_initialized_raw_init_summaries=43194ms`、`resource_initialized_moves=65689ms` まで改善した。
 - したがって timeout の根本は TypeCtx 欠落単独ではなく、Resource IR summary stage 全体の再計算量 / summary propagation / effect boundary proof の設計に残っている。
 
 ## 問題
@@ -41,7 +42,7 @@ NM CLI の native compile smoke と examples doctest が CI で失敗し、静�
 
 raw init summary と effect boundary summary を個別モジュール allowlist ではなく型・ResourceOp・call dependency に基づいて pruning する。NM parser/html のような大きい source で stage timing を比較し、default CI budget 内へ戻す。
 
-2026-05-19 時点で、variant-param summary 側の concrete non-enum return pruning は完了。残る主因は raw initialization summary の release requirement collection と、その後の effect boundary proof である。引き続き stdlib/nm 名の allowlist ではなく、ResourceOp と TypeCtx から導ける汎用 proof / dependency pruning として対応する。
+2026-05-19 時点で、variant-param summary 側の concrete non-enum return pruning と、release requirement の plain string view over-seed は完了。残る主因は `resource_effect_boundaries` と、raw init summary 内に残る他の再計算境界である。引き続き stdlib/nm 名の allowlist ではなく、ResourceOp と TypeCtx から導ける汎用 proof / dependency pruning として対応する。
 
 ## 検証
 
@@ -51,4 +52,5 @@ NEPL_COMPILE_STAGE_TIMING=1 cargo run -p nepl-cli -- --target wasi --profile deb
 
 - split from fixed correctness issue: `ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC`
 - partial fixed performance sub-issue: `ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9`
+- partial fixed performance sub-issue: `ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116`
 - Stage: `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 6
