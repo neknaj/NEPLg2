@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T02:01:36.443Z",
+  "generated_at": "2026-05-19T02:19:01.060Z",
   "counts": {
-    "total": 1044,
+    "total": 1045,
     "open": 5,
-    "resolved": 1039,
+    "resolved": 1040,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 63,
+        "total": 64,
         "open": 1,
-        "resolved": 62
+        "resolved": 63
       },
       "selfhost": {
         "total": 74,
@@ -13298,6 +13298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T015240790Z-N-MD-REPORT-METADATA-POLICY-MISSES-S-8E4C48FA.md"
+    },
+    {
+      "id": "ISS-20260519T021633842Z-NEPL-DOC-COMMENT-REPORT-METADATA-POL-5A293E8D",
+      "title": ".nepl doc-comment report metadata policy misses stdout/exit_code regressions",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/**/*.nepl, nodesrc/report_metadata_policy.js, nodesrc/run_source_policy_regressions.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T021633842Z-NEPL-DOC-COMMENT-REPORT-METADATA-POL-5A293E8D.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

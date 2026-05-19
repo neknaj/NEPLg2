@@ -210,7 +210,9 @@ pub fn json_object_push <(JsonObject,str,JsonValue)->Result<JsonObject, StdError
 pub fn json_object <(JsonObject)->JsonValue> (obj):
     JsonValue::Object obj
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -222,5 +224,7 @@ pub fn json_object <(JsonObject)->JsonValue> (obj):
 //:     let a <JsonArray> unwrap_ok json_array_new
 //:     let a2 <JsonArray> unwrap_ok json_array_push a json_number 7
 //:     let _v <JsonValue> json_array a2
-//:     checks_exit_code checks_push checks_new assert true
+//:     let checks checks_push checks_new assert true
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```

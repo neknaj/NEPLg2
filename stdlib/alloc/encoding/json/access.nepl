@@ -186,7 +186,9 @@ pub fn json_as_object <(JsonValue)->Option<JsonObject>> (v):
         JsonValue::Array a:
             none<JsonObject>
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -197,5 +199,6 @@ pub fn json_as_object <(JsonValue)->Option<JsonObject>> (v):
 //: fn main <()*>i32> ():
 //:     let checks0 checks_push checks_new assert json_is_null json_null
 //:     let checks1 checks_push checks0 assert is_some<bool> json_as_bool json_bool true
-//:     checks_exit_code checks1
+//:     let shown checks_print_report checks1
+//:     checks_exit_code shown
 //: ```

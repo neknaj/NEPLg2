@@ -26,7 +26,9 @@
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -36,7 +38,8 @@
 //: fn main <()*>i32> ():
 //:     let arr <JsonArray> JsonArray "1,2"
 //:     let checks checks_push checks_new assert_str_eq "1,2" get arr "items"
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 pub struct JsonArray:
     items <str>
@@ -55,7 +58,9 @@ pub struct JsonArray:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -65,7 +70,8 @@ pub struct JsonArray:
 //: fn main <()*>i32> ():
 //:     let obj <JsonObject> JsonObject "\"a\":1"
 //:     let checks checks_push checks_new assert_str_eq "{\"a\":1}" json_serialize_object obj
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 pub struct JsonObject:
     members <str>
@@ -84,7 +90,9 @@ pub struct JsonObject:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -94,7 +102,8 @@ pub struct JsonObject:
 //: fn main <()*>i32> ():
 //:     let v <JsonValue> JsonValue::Number 42
 //:     let checks checks_push checks_new assert_str_eq "42" json_serialize v
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 pub enum JsonValue:
     Null
@@ -118,7 +127,9 @@ pub enum JsonValue:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -128,7 +139,8 @@ pub enum JsonValue:
 //: fn main <()*>i32> ():
 //:     let member <JsonMember> JsonMember "answer" JsonValue::Number 42
 //:     let checks checks_push checks_new assert_str_eq "answer" get member "key"
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 pub struct JsonMember:
     key <str>
@@ -189,7 +201,9 @@ pub enum JsonEscapeKind:
     FormFeed
     Plain
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -198,5 +212,6 @@ pub enum JsonEscapeKind:
 //: fn main <()*>i32> ():
 //:     let v <JsonValue> JsonValue::Null
 //:     let checks checks_push checks_new assert true
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```

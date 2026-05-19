@@ -8,7 +8,9 @@
 //: - ここは互換 import path のための facade です。新しい処理本体は submodule に置きます。
 //: - `JsonValue` の Array/Object は typed JSON fragment を保持します。現行の Copy-only collection 境界に non-Copy JSON tree を載せません。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -16,7 +18,8 @@
 //:| #import "alloc/encoding/json" as *
 //: fn main <()*>i32> ():
 //:     let checks checks_push checks_new assert_str_eq "true" json_serialize json_bool true
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 #indent 4

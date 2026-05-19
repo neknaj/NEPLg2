@@ -42310,3 +42310,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_doctest.js -i tests\stdlib\stdio_read_all.n.md -n 2 --dist web\dist`: passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
   - `node nodesrc/tests.js -i tests\compiler\overload.n.md -i tests\stdlib\stdio_read_all.n.md --no-tree -o tmp\agent1-nmd-report-metadata-policy.json -j 1 --dist web\dist --assert-io`: 300 秒で timeout。`overload.n.md` 全体は重いため、local では代表 doctest と policy に絞った。
+
+## 2026-05-19 Agent 1 .nepl doc-comment report metadata general policy
+
+- `ISS-20260519T021633842Z-NEPL-DOC-COMMENT-REPORT-METADATA-POL-5A293E8D` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`.n.md` 側には report metadata の横断 policy が入ったが、`.nepl` doc-comment doctest 側は個別 contract に漏れた `checks_print_report` / `checks_exit_code` 利用を検出できず、stdout fixture と exit_code fixture がないまま残れることだった。
+- `nodesrc/report_metadata_policy.js` に report doctest metadata 判定を共通化し、`.n.md` policy と `.nepl` policy が同じ規則を使う構造へ直した。
+- `nodesrc/test_nepl_doc_report_metadata_policy.js` を追加し、active `.nepl` report doctest に report print、report-derived exit、`stdio`、`normalize_newlines`、`stdout:`、`exit_code:`、`ret:` 不使用を要求する source policy を登録した。
+- `stdlib/alloc/collections/vec.nepl`、`alloc/diag/error*`、`alloc/encoding/json*`、`alloc/io/bytebuf.nepl`、`alloc/io/bytebuilder/storage.nepl`、`alloc/io/traits.nepl` の 21 件を stdout report + `exit_code: 0` へ移行した。
+- metadata 追加で顕在化した `outcome.nepl::doctest#2` と `traits.nepl::doctest#1` の古い import / expression 書き方を修正し、現行の型検査で compile できる形にした。
+- focused verification:
+  - `node nodesrc/test_nepl_doc_report_metadata_policy.js`: passed
+  - `node nodesrc/test_nmd_report_metadata_policy.js`: passed
+  - 変更した `.nepl` report doctest の focused run: passed

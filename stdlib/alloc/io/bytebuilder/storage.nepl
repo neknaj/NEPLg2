@@ -74,7 +74,9 @@ pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
 //:
 //: [注意/ちゅうい]:
 //: - token は必ず `dealloc_region` へ渡し、compiler が token owner の消費を直接追跡できる形にします。
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -84,12 +86,14 @@ pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
 //:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let checks0 checks_new
-//:     match alloc_region_bytes<u8> 4:
+//:     let checks match alloc_region_bytes<u8> 4:
 //:         Result::Ok region:
 //:             byte_builder_dealloc_owned_region region
-//:             checks_exit_code checks_push checks0 assert_eq_i32 1 1
+//:             checks_push checks0 assert_eq_i32 1 1
 //:         Result::Err _e:
-//:             checks_exit_code checks_push checks0 assert_eq_i32 1 0
+//:             checks_push checks0 assert_eq_i32 1 0
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 pub fn byte_builder_dealloc_owned_region <(RegionToken<u8>)->()> (region):
     match dealloc_region<u8> region:

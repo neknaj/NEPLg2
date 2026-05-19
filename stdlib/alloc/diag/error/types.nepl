@@ -8,7 +8,9 @@
 //: - `Diag` の note/help/source は owner-neutral な text fragment として[保持/ほじ]します。
 //: - `Diags` だけが `Vec<Diag>` の backing storage owner を[持/も]ちます。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -16,7 +18,8 @@
 //:| #import "alloc/diag/error/types" as *
 //: fn main <()*>i32> ():
 //:     let checks checks_push checks_new assert_str_eq "warn" diag_level_str DiagLevel::Warn
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 #indent 4

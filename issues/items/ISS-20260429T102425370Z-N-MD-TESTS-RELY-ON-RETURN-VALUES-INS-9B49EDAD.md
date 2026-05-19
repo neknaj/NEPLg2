@@ -1774,3 +1774,22 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `tests/compiler/overload.n.md` 全体の aggregate run は 300 秒で timeout した。今回の変更は manifest metadata 追加であり、代表 doctest と source policy で local 確認し、全体 run は CI 側に委ねる。
 
 この issue はまだ open のまま継続する。`.n.md` report metadata の一般 policy は整備したが、stdlib doc-comment doctest 側の stdout report 未固定と、core-only `ret:` fixture の扱い整理が残っている。
+
+## 2026-05-19 .nepl doc-comment report metadata general policy
+
+`ISS-20260519T021633842Z-NEPL-DOC-COMMENT-REPORT-METADATA-POL-5A293E8D` として、`.nepl` doc-comment doctest 全体の report metadata 退行を検出する source policy を追加した。
+
+移行内容:
+
+- `.n.md` 側の policy を複製せず、report metadata 判定を `nodesrc/report_metadata_policy.js` に共通化した。
+- `nodesrc/test_nepl_doc_report_metadata_policy.js` を追加し、`tests` / `tutorials` / `stdlib` / `examples` 配下の `.nepl` を横断して、active report doctest が `stdio, normalize_newlines`、`stdout:`、`exit_code:`、report print helper、report-derived exit helperをすべて持つことを検査するようにした。
+- `stdlib/alloc/collections/vec.nepl`、`alloc/diag/error*`、`alloc/encoding/json*`、`alloc/io/bytebuf.nepl`、`alloc/io/bytebuilder/storage.nepl`、`alloc/io/traits.nepl` の 21 件を stdout report + `exit_code: 0` へ移行した。
+- metadata 追加で隠れていた compile failure も検出できたため、`outcome.nepl::doctest#2` と `traits.nepl::doctest#1` の古い import / expression 書き方を現行 API に合わせて直した。
+
+検証:
+
+- `node nodesrc/test_nepl_doc_report_metadata_policy.js`: passed
+- `node nodesrc/test_nmd_report_metadata_policy.js`: passed
+- 変更した `.nepl` report doctest の focused run: passed
+
+この issue はまだ open のまま継続する。report helper を使う `.n.md` / `.nepl` の metadata 横断監視は整ったが、`ret:` だけに依存する古い assertion fixture の段階的移行は残る。

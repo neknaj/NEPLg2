@@ -23,7 +23,9 @@
 #import "core/result" as *
 #import "core/math" as *
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -33,7 +35,7 @@
 //:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let checks0 checks_new
-//:     match io_bytebuf_from_str_result "AB":
+//:     let checks match io_bytebuf_from_str_result "AB":
 //:         Result::Ok bytes:
 //:             let checks1 checks_push checks0 assert_eq_i32 2 io_bytebuf_len_ref &bytes
 //:             let checks2 match io_bytebuf_byte_at &bytes 1:
@@ -43,11 +45,13 @@
 //:                     checks_push checks1 assert_eq_i32 1 0
 //:             match io_bytebuf_to_str_result bytes:
 //:                 Result::Ok text:
-//:                     checks_exit_code checks_push checks2 assert_str_eq "AB" text
+//:                     checks_push checks2 assert_str_eq "AB" text
 //:                 Result::Err _e:
-//:                     checks_exit_code checks_push checks2 assert_eq_i32 1 0
+//:                     checks_push checks2 assert_eq_i32 1 0
 //:         Result::Err _e:
-//:             checks_exit_code checks_push checks0 assert_eq_i32 1 0
+//:             checks_push checks0 assert_eq_i32 1 0
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 //: ## ByteBufStorage

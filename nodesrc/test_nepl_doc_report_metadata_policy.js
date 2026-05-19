@@ -16,14 +16,14 @@ assertReportMetadataPolicySelfTest();
 const { violations, reportDoctestCount } = scanReportMetadataPolicy({
     repoRoot,
     roots,
-    extension: ".n.md",
+    extension: ".nepl",
 });
 
-assert(reportDoctestCount > 0, "n.md report metadata policy must scan active report doctests");
+assert(reportDoctestCount > 0, ".nepl report metadata policy must scan active report doctests");
 assert.deepEqual(
     violations,
     [],
-    `.n.md report doctests must pin stdout, exit_code, and stdio metadata:\n${violations.join("\n")}`,
+    `.nepl report doctests must pin stdout, exit_code, and stdio metadata:\n${violations.join("\n")}`,
 );
 
-console.log("n.md report metadata policy passed");
+console.log(".nepl report metadata policy passed");

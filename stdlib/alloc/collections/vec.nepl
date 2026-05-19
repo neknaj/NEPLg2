@@ -23,7 +23,9 @@
 //:
 //: ### [使用例/しようれい]
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -51,7 +53,8 @@
 //:             checks_push checks1 assert false
 //:     free a2;
 //:     free b2;
-//:     checks_exit_code checks2
+//:     let shown checks_print_report checks2
+//:     checks_exit_code shown
 //: ```
 //:
 //: neplg2:test

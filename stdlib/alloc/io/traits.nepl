@@ -12,12 +12,16 @@
 #import "core/field" as *
 #import "core/math" as *
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/traits" as *
+//:| #import "core/field" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
 //: struct CountSink:
@@ -27,15 +31,19 @@
 //:     fn write_bytes <(CountSink,ByteBuf)*>Result<CountSink, StdErrorKind>> (sink, bytes):
 //:         let n <i32> io_bytebuf_len_ref &bytes;
 //:         io_bytebuf_free bytes;
-//:         Result::Ok CountSink add get sink "total" n
+//:         let total <i32> get sink "total"
+//:         Result<CountSink, StdErrorKind>::Ok CountSink add total n
 //:
 //: fn main <()*>i32> ():
 //:     let bytes0 <ByteBuf> io_bytebuf_from_str "AB";
-//:     match io_write_bytes (CountSink 3) bytes0:
+//:     let checks match io_write_bytes (CountSink 3) bytes0:
 //:         Result::Ok sink1:
-//:             checks_exit_code checks_push checks_new assert_eq_i32 5 get sink1 "total"
+//:             let total <i32> get sink1 "total"
+//:             checks_push checks_new assert_eq_i32 5 total
 //:         Result::Err _e:
-//:             checks_exit_code checks_push checks_new assert_eq_i32 1 0
+//:             checks_push checks_new assert_eq_i32 1 0
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 //: ## ByteReader

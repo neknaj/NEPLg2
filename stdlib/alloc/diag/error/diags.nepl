@@ -7,7 +7,9 @@
 //: [注意/ちゅうい]:
 //: - by-value observer は[観測/かんそく]後に `diags_free` で owner を[閉/と]じます。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "Checked [ok]\n[0] ok\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -19,7 +21,8 @@
 //:     let d <Diag> diag_error StdErrorKind::EmptyCollection "empty"
 //:     let ds <Diags> diags_one d
 //:     let checks checks_push checks_new assert diags_has_errors ds
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 #indent 4
