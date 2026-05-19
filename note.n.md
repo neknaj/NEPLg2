@@ -42720,3 +42720,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test neplg2 recursive_clone_capability_impl_does_not_prove_itself -- --nocapture`: passed
   - `cargo test -p nepl-core --test neplg2 trait_ -- --nocapture`: passed
   - `cargo test -p nepl-core --test neplg2 copy_impl -- --nocapture`: passed
+
+## 2026-05-20 Agent 1 Copy/Drop capability 循環証明拒否
+
+- `ISS-20260519T203555031Z-RECURSIVE-COPY-AND-DROP-CAPABILITY-I-2CFBD501` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Clone の recursive query guard は入ったが、Copy / Drop の impl target matching が同じ capability query 文脈を共有せず、`impl<.T: CopyLike> CopyLike for .T` や `impl<.T: Drop> Drop for .T` が自分自身を proof として再入できる構造だったこと。
+- `TypeCtx` に `CapabilityQueryStack` を導入し、`copy` / `clone` / `drop` の訪問中 target を同じ stack で管理するようにした。`type_pattern_matches`、impl target query、`pattern_var_capabilities_match`、`is_copy` / `has_clone` / `has_drop` はこの stack を共有する。
+- 再入した target は未証明として拒否するため、stdlib 名や trait 名の allowlist ではなく TypeCtx の capability proof registry と query stack による汎用的な循環証明拒否になった。
+- focused verification:
+  - `cargo test -p nepl-core --test neplg2 recursive_copy_capability_impl_does_not_prove_itself -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop recursive_drop_capability_impl_does_not_prove_itself -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 recursive_clone_capability_impl_does_not_prove_itself -- --nocapture`: passed

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T20:34:16.424Z",
+  "generated_at": "2026-05-19T20:43:01.229Z",
   "counts": {
-    "total": 1073,
+    "total": 1074,
     "open": 4,
-    "resolved": 1069,
+    "resolved": 1070,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 526,
+        "total": 527,
         "open": 0,
-        "resolved": 526
+        "resolved": 527
       },
       "CORE": {
         "total": 5,
@@ -8033,6 +8033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T202611033Z-CLONE-CAPABILITY-TYPE-VARIABLES-DO-N-47C8522F.md"
+    },
+    {
+      "id": "ISS-20260519T203555031Z-RECURSIVE-COPY-AND-DROP-CAPABILITY-I-2CFBD501",
+      "title": "Recursive Copy and Drop capability impls can self-prove type patterns",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/types.rs; nepl-core/tests/neplg2.rs; nepl-core/tests/drop.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T203555031Z-RECURSIVE-COPY-AND-DROP-CAPABILITY-I-2CFBD501.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

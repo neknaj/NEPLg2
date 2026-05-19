@@ -1951,6 +1951,45 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn recursive_copy_capability_impl_does_not_prove_itself() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CloneLike:
+    #capability clone
+    fn clone_mark <(Self)->i32> (_self):
+        0
+
+trait CopyLike:
+    #capability copy
+    fn copy_mark <(Self)->i32> (_self):
+        0
+
+struct Payload:
+    value <i32>
+
+impl<.T: CopyLike> CloneLike for .T:
+    fn clone_mark <(.T)->i32> (_self):
+        1
+
+impl<.T: CopyLike> CopyLike for .T:
+    fn copy_mark <(.T)->i32> (_self):
+        7
+
+fn requires_copy <.T: CopyLike> <(.T)->i32> (_value):
+    1
+
+fn main <()->i32> ():
+    let payload <Payload> Payload 1
+    requires_copy payload
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitBoundUnsatisfied);
+}
+
+#[test]
 fn trait_method_type_params_have_type_code() {
     let src = r#"
 #entry main

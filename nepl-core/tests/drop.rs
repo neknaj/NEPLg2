@@ -264,6 +264,36 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn recursive_drop_capability_impl_does_not_prove_itself() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+
+trait Drop:
+    #capability drop
+    fn drop <(&Self)*>()> (self):
+        ()
+
+struct Payload:
+    value <i32>
+
+impl<.T: Drop> Drop for .T:
+    fn drop <(&.T)*>()> (self):
+        ()
+
+fn requires_drop <.T: Drop> <(.T)->i32> (_value):
+    1
+
+fn main <()->i32> ():
+    let payload <Payload> Payload 1
+    requires_drop payload
+"#;
+    compile_drop_err_has_type_code(source, TypeDiagnosticCode::TraitBoundUnsatisfied);
+}
+
+#[test]
 fn auto_drop_runs_at_scope_end() {
     let source = r#"
 #target wasm
