@@ -105,6 +105,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。他の diagnostic / stdlib fixture に残る stdout report 未固定を引き続き移行する。
 
+## 2026-05-19 rand stdout report migration
+
+`stdlib/tests/rand.n.md` の `rand_main` を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- first / second generated state の nonzero、successive state difference、zero seed escape の4観測を bool assertion として stdout に固定した。
+- 旧 `check_ne eq ... true` 形式を、読める assertion label と `assert ... not eq ...` の形に直した。
+- `nodesrc/test_stdlib_rand_report_contract.js` を追加し、`ret:`、stdout-less report、旧 `checks_*` 形式へ戻らないようにした。
+
+この issue はまだ open のまま継続する。他の stdlib fixture に残る stdout report 未固定を引き続き移行する。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

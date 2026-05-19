@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T00:07:26.747Z",
+  "generated_at": "2026-05-19T00:11:57.940Z",
   "counts": {
-    "total": 1034,
+    "total": 1035,
     "open": 5,
-    "resolved": 1029,
+    "resolved": 1030,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 56,
+        "total": 57,
         "open": 1,
-        "resolved": 55
+        "resolved": 56
       },
       "selfhost": {
         "total": 72,
@@ -13148,6 +13148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T000515443Z-DIAG-DOCTESTS-PRINT-CHECKS-REPORTS-W-C859A6D5.md"
+    },
+    {
+      "id": "ISS-20260519T001007508Z-RAND-DOCTEST-PRINTS-CHECKS-REPORT-WI-CA96DF23",
+      "title": "rand doctest prints checks report without stdout fixture",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/tests/rand.n.md, nodesrc/test_stdlib_rand_report_contract.js, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T001007508Z-RAND-DOCTEST-PRINTS-CHECKS-REPORT-WI-CA96DF23.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
