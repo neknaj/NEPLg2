@@ -42857,3 +42857,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/compiler/impl_visibility.n.md --no-tree -o tmp/agent1-pub-impl-visibility.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-pub-impl-proof.json -j 1 --dist web/dist --assert-io`: 4/4 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker_impl_visibility.n.md --no-tree -o tmp/agent1-pub-impl-checker-impl-visibility.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host checker doctest compile timeout 修正
+
+- `ISS-20260519T232628976Z-SELF-HOST-CHECKER-DOCTEST-SUMMARY-CA-2E6B074B` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`tests/stdlib/neplg2_checker.n.md::summarizes_module_items_with_typed_kind_match` が必要なsummary検査を1つにまとめていること自体ではなく、`checks1` から `checks11` まで `TestReport` owner の中間値を直列に増やし、checker/proofを読み込む重いdoctest内で不要なlocal stateを増やしていたことだった。
+- 検査内容、stdout、期待countは削らず、`let mut checks checks_new` と `set checks checks_push ...` の accumulator 形へ変更した。timeout延長で隠す修正は行っていない。
+- default 60000ms case timeoutで `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-checker-timeout-fix.json -j 1 --dist web/dist --assert-io` が 4/4 passed になった。
+- 修正後の doctest#1 は `compile_ms` 55911ms / `total_ms` 55932ms。前回の 120000ms 再実行時は compile_ms 約 61208ms だったため、60秒境界のtimeoutを解消した。

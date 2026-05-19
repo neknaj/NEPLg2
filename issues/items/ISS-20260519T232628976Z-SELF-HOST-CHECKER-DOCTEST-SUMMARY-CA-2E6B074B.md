@@ -2,8 +2,8 @@
 id: ISS-20260519T232628976Z-SELF-HOST-CHECKER-DOCTEST-SUMMARY-CA-2E6B074B
 title: "self-host checker doctest summary case exceeds default compile timeout"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: performance
 created: 2026-05-19
@@ -42,3 +42,9 @@ Investigate whether the cause is the doctest's broad fixture shape, self-host ch
 ## 検証
 
 `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o <out>.json -j 1 --dist web/dist --assert-io` should pass with the default 60000ms timeout, and the report should record compile_ms comfortably below the threshold.
+
+- 根本原因は、checker summary doctest 自体が `checks1` から `checks11` まで ownership accumulator を直列に再束縛し、同じ `TestReport` owner の push 結果を多数の中間 local として型検査させていたことだった。検査内容は必要だったが、test code shape が compile-time budget を圧迫していた。
+- `tests/stdlib/neplg2_checker.n.md::summarizes_module_items_with_typed_kind_match` を mutable `checks` accumulator に変更し、11個の検査内容と stdout はそのまま維持した。
+- timeout を延長する修正や検査内容の削除は行っていない。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-checker-timeout-fix.json -j 1 --dist web/dist --assert-io`: 4/4 passed with the default 60000ms case timeout。
+- 修正後の doctest#1 は `compile_ms` 55911ms / `total_ms` 55932ms で、default 60000ms を下回った。
