@@ -9,7 +9,7 @@
 //: - `checker.nepl` を巨大化させず、module-level validation の実装本体をこの file に閉じ込めます。
 //:
 //: [注意/ちゅうい]:
-//: - ここで行うのは module item stream の整合性検査と集計です。型推論、trait coherence、effect、owner / borrow / initialized の証明は後続 stage が `core/proof/` と Resource IR を通して行います。
+//: - ここで行うのは module item stream の整合性検査と集計です。source span のような汎用 property は `core/proof/` の typed query を通し、型推論、trait coherence、effect、owner / borrow / initialized の証明も後続 stage が同じ proof boundary と Resource IR を通して行います。
 //: - raw backend text は対応する `#wasm:` / `#llvmir:` item の直後の raw block 内にあることだけを確認します。
 //:
 //: [計算量/けいさんりょう]:
@@ -46,6 +46,7 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 
 //: SelfhostModuleCheckSummary: module item stream の[集計/しゅうけい][結果/けっか]
@@ -342,7 +343,7 @@ pub fn selfhost_module_check_item_raw_state <(SelfhostModuleRawState,SelfhostMod
 
 pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostModuleRawState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, item):
     if:
-        source_span_is_valid item.span
+        selfhost_proof_source_span_valid item.span
         then:
             match selfhost_module_check_item_raw_state raw_state item:
                 Result::Ok next_state:

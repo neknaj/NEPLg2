@@ -1,0 +1,30 @@
+#indent 4
+
+//: # proof/obligation
+//: self-host proof solver が[証明/しょうめい]すべき typed obligation を[定義/ていぎ]するモジュールです。
+//:
+//: [目的/もくてき]:
+//: - checker / type / trait / effect / resource が「必要な性質」を enum payload として[表/あらわ]せるようにします。
+//: - obligation は solver へ渡す[要求/ようきゅう]であり、個別 checker が直接 boolean 判定を積み増すことを避けます。
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof/fact" as *
+
+//: SelfhostProofObligation: solver が[証明/しょうめい]する typed obligation
+pub enum SelfhostProofObligation:
+    SourceSpanValid <SelfhostSourceSpan>
+
+impl Clone for SelfhostProofObligation:
+    fn clone <(&SelfhostProofObligation)->SelfhostProofObligation> (self):
+        *self
+
+impl Copy for SelfhostProofObligation:
+    fn copy_mark <(SelfhostProofObligation)->SelfhostProofObligation> (self):
+        self
+
+//: selfhost_proof_obligation_domain: obligation の domain を[返/かえ]す
+pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProofDomain> (obligation):
+    match obligation:
+        SelfhostProofObligation::SourceSpanValid _span:
+            SelfhostProofDomain::Source

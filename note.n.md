@@ -1,3 +1,21 @@
+# 2026-05-20 Agent 1 self-host proof entry point の追加
+
+- `ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、self-host checker の P1 方針では `core/proof/` に汎用 proof engine を置くべきなのに、実装上は `check/module.nepl` が module item span validity を直接 `source_span_is_valid` で判定しており、今後の静的検査が checker-local proof として増えやすい構造だったこと。
+- `stdlib/neplg2/core/proof.nepl` と `core/proof/{fact,obligation,query,solver}.nepl` を追加し、proof domain、fact、obligation、query、result kind を enum / struct payload として定義した。初期 solver は source span validity のみだが、`match` による網羅分岐で照合するため、type / trait / effect / Resource IR obligation を同じ境界へ追加できる。
+- `check/module.nepl` は `selfhost_proof_source_span_valid item.span` を通すようにし、`checker.nepl` は orchestration-only のまま維持した。source policy `nodesrc/test_selfhost_proof_entry_contract.js` で、proof facade、typed enum payload、solver wildcard 禁止、module checker の proof 経由利用を監視する。
+- `doc/neplg2/self_host_source_tree_layout_review_20260518.md` と self-host parent issue を更新し、P1 の現在地を「proof entry は作成済み、raw backend / declaration / trait / effect / resource obligation は次に追加」と整理した。
+- 検証:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: pass
+  - `node nodesrc/test_selfhost_checker_report_contract.js`: pass
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-proof-entry-proof-nmd.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-selfhost-proof-entry-proof-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-proof-entry-checker-nmd.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-proof-entry-module-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/checker.nepl --no-tree -o tmp/agent1-selfhost-proof-entry-checker-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - まとめ実行 `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_checker.n.md -i stdlib/neplg2/core/proof.nepl -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl --no-tree -o tmp/agent1-selfhost-proof-entry.json -j 1 --dist web/dist --assert-io` は 120 秒で timeout したが、timeout 時点の partial JSON では 5/6 件 pass 済みで、残りの `checker.nepl` source doctest は単体実行で pass した。
+
 # 2026-05-20 Agent 1 ByteBuilder fallible owner API の owner-preserving 化
 
 - `ISS-20260519T181131422Z-BYTEBUILDER-FALLIBLE-OWNER-APIS-DISC-DBFDE7BB` を追加し、fixed / resolved にした。`plan.md` は変更していない。

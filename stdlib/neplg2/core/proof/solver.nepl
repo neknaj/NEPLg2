@@ -1,0 +1,54 @@
+#indent 4
+
+//: # proof/solver
+//: typed fact と obligation を[照合/しょうごう]する self-host proof solver です。
+//:
+//: [目的/もくてき]:
+//: - 個別 checker が独自の証明器を持たず、すべての静的検査 domain が同じ query / result 境界を[使/つか]えるようにします。
+//: - solver の分岐は enum の exhaustive match で[書/か]き、文字列 category や module allowlist による許可を置きません。
+//:
+//: [初期/しょき][範囲/はんい]:
+//: - ここでは source span validity の proof だけを実装します。
+//: - type / trait / effect / Resource IR の obligation は同じ enum / match 構造へ追加し、専用 checker-local proof を増やさない方針を固定します。
+
+#import "core/field" as field
+#import "core/math" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/proof/query" as *
+
+//: selfhost_proof_source_span_eq: source span が同じ range か[返/かえ]す
+pub fn selfhost_proof_source_span_eq <(SelfhostSourceSpan,SelfhostSourceSpan)->bool> (a, b):
+    and and eq field::get a "file_id" field::get b "file_id" eq field::get a "start" field::get b "start" eq field::get a "end" field::get b "end"
+
+//: selfhost_proof_source_span_fact_supports: span fact が span validity obligation を[満/み]たすか[返/かえ]す
+pub fn selfhost_proof_source_span_fact_supports <(SelfhostSourceSpanFact,SelfhostSourceSpan)->bool> (fact, span):
+    and selfhost_proof_source_span_eq fact.span span source_span_is_valid span
+
+//: selfhost_proof_fact_supports_obligation: fact が obligation を[満/み]たすか[判定/はんてい]する
+pub fn selfhost_proof_fact_supports_obligation <(SelfhostProofFact,SelfhostProofObligation)->bool> (fact, obligation):
+    match obligation:
+        SelfhostProofObligation::SourceSpanValid span:
+            match fact:
+                SelfhostProofFact::SourceSpanObserved span_fact:
+                    selfhost_proof_source_span_fact_supports span_fact span
+
+//: selfhost_proof_solve: query を[解/と]いて typed result を[返/かえ]す
+pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
+    if:
+        selfhost_proof_fact_supports_obligation query.fact query.obligation
+        then:
+            selfhost_proof_result_proven
+        else:
+            selfhost_proof_result_refuted
+
+//: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
+pub fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostProofQuery> (span):
+    let fact <SelfhostProofFact> SelfhostProofFact::SourceSpanObserved selfhost_source_span_fact_new span
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::SourceSpanValid span
+    selfhost_proof_query_new fact obligation
+
+//: selfhost_proof_source_span_valid: source span validity を proof solver 経由で[検査/けんさ]する
+pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->bool> (span):
+    selfhost_proof_result_is_proven selfhost_proof_solve selfhost_proof_query_source_span_valid span

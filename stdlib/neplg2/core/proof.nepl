@@ -1,0 +1,28 @@
+#indent 4
+
+pub #import "./proof/fact" as *
+pub #import "./proof/obligation" as *
+pub #import "./proof/query" as *
+pub #import "./proof/solver" as *
+
+//: # proof
+//: NEPLg2.0 self-host compiler の[汎用/はんよう][証明/しょうめい][基盤/きばん] facade
+//:
+//: [目的/もくてき]:
+//: - type / trait / effect / Resource IR / source capability が[共通/きょうつう]して[使/つか]う proof fact / obligation / solver の[入口/いりぐち]を[提供/ていきょう]します。
+//: - 個別 checker が[局所/きょくしょ]の文字列判定や module allowlist を証明の代用にしないよう、typed fact と typed obligation の[組/くみ]を solver に渡す形へ[統一/とういつ]します。
+//:
+//: [設計/せっけい]:
+//: - fact / obligation / result kind は enum で[表/あらわ]し、solver は match による[網羅/もうら][分岐/ぶんき]で[扱/あつか]います。
+//: - この facade は re-export だけを持ち、証明規則の実装は `proof/solver` に置きます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/proof" as *
+//: fn main <()->i32> ():
+//:     let span <SelfhostSourceSpan> source_span_new 0 0 3
+//:     if selfhost_proof_source_span_valid span 0 1
+//: ```

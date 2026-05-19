@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T20:43:01.229Z",
+  "generated_at": "2026-05-19T21:00:03.659Z",
   "counts": {
-    "total": 1074,
+    "total": 1075,
     "open": 4,
-    "resolved": 1070,
+    "resolved": 1071,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 74,
+        "total": 75,
         "open": 1,
-        "resolved": 73
+        "resolved": 74
       },
       "cli": {
         "total": 19,
@@ -168,7 +168,7 @@
       "priority": "P2",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-28",
+      "updated": "2026-05-20",
       "target": "stdlib/neplg2/**, doc/neplg2/self_host_plan.md",
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
@@ -9263,6 +9263,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T010217734Z-SELFHOST-NAME-RESOLVER-DOCTESTS-USE--3A40ADE1.md"
+    },
+    {
+      "id": "ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062",
+      "title": "Self-host checker lacks a generic proof entry point",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof.nepl, stdlib/neplg2/core/proof/**, stdlib/neplg2/core/check/module.nepl, doc/neplg2/self_host_source_tree_layout_review_20260518.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

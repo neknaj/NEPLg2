@@ -1,0 +1,77 @@
+#indent 4
+
+//: # proof/query
+//: fact と obligation を solver に渡す query と、その[結果/けっか]を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - proof engine の public boundary を `SelfhostProofQuery -> SelfhostProofResult` に[揃/そろ]えます。
+//: - result は自由文字列ではなく enum kind として[保持/ほじ]し、後続の diagnostic 生成境界で必要に応じて表示文字列へ[変換/へんかん]します。
+
+#import "core/traits/copy" as *
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/obligation" as *
+
+//: SelfhostProofResultKind: proof query の[結果/けっか][分類/ぶんるい]
+pub enum SelfhostProofResultKind:
+    Proven
+    Refuted
+
+impl Clone for SelfhostProofResultKind:
+    fn clone <(&SelfhostProofResultKind)->SelfhostProofResultKind> (self):
+        *self
+
+impl Copy for SelfhostProofResultKind:
+    fn copy_mark <(SelfhostProofResultKind)->SelfhostProofResultKind> (self):
+        self
+
+//: SelfhostProofQuery: 1 つの fact と obligation の[照合/しょうごう] query
+//:
+//: [注意/ちゅうい]:
+//: - 初期実装は single fact query です。複数 fact が必要な type / resource proof では、この型を保持したまま worklist / fact set を追加します。
+pub struct SelfhostProofQuery:
+    fact <SelfhostProofFact>
+    obligation <SelfhostProofObligation>
+
+impl Clone for SelfhostProofQuery:
+    fn clone <(&SelfhostProofQuery)->SelfhostProofQuery> (self):
+        *self
+
+impl Copy for SelfhostProofQuery:
+    fn copy_mark <(SelfhostProofQuery)->SelfhostProofQuery> (self):
+        self
+
+//: SelfhostProofResult: proof query の typed result
+pub struct SelfhostProofResult:
+    kind <SelfhostProofResultKind>
+
+impl Clone for SelfhostProofResult:
+    fn clone <(&SelfhostProofResult)->SelfhostProofResult> (self):
+        *self
+
+impl Copy for SelfhostProofResult:
+    fn copy_mark <(SelfhostProofResult)->SelfhostProofResult> (self):
+        self
+
+//: selfhost_proof_query_new: proof query を[作/つく]る
+pub fn selfhost_proof_query_new <(SelfhostProofFact,SelfhostProofObligation)->SelfhostProofQuery> (fact, obligation):
+    SelfhostProofQuery fact obligation
+
+//: selfhost_proof_result_new: proof result を[作/つく]る
+pub fn selfhost_proof_result_new <(SelfhostProofResultKind)->SelfhostProofResult> (kind):
+    SelfhostProofResult kind
+
+//: selfhost_proof_result_proven: proven result を[作/つく]る
+pub fn selfhost_proof_result_proven <()->SelfhostProofResult> ():
+    selfhost_proof_result_new SelfhostProofResultKind::Proven
+
+//: selfhost_proof_result_refuted: refuted result を[作/つく]る
+pub fn selfhost_proof_result_refuted <()->SelfhostProofResult> ():
+    selfhost_proof_result_new SelfhostProofResultKind::Refuted
+
+//: selfhost_proof_result_is_proven: proof result が[証明/しょうめい][成功/せいこう]か[返/かえ]す
+pub fn selfhost_proof_result_is_proven <(SelfhostProofResult)->bool> (result):
+    match result.kind:
+        SelfhostProofResultKind::Proven:
+            true
+        SelfhostProofResultKind::Refuted:
+            false

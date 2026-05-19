@@ -1,0 +1,72 @@
+#indent 4
+
+//: # proof/fact
+//: self-host proof solver に渡す typed fact を[定義/ていぎ]するモジュールです。
+//:
+//: [目的/もくてき]:
+//: - 各 compiler stage が[観測/かんそく]した性質を、文字列や数値 tag ではなく enum payload として[渡/わた]せるようにします。
+//: - fact そのものは「証明済み」の印ではなく、solver が obligation と[照合/しょうごう]する typed input です。
+//:
+//: [拡張/かくちょう][方針/ほうしん]:
+//: - type / trait / effect / resource の fact を追加するときは `SelfhostProofDomain` と `SelfhostProofFact` の match を更新します。
+//: - wildcard arm で未対応 domain を握りつぶさず、新しい fact 追加時に source policy と compiler の両方で見つけやすい形を保ちます。
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostProofDomain: proof fact / obligation が属する[領域/りょういき]
+//:
+//: [目的/もくてき]:
+//: - source / module / type / trait / effect / resource の[区分/くぶん]を enum として[持/も]ち、文字列 category を分岐条件にしないようにします。
+pub enum SelfhostProofDomain:
+    Source
+    Module
+    Type
+    Trait
+    Effect
+    Resource
+
+impl Clone for SelfhostProofDomain:
+    fn clone <(&SelfhostProofDomain)->SelfhostProofDomain> (self):
+        *self
+
+impl Copy for SelfhostProofDomain:
+    fn copy_mark <(SelfhostProofDomain)->SelfhostProofDomain> (self):
+        self
+
+//: SelfhostSourceSpanFact: source span [値/あたい]を[観測/かんそく]した fact
+//:
+//: [注意/ちゅうい]:
+//: - この fact は span が妥当であることを単独では主張しません。妥当性は `SourceSpanValid` obligation を solver が検査します。
+pub struct SelfhostSourceSpanFact:
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostSourceSpanFact:
+    fn clone <(&SelfhostSourceSpanFact)->SelfhostSourceSpanFact> (self):
+        *self
+
+impl Copy for SelfhostSourceSpanFact:
+    fn copy_mark <(SelfhostSourceSpanFact)->SelfhostSourceSpanFact> (self):
+        self
+
+//: SelfhostProofFact: solver に渡す typed fact
+pub enum SelfhostProofFact:
+    SourceSpanObserved <SelfhostSourceSpanFact>
+
+impl Clone for SelfhostProofFact:
+    fn clone <(&SelfhostProofFact)->SelfhostProofFact> (self):
+        *self
+
+impl Copy for SelfhostProofFact:
+    fn copy_mark <(SelfhostProofFact)->SelfhostProofFact> (self):
+        self
+
+//: selfhost_source_span_fact_new: source span fact を[作/つく]る
+pub fn selfhost_source_span_fact_new <(SelfhostSourceSpan)->SelfhostSourceSpanFact> (span):
+    SelfhostSourceSpanFact span
+
+//: selfhost_proof_fact_domain: fact の domain を[返/かえ]す
+pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fact):
+    match fact:
+        SelfhostProofFact::SourceSpanObserved _span_fact:
+            SelfhostProofDomain::Source

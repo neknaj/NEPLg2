@@ -12,6 +12,7 @@ NEPLg2 self-host compiler の実装をさらに進める前に、現行 Rust com
 
 - [ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD](../../issues/items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md): NEPLg2 self-host compiler が部分実装に留まっている。
 - [ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649](../../issues/items/ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649.md): self-host source tree plan を現行 Rust compiler 構造に合わせて再検証する。
+- [ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062](../../issues/items/ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062.md): self-host checker に汎用 proof entry point を追加し、module item span 検査を typed fact / obligation / solver 境界へ接続する。
 - [static_check_complexity_reduction_plan.md](./static_check_complexity_reduction_plan.md): Resource IR / owner / initialized / borrow / effect の複雑化解消計画。
 - [compiler_diagnostics_redesign_plan.md](./compiler_diagnostics_redesign_plan.md): diagnostic code を階層 enum にする計画。
 - [stdlib_documentation_contract_plan.md](./stdlib_documentation_contract_plan.md): stdlib documentation comment / doctest 整備方針。
@@ -379,6 +380,10 @@ source policy は implementation detail の文字列検索だけにしない。�
 次の self-host checker 作業は `core/check/checker.nepl` を巨大化させない。module-level checker summary を作る場合も、実装は `core/check/module.nepl` に置き、`checker.nepl` は orchestration API に限定する。
 
 同時に `core/proof/` の最小 model を先に置くか、少なくとも checker issue に「汎用 proof engine へ接続する未完了点」を明記する。個別 checker を証明器として増やさない。
+
+2026-05-20 時点で、`ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062` により `core/proof.nepl` と `core/proof/{fact,obligation,query,solver}.nepl` を追加した。初期 solver は source span validity のみを扱うが、fact / obligation / result kind は enum payload として定義し、`check/module.nepl` は `source_span_is_valid` を直接呼ばず proof query を通す。これは module checker を proof engine にするためではなく、今後の type / trait / effect / resource obligation を同じ `core/proof/` 境界へ載せるための入口である。
+
+残る P1 作業は、raw backend block 状態、declaration well-formedness、trait coherence、effect boundary、Resource IR owner/initialized/borrow obligation を順次 `SelfhostProofFact` / `SelfhostProofObligation` の domain として追加し、`check/*` / `resource/*` は fact producer または obligation producer に限定することである。
 
 ### P2: 既存巨大 self-host file の分割 issue を順に処理する
 
