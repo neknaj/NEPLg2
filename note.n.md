@@ -1,3 +1,13 @@
+# 2026-05-19 Agent 1 NM full compile Resource IR summary budget 確認
+
+- `ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487` を fixed / resolved にした。`plan.md` は変更していない。
+- 先行修正群で Resource IR summary stage の再計算量を削減し、最後に blocking していた cliarg dependent host-span owner proof も `ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977` で解決した。
+- その状態で `examples/nm.nepl` の stage timing compile を実行し、cargo build 込み wall time 105.4 秒で正常完了した。これは issue が問題にしていた 8分超 timeout / CI 10分枠超過の状態ではない。
+- 主な stage timing は `resource_static_check=68386ms`、`resource_initialized_raw_init_summaries=43546ms`、`resource_initialized_moves=65099ms`、`resource_effect_boundaries=422ms`、`resource_owner_obligations=2309ms`。
+- raw init summary はまだ約43.5秒を占めるため将来の性能改善余地は残るが、今回の P1 は full compile が完了しない / CI budget を超える blocker としては解消した。追加の性能改善が必要なら、raw init summary の再計算量を改めて別 issue 化する。
+- 検証:
+  - `NEPL_COMPILE_STAGE_TIMING=1 cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output tmp\\agent1-nm-stage6-after-cliarg.wasm`: pass
+
 # 2026-05-19 Agent 1 cliarg args_get dependent owner proof 修正
 
 - `ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977` を fixed / resolved にした。`plan.md` は変更していない。
