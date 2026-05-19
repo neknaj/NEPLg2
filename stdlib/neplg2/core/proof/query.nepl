@@ -73,12 +73,33 @@ impl Copy for SelfhostModuleDeclarationHeaderIssue:
 pub fn selfhost_module_declaration_header_issue_new <(SelfhostModuleDeclarationKind,SelfhostSourceSpan)->SelfhostModuleDeclarationHeaderIssue> (kind, span):
     SelfhostModuleDeclarationHeaderIssue kind span
 
+//: SelfhostProofMismatch: fact と obligation の domain が[噛/か]み[合/あ]わない refutation payload
+//:
+//: [目的/もくてき]:
+//: - proof caller や solver の[誤/あやま]った[配線/はいせん]を、単なる失敗ではなく fact domain / obligation domain の組として残します。
+//: - type / trait / effect / resource の obligation が増えたときも、どの domain 境界で不整合が起きたかを match で追えるようにします。
+pub struct SelfhostProofMismatch:
+    fact_domain <SelfhostProofDomain>
+    obligation_domain <SelfhostProofDomain>
+
+impl Clone for SelfhostProofMismatch:
+    fn clone <(&SelfhostProofMismatch)->SelfhostProofMismatch> (self):
+        *self
+
+impl Copy for SelfhostProofMismatch:
+    fn copy_mark <(SelfhostProofMismatch)->SelfhostProofMismatch> (self):
+        self
+
+//: selfhost_proof_mismatch_new: proof mismatch refutation payload を[作/つく]る
+pub fn selfhost_proof_mismatch_new <(SelfhostProofDomain,SelfhostProofDomain)->SelfhostProofMismatch> (fact_domain, obligation_domain):
+    SelfhostProofMismatch fact_domain obligation_domain
+
 //: SelfhostProofRefutation: proof が[不成立/ふせいりつ]だった[理由/りゆう]
 //:
 //: [目的/もくてき]:
 //: - proof 失敗を diagnostic 文字列へ直行させず、caller が typed reason を match して domain ごとの diagnostic へ[変換/へんかん]できるようにします。
 pub enum SelfhostProofRefutation:
-    FactObligationMismatch
+    FactObligationMismatch <SelfhostProofMismatch>
     SourceSpanInvalid <SelfhostSourceSpan>
     RawBackendTextWithoutBlock <SelfhostRawBackendItemFact>
     RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>

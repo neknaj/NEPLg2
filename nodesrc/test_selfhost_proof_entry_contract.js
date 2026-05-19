@@ -99,6 +99,21 @@ assert.match(
     /ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>/,
     "declaration header missing failures must be typed refutations",
 );
+assert.match(
+    proofQuery,
+    /pub struct SelfhostProofMismatch:[\s\S]*fact_domain <SelfhostProofDomain>[\s\S]*obligation_domain <SelfhostProofDomain>/,
+    "fact/obligation mismatch failures must retain typed proof domains",
+);
+assert.match(
+    proofQuery,
+    /FactObligationMismatch <SelfhostProofMismatch>/,
+    "fact/obligation mismatch refutation must carry a typed payload",
+);
+assert.doesNotMatch(
+    proofQuery,
+    /^\s+FactObligationMismatch\s*$/m,
+    "fact/obligation mismatch must not be a payload-free catch-all",
+);
 assert.doesNotMatch(
     proofQuery,
     /selfhost_proof_result_is_proven/,
@@ -130,6 +145,11 @@ assert.match(solverBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver must matc
 assert.match(solverBlock, /\bmatch\s+(?:query\.)?fact:/, "solver must match on fact enum");
 assert.doesNotMatch(solverBlock, /^\s*_:/m, "solver must not hide new fact/obligation variants behind wildcard arms");
 assert.doesNotMatch(solverBlock, /"[A-Za-z0-9_.:-]+"/, "proof solver must not depend on string codes or module names");
+assert.match(
+    proofSolver,
+    /selfhost_proof_fact_domain\s+fact[\s\S]*selfhost_proof_obligation_domain\s+obligation/,
+    "mismatch construction must derive domains from typed fact and obligation values",
+);
 assert.match(
     proofSolver,
     /(?:^|\n)fn\s+selfhost_proof_solve_raw_backend_transition\b[\s\S]*match\s+state:/,

@@ -31,7 +31,7 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
             match refutation:
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Ok ()
-                SelfhostProofRefutation::FactObligationMismatch:
+                SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
                     Result<(),str>::Err "expected invalid span refutation"
@@ -54,6 +54,81 @@ fn main <()*>i32> ():
     let checks2 checks_push checks1 check_span_invalid selfhost_proof_source_span_valid invalid
     let shown checks_print_report checks2
     checks_exit_code shown
+```
+
+## fact_obligation_mismatch_preserves_domains
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof" as *
+#import "std/test" as *
+
+fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation):
+    match refutation:
+        SelfhostProofRefutation::FactObligationMismatch mismatch:
+            match mismatch.fact_domain:
+                SelfhostProofDomain::Module:
+                    match mismatch.obligation_domain:
+                        SelfhostProofDomain::Source:
+                            Result<(),str>::Ok ()
+                        SelfhostProofDomain::Module:
+                            Result<(),str>::Err "expected source obligation domain"
+                        SelfhostProofDomain::Type:
+                            Result<(),str>::Err "expected source obligation domain"
+                        SelfhostProofDomain::Trait:
+                            Result<(),str>::Err "expected source obligation domain"
+                        SelfhostProofDomain::Effect:
+                            Result<(),str>::Err "expected source obligation domain"
+                        SelfhostProofDomain::Resource:
+                            Result<(),str>::Err "expected source obligation domain"
+                SelfhostProofDomain::Source:
+                    Result<(),str>::Err "expected module fact domain"
+                SelfhostProofDomain::Type:
+                    Result<(),str>::Err "expected module fact domain"
+                SelfhostProofDomain::Trait:
+                    Result<(),str>::Err "expected module fact domain"
+                SelfhostProofDomain::Effect:
+                    Result<(),str>::Err "expected module fact domain"
+                SelfhostProofDomain::Resource:
+                    Result<(),str>::Err "expected module fact domain"
+        SelfhostProofRefutation::SourceSpanInvalid _span:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+
+fn main <()*>i32> ():
+    let span <SelfhostSourceSpan> source_span_new 0 0 5
+    let raw_item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
+    let fact <SelfhostProofFact> SelfhostProofFact::RawBackendItemObserved raw_item
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::SourceSpanValid span
+    let checks0 checks_new
+    match selfhost_proof_solve selfhost_proof_query_new fact obligation:
+        SelfhostProofResult::Refuted refutation:
+            let checks1 checks_push checks0 check_domain_mismatch refutation
+            let shown checks_print_report checks1
+            checks_exit_code shown
+        SelfhostProofResult::Proven _evidence:
+            let checks1 checks_push checks0 Result<(),str>::Err "mismatched proof query was accepted"
+            let shown checks_print_report checks1
+            checks_exit_code shown
 ```
 
 ## module_directive_transition_rejects_duplicate_singletons
@@ -125,7 +200,7 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected duplicate target"
-        SelfhostProofRefutation::FactObligationMismatch:
+        SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
             Result<(),str>::Err "expected duplicate target"
@@ -234,7 +309,7 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected text-without-block refutation"
-        SelfhostProofRefutation::FactObligationMismatch:
+        SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
             Result<(),str>::Err "expected text-without-block refutation"
@@ -328,7 +403,7 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Ok ()
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
                     Result<(),str>::Err "expected missing declaration header"
-                SelfhostProofRefutation::FactObligationMismatch:
+                SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Err "expected missing declaration header"
@@ -349,7 +424,7 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Ok ()
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
                     Result<(),str>::Err "expected invalid declaration header"
-                SelfhostProofRefutation::FactObligationMismatch:
+                SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Err "expected invalid declaration header"

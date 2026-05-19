@@ -325,7 +325,7 @@ fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDia
             selfhost_module_check_raw_block_empty_diag open_block.span
         SelfhostProofRefutation::SourceSpanInvalid span:
             selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" span "invalid module item span"
-        SelfhostProofRefutation::FactObligationMismatch:
+        SelfhostProofRefutation::FactObligationMismatch _mismatch:
             selfhost_module_check_unexpected_proof_diag
         SelfhostProofRefutation::ModuleDirectiveDuplicate duplicate:
             selfhost_module_check_directive_duplicate_diag duplicate

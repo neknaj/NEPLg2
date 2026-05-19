@@ -42865,3 +42865,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 検査内容、stdout、期待countは削らず、`let mut checks checks_new` と `set checks checks_push ...` の accumulator 形へ変更した。timeout延長で隠す修正は行っていない。
 - default 60000ms case timeoutで `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-checker-timeout-fix.json -j 1 --dist web/dist --assert-io` が 4/4 passed になった。
 - 修正後の doctest#1 は `compile_ms` 55911ms / `total_ms` 55932ms。前回の 120000ms 再実行時は compile_ms 約 61208ms だったため、60秒境界のtimeoutを解消した。
+
+## 2026-05-20 Agent 1 self-host proof mismatch domain payload 修正
+
+- `ISS-20260519T234344678Z-SELF-HOST-PROOF-MISMATCH-REFUTATION--35D774CC` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`SelfhostProofRefutation::FactObligationMismatch` が payload-free で、generic proof solver が fact / obligation の domain を捨てていたことだった。これは type / trait / effect / Resource IR obligation を増やすほど、proof program の誤配線を見つけにくくする。
+- `SelfhostProofMismatch` を追加し、fact domain と obligation domain を `SelfhostProofDomain` として保持するようにした。mismatch 生成は `selfhost_proof_fact_domain` / `selfhost_proof_obligation_domain` を使う private helper に集約している。
+- `FactObligationMismatch` は payload 必須になったため、caller 側の match も payload を受ける形へ更新した。payload-free variant の再導入は `nodesrc/test_selfhost_proof_entry_contract.js` で拒否する。
+- `tests/stdlib/neplg2_proof.n.md` には raw backend fact と source span obligation を誤接続し、`Module -> Source` の mismatch domain が残ることを確認する doctest を追加した。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-proof-mismatch-domains.json -j 1 --dist web/dist --assert-io`: 5/5 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-mismatch-core-proof.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-proof-mismatch-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
