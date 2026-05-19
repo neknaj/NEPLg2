@@ -53,6 +53,11 @@ macro_rules! driver_log {
         }
     }};
 }
+
+fn type_patterns_overlap(ctx: &TypeCtx, lhs: TypeId, rhs: TypeId) -> bool {
+    ctx.type_pattern_matches(lhs, rhs) || ctx.type_pattern_matches(rhs, lhs)
+}
+
 #[cfg(not(target_os = "none"))]
 fn print_diagnostics_summary(diags: &alloc::vec::Vec<crate::diagnostic::Diagnostic>) {
     if diags.is_empty() {
@@ -137,6 +142,7 @@ pub fn typecheck(
     let mut impls: Vec<ImplInfo> = Vec::new();
     let mut rejected_copy_targets: Vec<TypeId> = Vec::new();
     let mut pending_copy_clone_checks: Vec<(TypeId, Span)> = Vec::new();
+    let mut pending_drop_copy_checks: Vec<(TypeId, Span)> = Vec::new();
     let mut rejected_impl_spans: BTreeSet<(u32, u32, u32)> = BTreeSet::new();
     let import_resolution = ImportResolution::from_module(module, source_map);
 
@@ -727,6 +733,9 @@ pub fn typecheck(
                 }
                 pending_copy_clone_checks.push((target_ty, i.span));
             }
+            if trait_semantics.has_drop_capability(Some(trait_self_ty)) {
+                pending_drop_copy_checks.push((target_ty, i.span));
+            }
             if impls.iter().any(|imp| {
                 imp.matches_same_trait_impl(&ctx, &trait_application, trait_self_ty)
                     && (ctx.type_pattern_matches(imp.target_ty, target_ty)
@@ -771,6 +780,28 @@ pub fn typecheck(
             return true;
         }
         !contains_same_type(&ctx, &rejected_copy_targets, imp.target_ty)
+    });
+    let mut rejected_drop_targets: Vec<TypeId> = Vec::new();
+    for (target_ty, span) in pending_drop_copy_checks {
+        let overlaps_copy_impl = impls.iter().any(|imp| {
+            trait_semantics.has_copy_capability(imp.trait_self_ty())
+                && type_patterns_overlap(&ctx, imp.target_ty, target_ty)
+        });
+        if ctx.is_copy(target_ty) || overlaps_copy_impl {
+            diagnostics.push(type_error(
+                TypeDiagnosticCode::DropImplTargetCopy,
+                "drop impl target type is copyable",
+                span,
+            ));
+            push_unique_type(&ctx, &mut rejected_drop_targets, target_ty);
+            rejected_impl_spans.insert(span_key(span));
+        }
+    }
+    impls.retain(|imp| {
+        if !trait_semantics.has_drop_capability(imp.trait_self_ty()) {
+            return true;
+        }
+        !contains_same_type(&ctx, &rejected_drop_targets, imp.target_ty)
     });
     for imp in impls.iter() {
         if trait_semantics.has_copy_capability(imp.trait_self_ty()) {

@@ -1,4 +1,5 @@
 use nepl_core::diagnostic::Diagnostic;
+use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use nepl_core::loader::Loader;
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
 use std::path::PathBuf;
@@ -93,6 +94,176 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn drop_impl_rejects_copy_primitive_target() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+
+trait Clone:
+    #capability clone
+    fn clone <(&Self)->Self> (x):
+        *x
+
+trait Copy:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+trait Drop:
+    #capability drop
+    fn drop <(&Self)*>()> (self):
+        ()
+
+impl Clone for i32:
+    fn clone <(&i32)->i32> (x):
+        *x
+
+impl Copy for i32:
+    fn copy_mark <(i32)->i32> (x):
+        x
+
+impl Drop for i32:
+    fn drop <(&i32)*>()> (self):
+        ()
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_drop_err_has_type_code(source, TypeDiagnosticCode::DropImplTargetCopy);
+}
+
+#[test]
+fn drop_impl_rejects_copy_impl_declared_before_drop() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+
+trait Clone:
+    #capability clone
+    fn clone <(&Self)->Self> (x):
+        *x
+
+trait Copy:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+trait Drop:
+    #capability drop
+    fn drop <(&Self)*>()> (self):
+        ()
+
+struct Guard:
+    value <i32>
+
+impl Clone for Guard:
+    fn clone <(&Guard)->Guard> (x):
+        *x
+
+impl Copy for Guard:
+    fn copy_mark <(Guard)->Guard> (x):
+        x
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        ()
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_drop_err_has_type_code(source, TypeDiagnosticCode::DropImplTargetCopy);
+}
+
+#[test]
+fn drop_impl_rejects_copy_impl_declared_after_drop() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+
+trait Clone:
+    #capability clone
+    fn clone <(&Self)->Self> (x):
+        *x
+
+trait Copy:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+trait Drop:
+    #capability drop
+    fn drop <(&Self)*>()> (self):
+        ()
+
+struct Guard:
+    value <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        ()
+
+impl Clone for Guard:
+    fn clone <(&Guard)->Guard> (x):
+        *x
+
+impl Copy for Guard:
+    fn copy_mark <(Guard)->Guard> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_drop_err_has_type_code(source, TypeDiagnosticCode::DropImplTargetCopy);
+}
+
+#[test]
+fn drop_impl_rejects_generic_target_overlapping_copy_impl() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+
+trait Clone:
+    #capability clone
+    fn clone <(&Self)->Self> (x):
+        *x
+
+trait Copy:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+trait Drop:
+    #capability drop
+    fn drop <(&Self)*>()> (self):
+        ()
+
+impl Clone for i32:
+    fn clone <(&i32)->i32> (x):
+        *x
+
+impl Copy for i32:
+    fn copy_mark <(i32)->i32> (x):
+        x
+
+impl<.T> Drop for .T:
+    fn drop <(&.T)*>()> (self):
+        ()
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_drop_err_has_type_code(source, TypeDiagnosticCode::DropImplTargetCopy);
+}
+
+#[test]
 fn auto_drop_runs_at_scope_end() {
     let source = r#"
 #target wasm
@@ -115,6 +286,18 @@ fn main <()->i32> ():
     0
 "#;
     assert_eq!(run_drop_trace(source), vec![7]);
+}
+
+fn compile_drop_err_has_type_code(source: &str, code: TypeDiagnosticCode) {
+    let diagnostics = compile_drop_test(source).expect_err("expected diagnostics");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diag| diag.code == DiagnosticCode::Type(code)),
+        "missing {:?} in diagnostics: {:?}",
+        code,
+        diagnostics
+    );
 }
 
 #[test]

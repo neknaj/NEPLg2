@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T19:58:50.130Z",
+  "generated_at": "2026-05-19T20:20:39.146Z",
   "counts": {
-    "total": 1071,
+    "total": 1072,
     "open": 4,
-    "resolved": 1067,
+    "resolved": 1068,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 524,
+        "total": 525,
         "open": 0,
-        "resolved": 524
+        "resolved": 525
       },
       "CORE": {
         "total": 5,
@@ -8003,6 +8003,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T172250950Z-RESOURCE-IR-BYTEBUILDER-REGRESSION-C-5E7800F8.md"
+    },
+    {
+      "id": "ISS-20260519T201031870Z-DROP-IMPL-CAN-TARGET-COPY-TYPES-AND--988FC60A",
+      "title": "Drop impl can target Copy types and become unreachable",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/typecheck/driver.rs; nepl-core/src/diagnostic_codes.rs; nepl-core/tests/drop.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T201031870Z-DROP-IMPL-CAN-TARGET-COPY-TYPES-AND--988FC60A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

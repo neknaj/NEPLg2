@@ -104,6 +104,7 @@ pub enum TypeDiagnosticCode {
     IntrinsicArgTypeMismatch,
     CopyImplTargetNotCopy,
     CopyImplRequiresClone,
+    DropImplTargetCopy,
     TraitMethodTypeArgsUnsupported,
     TraitMethodNotFound,
     ArgumentArityMismatch,
@@ -327,6 +328,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::IntrinsicArgTypeMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::CopyImplTargetNotCopy),
     DiagnosticCode::Type(TypeDiagnosticCode::CopyImplRequiresClone),
+    DiagnosticCode::Type(TypeDiagnosticCode::DropImplTargetCopy),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::MoveFromShared,
     )),
@@ -752,6 +754,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::IntrinsicArgTypeMismatch => "type.intrinsic.arg_type_mismatch",
             TypeDiagnosticCode::CopyImplTargetNotCopy => "type.copy_impl.target_not_copy",
             TypeDiagnosticCode::CopyImplRequiresClone => "type.copy_impl.requires_clone",
+            TypeDiagnosticCode::DropImplTargetCopy => "type.drop_impl.target_copy",
             TypeDiagnosticCode::TraitMethodTypeArgsUnsupported => {
                 "type.trait_method.type_args_unsupported"
             }
@@ -880,6 +883,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::CopyImplRequiresClone => {
                 "copy impl requires clone impl for the same target type"
             }
+            TypeDiagnosticCode::DropImplTargetCopy => "drop impl target type is copyable",
             TypeDiagnosticCode::TraitMethodTypeArgsUnsupported => {
                 "type arguments are not supported for trait methods yet"
             }

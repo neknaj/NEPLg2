@@ -42696,3 +42696,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/stdio_raw_boundary.n.md --no-tree -o tmp/agent1-stdio-raw-boundary.json -j 1 --dist web/dist --assert-io`: 5/5 passed
   - `node nodesrc/tests.js -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/read/buffer.nepl --no-tree -o tmp/agent1-stdio-boundary-fd-buffer.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 Drop/Copy capability overlap 拒否
+
+- `ISS-20260519T201031870Z-DROP-IMPL-CAN-TARGET-COPY-TYPES-AND--988FC60A` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Drop` capability が owner finalizer を表す一方で、typecheck の impl registration が Drop target と Copy target の衝突を検査していなかったことだった。Resource IR の auto-drop は Copy local を除外するため、`Drop` と `Copy` が同じ target に乗ると Drop 実装が到達不能になる。
+- `TypeDiagnosticCode::DropImplTargetCopy` / `type.drop_impl.target_copy` を追加し、診断 ID は文字列分岐ではなく enum/match の網羅性に乗せた。
+- impl registration は rejected Copy impl を取り除いた後、残る Copy impl target と Drop impl target の type-pattern overlap を検査する。built-in / bound 由来で既に Copy と証明できる target は `TypeCtx::is_copy` で拒否し、generic blanket target も copy impl pattern と重なれば拒否する。
+- focused verification:
+  - `cargo test -p nepl-core --test drop drop_impl_rejects -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 copy_impl -- --nocapture`: passed
+  - `cargo test -p nepl-core diagnostic_codes --lib -- --nocapture`: passed
