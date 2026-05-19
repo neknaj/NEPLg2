@@ -21,6 +21,7 @@ use super::initialized_summary_param_byte_ranges::collect_param_initialized_raw_
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_variant_condition::collect_variant_param_condition;
 use super::initialized_summary_variant_requirement::collect_variant_param_required_raw_cells;
+use super::initialized_summary_variant_type::return_type_may_have_variant_param_summary;
 use super::initialized_summary_variant_unique::{
     push_unique_variant_param_byte_range, push_unique_variant_param_cell,
 };
@@ -47,6 +48,9 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     ops: &[ResourceOp],
     return_value: &Place,
 ) {
+    if !return_type_may_have_variant_param_summary(types, return_value.ty) {
+        return;
+    }
     let mut engine = ResourceCheckEngine {
         function: function.name.as_str(),
         types,

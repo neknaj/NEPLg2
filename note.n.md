@@ -42405,3 +42405,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_nmd_report_metadata_policy.js`: passed
   - `node nodesrc/test_nepl_doc_report_metadata_policy.js`: passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+## 2026-05-19 Agent 1 Resource IR variant summary の non-enum return pruning
+
+- `ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、variant-param summary が enum variant return 専用の事実であるにもかかわらず、`str` や `StringBuilder` のような concrete non-enum return の関数 body まで `ResourceCheckEngine` で再走査していたことだった。
+- `initialized_summary_variant_type.rs` を追加し、`TypeCtx` / `TypeKind` の網羅的 `match` で `Enum` / enum `Apply` / 未解決型だけを variant summary replay 対象にした。stdlib/nm 名の allowlist ではなく、戻り値型から variant fact の存在可能性を証明している。
+- `initialized_summary_variant_build_tests.rs` を追加し、enum / enum apply は通し、`str` / struct / struct apply は skip し、未解決 type var / named は安全側で通すことを固定した。
+- `examples/nm.nepl` の stage timing probe では `resource_initialized_raw_init_summaries=76306ms`、`resource_initialized_moves=95503ms` まで改善した。full compile はまだ完了しておらず、残る主因は release requirement collection と effect boundary proof として `ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487` を継続する。
+- focused verification:
+  - `cargo test -p nepl-core resource::initialized_summary_variant_build_tests -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed

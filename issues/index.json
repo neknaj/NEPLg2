@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T07:51:22.841Z",
+  "generated_at": "2026-05-19T08:29:38.904Z",
   "counts": {
-    "total": 1051,
+    "total": 1052,
     "open": 5,
-    "resolved": 1046,
+    "resolved": 1047,
     "by_area": {
       "core": {
-        "total": 515,
+        "total": 516,
         "open": 1,
-        "resolved": 514
+        "resolved": 515
       },
       "stdlib": {
         "total": 287,
@@ -7868,6 +7868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC.md"
+    },
+    {
+      "id": "ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9",
+      "title": "Resource variant init summary scans non-enum return functions",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/initialized_summary_variant_build.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

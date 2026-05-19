@@ -74,9 +74,9 @@ mod effect_return_protection;
 mod effect_return_summary_filter;
 mod effect_summary;
 mod effect_summary_identity;
-mod effect_summary_identity_seed;
 #[cfg(test)]
 mod effect_summary_identity_replay_tests;
+mod effect_summary_identity_seed;
 #[cfg(test)]
 mod effect_summary_identity_tests;
 mod effect_summary_pointer;
@@ -170,8 +170,11 @@ mod initialized_summary_release_model;
 mod initialized_summary_return_byte_range_count;
 mod initialized_summary_return_byte_ranges;
 mod initialized_summary_variant_build;
+#[cfg(test)]
+mod initialized_summary_variant_build_tests;
 mod initialized_summary_variant_condition;
 mod initialized_summary_variant_requirement;
+mod initialized_summary_variant_type;
 mod initialized_summary_variant_unique;
 mod initialized_variant;
 mod lower;
