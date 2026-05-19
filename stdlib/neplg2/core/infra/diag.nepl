@@ -24,6 +24,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/diag" as *
 //: fn main <()*>i32> ():
@@ -159,6 +160,7 @@ pub enum SelfhostCheckerDiagnosticCode:
     ModuleItemSpanInvalid
     RawTextWithoutBlock
     RawBlockEmpty
+    ModuleDirectiveDuplicate
 
 impl Clone for SelfhostCheckerDiagnosticCode:
     fn clone <(&SelfhostCheckerDiagnosticCode)->SelfhostCheckerDiagnosticCode> (self):
@@ -306,6 +308,8 @@ pub fn selfhost_checker_diag_code_name <(SelfhostCheckerDiagnosticCode)->str> (c
             "checker.module.raw_text_without_block"
         SelfhostCheckerDiagnosticCode::RawBlockEmpty:
             "checker.module.raw_block_empty"
+        SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate:
+            "checker.module.directive_duplicate"
 
 //: selfhost_cli_diag_code_name: CLI diagnostic code の stable string を[返/かえ]す
 pub fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):

@@ -60,6 +60,60 @@ fn main <()*>i32> ():
             checks_exit_code shown
 ```
 
+## rejects_duplicate_singleton_directives
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/result" as *
+#import "neplg2/core/check/checker" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "std/test" as *
+
+fn check_duplicate_directive <(SelfhostModuleItemKind)*>Result<(),str>> (kind):
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            let span1 <SelfhostSourceSpan> source_span_new 0 0 7
+            let span2 <SelfhostSourceSpan> source_span_new 0 8 15
+            let item1 <SelfhostModuleItem> selfhost_module_item_new kind span1 "first"
+            match selfhost_module_ast_push ast0 item1:
+                Result::Ok ast1:
+                    let item2 <SelfhostModuleItem> selfhost_module_item_new kind span2 "second"
+                    match selfhost_module_ast_push ast1 item2:
+                        Result::Ok ast2:
+                            match selfhost_check_module_ast &ast2:
+                                Result::Err diag:
+                                    let result <Result<(),str>> check_str_eq "checker.module.directive_duplicate" selfhost_diag_code_name diag.code
+                                    selfhost_module_ast_free ast2
+                                    result
+                                Result::Ok _summary:
+                                    selfhost_module_ast_free ast2
+                                    Result<(),str>::Err "duplicate singleton directive was accepted"
+                        Result::Err _e:
+                            Result<(),str>::Err "second module AST push failed"
+                Result::Err _e:
+                    Result<(),str>::Err "first module AST push failed"
+        Result::Err _e:
+            Result<(),str>::Err "module AST allocation failed"
+
+fn main <()*>i32> ():
+    let checks0 checks_new
+    let checks1 checks_push checks0 check_duplicate_directive SelfhostModuleItemKind::EntryDirective
+    let checks2 checks_push checks1 check_duplicate_directive SelfhostModuleItemKind::TargetDirective
+    let shown checks_print_report checks2
+    checks_exit_code shown
+```
+
 ## rejects_raw_text_without_matching_raw_block
 
 neplg2:test[stdio, normalize_newlines]

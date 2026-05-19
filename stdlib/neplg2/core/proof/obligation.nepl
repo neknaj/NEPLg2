@@ -49,10 +49,47 @@ pub fn selfhost_raw_backend_open_block_new <(SelfhostRawBackendKind,SelfhostSour
 pub fn selfhost_raw_backend_state_start <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostRawBackendState> (kind, span):
     SelfhostRawBackendState::OpenEmpty selfhost_raw_backend_open_block_new kind span
 
+//: SelfhostModuleDirectiveSeenBoth: `#entry` と `#target` の両方を観測済みの module directive state
+pub struct SelfhostModuleDirectiveSeenBoth:
+    entry_span <SelfhostSourceSpan>
+    target_span <SelfhostSourceSpan>
+
+impl Clone for SelfhostModuleDirectiveSeenBoth:
+    fn clone <(&SelfhostModuleDirectiveSeenBoth)->SelfhostModuleDirectiveSeenBoth> (self):
+        *self
+
+impl Copy for SelfhostModuleDirectiveSeenBoth:
+    fn copy_mark <(SelfhostModuleDirectiveSeenBoth)->SelfhostModuleDirectiveSeenBoth> (self):
+        self
+
+//: SelfhostModuleDirectiveState: singleton directive stream の proof state
+//:
+//: [目的/もくてき]:
+//: - `#entry` / `#target` が module item stream で[高々/たかだか] 1 [回/かい]だけ[現/あらわ]れることを、summary count ではなく enum state として[表/あらわ]します。
+//: - state variant が観測済み directive の span を保持するため、重複検出時に以前の directive も typed refutation へ渡せます。
+pub enum SelfhostModuleDirectiveState:
+    NoneSeen
+    EntrySeen <SelfhostSourceSpan>
+    TargetSeen <SelfhostSourceSpan>
+    EntryAndTargetSeen <SelfhostModuleDirectiveSeenBoth>
+
+impl Clone for SelfhostModuleDirectiveState:
+    fn clone <(&SelfhostModuleDirectiveState)->SelfhostModuleDirectiveState> (self):
+        *self
+
+impl Copy for SelfhostModuleDirectiveState:
+    fn copy_mark <(SelfhostModuleDirectiveState)->SelfhostModuleDirectiveState> (self):
+        self
+
+//: selfhost_module_directive_seen_both_new: entry / target の両方を観測済みにする state payload を[作/つく]る
+pub fn selfhost_module_directive_seen_both_new <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveSeenBoth> (entry_span, target_span):
+    SelfhostModuleDirectiveSeenBoth entry_span target_span
+
 //: SelfhostProofObligation: solver が[証明/しょうめい]する typed obligation
 pub enum SelfhostProofObligation:
     SourceSpanValid <SelfhostSourceSpan>
     RawBackendTransition <SelfhostRawBackendState>
+    ModuleDirectiveTransition <SelfhostModuleDirectiveState>
 
 impl Clone for SelfhostProofObligation:
     fn clone <(&SelfhostProofObligation)->SelfhostProofObligation> (self):
@@ -68,4 +105,6 @@ pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProo
         SelfhostProofObligation::SourceSpanValid _span:
             SelfhostProofDomain::Source
         SelfhostProofObligation::RawBackendTransition _state:
+            SelfhostProofDomain::Module
+        SelfhostProofObligation::ModuleDirectiveTransition _state:
             SelfhostProofDomain::Module

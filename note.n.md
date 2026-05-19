@@ -1,3 +1,20 @@
+# 2026-05-20 Agent 1 self-host module directive transition proof 化
+
+- `ISS-20260519T212225940Z-SELF-HOST-MODULE-DIRECTIVE-MULTIPLIC-33C1FBE9` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`#entry` / `#target` の singleton directive invariant が `SelfhostModuleCheckSummary` の count として集計されるだけで、S3 module checker boundary で proof obligation として証明されていなかったこと。
+- `SelfhostModuleDirectiveKind` / `SelfhostModuleDirectiveFact` / `SelfhostModuleDirectiveState` を追加し、`NoneSeen` / `EntrySeen` / `TargetSeen` / `EntryAndTargetSeen` の typed transition state で重複を検査するようにした。
+- `SelfhostProofObligation::ModuleDirectiveTransition`、`SelfhostProofEvidence::ModuleDirectiveTransition`、`SelfhostProofRefutation::ModuleDirectiveDuplicate` を追加し、proof solver の exhaustive match で `#entry` / `#target` の重複を拒否する。summary count の後処理や文字列 allowlist は導入していない。
+- `check/module.nepl` は `SelfhostModuleItemKind` を `SelfhostModuleDirectiveKind` に写し、typed refutation を `SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate` へ変換するだけにした。
+- 検証:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: pass
+  - `node nodesrc/test_selfhost_checker_report_contract.js`: pass
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-module-directive-proof-nmd.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-module-directive-checker-nmd.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-selfhost-module-directive-proof-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-module-directive-module-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/infra/diag.nepl --no-tree -o tmp/agent1-selfhost-module-directive-diag-source.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+
 # 2026-05-20 Agent 1 self-host raw backend transition proof 化
 
 - `ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2` を追加し、fixed / resolved にした。`plan.md` は変更していない。

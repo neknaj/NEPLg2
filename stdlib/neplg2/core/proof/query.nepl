@@ -19,6 +19,7 @@
 pub enum SelfhostProofEvidence:
     SourceSpanValid
     RawBackendTransition <SelfhostRawBackendState>
+    ModuleDirectiveTransition <SelfhostModuleDirectiveState>
 
 impl Clone for SelfhostProofEvidence:
     fn clone <(&SelfhostProofEvidence)->SelfhostProofEvidence> (self):
@@ -27,6 +28,28 @@ impl Clone for SelfhostProofEvidence:
 impl Copy for SelfhostProofEvidence:
     fn copy_mark <(SelfhostProofEvidence)->SelfhostProofEvidence> (self):
         self
+
+//: SelfhostModuleDirectiveDuplicate: singleton directive が[重複/ちょうふく]した refutation payload
+//:
+//: [目的/もくてき]:
+//: - 重複した directive の kind、最初の span、重複した span を typed value として保持します。
+//: - diagnostic 文字列は checker / reporter 境界で作り、proof solver は文字列 code に依存しません。
+pub struct SelfhostModuleDirectiveDuplicate:
+    kind <SelfhostModuleDirectiveKind>
+    first_span <SelfhostSourceSpan>
+    duplicate_span <SelfhostSourceSpan>
+
+impl Clone for SelfhostModuleDirectiveDuplicate:
+    fn clone <(&SelfhostModuleDirectiveDuplicate)->SelfhostModuleDirectiveDuplicate> (self):
+        *self
+
+impl Copy for SelfhostModuleDirectiveDuplicate:
+    fn copy_mark <(SelfhostModuleDirectiveDuplicate)->SelfhostModuleDirectiveDuplicate> (self):
+        self
+
+//: selfhost_module_directive_duplicate_new: duplicate directive refutation payload を[作/つく]る
+pub fn selfhost_module_directive_duplicate_new <(SelfhostModuleDirectiveKind,SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveDuplicate> (kind, first_span, duplicate_span):
+    SelfhostModuleDirectiveDuplicate kind first_span duplicate_span
 
 //: SelfhostProofRefutation: proof が[不成立/ふせいりつ]だった[理由/りゆう]
 //:
@@ -37,6 +60,7 @@ pub enum SelfhostProofRefutation:
     SourceSpanInvalid <SelfhostSourceSpan>
     RawBackendTextWithoutBlock <SelfhostRawBackendItemFact>
     RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>
+    ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>
 
 impl Clone for SelfhostProofRefutation:
     fn clone <(&SelfhostProofRefutation)->SelfhostProofRefutation> (self):

@@ -79,6 +79,7 @@ impl Copy for SelfhostModuleCheckSummary:
 pub struct SelfhostModuleCheckStep:
     summary <SelfhostModuleCheckSummary>
     raw_state <SelfhostRawBackendState>
+    directive_state <SelfhostModuleDirectiveState>
 
 impl Clone for SelfhostModuleCheckStep:
     fn clone <(&SelfhostModuleCheckStep)->SelfhostModuleCheckStep> (self):
@@ -183,8 +184,8 @@ pub fn selfhost_module_check_labeled_diag <(SelfhostCheckerDiagnosticCode,str,Se
 pub fn selfhost_module_check_raw_block_empty_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items" span "raw backend block starts here"
 
-pub fn selfhost_module_check_step_new <(SelfhostModuleCheckSummary,SelfhostRawBackendState)->SelfhostModuleCheckStep> (summary, raw_state):
-    SelfhostModuleCheckStep summary raw_state
+pub fn selfhost_module_check_step_new <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState)->SelfhostModuleCheckStep> (summary, raw_state, directive_state):
+    SelfhostModuleCheckStep summary raw_state directive_state
 
 pub fn selfhost_module_raw_backend_item_kind <(SelfhostModuleItemKind)->SelfhostRawBackendItemKind> (kind):
     match kind:
@@ -234,9 +235,79 @@ pub fn selfhost_module_raw_backend_item_kind <(SelfhostModuleItemKind)->Selfhost
 pub fn selfhost_module_raw_backend_item_fact <(SelfhostModuleItem)->SelfhostRawBackendItemFact> (item):
     selfhost_raw_backend_item_fact_new selfhost_module_raw_backend_item_kind item.kind item.span
 
+pub fn selfhost_module_directive_item_kind <(SelfhostModuleItemKind)->SelfhostModuleDirectiveKind> (kind):
+    match kind:
+        SelfhostModuleItemKind::EntryDirective:
+            SelfhostModuleDirectiveKind::Entry
+        SelfhostModuleItemKind::TargetDirective:
+            SelfhostModuleDirectiveKind::Target
+        SelfhostModuleItemKind::DocComment:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::MlstrLine:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::ImportDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::UseDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::IfTargetDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::IfProfileDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::CapabilityDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::PreludeDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::NoPreludeDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::IntrinsicDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::WasmBlock:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::LlvmIrBlock:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::WasmText:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::LlvmIrText:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::FunctionDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::StructDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::EnumDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::TraitDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::ImplDecl:
+            SelfhostModuleDirectiveKind::Other
+
+pub fn selfhost_module_directive_item_fact <(SelfhostModuleItem)->SelfhostModuleDirectiveFact> (item):
+    selfhost_module_directive_fact_new selfhost_module_directive_item_kind item.kind item.span
+
 pub fn selfhost_module_check_unexpected_proof_diag <()->SelfhostDiagnostic> ():
     let span <SelfhostSourceSpan> source_span_empty 0 0
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module checker received an unexpected proof result" span "unexpected proof result"
+
+pub fn selfhost_module_check_directive_duplicate_message <(SelfhostModuleDirectiveKind)->str> (kind):
+    match kind:
+        SelfhostModuleDirectiveKind::Entry:
+            "multiple #entry directives are not allowed"
+        SelfhostModuleDirectiveKind::Target:
+            "multiple #target directives are not allowed"
+        SelfhostModuleDirectiveKind::Other:
+            "module singleton directive appeared more than once"
+
+pub fn selfhost_module_check_directive_duplicate_label <(SelfhostModuleDirectiveKind)->str> (kind):
+    match kind:
+        SelfhostModuleDirectiveKind::Entry:
+            "duplicate #entry appears here"
+        SelfhostModuleDirectiveKind::Target:
+            "duplicate #target appears here"
+        SelfhostModuleDirectiveKind::Other:
+            "duplicate directive appears here"
+
+pub fn selfhost_module_check_directive_duplicate_diag <(SelfhostModuleDirectiveDuplicate)->SelfhostDiagnostic> (duplicate):
+    let diag <SelfhostDiagnostic> selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate selfhost_module_check_directive_duplicate_message duplicate.kind duplicate.duplicate_span selfhost_module_check_directive_duplicate_label duplicate.kind
+    selfhost_diag_with_note diag "module-level singleton directives must be proven unique before resolve/type/effect stages"
 
 pub fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDiagnostic> (refutation):
     match refutation:
@@ -248,6 +319,8 @@ pub fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->Selfhos
             selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" span "invalid module item span"
         SelfhostProofRefutation::FactObligationMismatch:
             selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::ModuleDirectiveDuplicate duplicate:
+            selfhost_module_check_directive_duplicate_diag duplicate
 
 pub fn selfhost_module_check_raw_backend_fact <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state, item):
     match selfhost_proof_raw_backend_transition state item:
@@ -259,25 +332,39 @@ pub fn selfhost_module_check_raw_backend_fact <(SelfhostRawBackendState,Selfhost
 pub fn selfhost_module_check_item_raw_state <(SelfhostRawBackendState,SelfhostModuleItem)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state, item):
     selfhost_module_check_raw_backend_fact state selfhost_module_raw_backend_item_fact item
 
+pub fn selfhost_module_check_directive_fact <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->Result<SelfhostModuleDirectiveState,SelfhostDiagnostic>> (state, item):
+    match selfhost_proof_module_directive_transition state item:
+        Result::Ok next_state:
+            Result<SelfhostModuleDirectiveState,SelfhostDiagnostic>::Ok next_state
+        Result::Err refutation:
+            Result<SelfhostModuleDirectiveState,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+
+pub fn selfhost_module_check_item_directive_state <(SelfhostModuleDirectiveState,SelfhostModuleItem)->Result<SelfhostModuleDirectiveState,SelfhostDiagnostic>> (state, item):
+    selfhost_module_check_directive_fact state selfhost_module_directive_item_fact item
+
 pub fn selfhost_module_check_finish_raw_state <(SelfhostRawBackendState)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state):
     let span <SelfhostSourceSpan> source_span_empty 0 0
     let item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
     selfhost_module_check_raw_backend_fact state item
 
-pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, item):
+pub fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, directive_state, item):
     if:
         selfhost_proof_source_span_valid item.span
         then:
             match selfhost_module_check_item_raw_state raw_state item:
                 Result::Ok next_state:
-                    let next_summary <SelfhostModuleCheckSummary> selfhost_module_check_summary_record summary item.kind
-                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Ok selfhost_module_check_step_new next_summary next_state
+                    match selfhost_module_check_item_directive_state directive_state item:
+                        Result::Ok next_directive_state:
+                            let next_summary <SelfhostModuleCheckSummary> selfhost_module_check_summary_record summary item.kind
+                            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Ok selfhost_module_check_step_new next_summary next_state next_directive_state
+                        Result::Err diag:
+                            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
                 Result::Err diag:
                     Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
         else:
             Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" item.span "invalid module item span"
 
-pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModuleCheckSummary,SelfhostRawBackendState)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast, n, idx, summary, raw_state):
+pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast, n, idx, summary, raw_state, directive_state):
     if:
         ge idx n
         then:
@@ -289,9 +376,9 @@ pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModul
         else:
             match selfhost_module_ast_get ast idx:
                 Option::Some item:
-                    match selfhost_module_check_item summary raw_state item:
+                    match selfhost_module_check_item summary raw_state directive_state item:
                         Result::Ok step:
-                            selfhost_check_module_ast_loop ast n add idx 1 step.summary step.raw_state
+                            selfhost_check_module_ast_loop ast n add idx 1 step.summary step.raw_state step.directive_state
                         Result::Err diag:
                             Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err diag
                 Option::None:
@@ -301,4 +388,4 @@ pub fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModul
 //: selfhost_check_module_ast: module item stream を[検査/けんさ]して summary を[返/かえ]す
 pub fn selfhost_check_module_ast <(&SelfhostModuleAst)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast):
     let n <i32> selfhost_module_ast_len ast
-    selfhost_check_module_ast_loop ast n 0 selfhost_module_check_summary_new SelfhostRawBackendState::Normal
+    selfhost_check_module_ast_loop ast n 0 selfhost_module_check_summary_new SelfhostRawBackendState::Normal SelfhostModuleDirectiveState::NoneSeen

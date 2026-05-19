@@ -104,10 +104,46 @@ impl Copy for SelfhostRawBackendItemFact:
 pub fn selfhost_raw_backend_item_fact_new <(SelfhostRawBackendItemKind,SelfhostSourceSpan)->SelfhostRawBackendItemFact> (kind, span):
     SelfhostRawBackendItemFact kind span
 
+//: SelfhostModuleDirectiveKind: module stream 上の singleton directive [分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - `#entry` / `#target` のように module [単位/たんい]で 1 [回/かい]だけ[現/あらわ]れる directive を、文字列や count 後処理ではなく proof fact として[渡/わた]します。
+//: - singleton ではない item は `Other` にまとめ、proof solver が module item enum 全体ではなく必要な性質だけを扱えるようにします。
+pub enum SelfhostModuleDirectiveKind:
+    Other
+    Entry
+    Target
+
+impl Clone for SelfhostModuleDirectiveKind:
+    fn clone <(&SelfhostModuleDirectiveKind)->SelfhostModuleDirectiveKind> (self):
+        *self
+
+impl Copy for SelfhostModuleDirectiveKind:
+    fn copy_mark <(SelfhostModuleDirectiveKind)->SelfhostModuleDirectiveKind> (self):
+        self
+
+//: SelfhostModuleDirectiveFact: module directive item の typed observation
+pub struct SelfhostModuleDirectiveFact:
+    kind <SelfhostModuleDirectiveKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostModuleDirectiveFact:
+    fn clone <(&SelfhostModuleDirectiveFact)->SelfhostModuleDirectiveFact> (self):
+        *self
+
+impl Copy for SelfhostModuleDirectiveFact:
+    fn copy_mark <(SelfhostModuleDirectiveFact)->SelfhostModuleDirectiveFact> (self):
+        self
+
+//: selfhost_module_directive_fact_new: module directive fact を[作/つく]る
+pub fn selfhost_module_directive_fact_new <(SelfhostModuleDirectiveKind,SelfhostSourceSpan)->SelfhostModuleDirectiveFact> (kind, span):
+    SelfhostModuleDirectiveFact kind span
+
 //: SelfhostProofFact: solver に渡す typed fact
 pub enum SelfhostProofFact:
     SourceSpanObserved <SelfhostSourceSpanFact>
     RawBackendItemObserved <SelfhostRawBackendItemFact>
+    ModuleDirectiveObserved <SelfhostModuleDirectiveFact>
 
 impl Clone for SelfhostProofFact:
     fn clone <(&SelfhostProofFact)->SelfhostProofFact> (self):
@@ -123,4 +159,6 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
         SelfhostProofFact::SourceSpanObserved _span_fact:
             SelfhostProofDomain::Source
         SelfhostProofFact::RawBackendItemObserved _item_fact:
+            SelfhostProofDomain::Module
+        SelfhostProofFact::ModuleDirectiveObserved _directive_fact:
             SelfhostProofDomain::Module

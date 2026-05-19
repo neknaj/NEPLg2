@@ -162,6 +162,70 @@ pub fn selfhost_proof_solve_raw_backend_transition <(SelfhostRawBackendItemFact,
         SelfhostRawBackendState::OpenReady kind:
             selfhost_proof_solve_raw_backend_ready kind item
 
+//: selfhost_proof_module_directive_proven: module directive next state evidence を[返/かえ]す
+pub fn selfhost_proof_module_directive_proven <(SelfhostModuleDirectiveState)->SelfhostProofResult> (state):
+    selfhost_proof_result_proven SelfhostProofEvidence::ModuleDirectiveTransition state
+
+//: selfhost_proof_module_directive_duplicate: singleton directive [重複/ちょうふく] refutation を[返/かえ]す
+pub fn selfhost_proof_module_directive_duplicate <(SelfhostModuleDirectiveKind,SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostProofResult> (kind, first_span, duplicate_span):
+    selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDirectiveDuplicate selfhost_module_directive_duplicate_new kind first_span duplicate_span
+
+//: selfhost_module_directive_seen_both_state: entry / target の両方を観測済みにする
+pub fn selfhost_module_directive_seen_both_state <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveState> (entry_span, target_span):
+    SelfhostModuleDirectiveState::EntryAndTargetSeen selfhost_module_directive_seen_both_new entry_span target_span
+
+//: selfhost_proof_solve_module_directive_none: singleton directive 未観測 state の transition を[解/と]く
+pub fn selfhost_proof_solve_module_directive_none <(SelfhostModuleDirectiveFact)->SelfhostProofResult> (item):
+    match item.kind:
+        SelfhostModuleDirectiveKind::Other:
+            selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::NoneSeen
+        SelfhostModuleDirectiveKind::Entry:
+            selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::EntrySeen item.span
+        SelfhostModuleDirectiveKind::Target:
+            selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::TargetSeen item.span
+
+//: selfhost_proof_solve_module_directive_entry_seen: entry 観測済み state の transition を[解/と]く
+pub fn selfhost_proof_solve_module_directive_entry_seen <(SelfhostSourceSpan,SelfhostModuleDirectiveFact)->SelfhostProofResult> (entry_span, item):
+    match item.kind:
+        SelfhostModuleDirectiveKind::Other:
+            selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::EntrySeen entry_span
+        SelfhostModuleDirectiveKind::Entry:
+            selfhost_proof_module_directive_duplicate SelfhostModuleDirectiveKind::Entry entry_span item.span
+        SelfhostModuleDirectiveKind::Target:
+            selfhost_proof_module_directive_proven selfhost_module_directive_seen_both_state entry_span item.span
+
+//: selfhost_proof_solve_module_directive_target_seen: target 観測済み state の transition を[解/と]く
+pub fn selfhost_proof_solve_module_directive_target_seen <(SelfhostSourceSpan,SelfhostModuleDirectiveFact)->SelfhostProofResult> (target_span, item):
+    match item.kind:
+        SelfhostModuleDirectiveKind::Other:
+            selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::TargetSeen target_span
+        SelfhostModuleDirectiveKind::Entry:
+            selfhost_proof_module_directive_proven selfhost_module_directive_seen_both_state item.span target_span
+        SelfhostModuleDirectiveKind::Target:
+            selfhost_proof_module_directive_duplicate SelfhostModuleDirectiveKind::Target target_span item.span
+
+//: selfhost_proof_solve_module_directive_both_seen: entry / target 両方観測済み state の transition を[解/と]く
+pub fn selfhost_proof_solve_module_directive_both_seen <(SelfhostModuleDirectiveSeenBoth,SelfhostModuleDirectiveFact)->SelfhostProofResult> (seen, item):
+    match item.kind:
+        SelfhostModuleDirectiveKind::Other:
+            selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::EntryAndTargetSeen seen
+        SelfhostModuleDirectiveKind::Entry:
+            selfhost_proof_module_directive_duplicate SelfhostModuleDirectiveKind::Entry seen.entry_span item.span
+        SelfhostModuleDirectiveKind::Target:
+            selfhost_proof_module_directive_duplicate SelfhostModuleDirectiveKind::Target seen.target_span item.span
+
+//: selfhost_proof_solve_module_directive_transition: module directive transition obligation を[解/と]く
+pub fn selfhost_proof_solve_module_directive_transition <(SelfhostModuleDirectiveFact,SelfhostModuleDirectiveState)->SelfhostProofResult> (item, state):
+    match state:
+        SelfhostModuleDirectiveState::NoneSeen:
+            selfhost_proof_solve_module_directive_none item
+        SelfhostModuleDirectiveState::EntrySeen entry_span:
+            selfhost_proof_solve_module_directive_entry_seen entry_span item
+        SelfhostModuleDirectiveState::TargetSeen target_span:
+            selfhost_proof_solve_module_directive_target_seen target_span item
+        SelfhostModuleDirectiveState::EntryAndTargetSeen seen:
+            selfhost_proof_solve_module_directive_both_seen seen item
+
 //: selfhost_proof_solve: query を[解/と]いて typed result を[返/かえ]す
 pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
     match query.obligation:
@@ -171,11 +235,23 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_solve_source_span_valid span_fact span
                 SelfhostProofFact::RawBackendItemObserved _item:
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
         SelfhostProofObligation::RawBackendTransition state:
             match query.fact:
                 SelfhostProofFact::RawBackendItemObserved item:
                     selfhost_proof_solve_raw_backend_transition item state
                 SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+        SelfhostProofObligation::ModuleDirectiveTransition state:
+            match query.fact:
+                SelfhostProofFact::ModuleDirectiveObserved directive:
+                    selfhost_proof_solve_module_directive_transition directive state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::RawBackendItemObserved _item:
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
 
 //: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
@@ -203,5 +279,27 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Ok next_state
                 SelfhostProofEvidence::SourceSpanValid:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_module_directive_transition: module directive transition query を[作/つく]る
+pub fn selfhost_proof_query_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->SelfhostProofQuery> (state, item):
+    let fact <SelfhostProofFact> SelfhostProofFact::ModuleDirectiveObserved item
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::ModuleDirectiveTransition state
+    selfhost_proof_query_new fact obligation
+
+//: selfhost_proof_module_directive_transition: module directive transition の evidence を next state として[取/と]り[出/だ]す
+pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>> (state, item):
+    match selfhost_proof_solve selfhost_proof_query_module_directive_transition state item:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::ModuleDirectiveTransition next_state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Ok next_state
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err refutation

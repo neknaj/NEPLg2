@@ -64,6 +64,21 @@ assert.match(
     /RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>/,
     "raw backend empty-block failures must be typed refutations",
 );
+assert.match(
+    proofFact,
+    /ModuleDirectiveObserved <SelfhostModuleDirectiveFact>/,
+    "module directive facts must enter proof as typed facts",
+);
+assert.match(
+    proofObligation,
+    /ModuleDirectiveTransition <SelfhostModuleDirectiveState>/,
+    "module directive multiplicity must enter proof as a typed obligation",
+);
+assert.match(
+    proofQuery,
+    /ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>/,
+    "module directive duplicate failures must be typed refutations",
+);
 
 const solverBlock = functionBlock(proofSolver, "selfhost_proof_solve");
 assert.match(solverBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver must match on obligation enum");
@@ -74,6 +89,11 @@ assert.match(
     proofSolver,
     /(?:pub\s+)?fn\s+selfhost_proof_solve_raw_backend_transition\b[\s\S]*match\s+state:/,
     "raw backend state transitions must live in the proof solver",
+);
+assert.match(
+    proofSolver,
+    /(?:pub\s+)?fn\s+selfhost_proof_solve_module_directive_transition\b[\s\S]*match\s+state:/,
+    "module directive singleton transitions must live in the proof solver",
 );
 
 assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");
@@ -96,6 +116,16 @@ assert.match(
     moduleChecker,
     /selfhost_proof_raw_backend_transition\s+state\s+item/,
     "module checker must ask the proof solver for raw backend transitions",
+);
+assert.match(
+    moduleChecker,
+    /selfhost_proof_module_directive_transition\s+state\s+item/,
+    "module checker must ask the proof solver for module directive transitions",
+);
+assert.doesNotMatch(
+    moduleChecker,
+    /if:\s*\n\s+gt\s+summary\.(?:entry_count|target_count)\s+1/,
+    "module checker must not validate singleton directives by summary count checks",
 );
 assert.doesNotMatch(
     checker,
