@@ -42810,3 +42810,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-proof-internal-rules-proof-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-proof-internal-rules-module-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-proof-internal-rules-checker-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 self-host module checker public surface 境界修正
+
+- `ISS-20260519T215913781Z-SELF-HOST-MODULE-CHECKER-EXPOSES-INT-CD48F767` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`check/module.nepl` が public checker entry のほかに proof adapter、item classifier、diagnostic builder、recursive loop、transient step state まで公開していたことだった。
+- `selfhost_check_module_ast` と `SelfhostModuleCheckSummary` の読み取り accessor だけを public API に残した。`SelfhostModuleCheckStep`、summary constructor / record、raw backend / directive classifier、proof adapter、diagnostic builder、finish check、loop は private にした。
+- これにより後続の resolve / type / effect / lifetime / owner / Resource IR stage が checker の途中 state や proof adapter に直接依存する入口を閉じ、stable artifact として summary だけを読む境界に寄せた。
+- `nodesrc/test_selfhost_proof_entry_contract.js` に module checker public API allowlist を追加し、internal helper の再公開を検出する。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-module-check-public-surface-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-module-check-public-surface-checker-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-module-check-public-surface-proof-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed

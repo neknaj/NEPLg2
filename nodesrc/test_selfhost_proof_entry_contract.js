@@ -126,6 +126,39 @@ assert.match(
 );
 
 assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");
+const publicModuleCheckerFunctions = Array.from(
+    moduleChecker.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
+    (match) => match[1],
+);
+const allowedPublicModuleCheckerFunctions = new Set([
+    "selfhost_module_check_summary_item_count",
+    "selfhost_module_check_summary_doc_comment_count",
+    "selfhost_module_check_summary_directive_count",
+    "selfhost_module_check_summary_entry_count",
+    "selfhost_module_check_summary_target_count",
+    "selfhost_module_check_summary_import_count",
+    "selfhost_module_check_summary_declaration_count",
+    "selfhost_module_check_summary_function_count",
+    "selfhost_module_check_summary_type_declaration_count",
+    "selfhost_module_check_summary_impl_count",
+    "selfhost_module_check_summary_raw_block_count",
+    "selfhost_module_check_summary_raw_text_count",
+    "selfhost_check_module_ast",
+]);
+for (const fnName of publicModuleCheckerFunctions) {
+    assert.ok(
+        allowedPublicModuleCheckerFunctions.has(fnName),
+        `module checker must not expose internal proof adapter or state helper ${fnName}`,
+    );
+}
+for (const fnName of allowedPublicModuleCheckerFunctions) {
+    assert.ok(publicModuleCheckerFunctions.includes(fnName), `module checker public API must expose ${fnName}`);
+}
+assert.doesNotMatch(
+    moduleChecker,
+    /^pub struct SelfhostModuleCheckStep:/m,
+    "module checker step state must stay private to avoid exposing checker-internal proof sequencing",
+);
 assert.match(
     moduleChecker,
     /match\s+selfhost_proof_source_span_valid\s+item\.span:/,

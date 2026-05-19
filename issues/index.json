@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T21:57:01.073Z",
+  "generated_at": "2026-05-19T22:03:49.810Z",
   "counts": {
-    "total": 1079,
+    "total": 1080,
     "open": 4,
-    "resolved": 1075,
+    "resolved": 1076,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 79,
+        "total": 80,
         "open": 1,
-        "resolved": 78
+        "resolved": 79
       },
       "cli": {
         "total": 19,
@@ -9338,6 +9338,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T215154303Z-SELF-HOST-PROOF-SOLVER-EXPOSES-INTER-38516C0B.md"
+    },
+    {
+      "id": "ISS-20260519T215913781Z-SELF-HOST-MODULE-CHECKER-EXPOSES-INT-CD48F767",
+      "title": "Self-host module checker exposes internal proof adapters as public API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/check/module.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T215913781Z-SELF-HOST-MODULE-CHECKER-EXPOSES-INT-CD48F767.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
