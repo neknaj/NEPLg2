@@ -22913,21 +22913,11 @@ fn resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup() {
 #import "std/stdio/write" as *
 
 fn main <()*>()> ():
-    match alloc_region_bytes<u8> 1:
-        Result::Err _e:
+    match stdio_write_fd_byte_result 1 82:
+        Result::Ok _:
             ()
-        Result::Ok data_region:
-            let data <MemPtr<u8>> region_ptr &data_region
-            match stdio_write_fd_mem_result 1 data 1:
-                Result::Ok _:
-                    ()
-                Result::Err _:
-                    ()
-            match dealloc_region<u8> data_region:
-                Result::Ok _:
-                    ()
-                Result::Err _:
-                    ()
+        Result::Err _:
+            ()
 "#;
 
     let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
@@ -23004,21 +22994,11 @@ fn main <()*>()> ():
             ()
         Result::Err _e:
             ()
-    match alloc_region_bytes<u8> 1:
-        Result::Err _e:
+    match stdio_write_fd_byte_result 1 82:
+        Result::Ok _:
             ()
-        Result::Ok data_region:
-            let data <MemPtr<u8>> region_ptr &data_region
-            match stdio_write_fd_mem_result 1 data 1:
-                Result::Ok _:
-                    ()
-                Result::Err _:
-                    ()
-            match dealloc_region<u8> data_region:
-                Result::Ok _:
-                    ()
-                Result::Err _:
-                    ()
+        Result::Err _:
+            ()
 "#;
 
     let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
@@ -23035,6 +23015,7 @@ fn main <()*>()> ():
         "fs_open_with_flags__",
         "fs_read_fd_bytes__",
         "stdio_read_all_bytes_result__",
+        "stdio_write_fd_byte_result__",
         "stdio_write_fd_mem_result__",
     ];
     let diagnostics = report

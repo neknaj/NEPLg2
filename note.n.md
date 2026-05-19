@@ -1,3 +1,13 @@
+# 2026-05-19 Agent 1 Resource IR scratch cleanup regression の public boundary 修正
+
+- `ISS-20260519T171550554Z-RESOURCE-IR-SCRATCH-CLEANUP-REGRESSI-41096EA9` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdio_write_fd_mem_result` を private helper に戻した後も、Resource IR の scratch cleanup regression が旧 public raw span writer を直接呼ぶ source のまま残っていたこと。
+- テスト source は `stdio_write_fd_byte_result` から入るように変更した。これにより ordinary source の入口は typed public wrapper のまま維持し、monomorphization 後の private `stdio_write_fd_mem_result` / `stdio_fd_write_from_result` を Resource IR owner checker が検査する。
+- `resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup` は public wrapper 自身の prefix も diagnostics filter に含め、single-byte wrapper の local `RegionToken` cleanup も regression 対象にした。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --exact --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --exact --nocapture`: pass
+
 # 2026-05-19 Agent 1 Resource IR loop 条件付き raw span 証明修正
 
 - `ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D` を fixed / resolved にした。`plan.md` は変更していない。

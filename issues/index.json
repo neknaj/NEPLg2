@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T17:04:40.749Z",
+  "generated_at": "2026-05-19T17:17:52.973Z",
   "counts": {
-    "total": 1063,
+    "total": 1064,
     "open": 4,
-    "resolved": 1059,
+    "resolved": 1060,
     "by_area": {
       "stdlib": {
         "total": 292,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 522,
+        "total": 523,
         "open": 0,
-        "resolved": 522
+        "resolved": 523
       },
       "CORE": {
         "total": 5,
@@ -7973,6 +7973,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T144811685Z-RESOURCE-IR-RAW-SPAN-SUMMARIES-MISS--FA49E19D.md"
+    },
+    {
+      "id": "ISS-20260519T171550554Z-RESOURCE-IR-SCRATCH-CLEANUP-REGRESSI-41096EA9",
+      "title": "Resource IR scratch cleanup regressions call private raw span helper",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T171550554Z-RESOURCE-IR-SCRATCH-CLEANUP-REGRESSI-41096EA9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
