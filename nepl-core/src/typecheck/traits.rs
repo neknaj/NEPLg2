@@ -304,7 +304,7 @@ pub(super) fn collect_type_params(
                 ));
             }
         }
-        ctx.set_var_capabilities(id, copy_cap, clone_cap, drop_cap);
+        ctx.set_var_capabilities(id, copy_cap, clone_cap || copy_cap, drop_cap);
         if !bounds.is_empty() {
             bounds_map.insert(TypeParamId::new(id), bounds.clone());
         }

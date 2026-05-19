@@ -1860,6 +1860,97 @@ fn main <()->()> ():
 }
 
 #[test]
+fn clone_capability_bound_constrains_generic_impl_target() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CloneLike:
+    #capability clone
+    fn mark <(Self)->i32> (_self):
+        0
+
+struct Payload:
+    value <i32>
+
+struct Wrap<.T>:
+    value <.T>
+
+impl<.T: CloneLike> CloneLike for Wrap<.T>:
+    fn mark <(Wrap<.T>)->i32> (_self):
+        7
+
+fn main <()->i32> ():
+    let wrapped <Wrap<Payload>> Wrap Payload 1
+    CloneLike::mark wrapped
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitBoundUnsatisfied);
+}
+
+#[test]
+fn clone_capability_bound_allows_matching_clone_payload() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CloneLike:
+    #capability clone
+    fn mark <(Self)->i32> (_self):
+        0
+
+struct Payload:
+    value <i32>
+
+struct Wrap<.T>:
+    value <.T>
+
+impl CloneLike for Payload:
+    fn mark <(Payload)->i32> (_self):
+        3
+
+impl<.T: CloneLike> CloneLike for Wrap<.T>:
+    fn mark <(Wrap<.T>)->i32> (_self):
+        7
+
+fn main <()->i32> ():
+    let wrapped <Wrap<Payload>> Wrap Payload 1
+    CloneLike::mark wrapped
+"#;
+    assert_eq!(run_main_i32(src), 7);
+}
+
+#[test]
+fn recursive_clone_capability_impl_does_not_prove_itself() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CloneLike:
+    #capability clone
+    fn mark <(Self)->i32> (_self):
+        0
+
+struct Payload:
+    value <i32>
+
+impl<.T: CloneLike> CloneLike for .T:
+    fn mark <(.T)->i32> (_self):
+        7
+
+fn main <()->i32> ():
+    let payload <Payload> Payload 1
+    CloneLike::mark payload
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitBoundUnsatisfied);
+}
+
+#[test]
 fn trait_method_type_params_have_type_code() {
     let src = r#"
 #entry main

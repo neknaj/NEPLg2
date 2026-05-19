@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T20:20:39.146Z",
+  "generated_at": "2026-05-19T20:34:16.424Z",
   "counts": {
-    "total": 1072,
+    "total": 1073,
     "open": 4,
-    "resolved": 1068,
+    "resolved": 1069,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 525,
+        "total": 526,
         "open": 0,
-        "resolved": 525
+        "resolved": 526
       },
       "CORE": {
         "total": 5,
@@ -8018,6 +8018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T201031870Z-DROP-IMPL-CAN-TARGET-COPY-TYPES-AND--988FC60A.md"
+    },
+    {
+      "id": "ISS-20260519T202611033Z-CLONE-CAPABILITY-TYPE-VARIABLES-DO-N-47C8522F",
+      "title": "Clone-capability type variables do not constrain impl target matching",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/types.rs; nepl-core/src/typecheck/driver.rs; nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T202611033Z-CLONE-CAPABILITY-TYPE-VARIABLES-DO-N-47C8522F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

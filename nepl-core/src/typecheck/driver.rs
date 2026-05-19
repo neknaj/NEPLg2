@@ -804,6 +804,9 @@ pub fn typecheck(
         !contains_same_type(&ctx, &rejected_drop_targets, imp.target_ty)
     });
     for imp in impls.iter() {
+        if trait_semantics.has_clone_capability(imp.trait_self_ty()) {
+            ctx.register_clone_impl_target(imp.target_ty);
+        }
         if trait_semantics.has_copy_capability(imp.trait_self_ty()) {
             ctx.register_copy_impl_target(imp.target_ty);
         }

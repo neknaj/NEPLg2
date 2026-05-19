@@ -104,6 +104,7 @@ pub struct TypeCtx {
     never_ty: TypeId,
     named: alloc::collections::BTreeMap<alloc::string::String, TypeId>,
     copy_impl_targets: Vec<TypeId>,
+    clone_impl_targets: Vec<TypeId>,
     copy_trait_enabled: bool,
     drop_impl_targets: Vec<TypeId>,
     compiler_memory_types: Vec<(TypeId, CompilerMemoryType)>,
@@ -128,6 +129,7 @@ pub struct TypeCtxCheckpoint {
     arena_len: usize,
     undo_len: usize,
     copy_impl_targets_len: usize,
+    clone_impl_targets_len: usize,
     drop_impl_targets_len: usize,
     compiler_memory_types_len: usize,
     copy_trait_enabled: bool,
@@ -148,6 +150,7 @@ impl Clone for TypeCtx {
             never_ty: self.never_ty,
             named: self.named.clone(),
             copy_impl_targets: self.copy_impl_targets.clone(),
+            clone_impl_targets: self.clone_impl_targets.clone(),
             copy_trait_enabled: self.copy_trait_enabled,
             drop_impl_targets: self.drop_impl_targets.clone(),
             compiler_memory_types: self.compiler_memory_types.clone(),
@@ -198,6 +201,7 @@ impl TypeCtx {
             never_ty,
             named: alloc::collections::BTreeMap::new(),
             copy_impl_targets: Vec::new(),
+            clone_impl_targets: Vec::new(),
             copy_trait_enabled: false,
             drop_impl_targets: Vec::new(),
             compiler_memory_types: Vec::new(),
@@ -211,6 +215,7 @@ impl TypeCtx {
             arena_len: self.arena.len(),
             undo_len: self.undo_log.len(),
             copy_impl_targets_len: self.copy_impl_targets.len(),
+            clone_impl_targets_len: self.clone_impl_targets.len(),
             drop_impl_targets_len: self.drop_impl_targets.len(),
             compiler_memory_types_len: self.compiler_memory_types.len(),
             copy_trait_enabled: self.copy_trait_enabled,
@@ -240,6 +245,8 @@ impl TypeCtx {
         self.arena.truncate(checkpoint.arena_len);
         self.copy_impl_targets
             .truncate(checkpoint.copy_impl_targets_len);
+        self.clone_impl_targets
+            .truncate(checkpoint.clone_impl_targets_len);
         self.drop_impl_targets
             .truncate(checkpoint.drop_impl_targets_len);
         self.compiler_memory_types
@@ -611,6 +618,30 @@ impl TypeCtx {
             .any(|t| self.type_pattern_matches(*t, resolved))
     }
 
+    pub fn register_clone_impl_target(&mut self, id: TypeId) {
+        let resolved = self.resolve_id(id);
+        if self
+            .clone_impl_targets
+            .iter()
+            .any(|t| self.same_type(*t, resolved))
+        {
+            return;
+        }
+        self.clone_impl_targets.push(resolved);
+    }
+
+    pub fn has_clone_impl_target(&self, id: TypeId) -> bool {
+        let mut clone_seen = BTreeSet::new();
+        self.has_clone_impl_target_inner(id, &mut clone_seen)
+    }
+
+    fn has_clone_impl_target_inner(&self, id: TypeId, clone_seen: &mut BTreeSet<TypeId>) -> bool {
+        let resolved = self.resolve_id(id);
+        self.clone_impl_targets
+            .iter()
+            .any(|t| self.type_pattern_matches_with_clone_seen(*t, resolved, clone_seen))
+    }
+
     pub fn register_drop_impl_target(&mut self, id: TypeId) {
         let resolved = self.resolve_id(id);
         if self
@@ -650,6 +681,16 @@ impl TypeCtx {
     }
 
     pub fn type_pattern_matches(&self, pattern: TypeId, actual: TypeId) -> bool {
+        let mut clone_seen = BTreeSet::new();
+        self.type_pattern_matches_with_clone_seen(pattern, actual, &mut clone_seen)
+    }
+
+    fn type_pattern_matches_with_clone_seen(
+        &self,
+        pattern: TypeId,
+        actual: TypeId,
+        clone_seen: &mut BTreeSet<TypeId>,
+    ) -> bool {
         let mut seen = BTreeSet::new();
         let mut mapping = BTreeMap::new();
         self.type_pattern_matches_inner(
@@ -657,6 +698,7 @@ impl TypeCtx {
             self.resolve_id(actual),
             &mut mapping,
             &mut seen,
+            clone_seen,
         )
     }
 
@@ -666,6 +708,7 @@ impl TypeCtx {
         actual: TypeId,
         mapping: &mut BTreeMap<TypeId, TypeId>,
         seen: &mut BTreeSet<(TypeId, TypeId)>,
+        clone_seen: &mut BTreeSet<TypeId>,
     ) -> bool {
         let pattern = self.resolve_id(pattern);
         let actual = self.resolve_id(actual);
@@ -675,9 +718,10 @@ impl TypeCtx {
         match (self.get_ref(pattern), self.get_ref(actual)) {
             (TypeKind::Var(v), _) => {
                 if let Some(bound) = v.binding {
-                    return self.type_pattern_matches_inner(bound, actual, mapping, seen);
+                    return self
+                        .type_pattern_matches_inner(bound, actual, mapping, seen, clone_seen);
                 }
-                if !self.pattern_var_capabilities_match(v, actual) {
+                if !self.pattern_var_capabilities_match(v, actual, clone_seen) {
                     return false;
                 }
                 match mapping.get(&pattern).copied() {
@@ -698,16 +742,16 @@ impl TypeCtx {
             | (TypeKind::Never, TypeKind::Never) => true,
             (TypeKind::Named(a), TypeKind::Named(b)) => a == b,
             (TypeKind::Reference(ai, am), TypeKind::Reference(bi, bm)) => {
-                am == bm && self.type_pattern_matches_inner(*ai, *bi, mapping, seen)
+                am == bm && self.type_pattern_matches_inner(*ai, *bi, mapping, seen, clone_seen)
             }
             (TypeKind::Box(ai), TypeKind::Box(bi)) => {
-                self.type_pattern_matches_inner(*ai, *bi, mapping, seen)
+                self.type_pattern_matches_inner(*ai, *bi, mapping, seen, clone_seen)
             }
             (TypeKind::Tuple { items: a }, TypeKind::Tuple { items: b }) => {
                 a.len() == b.len()
-                    && a.iter()
-                        .zip(b.iter())
-                        .all(|(x, y)| self.type_pattern_matches_inner(*x, *y, mapping, seen))
+                    && a.iter().zip(b.iter()).all(|(x, y)| {
+                        self.type_pattern_matches_inner(*x, *y, mapping, seen, clone_seen)
+                    })
             }
             (
                 TypeKind::Function {
@@ -725,11 +769,10 @@ impl TypeCtx {
             ) => {
                 a_tps.len() == b_tps.len()
                     && a_ps.len() == b_ps.len()
-                    && a_ps
-                        .iter()
-                        .zip(b_ps.iter())
-                        .all(|(x, y)| self.type_pattern_matches_inner(*x, *y, mapping, seen))
-                    && self.type_pattern_matches_inner(*a_r, *b_r, mapping, seen)
+                    && a_ps.iter().zip(b_ps.iter()).all(|(x, y)| {
+                        self.type_pattern_matches_inner(*x, *y, mapping, seen, clone_seen)
+                    })
+                    && self.type_pattern_matches_inner(*a_r, *b_r, mapping, seen, clone_seen)
             }
             (
                 TypeKind::Apply {
@@ -746,14 +789,13 @@ impl TypeCtx {
                 {
                     self.nominal_apply_bases_match(*a_base, *b_base)
                 } else {
-                    self.type_pattern_matches_inner(*a_base, *b_base, mapping, seen)
+                    self.type_pattern_matches_inner(*a_base, *b_base, mapping, seen, clone_seen)
                 };
                 bases_match
                     && a_args.len() == b_args.len()
-                    && a_args
-                        .iter()
-                        .zip(b_args.iter())
-                        .all(|(x, y)| self.type_pattern_matches_inner(*x, *y, mapping, seen))
+                    && a_args.iter().zip(b_args.iter()).all(|(x, y)| {
+                        self.type_pattern_matches_inner(*x, *y, mapping, seen, clone_seen)
+                    })
             }
             (
                 TypeKind::Struct {
@@ -772,14 +814,12 @@ impl TypeCtx {
                 a_name == b_name
                     && a_tps.len() == b_tps.len()
                     && a_fields.len() == b_fields.len()
-                    && a_tps
-                        .iter()
-                        .zip(b_tps.iter())
-                        .all(|(x, y)| self.type_pattern_matches_inner(*x, *y, mapping, seen))
-                    && a_fields
-                        .iter()
-                        .zip(b_fields.iter())
-                        .all(|(x, y)| self.type_pattern_matches_inner(*x, *y, mapping, seen))
+                    && a_tps.iter().zip(b_tps.iter()).all(|(x, y)| {
+                        self.type_pattern_matches_inner(*x, *y, mapping, seen, clone_seen)
+                    })
+                    && a_fields.iter().zip(b_fields.iter()).all(|(x, y)| {
+                        self.type_pattern_matches_inner(*x, *y, mapping, seen, clone_seen)
+                    })
             }
             (
                 TypeKind::Enum {
@@ -798,16 +838,14 @@ impl TypeCtx {
                 a_name == b_name
                     && a_tps.len() == b_tps.len()
                     && a_vs.len() == b_vs.len()
-                    && a_tps
-                        .iter()
-                        .zip(b_tps.iter())
-                        .all(|(x, y)| self.type_pattern_matches_inner(*x, *y, mapping, seen))
+                    && a_tps.iter().zip(b_tps.iter()).all(|(x, y)| {
+                        self.type_pattern_matches_inner(*x, *y, mapping, seen, clone_seen)
+                    })
                     && a_vs.iter().zip(b_vs.iter()).all(|(x, y)| {
                         x.name == y.name
                             && match (x.payload, y.payload) {
-                                (Some(px), Some(py)) => {
-                                    self.type_pattern_matches_inner(px, py, mapping, seen)
-                                }
+                                (Some(px), Some(py)) => self
+                                    .type_pattern_matches_inner(px, py, mapping, seen, clone_seen),
                                 (None, None) => true,
                                 _ => false,
                             }
@@ -817,8 +855,15 @@ impl TypeCtx {
         }
     }
 
-    fn pattern_var_capabilities_match(&self, var: &TypeVar, actual: TypeId) -> bool {
-        (!var.copy_cap || self.is_copy(actual)) && (!var.drop_cap || self.has_drop(actual))
+    fn pattern_var_capabilities_match(
+        &self,
+        var: &TypeVar,
+        actual: TypeId,
+        clone_seen: &mut BTreeSet<TypeId>,
+    ) -> bool {
+        (!var.copy_cap || self.is_copy(actual))
+            && (!var.clone_cap || self.has_clone_inner(actual, clone_seen))
+            && (!var.drop_cap || self.has_drop(actual))
     }
 
     pub fn set_copy_trait_enabled(&mut self, enabled: bool) {
@@ -875,6 +920,46 @@ impl TypeCtx {
             TypeKind::Function { .. } => true,
             TypeKind::Box(_) => false,
         }
+    }
+
+    pub fn has_clone(&self, id: TypeId) -> bool {
+        let mut clone_seen = BTreeSet::new();
+        self.has_clone_inner(id, &mut clone_seen)
+    }
+
+    fn has_clone_inner(&self, id: TypeId, clone_seen: &mut BTreeSet<TypeId>) -> bool {
+        let resolved = self.resolve_id(id);
+        if !clone_seen.insert(resolved) {
+            return false;
+        }
+        let result = match self.get_ref(resolved) {
+            TypeKind::Never => true,
+            TypeKind::Reference(_, is_mut) => !*is_mut,
+            TypeKind::Unit
+            | TypeKind::I32
+            | TypeKind::U8
+            | TypeKind::F32
+            | TypeKind::Bool
+            | TypeKind::Char
+            | TypeKind::Str => self.has_clone_impl_target_inner(resolved, clone_seen),
+            TypeKind::Named(_) => self.has_clone_impl_target_inner(resolved, clone_seen),
+            TypeKind::Tuple { items } => {
+                items.iter().all(|t| self.has_clone_inner(*t, clone_seen))
+                    || self.has_clone_impl_target_inner(resolved, clone_seen)
+            }
+            TypeKind::Struct { .. } | TypeKind::Enum { .. } => {
+                self.has_clone_impl_target_inner(resolved, clone_seen)
+            }
+            TypeKind::Apply { .. } => self.has_clone_impl_target_inner(resolved, clone_seen),
+            TypeKind::Box(_) => false,
+            TypeKind::Function { .. } => true,
+            TypeKind::Var(v) => v
+                .binding
+                .map(|b| self.has_clone_inner(b, clone_seen))
+                .unwrap_or(v.clone_cap || v.copy_cap),
+        };
+        clone_seen.remove(&resolved);
+        result
     }
 
     pub fn has_drop(&self, id: TypeId) -> bool {

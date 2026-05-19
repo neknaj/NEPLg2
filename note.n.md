@@ -42708,3 +42708,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test drop -- --nocapture`: passed
   - `cargo test -p nepl-core --test neplg2 copy_impl -- --nocapture`: passed
   - `cargo test -p nepl-core diagnostic_codes --lib -- --nocapture`: passed
+
+## 2026-05-20 Agent 1 Clone capability generic impl target 制約
+
+- `ISS-20260519T202611033Z-CLONE-CAPABILITY-TYPE-VARIABLES-DO-N-47C8522F` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`collect_type_params` が `.T: CloneLike` の capability bound を `TypeVar.clone_cap` に記録している一方で、`TypeCtx::pattern_var_capabilities_match` が `clone_cap` を検査していなかったことだった。
+- `TypeCtx` に `clone_impl_targets` と `has_clone` query を追加し、clone capability impl target を copy/drop と同じ impl registration phase で登録するようにした。recursive blanket impl が自分自身を proof にしないように query stack も持たせた。
+- `pattern_var_capabilities_match` は `copy_cap` / `clone_cap` / `drop_cap` をすべて検査する。`Copy` は clone capability impl を要求する設計なので、type variable capability では `copy_cap` を `clone_cap` としても扱う。
+- focused verification:
+  - `cargo test -p nepl-core --test neplg2 clone_capability_bound -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 recursive_clone_capability_impl_does_not_prove_itself -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 trait_ -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 copy_impl -- --nocapture`: passed
