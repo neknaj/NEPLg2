@@ -22,7 +22,9 @@
 - `diags_len`
 - `diags_has_errors`
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"std_error_kind_and_diag_value_model\" count=8 failed=0\nassertion index=0 status=ok kind=str_eq label=\"Failure kind string\" expected=\"Failure\" actual=\"Failure\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"OutOfMemory kind string\" expected=\"OutOfMemory\" actual=\"OutOfMemory\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"diag message\" expected=\"with source\" actual=\"with source\" message=\"\"\nassertion index=3 status=ok kind=str_eq label=\"diag kind string\" expected=\"Failure\" actual=\"Failure\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"span file id\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=5 status=ok kind=str_eq label=\"source text\" expected=\"parser\" actual=\"parser\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"diags length\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"diags has errors\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -34,12 +36,11 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
-#import "core/field" as *
 
 fn main <()*>i32> ():
-    let mut checks checks_new;
-    set checks checks_push checks check_str_eq "Failure" std_error_kind_str StdErrorKind::Failure;
-    set checks checks_push checks check_str_eq "OutOfMemory" std_error_kind_str StdErrorKind::OutOfMemory;
+    let mut report test_report_new "std_error_kind_and_diag_value_model";
+    set report test_report_push report assert_str_eq "Failure kind string" "Failure" std_error_kind_str StdErrorKind::Failure;
+    set report test_report_push report assert_str_eq "OutOfMemory kind string" "OutOfMemory" std_error_kind_str StdErrorKind::OutOfMemory;
 
     let sp <Span> Span 4 5 6;
     let d0 <Diag> diag_error StdErrorKind::Failure "with source";
@@ -48,27 +49,27 @@ fn main <()*>i32> ():
     let d3 <Diag> diag_add_help d2 "doc: std/test";
     let d4 <Diag> diag_with_source d3 "parser";
 
-    set checks checks_push checks check_str_eq "with source" *field::get_ref &d4 "message";
-    set checks checks_push checks check_str_eq "Failure" diag_std_error_kind_str &d4;
+    set report test_report_push report assert_str_eq "diag message" "with source" *field::get_ref &d4 "message";
+    set report test_report_push report assert_str_eq "diag kind string" "Failure" diag_std_error_kind_str &d4;
 
     match *field::get_ref &d4 "span":
         Option::Some got:
-            set checks checks_push checks check_eq_i32 4 get got "file_id";
+            set report test_report_push report assert_eq_i32 "span file id" 4 field::get got "file_id";
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "expected span";
+            set report test_report_push report test_assertion_failed AssertionKind::EqI32 "span file id" "4" "None" "expected span";
 
     match *field::get_ref &d4 "source":
         Option::Some src:
-            set checks checks_push checks check_str_eq "parser" src;
+            set report test_report_push report assert_str_eq "source text" "parser" src;
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "expected source";
+            set report test_report_push report test_assertion_failed AssertionKind::StrEq "source text" "parser" "None" "expected source";
 
     let ds0 <Diags> diags_one d4;
     let ds1 <Diags> diags_push ds0 diag_warn "careful";
-    set checks checks_push checks check_eq_i32 2 diags_len &ds1;
-    set checks checks_push checks check diags_has_errors ds1;
-    let shown checks_print_report checks;
-    checks_exit_code shown
+    set report test_report_push report assert_eq_i32 "diags length" 2 diags_len &ds1;
+    set report test_report_push report assert "diags has errors" diags_has_errors ds1;
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## outcome_helpers_keep_result_and_diags_separate
@@ -88,137 +89,115 @@ fn main <()*>i32> ():
 - `outcome_diags_or_empty`
 - `outcome_has_errors`
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"outcome_helpers_keep_result_and_diags_separate\" count=14 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"ok0 result\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"ok0 empty diags\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"ok1 result\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"ok1 is ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"ok1 is not err\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"ok1 diags length\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"ok2 warns only\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"replace result\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=8 status=ok kind=str_eq label=\"err0 kind\" expected=\"IoError\" actual=\"IoError\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"err0 is not ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"err0 is err\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=eq_i32 label=\"err0 empty diags\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"err0 has no errors\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=str_eq label=\"err1 kind\" expected=\"ParseError\" actual=\"ParseError\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
 #import "alloc/diag/error" as *
-#import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
-#import "core/field" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let mut checks checks_new;
-    let ok0 <Outcome<i32, StdErrorKind>> outcome_ok<i32, StdErrorKind> 42;
-    match outcome_result &ok0:
+fn assert_result_ok_i32 <(str,Result<i32,StdErrorKind>,i32)->TestAssertion> (label, got, expected):
+    match got:
         Result::Ok v:
-            set checks checks_push checks check_eq_i32 42 v;
+            assert_eq_i32 label expected v
+        Result::Err kind:
+            test_assertion_fail label std_error_kind_str kind
+
+fn assert_kind_io_error <(str,Result<i32,StdErrorKind>)->TestAssertion> (label, got):
+    match got:
+        Result::Ok _v:
+            test_assertion_failed AssertionKind::StrEq label "IoError" "Ok" "expected Err IoError"
         Result::Err kind:
             match kind:
-                StdErrorKind::Failure:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::OutOfMemory:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::EmptyCollection:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::IndexOutOfBounds:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::KeyNotFound:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::CapacityExceeded:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::InvalidOperation:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::InvalidUtf8:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
-                StdErrorKind::ParseError:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
                 StdErrorKind::IoError:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
+                    test_assertion_passed AssertionKind::StrEq label "IoError" "IoError"
+                StdErrorKind::Failure:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "Failure" "expected IoError"
+                StdErrorKind::OutOfMemory:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "OutOfMemory" "expected IoError"
+                StdErrorKind::EmptyCollection:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "EmptyCollection" "expected IoError"
+                StdErrorKind::IndexOutOfBounds:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "IndexOutOfBounds" "expected IoError"
+                StdErrorKind::KeyNotFound:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "KeyNotFound" "expected IoError"
+                StdErrorKind::CapacityExceeded:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "CapacityExceeded" "expected IoError"
+                StdErrorKind::InvalidOperation:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "InvalidOperation" "expected IoError"
+                StdErrorKind::InvalidUtf8:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "InvalidUtf8" "expected IoError"
+                StdErrorKind::ParseError:
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "ParseError" "expected IoError"
                 StdErrorKind::Other:
-                    set checks checks_push checks Result<(),str>::Err "expected ok";
+                    test_assertion_failed AssertionKind::StrEq label "IoError" "Other" "expected IoError"
 
-    set checks checks_push checks check_eq_i32 0 diags_len outcome_diags_or_empty ok0;
+fn assert_kind_parse_error <(str,Result<i32,StdErrorKind>)->TestAssertion> (label, got):
+    match got:
+        Result::Ok _v:
+            test_assertion_failed AssertionKind::StrEq label "ParseError" "Ok" "expected Err ParseError"
+        Result::Err kind:
+            match kind:
+                StdErrorKind::ParseError:
+                    test_assertion_passed AssertionKind::StrEq label "ParseError" "ParseError"
+                StdErrorKind::Failure:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "Failure" "expected ParseError"
+                StdErrorKind::OutOfMemory:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "OutOfMemory" "expected ParseError"
+                StdErrorKind::EmptyCollection:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "EmptyCollection" "expected ParseError"
+                StdErrorKind::IndexOutOfBounds:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "IndexOutOfBounds" "expected ParseError"
+                StdErrorKind::KeyNotFound:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "KeyNotFound" "expected ParseError"
+                StdErrorKind::CapacityExceeded:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "CapacityExceeded" "expected ParseError"
+                StdErrorKind::InvalidOperation:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "InvalidOperation" "expected ParseError"
+                StdErrorKind::InvalidUtf8:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "InvalidUtf8" "expected ParseError"
+                StdErrorKind::IoError:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "IoError" "expected ParseError"
+                StdErrorKind::Other:
+                    test_assertion_failed AssertionKind::StrEq label "ParseError" "Other" "expected ParseError"
+
+fn main <()*>i32> ():
+    let mut report test_report_new "outcome_helpers_keep_result_and_diags_separate";
+    let ok0 <Outcome<i32, StdErrorKind>> outcome_ok<i32, StdErrorKind> 42;
+    set report test_report_push report assert_result_ok_i32 "ok0 result" outcome_result &ok0 42;
+    set report test_report_push report assert_eq_i32 "ok0 empty diags" 0 diags_len outcome_diags_or_empty ok0;
 
     let ds <Diags> diags_one diag_warn "careful";
     let ok1 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 42 ds;
-    match outcome_result &ok1:
-        Result::Ok v:
-            set checks checks_push checks check_eq_i32 42 v;
-        Result::Err _kind:
-            set checks checks_push checks Result<(),str>::Err "expected ok result";
-    set checks checks_push checks check outcome_is_ok &ok1;
-    set checks checks_push checks check not outcome_is_err &ok1;
-    set checks checks_push checks check_eq_i32 1 diags_len outcome_diags_or_empty ok1;
+    set report test_report_push report assert_result_ok_i32 "ok1 result" outcome_result &ok1 42;
+    set report test_report_push report assert "ok1 is ok" outcome_is_ok &ok1;
+    set report test_report_push report assert "ok1 is not err" not outcome_is_err &ok1;
+    set report test_report_push report assert_eq_i32 "ok1 diags length" 1 diags_len outcome_diags_or_empty ok1;
     let ok2 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 42 diags_one diag_warn "careful";
-    set checks checks_push checks check not outcome_has_errors ok2;
+    set report test_report_push report assert "ok2 warns only" not outcome_has_errors ok2;
 
     let replace0 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 7 diags_one diag_warn "old";
     let replace1 <Outcome<i32, StdErrorKind>> outcome_with_diags replace0 diags_one diag_warn "new";
-    match outcome_result replace1:
-        Result::Ok v:
-            set checks checks_push checks check_eq_i32 7 v;
-        Result::Err _kind:
-            set checks checks_push checks Result<(),str>::Err "expected replaced outcome ok";
+    set report test_report_push report assert_result_ok_i32 "replace result" outcome_result replace1 7;
 
     let err0 <Outcome<i32, StdErrorKind>> outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
-    match outcome_result &err0:
-        Result::Ok _v:
-            set checks checks_push checks Result<(),str>::Err "expected err";
-        Result::Err kind:
-            match kind:
-                StdErrorKind::IoError:
-                    set checks checks_push checks Result<(),str>::Ok ();
-                StdErrorKind::Failure:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::OutOfMemory:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::EmptyCollection:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::IndexOutOfBounds:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::KeyNotFound:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::CapacityExceeded:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::InvalidOperation:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::InvalidUtf8:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::ParseError:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-                StdErrorKind::Other:
-                    set checks checks_push checks Result<(),str>::Err "expected IoError";
-    set checks checks_push checks check not outcome_is_ok &err0;
-    set checks checks_push checks check outcome_is_err &err0;
-    set checks checks_push checks check_eq_i32 0 diags_len outcome_diags_or_empty err0;
-    set checks checks_push checks check not outcome_has_errors outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
+    set report test_report_push report assert_kind_io_error "err0 kind" outcome_result &err0;
+    set report test_report_push report assert "err0 is not ok" not outcome_is_ok &err0;
+    set report test_report_push report assert "err0 is err" outcome_is_err &err0;
+    set report test_report_push report assert_eq_i32 "err0 empty diags" 0 diags_len outcome_diags_or_empty err0;
+    set report test_report_push report assert "err0 has no errors" not outcome_has_errors outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
 
     let err1 <Outcome<i32, StdErrorKind>>:
         result_to_outcome<i32, StdErrorKind> Result::Err StdErrorKind::ParseError
-    match get err1 "result":
-        Result::Ok _v:
-            set checks checks_push checks Result<(),str>::Err "expected err";
-        Result::Err kind:
-            match kind:
-                StdErrorKind::ParseError:
-                    set checks checks_push checks Result<(),str>::Ok ();
-                StdErrorKind::Failure:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::OutOfMemory:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::EmptyCollection:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::IndexOutOfBounds:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::KeyNotFound:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::CapacityExceeded:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::InvalidOperation:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::InvalidUtf8:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::IoError:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-                StdErrorKind::Other:
-                    set checks checks_push checks Result<(),str>::Err "expected ParseError";
-    let shown checks_print_report checks;
-    checks_exit_code shown
+    set report test_report_push report assert_kind_parse_error "err1 kind" outcome_result &err1;
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 
@@ -234,7 +213,9 @@ fn main <()*>i32> ():
 - `result_like_is_ok`
 - `result_like_is_err`
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"result_and_outcome_common_helpers\" count=8 failed=0\nassertion index=0 status=ok kind=bool label=\"r0 is ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"o0 is ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"r0 is not err\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"o0 is not err\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"r0 result\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"o0 result\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"o2 is ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"o2 diags length\" expected=\"1\" actual=\"1\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -246,31 +227,31 @@ neplg2:test
 #import "core/math" as *
 
 fn main <()*>i32> ():
-    let mut checks checks_new;
+    let mut report test_report_new "result_and_outcome_common_helpers";
     let r0 <Result<i32, StdErrorKind>> Result::Ok 9;
     let o0 <Outcome<i32, StdErrorKind>> into_outcome r0;
-    set checks checks_push checks check result_like_is_ok r0;
-    set checks checks_push checks check result_like_is_ok &o0;
-    set checks checks_push checks check not result_like_is_err r0;
-    set checks checks_push checks check not result_like_is_err &o0;
+    set report test_report_push report assert "r0 is ok" result_like_is_ok r0;
+    set report test_report_push report assert "o0 is ok" result_like_is_ok &o0;
+    set report test_report_push report assert "r0 is not err" not result_like_is_err r0;
+    set report test_report_push report assert "o0 is not err" not result_like_is_err &o0;
 
     match result_like_result r0:
         Result::Ok v:
-            set checks checks_push checks check_eq_i32 9 v;
+            set report test_report_push report assert_eq_i32 "r0 result" 9 v;
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "expected result ok";
+            set report test_report_push report test_assertion_fail "r0 result" "expected result ok";
 
     match result_like_result &o0:
         Result::Ok v:
-            set checks checks_push checks check_eq_i32 9 v;
+            set report test_report_push report assert_eq_i32 "o0 result" 9 v;
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "expected outcome ok";
+            set report test_report_push report test_assertion_fail "o0 result" "expected outcome ok";
 
     let ds <Diags> diags_one diag_warn "careful";
     let o1 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 3 ds;
     let o2 <Outcome<i32, StdErrorKind>> into_outcome o1;
-    set checks checks_push checks check result_like_is_ok &o2;
-    set checks checks_push checks check_eq_i32 1 diags_len outcome_diags_or_empty o2;
-    let shown checks_print_report checks;
-    checks_exit_code shown
+    set report test_report_push report assert "o2 is ok" result_like_is_ok &o2;
+    set report test_report_push report assert_eq_i32 "o2 diags length" 1 diags_len outcome_diags_or_empty o2;
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

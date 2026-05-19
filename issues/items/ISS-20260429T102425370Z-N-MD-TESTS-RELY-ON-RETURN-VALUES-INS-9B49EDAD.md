@@ -129,6 +129,19 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。他の stdlib fixture に残る stdout report 未固定を引き続き移行する。
 
+## 2026-05-19 stdlib error stdout report migration
+
+`ISS-20260519T002114564Z-STDLIB-ERROR-DOCTESTS-PRINT-CHECKS-R-1C74A208` として、`stdlib/tests/error.n.md` の 3 doctest を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- `std_error_kind_and_diag_value_model` は `StdErrorKind` string、Diag message / kind、span、source、Diags length / error 有無の 8 assertion を stdout に固定した。
+- `outcome_helpers_keep_result_and_diags_separate` は Ok/Err result、Diags 分離、warning-only、Err kind の 14 assertion を stdout に固定した。
+- `result_and_outcome_common_helpers` は Result / Outcome 共通 helper の 8 assertion を stdout に固定した。
+- `nodesrc/test_stdlib_error_nmd_report_contract.js` を追加し、`ret:`、stdout-less report、旧 `checks_*` 形式へ戻らないようにした。
+
+この issue はまだ open のまま継続する。他の stdlib / selfhost fixture に残る stdout report 未固定を引き続き移行する。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

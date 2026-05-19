@@ -1,3 +1,15 @@
+# 2026-05-19 Agent 1 stdlib error stdout report 固定
+
+- `ISS-20260519T002114564Z-STDLIB-ERROR-DOCTESTS-PRINT-CHECKS-R-1C74A208` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/tests/error.n.md` の3件が診断値モデルと Outcome helper を検査していながら、旧 `checks_*` report のstdoutをfixtureとして固定していなかったこと。
+- `std_error_kind_and_diag_value_model`、`outcome_helpers_keep_result_and_diags_separate`、`result_and_outcome_common_helpers` を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行した。
+- `StdErrorKind` / `Diag` / `Diags` / `Outcome` の観測結果を named `TestReport` の assertion label と expected / actual として固定し、失敗時にどの値モデルが壊れたか分かるようにした。
+- `nodesrc/test_stdlib_error_nmd_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、旧 `checks_*` への退行、Err kind 分岐の弱体化を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_error_nmd_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/error.n.md --no-tree -o tmp/agent1-error-nmd-report-contract.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+
 # 2026-05-19 Agent 1 stdlib fs stdout report 固定
 
 - `ISS-20260519T001423431Z-STDLIB-FS-DOCTEST-PRINTS-CHECKS-REPO-41B6E0F1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
