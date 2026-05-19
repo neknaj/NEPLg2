@@ -23,10 +23,17 @@ pub(super) enum HostMemoryLength {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum HostMemoryInitializedLength {
+    SameAsLength,
+    OutputI32Cell { address_arg: usize },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum HostMemorySpan {
     Direct {
         address_arg: usize,
         length: HostMemoryLength,
+        initialized_length: HostMemoryInitializedLength,
         unit: HostMemoryDirectUnit,
         direction: HostMemoryDirection,
     },
@@ -106,14 +113,16 @@ const FD_PWRITE_SPANS: &[HostMemorySpan] = &[
     },
     i32_output(4),
 ];
-const FD_READDIR_SPANS: &[HostMemorySpan] =
-    &[bytes_output(1, HostMemoryLength::Arg(2)), i32_output(4)];
+const FD_READDIR_SPANS: &[HostMemorySpan] = &[
+    bytes_output_counted(1, HostMemoryLength::Arg(2), 4),
+    i32_output(4),
+];
 const FD_PRESTAT_DIR_NAME_SPANS: &[HostMemorySpan] = &[bytes_output(1, HostMemoryLength::Arg(2))];
 const FD_FDSTAT_GET_SPANS: &[HostMemorySpan] = &[bytes_output(1, HostMemoryLength::ConstI32(24))];
 const FD_FILESTAT_GET_SPANS: &[HostMemorySpan] = &[bytes_output(1, HostMemoryLength::ConstI32(64))];
 const FD_PRESTAT_GET_SPANS: &[HostMemorySpan] = &[bytes_output(1, HostMemoryLength::ConstI32(8))];
 const PATH_OPEN_SPANS: &[HostMemorySpan] =
-    &[bytes_input(1, HostMemoryLength::Arg(2)), i32_output(8)];
+    &[bytes_input(2, HostMemoryLength::Arg(3)), i32_output(8)];
 const PATH_CREATE_DIRECTORY_SPANS: &[HostMemorySpan] = &[bytes_input(1, HostMemoryLength::Arg(2))];
 const PATH_FILESTAT_GET_SPANS: &[HostMemorySpan] = &[
     bytes_input(2, HostMemoryLength::Arg(3)),
@@ -261,6 +270,7 @@ const fn bytes_input(address_arg: usize, length: HostMemoryLength) -> HostMemory
     HostMemorySpan::Direct {
         address_arg,
         length,
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
         unit: HostMemoryDirectUnit::Bytes,
         direction: HostMemoryDirection::Input,
     }
@@ -270,6 +280,23 @@ const fn bytes_output(address_arg: usize, length: HostMemoryLength) -> HostMemor
     HostMemorySpan::Direct {
         address_arg,
         length,
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
+        unit: HostMemoryDirectUnit::Bytes,
+        direction: HostMemoryDirection::Output,
+    }
+}
+
+const fn bytes_output_counted(
+    address_arg: usize,
+    capacity: HostMemoryLength,
+    initialized_count_address_arg: usize,
+) -> HostMemorySpan {
+    HostMemorySpan::Direct {
+        address_arg,
+        length: capacity,
+        initialized_length: HostMemoryInitializedLength::OutputI32Cell {
+            address_arg: initialized_count_address_arg,
+        },
         unit: HostMemoryDirectUnit::Bytes,
         direction: HostMemoryDirection::Output,
     }
@@ -279,6 +306,7 @@ const fn i32_output(address_arg: usize) -> HostMemorySpan {
     HostMemorySpan::Direct {
         address_arg,
         length: HostMemoryLength::ConstI32(4),
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
         unit: HostMemoryDirectUnit::I32Cell,
         direction: HostMemoryDirection::Output,
     }

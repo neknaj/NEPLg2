@@ -5,6 +5,7 @@ use super::host_size_contract::dependent_host_memory_spans;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -12,6 +13,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         effect: &super::model::EffectOp,
         args: &[Place],
         span: Span,
@@ -21,6 +23,7 @@ impl ResourceOwnerCheckEngine<'_> {
             available &= self.ensure_host_memory_contract_owner_span_available(
                 owners,
                 raw_aliases,
+                raw_views,
                 contract,
                 args,
                 span,

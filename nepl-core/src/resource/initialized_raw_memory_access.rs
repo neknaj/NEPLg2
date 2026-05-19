@@ -40,7 +40,7 @@ impl ResourceCheckEngine<'_> {
         let loaded_from_untracked_source =
             loaded_from_untracked_external || loaded_from_zero_initialized_runtime;
         let cell_available = loaded_from_untracked_source
-            || cells.raw_cell_initialized_by_byte_range(&address, cell_ty, raw_aliases)
+            || cells.raw_cell_initialized_by_byte_range(&address, cell_ty, raw_aliases, self.types)
             || self.ensure_available(
                 cells,
                 &cell,

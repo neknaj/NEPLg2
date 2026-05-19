@@ -53,6 +53,11 @@ impl RawCellAddressAliases {
         self.i32_scales.add_scale(&source, target, scale);
     }
 
+    pub(super) fn add_i32_offset(&mut self, source: &Place, target: &Place, offset: i64) {
+        let source = self.canonicalize_scalar(source);
+        self.i32_offsets.add_offset(&source, target, offset);
+    }
+
     pub(super) fn i32_value(&self, place: &Place) -> Option<i32> {
         if let PlaceRoot::I32Constant(value) = place.root {
             return Some(value);
@@ -99,6 +104,14 @@ impl RawCellAddressAliases {
             .scaled_targets_for_source_aliases(&self.scalar_aliases_for(source), scale)
             .into_iter()
             .map(|target| self.canonicalize_scalar(&target))
+            .collect()
+    }
+
+    pub(super) fn i32_offset_targets(&self, source: &Place) -> Vec<(Place, i64)> {
+        self.i32_offsets
+            .offset_targets_for_source_aliases(&self.scalar_aliases_for(source))
+            .into_iter()
+            .map(|(target, offset)| (self.canonicalize_scalar(&target), offset))
             .collect()
     }
 

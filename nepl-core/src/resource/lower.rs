@@ -65,6 +65,7 @@ pub fn lower_hir_module(module: &HirModule, types: &TypeCtx) -> ResourceModule {
 
 pub(super) struct LoweringEnvironment<'a> {
     function_effects: BTreeMap<String, Effect>,
+    function_effect_ops: BTreeMap<String, EffectOp>,
     functions: BTreeMap<String, &'a HirFunction>,
     pub(super) types: &'a TypeCtx,
     pub(super) string_literals: &'a [String],
@@ -73,6 +74,7 @@ pub(super) struct LoweringEnvironment<'a> {
 impl<'a> LoweringEnvironment<'a> {
     fn new(module: &'a HirModule, types: &'a TypeCtx) -> Self {
         let mut function_effects = BTreeMap::new();
+        let mut function_effect_ops = BTreeMap::new();
         let mut functions = BTreeMap::new();
         for function in &module.functions {
             insert_effect(
@@ -88,9 +90,16 @@ impl<'a> LoweringEnvironment<'a> {
                 extern_fn.local_name.clone(),
                 extern_fn.effect,
             );
+            if let Some(effect) = raw_callee_internal_effect(&extern_fn.name) {
+                function_effect_ops.insert(
+                    extern_fn.local_name.clone(),
+                    resource_effect_from_internal(effect),
+                );
+            }
         }
         Self {
             function_effects,
+            function_effect_ops,
             functions,
             types,
             string_literals: &module.string_literals,
@@ -104,9 +113,15 @@ impl<'a> LoweringEnvironment<'a> {
             .unwrap_or(Effect::Pure)
     }
 
+    pub(super) fn function_effect_op(&self, name: &str) -> Option<EffectOp> {
+        self.function_effect_ops.get(name).cloned()
+    }
+
     pub(super) fn known_function_value_effect(&self, name: &str) -> Option<EffectOp> {
         if let Some(effect) = raw_callee_internal_effect(name) {
             Some(resource_effect_from_internal(effect))
+        } else if let Some(effect) = self.function_effect_op(name) {
+            Some(effect)
         } else if self.function_effects.contains_key(name) {
             Some(EffectOp::UserCall {
                 name: String::from(name),
@@ -118,7 +133,10 @@ impl<'a> LoweringEnvironment<'a> {
     }
 
     fn known_function_value(&self, name: &str, ty: TypeId) -> Option<(String, EffectOp)> {
-        if self.function_effects.contains_key(name) || raw_callee_internal_effect(name).is_some() {
+        if self.function_effects.contains_key(name)
+            || raw_callee_internal_effect(name).is_some()
+            || self.function_effect_ops.contains_key(name)
+        {
             return Some((String::from(name), function_value_effect(name, self)));
         }
         let mut matches = self

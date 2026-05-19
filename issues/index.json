@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T02:19:01.060Z",
+  "generated_at": "2026-05-19T05:29:36.496Z",
   "counts": {
-    "total": 1045,
+    "total": 1046,
     "open": 5,
-    "resolved": 1040,
+    "resolved": 1041,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 512,
+        "total": 513,
         "open": 0,
-        "resolved": 512
+        "resolved": 513
       },
       "CORE": {
         "total": 4,
@@ -7823,6 +7823,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T184314600Z-SELFHOST-REQ-STRINGBUILDER-DOCTEST-L-220A7D5E.md"
+    },
+    {
+      "id": "ISS-20260519T022952260Z-CLI-INTEGRATION-FIXTURES-USE-STALE-N-4910B9AC",
+      "title": "CLI integration fixtures and Resource IR host-memory proof drift from current std APIs",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-cli/tests/cli_output.rs; nepl-core/src/resource/host_memory_contract.rs; nepl-core/src/resource/initialized*.rs; nepl-core/src/resource/owner*.rs; nepl-core/src/resource/lower_raw_address*.rs; nepl-core/tests/resource_ir.rs; stdlib/std/fs/dir/read_fd.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T022952260Z-CLI-INTEGRATION-FIXTURES-USE-STALE-N-4910B9AC.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

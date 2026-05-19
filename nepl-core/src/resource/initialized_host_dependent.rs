@@ -40,13 +40,16 @@ impl ResourceCheckEngine<'_> {
         match contract.length {
             HostDependentLength::HostSize(kind) => {
                 for count in raw_aliases.host_size_places(kind) {
-                    for alias in raw_aliases.aliases_for(&address) {
-                        cells.add_initialized_raw_byte_range(
-                            &alias,
-                            &count,
-                            InitializedRawRangeUnit::Bytes,
-                            self.types.i32(),
-                        );
+                    for alias in raw_aliases.raw_address_aliases_for_value(&address) {
+                        raw_aliases.clear_scalar_facts(&alias);
+                        for ty in [self.types.u8(), self.types.i32()] {
+                            cells.add_initialized_raw_byte_range(
+                                &alias,
+                                &count,
+                                InitializedRawRangeUnit::Bytes,
+                                ty,
+                            );
+                        }
                     }
                 }
             }
@@ -55,7 +58,8 @@ impl ResourceCheckEngine<'_> {
                 bytes_per_item,
             } => {
                 for count in raw_aliases.host_size_places(kind) {
-                    for alias in raw_aliases.aliases_for(&address) {
+                    for alias in raw_aliases.raw_address_aliases_for_value(&address) {
+                        raw_aliases.clear_scalar_facts(&alias);
                         cells.add_initialized_raw_byte_range(
                             &alias,
                             &count,

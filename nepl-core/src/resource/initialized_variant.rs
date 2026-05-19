@@ -181,7 +181,12 @@ impl PendingVariantRawCellInitializations {
             );
             let initialized_by_byte_range =
                 raw_cell_address_prefix(&place).is_some_and(|address| {
-                    cells.raw_cell_initialized_by_byte_range(&address, place.ty, raw_aliases)
+                    cells.raw_cell_initialized_by_byte_range(
+                        &address,
+                        place.ty,
+                        raw_aliases,
+                        engine.types,
+                    )
                 });
             let loaded_from_untracked_source =
                 raw_cell_address_prefix(&place).is_some_and(|address| {

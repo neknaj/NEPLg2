@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 
-use crate::types::TypeId;
+use crate::layout::storage_size_bytes;
+use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state::{place_suffix_after_address_prefix, raw_addresses_overlap, CellTable};
 use super::cell_state_raw_range_cover::raw_byte_range_address_covers;
@@ -21,9 +22,12 @@ impl CellTable {
         address: &Place,
         ty: TypeId,
         raw_aliases: &RawCellAddressAliases,
+        types: &TypeCtx,
     ) -> bool {
+        let access_size_bytes = storage_size_bytes(types, ty);
         self.initialized_raw_byte_ranges.iter().any(|range| {
-            range.ty == ty && raw_byte_range_address_covers(range, address, raw_aliases)
+            range.ty == ty
+                && raw_byte_range_address_covers(range, address, raw_aliases, access_size_bytes)
         })
     }
 

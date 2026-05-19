@@ -9,6 +9,7 @@ use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{CellState, Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::place_utils::match_bind_payload_place;
@@ -168,6 +169,7 @@ impl ResourceCheckEngine<'_> {
         }
         if paths_available && !cell_paths.is_empty() {
             cells.set_state(output, CellState::Initialized(output.ty));
+            seed_str_storage_layout(self.types, cells, raw_aliases, output);
         } else {
             raw_aliases.clear(output);
             pending_reallocs.clear_result(output);
@@ -390,6 +392,7 @@ impl ResourceCheckEngine<'_> {
         }
         if scrutinee_available && arms_available {
             cells.set_state(output, CellState::Initialized(output.ty));
+            seed_str_storage_layout(self.types, cells, raw_aliases, output);
         } else {
             raw_aliases.clear(output);
             pending_reallocs.clear_result(output);

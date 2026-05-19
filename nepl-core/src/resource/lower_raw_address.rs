@@ -308,6 +308,22 @@ fn raw_address_place_with_offset(raw: Place, offset: RawAddressOffset, raw_ty: T
             PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }),
             raw_ty,
         ),
+        RawAddressOffset::SymbolicPlusKnown { place, bytes } => {
+            let raw = raw.with_projection(
+                PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }),
+                raw_ty,
+            );
+            match usize::try_from(bytes) {
+                Ok(bytes) => raw.with_projection(
+                    PlaceProjection::StorageOffset(ResourceOffset::Known(bytes)),
+                    raw_ty,
+                ),
+                Err(_) => raw.with_projection(
+                    PlaceProjection::StorageOffset(ResourceOffset::Unknown),
+                    raw_ty,
+                ),
+            }
+        }
         RawAddressOffset::Known(_) | RawAddressOffset::Unknown => raw.with_projection(
             PlaceProjection::StorageOffset(ResourceOffset::Unknown),
             raw_ty,

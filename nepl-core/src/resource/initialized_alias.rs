@@ -6,6 +6,7 @@ use crate::types::TypeId;
 
 use super::initialized_alias_difference::I32DifferenceFacts;
 use super::initialized_alias_host_size::HostSizeFacts;
+use super::initialized_alias_offset::I32OffsetFacts;
 use super::initialized_alias_origin::RawValueOrigins;
 use super::initialized_alias_rank::{
     owner_alias_place_has_raw_projection, owner_cell_alias_rank, prefer_stable_canonical,
@@ -39,6 +40,7 @@ pub(super) struct RawCellAddressAliases {
     pub(super) i32_differences: I32DifferenceFacts,
     pub(super) i32_relations: I32RelationFacts,
     pub(super) i32_scales: I32ScaleFacts,
+    pub(super) i32_offsets: I32OffsetFacts,
     pub(super) host_size_facts: HostSizeFacts,
 }
 
@@ -76,6 +78,7 @@ impl RawCellAddressAliases {
             .i32_relations
             .facts_with_replaced_prefix(source, target);
         let scale_copies = self.i32_scales.facts_with_replaced_prefix(source, target);
+        let offset_copies = self.i32_offsets.facts_with_replaced_prefix(source, target);
         let host_size_copies = self
             .host_size_facts
             .facts_with_replaced_prefix(source, target);
@@ -84,6 +87,7 @@ impl RawCellAddressAliases {
         self.i32_differences.extend(difference_copies);
         self.i32_relations.extend(relation_copies);
         self.i32_scales.extend(scale_copies);
+        self.i32_offsets.extend(offset_copies);
         self.host_size_facts.extend(host_size_copies);
         self.scalar_origins.copy_stable_origin(source, target);
     }
@@ -105,6 +109,7 @@ impl RawCellAddressAliases {
             .i32_relations
             .facts_with_replaced_prefix(source, target);
         let scale_copies = self.i32_scales.facts_with_replaced_prefix(source, target);
+        let offset_copies = self.i32_offsets.facts_with_replaced_prefix(source, target);
         let host_size_copies = self
             .host_size_facts
             .facts_with_replaced_prefix(source, target);
@@ -119,6 +124,7 @@ impl RawCellAddressAliases {
         self.i32_differences.extend(difference_copies);
         self.i32_relations.extend(relation_copies);
         self.i32_scales.extend(scale_copies);
+        self.i32_offsets.extend(offset_copies);
         self.host_size_facts.extend(host_size_copies);
         self.raw_view_origins.copy_stable_origin(source, target);
         self.scalar_origins.copy_stable_origin(source, target);
@@ -187,6 +193,7 @@ impl RawCellAddressAliases {
             .i32_relations
             .facts_with_replaced_prefix(source, target);
         let moved_scales = self.i32_scales.facts_with_replaced_prefix(source, target);
+        let moved_offsets = self.i32_offsets.facts_with_replaced_prefix(source, target);
         let moved_host_sizes = self
             .host_size_facts
             .facts_with_replaced_prefix(source, target);
@@ -215,6 +222,7 @@ impl RawCellAddressAliases {
         self.i32_differences.extend(moved_differences);
         self.i32_relations.extend(moved_relations);
         self.i32_scales.extend(moved_scales);
+        self.i32_offsets.extend(moved_offsets);
         self.host_size_facts.extend(moved_host_sizes);
     }
 
@@ -276,6 +284,20 @@ impl RawCellAddressAliases {
         }
         if out.is_empty() {
             push_unique_place(&mut out, place);
+        }
+        out
+    }
+
+    pub(super) fn raw_address_aliases_for_value(&self, place: &Place) -> Vec<Place> {
+        let mut out = self.aliases_for(place);
+        for origin in self.raw_view_origins.origins_for(place) {
+            if origin == *place {
+                continue;
+            }
+            push_unique_place(&mut out, &origin);
+            for alias in self.aliases_for(&origin) {
+                push_unique_place(&mut out, &alias);
+            }
         }
         out
     }
@@ -358,12 +380,17 @@ impl RawCellAddressAliases {
         self.clear_raw_address_metadata(place);
     }
 
+    pub(super) fn clear_scalar_facts(&mut self, place: &Place) {
+        self.clear_scalar_metadata(place);
+    }
+
     fn clear_scalar_metadata(&mut self, place: &Place) {
         self.scalar_origins.clear_prefix(place);
         self.i32_facts.clear_prefix(place);
         self.i32_differences.clear_prefix(place);
         self.i32_relations.clear_prefix(place);
         self.i32_scales.clear_prefix(place);
+        self.i32_offsets.clear_prefix(place);
         self.host_size_facts.clear_prefix(place);
     }
 
@@ -397,6 +424,7 @@ impl RawCellAddressAliases {
         out.i32_relations =
             I32RelationFacts::merge_paths(paths.iter().map(|path| &path.i32_relations));
         out.i32_scales = I32ScaleFacts::merge_paths(paths.iter().map(|path| &path.i32_scales));
+        out.i32_offsets = I32OffsetFacts::merge_paths(paths.iter().map(|path| &path.i32_offsets));
         out.host_size_facts =
             HostSizeFacts::merge_paths(paths.iter().map(|path| &path.host_size_facts));
         out
@@ -485,8 +513,10 @@ impl RawCellAddressAliases {
 
     pub(super) fn scalar_aliases_for(&self, place: &Place) -> Vec<Place> {
         let mut out = self.aliases_for(place);
-        let origin = self.scalar_origins.origin_for(place);
-        if origin != *place {
+        for origin in self.scalar_origins.origins_for(place) {
+            if origin == *place {
+                continue;
+            }
             push_unique_place(&mut out, &origin);
             for alias in self.aliases_for(&origin) {
                 push_unique_place(&mut out, &alias);

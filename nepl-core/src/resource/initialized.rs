@@ -18,6 +18,11 @@ use super::initialized_alias_flow::{
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummaryIndex,
 };
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
+use super::initialized_scalar_flow::{
+    apply_direct_call_i32_scalar_summary, compute_i32_scalar_return_summaries,
+    I32ScalarReturnSummaryIndex,
+};
+use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::initialized_variant::PendingVariantRawCellInitializations;
@@ -48,8 +53,17 @@ pub fn check_resource_initialized_moves(
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(&raw_alias_summaries);
     stage_start.log("resource_initialized_raw_alias_summaries");
     let stage_start = ResourceStageTimer::start();
-    let raw_init_summaries =
-        compute_raw_cell_initialization_function_summaries(module, types, &raw_alias_summaries);
+    let i32_scalar_summaries =
+        compute_i32_scalar_return_summaries(module, types, &raw_alias_summary_index);
+    let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(&i32_scalar_summaries);
+    stage_start.log("resource_initialized_i32_scalar_summaries");
+    let stage_start = ResourceStageTimer::start();
+    let raw_init_summaries = compute_raw_cell_initialization_function_summaries(
+        module,
+        types,
+        &raw_alias_summaries,
+        &i32_scalar_summaries,
+    );
     let raw_init_summary_index =
         RawCellInitializationFunctionSummaryIndex::new(&raw_init_summaries);
     stage_start.log("resource_initialized_raw_init_summaries");
@@ -60,6 +74,7 @@ pub fn check_resource_initialized_moves(
             function: function.name.as_str(),
             types,
             raw_alias_summaries: &raw_alias_summary_index,
+            i32_scalar_summaries: &i32_scalar_summary_index,
             raw_init_summaries: &raw_init_summary_index,
             diagnostics: Vec::new(),
             auto_drop_points: Vec::new(),
@@ -88,6 +103,7 @@ pub(super) struct ResourceCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
     pub(super) raw_alias_summaries: &'a RawCellAddressReturnSummaryIndex<'a>,
+    pub(super) i32_scalar_summaries: &'a I32ScalarReturnSummaryIndex<'a>,
     pub(super) raw_init_summaries: &'a RawCellInitializationFunctionSummaryIndex<'a>,
     pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
     pub(super) auto_drop_points: Vec<ResourceDropPoint>,
@@ -104,10 +120,12 @@ impl ResourceCheckEngine<'_> {
         for param in &function.params {
             cells.mark_initialized(&param.place);
             self.seed_external_raw_storage_parameter(&mut cells, &mut raw_aliases, &param.place);
+            seed_str_storage_layout(self.types, &mut cells, &mut raw_aliases, &param.place);
             if let Some(target_ty) = self.reference_target_type(param.place.ty) {
                 let target = reference_target_place(&param.place, target_ty);
                 cells.mark_initialized(&target);
                 self.seed_external_raw_storage_parameter(&mut cells, &mut raw_aliases, &target);
+                seed_str_storage_layout(self.types, &mut cells, &mut raw_aliases, &target);
             }
         }
         for block in &function.blocks {
@@ -237,6 +255,7 @@ impl ResourceCheckEngine<'_> {
                         function_aliases.copy_alias(initializer, place);
                         pending_reallocs.copy_result(initializer, place);
                         variant_initializations.copy_result(initializer, place);
+                        seed_str_storage_layout(self.types, cells, raw_aliases, place);
                     } else {
                         cells.set_state(place, CellState::Uninit);
                         raw_aliases.clear(place);
@@ -275,6 +294,7 @@ impl ResourceCheckEngine<'_> {
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
+                    seed_str_storage_layout(self.types, cells, raw_aliases, output);
                 }
             }
             ResourceOp::Assign {
@@ -309,6 +329,7 @@ impl ResourceCheckEngine<'_> {
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
                     variant_initializations.copy_result(value, target);
+                    seed_str_storage_layout(self.types, cells, raw_aliases, target);
                 } else {
                     raw_aliases.clear(target);
                     pending_reallocs.clear_result(target);
@@ -327,6 +348,7 @@ impl ResourceCheckEngine<'_> {
                     let target = reference_target_place(output, source.ty);
                     cells.mark_initialized(&target);
                     self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, &target);
+                    seed_str_storage_layout(self.types, cells, raw_aliases, &target);
                     pending_reallocs.clear_result(output);
                     variant_initializations.clear_result(output);
                 }
@@ -353,6 +375,7 @@ impl ResourceCheckEngine<'_> {
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
+                    seed_str_storage_layout(self.types, cells, raw_aliases, output);
                 }
             }
             ResourceOp::Drop { place, span } => {
@@ -427,6 +450,14 @@ impl ResourceCheckEngine<'_> {
                     if !self.apply_call_return_raw_alias(raw_aliases, output, target, args) {
                         raw_aliases.clear(output);
                     }
+                    apply_direct_call_i32_scalar_summary(
+                        raw_aliases,
+                        output,
+                        target,
+                        args,
+                        self.i32_scalar_summaries,
+                        self.types,
+                    );
                     let release_requirements_ok = self.apply_call_raw_cell_initialization_summary(
                         cells,
                         raw_aliases,
@@ -443,6 +474,7 @@ impl ResourceCheckEngine<'_> {
                     } else {
                         record_direct_call_i32_facts(raw_aliases, target, output, args);
                     }
+                    seed_str_storage_layout(self.types, cells, raw_aliases, output);
                     pending_reallocs.clear_result(output);
                 }
             }
@@ -488,6 +520,7 @@ impl ResourceCheckEngine<'_> {
                         pending_reallocs.clear_result(output);
                         variant_initializations.clear_result(output);
                     }
+                    seed_str_storage_layout(self.types, cells, raw_aliases, output);
                     pending_reallocs.clear_result(output);
                 }
             }
@@ -542,6 +575,7 @@ impl ResourceCheckEngine<'_> {
                         );
                     }
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
+                    seed_str_storage_layout(self.types, cells, raw_aliases, output);
                     pending_reallocs.clear_result(output);
                     variant_initializations.clear_result(output);
                 }
@@ -693,6 +727,7 @@ impl ResourceCheckEngine<'_> {
         {
             raw_aliases.clear(output);
         }
+        seed_str_storage_layout(self.types, cells, raw_aliases, output);
     }
 
     fn reference_target_type(&self, ty: TypeId) -> Option<TypeId> {

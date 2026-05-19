@@ -111,7 +111,7 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                                                     set done true
                                                 else:
                                                     let mut off <i32> 0
-                                                    while and eq err 0 lt off used:
+                                                    while and eq err 0 and ge off 0 lt off used:
                                                         do:
                                                             let header_end <i32> add off fs_dirent_header_size
                                                             if:

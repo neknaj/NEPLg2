@@ -19,329 +19,167 @@ fn llvm_source() -> &'static str {
 }
 
 fn stderr_fd_write_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)*>i32>
+#import "core/result" as *
+#import "std/stdio" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 101;
-    store_u8 1025 114;
-    store_u8 1026 114;
-    store_i32 1000 1024;
-    store_i32 1004 3;
-    store_i32 1008 0;
-    let errno <i32> fd_write 2 1000 1 1008;
-    if:
-        cond:
-            eq errno 0
-        then:
-            if:
-                cond:
-                    eq load_i32 1008 3
-                then:
-                    0
-                else:
-                    98
-        else:
+    match stdio_write_stderr_str_result "err":
+        Result::Ok _:
+            0
+        Result::Err _e:
             99
 "#
 }
 
 fn fs_read_allowed_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/cast" as *
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
-#extern "wasi_snapshot_preview1" "fd_read" fn fd_read <(i32,i32,i32,i32)*>i32>
-#extern "wasi_snapshot_preview1" "fd_close" fn fd_close <(i32)*>i32>
+#import "alloc/string" as *
+#import "core/result" as *
+#import "std/fs" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 97;
-    store_u8 1025 108;
-    store_u8 1026 108;
-    store_u8 1027 111;
-    store_u8 1028 119;
-    store_u8 1029 101;
-    store_u8 1030 100;
-    store_u8 1031 46;
-    store_u8 1032 116;
-    store_u8 1033 120;
-    store_u8 1034 116;
-    store_i32 1000 0;
-    let rights <i64> cast 0;
-    let open_errno <i32> path_open 3 0 1024 11 0 rights rights 0 1000;
-    if:
-        cond:
-            ne open_errno 0
-        then:
-            open_errno
-        else:
-            let fd <i32> load_i32 1000;
-            store_i32 1100 1200;
-            store_i32 1104 32;
-            store_i32 1108 0;
-            let read_errno <i32> fd_read fd 1100 1 1108;
-            let _close_errno <i32> fd_close fd;
-            if:
-                cond:
-                    ne read_errno 0
-                then:
-                    read_errno
-                else:
-                    if:
-                        cond:
-                            eq load_i32 1108 10
-                        then:
-                            if:
-                                cond:
-                                    eq load_u8 1200 115
-                                then:
-                                    if eq load_u8 1209 107 0 93
-                                else:
-                                    92
-                        else:
-                            91
+    match fs_read_to_string "allowed.txt":
+        Result::Ok text:
+            if str_eq text "sandbox-ok" 0 91
+        Result::Err e:
+            e
 "#
 }
 
 fn fs_read_parent_escape_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/cast" as *
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
+#import "core/math" as *
+#import "core/result" as *
+#import "std/fs" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 46;
-    store_u8 1025 46;
-    store_u8 1026 47;
-    store_u8 1027 111;
-    store_u8 1028 117;
-    store_u8 1029 116;
-    store_u8 1030 115;
-    store_u8 1031 105;
-    store_u8 1032 100;
-    store_u8 1033 101;
-    store_u8 1034 46;
-    store_u8 1035 116;
-    store_u8 1036 120;
-    store_u8 1037 116;
-    store_i32 1000 0;
-    let rights <i64> cast 0;
-    let errno <i32> path_open 3 0 1024 14 0 rights rights 0 1000;
-    if eq errno 76 0 95
+    match fs_read_to_string "../outside.txt":
+        Result::Ok _content:
+            95
+        Result::Err e:
+            if eq e 76 0 95
 "#
 }
 
 fn fs_read_missing_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/cast" as *
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
+#import "core/math" as *
+#import "core/result" as *
+#import "std/fs" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 109;
-    store_u8 1025 105;
-    store_u8 1026 115;
-    store_u8 1027 115;
-    store_u8 1028 105;
-    store_u8 1029 110;
-    store_u8 1030 103;
-    store_u8 1031 46;
-    store_u8 1032 116;
-    store_u8 1033 120;
-    store_u8 1034 116;
-    store_i32 1000 0;
-    let rights <i64> cast 0;
-    let errno <i32> path_open 3 0 1024 11 0 rights rights 0 1000;
-    if eq errno 44 0 94
+    match fs_read_to_string "missing.txt":
+        Result::Ok _content:
+            94
+        Result::Err e:
+            if eq e 44 0 94
 "#
 }
 
 fn fs_write_create_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/cast" as *
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
-#extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)*>i32>
-#extern "wasi_snapshot_preview1" "fd_close" fn fd_close <(i32)*>i32>
+#import "core/result" as *
+#import "std/fs" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 111;
-    store_u8 1025 117;
-    store_u8 1026 116;
-    store_u8 1027 46;
-    store_u8 1028 116;
-    store_u8 1029 120;
-    store_u8 1030 116;
-    store_i32 1000 0;
-    let rights <i64> cast 64;
-    let open_errno <i32> path_open 3 0 1024 7 9 rights rights 0 1000;
-    if:
-        cond:
-            ne open_errno 0
-        then:
-            open_errno
-        else:
-            let fd <i32> load_i32 1000;
-            store_u8 1200 109;
-            store_u8 1201 97;
-            store_u8 1202 100;
-            store_u8 1203 101;
-            store_i32 1100 1200;
-            store_i32 1104 4;
-            store_i32 1108 0;
-            let write_errno <i32> fd_write fd 1100 1 1108;
-            let close_errno <i32> fd_close fd;
-            if:
-                cond:
-                    ne write_errno 0
-                then:
-                    write_errno
-                else:
-                    if:
-                        cond:
-                            ne close_errno 0
-                        then:
-                            close_errno
-                        else:
-                            if eq load_i32 1108 4 0 91
+    match fs_write_to_string "out.txt" "made":
+        Result::Ok _:
+            0
+        Result::Err e:
+            e
 "#
 }
 
 fn fs_write_parent_escape_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/cast" as *
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
+#import "core/math" as *
+#import "core/result" as *
+#import "std/fs" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 46;
-    store_u8 1025 46;
-    store_u8 1026 47;
-    store_u8 1027 111;
-    store_u8 1028 117;
-    store_u8 1029 116;
-    store_u8 1030 115;
-    store_u8 1031 105;
-    store_u8 1032 100;
-    store_u8 1033 101;
-    store_u8 1034 46;
-    store_u8 1035 116;
-    store_u8 1036 120;
-    store_u8 1037 116;
-    store_i32 1000 0;
-    let rights <i64> cast 64;
-    let errno <i32> path_open 3 0 1024 14 9 rights rights 0 1000;
-    if eq errno 76 0 95
+    match fs_write_to_string "../outside.txt" "changed":
+        Result::Ok _:
+            95
+        Result::Err e:
+            if eq e 76 0 95
 "#
 }
 
 fn fs_path_filestat_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "path_filestat_get" fn path_filestat_get <(i32,i32,i32,i32,i32)*>i32>
+#import "core/math" as *
+#import "core/result" as *
+#import "std/fs" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 100;
-    store_u8 1025 105;
-    store_u8 1026 114;
-    let dir_errno <i32> path_filestat_get 3 0 1024 3 2000;
-    store_u8 1040 100;
-    store_u8 1041 105;
-    store_u8 1042 114;
-    store_u8 1043 47;
-    store_u8 1044 97;
-    store_u8 1045 108;
-    store_u8 1046 112;
-    store_u8 1047 104;
-    store_u8 1048 97;
-    store_u8 1049 46;
-    store_u8 1050 110;
-    store_u8 1051 101;
-    store_u8 1052 112;
-    store_u8 1053 108;
-    let file_errno <i32> path_filestat_get 3 0 1040 14 2100;
-    store_u8 1080 46;
-    store_u8 1081 46;
-    store_u8 1082 47;
-    store_u8 1083 111;
-    store_u8 1084 117;
-    store_u8 1085 116;
-    store_u8 1086 115;
-    store_u8 1087 105;
-    store_u8 1088 100;
-    store_u8 1089 101;
-    store_u8 1090 46;
-    store_u8 1091 116;
-    store_u8 1092 120;
-    store_u8 1093 116;
-    let escape_errno <i32> path_filestat_get 3 0 1080 14 2200;
-    let ok_dir <bool> and eq dir_errno 0 eq load_u8 2016 3;
-    let ok_file <bool> and eq file_errno 0 eq load_u8 2116 4;
-    let ok_escape <bool> eq escape_errno 76;
+    let ok_dir <bool> fs_is_dir "dir";
+    let ok_file <bool> fs_is_file "dir/alpha.nepl";
+    let ok_escape <bool> match fs_path_filetype "../outside.txt":
+        Result::Ok _filetype:
+            false
+        Result::Err e:
+            eq e 76
     if and ok_dir and ok_file ok_escape 0 91
 "#
 }
 
 fn fs_readdir_source() -> &'static str {
-    r#"#target wasi
+    r#"#target std
 #entry main
 #indent 4
 
-#import "core/cast" as *
-#import "core/mem" as *
-#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
-#extern "wasi_snapshot_preview1" "fd_readdir" fn fd_readdir <(i32,i32,i32,i64,i32)*>i32>
-#extern "wasi_snapshot_preview1" "fd_close" fn fd_close <(i32)*>i32>
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/fs" as *
 
 fn main <()*>i32> ():
-    store_u8 1024 100;
-    store_u8 1025 105;
-    store_u8 1026 114;
-    store_i32 1000 0;
-    let rights <i64> cast 16384;
-    let open_errno <i32> path_open 3 0 1024 3 2 rights rights 0 1000;
-    if:
-        ne open_errno 0
-        then:
-            open_errno
-        else:
-            let fd <i32> load_i32 1000;
-            store_i32 2900 0;
-            let read_errno <i32> fd_readdir fd 3000 512 <i64> cast 0 2900;
-            let _close_errno <i32> fd_close fd;
-            if:
-                ne read_errno 0
-                then:
-                    read_errno
-                else:
-                    let used <i32> load_i32 2900;
-                    let ok0 <bool> eq used 99;
-                    let ok1 <bool> and eq load_i32 3016 10 eq load_u8 3024 97;
-                    let ok2 <bool> and eq load_i32 3050 9 eq load_u8 3058 98;
-                    let ok3 <bool> and eq load_i32 3083 8 eq load_u8 3091 122;
-                    if and ok0 and ok1 and ok2 ok3 0 92
+    match fs_read_dir "dir":
+        Result::Err e:
+            e
+        Result::Ok entries:
+            let ok_len <bool> eq v::len<str> &entries 3;
+            let ok0 <bool> match v::get<str> &entries 0:
+                Option::Some entry0:
+                    str_eq entry0 "alpha.nepl"
+                Option::None:
+                    false
+            let ok1 <bool> match v::get<str> &entries 1:
+                Option::Some entry1:
+                    str_eq entry1 "beta.n.md"
+                Option::None:
+                    false
+            let ok2 <bool> match v::get<str> &entries 2:
+                Option::Some entry2:
+                    str_eq entry2 "zeta.txt"
+                Option::None:
+                    false
+            v::free<str> entries;
+            if and ok_len and ok0 and ok1 ok2 0 92
 "#
 }
 
@@ -352,18 +190,39 @@ fn fs_std_read_dir_source() -> &'static str {
 
 #import "std/fs" as *
 #import "core/result" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
 
 fn main <()*>i32> ():
     match fs_read_dir "dir":
         Result::Err e:
             add 90 e
         Result::Ok entries:
-            if eq get entries "len" 3 0 93
+            let ok_len <bool> eq v::len<str> &entries 3;
+            let ok0 <bool> match v::get<str> &entries 0:
+                Option::Some entry0:
+                    str_eq entry0 "alpha.nepl"
+                Option::None:
+                    false
+            let ok1 <bool> match v::get<str> &entries 1:
+                Option::Some entry1:
+                    str_eq entry1 "beta.n.md"
+                Option::None:
+                    false
+            let ok2 <bool> match v::get<str> &entries 2:
+                Option::Some entry2:
+                    str_eq entry2 "zeta.txt"
+                Option::None:
+                    false
+            v::free<str> entries;
+            if and ok_len and ok0 and ok1 ok2 0 93
 "#
 }
 
 fn extra_answer_source() -> &'static str {
-    "#indent 4\n\nfn answer <()->i32> ():\n    42\n"
+    "#indent 4\n\npub fn answer <()->i32> ():\n    42\n"
 }
 
 fn source_using_extra_stdlib() -> &'static str {
@@ -371,7 +230,7 @@ fn source_using_extra_stdlib() -> &'static str {
 }
 
 fn test_source_using_extra_stdlib() -> &'static str {
-    "#entry main\n#indent 4\n\n#import \"extra/answer\" as *\n\nfn main <()*>i32> ():\n    if eq answer 42 0 1\n"
+    "#entry main\n#indent 4\n\n#import \"extra/answer\" as *\n#import \"core/math\" as *\n\nfn main <()*>i32> ():\n    if eq answer 42 0 1\n"
 }
 
 fn write_source_at(dir: &Path, name: &str, source: &str) -> PathBuf {
@@ -474,6 +333,15 @@ fn assert_clean_stderr(output: &Output) {
     assert!(!stderr.contains("DEBUG:"), "debug output leaked:\n{stderr}");
 }
 
+fn assert_no_internal_debug_stderr(output: &Output) {
+    let stderr = output_text(&output.stderr);
+    assert!(!stderr.contains("DEBUG:"), "debug output leaked:\n{stderr}");
+    assert!(
+        !stderr.contains("[Loader]"),
+        "core loader debug output leaked:\n{stderr}"
+    );
+}
+
 #[test]
 fn check_success_keeps_stderr_empty_without_verbose() {
     let temp = tempfile::tempdir().expect("tempdir");
@@ -487,7 +355,7 @@ fn check_success_keeps_stderr_empty_without_verbose() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(output_text(&output.stdout).contains("Check successful"));
 }
 
@@ -507,7 +375,7 @@ fn check_uses_explicit_stdlib_root() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(output_text(&output.stdout).contains("Check successful"));
 }
 
@@ -552,7 +420,7 @@ fn test_subcommand_uses_explicit_stdlib_root() {
         .expect("run nepl-cli test");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output_text(&output.stdout).contains("uses_extra.nepl"),
         "test output did not include case name:\n{}",
@@ -747,12 +615,17 @@ fn run_wasi_fd_write_supports_stderr() {
         .expect("run nepl-cli");
 
     assert_success(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
         output_text(&output.stdout)
     );
-    assert_eq!(output_text(&output.stderr), "err");
+    assert!(
+        output_text(&output.stderr).ends_with("err"),
+        "program stderr did not end with expected payload:\n{}",
+        output_text(&output.stderr)
+    );
 }
 
 #[test]
@@ -770,7 +643,7 @@ fn run_wasi_path_open_reads_preopen_relative_file() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
@@ -795,7 +668,7 @@ fn run_wasi_path_open_rejects_parent_escape() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
@@ -817,7 +690,7 @@ fn run_wasi_path_open_reports_missing_file_noent() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
@@ -840,7 +713,7 @@ fn run_wasi_path_open_creates_truncates_and_writes_preopen_file() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
@@ -871,7 +744,7 @@ fn run_wasi_path_open_rejects_write_parent_escape() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
@@ -900,7 +773,7 @@ fn run_wasi_path_filestat_get_reports_file_kinds_and_rejects_escape() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
@@ -927,7 +800,7 @@ fn run_wasi_fd_readdir_returns_stable_directory_entries() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",
@@ -954,7 +827,7 @@ fn run_wasi_std_fs_read_dir_returns_stable_directory_entries() {
         .expect("run nepl-cli");
 
     assert_success(&output);
-    assert_clean_stderr(&output);
+    assert_no_internal_debug_stderr(&output);
     assert!(
         output.stdout.is_empty(),
         "unexpected stdout:\n{}",

@@ -387,6 +387,7 @@ fn summary_check_engine<'a>(engine: &ResourceCheckEngine<'a>) -> ResourceCheckEn
         function: engine.function,
         types: engine.types,
         raw_alias_summaries: engine.raw_alias_summaries,
+        i32_scalar_summaries: engine.i32_scalar_summaries,
         raw_init_summaries: engine.raw_init_summaries,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),

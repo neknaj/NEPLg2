@@ -33,6 +33,7 @@ impl ResourceOwnerCheckEngine<'_> {
         if !self.apply_owner_host_memory_span_requirements(
             owners,
             raw_aliases,
+            raw_views,
             args,
             &summary.host_memory_span_requirements,
             span,

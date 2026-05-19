@@ -30,10 +30,10 @@ impl RawValueOrigins {
 
     pub(super) fn copy_stable_origin(&mut self, source: &Place, target: &Place) {
         let resolved_origin = self.origin_for(source);
-        let origin = if value_origin_place_is_stable(&resolved_origin) {
-            Some(resolved_origin)
-        } else if value_origin_place_is_stable(source) {
+        let origin = if value_origin_place_is_stable(source) {
             Some(source.clone())
+        } else if value_origin_place_is_stable(&resolved_origin) {
+            Some(resolved_origin)
         } else {
             None
         };
@@ -54,6 +54,22 @@ impl RawValueOrigins {
             current = next;
         }
         current
+    }
+
+    pub(super) fn origins_for(&self, place: &Place) -> Vec<Place> {
+        let mut out = Vec::new();
+        let mut current = place.clone();
+        for _ in 0..=self.origins.len() {
+            let Some(next) = self.step(&current) else {
+                break;
+            };
+            if next == current || out.iter().any(|existing| existing == &next) {
+                break;
+            }
+            out.push(next.clone());
+            current = next;
+        }
+        out
     }
 
     pub(super) fn clear_prefix(&mut self, place: &Place) {
@@ -135,5 +151,21 @@ mod tests {
         origins.copy_stable_origin(&temporary, &raw_cell);
 
         assert_eq!(origins.origin_for(&raw_cell), source);
+    }
+
+    #[test]
+    fn origins_for_keeps_intermediate_stable_local_source_before_raw_cell_origin() {
+        let ty = TypeId(1);
+        let raw_cell =
+            Place::local(String::from("used_ptr"), ty).with_projection(PlaceProjection::Deref, ty);
+        let used = Place::local(String::from("used"), ty);
+        let used_read = Place::temporary(ResourceId(1), ty);
+        let mut origins = RawValueOrigins::default();
+
+        origins.copy_stable_origin(&raw_cell, &used);
+        origins.copy_stable_origin(&used, &used_read);
+
+        assert_eq!(origins.origin_for(&used_read), raw_cell);
+        assert_eq!(origins.origins_for(&used_read), alloc::vec![used, raw_cell]);
     }
 }

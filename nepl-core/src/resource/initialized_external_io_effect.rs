@@ -10,13 +10,14 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn mark_raw_cell_initialized(
         &self,
         cells: &mut CellTable,
-        raw_aliases: &RawCellAddressAliases,
+        raw_aliases: &mut RawCellAddressAliases,
         address: &Place,
         ty: TypeId,
     ) {
         let address = raw_aliases.canonicalize(address);
-        for alias in raw_aliases.aliases_for(&address) {
+        for alias in raw_aliases.raw_address_aliases_for_value(&address) {
             let cell = raw_memory_cell_place(&alias, ty);
+            raw_aliases.clear_scalar_facts(&cell);
             cells.mark_initialized(&cell);
         }
     }

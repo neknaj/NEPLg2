@@ -5,7 +5,8 @@ use alloc::vec::Vec;
 use crate::span::Span;
 
 use super::host_memory_contract::{
-    HostMemoryDirectUnit, HostMemoryDirection, HostMemoryLength, HostMemorySpan,
+    HostMemoryDirectUnit, HostMemoryDirection, HostMemoryInitializedLength, HostMemoryLength,
+    HostMemorySpan,
 };
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
@@ -13,6 +14,7 @@ use super::model::{
     ResourceOffset,
 };
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_place::owner_projection_source_place;
 use super::owner_state::OwnerTable;
 use super::place_utils::{place_suffix_after_prefix, push_unique_place};
@@ -52,6 +54,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let contract = HostMemorySpan::Direct {
             address_arg: 0,
             length: HostMemoryLength::Arg(1),
+            initialized_length: HostMemoryInitializedLength::SameAsLength,
             unit: HostMemoryDirectUnit::Bytes,
             direction,
         };
@@ -75,6 +78,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         args: &[Place],
         requirements: &[OwnerHostMemorySpanRequirement],
         span: Span,
@@ -85,6 +89,7 @@ impl ResourceOwnerCheckEngine<'_> {
             available &= self.ensure_host_memory_contract_owner_span_available(
                 owners,
                 raw_aliases,
+                raw_views,
                 &requirement.span,
                 &instantiated_args,
                 span,

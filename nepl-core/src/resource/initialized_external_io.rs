@@ -2,12 +2,14 @@ use super::cell_state::CellTable;
 use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::host_memory_address::host_memory_address_place;
 use super::host_memory_contract::{
-    host_memory_spans, HostMemoryDirectUnit, HostMemoryDirection, HostMemorySpan,
+    host_memory_spans, HostMemoryDirectUnit, HostMemoryDirection, HostMemoryInitializedLength,
+    HostMemoryLength, HostMemorySpan,
 };
 use super::host_size_contract::{dependent_host_memory_spans, host_size_outputs};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{EffectOp, Place};
+use super::place_utils::raw_memory_cell_place;
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_external_io_initialized_effect(
@@ -41,6 +43,7 @@ impl ResourceCheckEngine<'_> {
                 length,
                 unit: HostMemoryDirectUnit::I32Cell,
                 direction: HostMemoryDirection::Output,
+                ..
             } => {
                 if let Some(address) = args.get(address_arg) {
                     let address = host_memory_address_place(self.types, raw_aliases, address);
@@ -51,23 +54,24 @@ impl ResourceCheckEngine<'_> {
             HostMemorySpan::Direct {
                 address_arg,
                 length,
+                initialized_length,
                 unit: HostMemoryDirectUnit::Bytes,
                 direction: HostMemoryDirection::Output,
             } => {
                 let Some(address) = args.get(address_arg) else {
                     return;
                 };
-                let Some(length) = length.resolve(args, self.types.i32(), raw_aliases) else {
+                let Some(length) = self.host_initialized_length_place(
+                    initialized_length,
+                    length,
+                    args,
+                    raw_aliases,
+                ) else {
                     return;
                 };
                 let address = host_memory_address_place(self.types, raw_aliases, address);
-                for alias in raw_aliases.aliases_for(&address) {
-                    cells.add_initialized_raw_byte_range(
-                        &alias,
-                        &length,
-                        InitializedRawRangeUnit::Bytes,
-                        self.types.i32(),
-                    );
+                for alias in raw_aliases.raw_address_aliases_for_value(&address) {
+                    self.add_initialized_host_byte_range(cells, raw_aliases, &alias, &length);
                 }
             }
             HostMemorySpan::IovPayload {
@@ -91,6 +95,43 @@ impl ResourceCheckEngine<'_> {
                 ..
             }
             | HostMemorySpan::IovDescriptor { .. } => {}
+        }
+    }
+
+    fn host_initialized_length_place(
+        &self,
+        initialized_length: HostMemoryInitializedLength,
+        span_length: HostMemoryLength,
+        args: &[Place],
+        raw_aliases: &RawCellAddressAliases,
+    ) -> Option<Place> {
+        match initialized_length {
+            HostMemoryInitializedLength::SameAsLength => {
+                span_length.resolve(args, self.types.i32(), raw_aliases)
+            }
+            HostMemoryInitializedLength::OutputI32Cell { address_arg } => {
+                let address = args.get(address_arg)?;
+                let address = host_memory_address_place(self.types, raw_aliases, address);
+                Some(raw_memory_cell_place(&address, self.types.i32()))
+            }
+        }
+    }
+
+    fn add_initialized_host_byte_range(
+        &self,
+        cells: &mut CellTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        address: &Place,
+        length: &Place,
+    ) {
+        raw_aliases.clear_scalar_facts(address);
+        for ty in [self.types.u8(), self.types.i32()] {
+            cells.add_initialized_raw_byte_range(
+                address,
+                length,
+                InitializedRawRangeUnit::Bytes,
+                ty,
+            );
         }
     }
 }

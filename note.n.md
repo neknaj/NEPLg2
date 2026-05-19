@@ -42323,3 +42323,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_nepl_doc_report_metadata_policy.js`: passed
   - `node nodesrc/test_nmd_report_metadata_policy.js`: passed
   - 変更した `.nepl` report doctest の focused run: passed
+
+## 2026-05-19 Agent 1 CLI fixture と Resource IR host-memory proof 修正
+
+- `ISS-20260519T022952260Z-CLI-INTEGRATION-FIXTURES-USE-STALE-N-4910B9AC` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、CLI integration fixture が古い nullary call / raw memory 直書きに留まっていたことと、public `std/fs` / `std/stdio` API へ移した時に Resource IR の host-memory proof gap が顕在化したことだった。
+- `path_open` の `HostMemorySpan` contract は WASI ABI の引数順へ修正し、`path_ptr=arg2` / `path_len=arg3` を入力 span として検査するようにした。
+- `fd_readdir` は output buffer capacity と `used_ptr` が返す実初期化 byte 数を分け、`buf + off` のような affine raw address alias を source-derived scalar fact から証明できるようにした。
+- owner checker は input-only non-owning raw view を free obligation owner と混同しないようにした。tracked owner state がある alias は従来通り owner extent proof を要求する。
+- `region_ptr` を返す thin wrapper は Resource IR の transparent return lowering で non-owning raw address view として扱い、HIR coverage は `&local` のような deref 不要な実引数を過剰計上しないようにした。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core fd_readdir --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-core path_open --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_lowering_preserves_transparent_region_ptr_wrapper --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-core resource_ir_owner_check_path_open_accepts_non_owning_string_data_ptr --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-cli path_open --test cli_output -- --nocapture`: passed
+  - `cargo test -p nepl-cli run_wasi_fd_readdir_returns_stable_directory_entries --test cli_output -- --nocapture`: passed

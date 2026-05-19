@@ -11,6 +11,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::{
     RawCellAddressReturnSummary, RawCellAddressReturnSummaryIndex,
 };
+use super::initialized_scalar_flow::{I32ScalarReturnSummary, I32ScalarReturnSummaryIndex};
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
 };
@@ -31,10 +32,12 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
+    i32_scalar_summaries: &[I32ScalarReturnSummary],
 ) -> Vec<RawCellInitializationFunctionSummary> {
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
+    let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(&summaries);
@@ -42,6 +45,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
             function,
             types,
             &raw_alias_summary_index,
+            &i32_scalar_summary_index,
             &raw_init_summary_index,
         );
         if update_raw_cell_initialization_summary(&mut summaries, summary) {
@@ -97,12 +101,14 @@ fn function_raw_cell_initialization_summary(
     function: &ResourceFunction,
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    i32_scalar_summaries: &I32ScalarReturnSummaryIndex<'_>,
     raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
 ) -> RawCellInitializationFunctionSummary {
     let engine = ResourceCheckEngine {
         function: function.name.as_str(),
         types,
         raw_alias_summaries,
+        i32_scalar_summaries,
         raw_init_summaries,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
@@ -205,6 +211,7 @@ fn function_raw_cell_initialization_summary(
                 function,
                 types,
                 raw_alias_summaries,
+                i32_scalar_summaries,
                 raw_init_summaries,
                 &block.ops,
                 value,

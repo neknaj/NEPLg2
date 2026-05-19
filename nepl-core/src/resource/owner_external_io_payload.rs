@@ -16,6 +16,7 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::{OwnerExtentProof, PendingOwnerExtentRequirement};
 use super::owner_extent_compare::comparable_owner_extent;
 use super::owner_extent_coverage::prove_owner_extent_covers_argument;
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::report::ResourceOwnerOperation;
 
@@ -24,6 +25,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         iovs: Option<&Place>,
         iov_count: Option<&Place>,
         direction: HostMemoryDirection,
@@ -69,6 +71,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 available &= self.ensure_external_io_payload_extent_available(
                     owners,
                     raw_aliases,
+                    raw_views,
                     &buffer,
                     &length_cell,
                     direction,
@@ -83,6 +86,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         buffer: &Place,
         length: &Place,
         direction: HostMemoryDirection,
@@ -94,6 +98,16 @@ impl ResourceOwnerCheckEngine<'_> {
             .state(&resolved)
             .unwrap_or(OwnerState::NoFreeObligation);
         let OwnerState::Live { extent, .. } = &state else {
+            if direction == HostMemoryDirection::Input
+                && non_owning_input_payload_has_no_free_obligation(
+                    owners,
+                    raw_aliases,
+                    raw_views,
+                    &buffer,
+                )
+            {
+                return true;
+            }
             if self.try_record_deferred_direct_host_memory_span_requirement(
                 raw_aliases,
                 &buffer,
@@ -160,6 +174,21 @@ impl ResourceOwnerCheckEngine<'_> {
             &[iovs.clone(), iov_count.clone()],
         )
     }
+}
+
+fn non_owning_input_payload_has_no_free_obligation(
+    owners: &OwnerTable,
+    raw_aliases: &RawCellAddressAliases,
+    raw_views: &RawAddressViewTable,
+    buffer: &Place,
+) -> bool {
+    let candidates = raw_aliases.raw_address_aliases_for_value(buffer);
+    candidates
+        .iter()
+        .any(|candidate| raw_views.contains_non_owning(candidate))
+        && candidates
+            .iter()
+            .all(|candidate| !owners.has_tracked_state_under(candidate))
 }
 
 fn iov_payload_buffer_aliases(

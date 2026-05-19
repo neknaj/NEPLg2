@@ -26,6 +26,8 @@ pub(super) fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) 
         FuncRef::User(name, _, _) => {
             if let Some(effect) = raw_callee_internal_effect(name.as_str()) {
                 resource_effect_from_internal(effect)
+            } else if let Some(effect) = env.function_effect_op(name) {
+                effect
             } else {
                 EffectOp::UserCall {
                     name: name.clone(),

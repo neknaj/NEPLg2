@@ -53,6 +53,22 @@ impl RawAddressSource {
                 PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }),
                 raw_ty,
             ),
+            RawAddressOffset::SymbolicPlusKnown { place, bytes } => {
+                let raw = self.base.with_projection(
+                    PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }),
+                    raw_ty,
+                );
+                match usize::try_from(bytes) {
+                    Ok(bytes) => raw.with_projection(
+                        PlaceProjection::StorageOffset(ResourceOffset::Known(bytes)),
+                        raw_ty,
+                    ),
+                    Err(_) => raw.with_projection(
+                        PlaceProjection::StorageOffset(ResourceOffset::Unknown),
+                        raw_ty,
+                    ),
+                }
+            }
             RawAddressOffset::Known(_) | RawAddressOffset::Unknown => self.base.with_projection(
                 PlaceProjection::StorageOffset(ResourceOffset::Unknown),
                 raw_ty,
@@ -112,6 +128,7 @@ pub(super) fn push_raw_address_op(
 pub(super) enum RawAddressOffset {
     Known(i64),
     Symbolic { place: Box<Place> },
+    SymbolicPlusKnown { place: Box<Place>, bytes: i64 },
     Unknown,
 }
 
@@ -134,6 +151,21 @@ impl RawAddressOffset {
                 .checked_add(rhs)
                 .map(RawAddressOffset::Known)
                 .unwrap_or(RawAddressOffset::Unknown),
+            (RawAddressOffset::Symbolic { place }, RawAddressOffset::Known(bytes))
+            | (RawAddressOffset::Known(bytes), RawAddressOffset::Symbolic { place }) => {
+                RawAddressOffset::SymbolicPlusKnown { place, bytes }
+            }
+            (
+                RawAddressOffset::SymbolicPlusKnown { place, bytes },
+                RawAddressOffset::Known(rhs),
+            )
+            | (
+                RawAddressOffset::Known(rhs),
+                RawAddressOffset::SymbolicPlusKnown { place, bytes },
+            ) => bytes
+                .checked_add(rhs)
+                .map(|bytes| RawAddressOffset::SymbolicPlusKnown { place, bytes })
+                .unwrap_or(RawAddressOffset::Unknown),
             _ => RawAddressOffset::Unknown,
         }
     }
@@ -144,6 +176,17 @@ impl RawAddressOffset {
             (RawAddressOffset::Known(lhs), RawAddressOffset::Known(rhs)) => lhs
                 .checked_sub(rhs)
                 .map(RawAddressOffset::Known)
+                .unwrap_or(RawAddressOffset::Unknown),
+            (RawAddressOffset::Symbolic { place }, RawAddressOffset::Known(bytes)) => bytes
+                .checked_neg()
+                .map(|bytes| RawAddressOffset::SymbolicPlusKnown { place, bytes })
+                .unwrap_or(RawAddressOffset::Unknown),
+            (
+                RawAddressOffset::SymbolicPlusKnown { place, bytes },
+                RawAddressOffset::Known(rhs),
+            ) => bytes
+                .checked_sub(rhs)
+                .map(|bytes| RawAddressOffset::SymbolicPlusKnown { place, bytes })
                 .unwrap_or(RawAddressOffset::Unknown),
             _ => RawAddressOffset::Unknown,
         }

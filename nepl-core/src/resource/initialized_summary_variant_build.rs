@@ -11,6 +11,7 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
+use super::initialized_scalar_flow::I32ScalarReturnSummaryIndex;
 use super::initialized_summary::{
     RawCellInitializationFunctionSummaryIndex, RawCellInitializationVariantCondition,
     RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
@@ -41,6 +42,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     function: &ResourceFunction,
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    i32_scalar_summaries: &I32ScalarReturnSummaryIndex<'_>,
     raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     ops: &[ResourceOp],
     return_value: &Place,
@@ -49,6 +51,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
         function: function.name.as_str(),
         types,
         raw_alias_summaries,
+        i32_scalar_summaries,
         raw_init_summaries,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
@@ -157,6 +160,7 @@ fn collect_branch_variant_param_initialized_raw_cells(
         function: engine.function,
         types: engine.types,
         raw_alias_summaries: engine.raw_alias_summaries,
+        i32_scalar_summaries: engine.i32_scalar_summaries,
         raw_init_summaries: engine.raw_init_summaries,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),

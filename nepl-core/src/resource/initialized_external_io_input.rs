@@ -25,6 +25,7 @@ impl ResourceCheckEngine<'_> {
                     length,
                     unit: HostMemoryDirectUnit::Bytes,
                     direction: HostMemoryDirection::Input,
+                    ..
                 } => {
                     if let Some(address) = args.get(address_arg) {
                         available &= self.ensure_raw_payload_buffer_available(

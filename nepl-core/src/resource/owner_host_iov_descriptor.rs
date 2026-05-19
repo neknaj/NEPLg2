@@ -4,6 +4,7 @@ use super::host_memory_contract::{HostMemoryDirection, HostMemoryLength, HostMem
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -11,6 +12,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         args: &[Place],
         iovs_arg: usize,
         iov_count_arg: usize,
@@ -33,6 +35,7 @@ impl ResourceOwnerCheckEngine<'_> {
         self.ensure_external_io_payload_extent_available(
             owners,
             raw_aliases,
+            raw_views,
             iovs,
             &length,
             HostMemoryDirection::Input,

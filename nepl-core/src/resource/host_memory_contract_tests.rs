@@ -1,5 +1,6 @@
 use super::host_memory_contract::{
-    host_memory_spans, HostMemoryDirectUnit, HostMemoryDirection, HostMemoryLength, HostMemorySpan,
+    host_memory_spans, HostMemoryDirectUnit, HostMemoryDirection, HostMemoryInitializedLength,
+    HostMemoryLength, HostMemorySpan,
 };
 use super::model::{EffectOp, ExternalIoOp};
 
@@ -11,6 +12,7 @@ fn bytes_input_arg(address_arg: usize, length_arg: usize) -> HostMemorySpan {
     HostMemorySpan::Direct {
         address_arg,
         length: HostMemoryLength::Arg(length_arg),
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
         unit: HostMemoryDirectUnit::Bytes,
         direction: HostMemoryDirection::Input,
     }
@@ -20,6 +22,23 @@ fn bytes_output_arg(address_arg: usize, length_arg: usize) -> HostMemorySpan {
     HostMemorySpan::Direct {
         address_arg,
         length: HostMemoryLength::Arg(length_arg),
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
+        unit: HostMemoryDirectUnit::Bytes,
+        direction: HostMemoryDirection::Output,
+    }
+}
+
+fn bytes_output_counted(
+    address_arg: usize,
+    capacity_arg: usize,
+    initialized_count_address_arg: usize,
+) -> HostMemorySpan {
+    HostMemorySpan::Direct {
+        address_arg,
+        length: HostMemoryLength::Arg(capacity_arg),
+        initialized_length: HostMemoryInitializedLength::OutputI32Cell {
+            address_arg: initialized_count_address_arg,
+        },
         unit: HostMemoryDirectUnit::Bytes,
         direction: HostMemoryDirection::Output,
     }
@@ -29,6 +48,7 @@ fn bytes_output_const(address_arg: usize, length: i32) -> HostMemorySpan {
     HostMemorySpan::Direct {
         address_arg,
         length: HostMemoryLength::ConstI32(length),
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
         unit: HostMemoryDirectUnit::Bytes,
         direction: HostMemoryDirection::Output,
     }
@@ -41,6 +61,7 @@ fn bytes_input_scaled(address_arg: usize, count_arg: usize, bytes_per_item: i32)
             arg: count_arg,
             bytes_per_item,
         },
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
         unit: HostMemoryDirectUnit::Bytes,
         direction: HostMemoryDirection::Input,
     }
@@ -57,6 +78,7 @@ fn bytes_output_scaled(
             arg: count_arg,
             bytes_per_item,
         },
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
         unit: HostMemoryDirectUnit::Bytes,
         direction: HostMemoryDirection::Output,
     }
@@ -66,6 +88,7 @@ fn i32_output(address_arg: usize) -> HostMemorySpan {
     HostMemorySpan::Direct {
         address_arg,
         length: HostMemoryLength::ConstI32(4),
+        initialized_length: HostMemoryInitializedLength::SameAsLength,
         unit: HostMemoryDirectUnit::I32Cell,
         direction: HostMemoryDirection::Output,
     }
@@ -99,6 +122,10 @@ fn same_call_pointer_length_external_io_spans_match_wasi_abi() {
         &[bytes_input_arg(1, 2)]
     );
     assert_eq!(
+        spans_for(ExternalIoOp::PathOpen),
+        &[bytes_input_arg(2, 3), i32_output(8)]
+    );
+    assert_eq!(
         spans_for(ExternalIoOp::PathFilestatSetTimes),
         &[bytes_input_arg(2, 3)]
     );
@@ -109,6 +136,10 @@ fn same_call_pointer_length_external_io_spans_match_wasi_abi() {
     assert_eq!(
         spans_for(ExternalIoOp::PathReadlink),
         &[bytes_input_arg(1, 2), bytes_output_arg(3, 4), i32_output(5)]
+    );
+    assert_eq!(
+        spans_for(ExternalIoOp::FdReaddir),
+        &[bytes_output_counted(1, 2, 4), i32_output(4)]
     );
     assert_eq!(
         spans_for(ExternalIoOp::PathRemoveDirectory),

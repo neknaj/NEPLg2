@@ -2952,6 +2952,33 @@ fn main <(i32)->i32> (len):
 }
 
 #[test]
+fn resource_ir_lowering_uses_wasi_import_symbol_for_external_io_effect() {
+    let source = r#"
+#target wasi
+#entry main
+#indent 4
+
+#import "core/math" as *
+#import "core/cast" as *
+
+#extern "wasi_snapshot_preview1" "fd_readdir" fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32>
+
+fn main <()*>i32> ():
+    let cookie <i64> <i64> cast 0
+    wasi_fd_readdir 0 0 0 cookie 0
+"#;
+    let (hir, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&hir, &types);
+    assert!(
+        resource
+            .dump_text()
+            .contains("effect=external_io(fd_readdir)"),
+        "WASI extern imports must lower by imported symbol, not local wrapper name:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_lowers_dedicated_memory_helpers_once_per_call() {
     let source = r#"
 #entry main
@@ -18090,6 +18117,506 @@ fn resource_ir_cell_check_fd_read_rejects_payload_load_guarded_only_by_capacity(
 }
 
 #[test]
+fn resource_ir_cell_check_fd_readdir_accepts_payload_load_guarded_by_used() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.bool());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let cap = Place::temporary(ResourceId(1), i32_ty);
+    let cookie = Place::temporary(ResourceId(2), i32_ty);
+    let zero = Place::temporary(ResourceId(3), i32_ty);
+    let index = Place::temporary(ResourceId(4), i32_ty);
+    let buf = Place::temporary(ResourceId(5), i32_ty);
+    let used_ptr = Place::temporary(ResourceId(6), i32_ty);
+    let store_used = Place::temporary(ResourceId(7), unit_ty);
+    let errno = Place::temporary(ResourceId(8), i32_ty);
+    let used_value = Place::temporary(ResourceId(9), i32_ty);
+    let condition = Place::temporary(ResourceId(10), bool_ty);
+    let loaded_byte = Place::temporary(ResourceId(11), i32_ty);
+    let else_value = Place::temporary(ResourceId(12), i32_ty);
+    let branch_output = Place::temporary(ResourceId(13), i32_ty);
+    let indexed_buf = buf.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
+            place: Box::new(index.clone()),
+        }),
+        i32_ty,
+    );
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(64),
+                output: cap.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: cookie.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: zero.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: index.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![cap.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: used_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_used,
+                args: vec![used_ptr.clone(), zero],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("fd_readdir"),
+                },
+                args: vec![fd, buf.clone(), cap, cookie, used_ptr.clone()],
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdReaddir,
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: used_value.clone(),
+                args: vec![used_ptr],
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: condition.clone(),
+                ty: bool_ty,
+                span,
+            },
+            ResourceOp::Branch {
+                output: branch_output,
+                condition,
+                condition_fact: Some(ResourceConditionFact::All(vec![
+                    ResourceConditionFact::NonNegative {
+                        place: index.clone(),
+                    },
+                    ResourceConditionFact::I32Relation {
+                        left: index,
+                        op: ResourceI32RelationOp::Lt,
+                        right: used_value,
+                    },
+                ])),
+                then_ops: vec![ResourceOp::RawMemory {
+                    operation: RawMemoryOp::LoadU8,
+                    output: loaded_byte.clone(),
+                    args: vec![indexed_buf],
+                    span,
+                }],
+                then_value: loaded_byte,
+                else_ops: vec![ResourceOp::Expr {
+                    kind: ResourceExprKind::LiteralI32(0),
+                    output: else_value.clone(),
+                    ty: i32_ty,
+                    span,
+                }],
+                else_value,
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "fd_readdir payload load guarded by used byte count must use a bounded initialized range: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_fd_readdir_accepts_load_through_offset_raw_address_alias() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.bool());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let cap = Place::temporary(ResourceId(1), i32_ty);
+    let cookie = Place::temporary(ResourceId(2), i32_ty);
+    let zero = Place::temporary(ResourceId(3), i32_ty);
+    let off_init = Place::temporary(ResourceId(4), i32_ty);
+    let buf = Place::temporary(ResourceId(5), i32_ty);
+    let used_ptr = Place::temporary(ResourceId(6), i32_ty);
+    let store_used = Place::temporary(ResourceId(7), unit_ty);
+    let errno = Place::temporary(ResourceId(8), i32_ty);
+    let used_value = Place::temporary(ResourceId(9), i32_ty);
+    let used = Place::local(String::from("used"), i32_ty);
+    let off = Place::local(String::from("off"), i32_ty);
+    let condition = Place::temporary(ResourceId(10), bool_ty);
+    let off_read = Place::temporary(ResourceId(11), i32_ty);
+    let rec = Place::temporary(ResourceId(12), i32_ty);
+    let loaded_cell = Place::temporary(ResourceId(13), i32_ty);
+    let else_value = Place::temporary(ResourceId(14), i32_ty);
+    let branch_output = Place::temporary(ResourceId(15), i32_ty);
+    let cell_width = Place::temporary(ResourceId(16), i32_ty);
+    let access_end = Place::temporary(ResourceId(17), i32_ty);
+    let used_cell = used_ptr
+        .clone()
+        .with_projection(PlaceProjection::Deref, i32_ty);
+    let indexed_buf = buf.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
+            place: Box::new(off_read.clone()),
+        }),
+        i32_ty,
+    );
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(64),
+                output: cap.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: cookie.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: zero.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: off_init.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![cap.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: used_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_used,
+                args: vec![used_ptr.clone(), zero],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("fd_readdir"),
+                },
+                args: vec![fd, buf.clone(), cap, cookie, used_ptr.clone()],
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdReaddir,
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: used_value.clone(),
+                args: vec![used_ptr],
+                span,
+            },
+            ResourceOp::DeclareLocal {
+                place: used.clone(),
+                source_name: String::from("used"),
+                mutable: false,
+                initializer: Some(used_value),
+                span,
+            },
+            ResourceOp::DeclareLocal {
+                place: off.clone(),
+                source_name: String::from("off"),
+                mutable: true,
+                initializer: Some(off_init),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: cell_width.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: access_end.clone(),
+                target: ResourceCallTarget::User {
+                    name: String::from("add__i32_i32__i32__pure"),
+                    type_args: Vec::new(),
+                },
+                args: vec![off.clone(), cell_width],
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: condition.clone(),
+                ty: bool_ty,
+                span,
+            },
+            ResourceOp::Branch {
+                output: branch_output,
+                condition,
+                condition_fact: Some(ResourceConditionFact::All(vec![
+                    ResourceConditionFact::NonNegative { place: off.clone() },
+                    ResourceConditionFact::I32Relation {
+                        left: off.clone(),
+                        op: ResourceI32RelationOp::Lt,
+                        right: used_cell.clone(),
+                    },
+                    ResourceConditionFact::I32Relation {
+                        left: access_end,
+                        op: ResourceI32RelationOp::Le,
+                        right: used_cell,
+                    },
+                ])),
+                then_ops: vec![
+                    ResourceOp::Read {
+                        source: off,
+                        output: off_read.clone(),
+                        span,
+                    },
+                    ResourceOp::Call {
+                        output: rec.clone(),
+                        target: ResourceCallTarget::User {
+                            name: String::from("add__i32_i32__i32__pure"),
+                            type_args: Vec::new(),
+                        },
+                        args: vec![buf.clone(), off_read.clone()],
+                        effect: EffectOp::Pure,
+                        span,
+                    },
+                    ResourceOp::RawAddressAlias {
+                        source: indexed_buf,
+                        target: rec.clone(),
+                        kind: RawAddressAliasKind::Transparent,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded_cell.clone(),
+                        args: vec![rec],
+                        span,
+                    },
+                ],
+                then_value: loaded_cell,
+                else_ops: vec![ResourceOp::Expr {
+                    kind: ResourceExprKind::LiteralI32(0),
+                    output: else_value.clone(),
+                    ty: i32_ty,
+                    span,
+                }],
+                else_value,
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "fd_readdir load through raw-address alias must keep offset/used proof: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_fd_readdir_rejects_payload_load_guarded_only_by_capacity() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.bool());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let cap = Place::temporary(ResourceId(1), i32_ty);
+    let cookie = Place::temporary(ResourceId(2), i32_ty);
+    let zero = Place::temporary(ResourceId(3), i32_ty);
+    let index = Place::temporary(ResourceId(4), i32_ty);
+    let buf = Place::temporary(ResourceId(5), i32_ty);
+    let used_ptr = Place::temporary(ResourceId(6), i32_ty);
+    let store_used = Place::temporary(ResourceId(7), unit_ty);
+    let errno = Place::temporary(ResourceId(8), i32_ty);
+    let condition = Place::temporary(ResourceId(9), bool_ty);
+    let loaded_byte = Place::temporary(ResourceId(10), i32_ty);
+    let else_value = Place::temporary(ResourceId(11), i32_ty);
+    let branch_output = Place::temporary(ResourceId(12), i32_ty);
+    let indexed_buf = buf.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
+            place: Box::new(index.clone()),
+        }),
+        i32_ty,
+    );
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(64),
+                output: cap.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: cookie.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: zero.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: index.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![cap.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: used_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_used,
+                args: vec![used_ptr.clone(), zero],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("fd_readdir"),
+                },
+                args: vec![fd, buf.clone(), cap.clone(), cookie, used_ptr],
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdReaddir,
+                },
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: condition.clone(),
+                ty: bool_ty,
+                span,
+            },
+            ResourceOp::Branch {
+                output: branch_output,
+                condition,
+                condition_fact: Some(ResourceConditionFact::All(vec![
+                    ResourceConditionFact::NonNegative {
+                        place: index.clone(),
+                    },
+                    ResourceConditionFact::I32Relation {
+                        left: index,
+                        op: ResourceI32RelationOp::Lt,
+                        right: cap,
+                    },
+                ])),
+                then_ops: vec![ResourceOp::RawMemory {
+                    operation: RawMemoryOp::LoadU8,
+                    output: loaded_byte.clone(),
+                    args: vec![indexed_buf],
+                    span,
+                }],
+                then_value: loaded_byte,
+                else_ops: vec![ResourceOp::Expr {
+                    kind: ResourceExprKind::LiteralI32(0),
+                    output: else_value.clone(),
+                    ty: i32_ty,
+                    span,
+                }],
+                else_value,
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    let uninit = report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| matches!(diagnostic, ResourceCheckDiagnostic::CellUnavailable { .. }));
+    assert!(
+        uninit,
+        "fd_readdir must not initialize the whole output capacity without used-byte proof: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
@@ -18834,9 +19361,9 @@ fn resource_ir_cell_check_path_open_rejects_uninitialized_path_input() {
                 },
                 args: vec![
                     dirfd,
+                    zero.clone(),
                     path,
                     path_len,
-                    zero.clone(),
                     zero.clone(),
                     zero.clone(),
                     zero.clone(),
@@ -18863,6 +19390,142 @@ fn resource_ir_cell_check_path_open_rejects_uninitialized_path_input() {
         )),
         "path_open must reject uninitialized path bytes before the host reads them: {:#?}\nresource:\n{}",
         report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_path_open_accepts_string_data_ptr_with_len() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "alloc/string/storage" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/cast" as *
+#import "std/fs/raw" as *
+
+fn open_probe <(str)*>i32> (path):
+    let path_ptr <i32> mem_ptr_addr string_data_ptr path
+    let path_len <i32> len path
+    let rights <i64> cast 0
+    wasi_path_open 3 0 path_ptr path_len 0 rights rights 0 0
+
+fn main <()*>i32> ():
+    open_probe "abc"
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "open_probe" || function.starts_with("open_probe__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "path_open must accept path pointer and byte length proven from the same str source: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_path_open_accepts_non_owning_string_data_ptr() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "alloc/string/storage" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/cast" as *
+#import "std/fs/raw" as *
+
+fn open_probe <(str)*>i32> (path):
+    let path_ptr <i32> mem_ptr_addr string_data_ptr path
+    let path_len <i32> len path
+    let rights <i64> cast 0
+    wasi_path_open 3 0 path_ptr path_len 0 rights rights 0 0
+
+fn main <()*>i32> ():
+    open_probe "abc"
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. }
+                    if function == "open_probe" || function.starts_with("open_probe__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "path_open owner check must not require a free obligation for a non-owning str data view: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_fs_open_with_flags_accepts_string_path() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/cast" as *
+#import "core/result" as *
+#import "std/fs/fd" as *
+
+fn main <()*>i32> ():
+    let rights <i64> cast 0
+    match fs_open_with_flags "dir" 0 rights:
+        Result::Ok fd:
+            fd
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "fs_open_with_flags__str_i32_i64__Result_T_E_i32_i32__imp"
+                        || function.starts_with("fs_open_with_flags__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "fs_open_with_flags must preserve string path pointer/length proof through its local control flow: {:#?}\nresource:\n{}",
+        diagnostics,
         resource.dump_text()
     );
 }
@@ -19586,9 +20249,9 @@ fn path_open_owner_resource(allocation_len: i32, path_len_bytes: i32) -> (Resour
                 },
                 args: vec![
                     dirfd,
+                    zero.clone(),
                     path.clone(),
                     path_len,
-                    zero.clone(),
                     zero.clone(),
                     zero.clone(),
                     zero.clone(),
@@ -20524,6 +21187,120 @@ fn main <()->i32> ():
             .contains("raw_address_view non_owning_projection"),
         "str_addr helper lowering must expose a non-owning raw address view:\n{}",
         resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_lowering_preserves_string_data_ptr_offset_from_str_addr_wrapper() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "alloc/string/storage" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+
+fn str_data_addr_probe <(str)->i32> (s):
+    mem_ptr_addr string_data_ptr s
+
+fn main <()->i32> ():
+    str_data_addr_probe "abc"
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let dump = resource.dump_text();
+    assert!(
+        dump.contains("raw_address_view non_owning_projection tmp1:t1[+4] -> tmp2:t1.field0@0"),
+        "string_data_ptr should lower through string_addr to a known +4 raw view:\n{}",
+        dump
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "str_data_addr_probe" || function.starts_with("str_data_addr_probe__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "string_data_ptr raw address must keep initialized str storage evidence: {:#?}\nresource:\n{}",
+        diagnostics,
+        dump
+    );
+}
+
+#[test]
+fn resource_ir_lowering_coverage_accepts_transparent_addr_of_raw_address_helper() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "alloc/string/storage" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match string_alloc_region 3:
+        Result::Ok region:
+            let data <MemPtr<u8>> string_region_data_ptr &region
+            0
+        Result::Err _e:
+            1
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let coverage = compare_hir_resource_lowering_typed(&module, &resource, &types);
+    assert!(
+        coverage.diagnostics.is_empty(),
+        "transparent raw address helper called with &local must not add an untracked deref projection: {:#?}\nresource:\n{}",
+        coverage.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_lowering_preserves_transparent_region_ptr_wrapper() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+fn region_data_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
+    region_ptr region
+
+fn main <()->i32> ():
+    match alloc_region_bytes<u8> 4:
+        Result::Ok region:
+            let data <MemPtr<u8>> region_data_ptr &region
+            0
+        Result::Err _e:
+            1
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let dump = resource.dump_text();
+    assert!(
+        dump.contains("raw_address_view non_owning_projection"),
+        "region_ptr wrapper return must lower to a non-owning raw view:\n{}",
+        dump
+    );
+    let coverage = compare_hir_resource_lowering_typed(&module, &resource, &types);
+    assert!(
+        coverage.diagnostics.is_empty(),
+        "transparent region_ptr wrapper called with &local must match HIR coverage: {:#?}\nresource:\n{}",
+        coverage.diagnostics,
+        dump
     );
 }
 

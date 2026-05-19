@@ -6,13 +6,14 @@ use alloc::vec::Vec;
 
 use crate::hir::{HirFunction, HirModule};
 
-pub(super) struct HirCoverageContext {
+pub(super) struct HirCoverageContext<'a> {
+    module: Option<&'a HirModule>,
     callable_names: BTreeSet<String>,
     local_scopes: Vec<BTreeSet<String>>,
 }
 
-impl HirCoverageContext {
-    pub(super) fn new(function: &HirFunction, module: &HirModule) -> Self {
+impl<'a> HirCoverageContext<'a> {
+    pub(super) fn new(function: &HirFunction, module: &'a HirModule) -> Self {
         let mut callable_names = BTreeSet::new();
         for function in &module.functions {
             callable_names.insert(function.name.clone());
@@ -28,6 +29,7 @@ impl HirCoverageContext {
         }
 
         Self {
+            module: Some(module),
             callable_names,
             local_scopes: alloc::vec![root_scope],
         }
@@ -35,6 +37,7 @@ impl HirCoverageContext {
 
     pub(super) fn empty() -> Self {
         Self {
+            module: None,
             callable_names: BTreeSet::new(),
             local_scopes: alloc::vec![BTreeSet::new()],
         }
@@ -56,6 +59,13 @@ impl HirCoverageContext {
 
     pub(super) fn var_is_callable_value_reference(&self, name: &str) -> bool {
         !self.local_defined(name) && self.callable_names.contains(name)
+    }
+
+    pub(super) fn function(&self, name: &str) -> Option<&'a HirFunction> {
+        self.module?
+            .functions
+            .iter()
+            .find(|function| function.name == name)
     }
 
     fn local_defined(&self, name: &str) -> bool {

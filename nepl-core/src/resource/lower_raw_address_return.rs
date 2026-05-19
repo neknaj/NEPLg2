@@ -26,6 +26,8 @@ use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, Raw
 use super::model::{Place, ResourceOp};
 use super::scalar_primitive::I32ArithmeticPrimitive;
 
+const TRANSPARENT_RAW_ADDRESS_RETURN_DEPTH_LIMIT: usize = 8;
+
 pub(super) fn push_transparent_raw_address_return_projection(
     callee: &FuncRef,
     hir_args: &[HirExpr],
@@ -60,6 +62,7 @@ pub(super) fn push_transparent_raw_address_return_projection(
         arg_places,
         env,
         RawAddressReturnContext::DirectReturn,
+        0,
     ) else {
         return;
     };
@@ -97,6 +100,7 @@ fn raw_address_source_from_return_expr(
     arg_places: &[Place],
     env: &LoweringEnvironment,
     context: RawAddressReturnContext,
+    depth: usize,
 ) -> Option<RawAddressSource> {
     match &expr.kind {
         HirExprKind::Var(name) => {
@@ -116,7 +120,7 @@ fn raw_address_source_from_return_expr(
             })
         }
         HirExprKind::Call { callee, args } => raw_address_source_from_return_named_call(
-            func_ref_base_name(callee)?,
+            callee,
             args,
             expr.ty,
             RawAddressReturnCalleeEvidence::OrdinaryCall,
@@ -124,9 +128,11 @@ fn raw_address_source_from_return_expr(
             hir_args,
             arg_places,
             env,
+            context,
+            depth,
         ),
         HirExprKind::Intrinsic { name, args, .. } => raw_address_source_from_return_named_call(
-            helper_base_name(name),
+            &FuncRef::Builtin(helper_base_name(name).into()),
             args,
             expr.ty,
             RawAddressReturnCalleeEvidence::Intrinsic,
@@ -134,6 +140,8 @@ fn raw_address_source_from_return_expr(
             hir_args,
             arg_places,
             env,
+            context,
+            depth,
         ),
         HirExprKind::StructConstruct { fields, .. } if type_is_raw_pointer(env.types, expr.ty) => {
             raw_address_source_from_return_expr(
@@ -143,11 +151,12 @@ fn raw_address_source_from_return_expr(
                 arg_places,
                 env,
                 RawAddressReturnContext::AddressOperand,
+                depth,
             )
         }
-        HirExprKind::Deref(inner) => {
-            raw_address_source_from_return_expr(inner, function, hir_args, arg_places, env, context)
-        }
+        HirExprKind::Deref(inner) => raw_address_source_from_return_expr(
+            inner, function, hir_args, arg_places, env, context, depth,
+        ),
         _ => None,
     }
 }
@@ -187,11 +196,12 @@ fn raw_address_source_from_return_operand_expr(
         arg_places,
         env,
         RawAddressReturnContext::AddressOperand,
+        0,
     )
 }
 
 fn raw_address_source_from_return_named_call(
-    name: &str,
+    callee: &FuncRef,
     args: &[HirExpr],
     return_ty: TypeId,
     callee_evidence: RawAddressReturnCalleeEvidence,
@@ -199,7 +209,10 @@ fn raw_address_source_from_return_named_call(
     hir_args: &[HirExpr],
     arg_places: &[Place],
     env: &LoweringEnvironment,
+    context: RawAddressReturnContext,
+    depth: usize,
 ) -> Option<RawAddressSource> {
+    let name = func_ref_base_name(callee)?;
     match MemoryHelperPrimitive::from_symbol(name) {
         Some(MemoryHelperPrimitive::MemPtrAddr) if args.len() == 1 => {
             return raw_address_source_from_return_operand_expr(
@@ -234,6 +247,12 @@ fn raw_address_source_from_return_named_call(
             return raw_address_source_from_return_operand_expr(
                 &args[0], function, hir_args, arg_places, env,
             );
+        }
+        Some(MemoryHelperPrimitive::RegionPtr) if args.len() == 1 => {
+            return raw_address_source_from_region_token_raw_expr(
+                &args[0], function, hir_args, arg_places, env,
+            )
+            .map(RawAddressSource::into_non_owning_view);
         }
         Some(MemoryHelperPrimitive::RegionTokenRawRef) if args.len() == 1 => {
             return raw_address_source_from_region_token_raw_expr(
@@ -274,7 +293,69 @@ fn raw_address_source_from_return_named_call(
             &args[0], function, hir_args, arg_places, env,
         );
     }
-    None
+    raw_address_source_from_transparent_user_call(
+        callee, args, function, hir_args, arg_places, env, context, depth,
+    )
+}
+
+fn raw_address_source_from_transparent_user_call(
+    callee: &FuncRef,
+    args: &[HirExpr],
+    function: &HirFunction,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+    context: RawAddressReturnContext,
+    depth: usize,
+) -> Option<RawAddressSource> {
+    if depth >= TRANSPARENT_RAW_ADDRESS_RETURN_DEPTH_LIMIT {
+        return None;
+    }
+    let FuncRef::User(name, _, _) = callee else {
+        return None;
+    };
+    let callee_function = env.function(name)?;
+    if callee_function.params.len() != args.len() {
+        return None;
+    }
+    let return_expr = function_return_expr(callee_function)?;
+    let mapped_arg_places = args
+        .iter()
+        .map(|arg| transparent_actual_arg_place(arg, function, hir_args, arg_places))
+        .collect::<Option<Vec<_>>>()?;
+    raw_address_source_from_return_expr(
+        return_expr,
+        callee_function,
+        args,
+        &mapped_arg_places,
+        env,
+        context,
+        depth + 1,
+    )
+}
+
+fn transparent_actual_arg_place(
+    expr: &HirExpr,
+    function: &HirFunction,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+) -> Option<Place> {
+    match &expr.kind {
+        HirExprKind::Var(name) => function_param_index(function, name)
+            .and_then(|index| arg_places.get(index).cloned())
+            .or_else(|| Some(Place::local(name.clone(), expr.ty))),
+        HirExprKind::Deref(inner) => {
+            transparent_actual_arg_place(inner, function, hir_args, arg_places)
+                .map(|place| place.with_projection(super::model::PlaceProjection::Deref, expr.ty))
+        }
+        HirExprKind::AddrOf(inner) => {
+            transparent_actual_arg_place(inner, function, hir_args, arg_places)
+        }
+        _ => hir_args
+            .iter()
+            .position(|arg| core::ptr::eq(arg, expr))
+            .and_then(|index| arg_places.get(index).cloned()),
+    }
 }
 
 fn raw_address_source_from_return_arithmetic_expr(

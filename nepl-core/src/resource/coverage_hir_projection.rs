@@ -186,6 +186,28 @@ fn expr_is_reference(types: &TypeCtx, ty: TypeId) -> bool {
     )
 }
 
-fn expr_requires_reference_deref_for_projection(types: &TypeCtx, expr: &HirExpr) -> bool {
-    expr_is_reference(types, expr.ty) && !matches!(expr.kind, HirExprKind::AddrOf(_))
+pub(super) fn expr_requires_reference_deref_for_projection(
+    types: &TypeCtx,
+    expr: &HirExpr,
+) -> bool {
+    expr_is_reference(types, expr.ty) && !expr_is_addr_of_value(expr)
+}
+
+fn expr_is_addr_of_value(expr: &HirExpr) -> bool {
+    match &expr.kind {
+        HirExprKind::AddrOf(_) => true,
+        HirExprKind::Block(block) => {
+            block
+                .lines
+                .iter()
+                .any(|line| expr_is_addr_of_value(&line.expr))
+                || block
+                    .lines
+                    .iter()
+                    .rev()
+                    .find(|line| !line.drop_result)
+                    .is_some_and(|line| expr_is_addr_of_value(&line.expr))
+        }
+        _ => false,
+    }
 }

@@ -10,6 +10,7 @@ pub(super) fn record_direct_call_i32_facts(
 ) {
     record_i32_constant_result(raw_aliases, target, output, args);
     record_i32_scale_result(raw_aliases, target, output, args);
+    record_i32_offset_result(raw_aliases, target, output, args);
     record_i32_difference_result(raw_aliases, target, output, args);
 }
 
@@ -69,6 +70,33 @@ fn record_i32_difference_result(
         return;
     };
     raw_aliases.add_i32_difference(minuend, subtrahend, output);
+}
+
+fn record_i32_offset_result(
+    raw_aliases: &mut RawCellAddressAliases,
+    target: &ResourceCallTarget,
+    output: &Place,
+    args: &[Place],
+) {
+    let [left, right] = args else {
+        return;
+    };
+    match I32ArithmeticPrimitive::from_resource_call_target(target) {
+        Some(I32ArithmeticPrimitive::Add) => {
+            if let Some(offset) = raw_aliases.i32_value(left).map(i64::from) {
+                raw_aliases.add_i32_offset(right, output, offset);
+            }
+            if let Some(offset) = raw_aliases.i32_value(right).map(i64::from) {
+                raw_aliases.add_i32_offset(left, output, offset);
+            }
+        }
+        Some(I32ArithmeticPrimitive::Sub) => {
+            if let Some(offset) = raw_aliases.i32_value(right).map(i64::from) {
+                raw_aliases.add_i32_offset(left, output, -offset);
+            }
+        }
+        Some(I32ArithmeticPrimitive::Mul) | None => {}
+    }
 }
 
 fn positive_i32_value_as_usize(
@@ -162,5 +190,50 @@ mod tests {
             raw_aliases.i32_difference_sources(&output),
             vec![(minuend, subtrahend)]
         );
+    }
+
+    #[test]
+    fn records_i32_offset_result_for_mangled_add_call_with_constant() {
+        let types = TypeCtx::new();
+        let source = Place::local(String::from("off"), types.i32());
+        let constant = Place::temporary(ResourceId(1), types.i32());
+        let output = Place::temporary(ResourceId(2), types.i32());
+        let mut raw_aliases = RawCellAddressAliases::default();
+
+        raw_aliases.set_i32_value(&constant, 24);
+        record_direct_call_i32_facts(
+            &mut raw_aliases,
+            &ResourceCallTarget::User {
+                name: String::from("add__i32_i32__i32__pure"),
+                type_args: Vec::new(),
+            },
+            &output,
+            &[source.clone(), constant],
+        );
+
+        assert_eq!(raw_aliases.i32_offset_targets(&source), vec![(output, 24)]);
+    }
+
+    #[test]
+    fn records_i32_offset_for_symbolic_add_even_when_source_value_is_known() {
+        let types = TypeCtx::new();
+        let source = Place::local(String::from("off"), types.i32());
+        let constant = Place::temporary(ResourceId(1), types.i32());
+        let output = Place::temporary(ResourceId(2), types.i32());
+        let mut raw_aliases = RawCellAddressAliases::default();
+
+        raw_aliases.set_i32_value(&source, 0);
+        raw_aliases.set_i32_value(&constant, 4);
+        record_direct_call_i32_facts(
+            &mut raw_aliases,
+            &ResourceCallTarget::User {
+                name: String::from("add__i32_i32__i32__pure"),
+                type_args: Vec::new(),
+            },
+            &output,
+            &[source.clone(), constant],
+        );
+
+        assert_eq!(raw_aliases.i32_offset_targets(&source), vec![(output, 4)]);
     }
 }

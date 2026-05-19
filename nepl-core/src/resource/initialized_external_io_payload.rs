@@ -30,23 +30,26 @@ impl ResourceCheckEngine<'_> {
             return;
         };
         let nread_count = raw_memory_cell_place(&raw_aliases.canonicalize(nread), self.types.i32());
-        let iov_aliases = raw_aliases.aliases_for(&iovs);
+        let iov_aliases = raw_aliases.raw_address_aliases_for_value(&iovs);
         let Some(iov_buffer_cell) = iov_buffer_pointer_cells(raw_aliases, &iovs, self.types.i32())
             .into_iter()
             .find(|cell| *cell == raw_memory_cell_place(&iovs, self.types.i32()))
         else {
             return;
         };
-        for buffer in raw_aliases.aliases_for(&iov_buffer_cell) {
+        for buffer in raw_aliases.raw_address_aliases_for_value(&iov_buffer_cell) {
             if buffer == iov_buffer_cell || raw_cell_is_under_any_address(&buffer, &iov_aliases) {
                 continue;
             }
-            cells.add_initialized_raw_byte_range(
-                &buffer,
-                &nread_count,
-                InitializedRawRangeUnit::Bytes,
-                self.types.i32(),
-            );
+            raw_aliases.clear_scalar_facts(&buffer);
+            for ty in [self.types.u8(), self.types.i32()] {
+                cells.add_initialized_raw_byte_range(
+                    &buffer,
+                    &nread_count,
+                    InitializedRawRangeUnit::Bytes,
+                    ty,
+                );
+            }
         }
     }
 }

@@ -480,6 +480,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     ) && self.ensure_external_io_owner_spans_available(
                         owners,
                         raw_aliases,
+                        raw_views,
                         effect,
                         args,
                         *span,
