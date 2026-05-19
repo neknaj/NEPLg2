@@ -2,7 +2,7 @@
 //:
 //: [目的/もくてき]:
 //: - merge sort の public API だけを canonical facade から re-export します。
-//: - scratch buffer と range merge の raw `MemPtr` helper は `merge/api` が内部 import し、facade からは公開しません。
+//: - scratch buffer と range merge の raw `MemPtr` helper は `merge/api` file 内の private helper に閉じ、facade からは公開しません。
 //:
 //: [注意/ちゅうい]:
 //: - stable sort が必要な caller は `sort_merge` または `sort_merge_ret` を使います。

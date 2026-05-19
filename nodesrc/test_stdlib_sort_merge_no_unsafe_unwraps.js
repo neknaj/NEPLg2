@@ -7,12 +7,8 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const facadePath = 'stdlib/alloc/collections/vec/sort/merge.nepl';
 const apiPath = 'stdlib/alloc/collections/vec/sort/merge/api.nepl';
-const bufferPath = 'stdlib/alloc/collections/vec/sort/merge/buffer.nepl';
-const rangePath = 'stdlib/alloc/collections/vec/sort/merge/range.nepl';
 const facadeSrc = sourceWithoutComments(facadePath);
 const apiSrc = sourceWithoutComments(apiPath);
-const bufferSrc = sourceWithoutComments(bufferPath);
-const rangeSrc = sourceWithoutComments(rangePath);
 const lines = apiSrc.split(/\r?\n/);
 
 function extractFunction(name) {
@@ -62,10 +58,22 @@ assert.doesNotMatch(
     'sort/merge facade must not re-export raw merge buffer/range helpers',
 );
 
-assert.match(bufferSrc, /fn\s+sort_buf_get\s+<\.T:\s*Copy>/, 'merge/buffer must own Copy-only scratch buffer reads');
-assert.match(bufferSrc, /fn\s+sort_buf_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'merge/buffer must own Copy-only scratch buffer writes');
-assert.match(rangeSrc, /fn\s+sort_merge_range_data\s+<\.T:\s*Ord&Copy>/, 'merge/range must own Copy-only merge range traversal');
-assert.match(apiSrc, /#import\s+"\.\/range"\s+as\s+\*/, 'merge/api must import raw range traversal explicitly');
+for (const relPath of [
+    'stdlib/alloc/collections/vec/sort/merge/buffer.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/buffer.n.md',
+    'stdlib/alloc/collections/vec/sort/merge/range.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/range.n.md',
+]) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relPath)), false, `${relPath} must not remain as a directly importable raw merge helper`);
+}
+
+assert.match(apiSrc, /fn\s+sort_merge_buffer_get\s+<\.T:\s*Copy>/, 'merge/api must own private Copy-only scratch buffer reads');
+assert.match(apiSrc, /fn\s+sort_merge_buffer_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'merge/api must own private Copy-only scratch buffer writes');
+assert.match(apiSrc, /fn\s+sort_merge_range_data\s+<\.T:\s*Ord&Copy>/, 'merge/api must own private Copy-only merge range traversal');
+for (const name of ['sort_merge_buffer_get', 'sort_merge_buffer_set', 'sort_merge_range_data']) {
+    assert.doesNotMatch(apiSrc, new RegExp(`pub\\s+fn\\s+${name}\\b`), `${name} must not be public`);
+}
+assert.doesNotMatch(apiSrc, /#import\s+"\.\/(?:buffer|range)"\s+as\s+\*/, 'merge/api must not depend on directly importable raw merge helper modules');
 
 console.log('sort merge unsafe unwrap regression passed');
 

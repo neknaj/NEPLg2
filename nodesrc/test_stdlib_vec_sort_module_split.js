@@ -43,8 +43,6 @@ const files = {
     quick: "stdlib/alloc/collections/vec/sort/quick.nepl",
     heap: "stdlib/alloc/collections/vec/sort/heap.nepl",
     merge: "stdlib/alloc/collections/vec/sort/merge.nepl",
-    mergeBuffer: "stdlib/alloc/collections/vec/sort/merge/buffer.nepl",
-    mergeRange: "stdlib/alloc/collections/vec/sort/merge/range.nepl",
     mergeApi: "stdlib/alloc/collections/vec/sort/merge/api.nepl",
 };
 
@@ -59,6 +57,10 @@ const removedRawFiles = [
     "stdlib/alloc/collections/vec/sort/raw/quick.n.md",
     "stdlib/alloc/collections/vec/sort/raw/heap.nepl",
     "stdlib/alloc/collections/vec/sort/raw/heap.n.md",
+    "stdlib/alloc/collections/vec/sort/merge/buffer.nepl",
+    "stdlib/alloc/collections/vec/sort/merge/buffer.n.md",
+    "stdlib/alloc/collections/vec/sort/merge/range.nepl",
+    "stdlib/alloc/collections/vec/sort/merge/range.n.md",
 ];
 
 for (const moduleName of ["common", "simple", "quick", "heap", "merge"]) {
@@ -96,9 +98,7 @@ for (const [key, limit] of [
     ["quick", 150],
     ["heap", 140],
     ["merge", 80],
-    ["mergeBuffer", 80],
-    ["mergeRange", 140],
-    ["mergeApi", 140],
+    ["mergeApi", 230],
 ]) {
     assert.ok(implementationLineCount(sources[key]) <= limit, `${files[key]} must stay below ${limit} implementation lines`);
 }
@@ -166,14 +166,11 @@ for (const name of ["sort_heap_get_data", "sort_heap_set_data", "sort_heap_swap_
     assertNotOwns(impl.facade, name, files.facade);
 }
 
-for (const name of ["sort_buf_get", "sort_buf_set"]) {
-    assertOwns(impl.mergeBuffer, name, files.mergeBuffer);
+for (const name of ["sort_merge_buffer_get", "sort_merge_buffer_set", "sort_merge_range_data"]) {
+    assertPrivateOwns(impl.mergeApi, name, files.mergeApi);
     assertNotOwns(impl.merge, name, files.merge);
     assertNotOwns(impl.facade, name, files.facade);
 }
-assertOwns(impl.mergeRange, "sort_merge_range_data", files.mergeRange);
-assertNotOwns(impl.merge, "sort_merge_range_data", files.merge);
-assertNotOwns(impl.facade, "sort_merge_range_data", files.facade);
 for (const name of ["sort_merge", "sort_merge_ret"]) {
     assertOwns(impl.mergeApi, name, files.mergeApi);
     assertNotOwns(impl.merge, name, files.merge);

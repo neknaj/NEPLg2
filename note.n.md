@@ -42537,3 +42537,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core initialized_summary_ -- --nocapture`: passed
   - `cargo fmt -p nepl-core -- --check`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
+## 2026-05-19 Agent 1 Vec merge sort raw helper direct import 境界修正
+
+- `ISS-20260519T134548652Z-VEC-MERGE-SORT-RAW-HELPERS-ARE-DIREC-18BA8A0F` を追加し、`sort/merge/buffer` と `sort/merge/range` が facade 非公開でも direct import 可能な raw helper surface として残っていた問題を記録した。
+- `stdlib/alloc/collections/vec/sort/merge/buffer.nepl` と `stdlib/alloc/collections/vec/sort/merge/range.nepl` を削除し、scratch buffer access と range traversal を `stdlib/alloc/collections/vec/sort/merge/api.nepl` の private helper に統合した。
+- `sort_merge` / `sort_merge_ret` は引き続き `Vec` owner 由来の data view と scratch `RegionToken` owner を使う。ordinary source から unchecked `MemPtr` helper を呼べる bypass は残さない。
+- `nodesrc/test_stdlib_vec_sort_module_split.js`、`nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_vec_borrowed_observers.js` を新しい設計に合わせ、direct-importable raw merge helper module が存在しないことを検査対象にした。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に Stage 6 の更新として反映した。

@@ -53,6 +53,12 @@ Run node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js, node nodesrc/run_s
 
 同時に、`merge/buffer` が `sort_buf_get` / `sort_buf_set` の Copy-only scratch buffer raw helper を所有すること、`merge/range` が `sort_merge_range_data<T: Ord&Copy>` を所有すること、`merge/api` が raw traversal を explicit import することを確認対象にした。これにより unsafe unwrap regression policy と facade boundary policy が矛盾しない。
 
+## 2026-05-19 Agent 1 後続設計更新
+
+`ISS-20260519T134548652Z-VEC-MERGE-SORT-RAW-HELPERS-ARE-DIREC-18BA8A0F` で、上記の「explicit raw-boundary implementation module として残す」設計も不十分と判明した。`merge/buffer` / `merge/range` は facade から再公開されなくても ordinary source が direct import できるため、unchecked `MemPtr` helper の public surface が残る。
+
+後続修正では `merge/buffer.nepl` と `merge/range.nepl` を削除し、scratch buffer access と range traversal を `merge/api.nepl` の private helper に統合した。現在の source policy は「facade に再公開しない」だけでなく「direct-importable raw merge helper module を残さない」ことを検査する。
+
 検証:
 
 - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`

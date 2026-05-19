@@ -10,13 +10,129 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
-#import "./range" as *
 #import "core/field" as field
 #import "core/field" as *
+
+//: sort_merge_buffer_get: merge sort private buffer から 1 要素を読む
+//:
+//: `buf` は `sort_merge` / `sort_merge_ret` が確保した scratch buffer の non-owning view です。
+//: public API から直接呼ばせると caller 側の範囲証明を迂回できるため、この file 内の private helper に閉じます。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/sort/merge/api" as *
+//: fn main <()*>i32> ():
+//:     sort_merge_buffer_get<i32>
+//:     0
+//: ```
+fn sort_merge_buffer_get <.T: Copy> <(MemPtr<.T>,i32)->.T> (buf, idx):
+    let off <i32> mul idx size_of<.T>
+    load<.T> add mem_ptr_addr buf off
+
+//: sort_merge_buffer_set: merge sort private buffer へ 1 要素を書き込む
+//:
+//: 書き込み先の owner は `RegionToken` として public wrapper 側で保持し、ここでは `MemPtr` view だけを使います。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/sort/merge/api" as *
+//: fn main <()*>i32> ():
+//:     sort_merge_buffer_set<i32>
+//:     0
+//: ```
+fn sort_merge_buffer_set <.T: Copy> <(MemPtr<.T>,i32,.T)*>()> (buf, idx, val):
+    let off <i32> mul idx size_of<.T>
+    store<.T> add mem_ptr_addr buf off val;
+    ()
+
+//: sort_merge_range_data: private raw traversal で `[l, r)` を stable merge sort する
+//:
+//: `data_ptr` と `buf` は `sort_merge` / `sort_merge_ret` が `Vec` owner と scratch `RegionToken` から作った
+//: non-owning view です。ordinary source から直接呼べる module へは出さず、長さと owner の証明を public wrapper に集約します。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/sort/merge/api" as *
+//: fn main <()*>i32> ():
+//:     sort_merge_range_data<i32>
+//:     0
+//: ```
+fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()> (data_ptr, buf, l, r):
+    let width <i32> sub r l;
+    if:
+        le width 1
+        then ()
+        else:
+            let lr_sum <i32> add l r;
+            let mid <i32> div_s lr_sum 2;
+            sort_merge_range_data<.T> data_ptr buf l mid;
+            sort_merge_range_data<.T> data_ptr buf mid r;
+
+            let mut i0 <i32> l;
+            while lt i0 r:
+                do:
+                    let x <.T> load<.T> add mem_ptr_addr data_ptr mul i0 size_of<.T>;
+                    sort_merge_buffer_set<.T> buf i0 x;
+                    set i0 add i0 1;
+
+            let mut i <i32> l;
+            let mut j <i32> mid;
+            let mut k <i32> l;
+
+            let mut done_merge <i32> 0;
+            while eq done_merge 0:
+                do:
+                    let left_open <bool> lt i mid;
+                    let right_open <bool> lt j r;
+                    if:
+                        and left_open right_open
+                        then:
+                            let a <.T> sort_merge_buffer_get<.T> buf i;
+                            let b <.T> sort_merge_buffer_get<.T> buf j;
+                            if:
+                                sort_lt<.T> b a
+                                then:
+                                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> b;
+                                    set j add j 1;
+                                    ()
+                                else:
+                                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> a;
+                                    set i add i 1;
+                                    ();
+                            set k add k 1;
+                            ()
+                        else set done_merge 1
+
+            while lt i mid:
+                do:
+                    let a <.T> sort_merge_buffer_get<.T> buf i;
+                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> a;
+                    set i add i 1;
+                    set k add k 1;
+
+            while lt j r:
+                do:
+                    let b <.T> sort_merge_buffer_get<.T> buf j;
+                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> b;
+                    set j add j 1;
+                    set k add k 1;
+
+            ()
 
 //: ## VecSortMergeError
 //: `sort_merge_ret` の[失敗/しっぱい]時に `Vec` owner を[返/かえ]す error payload

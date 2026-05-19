@@ -530,6 +530,8 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 
 今回の修正では、`sort/merge.nepl` は `merge/api` だけを再公開し、`merge/buffer` / `merge/range` は explicit raw-boundary implementation module として残ることを policy にした。`merge/buffer` の Copy-only scratch buffer helper、`merge/range` の Copy-only traversal、`merge/api` の explicit `./range` import も同じ policy で監視する。
 
+2026-05-19 の `ISS-20260519T134548652Z-VEC-MERGE-SORT-RAW-HELPERS-ARE-DIREC-18BA8A0F` で、この設計はさらに更新した。facade から re-export しないだけでは、ordinary source が `alloc/collections/vec/sort/merge/buffer` や `alloc/collections/vec/sort/merge/range` を明示 import して unchecked `MemPtr` helper を呼べるため、raw helper module 自体を削除した。merge scratch access と range traversal は `merge/api.nepl` の private helper に統合し、public caller は `sort_merge` / `sort_merge_ret` だけを通る。
+
 この親 issue は引き続き open とする。今回閉じたのは policy 側の古い re-export 期待であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / non-Copy payload sort の最終移行は継続する。
 
 ## 2026-05-15 Agent 1 raw memory operation capability 分離追記

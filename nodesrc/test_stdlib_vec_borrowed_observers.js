@@ -143,8 +143,6 @@ for (const relPath of [
     "stdlib/alloc/collections/vec/sort/quick.nepl",
     "stdlib/alloc/collections/vec/sort/heap.nepl",
     "stdlib/alloc/collections/vec/sort/merge.nepl",
-    "stdlib/alloc/collections/vec/sort/merge/buffer.nepl",
-    "stdlib/alloc/collections/vec/sort/merge/range.nepl",
     "stdlib/alloc/collections/vec/sort/merge/api.nepl",
     "tests/stdlib/selfhost_req.n.md",
 ]) {

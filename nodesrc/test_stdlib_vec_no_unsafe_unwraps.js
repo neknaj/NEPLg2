@@ -40,8 +40,6 @@ const relPaths = [
     'stdlib/alloc/collections/vec/sort/quick.nepl',
     'stdlib/alloc/collections/vec/sort/heap.nepl',
     'stdlib/alloc/collections/vec/sort/merge.nepl',
-    'stdlib/alloc/collections/vec/sort/merge/buffer.nepl',
-    'stdlib/alloc/collections/vec/sort/merge/range.nepl',
     'stdlib/alloc/collections/vec/sort/merge/api.nepl',
 ];
 
@@ -122,8 +120,6 @@ const vecMutationCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/muta
 const vecMutationCode = [vecMutationRootCode, vecMutationPushCode, vecMutationReplaceCode, vecMutationPopCode, vecMutationCleanupCode].join('\n');
 const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecTransformCode, vecQueryCode, vecMutationCode, vecRootCode].join('\n');
 const sortMergeRootCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
-const sortMergeBufferCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/buffer.nepl');
-const sortMergeRangeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/range.nepl');
 const sortMergeApiCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/api.nepl');
 const sortFamilyCode = relPaths
     .filter((relPath) => relPath.startsWith('stdlib/alloc/collections/vec/sort/'))
@@ -323,8 +319,6 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/sort/simple/exchange.nepl',
     'stdlib/alloc/collections/vec/sort/simple/gap.nepl',
     'stdlib/alloc/collections/vec/sort/merge/api.nepl',
-    'stdlib/alloc/collections/vec/sort/merge/buffer.nepl',
-    'stdlib/alloc/collections/vec/sort/merge/range.nepl',
 ]) {
     assert.match(readImplementation(relPath), rawBoundaryEvidencePattern, `${relPath} must carry source-level raw memory boundary evidence`);
 }
@@ -399,8 +393,19 @@ assert.match(sortMergeRootCode, /pub\s+#import\s+"\.\/merge\/api"\s+as\s+\*/, 's
 assert.doesNotMatch(sortMergeRootCode, /pub\s+#import\s+"\.\/merge\/(?:buffer|range)"\s+as\s+\*/, 'sort/merge.nepl must not re-export raw merge buffer/range helpers');
 assert.doesNotMatch(sortMergeRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'sort/merge.nepl must be a pure facade without implementation bodies');
 assert.doesNotMatch(codeByPath.get('stdlib/alloc/collections/vec/sort.nepl'), /\bMemPtr\b|sort_i32|sort_slice_quick|sort_quick_range_data|sort_heap_sift_down_data|sort_merge_range_data|sort_buf_/, 'canonical sort facade must not expose raw MemPtr helper names');
-assert.match(sortMergeBufferCode, /fn\s+sort_buf_get\s+<\.T:\s*Copy>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer loads');
-assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer stores as an impure write');
+for (const relPath of [
+    'stdlib/alloc/collections/vec/sort/merge/buffer.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/buffer.n.md',
+    'stdlib/alloc/collections/vec/sort/merge/range.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/range.n.md',
+]) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relPath)), false, `${relPath} must not remain as a directly importable raw merge helper`);
+}
+assert.match(sortMergeApiCode, /fn\s+sort_merge_buffer_get\s+<\.T:\s*Copy>/, 'sort/merge/api.nepl must own private Copy-only scratch buffer loads');
+assert.match(sortMergeApiCode, /fn\s+sort_merge_buffer_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'sort/merge/api.nepl must own private Copy-only scratch buffer stores as an impure write');
+for (const name of ['sort_merge_buffer_get', 'sort_merge_buffer_set', 'sort_merge_range_data']) {
+    assert.doesNotMatch(sortMergeApiCode, new RegExp(`\\bpub\\s+fn\\s+${name}\\b`), `${name} must remain private to merge/api.nepl`);
+}
 assert.doesNotMatch(sortFamilyCode, /fn\s+sort_\w+\s+<\.T>\s+</, 'Vec sort raw load/store helpers must not be unconstrained over T');
 assert.doesNotMatch(sortFamilyCode, /fn\s+sort_\w+\s+<\.T:\s*Ord>\s+</, 'Vec sort algorithms must require Ord&Copy until non-Copy move/drop-aware sorting exists');
 assert.doesNotMatch(sortFamilyCode, /\bfn\s+sort_i32\b/, 'Vec sort must not expose the raw sort_i32 adapter through any sort module');
@@ -423,6 +428,7 @@ for (const [name, signature] of [
     ['sort_heap_sift_down_data', /<\(MemPtr<\.T>,i32,i32\)\*>\(\)>/],
     ['sort_heap', /<\(&Vec<\.T>\)\*>\(\)>/],
     ['sort_heap_ret', /<\(Vec<\.T>\)\*>Vec<\.T>>/],
+    ['sort_merge_buffer_set', /<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/],
     ['sort_merge_range_data', /<\(MemPtr<\.T>,MemPtr<\.T>,i32,i32\)\*>\(\)>/],
     ['sort_bubble', /<\(&Vec<\.T>\)\*>\(\)>/],
     ['sort_cocktail', /<\(&Vec<\.T>\)\*>\(\)>/],
@@ -434,7 +440,7 @@ for (const [name, signature] of [
 ]) {
     assert.match(sortFamilyCode, new RegExp(`fn\\s+${name}\\s+[^\\n]*${signature.source}`), `${name} mutates Vec/raw storage and must carry an impure effect signature`);
 }
-assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord&Copy>\s+<\(MemPtr<\.T>,MemPtr<\.T>,i32,i32\)\*>\(\)>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own Copy-only impure range traversal and delegate scratch access');
+assert.match(sortMergeApiCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord&Copy>\s+<\(MemPtr<\.T>,MemPtr<\.T>,i32,i32\)\*>\(\)>[\s\S]*sort_merge_buffer_set<\.T>[\s\S]*sort_merge_buffer_get<\.T>/, 'sort/merge/api.nepl must own private Copy-only impure range traversal and delegate scratch access');
 assert.match(sortMergeApiCode, /pub\s+struct\s+VecSortMergeError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>/, 'sort_merge_ret failure payload must carry the consumed Vec owner and a copyable error kind');
 assert.match(sortMergeApiCode, /fn\s+vec_sort_merge_error_vec\s+<\.T:\s*Copy>\s+<\(VecSortMergeError<\.T>\)->Vec<\.T>>/, 'sort_merge_ret error owner accessor must remain Copy-only until non-Copy sort/drop traversal exists');
 assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord&Copy>[\s\S]*match\s+alloc_region<\.T>\s+n:[\s\S]*let\s+buf\s+<MemPtr<\.T>>\s+region_ptr\s+&buf_region[\s\S]*match\s+dealloc_region<\.T>\s+buf_region:[\s\S]*Result::Ok\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)[\s\S]*Result::Err\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Err\s+StdErrorKind::InvalidOperation/, 'sort_merge must keep scratch ownership in RegionToken and report cleanup failure without unreachable');
