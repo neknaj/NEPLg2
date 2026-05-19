@@ -202,6 +202,17 @@ assert.doesNotMatch(
     'StreamScanner owns raw-backed header/buffer storage and must not be Copy or Clone',
 );
 
+assert.match(
+    stateCode,
+    /\bstring_from_utf8_mem_result\s+mem_ptr_add\s+ptr\s+start\s+tlen\b/,
+    'StreamScanner token slice construction must validate UTF-8 before constructing str',
+);
+assert.doesNotMatch(
+    stateCode,
+    /\bstring_from_mem_unchecked_result\s+mem_ptr_add\s+ptr\s+start\s+tlen\b/,
+    'StreamScanner token slice construction must not use unchecked string construction for external bytes',
+);
+
 for (const [fnName, relPath, owner] of [
     ['skip_ws', scannerRelPath, 'scanner root'],
     ['is_eof', scannerRelPath, 'scanner root'],

@@ -294,6 +294,49 @@ fn main <()*>i32> ():
     0
 ```
 
+## stream_scanner_rejects_invalid_utf8_token_bytes
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/streamio" as *
+#import "std/iotarget" as *
+#import "std/test" as *
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let mut checks checks_new
+    match io_bytebuf_alloc_region 1:
+        Result::Err _e:
+            set checks checks_push checks Result<(),str>::Err "alloc failed"
+        Result::Ok region:
+            let data <MemPtr<u8>> io_bytebuf_region_ptr &region
+            match store_u8 data 128:
+                Result::Err e:
+                    match dealloc_region<u8> region:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ()
+                    set checks checks_push checks Result<(),str>::Err e
+                Result::Ok _:
+                    let sc <StreamScanner> unwrap_ok open ReadStream::Bytes io_bytebuf_finish_region region 1
+                    let token <str> read &sc
+                    close sc
+                    set checks checks_push checks assert_str_eq "" token
+    let shown checks_print_report checks
+    checks_exit_code shown
+```
+
 ## stream_scanner_rejects_unsupported_read_type
 
 neplg2:test[compile_fail]

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T06:31:23.452Z",
+  "generated_at": "2026-05-19T06:55:52.696Z",
   "counts": {
-    "total": 1048,
+    "total": 1049,
     "open": 4,
-    "resolved": 1044,
+    "resolved": 1045,
     "by_area": {
       "stdlib": {
-        "total": 286,
+        "total": 287,
         "open": 3,
-        "resolved": 283
+        "resolved": 284
       },
       "selfhost": {
         "total": 74,
@@ -153,7 +153,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-18",
+      "updated": "2026-05-19",
       "target": "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs",
       "legacy_id": "",
       "source": "",
@@ -12263,6 +12263,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T220931012Z-VEC-OWNER-RETURNING-ERROR-ACCESSORS--EEDC747A.md"
+    },
+    {
+      "id": "ISS-20260519T064344008Z-STREAMSCANNER-TOKEN-SLICES-CONSTRUCT-54D1E67F",
+      "title": "StreamScanner token slices construct str without UTF-8 validation",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/std/streamio/scanner/state.nepl; nodesrc/test_stdlib_streamio_scanner_boundary.js; tests/stdlib/streamio.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T064344008Z-STREAMSCANNER-TOKEN-SLICES-CONSTRUCT-54D1E67F.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

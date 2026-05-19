@@ -1,3 +1,16 @@
+# 2026-05-19 Agent 1 StreamScanner token slice UTF-8 境界修正
+
+- `ISS-20260519T064344008Z-STREAMSCANNER-TOKEN-SLICES-CONSTRUCT-54D1E67F` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`StreamScanner` が `ReadStream::Bytes` や file 由来の任意 byte 列を扱えるにもかかわらず、`stream_scanner_slice_to_str_result` が byte range だけを検査し、`string_from_mem_unchecked_result` で `str` を構築していたこと。
+- `stream_scanner_slice_to_str_result` を `string_from_utf8_mem_result` に委譲させ、scanner state module の raw boundary で UTF-8 検証と owned string 複製を同時に行うようにした。
+- `nodesrc/test_stdlib_streamio_scanner_boundary.js` に checked UTF-8 constructor の利用と unchecked constructor 退行禁止を追加した。
+- `tests/stdlib/streamio.n.md` に invalid UTF-8 token bytes を `ReadStream::Bytes` 経由で読む doctest を追加し、空 token への丸めと deterministic stdout report を固定した。
+- 検証:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: pass
+  - `node nodesrc/test_nmd_report_metadata_policy.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/agent1-streamio-scanner-utf8-token-boundary.json -j 1 --dist web/dist --assert-io`: total=16, passed=16
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+
 # 2026-05-19 Agent 1 raw operation source proof の operation 一致化
 
 - `ISS-20260519T012026321Z-RAW-OPERATION-SOURCE-PROOF-ACCEPTS-M-D53D8575` を追加し、fixed / resolved にした。`plan.md` は変更していない。

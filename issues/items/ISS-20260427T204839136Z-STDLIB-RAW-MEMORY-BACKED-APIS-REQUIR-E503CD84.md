@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-18
+updated: 2026-05-19
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -767,3 +767,11 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 `ISS-20260518T210549005Z-STD-STDIO-WRITE-FACADE-EXPOSES-RAW-M-11591E6E` を解決した。`std/stdio/write` は `std/stdio/write/fd` を re-export しており、`stdio_write_fd_mem_result(i32, MemPtr<u8>, i32)` と stdout/stderr 用 raw span wrapper が public のままだったため、通常 source が `str` / `ByteBuf` / `ByteBuilder` の owner 境界を通らず任意の pointer/length pair を fd write loop へ渡せた。
 
 修正後は raw fd write loop を `std/stdio/write/fd` の private helper に閉じ、public surface を `stdio_write_fd_str_result(fd, str)`、`stdio_write_fd_bytebuf_result(fd, ByteBuf)`、`stdio_write_fd_bytebuilder_prefix_result(fd, &ByteBuilder, byte_len)`、`stdio_write_fd_byte_result(fd, i32)` に限定した。`streamio/writer` の flush も `ByteBuilder` の raw pointer view を直接取り出さず、typed ByteBuilder prefix wrapper に委譲する。これにより readable span は source object と checked length から導出され、caller convention ではなく API shape と source policy で監視できる。
+
+## 2026-05-19 Agent 1 StreamScanner token UTF-8 境界追記
+
+`ISS-20260519T064344008Z-STREAMSCANNER-TOKEN-SLICES-CONSTRUCT-54D1E67F` を解決した。`StreamScanner` は `ReadStream::Bytes` や file input から任意 byte 列を受け取り得るにもかかわらず、token slice を `str` にする境界で `string_from_mem_unchecked_result` を使っていた。byte range check は owner extent の検査であり、UTF-8 invariant の証明にはならない。
+
+修正後、`stream_scanner_slice_to_str_result` は range check 後に `string_from_utf8_mem_result` へ委譲する。これにより `ByteBuf` owner から導出した readable span と `str` の UTF-8 invariant が同じ scanner state boundary で接続され、invalid UTF-8 token bytes は `str` として公開されない。source policy は checked constructor 利用と unchecked constructor 退行禁止を監視し、doctest は `ReadStream::Bytes` の invalid token が空 token に丸められることを stdout report として固定する。
+
+この親 issue は引き続き open とする。今回閉じたのは StreamScanner token slice の unchecked string construction であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal は Stage 6 残件として継続する。

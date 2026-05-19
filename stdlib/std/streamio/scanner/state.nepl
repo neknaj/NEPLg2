@@ -107,11 +107,12 @@ pub fn stream_scanner_len <(&StreamScanner)->i32> (sc):
     io_bytebuf_len_ref bytes
 
 //: ## stream_scanner_slice_to_str_result
-//: scanner input の byte slice を `str` へ複製する
+//: scanner input の byte slice を UTF-8 検証して `str` へ複製する
 //:
 //: ### [目的/もくてき]
 //: - token parser が `ByteBuf` の raw pointer を直接取り出さず、slice-to-string の raw boundary をこの module に閉じます。
 //: - `ByteBuf` owner は借用のまま保持し、返る `str` は新しい owned string です。
+//: - 入力は `ReadStream::Bytes` や file 由来の任意 byte 列でもあり得るため、`str` 化の直前に UTF-8 として検証します。
 pub fn stream_scanner_slice_to_str_result <(&StreamScanner,i32,i32)*>Result<str,str>> (sc, start, tlen):
     let bytes <&ByteBuf> get_ref sc "bytes";
     let len <i32> io_bytebuf_len_ref bytes;
@@ -128,11 +129,11 @@ pub fn stream_scanner_slice_to_str_result <(&StreamScanner,i32,i32)*>Result<str,
                 else:
                     match io_bytebuf_ptr_ref bytes:
                         Option::Some ptr:
-                            match string_from_mem_unchecked_result mem_ptr_add ptr start tlen:
+                            match string_from_utf8_mem_result mem_ptr_add ptr start tlen:
                                 Result::Ok token:
                                     Result<str,str>::Ok token
                                 Result::Err _e:
-                                    Result<str,str>::Err "streamio.stream_scanner_slice alloc failed"
+                                    Result<str,str>::Err "streamio.stream_scanner_slice invalid utf8"
                         Option::None:
                             Result<str,str>::Err "streamio.stream_scanner_slice missing buffer"
 
