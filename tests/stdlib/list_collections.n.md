@@ -132,7 +132,9 @@ fn main <()*>i32> ():
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     let map_ok <bool> match map<i32,i32> map_src inc:
-        Result::Err _e:
+        Result::Err e:
+            let recovered <List<i32>> list_transform_error_list<i32> e
+            free<i32> recovered
             false
         Result::Ok mapped:
             let ok <bool> match get<i32> &mapped 1:
@@ -149,7 +151,9 @@ fn main <()*>i32> ():
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     let filter_ok <bool> match filter<i32> filter_src is_even:
-        Result::Err _e:
+        Result::Err e:
+            let recovered <List<i32>> list_transform_error_list<i32> e
+            free<i32> recovered
             false
         Result::Ok filtered:
             let ok <bool> eq len<i32> &filtered 2

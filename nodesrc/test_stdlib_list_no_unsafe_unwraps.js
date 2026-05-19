@@ -59,6 +59,11 @@ assert.match(
 );
 assert.match(
     typesCode,
+    /struct\s+ListTransformError<\.T>:[\s\S]*list\s+<List<\.T>>[\s\S]*diag\s+<Diag>/,
+    'List transform failure payload must carry the consumed input list owner and diagnostic',
+);
+assert.match(
+    typesCode,
     /fn\s+list_push_error_diag\s+<\.T>\s+<\(&ListPushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/,
     'ListPushError diag access must borrow the error payload',
 );
@@ -66,6 +71,16 @@ assert.match(
     typesCode,
     /fn\s+list_push_error_list\s+<\.T:\s*Copy>\s+<\(ListPushError<\.T>\)->List<\.T>>[\s\S]*field::get\s+e\s+"list"/,
     'ListPushError list extraction must move the returned owner and remain Copy-only while List is Copy-only',
+);
+assert.match(
+    typesCode,
+    /fn\s+list_transform_error_diag\s+<\.T>\s+<\(&ListTransformError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/,
+    'ListTransformError diag access must borrow the error payload',
+);
+assert.match(
+    typesCode,
+    /fn\s+list_transform_error_list\s+<\.T:\s*Copy>\s+<\(ListTransformError<\.T>\)->List<\.T>>[\s\S]*field::get\s+e\s+"list"/,
+    'ListTransformError list extraction must move the returned input owner and remain Copy-only while List is Copy-only',
 );
 assert.match(
     storageCode,
@@ -139,13 +154,18 @@ assert.doesNotMatch(
 );
 assert.match(
     transformCode,
-    /fn\s+map\s+<\.T:\s*Copy,\.U:\s*Copy>[\s\S]*vec::with_capacity<\.U>\s+n[\s\S]*vec::push<\.U>\s+out\s+mapped[\s\S]*vec::free<\.T>\s+items/,
-    'List.map must build a typed Vec<U> output and close the input storage owner',
+    /fn\s+map\s+<\.T:\s*Copy,\.U:\s*Copy>\s+<\(List<\.T>, \(\.T\)->\.U\)\*>Result<List<\.U>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.U>\s+n[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.U>\s+out\s+mapped[\s\S]*vec::free<\.U>\s+out[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.U>,\s*ListTransformError<\.T>>\s+List<\.U>\s+out/,
+    'List.map must return an owner-preserving ListTransformError on failure and close the input storage owner only on success',
 );
 assert.match(
     transformCode,
-    /fn\s+filter\s+<\.T:\s*Copy>[\s\S]*vec::with_capacity<\.T>\s+n[\s\S]*vec::push<\.T>\s+out\s+value[\s\S]*vec::free<\.T>\s+items/,
-    'List.filter must build a typed Vec<T> output and close the input storage owner',
+    /fn\s+filter\s+<\.T:\s*Copy>\s+<\(List<\.T>, \(\.T\)->bool\)\*>Result<List<\.T>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.T>\s+n[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.T>\s+out\s+value[\s\S]*vec::free<\.T>\s+out[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.T>,\s*ListTransformError<\.T>>\s+List<\.T>\s+out/,
+    'List.filter must return an owner-preserving ListTransformError on failure and close the input storage owner only on success',
+);
+assert.doesNotMatch(
+    transformCode,
+    /fn\s+(?:map|filter)[\s\S]{0,160}Result<List<[^>]+>,\s*Diag>/,
+    'List transform APIs must not collapse owner-consuming failures to bare Diag',
 );
 assert.doesNotMatch(
     code,

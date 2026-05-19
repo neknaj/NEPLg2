@@ -30,7 +30,7 @@
 | `HashMap` / `HashSet` | `BucketState` enum と typed bucket storage を導入済み。key/value/key-only storage は `Vec<Option<...>>` で初期化状態を表す。 | 良い方向。Copy payload 前提では Resource IR が storage owner と initialized slot を追いやすい。 | source policy で raw header / numeric sentinel への退行を防ぎ、非 Copy payload は別設計で扱う。 |
 | `BTreeMap` / `BTreeSet` | sorted-array typed storage を使い、key/value slot は `Vec<Option<T>>` で表す。`key_eq` は by-value `ord_lt` を 2 回呼ぶため `.K: Ord&Copy` / `.T: Ord&Copy` に限定済み。`insert` / grow failure は `BTreeMapInsertError` / `BTreeSetInsertError` に元 owner と `Diag` を入れて返す。 | 良い方向。raw header はなく、non-Copy key の二重消費入口と grow failure で owner を隠す入口を閉じた。ただし名称通りの木構造ではなく小規模 ordered table である。 | borrowed comparison と non-Copy key/value の owner-preserving update は `OwnedBuffer<T>` と initialized cell state が入った後に別 API として設計する。 |
 | bitset 系 collection | `BitSet` / `AdjacencyMatrix` / BloomFilter / CountingBloomFilter は `Vec<u8>` storage へ移行済み。 | 良い方向。byte collection 固有の raw owner field は解消済み。 | `Vec` の基礎 owner model を `OwnedBuffer` へ移行し、byte collection もそれに追従する。 |
-| `List` | raw node chain を廃止し、`items: Vec<T>` storage へ移行済み。論理先頭は `Vec` 末尾で、`tail` は `Vec.pop` により owner を返す。 | 良い方向。raw node owner は解消したが、Copy payload 前提と `Vec` 基礎 owner model の制約は残る。 | `OwnedBuffer<T>` 化後に borrowed observer と non-Copy payload contract を追加する。 |
+| `List` | raw node chain を廃止し、`items: Vec<T>` storage へ移行済み。論理先頭は `Vec` 末尾で、`tail` は `Vec.pop` により owner を返す。`cons` / `push` の grow failure は `ListPushError<T>`、`map` / `filter` の transform failure は `ListTransformError<T>` に入力 owner を戻す。 | 良い方向。raw node owner と bare `Diag` failure に owner を隠す入口は解消したが、Copy payload 前提と `Vec` 基礎 owner model の制約は残る。 | `OwnedBuffer<T>` 化後に borrowed observer と non-Copy payload contract を追加する。 |
 | Rust Resource IR | `CellState` / `OwnerState` / `BorrowState` / `StorageOrigin` があり、raw memory op、aggregate projection、enum payload、branch merge を追跡している。 | 方向は正しい。現状は stdlib の曖昧な所有権表現を補うための alias 処理が多い。 | stdlib 側の owner wrapper 化に合わせ、特例的 alias summary を減らす。 |
 | self-host stdlib 利用 | ByteBuf / builders / Copy-only Vec / typed slot collection は使えるが、non-Copy payload collection や fallible update は危険。 | 制限付き開始は可能。ただし ResourceIR / typecheck 実装で raw collection discipline を増やしてはいけない。 | token stream / diagnostics / symbol table は安全 subset か専用 typed collection を使う。 |
 
@@ -134,7 +134,7 @@ collections は self-host に必要な基礎構造だが、現状は安全設計
 - `HashMap` / `HashSet` は `Empty` / `Full` / `Tombstone` の enum と typed storage へ移行済みで、raw bucket status に戻さない source policy を持つ。
 - `Queue` / `Deque` / `RingBuffer` / `Stack` / `BinaryHeap` は raw header を廃止し、`Vec<Option<T>>` storage へ移行済みである。live slot と inactive slot は `Some` / `None` で表す。`Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` の pop は更新後 owner と item を同時に返し、`Deque.push_front` / `push_back` と `BinaryHeap.push` の grow failure は元 owner と diagnostic を専用 error payload で返す。
 - `BTreeMap` / `BTreeSet` は sorted-array 形式の typed `Vec<Option<T>>` storage へ移行済みであり、raw key/value pointer layout ではない。
-- `List` は raw node chain を廃止し、`items: Vec<T>` storage へ移行済みである。論理先頭を `Vec` 末尾に置くことで先頭追加と `tail` を owner-preserving に実装している。
+- `List` は raw node chain を廃止し、`items: Vec<T>` storage へ移行済みである。論理先頭を `Vec` 末尾に置くことで先頭追加と `tail` を owner-preserving に実装している。`map` / `filter` の failure も `ListTransformError<T>` に入力 owner を戻すため、fallible transform が `Diag` だけへ owner を隠す入口は閉じた。
 - CountingBloomFilter / BitSet / AdjacencyMatrix / BloomFilter / SparseSet / Fenwick / SegmentTree / DisjointSet は `Vec<u8>` / `Vec<i32>` storage へ移行済みである。payload は主に Copy だが、基礎 `Vec` 自体はまだ raw memory backed storage boundary を持つ。
 - `Vec<T>` は `buffer: OwnedBuffer<T>` だけを持ち、`OwnedBuffer<T>` が `len/cap/storage` を束ねる。空 Vec は `VecStorage<T>::Empty`、allocated storage は `VecStorage<T>::Owned(RegionToken<T>)` で表す。型/storage/access/raw helper/transform/query/mutation の責務は submodule に分離済みで、`MemPtr<T>` は `data_mem_ptr<T>(&Vec<T>)` が `OwnedBuffer<T>` 内の storage 参照から返す raw pointer view に限定される。ただし基礎型 `OwnedBuffer<T>` はまだ forgeable `RegionToken<T>` と Copy-only raw element helper に依存するため、owner model の完成には compiler-issued owner token と initialized cell state が必要である。
 - `get_ref<T: Copy>` のように Copy 読み取りへ制限した API はあるが、`get(Vec<T>) -> Option<T>` や `pop` などは move-out と owner state の扱いが明確でない。
@@ -144,7 +144,7 @@ collections は self-host に必要な基礎構造だが、現状は安全設計
 
 - `MemPtr<T>` field が owner なのか borrowed view なのか、型から分からない。
 - 空/非空、初期化済み prefix、未初期化 capacity、tombstone、moved-out cell が構造化されていない。
-- `push(Vec<T>, T) -> Result<Vec<T>, E>` のような fallible update は、allocation failure 時に入力 collection と入力 item の owner をどう扱うかが API に現れない。
+- `push(Vec<T>, T) -> Result<Vec<T>, E>` のような fallible update は major collection では owner-preserving error payload へ移行済みだが、新しい owner-consuming fallible API が bare `Diag` / `StdErrorKind` を返さないことを source policy で継続監視する必要がある。
 - `replace` / `clear` / `remove` は non-Copy payload の旧値を drop/return する責務を API で表せていない。
 - raw header layout は Resource IR にとって追跡対象が増え、静的検査が複雑化する。
 

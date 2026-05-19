@@ -52,6 +52,37 @@ pub struct ListPushError<.T>:
     list <List<.T>>
     diag <Diag>
 
+//: ## ListTransformError
+//: `map` / `filter` の変換[失敗/しっぱい]で[戻/もど]る error payload
+//:
+//: ### [目的/もくてき]
+//: - `map` / `filter` が[消費/しょうひ]した入力 list owner を `list` に[戻/もど]し、caller が cleanup や[再試行/さいしこう]を[選/えら]べるようにします。
+//: - 変換途中で作った出力 storage は実装側で[閉/と]じますが、入力 owner の[扱/あつか]いを `Diag` だけの戻り値に[隠/かく]しません。
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 List は `Vec<T>` storage を Copy-only payload に[限定/げんてい]しているため、owner 取り出し accessor も `.T: Copy` に[限定/げんてい]します。
+//:
+//: - error payload は `map` / `filter` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/list" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 <Diag> diag_out_of_memory;
+//:     let error_payload <ListTransformError<i32>> ListTransformError<i32> lst d0;
+//:     0
+//: ```
+pub struct ListTransformError<.T>:
+    list <List<.T>>
+    diag <Diag>
+
 //: ## list_push_error_diag
 //: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
 //:
@@ -99,4 +130,58 @@ pub fn list_push_error_diag <.T> <(&ListPushError<.T>)->Diag> (e):
 //:     0
 //: ```
 pub fn list_push_error_list <.T: Copy> <(ListPushError<.T>)->List<.T>> (e):
+    field::get e "list"
+
+//: ## list_transform_error_diag
+//: 変換[失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - `map` / `filter` の failure payload から診断だけを[取得/しゅとく]します。
+//: - 入力 list owner は payload 内に[残/のこ]るので、caller は必要なら `list_transform_error_list` で[回収/かいしゅう]できます。
+//:
+//: - error payload は `map` / `filter` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/list" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 <Diag> diag_out_of_memory;
+//:     let error_payload <ListTransformError<i32>> ListTransformError<i32> lst d0;
+//:     0
+//: ```
+pub fn list_transform_error_diag <.T> <(&ListTransformError<.T>)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: ## list_transform_error_list
+//: 変換[失敗/しっぱい]で[戻/もど]された入力 list owner を[取/と]り[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 List は Copy-only collection なので `.T: Copy` に[限定/げんてい]します。
+//: - error payload から owner を[取/と]り[出/だ]した caller は、不要なら `free` で[閉/と]じます。
+//:
+//: - error payload は `map` / `filter` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//: #entry main
+//: #indent 4
+//: #target std
+//: #import "alloc/collections/list" as *
+//: #import "alloc/diag/error" as *
+//: #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 <Diag> diag_out_of_memory;
+//:     let error_payload <ListTransformError<i32>> ListTransformError<i32> lst d0;
+//:     0
+//: ```
+pub fn list_transform_error_list <.T: Copy> <(ListTransformError<.T>)->List<.T>> (e):
     field::get e "list"

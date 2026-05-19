@@ -10,6 +10,7 @@ const collectionsRoot = path.join(repoRoot, 'stdlib/alloc/collections');
 const inspected = [];
 const ownerAccessorInspected = [];
 const popOwnerAccessorInspected = [];
+const fallibleOwnerConsumerInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -34,6 +35,15 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (missingCopy.length > 0) {
                     const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                     violations.push(`${relPath}:${index + 1}: ${signature.name} pop-result owner accessor generic(s) ${names} must carry Copy until collection drop traversal exists`);
+                }
+            }
+            const fallibleOwnerConsumer = signature && generics.length > 0
+                ? classifyFallibleOwnerConsumer(typeSignature)
+                : null;
+            if (fallibleOwnerConsumer) {
+                fallibleOwnerConsumerInspected.push(`${relPath}:${signature.name}`);
+                if (fallibleOwnerConsumer.errorKind === 'bare') {
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} consumes a generic collection owner but returns bare Diag/StdErrorKind on failure; use an owner-bearing error payload`);
                 }
             }
             continue;
@@ -90,6 +100,7 @@ for (const expected of [
     'stdlib/alloc/collections/ringbuffer/types.nepl:ringbuffer_push_error_buffer',
     'stdlib/alloc/collections/binary_heap/types.nepl:binary_heap_push_error_heap',
     'stdlib/alloc/collections/list/types.nepl:list_push_error_list',
+    'stdlib/alloc/collections/list/types.nepl:list_transform_error_list',
     'stdlib/alloc/collections/btreemap/types.nepl:btreemap_insert_error_owner',
     'stdlib/alloc/collections/btreeset/types.nepl:btreeset_insert_error_owner',
     'stdlib/alloc/collections/hashmap/types.nepl:hashmap_update_error_owner',
@@ -117,6 +128,16 @@ for (const expected of [
     assert.ok(
         popOwnerAccessorInspected.some((entry) => entry.includes(expected)),
         `collection pop owner accessor policy did not inspect expected pop owner accessor: ${expected}`,
+    );
+}
+
+for (const expected of [
+    'stdlib/alloc/collections/list/transform.nepl:map',
+    'stdlib/alloc/collections/list/transform.nepl:filter',
+]) {
+    assert.ok(
+        fallibleOwnerConsumerInspected.some((entry) => entry.includes(expected)),
+        `collection fallible owner consumer policy did not inspect expected owner-consuming Result API: ${expected}`,
     );
 }
 
@@ -186,6 +207,31 @@ function isOwnerReturningPopAccessor(name, typeSignature) {
         && /<\./.test(functionType.returnType);
 }
 
+function classifyFallibleOwnerConsumer(typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length === 0) {
+        return null;
+    }
+
+    const firstParameter = functionType.parameters[0].trim();
+    if (firstParameter.startsWith('&') || !/\b[A-Z][A-Za-z0-9_]*<\./.test(firstParameter)) {
+        return null;
+    }
+
+    const errorType = resultErrorType(functionType.returnType);
+    if (!errorType) {
+        return null;
+    }
+
+    return {
+        errorKind: /^(?:Diag|StdErrorKind)$/.test(errorType.trim()) ? 'bare' : 'owner-bearing',
+    };
+}
+
 function parseGenericParameters(afterName) {
     if (!afterName.startsWith('<') || afterName.startsWith('<(')) {
         return [];
@@ -236,6 +282,14 @@ function parseTypeSignature(afterName) {
 }
 
 function parseUnaryFunctionType(typeSignature) {
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 1) {
+        return null;
+    }
+    return { parameter: functionType.parameters[0], returnType: functionType.returnType };
+}
+
+function parseFunctionType(typeSignature) {
     if (!typeSignature.startsWith('<(') || !typeSignature.endsWith('>')) {
         return null;
     }
@@ -247,16 +301,17 @@ function parseUnaryFunctionType(typeSignature) {
         const ch = body[i];
         if (ch === '<') {
             angleDepth += 1;
-        } else if (ch === '>') {
+        } else if (ch === '>' && body[i - 1] !== '-' && body[i - 1] !== '*') {
             angleDepth -= 1;
         } else if (ch === '(' && angleDepth === 0) {
             parenDepth += 1;
         } else if (ch === ')' && angleDepth === 0) {
             parenDepth -= 1;
-            if (parenDepth === 0 && body.slice(i + 1, i + 3) === '->') {
-                const parameter = body.slice(1, i).trim();
+            const separator = body.slice(i + 1, i + 3);
+            if (parenDepth === 0 && (separator === '->' || separator === '*>')) {
+                const parameterText = body.slice(1, i).trim();
                 const returnType = body.slice(i + 3).trim();
-                return { parameter, returnType };
+                return { parameters: splitTopLevelTuple(parameterText, ','), returnType };
             }
         }
     }
@@ -269,7 +324,7 @@ function topLevelAngleEnd(text) {
         const ch = text[i];
         if (ch === '<') {
             depth += 1;
-        } else if (ch === '>' && text[i - 1] !== '-') {
+        } else if (ch === '>' && text[i - 1] !== '-' && text[i - 1] !== '*') {
             depth -= 1;
             if (depth === 0) {
                 return i;
@@ -287,7 +342,7 @@ function splitTopLevel(text, delimiter) {
         const ch = text[i];
         if (ch === '<') {
             depth += 1;
-        } else if (ch === '>') {
+        } else if (ch === '>' && text[i - 1] !== '-' && text[i - 1] !== '*') {
             depth -= 1;
         } else if (ch === delimiter && depth === 0) {
             parts.push(text.slice(start, i));
@@ -296,4 +351,46 @@ function splitTopLevel(text, delimiter) {
     }
     parts.push(text.slice(start));
     return parts;
+}
+
+function splitTopLevelTuple(text, delimiter) {
+    if (text === '') {
+        return [];
+    }
+
+    const parts = [];
+    let angleDepth = 0;
+    let parenDepth = 0;
+    let start = 0;
+    for (let i = 0; i < text.length; i += 1) {
+        const ch = text[i];
+        if (ch === '<') {
+            angleDepth += 1;
+        } else if (ch === '>' && text[i - 1] !== '-' && text[i - 1] !== '*') {
+            angleDepth -= 1;
+        } else if (ch === '(' && angleDepth === 0) {
+            parenDepth += 1;
+        } else if (ch === ')' && angleDepth === 0) {
+            parenDepth -= 1;
+        } else if (ch === delimiter && angleDepth === 0 && parenDepth === 0) {
+            parts.push(text.slice(start, i).trim());
+            start = i + 1;
+        }
+    }
+    parts.push(text.slice(start).trim());
+    return parts;
+}
+
+function resultErrorType(returnType) {
+    const trimmed = returnType.trim();
+    if (!trimmed.startsWith('Result<') || !trimmed.endsWith('>')) {
+        return null;
+    }
+
+    const inner = trimmed.slice('Result<'.length, -1);
+    const parts = splitTopLevel(inner, ',');
+    if (parts.length !== 2) {
+        return null;
+    }
+    return parts[1].trim();
 }

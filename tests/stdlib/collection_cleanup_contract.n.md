@@ -396,6 +396,27 @@ fn main <()->i32> ():
     0
 ```
 
+## list_transform_error_list_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/list" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn recover_list_from_transform_error <(ListTransformError<CleanupPayload>)->List<CleanupPayload>> (e):
+    list_transform_error_list<CleanupPayload> e
+
+fn main <()->i32> ():
+    0
+```
+
 ## hashmap_value_free_rejects_non_copy_payload
 
 neplg2:test[compile_fail]

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T17:37:24.834Z",
+  "generated_at": "2026-05-19T17:57:18.126Z",
   "counts": {
-    "total": 1066,
+    "total": 1067,
     "open": 4,
-    "resolved": 1062,
+    "resolved": 1063,
     "by_area": {
       "stdlib": {
-        "total": 293,
+        "total": 294,
         "open": 3,
-        "resolved": 290
+        "resolved": 291
       },
       "selfhost": {
         "total": 74,
@@ -12533,6 +12533,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T173256333Z-STD-ENV-CLIARG-RAW-MEMPTR-HELPERS-RE-6C50B75B.md"
+    },
+    {
+      "id": "ISS-20260519T174525211Z-LIST-TRANSFORM-ERRORS-DISCARD-CONSUM-49FECBE5",
+      "title": "List transform errors discard consumed owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/alloc/collections/list/transform.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T174525211Z-LIST-TRANSFORM-ERRORS-DISCARD-CONSUM-49FECBE5.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

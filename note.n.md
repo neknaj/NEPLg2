@@ -42627,3 +42627,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/cliarg_raw_boundary.n.md --no-tree -o tmp/agent1-cliarg-raw-boundary-public-helpers.json -j 1 --dist web/dist --assert-io`: 2/2 passed
   - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl -i stdlib/std/env/cliarg/raw.nepl -i stdlib/tests/cliarg.n.md --no-tree -o tmp/agent1-cliarg-raw-boundary-modules.json -j 1 --dist web/dist --assert-io`: 10/10 passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_cliarg_get_accepts_region_token_return_summary -- --exact --nocapture`: passed
+
+## 2026-05-19 Agent 1 List transform owner-preserving error
+
+- `ISS-20260519T174525211Z-LIST-TRANSFORM-ERRORS-DISCARD-CONSUM-49FECBE5` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`List.map` / `List.filter` が入力 `List<T>` owner を消費する fallible transform なのに、失敗時は入力 `Vec<T>` storage を内部で `free` して bare `Diag` だけを返していたことだった。
+- `ListTransformError<T>` を追加し、`map<T, U>` / `filter<T>` の failure payload が入力 `List<T>` owner と `Diag` を保持するようにした。失敗時は部分出力 `Vec` だけを閉じ、入力 owner は caller に戻す。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` に、generic collection owner を値渡しで消費する fallible API が bare `Diag` / `StdErrorKind` を返す型形状を検出する横断 policy を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/list.n.md --no-tree -o tmp/agent1-list-stdlib.json -j 1 --dist web/dist --assert-io`: 2/2 passed
+  - `node nodesrc/tests.js -i tests/stdlib/list_collections.n.md --no-tree -o tmp/agent1-list-collections.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-collection-cleanup-contract.json -j 1 --dist web/dist --assert-io`: 31/31 passed
+  - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md --no-tree -o tmp/agent1-list-dot-map.json -j 1 --dist web/dist --assert-io`: 4/4 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/list/types.nepl -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md -i tests/compiler/list_dot_map.n.md --no-tree -o tmp/agent1-list-transform-owner-contract-core.json -j 1 --dist web/dist --assert-io`: 15/15 passed
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed

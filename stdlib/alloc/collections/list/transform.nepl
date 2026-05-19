@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - input owner を消費し、新しい `Vec` storage を持つ output list を返します。
-//: - 失敗時は input / output storage owner を閉じ、`Diag` として返します。
+//: - 失敗時は部分的な output storage owner だけを閉じ、input owner は `ListTransformError<T>` に戻します。
 
 #indent 4
 
@@ -19,13 +19,12 @@
 #import "core/field" as *
 
 //: map: 各要素へ[関数/かんすう]を[適用/てきよう]して[新/あたら]しい list を[返/かえ]す
-pub fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
+pub fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, ListTransformError<.T>>> (lst, f):
     let items <Vec<.T>> field::get lst "items"
     let n <i32> vec::len<.T> &items
     match vec::with_capacity<.U> n:
         Result::Err e:
-            vec::free<.T> items
-            diag_err<List<.U>> list_diag_from_vec_error e
+            Result::Err<List<.U>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
         Result::Ok out0:
             let mut out <Vec<.U>> out0
             let mut i <i32> 0
@@ -46,27 +45,24 @@ pub fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (l
                                     set failure error
                                     set failed true
                         Option::None:
-                            vec::free<.U> out
-                            set out vec::vec_empty<.U>
                             set failure StdErrorKind::InvalidOperation
                             set failed true
-            vec::free<.T> items
             if:
                 failed
                 then:
                     vec::free<.U> out
-                    diag_err<List<.U>> list_diag_from_vec_error failure
+                    Result::Err<List<.U>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
                 else:
-                    ok<List<.U>, Diag> List<.U> out
+                    vec::free<.T> items
+                    Result::Ok<List<.U>, ListTransformError<.T>> List<.U> out
 
 //: filter: 条件を[満/み]たす[要素/ようそ]だけを[残/のこ]す
-pub fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
+pub fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, ListTransformError<.T>>> (lst, p):
     let items <Vec<.T>> field::get lst "items"
     let n <i32> vec::len<.T> &items
     match vec::with_capacity<.T> n:
         Result::Err e:
-            vec::free<.T> items
-            diag_err<List<.T>> list_diag_from_vec_error e
+            Result::Err<List<.T>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
         Result::Ok out0:
             let mut out <Vec<.T>> out0
             let mut i <i32> 0
@@ -91,15 +87,13 @@ pub fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, 
                                     ()
                             set i add i 1
                         Option::None:
-                            vec::free<.T> out
-                            set out vec::vec_empty<.T>
                             set failure StdErrorKind::InvalidOperation
                             set failed true
-            vec::free<.T> items
             if:
                 failed
                 then:
                     vec::free<.T> out
-                    diag_err<List<.T>> list_diag_from_vec_error failure
+                    Result::Err<List<.T>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
                 else:
-                    ok<List<.T>, Diag> List<.T> out
+                    vec::free<.T> items
+                    Result::Ok<List<.T>, ListTransformError<.T>> List<.T> out
