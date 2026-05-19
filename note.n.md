@@ -1,3 +1,20 @@
+# 2026-05-20 Agent 1 ByteBuilder fallible owner API の owner-preserving 化
+
+- `ISS-20260519T181131422Z-BYTEBUILDER-FALLIBLE-OWNER-APIS-DISC-DBFDE7BB` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`ByteBuilder` の reserve / append / finish が owner を値渡しで消費する API であるにもかかわらず、失敗時に内部 cleanup して `StdErrorKind` だけを返していたこと。これでは caller が cleanup / retry を選ぶための owner transfer が型に現れず、Stage 6 の owner-preserving fallible update 方針と不整合だった。
+- `ByteBuilderError` は builder owner と error kind を保持し、`ByteBuilderByteBufError` は builder と input `ByteBuf` の両 owner と error kind を保持する。`byte_builder_realloc_region_or_keep` は realloc 失敗時に旧 `RegionToken<u8>` を返し、builder owner を error payload へ再構成する。
+- `StringBuilder` / `StreamWriter` の既存 public API は今回の範囲では維持し、内部で得た `ByteBuilderError` は kind を取り出した後に明示的に free するようにした。これにより wrapper が内部 owner payload を隠して cleanup する責務が source 上に現れる。
+- 検証:
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/agent1-byte-builder-owner-errors.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/agent1-bytebuf-result-bytebuilder-errors.json -j 1 --dist web/dist --assert-io`: total=7, passed=7
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent1-string-char-bytebuilder-errors.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuilder/types.nepl -i stdlib/alloc/io/bytebuilder/storage.nepl -i stdlib/alloc/io/bytebuilder/append.nepl -i stdlib/alloc/io/bytebuilder/build.nepl --no-tree -o tmp/agent1-bytebuilder-docs-after-error-docs.json -j 1 --dist web/dist --assert-io`: total=12, passed=12
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/agent1-string-bytebuilder-errors.json -j 1 --dist web/dist --assert-io`: total=17, passed=17
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/agent1-streamio-bytebuilder-errors.json -j 1 --dist web/dist --assert-io`: total=16, passed=16
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent1-text-utf8-bytebuilder-errors.json -j 1 --dist web/dist --assert-io`: total=9, passed=9
+
 # 2026-05-19 Agent 1 ByteBuilder Resource IR regression の public boundary 修正
 
 - `ISS-20260519T172250950Z-RESOURCE-IR-BYTEBUILDER-REGRESSION-C-5E7800F8` を追加し、fixed / resolved にした。`plan.md` は変更していない。

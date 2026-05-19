@@ -315,7 +315,7 @@ assert.match(
 
 assert.match(
     code,
-    /fn\s+push_u8_impl\s+<\(StreamWriter,i32\)\*>StreamWriter>\s+\(w,\s*b\):[\s\S]*let\s+w1\s+<StreamWriter>\s+reserve_impl\s+w\s+1[\s\S]*let\s+builder\s+<ByteBuilder>\s+get\s+w1\s+"builder"[\s\S]*match\s+byte_builder_push_u8\s+builder\s+b:[\s\S]*Result::Ok\s+next_builder:[\s\S]*StreamWriter\s+next_builder\s+target\s+@stream_writer_noncopy_marker[\s\S]*Result::Err\s+_e:[\s\S]*StreamWriter\s+byte_builder_empty\s+target\s+@stream_writer_noncopy_marker/,
+    /fn\s+push_u8_impl\s+<\(StreamWriter,i32\)\*>StreamWriter>\s+\(w,\s*b\):[\s\S]*let\s+w1\s+<StreamWriter>\s+reserve_impl\s+w\s+1[\s\S]*let\s+builder\s+<ByteBuilder>\s+get\s+w1\s+"builder"[\s\S]*match\s+byte_builder_push_u8\s+builder\s+b:[\s\S]*Result::Ok\s+next_builder:[\s\S]*StreamWriter\s+next_builder\s+target\s+@stream_writer_noncopy_marker[\s\S]*Result::Err\s+e:[\s\S]*byte_builder_error_free\s+e[\s\S]*StreamWriter\s+byte_builder_empty\s+target\s+@stream_writer_noncopy_marker/,
     'push_u8_impl must delegate byte storage and length advance to ByteBuilder after reserve_impl',
 );
 

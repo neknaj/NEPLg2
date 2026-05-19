@@ -44,39 +44,48 @@ fn main <()*>i32> ():
             ()
         Result::Ok b0:
             match byte_builder_push_u8 b0 0:
-                Result::Err _e:
+                Result::Err e:
+                    byte_builder_error_free e
                     ()
                 Result::Ok b1:
                     match byte_builder_push_u8 b1 'a':
-                        Result::Err _e:
+                        Result::Err e:
+                            byte_builder_error_free e
                             ()
                         Result::Ok b2:
                             match byte_builder_push_u8 b2 's':
-                                Result::Err _e:
+                                Result::Err e:
+                                    byte_builder_error_free e
                                     ()
                                 Result::Ok b3:
                                     match byte_builder_push_u8 b3 'm':
-                                        Result::Err _e:
+                                        Result::Err e:
+                                            byte_builder_error_free e
                                             ()
                                         Result::Ok b4:
                                             match byte_builder_push_u8 b4 1:
-                                                Result::Err _e:
+                                                Result::Err e:
+                                                    byte_builder_error_free e
                                                     ()
                                                 Result::Ok b5:
                                                     match byte_builder_push_u8 b5 0:
-                                                        Result::Err _e:
+                                                        Result::Err e:
+                                                            byte_builder_error_free e
                                                             ()
                                                         Result::Ok b6:
                                                             match byte_builder_push_u8 b6 0:
-                                                                Result::Err _e:
+                                                                Result::Err e:
+                                                                    byte_builder_error_free e
                                                                     ()
                                                                 Result::Ok b7:
                                                                     match byte_builder_push_u8 b7 0:
-                                                                        Result::Err _e:
+                                                                        Result::Err e:
+                                                                            byte_builder_error_free e
                                                                             ()
                                                                         Result::Ok b8:
                                                                             match byte_builder_finish b8:
-                                                                                Result::Err _e:
+                                                                                Result::Err e:
+                                                                                    byte_builder_error_free e
                                                                                     ()
                                                                                 Result::Ok bytes:
                                                                                     set built_len io_bytebuf_len_ref &bytes;
@@ -143,11 +152,13 @@ fn main <()*>i32> ():
             ()
         Result::Ok b0:
             match byte_builder_push_leb_u32 b0 624485:
-                Result::Err _e:
+                Result::Err e:
+                    byte_builder_error_free e
                     ()
                 Result::Ok b1:
                     match byte_builder_finish b1:
-                        Result::Err _e:
+                        Result::Err e:
+                            byte_builder_error_free e
                             ()
                         Result::Ok bytes:
                             set built_len io_bytebuf_len_ref &bytes;
@@ -204,11 +215,13 @@ fn main <()*>i32> ():
                     byte_builder_free b0
                 Result::Ok src:
                     match byte_builder_push_bytebuf b0 src:
-                        Result::Err _e:
+                        Result::Err e:
+                            byte_builder_bytebuf_error_free e
                             ()
                         Result::Ok b1:
                             match byte_builder_finish b1:
-                                Result::Err _e:
+                                Result::Err e:
+                                    byte_builder_error_free e
                                     ()
                                 Result::Ok bytes:
                                     set built_len io_bytebuf_len_ref &bytes;

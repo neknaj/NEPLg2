@@ -132,7 +132,8 @@ pub fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
     match byte_builder_push_u8 builder b:
         Result::Ok next_builder:
             StreamWriter next_builder target @stream_writer_noncopy_marker
-        Result::Err _e:
+        Result::Err e:
+            byte_builder_error_free e
             StreamWriter byte_builder_empty target @stream_writer_noncopy_marker
 
 //: ## push_newline_impl

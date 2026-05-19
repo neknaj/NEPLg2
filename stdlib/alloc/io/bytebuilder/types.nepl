@@ -21,6 +21,8 @@
 
 #indent 4
 
+#import "alloc/diag/error" as *
+#import "alloc/io/bytebuf" as *
 #import "core/field" as *
 #import "core/math" as *
 #import "core/mem" as *
@@ -48,12 +50,169 @@ pub enum ByteBuilderStorage:
 //: ### [注意/ちゅうい]
 //: - `ByteBuilder` は[所有権/しょゆうけん]を[持/も]つので `Copy` / `Clone` を[実装/じっそう]しません。
 //: - `push_*` / `reserve` / `finish` は builder を[消費/しょうひ]し、成功時は[新/あたら]しい builder または `ByteBuf` を[返/かえ]します。
-//: - 失敗時は builder 内部 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
+//: - 失敗時は `ByteBuilderError` に builder owner を[戻/もど]し、caller が cleanup や[再試行/さいしこう]を[選/えら]べるようにします。
 //: - `storage` は `ByteBuilderStorage::Empty` または `ByteBuilderStorage::Owned(region)` です。payload pointer が必要な処理は `Owned` branch の参照から非所有 view を取り出します。
 pub struct ByteBuilder:
     storage <ByteBuilderStorage>
     len <i32>
     cap <i32>
+
+//: ## ByteBuilderError
+//: owner-consuming builder API の[失敗/しっぱい] payload
+//:
+//: ### [目的/もくてき]
+//: - `reserve` / `push_*` / `finish` が[消費/しょうひ]した `ByteBuilder` owner を `builder` に[戻/もど]します。
+//: - `StdErrorKind` だけを[返/かえ]して内部で builder を[解放/かいほう]すると、failure path の owner transfer が API 型から[読/よ]めないため、この型で[明示/めいじ]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let invalid <i32> sub 0 1
+//:     match byte_builder_reserve byte_builder_empty invalid:
+//:         Result::Ok b:
+//:             byte_builder_free b
+//:             1
+//:         Result::Err e:
+//:             let kind <StdErrorKind> byte_builder_error_kind &e
+//:             byte_builder_error_free e
+//:             match kind:
+//:                 StdErrorKind::InvalidOperation:
+//:                     0
+//:                 StdErrorKind::OutOfMemory:
+//:                     1
+//:                 StdErrorKind::CapacityExceeded:
+//:                     1
+//:                 _:
+//:                     1
+//: ```
+pub struct ByteBuilderError:
+    builder <ByteBuilder>
+    error <StdErrorKind>
+
+//: ## ByteBuilderByteBufError
+//: `ByteBuf` を[消費/しょうひ]する append の[失敗/しっぱい] payload
+//:
+//: ### [目的/もくてき]
+//: - `byte_builder_push_bytebuf` は builder と input `ByteBuf` の 2 つの owner を[受/う]け[取/と]るため、失敗時は両方を error payload に[戻/もど]します。
+//: - caller は `byte_builder_bytebuf_error_free` で両 owner を閉じるか、将来の retry API へこの payload を渡せます。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     // owner-backed error payload は ordinary source から直接構築できない。
+//:     let invalid <StdErrorKind> StdErrorKind::InvalidOperation
+//:     let e <ByteBuilderByteBufError> ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
+//:     let kind <StdErrorKind> byte_builder_bytebuf_error_kind &e
+//:     byte_builder_bytebuf_error_free e
+//:     match kind:
+//:         StdErrorKind::InvalidOperation:
+//:             0
+//:         _:
+//:             1
+//: ```
+pub struct ByteBuilderByteBufError:
+    builder <ByteBuilder>
+    bytes <ByteBuf>
+    error <StdErrorKind>
+
+//: byte_builder_error_kind: builder error の kind を借用して読む
+//:
+//: [目的/もくてき]:
+//: - error payload から owner を動かさずに `StdErrorKind` だけを観測します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let invalid <i32> sub 0 1
+//:     match byte_builder_reserve byte_builder_empty invalid:
+//:         Result::Ok b:
+//:             byte_builder_free b
+//:             1
+//:         Result::Err e:
+//:             let kind <StdErrorKind> byte_builder_error_kind &e
+//:             byte_builder_error_free e
+//:             match kind:
+//:                 StdErrorKind::InvalidOperation:
+//:                     0
+//:                 _:
+//:                     1
+//: ```
+pub fn byte_builder_error_kind <(&ByteBuilderError)->StdErrorKind> (e):
+    *get_ref e "error"
+
+//: byte_builder_error_builder: builder error から owner を取り戻す
+//:
+//: [目的/もくてき]:
+//: - caller が cleanup または retry を選ぶため、失敗 payload が保持している `ByteBuilder` owner を消費して返します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let invalid <i32> sub 0 1
+//:     match byte_builder_reserve byte_builder_empty invalid:
+//:         Result::Ok b:
+//:             byte_builder_free b
+//:             1
+//:         Result::Err e:
+//:             let b <ByteBuilder> byte_builder_error_builder e
+//:             byte_builder_free b
+//:             0
+//: ```
+pub fn byte_builder_error_builder <(ByteBuilderError)->ByteBuilder> (e):
+    get e "builder"
+
+//: byte_builder_bytebuf_error_kind: bytebuf append error の kind を借用して読む
+//:
+//: [目的/もくてき]:
+//: - builder owner と input `ByteBuf` owner を動かさずに、失敗理由だけを観測します。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     // error payload は `byte_builder_push_bytebuf` の Err branch から得る。
+//:     let invalid <StdErrorKind> StdErrorKind::InvalidOperation
+//:     let e <ByteBuilderByteBufError> ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
+//:     let kind <StdErrorKind> byte_builder_bytebuf_error_kind &e
+//:     byte_builder_bytebuf_error_free e
+//:     match kind:
+//:         StdErrorKind::InvalidOperation:
+//:             0
+//:         _:
+//:             1
+//: ```
+pub fn byte_builder_bytebuf_error_kind <(&ByteBuilderByteBufError)->StdErrorKind> (e):
+    *get_ref e "error"
 
 //: byte_builder_empty: storage を持たない空 builder を返す
 //:

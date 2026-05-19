@@ -88,9 +88,11 @@ fn main <()*>i32> ():
                                     false
                                 Result::Err kind:
                                     str_eq std_error_kind_str kind "InvalidUtf8"
-                        Result::Err _e:
+                        Result::Err e:
+                            byte_builder_error_free e
                             false
-                Result::Err _e:
+                Result::Err e:
+                    byte_builder_error_free e
                     false
         Result::Err kind:
             false
@@ -163,9 +165,11 @@ fn main <()*>i32> ():
                                     0
                                 Result::Err e:
                                     e
-                        Result::Err _e:
+                        Result::Err e:
+                            byte_builder_error_free e
                             0
-                Result::Err _e:
+                Result::Err e:
+                    byte_builder_error_free e
                     0
         Result::Err _e:
             0

@@ -134,15 +134,18 @@ fn byte_builder_text <()*>Result<str,str>> ():
             Result<str,str>::Err "byte builder alloc"
         Result::Ok b0:
             match byte_builder_push_char_utf8 b0 'A':
-                Result::Err _e:
+                Result::Err e:
+                    byte_builder_error_free e
                     Result<str,str>::Err "byte builder push A"
                 Result::Ok b1:
                     match byte_builder_push_char_utf8 b1 'あ':
-                        Result::Err _e:
+                        Result::Err e:
+                            byte_builder_error_free e
                             Result<str,str>::Err "byte builder push hira"
                         Result::Ok b2:
                             match byte_builder_finish b2:
-                                Result::Err _e:
+                                Result::Err e:
+                                    byte_builder_error_free e
                                     Result<str,str>::Err "byte builder finish"
                                 Result::Ok bytes:
                                     match io_bytebuf_to_str_result bytes:

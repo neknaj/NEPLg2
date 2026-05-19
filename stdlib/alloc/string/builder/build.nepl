@@ -10,6 +10,7 @@
 
 #indent 4
 
+#import "alloc/diag/error" as *
 #import "alloc/io/bytebuilder" as *
 #import "alloc/io/bytebuf" as *
 #import "core/result" as *
@@ -34,7 +35,9 @@
 pub fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
     match byte_builder_finish string_builder_into_byte_builder sb:
         Result::Err e:
-            Result<str,str>::Err string_builder_error e
+            let kind <StdErrorKind> byte_builder_error_kind &e
+            byte_builder_error_free e
+            Result<str,str>::Err string_builder_error kind
         Result::Ok bytes:
             match io_bytebuf_to_str_result bytes:
                 Result::Ok out:

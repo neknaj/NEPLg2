@@ -212,7 +212,15 @@ allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`�
 
 これは raw helper 自体を削除する変更ではなく、`MemPtr = non-owning pointer` と safe public facade の責務を分ける Stage 6 の public/raw boundary split である。`std/fs` / `std/stdio` / `std/env/cliarg` / `std/streamio` の focused doctest は pass している。`stdlib/tests/string.n.md` の broad run に残る stale import fixture は `ISS-20260514T221807506Z-STDLIB-STRING-DOCTESTS-RETAIN-STALE--CC9D6303` として別管理にした。
 
-同じ監査で、`byte_builder_realloc_region_or_free` の realloc failure cleanup が `dealloc_ptr` 失敗時に `#intrinsic "unreachable"` へ落ちる問題を確認した。これは今回の Vec owner field 削除とは別件として、`ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` に分離して修正した。ByteBuilder grow failure cleanup は現在、`dealloc_region<u8> region` で owner token を直接消費する。
+同じ監査で、`byte_builder_realloc_region_or_free` の realloc failure cleanup が `dealloc_ptr` 失敗時に `#intrinsic "unreachable"` へ落ちる問題を確認した。これは今回の Vec owner field 削除とは別件として、`ISS-20260514T093715629Z-BYTEBUILDER-GROW-CLEANUP-STILL-USES--DC675F3E` に分離して修正した。この時点の ByteBuilder grow failure cleanup は、`dealloc_region<u8> region` で owner token を直接消費する形まで進めていた。
+
+## 2026-05-20 Agent 1 ByteBuilder fallible owner payload 追記
+
+`ISS-20260519T181131422Z-BYTEBUILDER-FALLIBLE-OWNER-APIS-DISC-DBFDE7BB` で、`ByteBuilder` の owner-consuming fallible API が bare `StdErrorKind` だけを返す設計を修正した。
+
+`byte_builder_reserve`、byte append 系、`byte_builder_finish` は失敗時に `ByteBuilderError` へ入力 builder owner を戻す。`byte_builder_push_bytebuf` は builder と入力 `ByteBuf` の 2 owner を消費するため、`ByteBuilderByteBufError` で両 owner を返す。realloc helper も `byte_builder_realloc_region_or_keep` に改め、失敗時に旧 `RegionToken<u8>` を `RegionReallocError<u8>` 経由で保持する。
+
+これは `byte_builder_realloc_region_or_free` の cleanup discipline をさらに進め、失敗時 owner transfer を実装内部の free に隠さず API 型に出す Stage 6 の整理である。`StringBuilder` / `StreamWriter` は既存 public API を維持する箇所では内部 `ByteBuilderError` を明示的に free してから従来の error へ写像する。
 
 ## 2026-05-14 Agent 1 Vec merge sort fallible owner 追記
 

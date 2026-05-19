@@ -6,7 +6,7 @@
 //: - raw memory operation はこの module と append/build module に閉じ込めます。
 //:
 //: [注意/ちゅうい]:
-//: - 失敗時は入力 builder の storage を解放し、所有権が残らない `Result::Err` を返します。
+//: - owner-consuming grow API の失敗は `ByteBuilderError` に builder owner を戻します。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -26,6 +26,7 @@
 #indent 4
 
 #import "alloc/diag/error" as *
+#import "alloc/io/bytebuf" as *
 #import "core/field" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
@@ -102,25 +103,16 @@ pub fn byte_builder_dealloc_owned_region <(RegionToken<u8>)->()> (region):
         Result::Err _:
             ()
 
-//: byte_builder_realloc_region_or_free: storage token を grow し失敗時に旧 token を閉じる
+//: byte_builder_realloc_region_or_keep: storage token を grow し失敗時に旧 token を戻す
 //:
 //: [目的/もくてき]:
 //: - `ByteBuilder` の grow で、旧 `RegionToken<u8>` の free obligation を新しい token へ移す処理を集約します。
 //:
 //: [注意/ちゅうい]:
 //: - 成功時は返った `RegionToken<u8>` が storage owner です。
-//: - 失敗時は旧 token を `dealloc_region` へ渡し、caller へは `OutOfMemory` を返します。
-pub fn byte_builder_realloc_region_or_free <(RegionToken<u8>,i32)->Result<RegionToken<u8>, StdErrorKind>> (region, new_cap):
-    match realloc_region_bytes_keep<u8> region new_cap:
-        Result::Ok next_region:
-            Result<RegionToken<u8>, StdErrorKind>::Ok next_region
-        Result::Err e:
-            let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
-            match dealloc_region<u8> old_region:
-                Result::Ok _:
-                    Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                Result::Err _free:
-                    Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+//: - 失敗時は旧 token を `RegionReallocError` に戻し、caller が builder error payload へ包み直します。
+pub fn byte_builder_realloc_region_or_keep <(RegionToken<u8>,i32)->Result<RegionToken<u8>, RegionReallocError<u8>>> (region, new_cap):
+    realloc_region_bytes_keep<u8> region new_cap
 
 //: byte_builder_free: builder が保持する storage を解放する
 //:
@@ -132,6 +124,57 @@ pub fn byte_builder_free <(ByteBuilder)->()> (builder):
             ()
         ByteBuilderStorage::Owned region:
             byte_builder_dealloc_owned_region region
+
+//: byte_builder_error_free: `ByteBuilderError` が戻した builder owner を閉じる
+//:
+//: [目的/もくてき]:
+//: - caller が retry せず error を破棄する場合も、error payload 内の storage owner を必ず `byte_builder_free` へ渡せるようにします。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let invalid <i32> sub 0 1
+//:     match byte_builder_reserve byte_builder_empty invalid:
+//:         Result::Ok b:
+//:             byte_builder_free b
+//:             1
+//:         Result::Err e:
+//:             byte_builder_error_free e
+//:             0
+//: ```
+pub fn byte_builder_error_free <(ByteBuilderError)->()> (e):
+    byte_builder_free byte_builder_error_builder e
+
+//: byte_builder_bytebuf_error_free: `ByteBuilderByteBufError` の 2 owner を閉じる
+//:
+//: [目的/もくてき]:
+//: - `byte_builder_push_bytebuf` の失敗 payload に戻った builder と input bytes を同じ cleanup 境界で閉じます。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let invalid <StdErrorKind> StdErrorKind::InvalidOperation
+//:     let e <ByteBuilderByteBufError> ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
+//:     byte_builder_bytebuf_error_free e
+//:     0
+//: ```
+pub fn byte_builder_bytebuf_error_free <(ByteBuilderByteBufError)->()> (e):
+    let builder <ByteBuilder> get e "builder"
+    let bytes <ByteBuf> get e "bytes"
+    byte_builder_free builder
+    io_bytebuf_free bytes
 
 //: byte_builder_next_capacity: 必要 byte 数を満たす次 capacity を計算する
 //:
@@ -171,15 +214,14 @@ pub fn byte_builder_next_capacity <(i32,i32)->Result<i32, StdErrorKind>> (cap, n
 //: - 以後の append が少なくとも additional byte ぶん成功するように、必要なら capacity を 2 [倍/ばい]ずつ[伸/の]ばします。
 //:
 //: [注意/ちゅうい]:
-//: - 失敗時は builder を[解放/かいほう]します。
-pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind>> (builder, additional):
+//: - 失敗時は `ByteBuilderError` に builder owner を[戻/もど]します。
+pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, ByteBuilderError>> (builder, additional):
     let len0 <i32> get builder "len"
     let cap0 <i32> get builder "cap"
     if:
         lt additional 0
         then:
-            byte_builder_free builder
-            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::InvalidOperation
         else:
             let needed <i32> add len0 additional
             if:
@@ -188,37 +230,45 @@ pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, StdErrorKind
                     if:
                         lt needed len0
                         then:
-                            byte_builder_free builder
-                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::CapacityExceeded
+                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::CapacityExceeded
                         else:
-                            Result<ByteBuilder, StdErrorKind>::Ok builder
+                            Result<ByteBuilder, ByteBuilderError>::Ok builder
                 else:
                     match byte_builder_next_capacity cap0 needed:
                         Result::Err e:
-                            byte_builder_free builder
-                            Result<ByteBuilder, StdErrorKind>::Err e
+                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder e
                         Result::Ok next_cap:
                             match get builder "storage":
                                 ByteBuilderStorage::Empty:
                                     if:
                                         or gt len0 0 gt cap0 0
                                         then:
-                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
                                         else:
-                                            match alloc_region_bytes<u8> next_cap:
-                                                Result::Ok region:
-                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region len0 next_cap
-                                                Result::Err _e:
-                                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                            if:
+                                                not alloc_payload_fits next_cap
+                                                then:
+                                                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::CapacityExceeded
+                                                else:
+                                                    match alloc_region_bytes<u8> next_cap:
+                                                        Result::Ok region:
+                                                            Result<ByteBuilder, ByteBuilderError>::Ok byte_builder_from_owned_region region len0 next_cap
+                                                        Result::Err _e:
+                                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::OutOfMemory
                                 ByteBuilderStorage::Owned region:
                                     if:
                                         le cap0 0
                                         then:
-                                            byte_builder_dealloc_owned_region region
-                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
                                         else:
-                                            match byte_builder_realloc_region_or_free region next_cap:
-                                                Result::Ok next_region:
-                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region next_region len0 next_cap
-                                                Result::Err e:
-                                                    Result<ByteBuilder, StdErrorKind>::Err e
+                                            if:
+                                                not alloc_payload_fits next_cap
+                                                then:
+                                                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::CapacityExceeded
+                                                else:
+                                                    match byte_builder_realloc_region_or_keep region next_cap:
+                                                        Result::Ok next_region:
+                                                            Result<ByteBuilder, ByteBuilderError>::Ok byte_builder_from_owned_region next_region len0 next_cap
+                                                        Result::Err e:
+                                                            let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+                                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory

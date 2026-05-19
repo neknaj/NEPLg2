@@ -4,7 +4,7 @@
 //: - growable storage の capacity を隠し、exact-size の `ByteBuf` owner へ移します。
 //: - char 1 つを UTF-8 `ByteBuf` へ変換する convenience API もここで提供します。
 //: [注意/ちゅうい]:
-//: - `finish` は builder を消費します。失敗時も古い storage を解放して owner を残しません。
+//: - `finish` は builder を消費します。失敗時は `ByteBuilderError` に builder owner を戻します。
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
@@ -15,7 +15,8 @@
 //:     match byte_builder_finish byte_builder_empty:
 //:         Result::Ok _:
 //:             1
-//:         Result::Err _:
+//:         Result::Err e:
+//:             byte_builder_error_free e
 //:             0
 //: ```
 
@@ -41,7 +42,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - 返った `ByteBuf` は caller が `io_bytebuf_free` で[解放/かいほう]してください。
-pub fn byte_builder_finish <(ByteBuilder)->Result<ByteBuf, StdErrorKind>> (builder):
+pub fn byte_builder_finish <(ByteBuilder)->Result<ByteBuf, ByteBuilderError>> (builder):
     let len0 <i32> get builder "len"
     let cap0 <i32> get builder "cap"
     let storage <ByteBuilderStorage> get builder "storage"
@@ -50,31 +51,31 @@ pub fn byte_builder_finish <(ByteBuilder)->Result<ByteBuf, StdErrorKind>> (build
         then:
             match storage:
                 ByteBuilderStorage::Empty:
-                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+                    Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_empty
                 ByteBuilderStorage::Owned region:
                     byte_builder_dealloc_owned_region region
-                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+                    Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_empty
         else:
             match storage:
                 ByteBuilderStorage::Empty:
-                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                    Result<ByteBuf, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
                 ByteBuilderStorage::Owned region:
                     if:
                         le cap0 0
                         then:
-                            byte_builder_dealloc_owned_region region
-                            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                            Result<ByteBuf, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
                         else:
                             if:
                                 eq len0 cap0
                                 then:
-                                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region len0
+                                    Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_finish_region region len0
                                 else:
-                                    match byte_builder_realloc_region_or_free region len0:
+                                    match byte_builder_realloc_region_or_keep region len0:
                                         Result::Ok next_region:
-                                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region next_region len0
+                                            Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_finish_region next_region len0
                                         Result::Err e:
-                                            Result<ByteBuf, StdErrorKind>::Err e
+                                            let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+                                            Result<ByteBuf, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory
 
 //: io_bytebuf_from_char_utf8_result: char 1 つを UTF-8 `ByteBuf` へ encode する
 //:
@@ -90,6 +91,14 @@ pub fn io_bytebuf_from_char_utf8_result <(char)->Result<ByteBuf, StdErrorKind>> 
         Result::Ok builder:
             match byte_builder_push_char_utf8 builder c:
                 Result::Err e:
-                    Result<ByteBuf, StdErrorKind>::Err e
+                    let kind <StdErrorKind> byte_builder_error_kind &e
+                    byte_builder_error_free e
+                    Result<ByteBuf, StdErrorKind>::Err kind
                 Result::Ok out:
-                    byte_builder_finish out
+                    match byte_builder_finish out:
+                        Result::Ok bytes:
+                            Result<ByteBuf, StdErrorKind>::Ok bytes
+                        Result::Err e:
+                            let kind <StdErrorKind> byte_builder_error_kind &e
+                            byte_builder_error_free e
+                            Result<ByteBuf, StdErrorKind>::Err kind

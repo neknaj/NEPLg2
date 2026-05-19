@@ -6,10 +6,11 @@
 //: - text builder 側は error を `str` に正規化するだけで、raw storage owner を持ちません。
 //:
 //: [注意/ちゅうい]:
-//: - error を返す場合、`ByteBuilder` 側の契約により保持済み buffer は解放されます。
+//: - 現行 StringBuilder result API は失敗時に入力 builder を閉じて error text を返します。内部 `ByteBuilderError` は明示的に cleanup してから `str` error へ変換します。
 
 #indent 4
 
+#import "alloc/diag/error" as *
 #import "alloc/io/bytebuilder" as *
 #import "core/result" as *
 #import "./types" as *
@@ -89,7 +90,9 @@ pub fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,
         Result::Ok bytes:
             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
         Result::Err e:
-            Result<StringBuilder,str>::Err string_builder_error e
+            let kind <StdErrorKind> byte_builder_error_kind &e
+            byte_builder_error_free e
+            Result<StringBuilder,str>::Err string_builder_error kind
 
 //: string_builder_new_result: 空の StringBuilder を作る
 //:

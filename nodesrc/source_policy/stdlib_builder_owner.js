@@ -97,25 +97,25 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bmatch\s+realloc_region_bytes_keep<u8>\s+region\s+new_cap:[\s\S]*\bResult::Err\s+e:[\s\S]*\bregion_realloc_error_region<u8>\s+e[\s\S]*\bmatch\s+dealloc_region<u8>\s+old_region:/,
-        'ByteBuilder grow must delegate RegionToken realloc to core/mem and consume the returned owner on failure',
+        /\bfn\s+byte_builder_realloc_region_or_keep\s+<\(RegionToken<u8>,i32\)->Result<RegionToken<u8>,\s*RegionReallocError<u8>>>[\s\S]*\brealloc_region_bytes_keep<u8>\s+region\s+new_cap\b/,
+        'ByteBuilder grow must delegate RegionToken realloc to core/mem and keep the returned owner on failure',
     );
 
     assert.doesNotMatch(
         code,
-        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bdealloc_ptr<u8>\s+old_ptr\s+old_size/,
+        /\bfn\s+byte_builder_realloc_region_or_keep\b[\s\S]*\bdealloc_ptr<u8>\s+old_ptr\s+old_size/,
         'ByteBuilder grow failure cleanup must not split RegionToken into raw ptr/size owner cleanup',
     );
 
     assert.doesNotMatch(
         code,
-        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\bget\s+region\s+"(?:size|ptr)"/,
+        /\bfn\s+byte_builder_realloc_region_or_keep\b[\s\S]*\bget\s+region\s+"(?:size|ptr)"/,
         'ByteBuilder grow must not reimplement RegionToken realloc by reading RegionToken internals',
     );
 
     assert.doesNotMatch(
         code,
-        /\bfn\s+byte_builder_realloc_region_or_free\b[\s\S]*\brealloc_ptr<u8>\b/,
+        /\bfn\s+byte_builder_realloc_region_or_keep\b[\s\S]*\brealloc_ptr<u8>\b/,
         'ByteBuilder grow must not call raw MemPtr realloc directly; core/mem owns RegionToken realloc',
     );
 
@@ -127,7 +127,7 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_reserve\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\balloc_region_bytes<u8>\s+next_cap[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_realloc_region_or_free\s+region\s+next_cap\b/,
+        /\bfn\s+byte_builder_reserve\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*ByteBuilderError>>[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\balloc_region_bytes<u8>\s+next_cap[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_realloc_region_or_keep\s+region\s+next_cap\b/,
         'ByteBuilder reserve must allocate only from Empty and reallocate only from the Owned RegionToken payload',
     );
 
@@ -151,11 +151,11 @@ function assertByteBuilderOwnerBoundary(code) {
 
     for (const [name, pattern] of [
         ['byte_builder_free', /\bfn\s+byte_builder_free\s+<\(ByteBuilder\)->\(\)>/],
-        ['byte_builder_reserve', /\bfn\s+byte_builder_reserve\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
-        ['byte_builder_push_u8', /\bfn\s+byte_builder_push_u8\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
-        ['byte_builder_push_str', /\bfn\s+byte_builder_push_str\s+<\(ByteBuilder,str\)->Result<ByteBuilder,\s*StdErrorKind>>/],
-        ['byte_builder_push_str_slice', /\bfn\s+byte_builder_push_str_slice\s+<\(ByteBuilder,str,i32,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/],
-        ['byte_builder_finish', /\bfn\s+byte_builder_finish\s+<\(ByteBuilder\)->Result<ByteBuf,\s*StdErrorKind>>/],
+        ['byte_builder_reserve', /\bfn\s+byte_builder_reserve\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*ByteBuilderError>>/],
+        ['byte_builder_push_u8', /\bfn\s+byte_builder_push_u8\s+<\(ByteBuilder,i32\)->Result<ByteBuilder,\s*ByteBuilderError>>/],
+        ['byte_builder_push_str', /\bfn\s+byte_builder_push_str\s+<\(ByteBuilder,str\)->Result<ByteBuilder,\s*ByteBuilderError>>/],
+        ['byte_builder_push_str_slice', /\bfn\s+byte_builder_push_str_slice\s+<\(ByteBuilder,str,i32,i32\)->Result<ByteBuilder,\s*ByteBuilderError>>/],
+        ['byte_builder_finish', /\bfn\s+byte_builder_finish\s+<\(ByteBuilder\)->Result<ByteBuf,\s*ByteBuilderError>>/],
     ]) {
         assert.match(
             code,
@@ -172,20 +172,38 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_push_bytes_ref\s+<\(ByteBuilder,&MemPtr<u8>,i32\)->Result<ByteBuilder,\s*StdErrorKind>>/,
+        /\bfn\s+byte_builder_push_bytes_ref\s+<\(ByteBuilder,&MemPtr<u8>,i32\)->Result<ByteBuilder,\s*ByteBuilderError>>/,
         'ByteBuilder may keep the raw copy helper only as a private implementation detail',
     );
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_push_str\s+<\(ByteBuilder,str\)->Result<ByteBuilder,\s*StdErrorKind>>[\s\S]*\blet\s+s_len\s+<i32>\s+len\s+s[\s\S]*\blet\s+src\s+<MemPtr<u8>>\s+string_data_ptr\s+s[\s\S]*\bbyte_builder_push_bytes_ref\s+builder\s+&src\s+s_len/,
+        /\bfn\s+byte_builder_push_str\s+<\(ByteBuilder,str\)->Result<ByteBuilder,\s*ByteBuilderError>>[\s\S]*\blet\s+s_len\s+<i32>\s+len\s+s[\s\S]*\blet\s+src\s+<MemPtr<u8>>\s+string_data_ptr\s+s[\s\S]*\bbyte_builder_push_bytes_ref\s+builder\s+&src\s+s_len/,
         'ByteBuilder full string append must derive source pointer and length from the same str value',
     );
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_push_str_slice\s+<\(ByteBuilder,str,i32,i32\)->Result<ByteBuilder,\s*StdErrorKind>>[\s\S]*\blet\s+n\s+<i32>\s+len\s+s[\s\S]*\bor\s+lt\s+start\s+0\s+or\s+lt\s+end\s+start\s+gt\s+end\s+n[\s\S]*\blet\s+data_len\s+<i32>\s+sub\s+end\s+start[\s\S]*\blet\s+src\s+<MemPtr<u8>>\s+mem_ptr_add\s+string_data_ptr\s+s\s+start[\s\S]*\bbyte_builder_push_bytes_ref\s+builder\s+&src\s+data_len/,
+        /\bfn\s+byte_builder_push_str_slice\s+<\(ByteBuilder,str,i32,i32\)->Result<ByteBuilder,\s*ByteBuilderError>>[\s\S]*\blet\s+n\s+<i32>\s+len\s+s[\s\S]*\bor\s+lt\s+start\s+0\s+or\s+lt\s+end\s+start\s+gt\s+end\s+n[\s\S]*\blet\s+data_len\s+<i32>\s+sub\s+end\s+start[\s\S]*\blet\s+src\s+<MemPtr<u8>>\s+mem_ptr_add\s+string_data_ptr\s+s\s+start[\s\S]*\bbyte_builder_push_bytes_ref\s+builder\s+&src\s+data_len/,
         'ByteBuilder string slice append must prove the readable range from str length before raw copy',
+    );
+
+    assert.match(
+        code,
+        /struct\s+ByteBuilderError:\s+builder\s+<ByteBuilder>\s+error\s+<StdErrorKind>/,
+        'ByteBuilder fallible owner-consuming APIs must return the consumed builder owner in the error payload',
+    );
+
+    assert.match(
+        code,
+        /struct\s+ByteBuilderByteBufError:\s+builder\s+<ByteBuilder>\s+bytes\s+<ByteBuf>\s+error\s+<StdErrorKind>/,
+        'ByteBuilder ByteBuf append failures must expose both consumed owners in the error payload',
+    );
+
+    assert.doesNotMatch(
+        code,
+        /\bfn\s+byte_builder_(?:reserve|push_u8|push_ascii|push_char_utf8|push_str|push_str_slice|push_leb_u32|finish)\s+<[^>\n]*->Result<(?:ByteBuilder|ByteBuf),\s*StdErrorKind>/,
+        'ByteBuilder owner-consuming fallible APIs must not return bare StdErrorKind errors',
     );
 
     assert.match(

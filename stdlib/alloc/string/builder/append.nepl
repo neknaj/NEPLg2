@@ -6,10 +6,11 @@
 //: - 実 storage 操作は `ByteBuilder` へ委譲し、StringBuilder は text API 境界だけを持ちます。
 //:
 //: [注意/ちゅうい]:
-//: - `_result` API は失敗時に入力 builder を解放し、owner を残しません。
+//: - `_result` API は失敗時に入力 builder を閉じて error text を返します。内部 `ByteBuilderError` は明示的に cleanup します。
 
 #indent 4
 
+#import "alloc/diag/error" as *
 #import "alloc/io/bytebuilder" as *
 #import "alloc/string/storage" as *
 #import "alloc/string/access" as *
@@ -45,7 +46,9 @@ pub fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s)
                 Result::Ok bytes:
                     Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    Result<StringBuilder,str>::Err string_builder_error e
+                    let kind <StdErrorKind> byte_builder_error_kind &e
+                    byte_builder_error_free e
+                    Result<StringBuilder,str>::Err string_builder_error kind
 
 //: sb_append_char_result: builder に char を UTF-8 として追加する
 //:
@@ -59,7 +62,9 @@ pub fn sb_append_char_result <(StringBuilder,char)->Result<StringBuilder,str>> (
         Result::Ok bytes:
             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
         Result::Err e:
-            Result<StringBuilder,str>::Err string_builder_error e
+            let kind <StdErrorKind> byte_builder_error_kind &e
+            byte_builder_error_free e
+            Result<StringBuilder,str>::Err string_builder_error kind
 
 //: sb_append_ascii_result: builder に ASCII char を 1 byte として追加する
 //:
@@ -76,7 +81,9 @@ pub fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> 
                 Result::Ok bytes:
                     Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    Result<StringBuilder,str>::Err string_builder_error e
+                    let kind <StdErrorKind> byte_builder_error_kind &e
+                    byte_builder_error_free e
+                    Result<StringBuilder,str>::Err string_builder_error kind
         else:
             string_builder_free sb
             Result<StringBuilder,str>::Err "string.builder non-ascii char"
@@ -100,7 +107,9 @@ pub fn sb_append_byte_result <(StringBuilder,i32)->Result<StringBuilder,str>> (s
                 Result::Ok bytes:
                     Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    Result<StringBuilder,str>::Err string_builder_error e
+                    let kind <StdErrorKind> byte_builder_error_kind &e
+                    byte_builder_error_free e
+                    Result<StringBuilder,str>::Err string_builder_error kind
 
 pub fn sb_append_char <(StringBuilder,char)->StringBuilder> (sb, c):
     match sb_append_char_result sb c:

@@ -9,6 +9,7 @@
 
 #indent 4
 
+#import "alloc/diag/error" as *
 #import "core/mem" as *
 #import "alloc/io/bytebuilder" as *
 #import "core/result" as *
@@ -32,7 +33,7 @@
 //: - builder capacity と copy は `byte_builder_push_str_slice` に委譲し、元文字列の data pointer と byte length は typed helper 内で導出します。
 //:
 //: [注意/ちゅうい]:
-//: - 失敗時は入力 builder を解放して `Err` を返します。
+//: - 現行 StringBuilder API は失敗時に入力 builder を閉じて `Err` を返します。内部 `ByteBuilderError` は明示的に cleanup します。
 //: - index は byte index です。文字境界でない範囲は `Err` になります。
 //:
 //: [計算量/けいさんりょう]:
@@ -66,7 +67,9 @@ pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder
                         Result::Ok bytes:
                             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                         Result::Err e:
-                            Result<StringBuilder,str>::Err string_builder_error e
+                            let kind <StdErrorKind> byte_builder_error_kind &e
+                            byte_builder_error_free e
+                            Result<StringBuilder,str>::Err string_builder_error kind
         else:
             string_builder_free sb
             Result<StringBuilder,str>::Err "string.builder append slice invalid utf8 boundary"
