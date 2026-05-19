@@ -13,11 +13,13 @@
 
 #import "core/field" as field
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
 #import "neplg2/core/proof/query" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
 
 //: selfhost_proof_source_span_eq: source span が同じ range か[返/かえ]す
 fn selfhost_proof_source_span_eq <(SelfhostSourceSpan,SelfhostSourceSpan)->bool> (a, b):
@@ -226,6 +228,163 @@ fn selfhost_proof_solve_module_directive_transition <(SelfhostModuleDirectiveFac
         SelfhostModuleDirectiveState::EntryAndTargetSeen seen:
             selfhost_proof_solve_module_directive_both_seen seen item
 
+//: selfhost_proof_module_declaration_kind_eq: declaration kind が[等/ひと]しいか[返/かえ]す
+fn selfhost_proof_module_declaration_kind_eq <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationKind)->bool> (left, right):
+    match left:
+        SelfhostModuleDeclarationKind::Function:
+            match right:
+                SelfhostModuleDeclarationKind::Function:
+                    true
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Struct:
+            match right:
+                SelfhostModuleDeclarationKind::Struct:
+                    true
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Enum:
+            match right:
+                SelfhostModuleDeclarationKind::Enum:
+                    true
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Trait:
+            match right:
+                SelfhostModuleDeclarationKind::Trait:
+                    true
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Impl:
+            match right:
+                SelfhostModuleDeclarationKind::Impl:
+                    true
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+
+fn selfhost_proof_span_contains_span <(SelfhostSourceSpan,SelfhostSourceSpan)->bool> (outer, inner):
+    and and eq outer.file_id inner.file_id le outer.start inner.start le inner.end outer.end
+
+fn selfhost_proof_module_declaration_head_allowed <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationHeadKind)->bool> (decl_kind, head_kind):
+    match decl_kind:
+        SelfhostModuleDeclarationKind::Function:
+            match head_kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    true
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    false
+                SelfhostModuleDeclarationHeadKind::GenericParams:
+                    false
+        SelfhostModuleDeclarationKind::Struct:
+            match head_kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    true
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    false
+                SelfhostModuleDeclarationHeadKind::GenericParams:
+                    false
+        SelfhostModuleDeclarationKind::Enum:
+            match head_kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    true
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    false
+                SelfhostModuleDeclarationHeadKind::GenericParams:
+                    false
+        SelfhostModuleDeclarationKind::Trait:
+            match head_kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    true
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    false
+                SelfhostModuleDeclarationHeadKind::GenericParams:
+                    false
+        SelfhostModuleDeclarationKind::Impl:
+            match head_kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    true
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    true
+                SelfhostModuleDeclarationHeadKind::GenericParams:
+                    true
+
+fn selfhost_proof_module_declaration_header_spans_valid <(SelfhostModuleDeclarationHeader)->bool> (header):
+    and and source_span_is_valid header.header_span source_span_is_valid header.keyword_span selfhost_proof_span_contains_span header.header_span header.keyword_span
+
+fn selfhost_proof_module_declaration_header_head_valid <(SelfhostModuleDeclarationHeader)->bool> (header):
+    match header.head:
+        Option::Some head:
+            and and source_span_is_valid head.span selfhost_proof_span_contains_span header.header_span head.span selfhost_proof_module_declaration_head_allowed header.kind head.kind
+        Option::None:
+            false
+
+fn selfhost_proof_module_declaration_item_kind_supports <(SelfhostModuleDeclarationFact,SelfhostModuleDeclarationKind)->bool> (fact, kind):
+    match selfhost_module_item_kind_declaration fact.item_kind:
+        Option::Some item_kind:
+            selfhost_proof_module_declaration_kind_eq item_kind kind
+        Option::None:
+            false
+
+fn selfhost_proof_module_declaration_header_supports <(SelfhostModuleDeclarationHeader,SelfhostModuleDeclarationKind)->bool> (header, kind):
+    and and selfhost_proof_module_declaration_kind_eq header.kind kind selfhost_proof_module_declaration_header_spans_valid header selfhost_proof_module_declaration_header_head_valid header
+
+fn selfhost_proof_module_declaration_header_missing <(SelfhostModuleDeclarationKind,SelfhostSourceSpan)->SelfhostProofResult> (kind, span):
+    selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDeclarationHeaderMissing selfhost_module_declaration_header_issue_new kind span
+
+fn selfhost_proof_module_declaration_header_invalid <(SelfhostModuleDeclarationKind,SelfhostSourceSpan)->SelfhostProofResult> (kind, span):
+    selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDeclarationHeaderInvalid selfhost_module_declaration_header_issue_new kind span
+
+fn selfhost_proof_module_declaration_header_proven <(SelfhostModuleDeclarationHeader)->SelfhostProofResult> (header):
+    selfhost_proof_result_proven SelfhostProofEvidence::ModuleDeclarationHeaderAvailable header
+
+//: selfhost_proof_solve_module_declaration_header: declaration header availability obligation を[解/と]く
+fn selfhost_proof_solve_module_declaration_header <(SelfhostModuleDeclarationFact,SelfhostModuleDeclarationKind)->SelfhostProofResult> (fact, kind):
+    if:
+        selfhost_proof_module_declaration_item_kind_supports fact kind
+        then:
+            match fact.declaration:
+                Option::Some header:
+                    if:
+                        selfhost_proof_module_declaration_header_supports header kind
+                        then:
+                            selfhost_proof_module_declaration_header_proven header
+                        else:
+                            selfhost_proof_module_declaration_header_invalid kind header.header_span
+                Option::None:
+                    selfhost_proof_module_declaration_header_missing kind fact.span
+        else:
+            selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+
 //: selfhost_proof_solve: query を[解/と]いて typed result を[返/かえ]す
 pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
     match query.obligation:
@@ -237,6 +396,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
         SelfhostProofObligation::RawBackendTransition state:
             match query.fact:
                 SelfhostProofFact::RawBackendItemObserved item:
@@ -245,6 +406,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
         SelfhostProofObligation::ModuleDirectiveTransition state:
             match query.fact:
                 SelfhostProofFact::ModuleDirectiveObserved directive:
@@ -252,6 +415,18 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::SourceSpanObserved _span_fact:
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
                 SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+        SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind:
+            match query.fact:
+                SelfhostProofFact::ModuleDeclarationObserved declaration:
+                    selfhost_proof_solve_module_declaration_header declaration kind
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
 
 //: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
@@ -270,6 +445,8 @@ pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),Selfhos
                 SelfhostProofEvidence::RawBackendTransition _state:
                     Result<(),SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<(),SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
         SelfhostProofResult::Refuted refutation:
             Result<(),SelfhostProofRefutation>::Err refutation
@@ -291,6 +468,8 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
 
@@ -311,5 +490,33 @@ pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
                 SelfhostProofEvidence::RawBackendTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_module_declaration_header: declaration header availability query を[作/つく]る
+fn selfhost_proof_query_module_declaration_header <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationFact)->SelfhostProofQuery> (kind, fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::ModuleDeclarationObserved fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_module_declaration_header: declaration header availability の typed result を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - parser が観測した declaration header evidence と、checker が要求する declaration kind を照合します。
+//: - header が欠けている場合や span/head が不整合な場合は typed refutation を返し、caller は診断変換だけを行います。
+pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationFact)->Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>> (kind, fact):
+    match selfhost_proof_solve selfhost_proof_query_module_declaration_header kind fact:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable header:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Ok header
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err SelfhostProofRefutation::FactObligationMismatch
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err refutation

@@ -1,3 +1,20 @@
+# 2026-05-20 Agent 1 self-host declaration header proof evidence
+
+- `ISS-20260519T221017627Z-SELF-HOST-MODULE-AST-DROPS-DECLARATI-7F9E1FD2` を fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、self-host parser が `fn` / `struct` / `enum` / `trait` / `impl` の declaration item を keyword token と lexeme だけに潰し、declaration header の source evidence を AST から失っていたこと。これでは後続の静的検査が文字列再走査や checker-local rule に戻りやすく、Stage 6 の proof solver 集約方針と矛盾していた。
+- `SelfhostModuleDeclarationKind`、`SelfhostModuleDeclarationVisibility`、`SelfhostModuleDeclarationHeadKind`、`SelfhostModuleDeclarationHeader` を追加し、parser が header 全体の span、keyword span、head token を typed evidence として `SelfhostModuleItem` に保持するようにした。
+- `SelfhostModuleDeclarationFact`、`SelfhostProofObligation::ModuleDeclarationHeaderAvailable`、`SelfhostProofEvidence::ModuleDeclarationHeaderAvailable`、`ModuleDeclarationHeaderMissing` / `ModuleDeclarationHeaderInvalid` refutation を追加した。checker は declaration item を proof solver に渡して診断へ変換するだけにし、declaration well-formedness を checker-local special-case に戻していない。
+- Zenn 記事の開発方針に合わせ、今回追加した public 型と入口には「何を証拠として保持するか」「欠落時にどう拒否されるか」を追えるコメントを残した。stdlib 全体の丁寧なドキュメントコメント / doctest 整備は別 issue 群で継続するが、compiler core 側も同じ方針を前提にする。
+- 検証:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: pass
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md -o $env:TEMP\neplg2_parser_test.json`: total=21, passed=21
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -o $env:TEMP\neplg2_proof_test.json`: total=24, passed=24
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md -o $env:TEMP\neplg2_checker_test_j1.json -j 1`: total=24, passed=24
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/ast/module_ast.nepl -i stdlib/neplg2/core/syntax/parser/module_parser.nepl -i stdlib/neplg2/core/proof.nepl -i stdlib/neplg2/core/check/module.nepl -o $env:TEMP\neplg2_selfhost_impl_test.json -j 1`: total=24, passed=24
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-20 Agent 1 self-host module directive transition proof 化
 
 - `ISS-20260519T212225940Z-SELF-HOST-MODULE-DIRECTIVE-MULTIPLIC-33C1FBE9` を追加し、fixed / resolved にした。`plan.md` は変更していない。

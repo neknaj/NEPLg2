@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T22:03:49.810Z",
+  "generated_at": "2026-05-19T22:40:26.467Z",
   "counts": {
-    "total": 1080,
+    "total": 1081,
     "open": 4,
-    "resolved": 1076,
+    "resolved": 1077,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 80,
+        "total": 81,
         "open": 1,
-        "resolved": 79
+        "resolved": 80
       },
       "cli": {
         "total": 19,
@@ -9353,6 +9353,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T215913781Z-SELF-HOST-MODULE-CHECKER-EXPOSES-INT-CD48F767.md"
+    },
+    {
+      "id": "ISS-20260519T221017627Z-SELF-HOST-MODULE-AST-DROPS-DECLARATI-7F9E1FD2",
+      "title": "self-host module AST drops declaration header evidence before proof",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/syntax/ast/module_ast.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T221017627Z-SELF-HOST-MODULE-AST-DROPS-DECLARATI-7F9E1FD2.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

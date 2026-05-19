@@ -12,7 +12,9 @@
 //: - wildcard arm で未対応 domain を握りつぶさず、新しい fact 追加時に source policy と compiler の両方で見つけやすい形を保ちます。
 
 #import "core/traits/copy" as *
+#import "core/option" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
 
 //: SelfhostProofDomain: proof fact / obligation が属する[領域/りょういき]
 //:
@@ -139,11 +141,38 @@ impl Copy for SelfhostModuleDirectiveFact:
 pub fn selfhost_module_directive_fact_new <(SelfhostModuleDirectiveKind,SelfhostSourceSpan)->SelfhostModuleDirectiveFact> (kind, span):
     SelfhostModuleDirectiveFact kind span
 
+//: SelfhostModuleDeclarationFact: parser が保持した declaration header evidence
+//:
+//: [目的/もくてき]:
+//: - module checker が declaration keyword 文字列を再走査せず、parser 由来の typed header を proof solver へ渡せるようにします。
+//: - declaration header が欠けている場合も `Option` として保持し、proof refutation で拒否します。
+pub struct SelfhostModuleDeclarationFact:
+    item_kind <SelfhostModuleItemKind>
+    declaration <Option<SelfhostModuleDeclarationHeader>>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostModuleDeclarationFact:
+    fn clone <(&SelfhostModuleDeclarationFact)->SelfhostModuleDeclarationFact> (self):
+        *self
+
+impl Copy for SelfhostModuleDeclarationFact:
+    fn copy_mark <(SelfhostModuleDeclarationFact)->SelfhostModuleDeclarationFact> (self):
+        self
+
+//: selfhost_module_declaration_fact_new: declaration fact を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module checker が観測した item kind と parser が保持した declaration header evidence を proof solver に渡す形へまとめます。
+//: - header が欠けている場合も `None` として表し、欠落を bool で握り潰さず typed refutation へ残します。
+pub fn selfhost_module_declaration_fact_new <(SelfhostModuleItemKind,Option<SelfhostModuleDeclarationHeader>,SelfhostSourceSpan)->SelfhostModuleDeclarationFact> (item_kind, declaration, span):
+    SelfhostModuleDeclarationFact item_kind declaration span
+
 //: SelfhostProofFact: solver に渡す typed fact
 pub enum SelfhostProofFact:
     SourceSpanObserved <SelfhostSourceSpanFact>
     RawBackendItemObserved <SelfhostRawBackendItemFact>
     ModuleDirectiveObserved <SelfhostModuleDirectiveFact>
+    ModuleDeclarationObserved <SelfhostModuleDeclarationFact>
 
 impl Clone for SelfhostProofFact:
     fn clone <(&SelfhostProofFact)->SelfhostProofFact> (self):
@@ -161,4 +190,6 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
         SelfhostProofFact::RawBackendItemObserved _item_fact:
             SelfhostProofDomain::Module
         SelfhostProofFact::ModuleDirectiveObserved _directive_fact:
+            SelfhostProofDomain::Module
+        SelfhostProofFact::ModuleDeclarationObserved _declaration_fact:
             SelfhostProofDomain::Module

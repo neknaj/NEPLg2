@@ -10,6 +10,7 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
 
 //: SelfhostRawBackendOpenBlock: raw backend block が text をまだ[持/も]たない[状態/じょうたい]
 pub struct SelfhostRawBackendOpenBlock:
@@ -90,6 +91,7 @@ pub enum SelfhostProofObligation:
     SourceSpanValid <SelfhostSourceSpan>
     RawBackendTransition <SelfhostRawBackendState>
     ModuleDirectiveTransition <SelfhostModuleDirectiveState>
+    ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>
 
 impl Clone for SelfhostProofObligation:
     fn clone <(&SelfhostProofObligation)->SelfhostProofObligation> (self):
@@ -107,4 +109,6 @@ pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProo
         SelfhostProofObligation::RawBackendTransition _state:
             SelfhostProofDomain::Module
         SelfhostProofObligation::ModuleDirectiveTransition _state:
+            SelfhostProofDomain::Module
+        SelfhostProofObligation::ModuleDeclarationHeaderAvailable _kind:
             SelfhostProofDomain::Module

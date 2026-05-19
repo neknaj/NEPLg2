@@ -79,6 +79,26 @@ assert.match(
     /ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>/,
     "module directive duplicate failures must be typed refutations",
 );
+assert.match(
+    proofFact,
+    /ModuleDeclarationObserved <SelfhostModuleDeclarationFact>/,
+    "module declaration facts must enter proof as typed facts",
+);
+assert.match(
+    proofObligation,
+    /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>/,
+    "declaration header availability must enter proof as a typed obligation",
+);
+assert.match(
+    proofQuery,
+    /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>/,
+    "declaration header proof evidence must carry the typed header",
+);
+assert.match(
+    proofQuery,
+    /ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>/,
+    "declaration header missing failures must be typed refutations",
+);
 assert.doesNotMatch(
     proofQuery,
     /selfhost_proof_result_is_proven/,
@@ -95,6 +115,7 @@ const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_source_span_valid",
     "selfhost_proof_raw_backend_transition",
     "selfhost_proof_module_directive_transition",
+    "selfhost_proof_module_declaration_header",
 ]);
 for (const fnName of publicSolverFunctions) {
     assert.ok(
@@ -118,6 +139,11 @@ assert.match(
     proofSolver,
     /(?:^|\n)fn\s+selfhost_proof_solve_module_directive_transition\b[\s\S]*match\s+state:/,
     "module directive singleton transitions must live in the proof solver",
+);
+assert.match(
+    proofSolver,
+    /(?:^|\n)fn\s+selfhost_proof_solve_module_declaration_header\b[\s\S]*match\s+fact\.declaration:/,
+    "declaration header availability must live in the proof solver",
 );
 assert.match(
     proofSolver,
@@ -188,6 +214,11 @@ assert.match(
     moduleChecker,
     /selfhost_proof_module_directive_transition\s+state\s+item/,
     "module checker must ask the proof solver for module directive transitions",
+);
+assert.match(
+    moduleChecker,
+    /selfhost_proof_module_declaration_header\s+kind\s+selfhost_module_declaration_item_fact\s+item/,
+    "module checker must ask the proof solver for declaration header availability",
 );
 assert.doesNotMatch(
     moduleChecker,

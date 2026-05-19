@@ -309,6 +309,14 @@ fn selfhost_module_check_directive_duplicate_diag <(SelfhostModuleDirectiveDupli
     let diag <SelfhostDiagnostic> selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate selfhost_module_check_directive_duplicate_message duplicate.kind duplicate.duplicate_span selfhost_module_check_directive_duplicate_label duplicate.kind
     selfhost_diag_with_note diag "module-level singleton directives must be proven unique before resolve/type/effect stages"
 
+fn selfhost_module_check_declaration_header_missing_diag <(SelfhostModuleDeclarationHeaderIssue)->SelfhostDiagnostic> (issue):
+    let diag <SelfhostDiagnostic> selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderMissing "declaration item is missing parser-provided header evidence" issue.span "declaration header evidence is required here"
+    selfhost_diag_with_note diag "declaration well-formedness must be proven from typed parser evidence, not reconstructed from keyword strings"
+
+fn selfhost_module_check_declaration_header_invalid_diag <(SelfhostModuleDeclarationHeaderIssue)->SelfhostDiagnostic> (issue):
+    let diag <SelfhostDiagnostic> selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid "declaration header evidence is not valid for this declaration kind" issue.span "invalid declaration header evidence"
+    selfhost_diag_with_note diag "the parser must preserve a valid header span, keyword span, and declaration head before type/trait/effect checks run"
+
 fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDiagnostic> (refutation):
     match refutation:
         SelfhostProofRefutation::RawBackendTextWithoutBlock item:
@@ -321,6 +329,10 @@ fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDia
             selfhost_module_check_unexpected_proof_diag
         SelfhostProofRefutation::ModuleDirectiveDuplicate duplicate:
             selfhost_module_check_directive_duplicate_diag duplicate
+        SelfhostProofRefutation::ModuleDeclarationHeaderMissing issue:
+            selfhost_module_check_declaration_header_missing_diag issue
+        SelfhostProofRefutation::ModuleDeclarationHeaderInvalid issue:
+            selfhost_module_check_declaration_header_invalid_diag issue
 
 fn selfhost_module_check_raw_backend_fact <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state, item):
     match selfhost_proof_raw_backend_transition state item:
@@ -349,6 +361,20 @@ fn selfhost_module_check_item_span <(SelfhostModuleItem)->Result<(),SelfhostDiag
         Result::Err refutation:
             Result<(),SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
 
+fn selfhost_module_declaration_item_fact <(SelfhostModuleItem)->SelfhostModuleDeclarationFact> (item):
+    selfhost_module_declaration_fact_new item.kind item.declaration item.span
+
+fn selfhost_module_check_item_declaration_header <(SelfhostModuleItem)->Result<(),SelfhostDiagnostic>> (item):
+    match selfhost_module_item_kind_declaration item.kind:
+        Option::Some kind:
+            match selfhost_proof_module_declaration_header kind selfhost_module_declaration_item_fact item:
+                Result::Ok _header:
+                    Result<(),SelfhostDiagnostic>::Ok ()
+                Result::Err refutation:
+                    Result<(),SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+        Option::None:
+            Result<(),SelfhostDiagnostic>::Ok ()
+
 fn selfhost_module_check_finish_raw_state <(SelfhostRawBackendState)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state):
     let span <SelfhostSourceSpan> source_span_empty 0 0
     let item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
@@ -357,12 +383,16 @@ fn selfhost_module_check_finish_raw_state <(SelfhostRawBackendState)->Result<Sel
 fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, directive_state, item):
     match selfhost_module_check_item_span item:
         Result::Ok _:
-            match selfhost_module_check_item_raw_state raw_state item:
-                Result::Ok next_state:
-                    match selfhost_module_check_item_directive_state directive_state item:
-                        Result::Ok next_directive_state:
-                            let next_summary <SelfhostModuleCheckSummary> selfhost_module_check_summary_record summary item.kind
-                            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Ok selfhost_module_check_step_new next_summary next_state next_directive_state
+            match selfhost_module_check_item_declaration_header item:
+                Result::Ok _:
+                    match selfhost_module_check_item_raw_state raw_state item:
+                        Result::Ok next_state:
+                            match selfhost_module_check_item_directive_state directive_state item:
+                                Result::Ok next_directive_state:
+                                    let next_summary <SelfhostModuleCheckSummary> selfhost_module_check_summary_record summary item.kind
+                                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Ok selfhost_module_check_step_new next_summary next_state next_directive_state
+                                Result::Err diag:
+                                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
                         Result::Err diag:
                             Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err diag
                 Result::Err diag:

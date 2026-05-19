@@ -39,6 +39,10 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
                     Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
         Result::Ok _:
             Result<(),str>::Err "invalid span was accepted"
 
@@ -122,6 +126,10 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::FactObligationMismatch:
+            Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
+            Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
 
 fn main <()*>i32> ():
@@ -230,6 +238,10 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
             Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
 
 fn main <()*>i32> ():
     let span <SelfhostSourceSpan> source_span_new 0 0 5
@@ -267,4 +279,102 @@ fn main <()*>i32> ():
             let checks1 checks_push checks0 Result<(),str>::Err "raw block transition failed"
             let shown checks_print_report checks1
             checks_exit_code shown
+```
+
+## module_declaration_header_requires_parser_evidence
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "std/test" as *
+
+fn check_header_proven <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>)->Result<(),str>> (result):
+    match result:
+        Result::Ok header:
+            match header.kind:
+                SelfhostModuleDeclarationKind::Function:
+                    Result<(),str>::Ok ()
+                SelfhostModuleDeclarationKind::Struct:
+                    Result<(),str>::Err "expected function header proof"
+                SelfhostModuleDeclarationKind::Enum:
+                    Result<(),str>::Err "expected function header proof"
+                SelfhostModuleDeclarationKind::Trait:
+                    Result<(),str>::Err "expected function header proof"
+                SelfhostModuleDeclarationKind::Impl:
+                    Result<(),str>::Err "expected function header proof"
+        Result::Err _refutation:
+            Result<(),str>::Err "expected declaration header proof"
+
+fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>)->Result<(),str>> (result):
+    match result:
+        Result::Err refutation:
+            match refutation:
+                SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
+                    Result<(),str>::Ok ()
+                SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+                    Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::FactObligationMismatch:
+                    Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::SourceSpanInvalid _span:
+                    Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
+                    Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
+                    Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
+                    Result<(),str>::Err "expected missing declaration header"
+        Result::Ok _header:
+            Result<(),str>::Err "missing declaration header was accepted"
+
+fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>)->Result<(),str>> (result):
+    match result:
+        Result::Err refutation:
+            match refutation:
+                SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+                    Result<(),str>::Ok ()
+                SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::FactObligationMismatch:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::SourceSpanInvalid _span:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
+                    Result<(),str>::Err "expected invalid declaration header"
+        Result::Ok _header:
+            Result<(),str>::Err "invalid declaration header was accepted"
+
+fn main <()*>i32> ():
+    let header_span <SelfhostSourceSpan> source_span_new 0 0 24
+    let keyword_span <SelfhostSourceSpan> source_span_new 0 0 2
+    let head_span <SelfhostSourceSpan> source_span_new 0 3 7
+    let head <SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name head_span
+    let header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some<SelfhostModuleDeclarationHead> head
+    let valid_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some<SelfhostModuleDeclarationHeader> header header_span
+    let missing_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl none<SelfhostModuleDeclarationHeader> header_span
+    let invalid_header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some<SelfhostModuleDeclarationHead> head
+    let invalid_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some<SelfhostModuleDeclarationHeader> invalid_header header_span
+    let checks0 checks_new
+    let checks1 checks_push checks0 check_header_proven selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function valid_fact
+    let checks2 checks_push checks1 check_header_missing selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function missing_fact
+    let checks3 checks_push checks2 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function invalid_fact
+    let shown checks_print_report checks3
+    checks_exit_code shown
 ```

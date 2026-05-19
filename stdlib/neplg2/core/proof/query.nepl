@@ -11,6 +11,7 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
 
 //: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
 //:
@@ -20,6 +21,7 @@ pub enum SelfhostProofEvidence:
     SourceSpanValid
     RawBackendTransition <SelfhostRawBackendState>
     ModuleDirectiveTransition <SelfhostModuleDirectiveState>
+    ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>
 
 impl Clone for SelfhostProofEvidence:
     fn clone <(&SelfhostProofEvidence)->SelfhostProofEvidence> (self):
@@ -51,6 +53,26 @@ impl Copy for SelfhostModuleDirectiveDuplicate:
 pub fn selfhost_module_directive_duplicate_new <(SelfhostModuleDirectiveKind,SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveDuplicate> (kind, first_span, duplicate_span):
     SelfhostModuleDirectiveDuplicate kind first_span duplicate_span
 
+//: SelfhostModuleDeclarationHeaderIssue: declaration header proof の refutation payload
+//:
+//: [目的/もくてき]:
+//: - 欠落または不正な declaration header を、自由文字列ではなく declaration kind と span の組として保持します。
+pub struct SelfhostModuleDeclarationHeaderIssue:
+    kind <SelfhostModuleDeclarationKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostModuleDeclarationHeaderIssue:
+    fn clone <(&SelfhostModuleDeclarationHeaderIssue)->SelfhostModuleDeclarationHeaderIssue> (self):
+        *self
+
+impl Copy for SelfhostModuleDeclarationHeaderIssue:
+    fn copy_mark <(SelfhostModuleDeclarationHeaderIssue)->SelfhostModuleDeclarationHeaderIssue> (self):
+        self
+
+//: selfhost_module_declaration_header_issue_new: declaration header issue payload を[作/つく]る
+pub fn selfhost_module_declaration_header_issue_new <(SelfhostModuleDeclarationKind,SelfhostSourceSpan)->SelfhostModuleDeclarationHeaderIssue> (kind, span):
+    SelfhostModuleDeclarationHeaderIssue kind span
+
 //: SelfhostProofRefutation: proof が[不成立/ふせいりつ]だった[理由/りゆう]
 //:
 //: [目的/もくてき]:
@@ -61,6 +83,8 @@ pub enum SelfhostProofRefutation:
     RawBackendTextWithoutBlock <SelfhostRawBackendItemFact>
     RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>
     ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>
+    ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>
+    ModuleDeclarationHeaderInvalid <SelfhostModuleDeclarationHeaderIssue>
 
 impl Clone for SelfhostProofRefutation:
     fn clone <(&SelfhostProofRefutation)->SelfhostProofRefutation> (self):

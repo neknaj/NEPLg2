@@ -158,6 +158,8 @@ impl Copy for SelfhostResolveDiagnosticCode:
 pub enum SelfhostCheckerDiagnosticCode:
     ModuleItemIndex
     ModuleItemSpanInvalid
+    ModuleDeclarationHeaderMissing
+    ModuleDeclarationHeaderInvalid
     RawTextWithoutBlock
     RawBlockEmpty
     ModuleDirectiveDuplicate
@@ -304,6 +306,10 @@ pub fn selfhost_checker_diag_code_name <(SelfhostCheckerDiagnosticCode)->str> (c
             "checker.module.item_index"
         SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid:
             "checker.module.item_span_invalid"
+        SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderMissing:
+            "checker.module.declaration_header_missing"
+        SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid:
+            "checker.module.declaration_header_invalid"
         SelfhostCheckerDiagnosticCode::RawTextWithoutBlock:
             "checker.module.raw_text_without_block"
         SelfhostCheckerDiagnosticCode::RawBlockEmpty:
