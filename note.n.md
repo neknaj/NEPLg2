@@ -1,3 +1,17 @@
+# 2026-05-19 Agent 1 selfhost name_resolver add-result accessor / stdout report 固定
+
+- `ISS-20260519T010217734Z-SELFHOST-NAME-RESOLVER-DOCTESTS-USE--3A40ADE1` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`SelfhostNameScopeAddResult` が `SelfhostNameScope` owner を含む wrapper なのに、doc-comment doctest と `selfhost_name_resolver_stage0` が `field::get ... "scope"` で direct field projection していたこと。現行の `type.owner_aggregate.field_access_restricted` は正しいため、検査は緩めず public accessor を追加した。
+- Copy な `def_id` は borrow accessor で読み、scope owner は wrapper を消費する `selfhost_name_scope_add_result_into_scope` でだけ取り出すようにした。
+- `stdlib/neplg2/core/resolve/name_resolver.nepl` の2 doctest を accessor 利用へ移行し、`neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` にした。
+- `nodesrc/test_selfhost_name_resolver_report_contract.js` を追加し、accessor 存在、direct field access 退行、stdout fixture 欠落、`ret:` 代用を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_selfhost_name_resolver_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/resolve/name_resolver.nepl --no-tree -o tmp/agent1-name-resolver-accessor-report-contract.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-19 Agent 1 selfhost HIR alloc accessor / stdout report 固定
 
 - `ISS-20260519T005214168Z-SELFHOST-HIR-DOCTESTS-USE-OWNER-BACK-EAE6F1EC` を追加し、fixed / resolved にした。`plan.md` は変更していない。

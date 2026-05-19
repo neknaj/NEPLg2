@@ -178,6 +178,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。今回の移行後、直近の stdout fixture なし `checks_print_report` queue は name_resolver 2件、json 1件の3件である。
 
+## 2026-05-19 Selfhost name_resolver doc-comment accessor and stdout report migration
+
+`ISS-20260519T010217734Z-SELFHOST-NAME-RESOLVER-DOCTESTS-USE--3A40ADE1` として、`stdlib/neplg2/core/resolve/name_resolver.nepl` の2つの doc-comment doctest を compile 可能な public API 経由に直し、stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `SelfhostNameScopeAddResult` wrapper から Copy な `SelfhostDefId` を borrow で読む accessor と、scope owner を wrapper 消費で取り出す `selfhost_name_scope_add_result_into_scope` を追加した。
+- doctest と `selfhost_name_resolver_stage0` から `field::get ... "scope"` / `field::get ... "def_id"` を消し、owner aggregate field gate を緩めずに compile-block を解消した。
+- 2 doctest の `Checked [...]` report を stdout fixture に固定し、`nodesrc/test_selfhost_name_resolver_report_contract.js` で metadata / accessor / direct field access 退行を監視する。
+
+この issue はまだ open のまま継続する。今回の移行後、直近の stdout fixture なし `checks_print_report` queue は json 1件である。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

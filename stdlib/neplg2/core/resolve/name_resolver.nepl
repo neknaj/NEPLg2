@@ -18,11 +18,18 @@
 //: - binding 取得: O(1)
 //: - 名前検索 / kind 指定検索: O(n)
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "core/field" as field
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
@@ -36,13 +43,13 @@
 //:             let first <SelfhostNameBinding> selfhost_name_binding_pending "x" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 first:
 //:                 Result::Ok add1:
-//:                     let first_id <SelfhostDefId> field::get add1 "def_id"
-//:                     let scope1 <SelfhostNameScope> field::get add1 "scope"
+//:                     let first_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add1
+//:                     let scope1 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add1
 //:                     let second <SelfhostNameBinding> selfhost_name_binding_pending "x" SelfhostDefKind::Param span
 //:                     match selfhost_name_scope_add_binding scope1 second:
 //:                         Result::Ok add2:
-//:                             let second_id <SelfhostDefId> field::get add2 "def_id"
-//:                             let scope2 <SelfhostNameScope> field::get add2 "scope"
+//:                             let second_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add2
+//:                             let scope2 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add2
 //:                             let checks1 checks_push checks0 check_eq_i32 0 selfhost_def_id_index first_id
 //:                             let checks2 checks_push checks1 check_eq_i32 1 selfhost_def_id_index second_id
 //:                             match selfhost_name_scope_find &scope2 "x":
@@ -72,11 +79,16 @@
 //:             checks_exit_code shown
 //: ```
 
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "core/field" as field
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
@@ -90,13 +102,13 @@
 //:             let local_binding <SelfhostNameBinding> selfhost_name_binding_pending "Item" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 local_binding:
 //:                 Result::Ok add1:
-//:                     let local_id <SelfhostDefId> field::get add1 "def_id"
-//:                     let scope1 <SelfhostNameScope> field::get add1 "scope"
+//:                     let local_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add1
+//:                     let scope1 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add1
 //:                     let struct_binding <SelfhostNameBinding> selfhost_name_binding_pending "Item" SelfhostDefKind::Struct span
 //:                     match selfhost_name_scope_add_binding scope1 struct_binding:
 //:                         Result::Ok add2:
-//:                             let struct_id <SelfhostDefId> field::get add2 "def_id"
-//:                             let scope2 <SelfhostNameScope> field::get add2 "scope"
+//:                             let struct_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add2
+//:                             let scope2 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add2
 //:                             match selfhost_name_scope_find &scope2 "Item":
 //:                                 Option::Some latest:
 //:                                     let checks1 checks_push checks0 check selfhost_name_binding_def_id_eq latest struct_id
@@ -424,6 +436,22 @@ pub fn selfhost_name_scope_len <(&SelfhostNameScope)->i32> (scope):
 pub fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>SelfhostNameScopeAddResult> (scope, def_id):
     SelfhostNameScopeAddResult scope def_id
 
+//: selfhost_name_scope_add_result_def_id: add result から割り当てられた DefId を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - `SelfhostNameScopeAddResult` は scope owner を含むため、通常の source から field を直接読むことはできません。
+//: - この accessor は borrow から Copy な `SelfhostDefId` だけを返し、scope owner は動かしません。
+pub fn selfhost_name_scope_add_result_def_id <(&SelfhostNameScopeAddResult)->SelfhostDefId> (added):
+    *field::get_ref added "def_id"
+
+//: selfhost_name_scope_add_result_into_scope: add result を[消費/しょうひ]して scope owner を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - binding 追加後の scope owner を次の名前解決操作へ渡すための public 経路です。
+//: - wrapper を消費するため、`SelfhostNameScopeAddResult` から scope owner を複製する経路は作りません。
+pub fn selfhost_name_scope_add_result_into_scope <(SelfhostNameScopeAddResult)*>SelfhostNameScope> (added):
+    field::get added "scope"
+
 //: selfhost_name_scope_add_binding: scope に binding を 1 件[追加/ついか]する
 //:
 //: [目的/もくてき]:
@@ -512,8 +540,8 @@ pub fn selfhost_name_resolver_stage0 <()*>i32> ():
             let binding <SelfhostNameBinding> selfhost_name_binding_pending "main" SelfhostDefKind::Function source_span_empty 0 0
             match selfhost_name_scope_add_binding scope0 binding:
                 Result::Ok scope_add:
-                    let def_id <SelfhostDefId> field::get scope_add "def_id"
-                    let scope1 <SelfhostNameScope> field::get scope_add "scope"
+                    let def_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &scope_add
+                    let scope1 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope scope_add
                     let ok <bool> selfhost_def_id_eq def_id selfhost_def_id_new 0
                     selfhost_name_scope_free scope1
                     if ok 0 1
