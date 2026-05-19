@@ -1,6 +1,8 @@
 use alloc::collections::BTreeSet;
 
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
+use crate::source_capability::raw_body_operation_compat::raw_body_operation_supports_boundary;
+use crate::source_capability::raw_operation_compat::raw_memory_operation_supports_boundary;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::source_capability) enum RawOperationBoundaryContract {
@@ -35,7 +37,15 @@ impl RawOperationFunctionEvidence {
         self.raw_body_operations.insert(operation);
     }
 
-    pub(in crate::source_capability) fn has_direct_raw_evidence(&self) -> bool {
-        !self.operations.is_empty() || !self.raw_body_operations.is_empty()
+    pub(in crate::source_capability) fn supports_operation(&self, operation: RawMemoryOp) -> bool {
+        self.operations
+            .iter()
+            .copied()
+            .any(|evidence| raw_memory_operation_supports_boundary(evidence, operation))
+            || self
+                .raw_body_operations
+                .iter()
+                .copied()
+                .any(|evidence| raw_body_operation_supports_boundary(evidence, operation))
     }
 }

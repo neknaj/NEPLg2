@@ -119,6 +119,16 @@ const SOURCE_CAPABILITY_RAW_OPERATION_PROOF = path.join(
     'source_capability',
     'raw_operation_proof.rs',
 );
+const SOURCE_CAPABILITY_RAW_BODY_OPERATION_COMPAT = path.join(
+    CORE_SRC,
+    'source_capability',
+    'raw_body_operation_compat.rs',
+);
+const SOURCE_CAPABILITY_RAW_OPERATION_COMPAT = path.join(
+    CORE_SRC,
+    'source_capability',
+    'raw_operation_compat.rs',
+);
 const SOURCE_CAPABILITY_RULE = path.join(CORE_SRC, 'source_capability', 'rule.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE = path.join(
@@ -1584,6 +1594,16 @@ assertContains(
     'mod raw_operation_proof;',
     'source_capability.rs must keep raw operation proof types in a separate module',
 );
+assertContains(
+    sourceCapability,
+    'mod raw_body_operation_compat;',
+    'source_capability.rs must keep raw body operation compatibility rules in a separate module',
+);
+assertContains(
+    sourceCapability,
+    'mod raw_operation_compat;',
+    'source_capability.rs must keep raw operation compatibility rules in a separate module',
+);
 assertLineLimit(SOURCE_CAPABILITY_IMPORT_PATH, 'source_capability/import_path.rs', 100);
 assertContains(
     sourceCapabilityImportPath,
@@ -1622,6 +1642,16 @@ assertLineLimit(
     SOURCE_CAPABILITY_RAW_OPERATION_PROOF,
     'source_capability/raw_operation_proof.rs',
     80,
+);
+assertLineLimit(
+    SOURCE_CAPABILITY_RAW_BODY_OPERATION_COMPAT,
+    'source_capability/raw_body_operation_compat.rs',
+    90,
+);
+assertLineLimit(
+    SOURCE_CAPABILITY_RAW_OPERATION_COMPAT,
+    'source_capability/raw_operation_compat.rs',
+    70,
 );
 assertLineLimit(SOURCE_CAPABILITY_RULE, 'source_capability/rule.rs', 240);
 assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 260);
@@ -2597,8 +2627,18 @@ assertNotContains(
 );
 assertContains(
     sourceCapabilityTopLevelRawCalls,
+    'supports_operation(operation)',
+    'top-level raw helper propagation must start only from functions with matching source evidence',
+);
+assertContains(
+    sourceCapabilityRawOperationProof,
+    'supports_operation(&self, operation: RawMemoryOp)',
+    'raw operation function evidence must be checked against the requested operation',
+);
+assertNotContains(
+    sourceCapabilityRawOperationProof,
     'has_direct_raw_evidence',
-    'top-level raw helper propagation must start only from functions with source evidence',
+    'raw operation function evidence must not accept unrelated raw evidence',
 );
 assertContains(
     sourceCapabilityRawOperationProof,

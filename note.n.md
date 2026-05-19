@@ -1,3 +1,18 @@
+# 2026-05-19 Agent 1 raw operation source proof の operation 一致化
+
+- `ISS-20260519T012026321Z-RAW-OPERATION-SOURCE-PROOF-ACCEPTS-M-D53D8575` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、raw operation source proof が関数名から `RawMemoryOp` contract を作る一方で、関数本体側は「何らかの raw evidence があるか」だけを見ており、operation の一致を要求していなかったこと。
+- `RawOperationFunctionEvidence::supports_operation` を追加し、直接 raw helper / raw body / top-level helper call の evidence が同じ operation または明示互換な operation を証明する場合だけ function-level boundary を成立させた。
+- `FillBytes` は byte store、`Fill` は i32 store、`Alloc` は memory grow、`Dealloc` は metadata store を operation-level compatibility として enum `match` に閉じ込めた。`Realloc` は単一 call ではなく `Alloc` と `Dealloc` の双方が証明済みの場合だけ伝搬する。
+- これにより、stdlib module 名や関数名だけに寄った許可ではなく、source body から得られた typed operation evidence と boundary contract の対応で証明する設計へ寄せた。
+- 検証:
+  - `cargo test -p nepl-core raw_memory_function_boundary -- --nocapture`: pass
+  - `cargo test -p nepl-core raw_memory_boundary -- --nocapture`: pass
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-19 Agent 1 stdlib json stdout report 固定
 
 - `ISS-20260519T011047746Z-STDLIB-JSON-DOCTEST-PRINTS-CHECKS-RE-3C7D519B` を追加し、fixed / resolved にした。`plan.md` は変更していない。

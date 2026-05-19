@@ -778,7 +778,7 @@ fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> b
 mod tests {
     use super::*;
 
-    use crate::effects::RawMemoryOp;
+    use crate::effects::{RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
     use crate::source_map::{CompilerMemoryField, CompilerMemoryType, SourceCapabilityUseSite};
     use crate::span::Span;
 
@@ -787,6 +787,7 @@ mod tests {
         fn allows_raw_address_view_boundary(&self) -> bool;
         fn allows_raw_address_alias_boundary(&self) -> bool;
         fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool;
+        fn allows_raw_body_memory_operation_boundary(&self, operation: RawBodyMemoryOp) -> bool;
         fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool;
         fn allows_owner_aggregate_field_boundary(&self) -> bool;
         fn allows_compiler_memory_field_boundary(&self, field: CompilerMemoryField) -> bool;
@@ -822,6 +823,18 @@ mod tests {
                 matches!(
                     site,
                     SourceCapabilityUseSite::RawMemoryOperationBoundary {
+                        operation: site_op,
+                        ..
+                    } if *site_op == operation
+                )
+            })
+        }
+
+        fn allows_raw_body_memory_operation_boundary(&self, operation: RawBodyMemoryOp) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::RawBodyMemoryOperationBoundary {
                         operation: site_op,
                         ..
                     } if *site_op == operation
@@ -977,6 +990,114 @@ mod tests {
             "configured raw boundary candidate with raw helper evidence must receive matching operation capability"
         );
         assert!(!raw.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
+    }
+
+    #[test]
+    fn raw_memory_function_boundary_requires_matching_direct_operation_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "raw_operation_mismatch.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!("fn load_i32 <(i32)->i32> (ptr):\n", "    store_i32 ptr 1\n",),
+        );
+
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "a load-named raw boundary must not be proven by store-only source evidence"
+        );
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
+            "the observed store operation itself remains a precise use-site proof"
+        );
+    }
+
+    #[test]
+    fn raw_memory_function_boundary_accepts_compatible_loop_operation_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "raw_fill_loop.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn memset_u8 <(i32,i32,i32)->()> (ptr, len, value):\n",
+                "    store_u8 ptr value\n",
+            ),
+        );
+
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::FillBytes),
+            "byte-fill boundaries may be proven by byte-store source evidence"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Fill),
+            "byte-store evidence must not prove typed i32 fill authority"
+        );
+    }
+
+    #[test]
+    fn raw_memory_function_boundary_requires_matching_raw_body_operation_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "raw_body_operation_mismatch.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn load_i32 <(i32)->i32> (ptr):\n",
+                "    #wasm:\n",
+                "        local.get $ptr\n",
+                "        i32.store\n",
+            ),
+        );
+
+        assert!(
+            capabilities.allows_raw_body_memory_operation_boundary(RawBodyMemoryOp::Wasm(
+                WasmRawBodyMemoryOp::Store
+            )),
+            "the raw-body memory operation must still be recorded as typed evidence"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "a load-named raw boundary must not be proven by store-only raw-body evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_function_boundary_accepts_matching_raw_body_operation_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "raw_body_operation_match.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn store_i32 <(i32,i32)->()> (ptr, value):\n",
+                "    #wasm:\n",
+                "        local.get $ptr\n",
+                "        local.get $value\n",
+                "        i32.store\n",
+            ),
+        );
+
+        assert!(
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store),
+            "store raw-body evidence must prove a store boundary"
+        );
+        assert!(
+            !capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            "store raw-body evidence must not prove unrelated load authority"
+        );
     }
 
     #[test]
@@ -1863,19 +1984,63 @@ mod tests {
             path,
             concat!(
                 "pub fn alloc_raw <(i32)->i32> (size):\n",
-                "    let cur <i32> load_i32 0\n",
-                "    add cur size\n",
+                "    mem_grow size\n",
             ),
         );
         assert!(
             capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Alloc),
-            "raw helper implementation with raw body evidence must grant its operation capability"
+            "allocator growth evidence must grant allocation boundary capability"
         );
         assert!(
-            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Load),
+            capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::MemoryGrow),
             "raw helper implementation keeps exact operation evidence from its body"
         );
         assert!(!capabilities.allows_raw_memory_operation_boundary(RawMemoryOp::Store));
+    }
+
+    #[test]
+    fn raw_memory_boundary_requires_composite_realloc_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "allocator.nepl"],
+        ));
+        let incomplete = load_source_capabilities(
+            &loader,
+            path.clone(),
+            concat!(
+                "pub fn alloc_raw <(i32)->i32> (size):\n",
+                "    mem_grow size\n",
+                "\n",
+                "pub fn realloc_raw <(i32,i32,i32)->i32> (_ptr, _old_size, new_size):\n",
+                "    alloc_raw new_size\n",
+            ),
+        );
+        assert!(
+            !incomplete.allows_raw_memory_operation_boundary(RawMemoryOp::Realloc),
+            "realloc boundary must not be proven by allocation-only source evidence"
+        );
+
+        let complete = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "pub fn alloc_raw <(i32)->i32> (size):\n",
+                "    mem_grow size\n",
+                "\n",
+                "pub fn dealloc_raw <(i32,i32)->()> (ptr, size):\n",
+                "    store_i32 ptr size\n",
+                "\n",
+                "pub fn realloc_raw <(i32,i32,i32)->i32> (ptr, old_size, new_size):\n",
+                "    let next <i32> alloc_raw new_size\n",
+                "    dealloc_raw ptr old_size\n",
+                "    next\n",
+            ),
+        );
+        assert!(
+            complete.allows_raw_memory_operation_boundary(RawMemoryOp::Realloc),
+            "realloc boundary requires both allocation and deallocation source evidence"
+        );
     }
 
     #[test]

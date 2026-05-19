@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T01:13:59.595Z",
+  "generated_at": "2026-05-19T01:40:17.638Z",
   "counts": {
-    "total": 1042,
+    "total": 1043,
     "open": 5,
-    "resolved": 1037,
+    "resolved": 1038,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -57,9 +57,9 @@
         "resolved": 5
       },
       "compiler/resource-ir": {
-        "total": 4,
+        "total": 5,
         "open": 0,
-        "resolved": 4
+        "resolved": 5
       },
       "core/resource": {
         "total": 1,
@@ -1133,6 +1133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T075612588Z-RAW-ADDRESS-RETURN-PROOF-DUPLICATES--E5A6AE6F.md"
+    },
+    {
+      "id": "ISS-20260519T012026321Z-RAW-OPERATION-SOURCE-PROOF-ACCEPTS-M-D53D8575",
+      "title": "raw operation source proof accepts mismatched function body evidence",
+      "area": "compiler/resource-ir",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/source_capability/top_level_raw_calls.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T012026321Z-RAW-OPERATION-SOURCE-PROOF-ACCEPTS-M-D53D8575.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

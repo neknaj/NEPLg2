@@ -3,6 +3,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::effects::RawMemoryOp;
+use crate::source_capability::raw_operation_compat::raw_memory_operation_set_supports_boundary;
 use crate::source_capability::raw_operation_proof::{
     RawOperationBoundaryContract, RawOperationFunctionEvidence,
 };
@@ -37,10 +38,10 @@ pub(in crate::source_capability) fn collect_top_level_raw_call_evidence(
     let mut evidence = Vec::new();
 
     for frame in frames {
-        if !frame.evidence.has_direct_raw_evidence() {
-            continue;
-        }
         if let Some(operation) = frame.boundary_contract.operation() {
+            if !frame.evidence.supports_operation(operation) {
+                continue;
+            }
             proven_functions
                 .entry(frame.name.clone())
                 .or_default()
@@ -55,28 +56,22 @@ pub(in crate::source_capability) fn collect_top_level_raw_call_evidence(
     loop {
         let mut changed = false;
         for frame in frames {
-            let frame_has_proven_raw_call = frame.top_level_raw_calls.iter().any(|call| {
-                proven_functions
-                    .get(&call.target)
-                    .is_some_and(|operations| operations.contains(&call.operation))
-            });
-            if !frame_has_proven_raw_call {
+            let proven_raw_calls = proven_top_level_raw_calls(frame, &proven_functions);
+            if proven_raw_calls.is_empty() {
                 continue;
             }
 
-            for call in &frame.top_level_raw_calls {
-                if proven_functions
-                    .get(&call.target)
-                    .is_some_and(|operations| operations.contains(&call.operation))
-                {
-                    evidence.push(PropagatedRawOperationEvidence {
-                        operation: call.operation,
-                        span: call.span,
-                    });
-                }
+            for call in &proven_raw_calls {
+                evidence.push(PropagatedRawOperationEvidence {
+                    operation: call.operation,
+                    span: call.span,
+                });
             }
 
             if let Some(operation) = frame.boundary_contract.operation() {
+                if !proven_raw_calls_support_boundary(&proven_raw_calls, operation) {
+                    continue;
+                }
                 let operations = proven_functions.entry(frame.name.clone()).or_default();
                 if operations.insert(operation) {
                     evidence.push(PropagatedRawOperationEvidence {
@@ -92,4 +87,29 @@ pub(in crate::source_capability) fn collect_top_level_raw_call_evidence(
         }
     }
     evidence
+}
+
+fn proven_top_level_raw_calls<'a>(
+    frame: &'a RawOperationFunctionProof,
+    proven_functions: &BTreeMap<String, BTreeSet<RawMemoryOp>>,
+) -> Vec<&'a TopLevelRawCallSite> {
+    frame
+        .top_level_raw_calls
+        .iter()
+        .filter(|call| {
+            proven_functions
+                .get(&call.target)
+                .is_some_and(|operations| operations.contains(&call.operation))
+        })
+        .collect()
+}
+
+fn proven_raw_calls_support_boundary(
+    proven_raw_calls: &[&TopLevelRawCallSite],
+    operation: RawMemoryOp,
+) -> bool {
+    raw_memory_operation_set_supports_boundary(
+        proven_raw_calls.iter().map(|call| call.operation),
+        operation,
+    )
 }
