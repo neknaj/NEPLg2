@@ -42340,3 +42340,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core resource_ir_owner_check_path_open_accepts_non_owning_string_data_ptr --test resource_ir -- --nocapture`: passed
   - `cargo test -p nepl-cli path_open --test cli_output -- --nocapture`: passed
   - `cargo test -p nepl-cli run_wasi_fd_readdir_returns_stable_directory_entries --test cli_output -- --nocapture`: passed
+
+## 2026-05-19 Agent 1 UTF-8 validation doc-comment stdout report 移行
+
+- `ISS-20260519T053837519Z-UTF-8-VALIDATION-DOC-COMMENT-DOCTEST-5BD9215D` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/std/text/validate.nepl` と `stdlib/alloc/string/utf8.nepl` の UTF-8 validation doc-comment doctest が `ret:` または metadata 省略だけで成功を表し、UTF-8 bytes / leading byte classification / memory span validation の観測結果を stdout fixture として固定していなかったことだった。
+- 対象 6 doctest を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` へ移行し、`std/test::TestReport` で assertion label / expected / actual を出すようにした。
+- `nodesrc/test_stdlib_utf8_validation_doc_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、旧 `checks_*` 形式への退行を拒否する。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- 併せて `node nodesrc/run_source_policy_regressions.js --warn-only` の実行中に、Resource IR 側の `initialized_alias_offset.rs` が責務分割 policy の監視対象から漏れている別件を確認したため、`ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378` を open issue として追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_utf8_validation_doc_report_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib\std\text\validate.nepl -i stdlib\alloc\string\utf8.nepl --no-tree -o tmp\agent1-utf8-validation-doc-report.json -j 1 --dist web\dist --assert-io`: total=6, passed=6

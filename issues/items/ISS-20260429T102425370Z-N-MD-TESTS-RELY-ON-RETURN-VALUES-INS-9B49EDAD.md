@@ -1793,3 +1793,21 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - 変更した `.nepl` report doctest の focused run: passed
 
 この issue はまだ open のまま継続する。report helper を使う `.n.md` / `.nepl` の metadata 横断監視は整ったが、`ret:` だけに依存する古い assertion fixture の段階的移行は残る。
+
+## 2026-05-19 UTF-8 validation doc-comment stdout report migration
+
+`ISS-20260519T053837519Z-UTF-8-VALIDATION-DOC-COMMENT-DOCTEST-5BD9215D` として、`stdlib/std/text/validate.nepl` と `stdlib/alloc/string/utf8.nepl` の UTF-8 validation doc-comment doctest 6 件を stdout report + `exit_code: 0` へ移行した。
+
+移行内容:
+
+- `std/text/validate` の module-level validation、leading byte classification、checked byte read、memory validation の 4 件を `std/test::TestReport` へ移した。
+- `alloc/string/utf8` の leading byte classification と memory validation の 2 件を同じ canonical report 形式へ移した。
+- `nodesrc/test_stdlib_utf8_validation_doc_report_contract.js` を追加し、`ret:` 再導入、stdout fixture 欠落、旧 `checks_*` 形式への退行を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に同 contract を登録した。
+
+検証:
+
+- `node nodesrc/test_stdlib_utf8_validation_doc_report_contract.js`: passed
+- `node nodesrc/tests.js -i stdlib\std\text\validate.nepl -i stdlib\alloc\string\utf8.nepl --no-tree -o tmp\agent1-utf8-validation-doc-report.json -j 1 --dist web\dist --assert-io`: total=6, passed=6
+
+この issue はまだ open のまま継続する。UTF-8 validation doc-comment の target subcase は移行済みだが、core-only `ret:` fixture と report helper を使わない古い assertion fixture の扱い整理が残っている。

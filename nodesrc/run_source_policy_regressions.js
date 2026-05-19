@@ -180,6 +180,7 @@ const checks = [
     "nodesrc/test_stdlib_string_float_boundary.js",
     "nodesrc/test_stdlib_string_facade_boundary.js",
     "nodesrc/test_stdlib_text_boundary.js",
+    "nodesrc/test_stdlib_utf8_validation_doc_report_contract.js",
     "nodesrc/test_stdlib_text_utf8_report_contract.js",
     "nodesrc/test_stdlib_stdio_print_i32_boundary.js",
     "nodesrc/test_stdlib_stdio_ansi_boundary.js",

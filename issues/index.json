@@ -1,20 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T05:29:36.496Z",
+  "generated_at": "2026-05-19T05:47:06.343Z",
   "counts": {
-    "total": 1046,
-    "open": 5,
-    "resolved": 1041,
+    "total": 1048,
+    "open": 6,
+    "resolved": 1042,
     "by_area": {
+      "CORE": {
+        "total": 5,
+        "open": 1,
+        "resolved": 4
+      },
       "stdlib": {
         "total": 286,
         "open": 3,
         "resolved": 283
       },
       "TEST": {
-        "total": 64,
+        "total": 65,
         "open": 1,
-        "resolved": 63
+        "resolved": 64
       },
       "selfhost": {
         "total": 74,
@@ -30,11 +35,6 @@
         "total": 513,
         "open": 0,
         "resolved": 513
-      },
-      "CORE": {
-        "total": 4,
-        "open": 0,
-        "resolved": 4
       },
       "resource": {
         "total": 3,
@@ -129,6 +129,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378",
+      "title": "Resource checker source policy does not monitor initialized_alias_offset module",
+      "area": "CORE",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/initialized_alias_offset.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T054544598Z-RESOURCE-CHECKER-SOURCE-POLICY-DOES--BB3DC378.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -13328,6 +13343,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T021633842Z-NEPL-DOC-COMMENT-REPORT-METADATA-POL-5A293E8D.md"
+    },
+    {
+      "id": "ISS-20260519T053837519Z-UTF-8-VALIDATION-DOC-COMMENT-DOCTEST-5BD9215D",
+      "title": "UTF-8 validation doc-comment doctests still use ret-only metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/std/text/validate.nepl, stdlib/alloc/string/utf8.nepl, nodesrc/test_stdlib_utf8_validation_doc_report_contract.js, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T053837519Z-UTF-8-VALIDATION-DOC-COMMENT-DOCTEST-5BD9215D.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

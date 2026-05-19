@@ -11,7 +11,9 @@
 //: ### [計算量/けいさんりょう]
 //: - [入力/にゅうりょく] byte [数/すう] n に[対/たい]して O(n) です。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"std_text_validate_module_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"valid UTF-8 bytes\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
@@ -20,20 +22,26 @@
 //:| #import "alloc/io" as *
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
-//:     match io_bytebuf_from_str_result "nep":
+//:     let valid <bool> match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
-//:             0
+//:             false
 //:         Result::Ok buf:
 //:             let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &buf
 //:             let byte_len <i32> io_bytebuf_len_ref &buf
-//:             let ok <i32> match text_utf8_validate_mem data byte_len:
+//:             let ok <bool> match text_utf8_validate_mem data byte_len:
 //:                 Result::Err _e:
-//:                     0
+//:                     false
 //:                 Result::Ok _:
-//:                     1
+//:                     true
 //:             io_bytebuf_free buf
 //:             ok
+//:     let report:
+//:         test_report_new "std_text_validate_module_doc"
+//:         |> test_report_push assert "valid UTF-8 bytes" valid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4
@@ -46,19 +54,26 @@
 
 //: UTF-8 leading byte の[種類/しゅるい]
 //:
-//: neplg2:test
-//: ret: 1
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"std_text_validate_lead_kind_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"ASCII lead kind\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
 //:| #target std
 //:| #import "std/text/validate" as *
-//: fn main <()->i32> ():
-//:     match text_utf8_lead_kind 65:
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let is_ascii <bool> match text_utf8_lead_kind 65:
 //:         TextUtf8LeadKind::Ascii:
-//:             1
+//:             true
 //:         _:
-//:             0
+//:             false
+//:     let report:
+//:         test_report_new "std_text_validate_lead_kind_doc"
+//:         |> test_report_push assert "ASCII lead kind" is_ascii
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub enum TextUtf8LeadKind:
     Ascii
@@ -108,8 +123,9 @@ pub fn text_utf8_lead_kind <(i32)->TextUtf8LeadKind> (b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 //:
-//: neplg2:test
-//: ret: 1
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"std_text_validate_byte_at_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"byte at index 1\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
@@ -119,20 +135,26 @@ pub fn text_utf8_lead_kind <(i32)->TextUtf8LeadKind> (b):
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
-//:     match io_bytebuf_from_str_result "nep":
+//:     let matched <bool> match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
-//:             0
+//:             false
 //:         Result::Ok buf:
 //:             let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &buf
 //:             let byte_len <i32> io_bytebuf_len_ref &buf
-//:             let ok <i32> match text_utf8_byte_at_checked data byte_len 1:
+//:             let ok <bool> match text_utf8_byte_at_checked data byte_len 1:
 //:                 Result::Err _e:
-//:                     0
+//:                     false
 //:                 Result::Ok b:
-//:                     if eq b 101 1 0
+//:                     eq b 101
 //:             io_bytebuf_free buf
 //:             ok
+//:     let report:
+//:         test_report_new "std_text_validate_byte_at_doc"
+//:         |> test_report_push assert "byte at index 1" matched
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn text_utf8_byte_at_checked <(MemPtr<u8>,i32,i32)->Result<i32, StdErrorKind>> (data, byte_len, idx):
     if:
@@ -248,8 +270,9 @@ fn text_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> 
 //: [計算量/けいさんりょう]:
 //: - O(n)
 //:
-//: neplg2:test
-//: ret: 1
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"std_text_validate_mem_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"valid memory span\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
@@ -258,20 +281,26 @@ fn text_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> 
 //:| #import "alloc/io" as *
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
-//:     match io_bytebuf_from_str_result "nep":
+//:     let valid <bool> match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
-//:             0
+//:             false
 //:         Result::Ok buf:
 //:             let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &buf
 //:             let byte_len <i32> io_bytebuf_len_ref &buf
-//:             let ok <i32> match text_utf8_validate_mem data byte_len:
+//:             let ok <bool> match text_utf8_validate_mem data byte_len:
 //:                 Result::Err _e:
-//:                     0
+//:                     false
 //:                 Result::Ok _:
-//:                     1
+//:                     true
 //:             io_bytebuf_free buf
 //:             ok
+//:     let report:
+//:         test_report_new "std_text_validate_mem_doc"
+//:         |> test_report_push assert "valid memory span" valid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn text_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(), StdErrorKind>> (data, byte_len):
     if:

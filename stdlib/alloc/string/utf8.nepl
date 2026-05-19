@@ -21,19 +21,26 @@
 //: [目的/もくてき]:
 //: - UTF-8 検証の分岐を enum と `match` にし、if の深いネストに戻らないようにします。
 //:
-//: neplg2:test
-//: ret: 1
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_lead_kind_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"ASCII lead kind\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
 //:| #target std
 //:| #import "alloc/string/utf8" as *
-//: fn main <()->i32> ():
-//:     match string_utf8_lead_kind 65:
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let is_ascii <bool> match string_utf8_lead_kind 65:
 //:         StringUtf8LeadKind::Ascii:
-//:             1
+//:             true
 //:         _:
-//:             0
+//:             false
+//:     let report:
+//:         test_report_new "alloc_string_utf8_lead_kind_doc"
+//:         |> test_report_push assert "ASCII lead kind" is_ascii
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub enum StringUtf8LeadKind:
     Ascii
@@ -185,8 +192,9 @@ fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
 //:
-//: neplg2:test
-//: ret: 1
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_validate_mem_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"valid memory span\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
@@ -196,14 +204,20 @@ fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i
 //:| #import "alloc/string/utf8" as *
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let s <str> "nep"
 //:     let data <MemPtr<u8>> string_data_ptr s
-//:     match string_utf8_validate_mem data len s:
+//:     let valid <bool> match string_utf8_validate_mem data len s:
 //:         Result::Err _e:
-//:             0
+//:             false
 //:         Result::Ok _:
-//:             1
+//:             true
+//:     let report:
+//:         test_report_new "alloc_string_utf8_validate_mem_doc"
+//:         |> test_report_push assert "valid memory span" valid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_len):
     if:
