@@ -20,15 +20,15 @@
 #import "neplg2/core/proof/query" as *
 
 //: selfhost_proof_source_span_eq: source span が同じ range か[返/かえ]す
-pub fn selfhost_proof_source_span_eq <(SelfhostSourceSpan,SelfhostSourceSpan)->bool> (a, b):
+fn selfhost_proof_source_span_eq <(SelfhostSourceSpan,SelfhostSourceSpan)->bool> (a, b):
     and and eq field::get a "file_id" field::get b "file_id" eq field::get a "start" field::get b "start" eq field::get a "end" field::get b "end"
 
 //: selfhost_proof_source_span_fact_supports: span fact が span validity obligation を[満/み]たすか[返/かえ]す
-pub fn selfhost_proof_source_span_fact_supports <(SelfhostSourceSpanFact,SelfhostSourceSpan)->bool> (fact, span):
+fn selfhost_proof_source_span_fact_supports <(SelfhostSourceSpanFact,SelfhostSourceSpan)->bool> (fact, span):
     and selfhost_proof_source_span_eq fact.span span source_span_is_valid span
 
 //: selfhost_proof_solve_source_span_valid: source span validity obligation を[解/と]く
-pub fn selfhost_proof_solve_source_span_valid <(SelfhostSourceSpanFact,SelfhostSourceSpan)->SelfhostProofResult> (fact, span):
+fn selfhost_proof_solve_source_span_valid <(SelfhostSourceSpanFact,SelfhostSourceSpan)->SelfhostProofResult> (fact, span):
     if:
         selfhost_proof_source_span_fact_supports fact span
         then:
@@ -37,7 +37,7 @@ pub fn selfhost_proof_solve_source_span_valid <(SelfhostSourceSpanFact,SelfhostS
             selfhost_proof_result_refuted SelfhostProofRefutation::SourceSpanInvalid span
 
 //: selfhost_raw_backend_text_matches: raw text item が open backend と[一致/いっち]するか[返/かえ]す
-pub fn selfhost_raw_backend_text_matches <(SelfhostRawBackendKind,SelfhostRawBackendItemFact)->bool> (open_kind, item):
+fn selfhost_raw_backend_text_matches <(SelfhostRawBackendKind,SelfhostRawBackendItemFact)->bool> (open_kind, item):
     match open_kind:
         SelfhostRawBackendKind::Wasm:
             match item.kind:
@@ -69,23 +69,23 @@ pub fn selfhost_raw_backend_text_matches <(SelfhostRawBackendKind,SelfhostRawBac
                     false
 
 //: selfhost_proof_raw_backend_proven: raw backend next state evidence を[返/かえ]す
-pub fn selfhost_proof_raw_backend_proven <(SelfhostRawBackendState)->SelfhostProofResult> (state):
+fn selfhost_proof_raw_backend_proven <(SelfhostRawBackendState)->SelfhostProofResult> (state):
     selfhost_proof_result_proven SelfhostProofEvidence::RawBackendTransition state
 
 //: selfhost_proof_raw_backend_start: raw backend block の開始を[証明/しょうめい]する
-pub fn selfhost_proof_raw_backend_start <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostProofResult> (kind, span):
+fn selfhost_proof_raw_backend_start <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostProofResult> (kind, span):
     selfhost_proof_raw_backend_proven selfhost_raw_backend_state_start kind span
 
 //: selfhost_proof_raw_backend_text_without_block: raw text が block の[外/そと]にある refutation を[返/かえ]す
-pub fn selfhost_proof_raw_backend_text_without_block <(SelfhostRawBackendItemFact)->SelfhostProofResult> (item):
+fn selfhost_proof_raw_backend_text_without_block <(SelfhostRawBackendItemFact)->SelfhostProofResult> (item):
     selfhost_proof_result_refuted SelfhostProofRefutation::RawBackendTextWithoutBlock item
 
 //: selfhost_proof_raw_backend_empty_block: empty raw block refutation を[返/かえ]す
-pub fn selfhost_proof_raw_backend_empty_block <(SelfhostRawBackendOpenBlock)->SelfhostProofResult> (open_block):
+fn selfhost_proof_raw_backend_empty_block <(SelfhostRawBackendOpenBlock)->SelfhostProofResult> (open_block):
     selfhost_proof_result_refuted SelfhostProofRefutation::RawBackendBlockEmpty open_block
 
 //: selfhost_proof_solve_raw_backend_normal: Normal state の raw backend transition を[解/と]く
-pub fn selfhost_proof_solve_raw_backend_normal <(SelfhostRawBackendItemFact)->SelfhostProofResult> (item):
+fn selfhost_proof_solve_raw_backend_normal <(SelfhostRawBackendItemFact)->SelfhostProofResult> (item):
     match item.kind:
         SelfhostRawBackendItemKind::NonRaw:
             selfhost_proof_raw_backend_proven SelfhostRawBackendState::Normal
@@ -101,7 +101,7 @@ pub fn selfhost_proof_solve_raw_backend_normal <(SelfhostRawBackendItemFact)->Se
             selfhost_proof_raw_backend_text_without_block item
 
 //: selfhost_proof_solve_raw_backend_empty: empty block state の raw backend transition を[解/と]く
-pub fn selfhost_proof_solve_raw_backend_empty <(SelfhostRawBackendOpenBlock,SelfhostRawBackendItemFact)->SelfhostProofResult> (open_block, item):
+fn selfhost_proof_solve_raw_backend_empty <(SelfhostRawBackendOpenBlock,SelfhostRawBackendItemFact)->SelfhostProofResult> (open_block, item):
     match item.kind:
         SelfhostRawBackendItemKind::WasmText:
             if:
@@ -127,7 +127,7 @@ pub fn selfhost_proof_solve_raw_backend_empty <(SelfhostRawBackendOpenBlock,Self
             selfhost_proof_raw_backend_empty_block open_block
 
 //: selfhost_proof_solve_raw_backend_ready: text を持つ block state の transition を[解/と]く
-pub fn selfhost_proof_solve_raw_backend_ready <(SelfhostRawBackendKind,SelfhostRawBackendItemFact)->SelfhostProofResult> (open_kind, item):
+fn selfhost_proof_solve_raw_backend_ready <(SelfhostRawBackendKind,SelfhostRawBackendItemFact)->SelfhostProofResult> (open_kind, item):
     match item.kind:
         SelfhostRawBackendItemKind::WasmText:
             if:
@@ -153,7 +153,7 @@ pub fn selfhost_proof_solve_raw_backend_ready <(SelfhostRawBackendKind,SelfhostR
             selfhost_proof_raw_backend_start SelfhostRawBackendKind::LlvmIr item.span
 
 //: selfhost_proof_solve_raw_backend_transition: raw backend transition obligation を[解/と]く
-pub fn selfhost_proof_solve_raw_backend_transition <(SelfhostRawBackendItemFact,SelfhostRawBackendState)->SelfhostProofResult> (item, state):
+fn selfhost_proof_solve_raw_backend_transition <(SelfhostRawBackendItemFact,SelfhostRawBackendState)->SelfhostProofResult> (item, state):
     match state:
         SelfhostRawBackendState::Normal:
             selfhost_proof_solve_raw_backend_normal item
@@ -163,19 +163,19 @@ pub fn selfhost_proof_solve_raw_backend_transition <(SelfhostRawBackendItemFact,
             selfhost_proof_solve_raw_backend_ready kind item
 
 //: selfhost_proof_module_directive_proven: module directive next state evidence を[返/かえ]す
-pub fn selfhost_proof_module_directive_proven <(SelfhostModuleDirectiveState)->SelfhostProofResult> (state):
+fn selfhost_proof_module_directive_proven <(SelfhostModuleDirectiveState)->SelfhostProofResult> (state):
     selfhost_proof_result_proven SelfhostProofEvidence::ModuleDirectiveTransition state
 
 //: selfhost_proof_module_directive_duplicate: singleton directive [重複/ちょうふく] refutation を[返/かえ]す
-pub fn selfhost_proof_module_directive_duplicate <(SelfhostModuleDirectiveKind,SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostProofResult> (kind, first_span, duplicate_span):
+fn selfhost_proof_module_directive_duplicate <(SelfhostModuleDirectiveKind,SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostProofResult> (kind, first_span, duplicate_span):
     selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDirectiveDuplicate selfhost_module_directive_duplicate_new kind first_span duplicate_span
 
 //: selfhost_module_directive_seen_both_state: entry / target の両方を観測済みにする
-pub fn selfhost_module_directive_seen_both_state <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveState> (entry_span, target_span):
+fn selfhost_module_directive_seen_both_state <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveState> (entry_span, target_span):
     SelfhostModuleDirectiveState::EntryAndTargetSeen selfhost_module_directive_seen_both_new entry_span target_span
 
 //: selfhost_proof_solve_module_directive_none: singleton directive 未観測 state の transition を[解/と]く
-pub fn selfhost_proof_solve_module_directive_none <(SelfhostModuleDirectiveFact)->SelfhostProofResult> (item):
+fn selfhost_proof_solve_module_directive_none <(SelfhostModuleDirectiveFact)->SelfhostProofResult> (item):
     match item.kind:
         SelfhostModuleDirectiveKind::Other:
             selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::NoneSeen
@@ -185,7 +185,7 @@ pub fn selfhost_proof_solve_module_directive_none <(SelfhostModuleDirectiveFact)
             selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::TargetSeen item.span
 
 //: selfhost_proof_solve_module_directive_entry_seen: entry 観測済み state の transition を[解/と]く
-pub fn selfhost_proof_solve_module_directive_entry_seen <(SelfhostSourceSpan,SelfhostModuleDirectiveFact)->SelfhostProofResult> (entry_span, item):
+fn selfhost_proof_solve_module_directive_entry_seen <(SelfhostSourceSpan,SelfhostModuleDirectiveFact)->SelfhostProofResult> (entry_span, item):
     match item.kind:
         SelfhostModuleDirectiveKind::Other:
             selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::EntrySeen entry_span
@@ -195,7 +195,7 @@ pub fn selfhost_proof_solve_module_directive_entry_seen <(SelfhostSourceSpan,Sel
             selfhost_proof_module_directive_proven selfhost_module_directive_seen_both_state entry_span item.span
 
 //: selfhost_proof_solve_module_directive_target_seen: target 観測済み state の transition を[解/と]く
-pub fn selfhost_proof_solve_module_directive_target_seen <(SelfhostSourceSpan,SelfhostModuleDirectiveFact)->SelfhostProofResult> (target_span, item):
+fn selfhost_proof_solve_module_directive_target_seen <(SelfhostSourceSpan,SelfhostModuleDirectiveFact)->SelfhostProofResult> (target_span, item):
     match item.kind:
         SelfhostModuleDirectiveKind::Other:
             selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::TargetSeen target_span
@@ -205,7 +205,7 @@ pub fn selfhost_proof_solve_module_directive_target_seen <(SelfhostSourceSpan,Se
             selfhost_proof_module_directive_duplicate SelfhostModuleDirectiveKind::Target target_span item.span
 
 //: selfhost_proof_solve_module_directive_both_seen: entry / target 両方観測済み state の transition を[解/と]く
-pub fn selfhost_proof_solve_module_directive_both_seen <(SelfhostModuleDirectiveSeenBoth,SelfhostModuleDirectiveFact)->SelfhostProofResult> (seen, item):
+fn selfhost_proof_solve_module_directive_both_seen <(SelfhostModuleDirectiveSeenBoth,SelfhostModuleDirectiveFact)->SelfhostProofResult> (seen, item):
     match item.kind:
         SelfhostModuleDirectiveKind::Other:
             selfhost_proof_module_directive_proven SelfhostModuleDirectiveState::EntryAndTargetSeen seen
@@ -215,7 +215,7 @@ pub fn selfhost_proof_solve_module_directive_both_seen <(SelfhostModuleDirective
             selfhost_proof_module_directive_duplicate SelfhostModuleDirectiveKind::Target seen.target_span item.span
 
 //: selfhost_proof_solve_module_directive_transition: module directive transition obligation を[解/と]く
-pub fn selfhost_proof_solve_module_directive_transition <(SelfhostModuleDirectiveFact,SelfhostModuleDirectiveState)->SelfhostProofResult> (item, state):
+fn selfhost_proof_solve_module_directive_transition <(SelfhostModuleDirectiveFact,SelfhostModuleDirectiveState)->SelfhostProofResult> (item, state):
     match state:
         SelfhostModuleDirectiveState::NoneSeen:
             selfhost_proof_solve_module_directive_none item
@@ -255,7 +255,7 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_result_refuted SelfhostProofRefutation::FactObligationMismatch
 
 //: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
-pub fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostProofQuery> (span):
+fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostProofQuery> (span):
     let fact <SelfhostProofFact> SelfhostProofFact::SourceSpanObserved selfhost_source_span_fact_new span
     let obligation <SelfhostProofObligation> SelfhostProofObligation::SourceSpanValid span
     selfhost_proof_query_new fact obligation
@@ -275,7 +275,7 @@ pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),Selfhos
             Result<(),SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_raw_backend_transition: raw backend transition query を[作/つく]る
-pub fn selfhost_proof_query_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->SelfhostProofQuery> (state, item):
+fn selfhost_proof_query_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->SelfhostProofQuery> (state, item):
     let fact <SelfhostProofFact> SelfhostProofFact::RawBackendItemObserved item
     let obligation <SelfhostProofObligation> SelfhostProofObligation::RawBackendTransition state
     selfhost_proof_query_new fact obligation
@@ -295,7 +295,7 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
             Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_module_directive_transition: module directive transition query を[作/つく]る
-pub fn selfhost_proof_query_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->SelfhostProofQuery> (state, item):
+fn selfhost_proof_query_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->SelfhostProofQuery> (state, item):
     let fact <SelfhostProofFact> SelfhostProofFact::ModuleDirectiveObserved item
     let obligation <SelfhostProofObligation> SelfhostProofObligation::ModuleDirectiveTransition state
     selfhost_proof_query_new fact obligation

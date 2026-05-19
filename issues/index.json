@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T21:45:22.452Z",
+  "generated_at": "2026-05-19T21:57:01.073Z",
   "counts": {
-    "total": 1078,
+    "total": 1079,
     "open": 4,
-    "resolved": 1074,
+    "resolved": 1075,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 78,
+        "total": 79,
         "open": 1,
-        "resolved": 77
+        "resolved": 78
       },
       "cli": {
         "total": 19,
@@ -9323,6 +9323,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T213705215Z-SELF-HOST-SOURCE-SPAN-PROOF-COLLAPSE-EB18F406.md"
+    },
+    {
+      "id": "ISS-20260519T215154303Z-SELF-HOST-PROOF-SOLVER-EXPOSES-INTER-38516C0B",
+      "title": "Self-host proof solver exposes internal proof rules as public API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-19",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/solver.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T215154303Z-SELF-HOST-PROOF-SOLVER-EXPOSES-INTER-38516C0B.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

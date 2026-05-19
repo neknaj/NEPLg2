@@ -86,23 +86,42 @@ assert.doesNotMatch(
 );
 
 const solverBlock = functionBlock(proofSolver, "selfhost_proof_solve");
+const publicSolverFunctions = Array.from(
+    proofSolver.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
+    (match) => match[1],
+);
+const allowedPublicSolverFunctions = new Set([
+    "selfhost_proof_solve",
+    "selfhost_proof_source_span_valid",
+    "selfhost_proof_raw_backend_transition",
+    "selfhost_proof_module_directive_transition",
+]);
+for (const fnName of publicSolverFunctions) {
+    assert.ok(
+        allowedPublicSolverFunctions.has(fnName),
+        `proof solver must not expose internal proof rule helper ${fnName}`,
+    );
+}
+for (const fnName of allowedPublicSolverFunctions) {
+    assert.ok(publicSolverFunctions.includes(fnName), `proof solver public API must expose ${fnName}`);
+}
 assert.match(solverBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver must match on obligation enum");
 assert.match(solverBlock, /\bmatch\s+(?:query\.)?fact:/, "solver must match on fact enum");
 assert.doesNotMatch(solverBlock, /^\s*_:/m, "solver must not hide new fact/obligation variants behind wildcard arms");
 assert.doesNotMatch(solverBlock, /"[A-Za-z0-9_.:-]+"/, "proof solver must not depend on string codes or module names");
 assert.match(
     proofSolver,
-    /(?:pub\s+)?fn\s+selfhost_proof_solve_raw_backend_transition\b[\s\S]*match\s+state:/,
+    /(?:^|\n)fn\s+selfhost_proof_solve_raw_backend_transition\b[\s\S]*match\s+state:/,
     "raw backend state transitions must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:pub\s+)?fn\s+selfhost_proof_solve_module_directive_transition\b[\s\S]*match\s+state:/,
+    /(?:^|\n)fn\s+selfhost_proof_solve_module_directive_transition\b[\s\S]*match\s+state:/,
     "module directive singleton transitions must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:pub\s+)?fn\s+selfhost_proof_source_span_valid\b[^\n]*Result<\(\),SelfhostProofRefutation>/,
+    /^pub fn\s+selfhost_proof_source_span_valid\b[^\n]*Result<\(\),SelfhostProofRefutation>/m,
     "source span validity must preserve typed refutations instead of returning bool",
 );
 

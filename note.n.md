@@ -42796,3 +42796,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-source-span-proof-result-module-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-source-span-proof-result-proof-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-source-span-proof-result-checker-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 self-host proof solver public surface 境界修正
+
+- `ISS-20260519T215154303Z-SELF-HOST-PROOF-SOLVER-EXPOSES-INTER-38516C0B` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`core/proof/solver.nepl` の domain-specific proof rule helper が `pub fn` として facade から露出し、generic `SelfhostProofQuery -> SelfhostProofResult` entry point を迂回できる public API になっていたことだった。
+- `selfhost_proof_solve` と、checker が typed result として受ける `selfhost_proof_source_span_valid` / `selfhost_proof_raw_backend_transition` / `selfhost_proof_module_directive_transition` だけを public に残した。
+- source span / raw backend / module directive の query builder と rule helper は private `fn` にし、後続の type / lifetime / owner / effect / Resource IR proof が個別 rule helper へ直接依存する入口を閉じた。
+- `nodesrc/test_selfhost_proof_entry_contract.js` に solver public API allowlist を追加した。これは stdlib/module 名の allowlist ではなく、proof layer 自身の公開境界を source shape で監視する回帰テストである。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-selfhost-proof-internal-rules-proof-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-selfhost-proof-internal-rules-proof-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-selfhost-proof-internal-rules-module-source.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/agent1-selfhost-proof-internal-rules-checker-nmd.json -j 1 --dist web/dist --assert-io`: 3/3 passed
