@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T06:23:16.013Z",
+  "generated_at": "2026-05-19T06:31:23.452Z",
   "counts": {
     "total": 1048,
-    "open": 5,
-    "resolved": 1043,
+    "open": 4,
+    "resolved": 1044,
     "by_area": {
       "stdlib": {
         "total": 286,
         "open": 3,
         "resolved": 283
-      },
-      "TEST": {
-        "total": 65,
-        "open": 1,
-        "resolved": 64
       },
       "selfhost": {
         "total": 74,
@@ -101,6 +96,11 @@
         "open": 0,
         "resolved": 1
       },
+      "TEST": {
+        "total": 65,
+        "open": 0,
+        "resolved": 65
+      },
       "test": {
         "total": 11,
         "open": 0,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
-      "title": ".n.md tests rely on return values instead of stdout assertion reports",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-29",
-      "updated": "2026-05-18",
-      "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -12308,6 +12293,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T101530928Z-N-MD-SHARED-TEST-OPERATION-FOR-RUST--52938450.md"
+    },
+    {
+      "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
+      "title": ".n.md tests rely on return values instead of stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-05-18",
+      "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl, nodesrc/test_doctest_assertion_ret_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
     },
     {
       "id": "ISS-20260429T105448222Z-N-MD-RUNNER-LACKS-EXIT-CODE-METADATA-5A5AEFD1",

@@ -2,13 +2,13 @@
 id: ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD
 title: ".n.md tests rely on return values instead of stdout assertion reports"
 area: TEST
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-29
 updated: 2026-05-18
-target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
+target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl, nodesrc/test_doctest_assertion_ret_policy.js"
 ---
 
 # ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD: .n.md tests rely on return values instead of stdout assertion reports
@@ -1811,3 +1811,24 @@ focused doctest 実行では default 60000ms と 300000ms の両方で compile t
 - `node nodesrc/tests.js -i stdlib\std\text\validate.nepl -i stdlib\alloc\string\utf8.nepl --no-tree -o tmp\agent1-utf8-validation-doc-report.json -j 1 --dist web\dist --assert-io`: total=6, passed=6
 
 この issue はまだ open のまま継続する。UTF-8 validation doc-comment の target subcase は移行済みだが、core-only `ret:` fixture と report helper を使わない古い assertion fixture の扱い整理が残っている。
+
+## 2026-05-19 doctest assertion ret policy による完了判定
+
+残件を再監査した結果、report helper を使う `.n.md` / `.nepl` doctest は `nodesrc/test_nmd_report_metadata_policy.js` と `nodesrc/test_nepl_doc_report_metadata_policy.js` により、stdout / exit_code / stdio / normalize_newlines をすべて要求される状態になっていた。
+
+追加で `nodesrc/test_doctest_assertion_ret_policy.js` を導入し、`std/test` または `checks_*` / `test_report_*` 系 API を使う doctest が `ret:` だけで合否を表す退行を横断的に禁止した。この policy は `#target core` + `core/test` の最小 assertion doctest だけを明示例外として残す。core target は stdout を持たない層であり、ここでの `ret:` は std assertion report の代用ではなく、言語戻り値そのものの検査である。
+
+監査結果:
+
+- active `ret:` doctest は残るが、大半は `tests/compiler/*` の言語戻り値 semantics を検査するものであり、この issue の対象だった assertion report 代用ではない。
+- `std/test` / report API を使う active `ret:` doctest は 0 件。
+- `core/test` の core-only ret doctest は 1 件で、policy 上の明示例外として可視化した。
+
+検証:
+
+- `node nodesrc/test_doctest_assertion_ret_policy.js`: passed
+- `node nodesrc/test_nmd_report_metadata_policy.js`: passed
+- `node nodesrc/test_nepl_doc_report_metadata_policy.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+これにより、`ret:` を assertion report の代用として使う問題は固定済みと判断し、この親 issue を fixed にする。今後残る `ret:` は compiler semantics / core-only return-value fixture として扱い、stdout report 必須の std/assertion-style doctest へ再混入した場合は source policy で検出する。

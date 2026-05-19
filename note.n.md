@@ -42367,3 +42367,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core fd_readdir --test resource_ir -- --nocapture`: 3 tests passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+## 2026-05-19 Agent 1 doctest assertion ret policy による report 移行完了判定
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` を fixed にした。`plan.md` は変更していない。
+- 再監査の結果、active `ret:` doctest は残るが、大半は `tests/compiler/*` の言語戻り値 semantics を検査するものであり、stdout assertion report の代用ではなかった。
+- `nodesrc/test_doctest_assertion_ret_policy.js` を追加し、`std/test` import または `checks_*` / `test_report_*` API を使う doctest が `ret:` だけで合否を表す退行を横断的に拒否するようにした。
+- `#target core` + `core/test` の最小 assertion doctest は stdout を持たない core 層の例外として明示的に監視し、stdlib/std assertion report の代用とは分けて扱う。
+- focused verification:
+  - `node nodesrc/test_doctest_assertion_ret_policy.js`: passed
+  - `node nodesrc/test_nmd_report_metadata_policy.js`: passed
+  - `node nodesrc/test_nepl_doc_report_metadata_policy.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
