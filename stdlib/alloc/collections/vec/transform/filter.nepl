@@ -104,7 +104,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformErr
             vec_cleanup::free<.T> v
             let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
             let out_storage <VecStorage<.T>> field::get out_buffer "storage"
-            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len out_cap out_storage)
+            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
 
 //: partition: [条件/じょうけん]で 2 [群/ぐん]に[分/わ]ける
 //:
@@ -199,7 +199,7 @@ pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, Vec
                     let left_storage <VecStorage<.T>> field::get left_buffer "storage"
                     let right_buffer <OwnedBuffer<.T>> field::get right0 "buffer"
                     let right_storage <VecStorage<.T>> field::get right_buffer "storage"
-                    Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_cap right_storage))
+                    Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
 
 //: ## vec_partition_matched_len
 //: `partition` の true 側 `Vec` の[長/なが]さを[返/かえ]す

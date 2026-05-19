@@ -42661,3 +42661,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/alloc/collections/list/types.nepl -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md -i tests/compiler/list_dot_map.n.md --no-tree -o tmp/agent1-list-transform-owner-contract-core.json -j 1 --dist web/dist --assert-io`: 15/15 passed
   - `node nodesrc/test_stdlib_documentation_contract.js`: passed
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+## 2026-05-20 Agent 1 OwnedBuffer initialized prefix 分離
+
+- `ISS-20260519T190908506Z-OWNEDBUFFER-CONFLATES-LOGICAL-LENGTH-60540914` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`OwnedBuffer<T>` が `len/cap/storage` だけを持ち、public API から見える logical length と drop / move state の対象になる initialized prefix を同じ field で表していたことだった。
+- `OwnedBuffer<T>` に `initialized_len` を追加し、`len/initialized_len/cap/storage` の順で metadata と storage owner state を持つようにした。`Vec<T>` facade 直下には direct field を戻していない。
+- 現行 public `Vec` API は `.T: Copy` 専用なので、constructor / push / pop / clear / transform の成功 path では `len == initialized_len` を保つ。`push` / `pop` の owner-returning path では `initialized_len` を別に読み、失敗時や empty result の owner に保存する。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は `initialized_len` field と旧 3-field `OwnedBuffer` constructor 形状を監視する。これは stdlib 名や関数名の allowlist ではなく、source 型定義と constructor shape に基づく Stage 6 の退行検出である。
+- 残件は non-Copy payload の moved slot / drop traversal / compiler-issued owner token をこの `initialized_len` に接続すること。

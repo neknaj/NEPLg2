@@ -6,7 +6,7 @@
 //: - storage owner state と backing allocation owner を同じ enum に[保持/ほじ]し、null pointer sentinel や分離 owner field を public owner state に[戻/もど]さないための型境界を[明確/めいかく]にします。
 //:
 //: ### [注意/ちゅうい]
-//: - `OwnedBuffer<T>` は backing storage owner と len/cap metadata を[束/たば]ねます。shallow copy せず、owner を move して[扱/あつか]います。
+//: - `OwnedBuffer<T>` は backing storage owner と len / initialized_len / cap metadata を[束/たば]ねます。shallow copy せず、owner を move して[扱/あつか]います。
 //: - `Vec<T>` は public collection facade で、storage owner は `OwnedBuffer<T>` field に[委譲/いじょう]します。
 //: - backing storage の free obligation は `VecStorage<T>::Owned(RegionToken<T>)` に[集約/しゅうやく]し、`MemPtr<T>` は参照から得る data view としてだけ[扱/あつか]います。
 
@@ -48,11 +48,14 @@ pub enum VecStorage<.T>:
 //: `Vec` の backing storage owner と initialized prefix metadata
 //:
 //: ### [目的/もくてき]
-//: - storage owner state、[長/なが]さ、[容量/ようりょう]を 1 つの owner aggregate に[束/たば]ねます。
+//: - storage owner state、API から[見/み]える[長/なが]さ、[初期化済/しょきかず]み prefix、[容量/ようりょう]を 1 つの owner aggregate に[束/たば]ねます。
 //: - `Vec<.T>` facade が storage の内部表現を直接[保持/ほじ]せず、buffer owner に[委譲/いじょう]するための境界です。
 //:
 //: ### [実装/じっそう]
-//: - `len` は[初期化済/しょきかず]み prefix の[長/なが]さ、`cap` は backing storage の[容量/ようりょう]です。
+//: - `len` は public `Vec` API から[観測/かんそく]できる live element [長/なが]さです。
+//: - `initialized_len` は storage 先頭から[何件/なんけん]が初期化済み cell として drop / move state の対象になるかを[表/あらわ]す prefix [長/なが]です。
+//: - 現行 public API は `.T: Copy` 専用なので `len == initialized_len` を[保/たも]ちます。non-Copy 対応では move-out / drop traversal がこの field を `len` とは別に[更新/こうしん]します。
+//: - `cap` は backing storage の[容量/ようりょう]です。
 //: - `storage` は `VecStorage<.T>` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
 //:
 //: ### [注意/ちゅうい]
@@ -66,11 +69,12 @@ pub enum VecStorage<.T>:
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
-//:     let _buffer <OwnedBuffer<i32>> OwnedBuffer<i32> 0 0 VecStorage::Empty;
+//:     let _buffer <OwnedBuffer<i32>> OwnedBuffer<i32> 0 0 0 VecStorage::Empty;
 //:     0
 //: ```
 pub struct OwnedBuffer<.T>:
     len <i32>
+    initialized_len <i32>
     cap <i32>
     storage <VecStorage<.T>>
 
@@ -82,7 +86,7 @@ pub struct OwnedBuffer<.T>:
 //:
 //: ### [実装/じっそう]
 //: - `Vec<.T>` [自体/じたい]は `buffer: OwnedBuffer<.T>` だけを[保持/ほじ]します。
-//: - `len`、`cap`、`storage` は `OwnedBuffer<.T>` 内に[閉/と]じます。
+//: - `len`、`initialized_len`、`cap`、`storage` は `OwnedBuffer<.T>` 内に[閉/と]じます。
 //: - [実体/じったい]の[配列/はいれつ]はヒープ[上/じょう]の[連続/れんぞく][領域/りょういき]です。
 //:
 //: ### [注意/ちゅうい]

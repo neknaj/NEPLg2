@@ -808,6 +808,14 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 
 この親 issue は引き続き open とする。今回閉じたのは Vec Copy element raw helper の public bypass であり、`OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / moved slot / non-Copy drop traversal は Stage 6 残件として継続する。
 
+## 2026-05-20 Agent 1 Vec OwnedBuffer initialized prefix 追記
+
+`ISS-20260519T190908506Z-OWNEDBUFFER-CONFLATES-LOGICAL-LENGTH-60540914` を解決した。`OwnedBuffer<T>` が `len/cap/storage` だけを持つ状態では、public API の logical length と raw storage 上で初期化済みとして扱う prefix が同じ field に閉じ込められ、後続の moved slot / drop traversal を型として接続できなかった。
+
+修正後は `OwnedBuffer<T>` が `len/initialized_len/cap/storage` を持つ。現行 Copy-only API では両者を同値に保つが、`initialized_len` は drop / move state 用の独立した metadata として保存される。source policy は旧 3-field constructor 形状への退行を拒否する。
+
+この親 issue は引き続き open とする。今回閉じたのは initialized prefix metadata の分離であり、`RegionToken<T>` を compiler-issued owner token / `OwnedBuffer<T>` final owner へ移す作業と、non-Copy payload の drop traversal は Stage 6 残件として継続する。
+
 ## 2026-05-19 Agent 1 Resource IR raw memory span summary 追記
 
 `ISS-20260519T142436433Z-RESOURCE-IR-RAW-MEMORY-SPAN-SUMMARIE-FB862D7E` を解決した。raw-memory-backed stdlib API の direct import surface を狭めても、compiler-owned stdlib callee 内の `load_u8` / `mem_copy` / `fill` が caller 側で owner extent requirement に戻らなければ、`MemPtr = non-owning pointer` の設計は caller convention に依存したままになる。

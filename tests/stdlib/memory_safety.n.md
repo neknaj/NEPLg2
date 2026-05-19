@@ -1033,7 +1033,7 @@ fn main <()*>i32> ():
         Result::Err _e:
             0
         Result::Ok region:
-            let _v <Vec<i32>> Vec<i32> (OwnedBuffer<i32> 0 1 (VecStorage<i32>::Owned region))
+            let _v <Vec<i32>> Vec<i32> (OwnedBuffer<i32> 0 0 1 (VecStorage<i32>::Owned region))
             0
 ```
 

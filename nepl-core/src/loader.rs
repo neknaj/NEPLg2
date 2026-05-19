@@ -1316,7 +1316,7 @@ mod tests {
             path,
             concat!(
                 "fn helper <.T> <(RegionToken<.T>)->Result<Vec<.T>, StdErrorKind>> (region):\n",
-                "    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> 0 1 (VecStorage<.T>::Owned region))\n",
+                "    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> 0 0 1 (VecStorage<.T>::Owned region))\n",
             ),
         );
         assert!(

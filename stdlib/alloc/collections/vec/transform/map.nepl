@@ -93,4 +93,4 @@ pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, VecTransfor
             vec_cleanup::free<.T> v
             let out_buffer <OwnedBuffer<.U>> field::get out0 "buffer"
             let out_storage <VecStorage<.U>> field::get out_buffer "storage"
-            Result::Ok<Vec<.U>, VecTransformError<.T>> Vec<.U> (OwnedBuffer<.U> src_len out_cap out_storage)
+            Result::Ok<Vec<.U>, VecTransformError<.T>> Vec<.U> (OwnedBuffer<.U> src_len src_len out_cap out_storage)
