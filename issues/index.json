@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T09:03:01.332Z",
+  "generated_at": "2026-05-19T09:33:33.476Z",
   "counts": {
-    "total": 1053,
-    "open": 5,
-    "resolved": 1048,
+    "total": 1055,
+    "open": 6,
+    "resolved": 1049,
     "by_area": {
       "core": {
-        "total": 517,
-        "open": 1,
-        "resolved": 516
+        "total": 519,
+        "open": 2,
+        "resolved": 517
       },
       "stdlib": {
         "total": 287,
@@ -143,6 +143,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T074504799Z-NM-FULL-COMPILE-STILL-EXCEEDS-CI-BUD-5653B487.md"
+    },
+    {
+      "id": "ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977",
+      "title": "cliarg args_get dependent owner proof fails after NM effect summary unblocks",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/owner_host_dependent_span.rs; nepl-core/src/resource/host_dependent_length.rs; stdlib/std/env/cliarg/raw.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -7898,6 +7913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116.md"
+    },
+    {
+      "id": "ISS-20260519T092414550Z-RESOURCE-RAW-POINTER-SUMMARY-TREATS--CFB63B46",
+      "title": "Resource raw pointer summary treats enum owner storage as raw carriers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "nepl-core/src/resource/effect_return_owner_type.rs; nepl-core/src/resource/raw_pointer_type.rs; nepl-core/src/resource/raw_pointer_owner_carrier_tests.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T092414550Z-RESOURCE-RAW-POINTER-SUMMARY-TREATS--CFB63B46.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

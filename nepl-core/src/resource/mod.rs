@@ -284,6 +284,8 @@ mod owner_variant_source_list;
 mod owner_variant_utils;
 mod owner_variant_value_condition;
 mod place_utils;
+#[cfg(test)]
+mod raw_pointer_owner_carrier_tests;
 mod raw_pointer_type;
 #[cfg(test)]
 mod raw_pointer_type_tests;

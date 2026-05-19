@@ -13,57 +13,7 @@ pub(super) fn raw_identity_type_is_opaque_owner(types: &TypeCtx, ty: TypeId) -> 
 }
 
 pub(super) fn raw_identity_type_is_structural_owner_carrier(types: &TypeCtx, ty: TypeId) -> bool {
-    raw_identity_struct_type_contains_opaque_owner(types, ty, &BTreeMap::new(), &mut Vec::new())
-}
-
-fn raw_identity_struct_type_contains_opaque_owner(
-    types: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-    seen: &mut Vec<TypeId>,
-) -> bool {
-    let resolved = mapped_type_id(types, ty, mapping);
-    if raw_identity_type_is_opaque_owner(types, resolved) {
-        return true;
-    }
-    if seen.contains(&resolved) {
-        return false;
-    }
-    seen.push(resolved);
-    let result = match types.get_ref(resolved) {
-        TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .any(|field| raw_identity_type_contains_opaque_owner(types, *field, mapping, seen)),
-        TypeKind::Apply { base, args } => {
-            let base = types.resolve_named_type_id(*base);
-            match types.get_ref(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(types, mapping, type_params, args);
-                    fields.iter().any(|field| {
-                        raw_identity_type_contains_opaque_owner(
-                            types,
-                            *field,
-                            &nested_mapping,
-                            seen,
-                        )
-                    })
-                }
-                _ => false,
-            }
-        }
-        TypeKind::Named(_) => {
-            let named = types.resolve_named_type_id(resolved);
-            named != resolved
-                && raw_identity_struct_type_contains_opaque_owner(types, named, mapping, seen)
-        }
-        _ => false,
-    };
-    seen.pop();
-    result
+    raw_identity_type_contains_opaque_owner(types, ty, &BTreeMap::new(), &mut Vec::new())
 }
 
 fn raw_identity_type_contains_opaque_owner(
@@ -87,6 +37,11 @@ fn raw_identity_type_contains_opaque_owner(
         TypeKind::Tuple { items } => items
             .iter()
             .any(|item| raw_identity_type_contains_opaque_owner(types, *item, mapping, seen)),
+        TypeKind::Enum { variants, .. } => variants.iter().any(|variant| {
+            variant.payload.is_some_and(|payload| {
+                raw_identity_type_contains_opaque_owner(types, payload, mapping, seen)
+            })
+        }),
         TypeKind::Apply { base, args } => {
             let base = types.resolve_named_type_id(*base);
             match types.get_ref(base) {
@@ -108,6 +63,23 @@ fn raw_identity_type_contains_opaque_owner(
                 TypeKind::Tuple { items } => items.iter().any(|item| {
                     raw_identity_type_contains_opaque_owner(types, *item, mapping, seen)
                 }),
+                TypeKind::Enum {
+                    type_params,
+                    variants,
+                    ..
+                } => {
+                    let nested_mapping = extend_type_mapping(types, mapping, type_params, args);
+                    variants.iter().any(|variant| {
+                        variant.payload.is_some_and(|payload| {
+                            raw_identity_type_contains_opaque_owner(
+                                types,
+                                payload,
+                                &nested_mapping,
+                                seen,
+                            )
+                        })
+                    })
+                }
                 _ => false,
             }
         }
@@ -127,7 +99,6 @@ fn raw_identity_type_contains_opaque_owner(
         | TypeKind::Char
         | TypeKind::Str
         | TypeKind::Never
-        | TypeKind::Enum { .. }
         | TypeKind::Function { .. }
         | TypeKind::Var(_) => false,
     };

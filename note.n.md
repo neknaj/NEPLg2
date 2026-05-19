@@ -1,3 +1,22 @@
+# 2026-05-19 Agent 1 enum-backed owner storage raw pointer summary 修正
+
+- `ISS-20260519T092414550Z-RESOURCE-RAW-POINTER-SUMMARY-TREATS--CFB63B46` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、raw pointer summary carrier 判定が owner-backed struct は除外していた一方で、enum payload に含まれる owner token を structural owner carrier として辿っていなかったこと。
+- `ByteBuilderStorage::Owned(RegionToken)` のような enum-backed owner storage は、`len` / `cap` metadata を持つ `StringBuilder` / `ByteBuilder` 経由で raw pointer carrier と誤分類され、`resource_effect_boundaries` の summary graph を不要に膨らませていた。
+- `raw_identity_type_is_structural_owner_carrier` を enum payload / applied enum payload も含む `raw_identity_type_contains_opaque_owner` へ統一し、TypeCtx の owner token proof と型構造から汎用的に owner carrier を判定するようにした。stdlib 名や builder 名の allowlist は追加していない。
+- `raw_pointer_owner_carrier_tests` に `ByteBuilderStorage::Owned(RegionToken)` と `ByteBuilder { storage, len, cap }` の合成 regression を追加し、storage enum と builder struct の両方が raw pointer summary carrier にならないことを固定した。
+- test file は `raw_pointer_type_tests.rs` と `raw_pointer_owner_carrier_tests.rs` に分け、`nodesrc/test_resource_checker_responsibility.js` の行数監視と owner-carrier regression 監視も更新した。
+- `examples/nm.nepl` の probe は `resource_effect_boundaries=786ms` まで改善し、timeout ではなく cliarg `args_get` dependent host-span owner proof の診断へ到達した。この残件は `ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977` として追加した。
+- 検証:
+  - `cargo test -p nepl-core raw_pointer_type -- --nocapture`: pass
+  - `cargo test -p nepl-core raw_pointer_owner_carrier -- --nocapture`: pass
+  - `cargo fmt -p nepl-core -- --check`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass
+  - `NEPL_COMPILE_STAGE_TIMING=1 cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output tmp\nm-stage6-effect-probe3.wasm`: `resource_effect_boundaries=786ms`、その後 cliarg owner obligation 診断で exit 1
+
 # 2026-05-19 Agent 1 ResourceEffect raw identity summary TypeCtx 修正
 
 - `ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC` を追加し、fixed / resolved にした。`plan.md` は変更していない。

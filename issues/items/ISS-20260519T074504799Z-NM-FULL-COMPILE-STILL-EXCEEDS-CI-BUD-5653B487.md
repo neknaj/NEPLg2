@@ -28,6 +28,8 @@ TypeCtx を raw identity summary replay に通しても examples/nm.nepl は 8�
 - 修正後 probe でも `resource_initialized_raw_init_summaries=86269ms`、`resource_initialized_function_checks=15228ms`、`resource_initialized_moves=104483ms` で、さらに `resource_effect_boundaries` が 140 秒以上戻らなかった。
 - `ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9` で concrete non-enum return の variant summary replay を型で止めた後、`resource_initialized_raw_init_summaries=76306ms`、`resource_initialized_moves=95503ms` まで改善した。
 - `ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116` で release requirement の parameter seed を raw-address carrier 型に絞った後、`resource_initialized_raw_init_summaries=43194ms`、`resource_initialized_moves=65689ms` まで改善した。
+- `ISS-20260519T092414550Z-RESOURCE-RAW-POINTER-SUMMARY-TREATS--CFB63B46` で enum-backed owner storage を structural owner carrier として認識するようにした後、`resource_effect_boundaries=786ms` まで改善した。
+- 同 probe は timeout ではなく `resource.owner.no_free_obligation` / `resource.owner.unavailable` に到達した。残る blocking issue は `ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977` の cliarg dependent host-span owner proof である。
 - したがって timeout の根本は TypeCtx 欠落単独ではなく、Resource IR summary stage 全体の再計算量 / summary propagation / effect boundary proof の設計に残っている。
 
 ## 問題
@@ -42,7 +44,7 @@ NM CLI の native compile smoke と examples doctest が CI で失敗し、静�
 
 raw init summary と effect boundary summary を個別モジュール allowlist ではなく型・ResourceOp・call dependency に基づいて pruning する。NM parser/html のような大きい source で stage timing を比較し、default CI budget 内へ戻す。
 
-2026-05-19 時点で、variant-param summary 側の concrete non-enum return pruning と、release requirement の plain string view over-seed は完了。残る主因は `resource_effect_boundaries` と、raw init summary 内に残る他の再計算境界である。引き続き stdlib/nm 名の allowlist ではなく、ResourceOp と TypeCtx から導ける汎用 proof / dependency pruning として対応する。
+2026-05-19 時点で、variant-param summary 側の concrete non-enum return pruning、release requirement の plain string view over-seed、enum-backed owner storage の raw pointer summary carrier 誤分類は完了。`resource_effect_boundaries` は timeout 主因から外れた。残件は、nm が到達した cliarg dependent host-span owner proof と、raw init summary 内に残る他の再計算境界である。引き続き stdlib/nm 名の allowlist ではなく、ResourceOp と TypeCtx から導ける汎用 proof / dependency pruning として対応する。
 
 ## 検証
 
@@ -53,4 +55,6 @@ NEPL_COMPILE_STAGE_TIMING=1 cargo run -p nepl-cli -- --target wasi --profile deb
 - split from fixed correctness issue: `ISS-20260519T073007560Z-RESOURCEEFFECT-RAW-IDENTITY-SUMMARY--1691BDDC`
 - partial fixed performance sub-issue: `ISS-20260519T081602763Z-RESOURCE-VARIANT-INIT-SUMMARY-SCANS--5F80D6A9`
 - partial fixed performance sub-issue: `ISS-20260519T090154240Z-RESOURCE-INIT-SUMMARY-RELEASE-REQUIR-58379116`
+- fixed performance sub-issue: `ISS-20260519T092414550Z-RESOURCE-RAW-POINTER-SUMMARY-TREATS--CFB63B46`
+- newly exposed blocking issue: `ISS-20260519T092458711Z-CLIARG-ARGS-GET-DEPENDENT-OWNER-PROO-3D72A977`
 - Stage: `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 6

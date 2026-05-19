@@ -1678,9 +1678,14 @@ assertContains(
     'raw_pointer_type.rs must suppress structural owner carriers without stdlib allowlists',
 );
 assertContains(
-    readResource('raw_pointer_type_tests.rs'),
+    readResource('raw_pointer_owner_carrier_tests.rs'),
     'summary_carrier_excludes_owner_token_carriers',
-    'raw_pointer_type_tests.rs must cover owner-token carriers with plain i32 metadata fields',
+    'raw_pointer_owner_carrier_tests.rs must cover owner-token carriers with plain i32 metadata fields',
+);
+assertContains(
+    readResource('raw_pointer_owner_carrier_tests.rs'),
+    'summary_carrier_excludes_enum_backed_owner_storage_carriers',
+    'raw_pointer_owner_carrier_tests.rs must cover enum-backed owner storage carriers',
 );
 assertContains(
     effectSummaryIdentity,
@@ -2116,6 +2121,7 @@ const maxLines = new Map([
     ['owner_drop_scope.rs', 260],
     ['owner_state.rs', 400],
     ['place_utils.rs', 460],
+    ['raw_pointer_owner_carrier_tests.rs', 100],
     ['raw_pointer_type.rs', 120],
     ['raw_pointer_type_tests.rs', 80],
     ['storage_origin.rs', 320],
