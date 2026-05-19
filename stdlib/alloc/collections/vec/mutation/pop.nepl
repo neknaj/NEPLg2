@@ -97,7 +97,9 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
 //: - 現行 `Vec` は non-Copy payload の moved/uninitialized cell を表せないため、`.T: Copy` に限定します。
 //: - 要素の値は返しません。値も必要な場合は `pop` を使います。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"vec_drop_last_keeps_owner\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"drop_last length\" expected=\"1\" actual=\"1\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -110,11 +112,12 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
 //:         |> push 10 |> uwok
 //:         |> push 20 |> uwok
 //:         |> drop_last<i32>
-//:     let mut checks checks_new
-//:     set checks checks_push checks check_eq_i32 1 len<i32> &v
+//:     let report:
+//:         test_report_new "vec_drop_last_keeps_owner"
+//:         |> test_report_push assert_eq_i32 "drop_last length" 1 len<i32> &v
 //:     free<i32> v
-//:     let shown checks_print_report checks
-//:     checks_exit_code shown
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn drop_last <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"

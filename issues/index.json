@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-19T00:38:20.825Z",
+  "generated_at": "2026-05-19T00:45:29.972Z",
   "counts": {
-    "total": 1038,
+    "total": 1039,
     "open": 5,
-    "resolved": 1033,
+    "resolved": 1034,
     "by_area": {
       "stdlib": {
         "total": 286,
@@ -12,9 +12,9 @@
         "resolved": 283
       },
       "TEST": {
-        "total": 60,
+        "total": 61,
         "open": 1,
-        "resolved": 59
+        "resolved": 60
       },
       "selfhost": {
         "total": 72,
@@ -13208,6 +13208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T003305752Z-STDLIB-HASH-DOCTEST-PRINTS-CHECKS-RE-3BC249ED.md"
+    },
+    {
+      "id": "ISS-20260519T004049268Z-VEC-DROP-LAST-DOC-COMMENT-DOCTEST-PR-9BA3CF28",
+      "title": "vec drop_last doc-comment doctest prints checks report without stdout fixture",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-19",
+      "updated": "2026-05-19",
+      "target": "stdlib/alloc/collections/vec/mutation/pop.nepl, nodesrc/test_stdlib_vec_pop_doc_report_contract.js, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260519T004049268Z-VEC-DROP-LAST-DOC-COMMENT-DOCTEST-PR-9BA3CF28.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",

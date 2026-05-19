@@ -154,6 +154,18 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 
 この issue はまだ open のまま継続する。今回の移行後、stdout fixture なし `checks_print_report` 残件は7件である。
 
+## 2026-05-19 Vec drop_last doc-comment stdout report migration
+
+`ISS-20260519T004049268Z-VEC-DROP-LAST-DOC-COMMENT-DOCTEST-PR-9BA3CF28` として、`stdlib/alloc/collections/vec/mutation/pop.nepl` の `drop_last` doc-comment doctest を、旧 `checks_*` report から named `TestReport` + deterministic stdout fixture へ移行した。
+
+移行内容:
+
+- `drop_last` 後の `Vec` owner の長さが 1 になることを `drop_last length` assertion として stdout に固定した。
+- `Vec` owner の `free` は report 出力前に維持し、テスト移行によって cleanup 順序が曖昧にならないようにした。
+- `nodesrc/test_stdlib_vec_pop_doc_report_contract.js` を追加し、`ret:`、stdout-less report、旧 `checks_*` 形式、cleanup 順序の退行へ戻らないようにした。
+
+この issue はまだ open のまま継続する。今回の移行後、直近の stdout fixture なし `checks_print_report` queue は HIR 3件、name_resolver 2件、json 1件の6件である。
+
 ## 2026-05-17 Vec basics tutorial exit_code metadata migration
 
 `tutorials/getting_started/13_vec_basics.n.md::doctest#1` を `ret: 0` から `exit_code: 0` へ移行し、`neplg2:test[stdio, normalize_newlines]` と deterministic stdout report を同時に固定した。

@@ -1,3 +1,17 @@
+# 2026-05-19 Agent 1 Vec drop_last doc-comment stdout report 固定
+
+- `ISS-20260519T004049268Z-VEC-DROP-LAST-DOC-COMMENT-DOCTEST-PR-9BA3CF28` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/alloc/collections/vec/mutation/pop.nepl` の `drop_last` doc-comment doctest が旧 `checks_*` report を呼んでいたにもかかわらず、stdout fixture と exit_code metadata を持っていなかったこと。
+- `drop_last` 例を `neplg2:test[stdio, normalize_newlines]` + `exit_code: 0` + deterministic `stdout:` に移行し、`vec_drop_last_keeps_owner` report の `drop_last length` assertion として固定した。
+- `Vec` owner の `free` は report 出力前に維持し、doctest 移行で cleanup 順序を曖昧にしないようにした。
+- `nodesrc/test_stdlib_vec_pop_doc_report_contract.js` を追加し、`ret:` 代用、stdout fixture 欠落、旧 `checks_*` への退行、cleanup 順序の退行を source policy regression に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_pop_doc_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/pop.nepl --no-tree -o tmp/agent1-vec-pop-doc-report-contract.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-19 Agent 1 stdlib hash stdout report 固定
 
 - `ISS-20260519T003305752Z-STDLIB-HASH-DOCTEST-PRINTS-CHECKS-RE-3BC249ED` を追加し、fixed / resolved にした。`plan.md` は変更していない。

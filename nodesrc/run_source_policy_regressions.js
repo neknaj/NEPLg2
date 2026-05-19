@@ -159,6 +159,7 @@ const checks = [
     "nodesrc/test_stdlib_fs_nmd_report_contract.js",
     "nodesrc/test_stdlib_error_nmd_report_contract.js",
     "nodesrc/test_stdlib_hash_nmd_report_contract.js",
+    "nodesrc/test_stdlib_vec_pop_doc_report_contract.js",
     "nodesrc/test_llvm_runner_return_value.js",
     "nodesrc/test_stdlib_builder_owner_boundary.js",
     "nodesrc/test_stdlib_io_bytebuf_owner_boundary.js",
