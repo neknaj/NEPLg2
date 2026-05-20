@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 trait inference constraint object
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、trait application inference の expected result 制約を typed object として保持するようにした。`plan.md` は変更していない。
+- `TypeParamInferenceSource::{Argument, ExpectedResult}` と `TypeParamInferenceConstraint { source, original, actual }` を追加した。
+- `infer_trait_application_args` は `Option<TypeExpectation>` を直接受け、呼び出し側で target `TypeId` へ落とさない。
+- constraint ごとの type parameter 推論は `match self.source` を通すため、制約 source を増やす場合に網羅性検査が効く。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test generics generics_make_some_wrapper -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 overload candidate count guard
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C/E bridge として、overload candidate の rejection reason と materialization count を typed state として記録するようにした。`plan.md` は変更していない。

@@ -13,6 +13,7 @@ const overloadSelectionPath = path.join(repoRoot, 'nepl-core/src/typecheck/overl
 const selectedCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/selected_call_apply.rs');
 const indirectApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/indirect_apply.rs');
 const traitCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/trait_call_apply.rs');
+const traitCheckPath = path.join(repoRoot, 'nepl-core/src/typecheck/trait_check.rs');
 
 const typeExpectation = fs.readFileSync(typeExpectationPath, 'utf8');
 const prefixCheck = fs.readFileSync(prefixCheckPath, 'utf8');
@@ -23,6 +24,7 @@ const overloadSelection = fs.readFileSync(overloadSelectionPath, 'utf8');
 const selectedCallApply = fs.readFileSync(selectedCallApplyPath, 'utf8');
 const indirectApply = fs.readFileSync(indirectApplyPath, 'utf8');
 const traitCallApply = fs.readFileSync(traitCallApplyPath, 'utf8');
+const traitCheck = fs.readFileSync(traitCheckPath, 'utf8');
 
 assert.match(typeExpectation, /enum\s+TypeExpectationSource\s*{[\s\S]*ExplicitAscription[\s\S]*BlockResult[\s\S]*OuterConsumerArgument[\s\S]*}/);
 assert.match(typeExpectation, /struct\s+TypeExpectation\s*{[\s\S]*target:\s*TypeId[\s\S]*base_depth:\s*usize[\s\S]*span:\s*Span[\s\S]*source:\s*TypeExpectationSource[\s\S]*}/);
@@ -102,6 +104,26 @@ assert.match(
     overloadSelection,
     /stats\.record_materialized\(\);[\s\S]*self\.ctx\.instantiate\(binding\.ty\)/,
     'overload selection must count candidates that reach instantiation/materialization',
+);
+assert.match(
+    traitCheck,
+    /enum\s+TypeParamInferenceSource\s*{[\s\S]*Argument[\s\S]*ExpectedResult[\s\S]*}/,
+    'trait type-parameter inference constraints must keep their source as a typed enum',
+);
+assert.match(
+    traitCheck,
+    /struct\s+TypeParamInferenceConstraint\s*{[\s\S]*source:\s*TypeParamInferenceSource[\s\S]*original:\s*TypeId[\s\S]*actual:\s*TypeId[\s\S]*}/,
+    'trait type-parameter inference must use a structured constraint object',
+);
+assert.match(
+    traitCheck,
+    /expected_ret:\s*Option<\s*TypeExpectation\s*>/,
+    'trait application inference must keep expected return evidence typed',
+);
+assert.doesNotMatch(
+    traitCallApply,
+    /infer_trait_application_args\([\s\S]*expected_ret\.map\(\|expectation\|\s*expectation\.target\(\)\)/,
+    'trait call resolution must not erase TypeExpectation before inference',
 );
 
 console.log('type expectation model source policy passed');

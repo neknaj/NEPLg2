@@ -197,3 +197,29 @@ Stage C の候補 pruning と Stage E の performance guard を接続するた�
 - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
 - `node nodesrc/issues.js check`: pass
+
+## 2026-05-20 Stage D trait inference constraint object
+
+trait application inference が `expected_ret.map(|expectation| expectation.target())` で `TypeExpectation` を `TypeId` に落としていたため、expected result 由来の制約であることを型で追跡できていなかった。これを `TypeParamInferenceSource` / `TypeParamInferenceConstraint` へ移した。
+
+実装:
+
+- `TypeParamInferenceSource::{Argument, ExpectedResult}` を追加。
+- `TypeParamInferenceConstraint { source, original, actual }` を追加。
+- `infer_trait_application_args` は `Option<TypeExpectation>` を直接受け、argument と expected result を同じ constraint list に正規化する。
+- constraint ごとの type parameter 推論は `match self.source` を通すため、制約 source を増やす場合に網羅性検査が効く。
+- `trait_call_apply.rs` は `expected_ret.map(...target...)` で expected evidence を消さず、そのまま inference へ渡す。
+
+残作業:
+
+- constraint が閉じても一意に決まらない場合の typed diagnostic payload。
+- generic function 側の不足 constraint object 化。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test generics generics_make_some_wrapper -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
