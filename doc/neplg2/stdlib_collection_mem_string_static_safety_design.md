@@ -60,6 +60,8 @@
 
 2026-05-21 追記: non-Copy payload collection は raw `mem_move` の意味を ownership move に読み替えて実装しない。`core/mem` の `mem_copy<T>` / `mem_move<T>` は byte copy / memmove であり、public typed API は引き続き `.T: Copy` を要求する。non-Copy payload の安全な移動は、collection slot の `InitializeEmpty`、`BorrowRead`、`MoveOut`、`ReplaceInitialized`、`DropInitialized`、`StorageDealloc` を typed lifecycle event として Resource IR 側へ載せる。これにより、slot の live / moved / dropped / released state を stdlib module 名の allowlist ではなく、compiler-core の enum / match による汎用 proof boundary で検査する。関連 issue は [ISS-20260520T183033547Z-NON-COPY-COLLECTION-PAYLOADS-NEED-TY-674BA21D](../../issues/items/ISS-20260520T183033547Z-NON-COPY-COLLECTION-PAYLOADS-NEED-TY-674BA21D.md)。
 
+2026-05-21 追記 2: typed lifecycle event は単体の状態遷移だけでなく、Resource IR の `Place` ごとの `CollectionSlotStateTable` として保持する。storage release は配下の live initialized slot を拒否し、moved / dropped slot だけを released storage として閉じる。これにより、Vec/Stack/Queue などの個別 stdlib module ごとに proof table を作らず、compiler-core の同じ slot state table を再利用する。関連 issue は [ISS-20260520T184420541Z-COLLECTION-SLOT-LIFECYCLE-NEEDS-PLAC-2B2D025C](../../issues/items/ISS-20260520T184420541Z-COLLECTION-SLOT-LIFECYCLE-NEEDS-PLAC-2B2D025C.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

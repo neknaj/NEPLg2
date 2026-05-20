@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T18:53:52.001Z",
+  "generated_at": "2026-05-20T18:55:37.726Z",
   "counts": {
-    "total": 1139,
+    "total": 1140,
     "open": 3,
-    "resolved": 1136,
+    "resolved": 1137,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 537,
+        "total": 538,
         "open": 0,
-        "resolved": 537
+        "resolved": 538
       },
       "CORE": {
         "total": 5,
@@ -8218,6 +8218,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T183033547Z-NON-COPY-COLLECTION-PAYLOADS-NEED-TY-674BA21D.md"
+    },
+    {
+      "id": "ISS-20260520T184420541Z-COLLECTION-SLOT-LIFECYCLE-NEEDS-PLAC-2B2D025C",
+      "title": "Collection slot lifecycle needs place-indexed proof state",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_lifecycle.rs, nepl-core/src/resource/collection_slot_state_table.rs, nepl-core/src/resource/mod.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T184420541Z-COLLECTION-SLOT-LIFECYCLE-NEEDS-PLAC-2B2D025C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

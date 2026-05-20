@@ -31,6 +31,7 @@ mod cell_state_raw_range_value_alias_tests;
 #[cfg(test)]
 mod cell_state_tests;
 mod collection_slot_lifecycle;
+mod collection_slot_state_table;
 mod compiler_memory_place;
 mod condition_fact;
 mod coverage;
@@ -341,6 +342,9 @@ pub use borrow_check::check_resource_borrow_lifetimes;
 pub use collection_slot_lifecycle::{
     apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
     CollectionSlotLifecycleRefutation, CollectionSlotReplacement, CollectionSlotState,
+};
+pub use collection_slot_state_table::{
+    CollectionSlotStateEntry, CollectionSlotStateTable, CollectionSlotTableRefutation,
 };
 pub use coverage::{
     compare_hir_resource_lowering, compare_hir_resource_lowering_typed, ResourceCoverageCounts,
