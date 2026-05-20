@@ -62,6 +62,8 @@
 
 2026-05-21 追記 2: typed lifecycle event は単体の状態遷移だけでなく、Resource IR の `Place` ごとの `CollectionSlotStateTable` として保持する。storage release は配下の live initialized slot を拒否し、moved / dropped slot だけを released storage として閉じる。これにより、Vec/Stack/Queue などの個別 stdlib module ごとに proof table を作らず、compiler-core の同じ slot state table を再利用する。関連 issue は [ISS-20260520T184420541Z-COLLECTION-SLOT-LIFECYCLE-NEEDS-PLAC-2B2D025C](../../issues/items/ISS-20260520T184420541Z-COLLECTION-SLOT-LIFECYCLE-NEEDS-PLAC-2B2D025C.md)。
 
+2026-05-21 追記 3: collection slot state は制御フロー合流時の不確実性を `MaybeInitialized` / `MaybeReleased` として保持する。片方の分岐だけで move/drop/release された slot を definite な `Moved` や `Released` に潰すと、後続の move/drop/storage release が安全であるかを証明できなくなるため、合流後は typed refutation により reinit / move / drop / release を拒否する。関連 issue は [ISS-20260520T190336025Z-COLLECTION-SLOT-STATE-LACKS-PATH-MER-3E8FEBA9](../../issues/items/ISS-20260520T190336025Z-COLLECTION-SLOT-STATE-LACKS-PATH-MER-3E8FEBA9.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

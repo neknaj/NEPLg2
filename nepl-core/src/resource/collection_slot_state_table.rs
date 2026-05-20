@@ -21,8 +21,9 @@ pub struct CollectionSlotTableRefutation {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CollectionSlotStateTable {
-    slots: Vec<CollectionSlotStateEntry>,
-    released_storage: Vec<Place>,
+    pub(super) slots: Vec<CollectionSlotStateEntry>,
+    pub(super) released_storage: Vec<Place>,
+    pub(super) maybe_released_storage: Vec<Place>,
 }
 
 impl CollectionSlotStateTable {
@@ -38,9 +39,16 @@ impl CollectionSlotStateTable {
         &self.released_storage
     }
 
+    pub fn maybe_released_storage(&self) -> &[Place] {
+        &self.maybe_released_storage
+    }
+
     pub fn state(&self, slot: &Place) -> CollectionSlotState {
         if self.storage_release_covers_slot(slot) {
             return CollectionSlotState::Released;
+        }
+        if self.storage_maybe_release_covers_slot(slot) {
+            return CollectionSlotState::MaybeReleased;
         }
         self.slots
             .iter()
@@ -94,27 +102,66 @@ impl CollectionSlotStateTable {
         {
             return Ok(());
         }
+        if self
+            .maybe_released_storage
+            .iter()
+            .any(|released| place_covers_slot(storage, released))
+        {
+            return Err(CollectionSlotTableRefutation {
+                slot: storage.clone(),
+                reason: CollectionSlotLifecycleRefutation::Unavailable {
+                    operation: CollectionSlotLifecycleOp::StorageDealloc,
+                    state: CollectionSlotState::MaybeReleased,
+                },
+            });
+        }
         for entry in self
             .slots
             .iter()
             .filter(|entry| place_covers_slot(&entry.slot, storage))
         {
-            if let CollectionSlotState::Initialized(slot_ty) = entry.state {
-                return Err(CollectionSlotTableRefutation {
-                    slot: entry.slot.clone(),
-                    reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
-                        slot_ty,
-                    },
-                });
+            match entry.state {
+                CollectionSlotState::Initialized(slot_ty) => {
+                    return Err(CollectionSlotTableRefutation {
+                        slot: entry.slot.clone(),
+                        reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                            slot_ty,
+                        },
+                    });
+                }
+                CollectionSlotState::MaybeInitialized(slot_ty) => {
+                    return Err(CollectionSlotTableRefutation {
+                        slot: entry.slot.clone(),
+                        reason:
+                            CollectionSlotLifecycleRefutation::MaybeLiveSlotDuringStorageDealloc {
+                                slot_ty,
+                            },
+                    });
+                }
+                CollectionSlotState::MaybeReleased => {
+                    return Err(CollectionSlotTableRefutation {
+                        slot: entry.slot.clone(),
+                        reason: CollectionSlotLifecycleRefutation::Unavailable {
+                            operation: CollectionSlotLifecycleOp::StorageDealloc,
+                            state: CollectionSlotState::MaybeReleased,
+                        },
+                    });
+                }
+                CollectionSlotState::Uninitialized
+                | CollectionSlotState::Moved(_)
+                | CollectionSlotState::Dropped(_)
+                | CollectionSlotState::Released => {}
             }
         }
         self.slots
             .retain(|entry| !place_covers_slot(&entry.slot, storage));
+        self.maybe_released_storage
+            .retain(|released| !place_covers_slot(released, storage));
         push_unique_place(&mut self.released_storage, storage);
         Ok(())
     }
 
-    fn set_slot_state(&mut self, slot: &Place, state: CollectionSlotState) {
+    pub(super) fn set_slot_state(&mut self, slot: &Place, state: CollectionSlotState) {
         if matches!(state, CollectionSlotState::Uninitialized) {
             self.slots.retain(|entry| entry.slot != *slot);
             return;
@@ -131,6 +178,12 @@ impl CollectionSlotStateTable {
 
     fn storage_release_covers_slot(&self, slot: &Place) -> bool {
         self.released_storage
+            .iter()
+            .any(|storage| place_covers_slot(slot, storage))
+    }
+
+    fn storage_maybe_release_covers_slot(&self, slot: &Place) -> bool {
+        self.maybe_released_storage
             .iter()
             .any(|storage| place_covers_slot(slot, storage))
     }
@@ -155,121 +208,6 @@ fn collection_slot_event_operation(
     }
 }
 
-fn place_covers_slot(slot: &Place, storage: &Place) -> bool {
+pub(super) fn place_covers_slot(slot: &Place, storage: &Place) -> bool {
     place_suffix_after_prefix(slot, storage).is_some()
-}
-
-#[cfg(test)]
-mod tests {
-    use alloc::string::String;
-
-    use crate::types::TypeId;
-
-    use super::*;
-    use crate::resource::model::{PlaceProjection, ResourceOffset};
-
-    const OWNED: TypeId = TypeId(20);
-    const OTHER: TypeId = TypeId(21);
-
-    fn storage() -> Place {
-        Place::local(String::from("buffer"), OWNED)
-    }
-
-    fn slot(index: usize, ty: TypeId) -> Place {
-        storage().with_projection(
-            PlaceProjection::StorageOffset(ResourceOffset::Known(index)),
-            ty,
-        )
-    }
-
-    #[test]
-    fn table_routes_slot_events_through_lifecycle_boundary() {
-        let mut table = CollectionSlotStateTable::new();
-        let slot0 = slot(0, OWNED);
-
-        assert_eq!(
-            table.apply_slot_event(
-                &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
-            ),
-            Ok(CollectionSlotState::Initialized(OWNED))
-        );
-        assert_eq!(
-            table.apply_slot_event(
-                &slot0,
-                CollectionSlotLifecycleEvent::MoveOut { expected_ty: OWNED },
-            ),
-            Ok(CollectionSlotState::Moved(OWNED))
-        );
-        assert_eq!(
-            table.apply_slot_event(
-                &slot0,
-                CollectionSlotLifecycleEvent::MoveOut { expected_ty: OWNED },
-            ),
-            Err(CollectionSlotTableRefutation {
-                slot: slot0,
-                reason: CollectionSlotLifecycleRefutation::Unavailable {
-                    operation: CollectionSlotLifecycleOp::MoveOut,
-                    state: CollectionSlotState::Moved(OWNED),
-                },
-            })
-        );
-    }
-
-    #[test]
-    fn storage_release_rejects_live_slot_and_reports_the_slot() {
-        let mut table = CollectionSlotStateTable::new();
-        let slot0 = slot(0, OWNED);
-        table
-            .apply_slot_event(
-                &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
-            )
-            .expect("slot should be initialized before release");
-
-        assert_eq!(
-            table.release_storage(&storage()),
-            Err(CollectionSlotTableRefutation {
-                slot: slot0,
-                reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
-                    slot_ty: OWNED,
-                },
-            })
-        );
-    }
-
-    #[test]
-    fn storage_release_forgets_vacant_slots_and_blocks_later_init() {
-        let mut table = CollectionSlotStateTable::new();
-        let slot0 = slot(0, OWNED);
-        table
-            .apply_slot_event(
-                &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
-            )
-            .expect("slot should initialize");
-        table
-            .apply_slot_event(
-                &slot0,
-                CollectionSlotLifecycleEvent::DropInitialized { expected_ty: OWNED },
-            )
-            .expect("slot should be dropped before storage release");
-
-        assert_eq!(table.release_storage(&storage()), Ok(()));
-        assert!(table.entries().is_empty());
-        assert_eq!(table.state(&slot0), CollectionSlotState::Released);
-        assert_eq!(
-            table.apply_slot_event(
-                &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OTHER },
-            ),
-            Err(CollectionSlotTableRefutation {
-                slot: slot0,
-                reason: CollectionSlotLifecycleRefutation::Unavailable {
-                    operation: CollectionSlotLifecycleOp::InitializeEmpty,
-                    state: CollectionSlotState::Released,
-                },
-            })
-        );
-    }
 }

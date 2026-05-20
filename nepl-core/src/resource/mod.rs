@@ -31,7 +31,12 @@ mod cell_state_raw_range_value_alias_tests;
 #[cfg(test)]
 mod cell_state_tests;
 mod collection_slot_lifecycle;
+#[cfg(test)]
+mod collection_slot_lifecycle_tests;
+mod collection_slot_state_merge;
 mod collection_slot_state_table;
+#[cfg(test)]
+mod collection_slot_state_table_tests;
 mod compiler_memory_place;
 mod condition_fact;
 mod coverage;

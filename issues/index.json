@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T18:55:37.726Z",
+  "generated_at": "2026-05-20T19:11:52.600Z",
   "counts": {
-    "total": 1140,
+    "total": 1141,
     "open": 3,
-    "resolved": 1137,
+    "resolved": 1138,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 538,
+        "total": 539,
         "open": 0,
-        "resolved": 538
+        "resolved": 539
       },
       "CORE": {
         "total": 5,
@@ -8233,6 +8233,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T184420541Z-COLLECTION-SLOT-LIFECYCLE-NEEDS-PLAC-2B2D025C.md"
+    },
+    {
+      "id": "ISS-20260520T190336025Z-COLLECTION-SLOT-STATE-LACKS-PATH-MER-3E8FEBA9",
+      "title": "Collection slot state lacks path-merge uncertainty",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_lifecycle.rs, nepl-core/src/resource/collection_slot_state_table.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T190336025Z-COLLECTION-SLOT-STATE-LACKS-PATH-MER-3E8FEBA9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
