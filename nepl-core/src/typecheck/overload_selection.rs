@@ -121,6 +121,22 @@ impl<'a> BlockChecker<'a> {
                 }
                 continue;
             }
+            if use_expected && explicit_type_args.is_empty() {
+                if let Some(expectation) = expected_ret {
+                    if !self.ctx.type_pattern_matches(result, expectation.target()) {
+                        if crate::log::is_verbose() {
+                            overload_selection_log!(
+                                "overload debug: skip '{}' candidate {} reason=declared_expected_ret result={} expected={}",
+                                name,
+                                function_signature_string(self.ctx, binding.ty),
+                                self.ctx.type_to_string(result),
+                                self.ctx.type_to_string(expectation.target())
+                            );
+                        }
+                        continue;
+                    }
+                }
+            }
 
             let checkpoint = self.ctx.checkpoint();
             let inst_ty = if !explicit_type_args.is_empty() {

@@ -78,5 +78,10 @@ assert.ok(
         overloadSelection.indexOf('let checkpoint = self.ctx.checkpoint();'),
     'overload selection must not checkpoint and instantiate before cheap declared-shape pruning',
 );
+assert.match(
+    overloadSelection,
+    /type_pattern_matches\(result,\s*expectation\.target\(\)\)[\s\S]*let\s+checkpoint\s*=\s*self\.ctx\.checkpoint\(\);/,
+    'overload selection must use declared result shape before candidate instantiation when expected result is available',
+);
 
 console.log('type expectation model source policy passed');
