@@ -2,8 +2,8 @@
 id: ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9
 title: "Type ascription does not consistently enter expected-check mode"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-20
@@ -378,3 +378,19 @@ Stage E の探索量 guard は `OverloadCandidateStats::pre_materialized_rejecti
 - `cargo check -p nepl-core`: pass
 - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
+## 2026-05-20 完了判定
+
+設計書の Stage A-E を再確認し、古い残作業表記と現在の実装状態を突き合わせた。Stage C の generic function constraint object 化は Stage D の `GenericCallConstraint` / `TypeArgumentInference` で完了し、Stage D の trait conflict / self type ambiguity も typed payload 化済みである。Stage E は overload rejection reason の materialization phase を typed enum で分類し、source policy で退行監視している。
+
+完了根拠:
+
+- expected type は `TypeExpectation` として call reduction から overload / selected / indirect / trait call に伝搬する。
+- overload selection は declared shape と expected result shape を instantiate 前に使い、候補棄却理由と ambiguity reason を enum payload で保持する。
+- generic call と trait application は argument / expected result evidence を structured constraint として集約し、conflict を typed diagnostic payload で報告する。
+- trait method self type inference は no evidence / unique / ambiguous を enum で分離し、複数候補を fresh `Self` や `TraitBoundUnsatisfied` に潰さない。
+- Stage E の performance guard は rejection reason の typed materialization phase により、pre-instantiation pruning の分類漏れを source policy で検出できる。
+
+残る作業:
+
+- この issue の範囲では完了。今後追加 regression で expected-check の新しい不足が見つかった場合は、別 issue として切り出す。
