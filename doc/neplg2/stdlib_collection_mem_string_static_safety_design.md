@@ -48,6 +48,8 @@
 
 2026-05-20 追記: aggregate / predicate query も同じ invariant boundary に含める。`count` / `fold` / `reduce` / `find` / `any` / `all` は直接 raw load しない場合でも、`len` を loop bound として使うため traversal decision の前に invariant を確認する。invalid owner aggregate は empty Vec と同一視せず、走査に入らない neutral non-success result へ落とす。これにより、raw access だけでなく計算量と制御フローも invalid metadata へ依存しない。
 
+2026-05-20 追記 2: typed raw data view observer である `data_mem_ptr<T>(&Vec<T>)` も invariant boundary に含める。raw load/store caller が guard を持つだけでは不十分で、`RegionToken<T>` から non-owning raw view を導出する public API 自体が `OwnedBuffer<T>` invariant を確認する必要がある。invalid owner aggregate からは actual storage view を返さず、0 address typed view に落とす。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

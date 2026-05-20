@@ -225,6 +225,8 @@ for (const name of ['data_mem_ptr']) {
 }
 assert.doesNotMatch(vecAccessDataCode, /\bfn\s+data_ptr\b/, 'Vec.data_ptr must not reappear as a public raw i32 storage observer');
 assert.match(vecAccessDataCode, /fn\s+data_mem_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->MemPtr<\.T>>/, 'Vec.data_mem_ptr must remain Copy-only because it exposes raw storage identity');
+assert.match(vecAccessDataCode, /vec_buffer_current_copy_invariant<\.T>\s+v_buffer[\s\S]*then\s+mem_ptr_wrap\s+0[\s\S]*match\s+v_storage:/, 'Vec.data_mem_ptr must prove the current Copy-only invariant before deriving a raw storage view');
+assert(vecAccessDataCode.search(/vec_buffer_current_copy_invariant<\.T>\s+v_buffer/) < vecAccessDataCode.search(/region_ptr\s+region/), 'Vec.data_mem_ptr must not project RegionToken before the invariant guard');
 assert.match(vecAccessDataCode, /match\s+v_storage:[\s\S]*VecStorage::Empty:[\s\S]*mem_ptr_wrap\s+0[\s\S]*VecStorage::Owned\s+region:[\s\S]*region_ptr\s+region/, 'Vec.data_mem_ptr must observe the owner-carrying storage enum so lower-level helpers do not become public API');
 assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>/, 'Vec raw data observer must reject non-Copy payloads in doctests');
 assert.doesNotMatch(dataMemPtrUsageExample, /\bcore\/mem\/internal\b|\bmem_ptr_addr\b/, 'Vec.data_mem_ptr usage example must not teach raw address observation through core/mem/internal');

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T10:44:21.375Z",
+  "generated_at": "2026-05-20T10:51:28.066Z",
   "counts": {
-    "total": 1115,
+    "total": 1116,
     "open": 3,
-    "resolved": 1112,
+    "resolved": 1113,
     "by_area": {
       "stdlib": {
-        "total": 301,
+        "total": 302,
         "open": 2,
-        "resolved": 299
+        "resolved": 300
       },
       "selfhost": {
         "total": 104,
@@ -13048,6 +13048,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T104012214Z-VEC-AGGREGATE-QUERIES-USE-LEN-AS-SCA-530B7F3C.md"
+    },
+    {
+      "id": "ISS-20260520T104720582Z-VEC-DATA-MEM-PTR-RETURNS-RAW-STORAGE-B5EEADE6",
+      "title": "Vec data_mem_ptr returns raw storage view before proving OwnedBuffer invariant",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/vec/access/data.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T104720582Z-VEC-DATA-MEM-PTR-RETURNS-RAW-STORAGE-B5EEADE6.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

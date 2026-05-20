@@ -43524,3 +43524,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/aggregate.nepl --no-tree --dist web/dist -o tmp/agent1-vec-query-aggregate-invariant.json -j 1 --assert-io`: 3/3 passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/predicate.nepl --no-tree --dist web/dist -o tmp/agent1-vec-query-predicate-invariant.json -j 1 --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 Vec data view invariant 境界追加
+
+- `ISS-20260520T104720582Z-VEC-DATA-MEM-PTR-RETURNS-RAW-STORAGE-B5EEADE6` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw load/store caller 側には invariant guard が入った一方で、typed raw data view observer である `data_mem_ptr<T>(&Vec<T>)` 自体が `VecStorage::Owned(region)` から `region_ptr` を返す前に `OwnedBuffer<T>` invariant を確認していなかったことだった。
+- `data_mem_ptr` が `vec_buffer_current_copy_invariant<T>` を通ってから `region_ptr` projection を返すようにした。invalid owner aggregate と `VecStorage::Empty` は 0 address typed view へ落とす。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に、`data_mem_ptr` の invariant guard が `region_ptr` より前にあることを監視する source policy を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-invariant-2.json -j 1 --assert-io`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-root-data-view-invariant.json -j 1 --assert-io`: 3/3 passed
