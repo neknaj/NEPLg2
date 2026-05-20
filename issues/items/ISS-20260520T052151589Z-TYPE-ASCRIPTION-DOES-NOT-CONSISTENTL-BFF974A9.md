@@ -223,3 +223,30 @@ trait application inference が `expected_ret.map(|expectation| expectation.targ
 - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
 - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
+## 2026-05-20 Stage C overload ambiguity reason payload
+
+overload ambiguity が最終的に `"ambiguous overload"` だけを出しており、どの narrowing stage の後に候補が残ったかを typed state として保持していなかった。`OverloadCandidateNarrowingStage` と `OverloadAmbiguityReason` を追加し、diagnostic message を payload から生成するようにした。
+
+実装:
+
+- `OverloadCandidateNarrowingStage` enum を追加し、pure preference、signature dedup、ordinary preference、concrete preference、type parameter count、instantiated specificity、declared specificity を typed stage として表す。
+- `OverloadAmbiguityReason { after_stage, remaining_candidates }` を追加。
+- final ambiguity diagnostic は `OverloadAmbiguityReason::diagnostic_message()` から作る。
+- `unannotated_result_overload_reports_typed_ambiguity_reason` を追加し、型注釈なし overload ambiguity が stage/candidate count を含むことを確認する。
+- source policy で narrowing stage enum、ambiguity payload、payload 由来診断を監視する。
+
+残作業:
+
+- generic function 側の不足 constraint object 化。
+- trait/generic constraint が閉じても一意に決まらない場合のより詳細な typed diagnostic payload。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test overload unannotated_result_overload_reports_typed_ambiguity_reason -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
+- `node nodesrc/issues.js check`: pass

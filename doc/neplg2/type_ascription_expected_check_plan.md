@@ -158,7 +158,8 @@ enum TypeExpectationSource {
 - 2026-05-20: overload selection は binding の declared function shape を先に読み、関数でない候補、明示 type args 数不一致、capture 数不整合、arity 不一致を checkpoint / instantiate 前に除外するようにした。
 - 2026-05-20: 明示 type args がない multiple overload では、declared result と expected target を `type_pattern_matches` で照合し、明らかに結果型が合わない候補を checkpoint / instantiate 前に除外するようにした。
 - 2026-05-20: overload 候補 rejection reason を `OverloadCandidateRejection` enum として構造化し、candidate materialization count と pre-materialized rejection count の不変条件を `OverloadCandidateStats` で監視するようにした。
-- 未完了: ambiguity 理由の診断 payload 化。現時点では typed evidence の伝播、result constraint の早期 commit、declared-shape pruning、expected-result shape pruning、candidate count guard を固定している。
+- 2026-05-20: overload ambiguity は `OverloadCandidateNarrowingStage` と `OverloadAmbiguityReason` payload から診断 message を生成し、どの narrowing stage の後に候補が残ったかを保持するようにした。
+- 未完了: generic function 側の不足 constraint object 化。現時点では typed evidence の伝播、result constraint の早期 commit、declared-shape pruning、expected-result shape pruning、candidate count guard、ambiguity reason payload を固定している。
 
 ### Stage D: generics / trait expected-check
 

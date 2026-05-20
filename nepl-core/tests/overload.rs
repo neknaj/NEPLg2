@@ -1,5 +1,6 @@
 mod harness;
 use harness::run_main_i32;
+use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use nepl_core::loader::Loader;
 use nepl_core::typecheck;
 use nepl_core::BuildProfile;
@@ -26,6 +27,23 @@ fn typecheck_src_with_target(src: &str, target: CompileTarget) {
     if !checked.diagnostics.is_empty() {
         panic!("typecheck failure: {:?}", checked.diagnostics);
     }
+}
+
+fn diagnostics_for_src_with_target(
+    src: &str,
+    target: CompileTarget,
+) -> Vec<nepl_core::diagnostic::Diagnostic> {
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline(PathBuf::from("overload_regression.nepl"), src.to_string())
+        .expect("load");
+    typecheck::typecheck(
+        &loaded.module,
+        target,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    )
+    .diagnostics
 }
 
 // Note: In NEPL, overloaded functions must have the same number of arguments (arity).
@@ -126,6 +144,35 @@ fn main <()*>i32> ():
     // 10 + 1 = 11, and v2 is true
     let v = run_main_i32(src);
     assert_eq!(v, 11);
+}
+
+#[test]
+fn unannotated_result_overload_reports_typed_ambiguity_reason() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+fn magic <(i32)->i32> (v):
+    v
+
+fn magic <(i32)->bool> (v):
+    true
+
+fn main <()->i32> ():
+    let v magic 10
+    0
+"#;
+    let diagnostics = diagnostics_for_src_with_target(src, CompileTarget::Wasm);
+    assert!(
+        diagnostics.iter().any(|d| {
+            d.code == DiagnosticCode::Type(TypeDiagnosticCode::OverloadAmbiguous)
+                && d.message.contains("after")
+                && d.message.contains("candidates remain")
+        }),
+        "expected typed overload ambiguity reason, got {diagnostics:?}"
+    );
 }
 
 #[test]

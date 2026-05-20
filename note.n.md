@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 overload ambiguity reason payload
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C として、overload ambiguity の理由を typed payload として保持するようにした。`plan.md` は変更していない。
+- `OverloadCandidateNarrowingStage` enum と `OverloadAmbiguityReason { after_stage, remaining_candidates }` を追加し、diagnostic message は payload から生成する。
+- `unannotated_result_overload_reports_typed_ambiguity_reason` を追加し、型注釈なし overload ambiguity が stage と candidate count を含むことを確認した。
+- source policy は narrowing stage enum、ambiguity payload、payload 由来診断を監視する。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test overload unannotated_result_overload_reports_typed_ambiguity_reason -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 trait inference constraint object
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、trait application inference の expected result 制約を typed object として保持するようにした。`plan.md` は変更していない。

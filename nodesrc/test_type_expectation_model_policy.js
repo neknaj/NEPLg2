@@ -106,6 +106,21 @@ assert.match(
     'overload selection must count candidates that reach instantiation/materialization',
 );
 assert.match(
+    overloadSelection,
+    /enum\s+OverloadCandidateNarrowingStage\s*{[\s\S]*InitialCandidates[\s\S]*PreferPureFunction[\s\S]*SignatureDedup[\s\S]*PreferOrdinaryFunction[\s\S]*PreferConcreteSignature[\s\S]*PreferFewerTypeParameters[\s\S]*PreferInstantiatedSpecificity[\s\S]*PreferDeclaredSpecificity[\s\S]*}/,
+    'overload ambiguity narrowing stages must be a typed enum',
+);
+assert.match(
+    overloadSelection,
+    /struct\s+OverloadAmbiguityReason\s*{[\s\S]*after_stage:\s*OverloadCandidateNarrowingStage[\s\S]*remaining_candidates:\s*usize[\s\S]*}/,
+    'overload ambiguity must carry a typed reason payload',
+);
+assert.match(
+    overloadSelection,
+    /OverloadAmbiguityReason::after_stage\(last_narrowing_stage,\s*candidates\.len\(\)\)[\s\S]*ambiguity\.diagnostic_message\(\)/,
+    'overload ambiguity diagnostics must be produced from the typed payload',
+);
+assert.match(
     traitCheck,
     /enum\s+TypeParamInferenceSource\s*{[\s\S]*Argument[\s\S]*ExpectedResult[\s\S]*}/,
     'trait type-parameter inference constraints must keep their source as a typed enum',
