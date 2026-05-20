@@ -152,6 +152,11 @@ enum TypeExpectationSource {
 - no-context overload ambiguity は維持される。
 - annotate すれば通る、annotate しなければ ambiguous、という対の regression を追加する。
 
+実装状況:
+
+- 2026-05-20: `select_overload_candidate`、`apply_function`、selected call、indirect call、trait call の expected result 境界を `Option<TypeExpectation>` に移した。call reduction で得た期待型の由来を call 適用層まで落とさずに保持できる。
+- 未完了: 候補を instantiate する前の分類と candidate count guard は未実装。現時点では typed evidence の伝播と result constraint の早期 commit を先に固定している。
+
 ### Stage D: generics / trait expected-check
 
 目的: generics と trait method でも期待型を探索削減と正確性の両方に使い、注釈不足時の必要探索を明示的に扱う。
@@ -167,6 +172,12 @@ enum TypeExpectationSource {
 
 - 型注釈付き generic / trait call は必要十分な候補検査で決まる。
 - annotation mismatch と overload ambiguity と trait bound unsatisfied が混線しない。
+
+実装状況:
+
+- 2026-05-20: selected generic call では call result と expected result を type args 確定前に unify するようにした。これにより `<T>` による結果期待型が generic instantiation の根拠として残る。
+- 2026-05-20: trait method resolution は expected result を `TypeExpectation` として受け取り、trait application inference には target type を渡す。診断 span は `TypeExpectation` が管理する。
+- 未完了: type parameter / trait application が不足する場合の constraint object 化と、探索量 guard は Stage E と合わせて残っている。
 
 ### Stage E: performance guard
 

@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 TypeExpectation call expected result 伝播
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C/D bridge として、call reduction から先の `expected_ret: Option<TypeId>` 境界を `Option<TypeExpectation>` に移した。`plan.md` は変更していない。
+- `apply_function`、`select_overload_candidate`、selected call、indirect call、trait method call が typed expectation evidence を受け取るようになった。
+- selected generic call では `c_result` と expected target を type args 確定前に unify するため、結果型注釈が generic instantiation の根拠として失われない。
+- mismatch 診断は `TypeExpectation::diagnostic_span` を通すため、明示注釈 / block result / outer consumer の span 責務が call 適用層に漏れない。
+- `nodesrc/test_type_expectation_model_policy.js` は call 適用層が `expected_ret: Option<TypeId>` に戻らないことを監視する。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24 passed
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 TypeExpectation model 導入
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage B として、`pending_ascription` と call reduction expected tuple を typed `TypeExpectation` model へ移した。`plan.md` は変更していない。

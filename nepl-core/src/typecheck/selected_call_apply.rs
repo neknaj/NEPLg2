@@ -15,6 +15,7 @@ use super::field_apply::FieldAccessorApplyResult;
 use super::signature::type_contains_unbound_var;
 use super::trait_call_apply::TraitMethodResolution;
 use super::traits::{infer_instantiated_type_arg, insert_substitution_mapping, BoundEnv};
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
 impl<'a> BlockChecker<'a> {
@@ -25,7 +26,7 @@ impl<'a> BlockChecker<'a> {
         span: Span,
         mut args: Vec<StackEntry>,
         type_args: Vec<TypeId>,
-        expected_ret: Option<TypeId>,
+        expected_ret: Option<TypeExpectation>,
         result: TypeId,
     ) -> Option<StackEntry> {
         let explicit_type_args = type_args.clone();
@@ -155,6 +156,17 @@ impl<'a> BlockChecker<'a> {
                 span,
             ));
             return None;
+        }
+
+        if let Some(expectation) = expected_ret {
+            if self.ctx.unify(c_result, expectation.target()).is_err() {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::AnnotationMismatch,
+                    "call result does not match expected type",
+                    expectation.diagnostic_span(span),
+                ));
+                return None;
+            }
         }
 
         if explicit_type_args.is_empty() {

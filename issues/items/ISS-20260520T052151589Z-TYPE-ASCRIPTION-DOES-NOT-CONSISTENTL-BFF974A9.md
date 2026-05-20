@@ -83,3 +83,30 @@ Add focused compiler regressions and source-policy tests proving annotated expre
 - `node nodesrc/issues.js check`: pass
 
 補足: `cargo test -p nepl-core --test overload -- --nocapture` は 5/8 passed, 3 failed。失敗内容は今回追加した TypeExpectation ではなく、既存 stdlib shadow warning を `overload.rs` の helper が diagnostic 非空として panic する既存状態だったため、今回の commit の完了条件からは focused case を採用した。
+
+## 2026-05-20 Stage C/D bridge expected result evidence 伝播
+
+Stage C の前半として、call reduction から先の `expected_ret: Option<TypeId>` 境界を `Option<TypeExpectation>` へ移した。対象は `apply_function`、`select_overload_candidate`、selected call、indirect call、trait method call である。
+
+これにより、明示注釈 / block result / outer consumer argument の由来を call 適用層まで保持したまま、overload 選択や generic / trait result constraint に使える。特に selected generic call では、type args を確定して monomorphization 情報を作る前に `c_result` と expected target を unify するため、結果型注釈が generic instantiation の根拠として失われない。
+
+今回完了した範囲:
+
+- `TypeExpectation::call_result_expectation_after_args` で call result に適用できる期待型そのものを返す。
+- `select_overload_candidate` は expected result を `TypeExpectation` として受ける。
+- selected direct call / indirect call / trait method call は expected result mismatch を `TypeExpectation::diagnostic_span` で診断する。
+- `nodesrc/test_type_expectation_model_policy.js` で call 適用層が `expected_ret: Option<TypeId>` に戻らないことを監視する。
+
+残作業:
+
+- Stage C 後半: instantiate 前の候補分類と候補数 guard。
+- Stage D 後半: 不足している type parameter / trait application を constraint object として保持し、必要十分な探索だけにする。
+- Stage E: compile-time regression guard。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+- `cargo test -p nepl-core --test generics -- --nocapture`: 24 passed
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass

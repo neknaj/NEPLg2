@@ -9,6 +9,7 @@ use super::control_apply::SpecialApplyResult;
 use super::diagnostics::{effect_error, type_error};
 use super::indirect_apply::apply_indirect_function_call;
 use super::trait_call_apply::TraitMethodApplyResult;
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
 macro_rules! function_apply_log {
@@ -33,7 +34,7 @@ impl<'a> BlockChecker<'a> {
         effect: Effect,
         mut args: Vec<StackEntry>,
         type_args: Vec<TypeId>,
-        expected_ret: Option<TypeId>,
+        expected_ret: Option<TypeExpectation>,
     ) -> Option<StackEntry> {
         if params.is_empty() && args.len() == 1 && matches!(args[0].expr.kind, HirExprKind::Unit) {
             args.clear();

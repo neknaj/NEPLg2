@@ -13,6 +13,7 @@ use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
 use super::signature::{function_signature_string, type_contains_unbound_var};
 use super::traits::insert_substitution_mapping;
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, FieldAccessorKind, StackEntry};
 
 macro_rules! overload_selection_log {
@@ -44,16 +45,16 @@ impl<'a> BlockChecker<'a> {
         bindings: &[Binding],
         args: &[StackEntry],
         explicit_type_args: &[TypeId],
-        expected_ret: Option<TypeId>,
+        expected_ret: Option<TypeExpectation>,
         span: Span,
     ) -> Option<Binding> {
         let use_expected = expected_ret.is_some() && bindings.len() > 1;
         if crate::log::is_verbose() && use_expected {
-            if let Some(expected) = expected_ret {
+            if let Some(expectation) = expected_ret {
                 overload_selection_log!(
                     "overload debug: '{}' using expected_ret={}",
                     name,
-                    self.ctx.type_to_string(expected)
+                    self.ctx.type_to_string(expectation.target())
                 );
             }
         }
@@ -183,7 +184,8 @@ impl<'a> BlockChecker<'a> {
                 }
             }
             if ok && use_expected {
-                if let Some(expected) = expected_ret {
+                if let Some(expectation) = expected_ret {
+                    let expected = expectation.target();
                     if self.ctx.unify(c_result, expected).is_err() {
                         if crate::log::is_verbose() {
                             overload_selection_log!(

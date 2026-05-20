@@ -59,14 +59,14 @@ impl TypeExpectation {
         stack_len == self.base_depth + 1
     }
 
-    pub(super) fn call_result_target_after_args(
+    pub(super) fn call_result_expectation_after_args(
         self,
         stack_len_before_call: usize,
         args_to_take: usize,
-    ) -> Option<TypeId> {
+    ) -> Option<Self> {
         let new_len = stack_len_before_call.saturating_sub(args_to_take);
         if self.applies_at_stack_len(new_len) {
-            Some(self.target)
+            Some(self)
         } else {
             None
         }
