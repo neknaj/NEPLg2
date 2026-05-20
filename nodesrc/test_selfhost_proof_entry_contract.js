@@ -50,6 +50,7 @@ assert.match(proofFact, /pub enum SelfhostProofDomain:/, "proof domain must be a
 assert.match(proofFact, /pub enum SelfhostProofFact:/, "proof facts must be typed enum payloads");
 assert.match(proofObligation, /pub enum SelfhostProofObligation:/, "proof obligations must be typed enum payloads");
 assert.match(proofQuery, /pub enum SelfhostProofEvidence:/, "proof success must return typed evidence");
+assert.match(proofQuery, /pub enum SelfhostProofEvidenceKind:/, "proof evidence kinds must be typed for API projection checks");
 assert.match(proofQuery, /pub enum SelfhostProofRefutation:/, "proof failure must return typed refutation");
 assert.match(proofQuery, /pub enum SelfhostProofResult:/, "proof results must be an evidence/refutation enum");
 assert.match(proofQuery, /fact <SelfhostProofFact>/, "proof query must carry a typed fact");
@@ -222,6 +223,11 @@ assert.match(
 );
 assert.match(
     proofQuery,
+    /UnexpectedEvidence <SelfhostProofUnexpectedEvidence>/,
+    "unexpected solver evidence must be separate from fact/obligation mismatch",
+);
+assert.match(
+    proofQuery,
     /ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>/,
     "invalid resource cell transitions must return typed refutations",
 );
@@ -269,6 +275,8 @@ assert.doesNotMatch(
 const solverBlock = functionBlock(proofSolver, "selfhost_proof_solve");
 const solverDispatchBlock = functionBlock(proofSolver, "selfhost_proof_solve_matching_domain");
 const domainEqBlock = functionBlock(proofFact, "selfhost_proof_domain_eq");
+const evidenceKindBlock = functionBlock(proofQuery, "selfhost_proof_evidence_kind");
+const obligationEvidenceKindBlock = functionBlock(proofQuery, "selfhost_proof_obligation_evidence_kind");
 const traitRelationBlock = functionBlock(traitRef, "selfhost_trait_impl_relation");
 const publicSolverFunctions = Array.from(
     proofSolver.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
@@ -320,10 +328,60 @@ assert.match(
     /selfhost_proof_solve\s+query/,
     "proof api wrappers must route through the generic proof solver",
 );
+assert.match(
+    proofApi,
+    /selfhost_proof_query_unexpected_evidence_refutation\s+query\s+evidence/,
+    "proof api wrappers must report unexpected proven evidence as typed unexpected-evidence refutation",
+);
+assert.doesNotMatch(
+    proofApi,
+    /selfhost_proof_query_mismatch_refutation\s+query/,
+    "proof api wrappers must not classify unexpected evidence as fact/obligation mismatch",
+);
 for (const variant of ["Source", "Module", "Type", "Trait", "Lifetime", "Owner", "Effect", "Resource"]) {
     assert.match(domainEqBlock, new RegExp(`SelfhostProofDomain::${variant}\\b`), `domain equality must cover ${variant}`);
 }
 assert.doesNotMatch(domainEqBlock, /^\s*_:/m, "domain equality must not hide new domains behind wildcard arms");
+for (const variant of [
+    "SourceSpanValid",
+    "RawBackendTransition",
+    "ModuleDirectiveTransition",
+    "ModuleDeclarationHeaderAvailable",
+    "TypeKindCompatible",
+    "TraitImplNonOverlapping",
+    "LifetimeOutlives",
+    "ResourceCellTransition",
+    "OwnerTransition",
+    "ResourceBorrowAccess",
+    "EffectAllowed",
+]) {
+    assert.match(
+        evidenceKindBlock,
+        new RegExp(`SelfhostProofEvidence::${variant}\\b`),
+        `evidence kind extraction must cover evidence ${variant}`,
+    );
+    assert.match(
+        evidenceKindBlock,
+        new RegExp(`SelfhostProofEvidenceKind::${variant}\\b`),
+        `evidence kind extraction must return kind ${variant}`,
+    );
+}
+assert.doesNotMatch(evidenceKindBlock, /^\s*_:/m, "evidence kind extraction must not hide new evidence behind wildcard arms");
+assert.match(
+    obligationEvidenceKindBlock,
+    /SelfhostProofObligation::SourceSpanValid[\s\S]*SelfhostProofEvidenceKind::SourceSpanValid/,
+    "source span obligation must map to source span evidence kind",
+);
+assert.match(
+    obligationEvidenceKindBlock,
+    /SelfhostProofObligation::EffectAllowedInContext[\s\S]*SelfhostProofEvidenceKind::EffectAllowed/,
+    "effect obligation must map to effect evidence kind",
+);
+assert.doesNotMatch(
+    obligationEvidenceKindBlock,
+    /^\s*_:/m,
+    "obligation evidence kind mapping must not hide new obligations behind wildcard arms",
+);
 assert.match(
     solverBlock,
     /selfhost_proof_fact_domain\s+query\.fact/,
@@ -477,6 +535,11 @@ assert.doesNotMatch(
     moduleChecker,
     /^pub struct SelfhostModuleCheckStep:/m,
     "module checker step state must stay private to avoid exposing checker-internal proof sequencing",
+);
+assert.match(
+    moduleChecker,
+    /SelfhostProofRefutation::UnexpectedEvidence\s+_issue:/,
+    "module checker must handle unexpected proof evidence explicitly",
 );
 assert.match(
     moduleChecker,

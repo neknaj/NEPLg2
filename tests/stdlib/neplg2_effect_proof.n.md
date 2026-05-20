@@ -64,6 +64,8 @@ fn check_impure_effect_rejected <(Result<SelfhostEffectContext,SelfhostProofRefu
                             Result<(),str>::Err "expected impure effect rejection"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result<(),str>::Err "expected effect boundary refutation"
+                SelfhostProofRefutation::UnexpectedEvidence _issue:
+                    Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
@@ -104,6 +106,8 @@ fn check_escaping_alloc_rejected <(Result<SelfhostEffectContext,SelfhostProofRef
                         SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary:
                             Result<(),str>::Err "expected escaping allocation rejection"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
+                    Result<(),str>::Err "expected effect boundary refutation"
+                SelfhostProofRefutation::UnexpectedEvidence _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Err "expected effect boundary refutation"

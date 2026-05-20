@@ -33,6 +33,8 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
                     Result<(),str>::Ok ()
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::UnexpectedEvidence _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
@@ -123,6 +125,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
                     Result<(),str>::Err "expected module fact domain"
                 SelfhostProofDomain::Resource:
                     Result<(),str>::Err "expected module fact domain"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
@@ -238,6 +242,8 @@ fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
             Result<(),str>::Err "expected resource transition refutation"
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
             Result<(),str>::Err "expected resource transition refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected resource transition refutation"
@@ -357,6 +363,8 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
+            Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
             Result<(),str>::Err "expected duplicate target"
@@ -481,6 +489,8 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
@@ -589,6 +599,8 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::UnexpectedEvidence _issue:
+                    Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
@@ -623,6 +635,8 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::UnexpectedEvidence _issue:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Err "expected invalid declaration header"

@@ -43014,3 +43014,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-domain-dispatch-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-domain-dispatch-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed
+
+## 2026-05-20 Agent 1 self-host proof unexpected evidence refutation
+
+- `ISS-20260520T023713808Z-SELF-HOST-PROOF-API-REPORTS-UNEXPECT-31BEEAB9` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、public proof API wrapper が solver から期待外の success evidence を受け取った時に、proof-program error を `FactObligationMismatch` として返していたことだった。domain mismatch は fact / obligation の接続不整合であり、domain が合う query に対して solver が別種の evidence を返す問題とは区別する必要がある。
+- `SelfhostProofEvidenceKind`、`SelfhostProofUnexpectedEvidence`、`SelfhostProofRefutation::UnexpectedEvidence` を追加し、expected / actual evidence kind を typed enum payload として保持するようにした。
+- expected kind は `SelfhostProofObligation` から、actual kind は `SelfhostProofEvidence` から exhaustive match で導出する。文字列 code や wrapper ごとの個別定数にはしていない。
+- `proof/api.nepl` の期待外 evidence arm は `selfhost_proof_query_unexpected_evidence_refutation` を返す。module checker と proof doctest 側も `UnexpectedEvidence` を明示 match し、新 variant 追加時の網羅性検査が効く状態を維持した。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-unexpected-evidence-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-proof-unexpected-evidence-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-unexpected-evidence-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed

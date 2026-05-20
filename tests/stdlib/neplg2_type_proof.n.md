@@ -106,6 +106,8 @@ fn check_bool_i32_mismatch <(Result<SelfhostTypeKind,SelfhostProofRefutation>)->
                             Result<(),str>::Err "expected i32 expected kind"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result<(),str>::Err "expected type kind mismatch"
+                SelfhostProofRefutation::UnexpectedEvidence _issue:
+                    Result<(),str>::Err "expected type kind mismatch"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
                     Result<(),str>::Err "expected type kind mismatch"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:

@@ -109,6 +109,8 @@ fn check_coherence_refutation <(SelfhostProofRefutation,(SelfhostTraitImplCohere
             checker issue
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected trait impl coherence refutation"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
+            Result<(),str>::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:

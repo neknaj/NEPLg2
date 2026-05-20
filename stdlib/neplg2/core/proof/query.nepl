@@ -20,6 +20,32 @@
 #import "neplg2/core/ty/trait_ref" as *
 #import "neplg2/core/ty/ty" as *
 
+//: SelfhostProofEvidenceKind: proof success evidence の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - public API wrapper が期待した evidence と実際の evidence の不一致を、fact/obligation mismatch と混同せず typed refutation として返せるようにします。
+//: - evidence payload を diagnostic 文字列に潰さず、kind だけを enum として比較・記録します。
+pub enum SelfhostProofEvidenceKind:
+    SourceSpanValid
+    RawBackendTransition
+    ModuleDirectiveTransition
+    ModuleDeclarationHeaderAvailable
+    TypeKindCompatible
+    TraitImplNonOverlapping
+    LifetimeOutlives
+    ResourceCellTransition
+    OwnerTransition
+    ResourceBorrowAccess
+    EffectAllowed
+
+impl Clone for SelfhostProofEvidenceKind:
+    fn clone <(&SelfhostProofEvidenceKind)->SelfhostProofEvidenceKind> (self):
+        *self
+
+impl Copy for SelfhostProofEvidenceKind:
+    fn copy_mark <(SelfhostProofEvidenceKind)->SelfhostProofEvidenceKind> (self):
+        self
+
 //: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
 //:
 //: [目的/もくてき]:
@@ -44,6 +70,35 @@ impl Clone for SelfhostProofEvidence:
 impl Copy for SelfhostProofEvidence:
     fn copy_mark <(SelfhostProofEvidence)->SelfhostProofEvidence> (self):
         self
+
+//: selfhost_proof_evidence_kind: evidence から kind を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - payload を捨てて証明の種類だけを比較するときも、文字列 code ではなく enum の exhaustive match を使います。
+pub fn selfhost_proof_evidence_kind <(SelfhostProofEvidence)->SelfhostProofEvidenceKind> (evidence):
+    match evidence:
+        SelfhostProofEvidence::SourceSpanValid:
+            SelfhostProofEvidenceKind::SourceSpanValid
+        SelfhostProofEvidence::RawBackendTransition _state:
+            SelfhostProofEvidenceKind::RawBackendTransition
+        SelfhostProofEvidence::ModuleDirectiveTransition _state:
+            SelfhostProofEvidenceKind::ModuleDirectiveTransition
+        SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+            SelfhostProofEvidenceKind::ModuleDeclarationHeaderAvailable
+        SelfhostProofEvidence::TypeKindCompatible _kind:
+            SelfhostProofEvidenceKind::TypeKindCompatible
+        SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+            SelfhostProofEvidenceKind::TraitImplNonOverlapping
+        SelfhostProofEvidence::LifetimeOutlives _relation:
+            SelfhostProofEvidenceKind::LifetimeOutlives
+        SelfhostProofEvidence::ResourceCellTransition _state:
+            SelfhostProofEvidenceKind::ResourceCellTransition
+        SelfhostProofEvidence::OwnerTransition _state:
+            SelfhostProofEvidenceKind::OwnerTransition
+        SelfhostProofEvidence::ResourceBorrowAccess _state:
+            SelfhostProofEvidenceKind::ResourceBorrowAccess
+        SelfhostProofEvidence::EffectAllowed _context:
+            SelfhostProofEvidenceKind::EffectAllowed
 
 //: SelfhostModuleDirectiveDuplicate: singleton directive が[重複/ちょうふく]した refutation payload
 //:
@@ -373,12 +428,34 @@ impl Copy for SelfhostProofMismatch:
 pub fn selfhost_proof_mismatch_new <(SelfhostProofDomain,SelfhostProofDomain)->SelfhostProofMismatch> (fact_domain, obligation_domain):
     SelfhostProofMismatch fact_domain obligation_domain
 
+//: SelfhostProofUnexpectedEvidence: API wrapper が期待しない evidence を受け取った refutation payload
+//:
+//: [目的/もくてき]:
+//: - fact と obligation の domain は合っているのに solver が違う success evidence を返した場合を、domain mismatch とは別に記録します。
+//: - これは solver implementation の誤配線を検出するための payload であり、expected / actual を enum kind として保持します。
+pub struct SelfhostProofUnexpectedEvidence:
+    expected <SelfhostProofEvidenceKind>
+    actual <SelfhostProofEvidenceKind>
+
+impl Clone for SelfhostProofUnexpectedEvidence:
+    fn clone <(&SelfhostProofUnexpectedEvidence)->SelfhostProofUnexpectedEvidence> (self):
+        *self
+
+impl Copy for SelfhostProofUnexpectedEvidence:
+    fn copy_mark <(SelfhostProofUnexpectedEvidence)->SelfhostProofUnexpectedEvidence> (self):
+        self
+
+//: selfhost_proof_unexpected_evidence_new: unexpected evidence payload を[作/つく]る
+pub fn selfhost_proof_unexpected_evidence_new <(SelfhostProofEvidenceKind,SelfhostProofEvidenceKind)->SelfhostProofUnexpectedEvidence> (expected, actual):
+    SelfhostProofUnexpectedEvidence expected actual
+
 //: SelfhostProofRefutation: proof が[不成立/ふせいりつ]だった[理由/りゆう]
 //:
 //: [目的/もくてき]:
 //: - proof 失敗を diagnostic 文字列へ直行させず、caller が typed reason を match して domain ごとの diagnostic へ[変換/へんかん]できるようにします。
 pub enum SelfhostProofRefutation:
     FactObligationMismatch <SelfhostProofMismatch>
+    UnexpectedEvidence <SelfhostProofUnexpectedEvidence>
     SourceSpanInvalid <SelfhostSourceSpan>
     RawBackendTextWithoutBlock <SelfhostRawBackendItemFact>
     RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>
@@ -434,6 +511,36 @@ impl Copy for SelfhostProofResult:
 pub fn selfhost_proof_query_new <(SelfhostProofFact,SelfhostProofObligation)->SelfhostProofQuery> (fact, obligation):
     SelfhostProofQuery fact obligation
 
+//: selfhost_proof_obligation_evidence_kind: obligation が期待する evidence kind を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - API wrapper が evidence projection に失敗したとき、期待した kind を obligation enum から導出します。
+//: - wrapper ごとの手書き文字列や数値 code を置かず、obligation 追加時に match の網羅性で更新漏れを検出しやすくします。
+pub fn selfhost_proof_obligation_evidence_kind <(SelfhostProofObligation)->SelfhostProofEvidenceKind> (obligation):
+    match obligation:
+        SelfhostProofObligation::SourceSpanValid _span:
+            SelfhostProofEvidenceKind::SourceSpanValid
+        SelfhostProofObligation::RawBackendTransition _state:
+            SelfhostProofEvidenceKind::RawBackendTransition
+        SelfhostProofObligation::ModuleDirectiveTransition _state:
+            SelfhostProofEvidenceKind::ModuleDirectiveTransition
+        SelfhostProofObligation::ModuleDeclarationHeaderAvailable _kind:
+            SelfhostProofEvidenceKind::ModuleDeclarationHeaderAvailable
+        SelfhostProofObligation::TypeKindCompatible _kind:
+            SelfhostProofEvidenceKind::TypeKindCompatible
+        SelfhostProofObligation::TraitImplNonOverlapping:
+            SelfhostProofEvidenceKind::TraitImplNonOverlapping
+        SelfhostProofObligation::LifetimeOutlives _required:
+            SelfhostProofEvidenceKind::LifetimeOutlives
+        SelfhostProofObligation::ResourceCellTransition _state:
+            SelfhostProofEvidenceKind::ResourceCellTransition
+        SelfhostProofObligation::OwnerTransition _state:
+            SelfhostProofEvidenceKind::OwnerTransition
+        SelfhostProofObligation::ResourceBorrowAccess _state:
+            SelfhostProofEvidenceKind::ResourceBorrowAccess
+        SelfhostProofObligation::EffectAllowedInContext _context:
+            SelfhostProofEvidenceKind::EffectAllowed
+
 //: selfhost_proof_result_proven: proven result を[作/つく]る
 pub fn selfhost_proof_result_proven <(SelfhostProofEvidence)->SelfhostProofResult> (evidence):
     SelfhostProofResult::Proven evidence
@@ -457,3 +564,16 @@ pub fn selfhost_proof_query_mismatch_refutation <(SelfhostProofQuery)->SelfhostP
 //: selfhost_proof_query_mismatch_result: query の不整合を proof result として返す
 pub fn selfhost_proof_query_mismatch_result <(SelfhostProofQuery)->SelfhostProofResult> (query):
     selfhost_proof_result_refuted selfhost_proof_query_mismatch_refutation query
+
+//: selfhost_proof_unexpected_evidence_refutation: obligation と evidence の kind 不一致を typed refutation にする
+//:
+//: [目的/もくてき]:
+//: - solver が domain の合う query に対して別種の success evidence を返したとき、domain mismatch ではなく proof-program error として分類します。
+pub fn selfhost_proof_unexpected_evidence_refutation <(SelfhostProofObligation,SelfhostProofEvidence)->SelfhostProofRefutation> (obligation, evidence):
+    let expected <SelfhostProofEvidenceKind> selfhost_proof_obligation_evidence_kind obligation
+    let actual <SelfhostProofEvidenceKind> selfhost_proof_evidence_kind evidence
+    SelfhostProofRefutation::UnexpectedEvidence selfhost_proof_unexpected_evidence_new expected actual
+
+//: selfhost_proof_query_unexpected_evidence_refutation: query と evidence の kind 不一致を typed refutation にする
+pub fn selfhost_proof_query_unexpected_evidence_refutation <(SelfhostProofQuery,SelfhostProofEvidence)->SelfhostProofRefutation> (query, evidence):
+    selfhost_proof_unexpected_evidence_refutation query.obligation evidence

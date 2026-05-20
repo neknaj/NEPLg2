@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T02:32:19.030Z",
+  "generated_at": "2026-05-20T02:52:30.852Z",
   "counts": {
-    "total": 1093,
+    "total": 1094,
     "open": 4,
-    "resolved": 1089,
+    "resolved": 1090,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 92,
+        "total": 93,
         "open": 1,
-        "resolved": 91
+        "resolved": 92
       },
       "cli": {
         "total": 19,
@@ -9533,6 +9533,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T022244664Z-SELF-HOST-PROOF-SOLVER-DISPATCH-IS-S-68651DB4.md"
+    },
+    {
+      "id": "ISS-20260520T023713808Z-SELF-HOST-PROOF-API-REPORTS-UNEXPECT-31BEEAB9",
+      "title": "Self-host proof API reports unexpected evidence as fact obligation mismatch",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/api.nepl, stdlib/neplg2/core/proof/query.nepl, stdlib/neplg2/core/check/module.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T023713808Z-SELF-HOST-PROOF-API-REPORTS-UNEXPECT-31BEEAB9.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

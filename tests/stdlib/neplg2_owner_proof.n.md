@@ -169,6 +169,8 @@ fn check_owner_refutation <(SelfhostProofRefutation,(SelfhostOwnerTransitionErro
             checker issue.reason
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected owner refutation"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
+            Result<(),str>::Err "expected owner refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected owner refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:

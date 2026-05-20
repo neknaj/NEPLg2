@@ -75,6 +75,8 @@ fn check_lifetime_refutation <(SelfhostProofRefutation,(SelfhostLifetimeOutlives
             checker issue.reason
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected lifetime outlives refutation"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
+            Result<(),str>::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:

@@ -100,6 +100,8 @@ fn check_borrow_refutation <(SelfhostProofRefutation,(SelfhostBorrowAccessError)
             checker issue.reason
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected borrow access refutation"
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
+            Result<(),str>::Err "expected borrow access refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
             Result<(),str>::Err "expected borrow access refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
