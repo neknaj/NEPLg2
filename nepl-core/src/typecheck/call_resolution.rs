@@ -10,6 +10,7 @@ use crate::types::{TypeId, TypeKind};
 
 use super::env::BindingKind;
 use super::traits::insert_substitution_mapping;
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
 impl<'a> BlockChecker<'a> {
@@ -427,7 +428,7 @@ impl<'a> BlockChecker<'a> {
         self.reduce_calls(
             &mut pending,
             &mut open_calls,
-            expected_input.map(|t| (t, 0)),
+            expected_input.map(|t| TypeExpectation::outer_consumer_argument(t, 0)),
         );
         if pending.len() == 1 {
             pending.pop()

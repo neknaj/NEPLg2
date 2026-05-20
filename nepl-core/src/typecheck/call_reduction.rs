@@ -13,6 +13,7 @@ use crate::types::{TypeId, TypeKind};
 
 use super::diagnostics::type_error;
 use super::env::BindingKind;
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, CoreIntrinsicKind, FieldIdx, StackEntry};
 
 fn call_reduction_dump_enabled() -> bool {
@@ -146,7 +147,7 @@ impl<'a> BlockChecker<'a> {
         stack: &mut Vec<StackEntry>,
         open_calls: &mut Vec<usize>,
         min_func_pos: usize,
-        expected: Option<(TypeId, usize)>,
+        expected: Option<TypeExpectation>,
         label: &str,
     ) {
         let mut no_progress_states = BTreeSet::new();
@@ -223,13 +224,8 @@ impl<'a> BlockChecker<'a> {
             if stack.len() < func_pos + 1 + args_to_take {
                 break;
             }
-            let expected_ret = expected.and_then(|(target, base_len)| {
-                let new_len = stack.len().saturating_sub(args_to_take);
-                if new_len == base_len + 1 {
-                    Some(target)
-                } else {
-                    None
-                }
+            let expected_ret = expected.and_then(|expectation| {
+                expectation.call_result_target_after_args(stack.len(), args_to_take)
             });
             let outer_expected =
                 self.infer_expected_from_outer_consumer(stack, func_pos, min_func_pos);
@@ -308,7 +304,7 @@ impl<'a> BlockChecker<'a> {
         &mut self,
         stack: &mut Vec<StackEntry>,
         open_calls: &mut Vec<usize>,
-        expected: Option<(TypeId, usize)>,
+        expected: Option<TypeExpectation>,
     ) {
         self.reduce_calls_from(stack, open_calls, 0, expected, "reduce_calls");
     }
@@ -388,7 +384,7 @@ impl<'a> BlockChecker<'a> {
         stack: &mut Vec<StackEntry>,
         open_calls: &mut Vec<usize>,
         min_func_pos: usize,
-        expected: Option<(TypeId, usize)>,
+        expected: Option<TypeExpectation>,
     ) {
         self.reduce_calls_from(
             stack,

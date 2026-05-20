@@ -57,3 +57,29 @@ Add focused compiler regressions and source-policy tests proving annotated expre
 - 注釈があっても generic type parameter が不足する式では、引数型や trait bound から必要探索して解ける。
 - 注釈があっても制約が閉じた後に複数候補が残る式では、無理に選ばず曖昧性診断を出す。
 - 注釈あり経路でも stdlib 関数名 allowlist や文字列 key に依存しない。
+
+## 2026-05-20 Stage B TypeExpectation model 導入
+
+実装前半として、`pending_ascription: Option<(TypeId, usize)>` と call reduction の expected tuple を `TypeExpectation` model へ移した。`TypeExpectation` は target type、base depth、span、source enum を保持し、現時点では挙動変更を最小化して既存の ascription 適用タイミングを維持する。
+
+追加した source は次の通り。
+
+- `ExplicitAscription`: `<T>` による明示注釈。
+- `BlockResult`: function body や block の最終式に要求される戻り値型。
+- `OuterConsumerArgument`: pipe target など外側 consumer から来る引数期待型。
+
+`prefix_check.rs` と `call_reduction.rs` は期待型を naked tuple として扱わず、`TypeExpectation::target` / `base_depth` / `call_result_target_after_args` を通す。`call_resolution.rs` の pipe pending segment も `TypeExpectation::outer_consumer_argument` を使う。明示注釈由来の mismatch は注釈 span を診断 primary span として使い、block result / outer consumer 由来の mismatch は式側 span を使う。
+
+この stage は typed state の導入であり、overload / generics / trait の探索削減そのものは次 stage で行う。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_enum_none_typed_by_ascription -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_ascription_mismatch_is_error -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
+- `node nodesrc/issues.js check`: pass
+
+補足: `cargo test -p nepl-core --test overload -- --nocapture` は 5/8 passed, 3 failed。失敗内容は今回追加した TypeExpectation ではなく、既存 stdlib shadow warning を `overload.rs` の helper が diagnostic 非空として panic する既存状態だったため、今回の commit の完了条件からは focused case を採用した。
