@@ -272,6 +272,7 @@ mod owner_summary_raw_use_walk;
 mod owner_summary_raw_view_return;
 mod owner_summary_record;
 mod owner_summary_resolved_variant;
+mod owner_summary_seed_leaf;
 mod owner_summary_size_return;
 mod owner_summary_storage_origin;
 mod owner_summary_type_params;

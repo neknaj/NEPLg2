@@ -1,3 +1,12 @@
+# 2026-05-20 Agent 1 resource owner summary seed leaf split
+
+- `ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE` の再発を修正した。`plan.md` は変更していない。
+- `owner_summary_leaf.rs` に raw i32 owner seed 判定が再集中していたため、`owner_summary_seed_leaf.rs` を追加し、seed 判定と raw owner return alias 判定を leaf projection から分離した。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module を登録し、`owner_summary_leaf.rs` 216/260、`owner_summary_seed_leaf.rs` 79/100 として責務分割を再固定した。
+- 検証:
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `cargo check -p nepl-core`: pass
+
 # 2026-05-20 Agent 1 type expectation source policy overload split
 
 - `ISS-20260520T091645744Z-TYPE-EXPECTATION-SOURCE-POLICY-STILL-63FFD27B` を修正した。`plan.md` は変更していない。
