@@ -15,7 +15,7 @@
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
-#import "alloc/collections/vec/invariant" as vec_invariant
+#import "alloc/collections/vec/invariant" as *
 #import "alloc/collections/vec/sort/common" as *
 #import "core/field" as *
 
@@ -88,10 +88,10 @@ fn sort_quick_range_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)*>()> (data_ptr, lo
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n)、最悪 O(n^2)、追加領域は recursion stack です。
 pub fn sort_quick <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> v
-        then ()
-        else:
+    match vec_current_copy_invariant<.T> v:
+        VecCopyInvariant::Invalid _reason:
+            ()
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> v
             let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
             if:
@@ -114,10 +114,10 @@ pub fn sort_quick <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
 pub fn sort_quick_ret <.T: Ord&Copy> <(Vec<.T>)*>Vec<.T>> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> &v
-        then ()
-        else:
+    match vec_current_copy_invariant<.T> &v:
+        VecCopyInvariant::Invalid _reason:
+            ()
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> &v
             let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
             if:

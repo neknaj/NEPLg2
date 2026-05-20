@@ -12,7 +12,7 @@
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
-#import "alloc/collections/vec/invariant" as vec_invariant
+#import "alloc/collections/vec/invariant" as *
 #import "alloc/collections/vec/sort/common" as *
 
 //: sort_bubble: bubble sort で in-place 整列する
@@ -29,10 +29,10 @@
 //: [計算量/けいさんりょう]:
 //: - O(n^2)
 pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> v
-        then ()
-        else:
+    match vec_current_copy_invariant<.T> v:
+        VecCopyInvariant::Invalid _reason:
+            ()
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> v
             let data <MemPtr<.T>> data_mem_ptr<.T> v
             if:
@@ -73,10 +73,10 @@ pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)
 pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> v
-        then ()
-        else:
+    match vec_current_copy_invariant<.T> v:
+        VecCopyInvariant::Invalid _reason:
+            ()
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> v
             let data <MemPtr<.T>> data_mem_ptr<.T> v
             if:

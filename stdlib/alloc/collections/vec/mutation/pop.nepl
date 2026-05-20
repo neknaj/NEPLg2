@@ -15,7 +15,7 @@
 #import "../types" as *
 #import "../storage" as vec_storage
 #import "../access/data" as vec_data
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 #import "core/field" as *
 
 //: ## pop
@@ -74,15 +74,14 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
     let v_len <i32> *field::get_ref v_buffer_ref "len"
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant_ok <bool> vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
+    let v_invariant <VecCopyInvariant> vec_buffer_current_copy_invariant<.T> v_buffer_ref
     let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &v
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
-    if:
-        not v_invariant_ok
-        then:
+    match v_invariant:
+        VecCopyInvariant::Invalid _reason:
             VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
-        else:
+        VecCopyInvariant::Valid:
             if:
                 eq v_len 0
                 then:
@@ -133,13 +132,12 @@ pub fn drop_last <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_len <i32> *field::get_ref v_buffer_ref "len"
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant_ok <bool> vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
+    let v_invariant <VecCopyInvariant> vec_buffer_current_copy_invariant<.T> v_buffer_ref
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
-    if:
-        not v_invariant_ok
-        then:
+    match v_invariant:
+        VecCopyInvariant::Invalid _reason:
             Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)
-        else:
+        VecCopyInvariant::Valid:
             let next_len <i32> if eq v_len 0 0 sub v_len 1
             Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap v_storage)

@@ -15,13 +15,37 @@
 #import "core/field" as field
 #import "./types" as *
 
+//: ## VecCopyInvariantInvalid
+//: current Copy-only `Vec` invariant が[成立/せいりつ]しない[理由/りゆう]
+//:
+//: ### [目的/もくてき]
+//: - invariant failure を bool に[潰/つぶ]さず、どの metadata / storage 相関が[壊/こわ]れたかを enum として[残/のこ]します。
+//: - 新しい failure case を[追加/ついか]したとき、`match` の[網羅性/もうらせい]で caller / diagnostic / policy の[追従/ついじゅう]漏れを[見/み]つけやすくします。
+pub enum VecCopyInvariantInvalid:
+    NegativeLength
+    InitializedLengthMismatch
+    LengthExceedsCapacity
+    EmptyStorageMetadataMismatch
+    OwnedStorageCapacityMismatch
+
+//: ## VecCopyInvariant
+//: raw access 前に使う current Copy-only `Vec` invariant proof
+//:
+//: ### [目的/もくてき]
+//: - `Valid` は raw load/store の前提となる `OwnedBuffer` 相関が[証明/しょうめい]されたことを[表/あらわ]します。
+//: - `Invalid(reason)` は raw access を[拒否/きょひ]すべき状態で、理由を typed payload として[保持/ほじ]します。
+pub enum VecCopyInvariant:
+    Valid
+    Invalid <VecCopyInvariantInvalid>
+
 //: ## vec_buffer_current_copy_invariant
-//: `OwnedBuffer` が current Copy-only `Vec` として raw access できる状態かを[返/かえ]す
+//: `OwnedBuffer` が current Copy-only `Vec` として raw access できる状態かを enum proof で[返/かえ]す
 //:
 //: ### [目的/もくてき]
 //: - `0 <= len == initialized_len <= cap` を[確認/かくにん]します。
 //: - `VecStorage::Empty` は `len = initialized_len = cap = 0` の時だけ[妥当/だとう]とします。
 //: - `VecStorage::Owned(_)` は `cap > 0` の時だけ[妥当/だとう]とします。
+//: - [結果/けっか]は bool ではなく `VecCopyInvariant` にし、caller は `match` により `Valid` / `Invalid` を[明示/めいじ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -31,35 +55,50 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
-//:| #import "alloc/collections/vec/invariant" as inv
+//:| #import "alloc/collections/vec/invariant" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let ok <bool> inv::vec_current_copy_invariant<i32> &v
+//:     let ok <bool> match vec_current_copy_invariant<i32> &v:
+//:         VecCopyInvariant::Valid:
+//:             true
+//:         VecCopyInvariant::Invalid _reason:
+//:             false
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn vec_buffer_current_copy_invariant <.T> <(&OwnedBuffer<.T>)->bool> (buffer):
+pub fn vec_buffer_current_copy_invariant <.T> <(&OwnedBuffer<.T>)->VecCopyInvariant> (buffer):
     let len0 <i32> *field::get_ref buffer "len"
     let initialized_len0 <i32> *field::get_ref buffer "initialized_len"
     let cap0 <i32> *field::get_ref buffer "cap"
     let storage <&VecStorage<.T>> field::get_ref buffer "storage"
-    let metadata_ok <bool> and (and (ge len0 0) (eq initialized_len0 len0)) (le len0 cap0)
     if:
-        metadata_ok
-        then:
-            match storage:
-                VecStorage::Empty:
-                    and (eq len0 0) (eq cap0 0)
-                VecStorage::Owned _region:
-                    gt cap0 0
-        else false
+        lt len0 0
+        then VecCopyInvariant::Invalid VecCopyInvariantInvalid::NegativeLength
+        else if:
+            not eq initialized_len0 len0
+            then VecCopyInvariant::Invalid VecCopyInvariantInvalid::InitializedLengthMismatch
+            else if:
+                gt len0 cap0
+                then VecCopyInvariant::Invalid VecCopyInvariantInvalid::LengthExceedsCapacity
+                else:
+                    match storage:
+                        VecStorage::Empty:
+                            if:
+                                and (eq len0 0) (eq cap0 0)
+                                then VecCopyInvariant::Valid
+                                else VecCopyInvariant::Invalid VecCopyInvariantInvalid::EmptyStorageMetadataMismatch
+                        VecStorage::Owned _region:
+                            if:
+                                gt cap0 0
+                                then VecCopyInvariant::Valid
+                                else VecCopyInvariant::Invalid VecCopyInvariantInvalid::OwnedStorageCapacityMismatch
 
 //: ## vec_current_copy_invariant
-//: `Vec` が current Copy-only raw access invariant を[満/み]たすかを[返/かえ]す
+//: `Vec` が current Copy-only raw access invariant を[満/み]たすかを enum proof で[返/かえ]す
 //:
 //: ### [目的/もくてき]
 //: - public `Vec` facade から `OwnedBuffer` を[借用/しゃくよう]し、raw element access 前の invariant [検査/けんさ]を[共通化/きょうつうか]します。
-pub fn vec_current_copy_invariant <.T> <(&Vec<.T>)->bool> (v):
+pub fn vec_current_copy_invariant <.T> <(&Vec<.T>)->VecCopyInvariant> (v):
     let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     vec_buffer_current_copy_invariant<.T> buffer

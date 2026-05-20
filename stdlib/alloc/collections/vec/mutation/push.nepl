@@ -17,7 +17,7 @@
 #import "core/result" as *
 #import "core/field" as field
 #import "../types" as *
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 #import "core/field" as *
 
 //: ## push
@@ -187,14 +187,13 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
     let v_len <i32> *field::get_ref v_buffer_ref "len"
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant_ok <bool> vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
+    let v_invariant <VecCopyInvariant> vec_buffer_current_copy_invariant<.T> v_buffer_ref
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
-    if:
-        not v_invariant_ok
-        then:
+    match v_invariant:
+        VecCopyInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) StdErrorKind::InvalidOperation
-        else:
+        VecCopyInvariant::Valid:
             if:
                 eq v_len v_cap
                 then:

@@ -22,7 +22,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../query/get" as vec_get
 #import "../access/data" as vec_data
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 
 //: filter: [条件/じょうけん]を[満/み]たす[要素/ようそ]だけを[残/のこ]す
 //:
@@ -68,11 +68,10 @@
 pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
-        then:
+    match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
+        VecCopyInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
-        else:
+        VecCopyInvariant::Valid:
             let mut keep_len <i32> 0
             let mut i <i32> 0
             while lt i src_len:
@@ -154,11 +153,10 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformErr
 pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
-        then:
+    match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
+        VecCopyInvariant::Invalid _reason:
             Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
-        else:
+        VecCopyInvariant::Valid:
             let mut left_len <i32> 0
             let mut i <i32> 0
             while lt i src_len:

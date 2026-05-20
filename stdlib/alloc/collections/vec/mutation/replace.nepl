@@ -13,7 +13,7 @@
 #import "core/field" as field
 #import "../types" as *
 #import "../access/data" as vec_data
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 #import "core/field" as *
 
 //: ## replace
@@ -51,10 +51,10 @@ pub fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     let v_len <i32> *field::get_ref v_buffer "len"
     let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> v
-        then ()
-        else:
+    match vec_current_copy_invariant<.T> v:
+        VecCopyInvariant::Invalid _reason:
+            ()
+        VecCopyInvariant::Valid:
             if:
                 lt idx 0
                 then ()

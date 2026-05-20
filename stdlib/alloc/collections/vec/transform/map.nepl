@@ -22,7 +22,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../query/get" as vec_get
 #import "../access/data" as vec_data
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 #import "core/field" as *
 
 //: map: [各要素/かくようそ]を[同/おな]じ[規則/きそく]で[変換/へんかん]する
@@ -74,11 +74,10 @@
 pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, VecTransformError<.T>>> (v, f):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
-        then:
+    match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
+        VecCopyInvariant::Invalid _reason:
             Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
-        else:
+        VecCopyInvariant::Valid:
             match vec_storage::with_capacity<.U> src_len:
                 Result::Err e:
                     Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v e

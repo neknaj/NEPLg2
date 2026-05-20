@@ -50,6 +50,8 @@
 
 2026-05-20 追記 2: typed raw data view observer である `data_mem_ptr<T>(&Vec<T>)` も invariant boundary に含める。raw load/store caller が guard を持つだけでは不十分で、`RegionToken<T>` から non-owning raw view を導出する public API 自体が `OwnedBuffer<T>` invariant を確認する必要がある。invalid owner aggregate からは actual storage view を返さず、0 address typed view に落とす。
 
+2026-05-20 追記 3: `Vec` invariant の結果は bool ではなく `VecCopyInvariant::Valid | Invalid(VecCopyInvariantInvalid)` として扱う。`len` / `initialized_len` / `cap` / `VecStorage` の相関が壊れた理由を enum payload に残し、raw boundary caller は `match` で `Valid` と `Invalid` を分岐する。これにより、future invariant case を追加した時に source policy と compiler の網羅性検査が効き、静的検査プログラム自体の誤りを見つけやすくする。raw access は引き続き `.T: Copy` の過渡境界に限定し、non-Copy payload の move/drop state は `InitializedCell` / Resource IR 接続後に扱う。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

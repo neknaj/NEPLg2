@@ -12,7 +12,7 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 
 //: ## data_mem_ptr
 //: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
@@ -68,10 +68,10 @@
 pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
-        then mem_ptr_wrap 0
-        else:
+    match vec_buffer_current_copy_invariant<.T> v_buffer:
+        VecCopyInvariant::Invalid _reason:
+            mem_ptr_wrap 0
+        VecCopyInvariant::Valid:
             match v_storage:
                 VecStorage::Empty:
                     mem_ptr_wrap 0
