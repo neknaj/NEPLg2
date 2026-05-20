@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
+use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummaryIndex;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -105,12 +106,14 @@ fn function_raw_cell_initialization_summary(
     i32_scalar_summaries: &I32ScalarReturnSummaryIndex<'_>,
     raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
 ) -> RawCellInitializationFunctionSummary {
+    let empty_collection_slot_summaries = CollectionSlotLifecycleFunctionSummaryIndex::new(&[]);
     let engine = ResourceCheckEngine {
         function: function.name.as_str(),
         types,
         raw_alias_summaries,
         i32_scalar_summaries,
         raw_init_summaries,
+        collection_slot_summaries: &empty_collection_slot_summaries,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),

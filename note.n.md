@@ -43832,3 +43832,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_moves_non_copy_raw_load_cell -- --test-threads=1 --exact`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_store_reinitializes_moved_raw_cell -- --test-threads=1 --exact`: passed
   - `node nodesrc/test_resource_raw_cell_lifecycle_policy.js`: passed
+
+## 2026-05-21 Agent 1 collection slot call summary
+
+- `ISS-20260520T200325099Z-COLLECTION-SLOT-LIFECYCLE-EFFECTS-DO-6E6407FC` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotStateTable` が関数内の Resource IR operation と control-flow merge だけを扱い、callee の `ResourceOp::CollectionSlotLifecycle` を caller の state table に伝播する summary が存在しなかったことだった。
+- `CollectionSlotLifecycleFunctionSummary` を追加し、callee parameter projection 上の lifecycle effect を `Event` / `Merge` / `Loop` の enum program として保持するようにした。direct call は actual arg に suffix を置換して再適用し、function alias indirect call は候補ごとの state path を merge する。
+- initialized checker の direct / indirect call 処理は `initialized_call.rs` に分割し、summary 用の engine clone は `initialized_summary_engine.rs` に共有化した。line responsibility policy も新規 summary module を監視対象に加えた。
+- 回帰テスト:
+  - callee が slot を initialize+move してから caller が storage dealloc するケースを許可する。
+  - callee が live slot を残したまま caller が storage dealloc するケースを `LiveSlotDuringStorageDealloc` で拒否する。
+  - callee branch の片側だけが live slot を残すケースを `MaybeLiveSlotDuringStorageDealloc` で拒否する。
+  - function alias indirect call でも collection slot summary を適用する。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core resource_ir_collection_slot -- --test-threads=1`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `git diff --check`: passed

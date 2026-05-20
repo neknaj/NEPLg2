@@ -7,6 +7,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
+use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummaryIndex;
 use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -53,12 +54,14 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     if !return_type_may_have_variant_param_summary(types, return_value.ty) {
         return;
     }
+    let empty_collection_slot_summaries = CollectionSlotLifecycleFunctionSummaryIndex::new(&[]);
     let mut engine = ResourceCheckEngine {
         function: function.name.as_str(),
         types,
         raw_alias_summaries,
         i32_scalar_summaries,
         raw_init_summaries,
+        collection_slot_summaries: &empty_collection_slot_summaries,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
@@ -168,6 +171,7 @@ fn collect_branch_variant_param_initialized_raw_cells(
         raw_alias_summaries: engine.raw_alias_summaries,
         i32_scalar_summaries: engine.i32_scalar_summaries,
         raw_init_summaries: engine.raw_init_summaries,
+        collection_slot_summaries: engine.collection_slot_summaries,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),

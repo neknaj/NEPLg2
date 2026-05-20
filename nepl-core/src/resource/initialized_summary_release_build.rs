@@ -12,6 +12,7 @@ use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
     RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
 };
+use super::initialized_summary_engine::summary_check_engine;
 use super::initialized_summary_indirect_release::{
     collect_unknown_indirect_call_release_requirements, indirect_call_may_release_raw_cells,
 };
@@ -21,7 +22,6 @@ use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceBlockId, ResourceCallTarget, ResourceLocal, ResourceOp};
 use super::place_utils::{match_bind_payload_place, projected_place_with_concrete_type};
 use super::raw_realloc::PendingRawReallocs;
-use super::report::ResourceCheckDeferred;
 
 pub(super) fn collect_param_release_requirements_from_ops(
     out: &mut Vec<RawCellReleaseParamRequirement>,
@@ -402,18 +402,5 @@ fn push_unique_param_release_requirement(
 ) {
     if !requirements.iter().any(|existing| existing == &requirement) {
         requirements.push(requirement);
-    }
-}
-
-fn summary_check_engine<'a>(engine: &ResourceCheckEngine<'a>) -> ResourceCheckEngine<'a> {
-    ResourceCheckEngine {
-        function: engine.function,
-        types: engine.types,
-        raw_alias_summaries: engine.raw_alias_summaries,
-        i32_scalar_summaries: engine.i32_scalar_summaries,
-        raw_init_summaries: engine.raw_init_summaries,
-        diagnostics: Vec::new(),
-        auto_drop_points: Vec::new(),
-        deferred: ResourceCheckDeferred::default(),
     }
 }

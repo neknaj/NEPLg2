@@ -6,10 +6,11 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::{CollectionSlotStateEntry, CollectionSlotStateTable};
+use super::collection_slot_summary_build::compute_collection_slot_lifecycle_function_summaries;
+use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummaryIndex;
 use super::drop_model::ResourceDropPoint;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
-use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
@@ -18,19 +19,18 @@ use super::initialized_alias_flow::{
 };
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
 use super::initialized_scalar_flow::{
-    apply_direct_call_i32_scalar_summary, compute_i32_scalar_return_summaries,
-    I32ScalarReturnSummaryIndex,
+    compute_i32_scalar_return_summaries, I32ScalarReturnSummaryIndex,
 };
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
-    CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
-    ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
+    CellState, CellStateEntry, Place, ResourceBlock, ResourceCallTarget, ResourceExprKind,
+    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
-    call_uses_checked_mem_ptr_wrapper, construct_aggregate_field_place, reference_target_place,
+    construct_aggregate_field_place, reference_target_place,
     structural_i32_projection_preserves_raw_address, type_preserves_raw_address_alias,
 };
 use super::raw_realloc::PendingRawReallocs;
@@ -67,6 +67,17 @@ pub fn check_resource_initialized_moves(
         RawCellInitializationFunctionSummaryIndex::new(&raw_init_summaries);
     stage_start.log("resource_initialized_raw_init_summaries");
     let stage_start = ResourceStageTimer::start();
+    let collection_slot_summaries = compute_collection_slot_lifecycle_function_summaries(
+        module,
+        types,
+        &raw_alias_summaries,
+        &i32_scalar_summaries,
+        &raw_init_summaries,
+    );
+    let collection_slot_summary_index =
+        CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);
+    stage_start.log("resource_initialized_collection_slot_summaries");
+    let stage_start = ResourceStageTimer::start();
 
     for function in &module.functions {
         let mut engine = ResourceCheckEngine {
@@ -75,6 +86,7 @@ pub fn check_resource_initialized_moves(
             raw_alias_summaries: &raw_alias_summary_index,
             i32_scalar_summaries: &i32_scalar_summary_index,
             raw_init_summaries: &raw_init_summary_index,
+            collection_slot_summaries: &collection_slot_summary_index,
             diagnostics: Vec::new(),
             auto_drop_points: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
@@ -105,6 +117,7 @@ pub(super) struct ResourceCheckEngine<'a> {
     pub(super) raw_alias_summaries: &'a RawCellAddressReturnSummaryIndex<'a>,
     pub(super) i32_scalar_summaries: &'a I32ScalarReturnSummaryIndex<'a>,
     pub(super) raw_init_summaries: &'a RawCellInitializationFunctionSummaryIndex<'a>,
+    pub(super) collection_slot_summaries: &'a CollectionSlotLifecycleFunctionSummaryIndex<'a>,
     pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
     pub(super) auto_drop_points: Vec<ResourceDropPoint>,
     pub(super) deferred: ResourceCheckDeferred,
@@ -415,110 +428,36 @@ impl ResourceCheckEngine<'_> {
                 effect,
                 span,
                 ..
-            } => {
-                if matches!(effect, EffectOp::InternalAlloc { .. })
-                    || (matches!(effect, EffectOp::UnsafeMemory { .. })
-                        && !call_uses_checked_mem_ptr_wrapper(self.types, args))
-                {
-                    pending_reallocs.clear_result(output);
-                    variant_initializations.clear_result(output);
-                    return;
-                }
-                let args_available =
-                    self.consume_args(cells, args, ResourceCheckOperation::CallArgument, *span);
-                if args_available {
-                    let external_inputs_available = self.ensure_external_io_initialized_inputs(
-                        cells,
-                        raw_aliases,
-                        effect,
-                        args,
-                        *span,
-                    );
-                    if !external_inputs_available {
-                        raw_aliases.clear(output);
-                        pending_reallocs.clear_result(output);
-                        variant_initializations.clear_result(output);
-                        return;
-                    }
-                    cells.mark_initialized(output);
-                    self.apply_external_io_initialized_effect(cells, raw_aliases, effect, args);
-                    if !self.apply_call_return_raw_alias(raw_aliases, output, target, args) {
-                        raw_aliases.clear(output);
-                    }
-                    apply_direct_call_i32_scalar_summary(
-                        raw_aliases,
-                        output,
-                        target,
-                        args,
-                        self.i32_scalar_summaries,
-                        self.types,
-                    );
-                    let release_requirements_ok = self.apply_call_raw_cell_initialization_summary(
-                        cells,
-                        raw_aliases,
-                        variant_initializations,
-                        output,
-                        target,
-                        args,
-                        *span,
-                    );
-                    if !release_requirements_ok {
-                        raw_aliases.clear(output);
-                        pending_reallocs.clear_result(output);
-                        variant_initializations.clear_result(output);
-                    } else {
-                        record_direct_call_i32_facts(raw_aliases, target, output, args);
-                    }
-                    seed_str_storage_layout(self.types, cells, raw_aliases, output);
-                    pending_reallocs.clear_result(output);
-                }
-            }
+            } => self.check_direct_call(
+                cells,
+                collection_slots,
+                raw_aliases,
+                pending_reallocs,
+                variant_initializations,
+                output,
+                target,
+                args,
+                effect,
+                *span,
+            ),
             ResourceOp::IndirectCall {
                 output,
                 callee,
                 args,
                 span,
                 ..
-            } => {
-                let callee_available = self.ensure_available(
-                    cells,
-                    callee,
-                    ResourceCheckOperation::IndirectCallee,
-                    *span,
-                );
-                let args_available =
-                    self.consume_args(cells, args, ResourceCheckOperation::CallArgument, *span);
-                if callee_available && args_available {
-                    cells.mark_initialized(output);
-                    if !self.apply_indirect_call_return_raw_alias(
-                        raw_aliases,
-                        function_aliases,
-                        output,
-                        callee,
-                        args,
-                    ) {
-                        raw_aliases.clear(output);
-                    }
-                    let release_requirements_ok = self
-                        .apply_indirect_call_raw_cell_initialization_summary(
-                            cells,
-                            raw_aliases,
-                            variant_initializations,
-                            output,
-                            function_aliases,
-                            callee,
-                            args,
-                            *span,
-                        );
-                    if !release_requirements_ok {
-                        raw_aliases.clear(output);
-                        pending_reallocs.clear_result(output);
-                        variant_initializations.clear_result(output);
-                    }
-                    seed_str_storage_layout(self.types, cells, raw_aliases, output);
-                    pending_reallocs.clear_result(output);
-                }
-            }
+            } => self.check_indirect_call(
+                cells,
+                collection_slots,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                output,
+                callee,
+                args,
+                *span,
+            ),
             ResourceOp::RawMemory {
                 operation,
                 output,
@@ -660,7 +599,7 @@ impl ResourceCheckEngine<'_> {
         }
     }
 
-    fn apply_call_return_raw_alias(
+    pub(super) fn apply_call_return_raw_alias(
         &self,
         raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
@@ -677,7 +616,7 @@ impl ResourceCheckEngine<'_> {
         )
     }
 
-    fn apply_indirect_call_return_raw_alias(
+    pub(super) fn apply_indirect_call_return_raw_alias(
         &self,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &FunctionAliasTable,

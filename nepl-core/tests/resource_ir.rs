@@ -23230,6 +23230,286 @@ fn resource_ir_collection_slot_merges_branch_liveness_before_storage_dealloc() {
             && entry.state == CollectionSlotState::MaybeInitialized(Some(owned_ty))));
 }
 
+#[test]
+fn resource_ir_collection_slot_call_summary_moves_slot_before_storage_dealloc() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let resource = collection_slot_summary_resource(
+        unit_ty,
+        owned_ty,
+        span,
+        "drain_slot",
+        vec![
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot_for_param(owned_ty),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot_for_param(owned_ty),
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+        ],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(700), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "drain_slot".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![storage.clone()],
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "callee summary should replay initialize+move before caller storage dealloc: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_call_summary_rejects_live_slot_during_storage_dealloc() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let slot = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let resource = collection_slot_summary_resource(
+        unit_ty,
+        owned_ty,
+        span,
+        "init_slot",
+        vec![ResourceOp::CollectionSlotLifecycle {
+            target: slot_for_param(owned_ty),
+            event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+            span,
+        }],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(710), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "init_slot".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![storage.clone()],
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot,
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_call_summary_merges_callee_branch_effects() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let slot = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let condition = Place::temporary(ResourceId(715), i32_ty);
+    let output = Place::temporary(ResourceId(716), unit_ty);
+    let then_value = Place::temporary(ResourceId(717), unit_ty);
+    let else_value = Place::temporary(ResourceId(718), unit_ty);
+    let resource = collection_slot_summary_resource(
+        unit_ty,
+        owned_ty,
+        span,
+        "maybe_init_slot",
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(1),
+                output: condition.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Branch {
+                output,
+                condition,
+                condition_fact: None,
+                then_ops: vec![
+                    ResourceOp::CollectionSlotLifecycle {
+                        target: slot_for_param(owned_ty),
+                        event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: then_value.clone(),
+                        ty: unit_ty,
+                        span,
+                    },
+                ],
+                then_value,
+                else_ops: vec![ResourceOp::Expr {
+                    kind: ResourceExprKind::Literal,
+                    output: else_value.clone(),
+                    ty: unit_ty,
+                    span,
+                }],
+                else_value,
+                span,
+            },
+        ],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(719), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "maybe_init_slot".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![storage.clone()],
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(matches!(
+        report.diagnostics.as_slice(),
+        [ResourceCheckDiagnostic::CollectionSlotRefuted {
+            target,
+            reason:
+                CollectionSlotLifecycleRefutation::MaybeLiveSlotDuringStorageDealloc {
+                    slot_ty: Some(found_ty),
+                },
+            ..
+        }] if *target == slot && *found_ty == owned_ty
+    ));
+}
+
+#[test]
+fn resource_ir_collection_slot_indirect_call_summary_applies_function_alias() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let function_ty = types.function(vec![], vec![owned_ty], unit_ty, Effect::Pure);
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let callee = Place::temporary(ResourceId(720), function_ty);
+    let resource = collection_slot_summary_resource(
+        unit_ty,
+        owned_ty,
+        span,
+        "drain_slot",
+        vec![
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot_for_param(owned_ty),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot_for_param(owned_ty),
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+        ],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::FunctionValue {
+                output: callee.clone(),
+                name: "drain_slot".to_string(),
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::IndirectCall {
+                output: Place::temporary(ResourceId(721), unit_ty),
+                callee,
+                params: vec![owned_ty],
+                result: unit_ty,
+                args: vec![storage.clone()],
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "function alias indirect call should apply collection slot summary: {:#?}",
+        report.diagnostics
+    );
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
@@ -23244,6 +23524,67 @@ fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
         },
     );
     (types, owned_ty)
+}
+
+fn slot_for_param(owned_ty: TypeId) -> Place {
+    Place::local("slot_storage".to_string(), owned_ty).with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    )
+}
+
+fn collection_slot_summary_resource(
+    unit_ty: TypeId,
+    owned_ty: TypeId,
+    span: Span,
+    helper_name: &str,
+    helper_ops: Vec<ResourceOp>,
+    main_ops: Vec<ResourceOp>,
+) -> ResourceModule {
+    let param_place = Place::local("slot_storage".to_string(), owned_ty);
+    ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: helper_name.to_string(),
+                origin_name: helper_name.to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "slot_storage".to_string(),
+                    ty: owned_ty,
+                    mutable: true,
+                    place: param_place,
+                }],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: helper_ops,
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: main_ops,
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    }
 }
 
 fn manual_resource_module(unit_ty: TypeId, span: Span, ops: Vec<ResourceOp>) -> ResourceModule {
