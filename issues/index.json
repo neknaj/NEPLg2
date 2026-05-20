@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T11:11:38.293Z",
+  "generated_at": "2026-05-20T11:25:17.546Z",
   "counts": {
-    "total": 1117,
+    "total": 1118,
     "open": 3,
-    "resolved": 1114,
+    "resolved": 1115,
     "by_area": {
       "stdlib": {
-        "total": 303,
+        "total": 304,
         "open": 2,
-        "resolved": 301
+        "resolved": 302
       },
       "selfhost": {
         "total": 104,
@@ -13078,6 +13078,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T105718879Z-VEC-RAW-ACCESS-INVARIANT-IS-COLLAPSE-31A4E4CA.md"
+    },
+    {
+      "id": "ISS-20260520T111714158Z-VEC-INVARIANT-DOES-NOT-PROVE-BACKING-46A3C801",
+      "title": "Vec invariant does not prove backing RegionToken extent",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/vec/invariant.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T111714158Z-VEC-INVARIANT-DOES-NOT-PROVE-BACKING-46A3C801.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
