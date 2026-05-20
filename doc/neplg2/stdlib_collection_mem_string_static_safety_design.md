@@ -58,6 +58,8 @@
 
 2026-05-20 追記 6: `region_new` は `RegionToken<T>` owner token construction として、`mem_ptr_wrap` の generic raw-address alias boundary から分離した。Rust compiler 側では `OwnerTokenConstructBoundary` と `RawAddressAliasKind::OwnerTokenConstruct` を追加し、`region_new` lowering は owner-token construction 専用の effect boundary proof を要求する。これにより `MemPtr<T>` の non-owning projection と `RegionToken<T>` の free obligation owner issuance を同じ source capability に混ぜない。これはまだ compiler-issued `OwnedRegion<T>` の完成ではないが、non-Copy collection payload support に必要な owner token / initialized cell / drop traversal proof を generic Resource IR 境界へ載せるための前提である。関連 issue は [ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0](../../issues/items/ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0.md)。
 
+2026-05-21 追記: non-Copy payload collection は raw `mem_move` の意味を ownership move に読み替えて実装しない。`core/mem` の `mem_copy<T>` / `mem_move<T>` は byte copy / memmove であり、public typed API は引き続き `.T: Copy` を要求する。non-Copy payload の安全な移動は、collection slot の `InitializeEmpty`、`BorrowRead`、`MoveOut`、`ReplaceInitialized`、`DropInitialized`、`StorageDealloc` を typed lifecycle event として Resource IR 側へ載せる。これにより、slot の live / moved / dropped / released state を stdlib module 名の allowlist ではなく、compiler-core の enum / match による汎用 proof boundary で検査する。関連 issue は [ISS-20260520T183033547Z-NON-COPY-COLLECTION-PAYLOADS-NEED-TY-674BA21D](../../issues/items/ISS-20260520T183033547Z-NON-COPY-COLLECTION-PAYLOADS-NEED-TY-674BA21D.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。
