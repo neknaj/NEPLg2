@@ -579,6 +579,8 @@ source policy は implementation detail の文字列検索だけにしない。�
 
 `nodesrc/test_selfhost_prelude_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `prelude.nepl` facade への曖昧 import を拒否する。`SelfhostBuiltinKind` の numeric tag 禁止と `SelfhostBuiltinSignature` payload policy は `nodesrc/selfhost_prelude_sources.js` を通して split 後の prelude source 全体を読む。
 
+2026-05-20 に [ISS-20260520T163240311Z-SELF-HOST-RESOURCE-CELL-MODEL-REMAI-3B6F7A90](../../issues/items/ISS-20260520T163240311Z-SELF-HOST-RESOURCE-CELL-MODEL-REMAI-3B6F7A90.md) で Resource cell state model を `core/resource/init/cell.nepl` へ移した。`core/resource/move_state.nepl` は既存 import path の互換 facade に限定し、`nodesrc/test_selfhost_resource_tree_split_contract.js` が facade への実装再導入、active proof core の legacy import、Resource cell model の proof engine 化を拒否する。raw cell lifecycle / initialized range などの次作業は `core/resource/init/` 配下に追加する。
+
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 
 generic parameter、trait definition、trait bound、impl table、coherence、dictionary/instance model は `types.rs` 相当の一枚岩にしない。抽象化機能にも static verification policy を適用し、trait coherence や bound satisfaction は `proof/` に obligation として渡す。

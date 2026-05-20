@@ -12,7 +12,7 @@
 #import "neplg2/core/proof/query" as *
 #import "neplg2/core/resource/borrow_state" as *
 #import "neplg2/core/resource/lifetime" as *
-#import "neplg2/core/resource/move_state" as *
+#import "neplg2/core/resource/init/cell" as *
 #import "neplg2/core/resource/owner" as *
 
 fn selfhost_proof_resource_cell_proven <(SelfhostResourceCellState)->SelfhostProofResult> (state):

@@ -80,6 +80,7 @@ const moduleCheckerImplementation = [
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
 const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
 const borrowState = read("stdlib/neplg2/core/resource/borrow_state.nepl");
+const resourceCell = read("stdlib/neplg2/core/resource/init/cell.nepl");
 const lifetime = read("stdlib/neplg2/core/resource/lifetime.nepl");
 const owner = read("stdlib/neplg2/core/resource/owner.nepl");
 
@@ -587,6 +588,8 @@ assert.doesNotMatch(
 );
 assert.match(borrowState, /pub enum SelfhostBorrowState:/, "borrow state must be a typed enum");
 assert.match(borrowState, /pub enum SelfhostBorrowRequestKind:/, "borrow requests must be a typed enum");
+assert.match(resourceCell, /pub enum SelfhostResourceCellState:/, "Resource cell state must be a typed enum");
+assert.match(resourceCell, /pub enum SelfhostResourceCellEventKind:/, "Resource cell events must be a typed enum");
 assert.match(owner, /pub struct SelfhostOwnerStorageId:/, "owner storage id must be a typed value");
 assert.match(owner, /pub enum SelfhostOwnerState:/, "owner state must be a typed enum");
 assert.match(owner, /pub enum SelfhostOwnerEventKind:/, "owner events must be a typed enum");

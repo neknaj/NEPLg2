@@ -1,0 +1,115 @@
+#indent 4
+
+//: # resource/init/cell
+//: NEPLg2.0 self-host Resource IR cell の initialized / moved / dropped 状態を typed value として[扱/あつか]うモジュールです。
+//:
+//: [目的/もくてき]:
+//: - 現行 `passes/move_check.rs` 相当の cell 状態を、source tree plan の `core/resource/init/` 階層へ置きます。
+//: - Resource IR の cell が initialized / moved / dropped のどの状態かを enum として表し、proof solver に渡せる model を提供します。
+//:
+//: [注意/ちゅうい]:
+//: - このモジュールは状態とイベントの型だけを持ち、証明器は持ちません。
+//: - 遷移の正当性は `neplg2/core/proof` の Resource domain obligation で検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/resource/init/cell" as *
+//: fn main <()*>i32> ():
+//:     let initial <SelfhostResourceCellState> selfhost_resource_cell_state_initial
+//:     if selfhost_resource_cell_state_eq initial SelfhostResourceCellState::Uninitialized 0 1
+//: ```
+
+#import "core/traits/copy" as *
+
+//: SelfhostResourceCellState: Resource IR cell の initialized / moved / dropped 状態
+//:
+//: [目的/もくてき]:
+//: - local や field projection が drop obligation を持つか、move 済みか、未初期化かを enum として表します。
+//: - boolean flag の組ではなく単一 enum にすることで、存在しない組み合わせを型で作れないようにします。
+pub enum SelfhostResourceCellState:
+    Uninitialized
+    Initialized
+    Moved
+    Dropped
+
+impl Clone for SelfhostResourceCellState:
+    fn clone <(&SelfhostResourceCellState)->SelfhostResourceCellState> (self):
+        *self
+
+impl Copy for SelfhostResourceCellState:
+    fn copy_mark <(SelfhostResourceCellState)->SelfhostResourceCellState> (self):
+        self
+
+//: SelfhostResourceCellEventKind: cell state を変える操作
+//:
+//: [目的/もくてき]:
+//: - 初期化、move out、drop を enum として表し、proof solver が exhaustive match で遷移を検査できるようにします。
+pub enum SelfhostResourceCellEventKind:
+    Initialize
+    MoveOut
+    Drop
+
+impl Clone for SelfhostResourceCellEventKind:
+    fn clone <(&SelfhostResourceCellEventKind)->SelfhostResourceCellEventKind> (self):
+        *self
+
+impl Copy for SelfhostResourceCellEventKind:
+    fn copy_mark <(SelfhostResourceCellEventKind)->SelfhostResourceCellEventKind> (self):
+        self
+
+//: selfhost_resource_cell_state_initial: 新しい cell の初期状態を[返/かえ]す
+pub fn selfhost_resource_cell_state_initial <()->SelfhostResourceCellState> ():
+    SelfhostResourceCellState::Uninitialized
+
+//: selfhost_resource_cell_state_eq: 2 つの cell state が同じか[返/かえ]す
+pub fn selfhost_resource_cell_state_eq <(SelfhostResourceCellState,SelfhostResourceCellState)->bool> (left, right):
+    match left:
+        SelfhostResourceCellState::Uninitialized:
+            match right:
+                SelfhostResourceCellState::Uninitialized:
+                    true
+                SelfhostResourceCellState::Initialized:
+                    false
+                SelfhostResourceCellState::Moved:
+                    false
+                SelfhostResourceCellState::Dropped:
+                    false
+        SelfhostResourceCellState::Initialized:
+            match right:
+                SelfhostResourceCellState::Initialized:
+                    true
+                SelfhostResourceCellState::Uninitialized:
+                    false
+                SelfhostResourceCellState::Moved:
+                    false
+                SelfhostResourceCellState::Dropped:
+                    false
+        SelfhostResourceCellState::Moved:
+            match right:
+                SelfhostResourceCellState::Moved:
+                    true
+                SelfhostResourceCellState::Uninitialized:
+                    false
+                SelfhostResourceCellState::Initialized:
+                    false
+                SelfhostResourceCellState::Dropped:
+                    false
+        SelfhostResourceCellState::Dropped:
+            match right:
+                SelfhostResourceCellState::Dropped:
+                    true
+                SelfhostResourceCellState::Uninitialized:
+                    false
+                SelfhostResourceCellState::Initialized:
+                    false
+                SelfhostResourceCellState::Moved:
+                    false
+
+pub fn selfhost_move_state_stage0 <()->i32> ():
+    0
