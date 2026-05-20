@@ -43686,3 +43686,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: passed
   - `node nodesrc/test_stdlib_documentation_contract.js`: passed
   - `node nodesrc/run_source_policy_regressions.js`: passed
+
+## 2026-05-20 Agent 1 borrowed collection observer Copy-only boundary
+
+- `ISS-20260520T141821436Z-BORROWED-COLLECTION-OBSERVERS-ACCEPT-FD13ABC1` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection owner aggregate を借用する scalar observer が owner を移動しないことを理由に source policy 対象から漏れていたことだった。現行の non-Copy collection は drop traversal / moved slot / compiler-issued owner token が未完成なので、`&Collection<NonCopy>` を observer で正当化してはいけない。
+- Vec header observer、Vec invariant proof、filter partition len、Stack / Queue / Deque / RingBuffer / BinaryHeap / List、BTreeMap / BTreeSet / HashMap / HashSet、BloomFilter / CountingBloomFilter の borrowed observer を Copy-only 境界へ揃えた。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` に borrowed observer surface の構造検出を追加した。関数型の parameter / return を見て `&Collection<...> -> i32|bool|VecCopyInvariant|Option<T>` の payload generic に `Copy` を要求する。
+- `tests/stdlib/collection_cleanup_contract.n.md` に non-Copy payload を len/cap/invariant/partition/map/hashmap observer に渡す compile-fail regression を追加した。
+- focused observer doctest 実行で、古い `eq len ...` 書式と `hashset_rehash` capacity helper failure が残っていることを確認した。今回の Copy-only boundary とは別に `ISS-20260520T142914786Z-COLLECTION-OBSERVER-DOCTESTS-STILL-U-19B433D2` として分離した。
+- focused verification:
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree --dist web/dist -o tmp/agent1-borrowed-collection-observer-contract-rerun.json -j 4 --assert-io`: 53/53 passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed (`declarationNoDoctest=1032`)
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

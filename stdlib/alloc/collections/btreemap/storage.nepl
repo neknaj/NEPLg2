@@ -79,16 +79,16 @@ pub fn btreemap_store_key <.K: Copy> <(&Vec<Option<.K>>,i32,Option<.K>)*>()> (ke
 pub fn btreemap_store_value <.V: Copy> <(&Vec<Option<.V>>,i32,Option<.V>)*>()> (values, idx, value):
     vec::replace<Option<.V>> values idx value
 
-pub fn btreemap_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32)->Option<.K>> (storage, idx):
+pub fn btreemap_key_slot <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32)->Option<.K>> (storage, idx):
     btreemap_key_at<.K> btreemap_storage_keys<.K,.V> storage idx
 
-pub fn btreemap_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32)->Option<.V>> (storage, idx):
+pub fn btreemap_value_slot <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32)->Option<.V>> (storage, idx):
     btreemap_value_at<.V> btreemap_storage_values<.K,.V> storage idx
 
-pub fn btreemap_store_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,Option<.K>)*>()> (storage, idx, key):
+pub fn btreemap_store_key_slot <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,Option<.K>)*>()> (storage, idx, key):
     btreemap_store_key<.K> btreemap_storage_keys<.K,.V> storage idx key
 
-pub fn btreemap_store_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,Option<.V>)*>()> (storage, idx, value):
+pub fn btreemap_store_value_slot <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,Option<.V>)*>()> (storage, idx, value):
     btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage idx value
 
 pub fn btreemap_free_storage <.K: Copy,.V: Copy> <(BTreeMapStorage<.K,.V>)->()> (storage):

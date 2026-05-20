@@ -158,6 +158,91 @@ fn main <()->i32> ():
     0
 ```
 
+## vec_len_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_non_copy_vec_len <(&Vec<CleanupPayload>)->i32> (v):
+    len<CleanupPayload> v
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_cap_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_non_copy_vec_cap <(&Vec<CleanupPayload>)->i32> (v):
+    cap<CleanupPayload> v
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_invariant_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/invariant" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn prove_non_copy_vec_invariant <(&Vec<CleanupPayload>)->VecCopyInvariant> (v):
+    vec_current_copy_invariant<CleanupPayload> v
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_partition_len_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_non_copy_partition_len <(&VecPartition<CleanupPayload>)->i32> (parts):
+    vec_partition_matched_len<CleanupPayload> parts
+
+fn main <()->i32> ():
+    0
+```
+
 ## vec_pop_vec_rejects_non_copy_payload
 
 neplg2:test[compile_fail]
@@ -504,6 +589,90 @@ fn main <()->i32> ():
     0
 ```
 
+## queue_len_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/queue" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_queue_len <(&Queue<CleanupPayload>)->i32> (q):
+    len<CleanupPayload> q
+
+fn main <()->i32> ():
+    0
+```
+
+## deque_len_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/deque" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_deque_len <(&Deque<CleanupPayload>)->i32> (dq):
+    len<CleanupPayload> dq
+
+fn main <()->i32> ():
+    0
+```
+
+## binary_heap_len_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/binary_heap" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_heap_len <(&BinaryHeap<CleanupPayload>)->i32> (heap):
+    len<CleanupPayload> heap
+
+fn main <()->i32> ():
+    0
+```
+
+## list_len_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/list" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_list_len <(&List<CleanupPayload>)->i32> (lst):
+    len<CleanupPayload> lst
+
+fn main <()->i32> ():
+    0
+```
+
 ## list_transform_error_list_rejects_non_copy_payload
 
 neplg2:test[compile_fail]
@@ -520,6 +689,49 @@ struct CleanupPayload:
 
 fn recover_list_from_transform_error <(ListTransformError<CleanupPayload>)->List<CleanupPayload>> (e):
     list_transform_error_list<CleanupPayload> e
+
+fn main <()->i32> ():
+    0
+```
+
+## btreemap_len_rejects_non_copy_value
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/btreemap" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_btreemap_len <(&BTreeMap<i32, CleanupPayload>)->i32> (hm):
+    len<i32, CleanupPayload> hm
+
+fn main <()->i32> ():
+    0
+```
+
+## hashmap_len_rejects_non_copy_value
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap" as *
+#import "core/traits/hash" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_hashmap_len <(&HashMap<i32, CleanupPayload, DefaultHash32>)->i32> (hm):
+    len<i32, CleanupPayload, DefaultHash32> hm
 
 fn main <()->i32> ():
     0

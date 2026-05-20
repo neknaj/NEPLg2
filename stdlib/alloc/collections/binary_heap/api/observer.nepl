@@ -18,17 +18,17 @@
 
 //: ## len
 //: heap を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&BinaryHeap<.T>)->i32> (hp):
+pub fn len <.T: Copy> <(&BinaryHeap<.T>)->i32> (hp):
     *field::get_ref hp "len"
 
 //: ## cap
 //: heap を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
-pub fn cap <.T> <(&BinaryHeap<.T>)->i32> (hp):
+pub fn cap <.T: Copy> <(&BinaryHeap<.T>)->i32> (hp):
     *field::get_ref hp "cap"
 
 //: ## is_empty
 //: heap を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&BinaryHeap<.T>)->bool> (hp):
+pub fn is_empty <.T: Copy> <(&BinaryHeap<.T>)->bool> (hp):
     eq len<.T> hp 0
 
 //: ## peek

@@ -42,7 +42,7 @@
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1
 //: ```
-pub fn vec_partition_matched_len <.T> <(&VecPartition<.T>)->i32> (parts):
+pub fn vec_partition_matched_len <.T: Copy> <(&VecPartition<.T>)->i32> (parts):
     let matched <&Vec<.T>> field::get_ref parts "matched"
     let matched_buffer <&OwnedBuffer<.T>> field::get_ref matched "buffer"
     *field::get_ref matched_buffer "len"
@@ -70,7 +70,7 @@ pub fn vec_partition_matched_len <.T> <(&VecPartition<.T>)->i32> (parts):
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1
 //: ```
-pub fn vec_partition_rest_len <.T> <(&VecPartition<.T>)->i32> (parts):
+pub fn vec_partition_rest_len <.T: Copy> <(&VecPartition<.T>)->i32> (parts):
     let rest <&Vec<.T>> field::get_ref parts "rest"
     let rest_buffer <&OwnedBuffer<.T>> field::get_ref rest "buffer"
     *field::get_ref rest_buffer "len"

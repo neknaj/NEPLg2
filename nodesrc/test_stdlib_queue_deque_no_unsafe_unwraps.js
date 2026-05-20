@@ -60,8 +60,8 @@ assert.match(queue, /fn\s+queue_push_error_queue\s+<\.T:\s*Copy>\s+<\(QueuePushE
 assert.match(queue, /struct\s+QueuePop<\.T>:[\s\S]*queue\s+<Queue<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Queue must expose an owner-preserving pop result');
 assert.match(queue, /fn\s+queue_pop_item\s+<\.T:\s*Copy>\s+<\(&QueuePop<\.T>\)->Option<\.T>>[\s\S]*field::get_ref\s+p\s+"item"/, 'QueuePop item access must be a public borrowed accessor');
 assert.match(queue, /fn\s+queue_pop_queue\s+<\.T:\s*Copy>\s+<\(QueuePop<\.T>\)->Queue<\.T>>[\s\S]*field::get\s+p\s+"queue"/, 'QueuePop queue extraction must be a public consuming accessor');
-assert.match(queue, /fn\s+len\s+<\.T>\s+<\(&Queue<\.T>\)->i32>\s+\(q\):/, 'Queue.len must borrow the owner');
-assert.match(queue, /fn\s+is_empty\s+<\.T>\s+<\(&Queue<\.T>\)->bool>\s+\(q\):/, 'Queue.is_empty must borrow the owner');
+assert.match(queue, /fn\s+len\s+<\.T:\s*Copy>\s+<\(&Queue<\.T>\)->i32>\s+\(q\):/, 'Queue.len must borrow the owner and remain Copy-only while drop traversal is incomplete');
+assert.match(queue, /fn\s+is_empty\s+<\.T:\s*Copy>\s+<\(&Queue<\.T>\)->bool>\s+\(q\):/, 'Queue.is_empty must borrow the owner and remain Copy-only while drop traversal is incomplete');
 assert.match(queue, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&Queue<\.T>\)->Option<\.T>>\s+\(q\):/, 'Queue.peek must borrow the owner');
 assert.doesNotMatch(queue, /fn\s+(?:len_ref|is_empty_ref|peek_ref)\b/, 'Queue must not keep duplicate *_ref observer surfaces');
 assert.doesNotMatch(queue, /fn\s+(?:len|is_empty|peek)\s+<[^>]+>\s+<\(Queue<\.T>\)/, 'Queue observers must not consume the owner');
@@ -91,9 +91,9 @@ assert.match(deque, /struct\s+DequePushError<\.T>:[\s\S]*deque\s+<Deque<\.T>>[\s
 assert.match(deque, /fn\s+deque_push_error_diag\s+<\.T>\s+<\(&DequePushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/, 'DequePushError diag access must borrow the error payload');
 assert.match(deque, /fn\s+deque_push_error_deque\s+<\.T:\s*Copy>\s+<\(DequePushError<\.T>\)->Deque<\.T>>[\s\S]*field::get\s+e\s+"deque"/, 'DequePushError deque extraction must move the returned owner and remain Copy-only while Deque is Copy-only');
 assert.match(deque, /struct\s+DequePop<\.T>:[\s\S]*deque\s+<Deque<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Deque must expose an owner-preserving pop result');
-assert.match(deque, /fn\s+len\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.len must borrow the owner');
-assert.match(deque, /fn\s+cap\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.cap must borrow the owner');
-assert.match(deque, /fn\s+is_empty\s+<\.T>\s+<\(&Deque<\.T>\)->bool>\s+\(dq\):/, 'Deque.is_empty must borrow the owner');
+assert.match(deque, /fn\s+len\s+<\.T:\s*Copy>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.len must borrow the owner and remain Copy-only while drop traversal is incomplete');
+assert.match(deque, /fn\s+cap\s+<\.T:\s*Copy>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.cap must borrow the owner and remain Copy-only while drop traversal is incomplete');
+assert.match(deque, /fn\s+is_empty\s+<\.T:\s*Copy>\s+<\(&Deque<\.T>\)->bool>\s+\(dq\):/, 'Deque.is_empty must borrow the owner and remain Copy-only while drop traversal is incomplete');
 assert.match(deque, /fn\s+peek_front\s+<\.T:\s*Copy>\s+<\(&Deque<\.T>\)->Option<\.T>>\s+\(dq\):/, 'Deque.peek_front must borrow the owner');
 assert.match(deque, /fn\s+peek_back\s+<\.T:\s*Copy>\s+<\(&Deque<\.T>\)->Option<\.T>>\s+\(dq\):/, 'Deque.peek_back must borrow the owner');
 assert.match(deque, /fn\s+deque_pop_item\s+<\.T:\s*Copy>\s+<\(&DequePop<\.T>\)->Option<\.T>>\s+\(p\):/, 'Deque pop item access must borrow the pop result');

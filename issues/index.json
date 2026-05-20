@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T14:04:43.608Z",
+  "generated_at": "2026-05-20T14:31:08.438Z",
   "counts": {
-    "total": 1125,
+    "total": 1127,
     "open": 4,
-    "resolved": 1121,
+    "resolved": 1123,
     "by_area": {
       "stdlib": {
-        "total": 309,
+        "total": 311,
         "open": 3,
-        "resolved": 306
+        "resolved": 308
       },
       "selfhost": {
         "total": 106,
@@ -150,21 +150,6 @@
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
     },
     {
-      "id": "ISS-20260520T140443378Z-COLLECTION-STORAGE-VIEW-HELPERS-EXPO-9839D32C",
-      "title": "Collection storage view helpers expose non-Copy payload internals",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-20",
-      "updated": "2026-05-20",
-      "target": "stdlib/alloc/collections/{hashmap,hashset,btreemap,btreeset}/storage.nepl, nodesrc/test_stdlib_collection_cleanup_contract.js, tests/stdlib/collection_cleanup_contract.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260520T140443378Z-COLLECTION-STORAGE-VIEW-HELPERS-EXPO-9839D32C.md"
-    },
-    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
       "title": "NEPLg2 self-host compiler が部分実装に留まっている",
       "area": "selfhost",
@@ -193,6 +178,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260520T142914786Z-COLLECTION-OBSERVER-DOCTESTS-STILL-U-19B433D2",
+      "title": "Collection observer doctests still use ambiguous observer call forms",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T142914786Z-COLLECTION-OBSERVER-DOCTESTS-STILL-U-19B433D2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -13153,6 +13153,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D.md"
+    },
+    {
+      "id": "ISS-20260520T140443378Z-COLLECTION-STORAGE-VIEW-HELPERS-EXPO-9839D32C",
+      "title": "Collection storage view helpers expose non-Copy payload internals",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/{hashmap,hashset,btreemap,btreeset}/storage.nepl, nodesrc/test_stdlib_collection_cleanup_contract.js, tests/stdlib/collection_cleanup_contract.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T140443378Z-COLLECTION-STORAGE-VIEW-HELPERS-EXPO-9839D32C.md"
+    },
+    {
+      "id": "ISS-20260520T141821436Z-BORROWED-COLLECTION-OBSERVERS-ACCEPT-FD13ABC1",
+      "title": "Borrowed collection observers accept non-Copy payload owners",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/**, nodesrc/test_stdlib_collection_cleanup_contract.js, tests/stdlib/collection_cleanup_contract.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T141821436Z-BORROWED-COLLECTION-OBSERVERS-ACCEPT-FD13ABC1.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

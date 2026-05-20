@@ -69,8 +69,8 @@ for (const [name, resultTy] of [
 ]) {
     assert.match(
         vecCode,
-        new RegExp(`fn\\s+${name}\\s+<\\.T>\\s+<\\(&Vec<\\.T>\\)->${resultTy}>\\s+\\(v\\):`),
-        `Vec.${name} must borrow the owner`,
+        new RegExp(`fn\\s+${name}\\s+<\\.T:\\s*Copy>\\s+<\\(&Vec<\\.T>\\)->${resultTy}>\\s+\\(v\\):`),
+        `Vec.${name} must borrow the owner and remain Copy-only while drop traversal is incomplete`,
     );
     assert.doesNotMatch(
         vecCode,

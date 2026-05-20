@@ -242,7 +242,7 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Resul
 //:     free hs;
 //:     ok
 //: ```
-pub fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
+pub fn len <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>)->i32> (hs):
     *field::get_ref hs "count"
 
 //: ## free

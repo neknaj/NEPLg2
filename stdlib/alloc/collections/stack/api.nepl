@@ -181,12 +181,12 @@ pub fn get <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
 
 //: ## len
 //: `Stack` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&Stack<.T>)->i32> (stk):
+pub fn len <.T: Copy> <(&Stack<.T>)->i32> (stk):
     *field::get_ref stk "len"
 
 //: ## is_empty
 //: `Stack` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&Stack<.T>)->bool> (stk):
+pub fn is_empty <.T: Copy> <(&Stack<.T>)->bool> (stk):
     eq len<.T> stk 0
 
 //: ## clear

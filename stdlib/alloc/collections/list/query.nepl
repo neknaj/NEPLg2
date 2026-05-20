@@ -17,12 +17,12 @@
 #import "core/field" as *
 
 //: len: list を[借用/しゃくよう]して[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&List<.T>)->i32> (lst):
+pub fn len <.T: Copy> <(&List<.T>)->i32> (lst):
     let items <&Vec<.T>> field::get_ref lst "items"
     vec::len<.T> items
 
 //: is_empty: list を[借用/しゃくよう]して[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&List<.T>)->bool> (lst):
+pub fn is_empty <.T: Copy> <(&List<.T>)->bool> (lst):
     eq len<.T> lst 0
 
 //: get: list を[借用/しゃくよう]して[指定位置/していいち]の[要素/ようそ]を[返/かえ]す

@@ -37,7 +37,7 @@
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-pub fn len <.T> <(&BTreeSet<.T>)->i32> (set0):
+pub fn len <.T: Copy> <(&BTreeSet<.T>)->i32> (set0):
     *field::get_ref set0 "len"
 
 //: ## contains

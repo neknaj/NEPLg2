@@ -8,6 +8,7 @@
 
 #import "core/math" as *
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "../types" as *
 #import "core/field" as *
 
@@ -42,7 +43,7 @@
 //:     free<i32> v1;
 //:     if ok 0 1
 //: ```
-pub fn len <.T> <(&Vec<.T>)->i32> (v):
+pub fn len <.T: Copy> <(&Vec<.T>)->i32> (v):
     let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     *field::get_ref buffer "len"
 
@@ -76,7 +77,7 @@ pub fn len <.T> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn cap <.T> <(&Vec<.T>)->i32> (v):
+pub fn cap <.T: Copy> <(&Vec<.T>)->i32> (v):
     let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     *field::get_ref buffer "cap"
 
@@ -109,5 +110,5 @@ pub fn cap <.T> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn is_empty <.T> <(&Vec<.T>)->bool> (v):
+pub fn is_empty <.T: Copy> <(&Vec<.T>)->bool> (v):
     eq len<.T> v 0

@@ -21,7 +21,7 @@ const setCode = stripComments(setObserverSrc);
 
 assert.match(mapApiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, 'BTreeMap api facade must re-export borrowed observers through api/observer');
 assert.doesNotMatch(mapApiCode, /\bfn\s+/, 'BTreeMap api facade must not keep duplicate observer wrappers');
-assert.match(mapCode, /fn\s+len\s+<\.K,\.V>\s+<\(&BTreeMap<\.K,\.V>\)->i32>\s+\(hm\):/, 'BTreeMap.len must borrow the owner');
+assert.match(mapCode, /fn\s+len\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(&BTreeMap<\.K,\.V>\)->i32>\s+\(hm\):/, 'BTreeMap.len must borrow the owner and remain Copy-only while drop traversal is incomplete');
 assert.match(mapCode, /fn\s+contains\s+<\.K:\s*Ord&Copy,\.V:\s*Copy>\s+<\(&BTreeMap<\.K,\.V>,\.K\)->bool>\s+\(hm,\s*key\):/, 'BTreeMap.contains must borrow the owner');
 assert.match(mapCode, /fn\s+get\s+<\.K:\s*Ord&Copy,\.V:\s*Copy>\s+<\(&BTreeMap<\.K,\.V>,\.K\)->Option<\.V>>\s+\(hm,\s*key\):/, 'BTreeMap.get must borrow the owner');
 assert.doesNotMatch(mapCode, /fn\s+(?:len_ref|contains_ref|get_ref)\b/, 'BTreeMap must not keep duplicate *_ref observers');
@@ -35,7 +35,7 @@ for (const submodule of ['types', 'api', 'alias']) {
     );
 }
 
-assert.match(setCode, /fn\s+len\s+<\.T>\s+<\(&BTreeSet<\.T>\)->i32>\s+\(set0\):/, 'BTreeSet.len must borrow the owner');
+assert.match(setCode, /fn\s+len\s+<\.T:\s*Copy>\s+<\(&BTreeSet<\.T>\)->i32>\s+\(set0\):/, 'BTreeSet.len must borrow the owner and remain Copy-only while drop traversal is incomplete');
 assert.match(setCode, /fn\s+contains\s+<\.T:\s*Ord&Copy>\s+<\(&BTreeSet<\.T>,\.T\)->bool>\s+\(set0,\s*key\):/, 'BTreeSet.contains must borrow the owner');
 assert.match(setApiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, 'BTreeSet api facade must re-export borrowed observers through api/observer');
 assert.doesNotMatch(setApiCode, /\bfn\s+/, 'BTreeSet api facade must not keep duplicate observer wrappers');

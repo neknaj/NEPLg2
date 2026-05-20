@@ -12,6 +12,7 @@ const ownerAccessorInspected = [];
 const popOwnerAccessorInspected = [];
 const fallibleOwnerConsumerInspected = [];
 const ownerSurfaceInspected = [];
+const borrowedOwnerObserverInspected = [];
 const borrowedStorageViewInspected = [];
 const violations = [];
 
@@ -57,6 +58,17 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (missingCopy.length > 0) {
                     const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                     violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
+                }
+            }
+            const borrowedOwnerObserverCopyRequirement = signature && generics.length > 0
+                ? borrowedCollectionOwnerObserverCopyRequirement(typeSignature)
+                : null;
+            if (borrowedOwnerObserverCopyRequirement && borrowedOwnerObserverCopyRequirement.size > 0) {
+                borrowedOwnerObserverInspected.push(`${relPath}:${signature.name}`);
+                const missingCopy = generics.filter((generic) => borrowedOwnerObserverCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
+                if (missingCopy.length > 0) {
+                    const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} borrowed collection owner observer generic(s) ${names} must carry Copy until collection drop traversal exists`);
                 }
             }
             const borrowedStorageViewCopyRequirement = signature && generics.length > 0
@@ -196,6 +208,47 @@ for (const expected of [
     assert.ok(
         ownerSurfaceInspected.some((entry) => entry.includes(expected)),
         `collection owner surface policy did not inspect expected signature: ${expected}`,
+    );
+}
+
+assert.ok(
+    borrowedOwnerObserverInspected.length >= 28,
+    `collection borrowed owner observer policy must inspect scalar observer surfaces, inspected only ${borrowedOwnerObserverInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/vec/access/header.nepl:len',
+    'stdlib/alloc/collections/vec/access/header.nepl:cap',
+    'stdlib/alloc/collections/vec/access/header.nepl:is_empty',
+    'stdlib/alloc/collections/vec/invariant.nepl:vec_buffer_current_copy_invariant',
+    'stdlib/alloc/collections/vec/invariant.nepl:vec_current_copy_invariant',
+    'stdlib/alloc/collections/vec/transform/filter/partition/view.nepl:vec_partition_matched_len',
+    'stdlib/alloc/collections/vec/transform/filter/partition/view.nepl:vec_partition_rest_len',
+    'stdlib/alloc/collections/stack/api.nepl:len',
+    'stdlib/alloc/collections/stack/api.nepl:is_empty',
+    'stdlib/alloc/collections/queue/api.nepl:len',
+    'stdlib/alloc/collections/queue/api.nepl:is_empty',
+    'stdlib/alloc/collections/deque/api.nepl:len',
+    'stdlib/alloc/collections/deque/api.nepl:cap',
+    'stdlib/alloc/collections/deque/api.nepl:is_empty',
+    'stdlib/alloc/collections/ringbuffer/api.nepl:len',
+    'stdlib/alloc/collections/ringbuffer/api.nepl:cap',
+    'stdlib/alloc/collections/ringbuffer/api.nepl:is_empty',
+    'stdlib/alloc/collections/binary_heap/api/observer.nepl:len',
+    'stdlib/alloc/collections/binary_heap/api/observer.nepl:cap',
+    'stdlib/alloc/collections/binary_heap/api/observer.nepl:is_empty',
+    'stdlib/alloc/collections/list/query.nepl:len',
+    'stdlib/alloc/collections/list/query.nepl:is_empty',
+    'stdlib/alloc/collections/btreemap/api/observer.nepl:len',
+    'stdlib/alloc/collections/btreeset/api/observer.nepl:len',
+    'stdlib/alloc/collections/hashmap/api.nepl:len',
+    'stdlib/alloc/collections/hashset/api.nepl:len',
+    'stdlib/alloc/collections/bloom_filter/api.nepl:len',
+    'stdlib/alloc/collections/counting_bloom_filter/api.nepl:len',
+]) {
+    assert.ok(
+        borrowedOwnerObserverInspected.some((entry) => entry.includes(expected)),
+        `collection borrowed owner observer policy did not inspect expected signature: ${expected}`,
     );
 }
 
@@ -397,6 +450,37 @@ function borrowedPayloadStorageViewCopyRequirement(typeSignature) {
     return genericNames(returnType);
 }
 
+function borrowedCollectionOwnerObserverCopyRequirement(typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || !isScalarObserverReturn(functionType.returnType)) {
+        return null;
+    }
+
+    const required = new Set();
+    for (const parameter of functionType.parameters) {
+        const trimmed = parameter.trim();
+        if (!trimmed.startsWith('&')) {
+            continue;
+        }
+        for (const name of ownerAggregateGenericNames(trimmed)) {
+            required.add(name);
+        }
+    }
+    return required;
+}
+
+function isScalarObserverReturn(returnType) {
+    const trimmed = returnType.trim();
+    return trimmed === 'i32'
+        || trimmed === 'bool'
+        || trimmed === 'VecCopyInvariant'
+        || /^Option<\./.test(trimmed);
+}
+
 function ownerAggregateGenericNames(text) {
     const names = new Set();
     const aggregatePattern = /\b([A-Z][A-Za-z0-9_]*)\s*</g;
@@ -434,9 +518,13 @@ function isOwnerAggregateName(typeName) {
         'RingBuffer',
         'BinaryHeap',
         'BTreeMap',
+        'BTreeMapStorage',
         'BTreeSet',
+        'BTreeSetStorage',
         'HashMap',
+        'HashMapStorage',
         'HashSet',
+        'HashSetStorage',
         'List',
         'BloomFilter',
         'CountingBloomFilter',

@@ -58,7 +58,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<CountingBloo
 
 //: ## len
 //: counter [長/ちょう]を[返/かえ]す
-pub fn len <.T,.H> <(&CountingBloomFilter<.T,.H>)->i32> (bf):
+pub fn len <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&CountingBloomFilter<.T,.H>)->i32> (bf):
     *field::get_ref bf "nslots"
 
 //: ## insert

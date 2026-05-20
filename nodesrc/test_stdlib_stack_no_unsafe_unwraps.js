@@ -53,8 +53,8 @@ assert.doesNotMatch(code, /Result::Err\s+d:[\s\S]{0,120}vec::free<Option<\.T>>\s
 assert.match(code, /fn\s+pop_top\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)\*>StackPop<\.T>>[\s\S]*stack_store_slot<\.T>\s+&items\s+next_len\s+none<\.T>[\s\S]*StackPop<\.T>/, 'Stack pop_top must clear the consumed slot and return the updated owner');
 assert.match(code, /fn\s+stack_pop_item\s+<\.T:\s*Copy>\s+<\(&StackPop<\.T>\)->Option<\.T>>[\s\S]*field::get_ref\s+p\s+"item"/, 'StackPop item access must be a public borrowed accessor');
 assert.match(code, /fn\s+stack_pop_stack\s+<\.T:\s*Copy>\s+<\(StackPop<\.T>\)->Stack<\.T>>[\s\S]*field::get\s+p\s+"stack"/, 'StackPop stack extraction must be a public consuming accessor');
-assert.match(code, /fn\s+len\s+<\.T>\s+<\(&Stack<\.T>\)->i32>\s+\(stk\):/, 'Stack.len must borrow the owner');
-assert.match(code, /fn\s+is_empty\s+<\.T>\s+<\(&Stack<\.T>\)->bool>\s+\(stk\):/, 'Stack.is_empty must borrow the owner');
+assert.match(code, /fn\s+len\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>\)->i32>\s+\(stk\):/, 'Stack.len must borrow the owner and remain Copy-only while drop traversal is incomplete');
+assert.match(code, /fn\s+is_empty\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>\)->bool>\s+\(stk\):/, 'Stack.is_empty must borrow the owner and remain Copy-only while drop traversal is incomplete');
 assert.match(code, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>\)->Option<\.T>>\s+\(stk\):/, 'Stack.peek must borrow the owner');
 assert.match(code, /fn\s+get\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>,i32\)->Option<\.T>>\s+\(stk,\s*idx\):/, 'Stack.get must borrow the owner');
 assert.doesNotMatch(code, /fn\s+(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, 'Stack must not keep duplicate *_ref observer surfaces');

@@ -54,17 +54,17 @@ pub fn with_capacity <.T: Copy> <(i32)*>Result<RingBuffer<.T>, Diag>> (initial_c
 
 //: ## len
 //: buffer owner を[消費/しょうひ]せず[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&RingBuffer<.T>)->i32> (rb):
+pub fn len <.T: Copy> <(&RingBuffer<.T>)->i32> (rb):
     *field::get_ref rb "len"
 
 //: ## cap
 //: buffer owner を[消費/しょうひ]せず[容量/ようりょう]を[返/かえ]す
-pub fn cap <.T> <(&RingBuffer<.T>)->i32> (rb):
+pub fn cap <.T: Copy> <(&RingBuffer<.T>)->i32> (rb):
     *field::get_ref rb "cap"
 
 //: ## is_empty
 //: buffer owner を[消費/しょうひ]せず[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&RingBuffer<.T>)->bool> (rb):
+pub fn is_empty <.T: Copy> <(&RingBuffer<.T>)->bool> (rb):
     eq len<.T> rb 0
 
 //: ## push

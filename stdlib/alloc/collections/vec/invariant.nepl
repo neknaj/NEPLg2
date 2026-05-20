@@ -14,6 +14,7 @@
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "./types" as *
 
 //: ## VecCopyInvariantInvalid
@@ -132,7 +133,7 @@ pub enum VecCopyInvariant:
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn vec_buffer_current_copy_invariant <.T> <(&OwnedBuffer<.T>)->VecCopyInvariant> (buffer):
+pub fn vec_buffer_current_copy_invariant <.T: Copy> <(&OwnedBuffer<.T>)->VecCopyInvariant> (buffer):
     let len0 <i32> *field::get_ref buffer "len"
     let initialized_len0 <i32> *field::get_ref buffer "initialized_len"
     let cap0 <i32> *field::get_ref buffer "cap"
@@ -199,6 +200,6 @@ pub fn vec_buffer_current_copy_invariant <.T> <(&OwnedBuffer<.T>)->VecCopyInvari
 //:     free<i32> v1
 //:     if ok 0 1
 //: ```
-pub fn vec_current_copy_invariant <.T> <(&Vec<.T>)->VecCopyInvariant> (v):
+pub fn vec_current_copy_invariant <.T: Copy> <(&Vec<.T>)->VecCopyInvariant> (v):
     let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     vec_buffer_current_copy_invariant<.T> buffer

@@ -61,7 +61,7 @@ assert.match(storageCode, /fn\s+bloom_free_bits\s+<\(Vec<u8>\)->\(\)>[\s\S]*vec:
 assert.match(mutationCode, /fn\s+bloom_set_bit\s+<\(&Vec<u8>,i32\)\*>\(\)>[\s\S]*bloom_byte_index[\s\S]*bloom_bit_mask[\s\S]*bloom_store_byte/, 'BloomFilter mutation module must own bit set read-modify-write');
 assert.match(mutationCode, /fn\s+bloom_test_bit\s+<\(&Vec<u8>,i32\)->bool>[\s\S]*bloom_byte_at[\s\S]*ne\s+and\s+cur\s+mask\s+0/, 'BloomFilter mutation module must own bit test');
 assert.match(apiCode, /fn\s+new\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*bloom_byte_len\s+nbits[\s\S]*bloom_alloc_bits\s+nbytes\s+0/, 'BloomFilter.new must use layout and storage helpers');
-assert.match(apiCode, /fn\s+len\s+<\.T,\.H>\s+<\(&BloomFilter<\.T,\.H>\)->i32>\s+\(bf\):/, 'BloomFilter.len must borrow the owner');
+assert.match(apiCode, /fn\s+len\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(&BloomFilter<\.T,\.H>\)->i32>\s+\(bf\):/, 'BloomFilter.len must borrow the owner and remain Copy-only while drop traversal is incomplete');
 assert.match(apiCode, /fn\s+insert\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*bloom_hash0[\s\S]*bloom_set_bit\s+bits\s+i0[\s\S]*bloom_set_bit\s+bits\s+i2/, 'BloomFilter.insert must use hash and mutation helpers');
 assert.match(apiCode, /fn\s+contains\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*bloom_test_bit\s+bits\s+i0[\s\S]*bloom_test_bit\s+bits\s+i2/, 'BloomFilter.contains must use hash and mutation helpers');
 assert.match(apiCode, /fn\s+clear\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(BloomFilter<\.T,\.H>\)\*>BloomFilter<\.T,\.H>>/, 'BloomFilter.clear must expose the same Copy-only key/hasher contract as mutating APIs');
