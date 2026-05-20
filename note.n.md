@@ -1,3 +1,16 @@
+# 2026-05-20 Agent 1 self-host builtins prelude source tree 分割
+
+- `ISS-20260520T050900767Z-SELF-HOST-PRELUDE-REGISTRY-REMAINS-A-653CFB79` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/neplg2/core/builtins/prelude.nepl` が builtin kind、signature payload、builtin function registry、primitive type registry、default path、stage0 smoke を1ファイルに持ち、resolver / checker / codegen が flat prelude file に依存しやすい構造だったこと。
+- `prelude.nepl` は doctest と public re-export だけを持つ implementation-free facade にした。実装は `prelude/model.nepl`、`kind.nepl`、`signature.nepl`、`function_registry.nepl`、`primitive_registry.nepl`、`path.nepl`、`stage0.nepl` へ分割した。
+- `SelfhostBuiltinKind` equality は numeric tag helper にせず exhaustive match を維持した。`SelfhostBuiltinSignature` も enum payload と match-based accessor のままで、fixed argument slot や numeric arity field に戻していない。
+- `nodesrc/selfhost_prelude_sources.js` と `nodesrc/test_selfhost_prelude_split_contract.js` を追加し、facade への実装再導入、split file の 450 行超過、submodule から prelude facade への曖昧 import を監視する。
+- 検証:
+  - `node nodesrc/test_selfhost_prelude_split_contract.js`: pass
+  - `node nodesrc/test_selfhost_builtin_signature_payload.js`: pass
+  - `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/builtins/prelude.nepl --no-tree -o tmp/agent1-prelude-split-core.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+
 # 2026-05-20 Agent 1 self-host diagnostic infrastructure source tree 分割
 
 - `ISS-20260520T045937560Z-SELF-HOST-DIAGNOSTIC-INFRASTRUCTURE--D61FA83C` を追加し、fixed / resolved にした。`plan.md` は変更していない。

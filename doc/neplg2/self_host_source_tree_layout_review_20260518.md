@@ -20,6 +20,7 @@ NEPLg2 self-host compiler の実装をさらに進める前に、現行 Rust com
 - [ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805](../../issues/items/ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805.md): `core/syntax/parser/module_parser.nepl` を facade 化し、state / action / diagnostic / item_kind / declaration / loop / entry へ分割する。
 - [ISS-20260520T045142622Z-SELF-HOST-NAME-RESOLVER-REMAINS-A-FL-8D5B56B9](../../issues/items/ISS-20260520T045142622Z-SELF-HOST-NAME-RESOLVER-REMAINS-A-FL-8D5B56B9.md): `core/resolve/name_resolver.nepl` を facade 化し、id / kind / binding / scope / stage0 へ分割する。
 - [ISS-20260520T045937560Z-SELF-HOST-DIAGNOSTIC-INFRASTRUCTURE--D61FA83C](../../issues/items/ISS-20260520T045937560Z-SELF-HOST-DIAGNOSTIC-INFRASTRUCTURE--D61FA83C.md): `core/infra/diag.nepl` を facade 化し、code / value / collection / stage0 へ分割する。
+- [ISS-20260520T050900767Z-SELF-HOST-PRELUDE-REGISTRY-REMAINS-A-653CFB79](../../issues/items/ISS-20260520T050900767Z-SELF-HOST-PRELUDE-REGISTRY-REMAINS-A-653CFB79.md): `core/builtins/prelude.nepl` を facade 化し、model / kind / signature / function registry / primitive registry / path / stage0 へ分割する。
 - [static_check_complexity_reduction_plan.md](./static_check_complexity_reduction_plan.md): Resource IR / owner / initialized / borrow / effect の複雑化解消計画。
 - [compiler_diagnostics_redesign_plan.md](./compiler_diagnostics_redesign_plan.md): diagnostic code を階層 enum にする計画。
 - [stdlib_documentation_contract_plan.md](./stdlib_documentation_contract_plan.md): stdlib documentation comment / doctest 整備方針。
@@ -75,6 +76,7 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 | `core/syntax/parser/module_parser.nepl` | 44 | 2026-05-20 に `syntax/parser/module_parser/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/resolve/name_resolver.nepl` | 154 | 2026-05-20 に `resolve/name_resolver/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/infra/diag.nepl` | 42 | 2026-05-20 に `infra/diag/` 配下へ分割済み。root は facade と doctest のみ。 |
+| `core/builtins/prelude.nepl` | 41 | 2026-05-20 に `builtins/prelude/` 配下へ分割済み。root は facade と doctest のみ。 |
 
 これらは「今すぐ全分割してから実装する」という意味ではない。だが、今後の実装をこれらの巨大 file に直接足さない。関連 issue を解く commit では、必要な責務単位を切り出してから実装する。
 
@@ -561,6 +563,21 @@ source policy は implementation detail の文字列検索だけにしない。�
 | `core/infra/diag/stage0.nepl` | 15 | diagnostic smoke entry。 |
 
 `nodesrc/test_selfhost_diag_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `diag.nepl` facade への曖昧 import を拒否する。`SelfhostDiagnosticCode` の階層 enum、raw string code 禁止、category / leaf code の exhaustive mapping policy は `nodesrc/selfhost_diag_sources.js` を通して split 後の diagnostic source 全体を読む。
+
+2026-05-20 に [ISS-20260520T050900767Z-SELF-HOST-PRELUDE-REGISTRY-REMAINS-A-653CFB79](../../issues/items/ISS-20260520T050900767Z-SELF-HOST-PRELUDE-REGISTRY-REMAINS-A-653CFB79.md) で `core/builtins/prelude.nepl` を分割した。現行の配置は次の通りである。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/builtins/prelude.nepl` | 41 | doctest を保持する implementation-free facade。 |
+| `core/builtins/prelude/model.nepl` | 110 | builtin kind、arity-specific signature payload、builtin function record、primitive name record。 |
+| `core/builtins/prelude/kind.nepl` | 69 | `SelfhostBuiltinKind` の numeric tag なし exhaustive equality。 |
+| `core/builtins/prelude/signature.nepl` | 58 | signature constructor と arity / argument / result accessor。 |
+| `core/builtins/prelude/function_registry.nepl` | 37 | `alloc` / `dealloc` / `realloc` の typed registry。 |
+| `core/builtins/prelude/primitive_registry.nepl` | 38 | primitive type name registry。 |
+| `core/builtins/prelude/path.nepl` | 4 | default prelude path boundary。 |
+| `core/builtins/prelude/stage0.nepl` | 102 | builtin / primitive registry smoke entry。 |
+
+`nodesrc/test_selfhost_prelude_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `prelude.nepl` facade への曖昧 import を拒否する。`SelfhostBuiltinKind` の numeric tag 禁止と `SelfhostBuiltinSignature` payload policy は `nodesrc/selfhost_prelude_sources.js` を通して split 後の prelude source 全体を読む。
 
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 
