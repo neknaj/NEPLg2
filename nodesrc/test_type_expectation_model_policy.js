@@ -11,6 +11,8 @@ const callResolutionPath = path.join(repoRoot, 'nepl-core/src/typecheck/call_res
 const functionApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/function_apply.rs');
 const genericCallConstraintsPath = path.join(repoRoot, 'nepl-core/src/typecheck/generic_call_constraints.rs');
 const overloadSelectionPath = path.join(repoRoot, 'nepl-core/src/typecheck/overload_selection.rs');
+const overloadCandidatePath = path.join(repoRoot, 'nepl-core/src/typecheck/overload_candidate.rs');
+const overloadNarrowingPath = path.join(repoRoot, 'nepl-core/src/typecheck/overload_narrowing.rs');
 const selectedCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/selected_call_apply.rs');
 const indirectApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/indirect_apply.rs');
 const traitCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/trait_call_apply.rs');
@@ -24,6 +26,8 @@ const callResolution = fs.readFileSync(callResolutionPath, 'utf8');
 const functionApply = fs.readFileSync(functionApplyPath, 'utf8');
 const genericCallConstraints = fs.readFileSync(genericCallConstraintsPath, 'utf8');
 const overloadSelection = fs.readFileSync(overloadSelectionPath, 'utf8');
+const overloadCandidate = fs.readFileSync(overloadCandidatePath, 'utf8');
+const overloadNarrowing = fs.readFileSync(overloadNarrowingPath, 'utf8');
 const selectedCallApply = fs.readFileSync(selectedCallApplyPath, 'utf8');
 const indirectApply = fs.readFileSync(indirectApplyPath, 'utf8');
 const traitCallApply = fs.readFileSync(traitCallApplyPath, 'utf8');
@@ -86,41 +90,46 @@ assert.ok(
 );
 assert.match(
     overloadSelection,
-    /type_pattern_matches\(result,\s*expectation\.target\(\)\)[\s\S]*let\s+checkpoint\s*=\s*self\.ctx\.checkpoint\(\);/,
-    'overload selection must use declared result shape before candidate instantiation when expected result is available',
+    /fn\s+result_may_satisfy_expectation\([\s\S]*type_pattern_matches\(declared_result,\s*expected\)[\s\S]*type_pattern_matches\(expected,\s*declared_result\)/,
+    'overload selection must keep declared-result expectation pruning in a typed helper that handles unresolved expected variables',
 );
 assert.match(
     overloadSelection,
+    /result_may_satisfy_expectation\(self\.ctx,\s*result,\s*expectation\)[\s\S]*let\s+checkpoint\s*=\s*self\.ctx\.checkpoint\(\);/,
+    'overload selection must apply declared result expectation pruning before candidate instantiation',
+);
+assert.match(
+    overloadCandidate,
     /enum\s+OverloadCandidateRejection\s*{[\s\S]*NotFunction[\s\S]*TypeArgumentCount[\s\S]*CaptureArity[\s\S]*UserArity[\s\S]*DeclaredExpectedResult[\s\S]*InstantiatedNotFunction[\s\S]*ArgumentType[\s\S]*ExpectedResult[\s\S]*}/,
     'overload candidate rejection reasons must be a typed enum',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /OverloadCandidateRejection::GenericConstraintConflict/,
     'overload candidate rejection reasons must include generic constraint conflict',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /fn\s+record_rejection\(&mut self,\s*reason:\s*OverloadCandidateRejection\)[\s\S]*match\s+reason\s*{[\s\S]*OverloadCandidateRejection::NotFunction[\s\S]*OverloadCandidateRejection::ExpectedResult[\s\S]*}/,
     'overload candidate rejection stats must dispatch through exhaustive match',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /enum\s+OverloadCandidateMaterializationPhase\s*{[\s\S]*BeforeInstantiation[\s\S]*AfterInstantiation[\s\S]*}/,
     'overload candidate rejection materialization phase must be typed',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /fn\s+materialization_phase\(self\)\s*->\s*OverloadCandidateMaterializationPhase[\s\S]*match\s+self\s*{[\s\S]*OverloadCandidateRejection::DeclaredExpectedResult[\s\S]*BeforeInstantiation[\s\S]*OverloadCandidateRejection::GenericConstraintConflict[\s\S]*AfterInstantiation[\s\S]*}/,
     'overload rejection reasons must classify pre/post instantiation through exhaustive match',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /fn\s+record_rejection\(&mut self,\s*reason:\s*OverloadCandidateRejection\)[\s\S]*match\s+reason\.materialization_phase\(\)[\s\S]*rejected_before_materialization[\s\S]*rejected_after_materialization[\s\S]*match\s+reason\s*{/,
     'overload candidate stats must update materialization phase counters from the typed rejection phase',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /fn\s+assert_materialization_guard\(&self\)[\s\S]*debug_assert!\(self\.materialized\s*\+\s*self\.pre_materialized_rejections\(\)\s*<=\s*self\.considered\)/,
     'overload selection must guard candidate materialization count',
 );
@@ -130,19 +139,24 @@ assert.match(
     'overload selection must count candidates that reach instantiation/materialization',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /enum\s+OverloadCandidateNarrowingStage\s*{[\s\S]*InitialCandidates[\s\S]*PreferPureFunction[\s\S]*SignatureDedup[\s\S]*PreferOrdinaryFunction[\s\S]*PreferConcreteSignature[\s\S]*PreferFewerTypeParameters[\s\S]*PreferInstantiatedSpecificity[\s\S]*PreferDeclaredSpecificity[\s\S]*}/,
     'overload ambiguity narrowing stages must be a typed enum',
 );
 assert.match(
-    overloadSelection,
+    overloadCandidate,
     /struct\s+OverloadAmbiguityReason\s*{[\s\S]*after_stage:\s*OverloadCandidateNarrowingStage[\s\S]*remaining_candidates:\s*usize[\s\S]*}/,
     'overload ambiguity must carry a typed reason payload',
 );
 assert.match(
+    overloadNarrowing,
+    /OverloadAmbiguityReason::after_stage\(\s*last_narrowing_stage,\s*candidates\.len\(\),\s*\)/,
+    'overload narrowing must return typed ambiguity payloads from the narrowing module',
+);
+assert.match(
     overloadSelection,
-    /OverloadAmbiguityReason::after_stage\(last_narrowing_stage,\s*candidates\.len\(\)\)[\s\S]*ambiguity\.diagnostic_message\(\)/,
-    'overload ambiguity diagnostics must be produced from the typed payload',
+    /Err\(ambiguity\)[\s\S]*ambiguity\.diagnostic_message\(\)/,
+    'overload selection diagnostics must be produced from the typed ambiguity payload',
 );
 assert.match(
     traitCheck,

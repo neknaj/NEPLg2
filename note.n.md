@@ -1,3 +1,13 @@
+# 2026-05-20 Agent 1 type expectation source policy overload split
+
+- `ISS-20260520T091645744Z-TYPE-EXPECTATION-SOURCE-POLICY-STILL-63FFD27B` を修正した。`plan.md` は変更していない。
+- `nodesrc/test_type_expectation_model_policy.js` が、overload candidate model / narrowing を `overload_selection.rs` 内に探す旧構造のままだったため、responsibility split 後の `overload_candidate.rs` / `overload_narrowing.rs` を監視するようにした。
+- `result_may_satisfy_expectation` の双方向 declared-result expectation pruning を明示的に検査し、unresolved expected variable を持つ候補を pre-instantiation で誤棄却しない修正を source policy でも固定した。
+- 検証:
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-20 Agent 1 selfhost checker report contract
 
 - `ISS-20260520T091103104Z-SELFHOST-CHECKER-REPORT-CONTRACT-IS--9A95998A` を修正した。`plan.md` は変更していない。
