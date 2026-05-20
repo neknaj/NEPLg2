@@ -182,7 +182,8 @@ enum TypeExpectationSource {
 - 2026-05-20: selected generic call では call result と expected result を type args 確定前に unify するようにした。これにより `<T>` による結果期待型が generic instantiation の根拠として残る。
 - 2026-05-20: trait method resolution は expected result を `TypeExpectation` として受け取り、trait application inference には target type を渡す。診断 span は `TypeExpectation` が管理する。
 - 2026-05-20: trait application inference は `TypeParamInferenceSource` / `TypeParamInferenceConstraint` により、argument 由来制約と expected result 由来制約を typed object として保持するようにした。`infer_trait_application_args` は `Option<TypeExpectation>` を直接受け、呼び出し側で target `TypeId` へ落とさない。
-- 未完了: constraint が閉じても一意に決まらない場合の診断 payload 化と、generic function 側の不足 constraint object 化。
+- 2026-05-20: selected generic function call も `GenericCallConstraintSource` / `GenericCallConstraint` で argument 由来制約と expected result 由来制約を typed object として保持するようにした。期待戻り値制約は引数制約より先に適用するため、`id<T>(T)->T` のような関数で `<u8>` の期待型が `T` を拘束し、その後の char literal 引数検査にも context が伝わる。
+- 未完了: constraint が閉じても一意に決まらない場合の診断 payload 化。
 
 ### Stage E: performance guard
 

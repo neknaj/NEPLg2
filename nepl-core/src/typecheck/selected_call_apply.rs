@@ -12,9 +12,12 @@ use super::constructor_apply::ConstructorApplyResult;
 use super::diagnostics::{effect_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::field_apply::FieldAccessorApplyResult;
+use super::generic_call_constraints::{
+    resolve_generic_type_args_from_constraints, GenericCallConstraint,
+};
 use super::signature::type_contains_unbound_var;
 use super::trait_call_apply::TraitMethodResolution;
-use super::traits::{infer_instantiated_type_arg, insert_substitution_mapping, BoundEnv};
+use super::traits::{insert_substitution_mapping, BoundEnv};
 use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
@@ -50,21 +53,19 @@ impl<'a> BlockChecker<'a> {
             } => type_param_bounds.clone(),
             _ => BoundEnv::new(),
         };
-        let selected_type_snapshot = (!explicit_type_args.is_empty())
-            .then(|| self.ctx.snapshot_type_var_bindings(binding.ty));
-        let (inst_ty, mut resolved_args, type_arg_mapping) = if !explicit_type_args.is_empty() {
-            let func_data = if let TypeKind::Function {
+        let declared_func_data = match self.ctx.get(binding.ty) {
+            TypeKind::Function {
                 type_params,
                 params,
                 result,
                 effect,
-            } = self.ctx.get(binding.ty)
-            {
-                Some((type_params.clone(), params.clone(), result, effect))
-            } else {
-                None
-            };
-            let Some((type_params, params, result, effect)) = func_data else {
+            } => Some((type_params, params, result, effect)),
+            _ => None,
+        };
+        let selected_type_snapshot = (!explicit_type_args.is_empty())
+            .then(|| self.ctx.snapshot_type_var_bindings(binding.ty));
+        let (inst_ty, mut resolved_args, type_arg_mapping) = if !explicit_type_args.is_empty() {
+            let Some((type_params, params, result, effect)) = declared_func_data.clone() else {
                 return None;
             };
             if type_params.len() != explicit_type_args.len() {
@@ -124,7 +125,29 @@ impl<'a> BlockChecker<'a> {
             ));
             return None;
         }
-        for (arg, param_ty) in args.iter_mut().zip(user_params.iter()) {
+        let declared_result = declared_func_data
+            .as_ref()
+            .map(|(_, _, result, _)| *result)
+            .unwrap_or(c_result);
+        let mut generic_constraints = Vec::new();
+        if let Some(expectation) = expected_ret {
+            let constraint = GenericCallConstraint::expected_result(
+                declared_result,
+                c_result,
+                expectation,
+                span,
+            );
+            if let Err(violation) = constraint.check(self.ctx) {
+                self.diagnostics.push(type_error(
+                    violation.diagnostic_code(),
+                    violation.message(),
+                    violation.span(),
+                ));
+                return None;
+            }
+            generic_constraints.push(constraint);
+        }
+        for (idx, (arg, param_ty)) in args.iter_mut().zip(user_params.iter()).enumerate() {
             match self.char_literal_context_type(arg, *param_ty) {
                 Some(Ok(resolved)) => {
                     arg.ty = resolved;
@@ -141,13 +164,25 @@ impl<'a> BlockChecker<'a> {
                 }
                 None => {}
             }
-            if self.ctx.unify(arg.ty, *param_ty).is_err() {
+            let declared_param_ty = declared_func_data
+                .as_ref()
+                .and_then(|(_, params, _, _)| params.get(captures.len() + idx).copied())
+                .unwrap_or(*param_ty);
+            let constraint = GenericCallConstraint::argument(
+                idx,
+                declared_param_ty,
+                *param_ty,
+                arg.ty,
+                arg.expr.span,
+            );
+            if let Err(violation) = constraint.check(self.ctx) {
                 self.diagnostics.push(type_error(
-                    TypeDiagnosticCode::ArgumentMismatch,
-                    "argument type mismatch",
-                    arg.expr.span,
+                    violation.diagnostic_code(),
+                    violation.message(),
+                    violation.span(),
                 ));
             }
+            generic_constraints.push(constraint);
         }
         if matches!(self.current_effect, Effect::Pure) && matches!(c_effect, Effect::Impure) {
             self.diagnostics.push(effect_error(
@@ -158,32 +193,14 @@ impl<'a> BlockChecker<'a> {
             return None;
         }
 
-        if let Some(expectation) = expected_ret {
-            if self.ctx.unify(c_result, expectation.target()).is_err() {
-                self.diagnostics.push(type_error(
-                    TypeDiagnosticCode::AnnotationMismatch,
-                    "call result does not match expected type",
-                    expectation.diagnostic_span(span),
-                ));
-                return None;
-            }
-        }
-
         if explicit_type_args.is_empty() {
-            resolved_args = resolved_args
-                .into_iter()
-                .map(|t| self.ctx.resolve_id(t))
-                .collect();
-            if let TypeKind::Function { type_params, .. } = self.ctx.get(binding.ty) {
-                if type_params.len() == resolved_args.len() {
-                    for (idx, tp) in type_params.iter().enumerate() {
-                        if let Some(inferred) =
-                            infer_instantiated_type_arg(self.ctx, binding.ty, inst_ty, *tp)
-                        {
-                            resolved_args[idx] = self.ctx.resolve_id(inferred);
-                        }
-                    }
-                }
+            if let Some((type_params, _, _, _)) = declared_func_data.as_ref() {
+                resolved_args = resolve_generic_type_args_from_constraints(
+                    self.ctx,
+                    type_params,
+                    resolved_args,
+                    &generic_constraints,
+                );
             }
         }
 

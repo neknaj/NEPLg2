@@ -9,6 +9,7 @@ const prefixCheckPath = path.join(repoRoot, 'nepl-core/src/typecheck/prefix_chec
 const callReductionPath = path.join(repoRoot, 'nepl-core/src/typecheck/call_reduction.rs');
 const callResolutionPath = path.join(repoRoot, 'nepl-core/src/typecheck/call_resolution.rs');
 const functionApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/function_apply.rs');
+const genericCallConstraintsPath = path.join(repoRoot, 'nepl-core/src/typecheck/generic_call_constraints.rs');
 const overloadSelectionPath = path.join(repoRoot, 'nepl-core/src/typecheck/overload_selection.rs');
 const selectedCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/selected_call_apply.rs');
 const indirectApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/indirect_apply.rs');
@@ -20,6 +21,7 @@ const prefixCheck = fs.readFileSync(prefixCheckPath, 'utf8');
 const callReduction = fs.readFileSync(callReductionPath, 'utf8');
 const callResolution = fs.readFileSync(callResolutionPath, 'utf8');
 const functionApply = fs.readFileSync(functionApplyPath, 'utf8');
+const genericCallConstraints = fs.readFileSync(genericCallConstraintsPath, 'utf8');
 const overloadSelection = fs.readFileSync(overloadSelectionPath, 'utf8');
 const selectedCallApply = fs.readFileSync(selectedCallApplyPath, 'utf8');
 const indirectApply = fs.readFileSync(indirectApplyPath, 'utf8');
@@ -139,6 +141,36 @@ assert.doesNotMatch(
     traitCallApply,
     /infer_trait_application_args\([\s\S]*expected_ret\.map\(\|expectation\|\s*expectation\.target\(\)\)/,
     'trait call resolution must not erase TypeExpectation before inference',
+);
+assert.match(
+    genericCallConstraints,
+    /enum\s+GenericCallConstraintSource\s*{[\s\S]*Argument\s*{[\s\S]*index:\s*usize[\s\S]*ExpectedResult\s*{[\s\S]*expectation:\s*TypeExpectation[\s\S]*}/,
+    'generic call constraints must keep argument/result sources in a typed enum',
+);
+assert.match(
+    genericCallConstraints,
+    /struct\s+GenericCallConstraint\s*{[\s\S]*source:\s*GenericCallConstraintSource[\s\S]*declared:\s*TypeId[\s\S]*instantiated:\s*TypeId[\s\S]*actual:\s*TypeId[\s\S]*span:\s*Span[\s\S]*}/,
+    'generic call constraints must retain declared, instantiated, and actual types',
+);
+assert.match(
+    genericCallConstraints,
+    /fn\s+infer_for_type_param\([\s\S]*match\s+self\.source\s*{[\s\S]*GenericCallConstraintSource::Argument[\s\S]*GenericCallConstraintSource::ExpectedResult[\s\S]*infer_type_param_from_instantiated_pair/,
+    'generic call type-argument inference must dispatch through the typed constraint source',
+);
+assert.match(
+    selectedCallApply,
+    /GenericCallConstraint::expected_result\([\s\S]*for\s+\(idx,\s*\(arg,\s*param_ty\)\)\s+in\s+args\.iter_mut\(\)/,
+    'selected generic calls must apply expected-result constraints before argument constraints',
+);
+assert.doesNotMatch(
+    selectedCallApply,
+    /ctx\.unify\(c_result,\s*expectation\.target\(\)\)/,
+    'selected calls must not bypass GenericCallConstraint for expected-result unification',
+);
+assert.doesNotMatch(
+    selectedCallApply,
+    /infer_instantiated_type_arg/,
+    'selected calls must derive implicit generic arguments from structured call constraints',
 );
 
 console.log('type expectation model source policy passed');

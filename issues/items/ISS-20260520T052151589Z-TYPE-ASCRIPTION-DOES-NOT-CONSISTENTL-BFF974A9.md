@@ -250,3 +250,26 @@ overload ambiguity が最終的に `"ambiguous overload"` だけを出してお�
 - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
 - `node nodesrc/issues.js check`: pass
+
+## 2026-05-20 Stage D generic call constraint object
+
+selected generic function call では、argument mismatch と expected result mismatch がそれぞれ直接 `ctx.unify(...)` を呼び、制約の由来を型で追跡できていなかった。さらに `id<T>(T)->T` のような関数では、期待戻り値から `T` を拘束する前に char literal 引数を検査するため、`let x <u8> id '\x02'` のような十分な注釈つき call でも expected-check の context が引数へ届きにくかった。
+
+実装:
+
+- `generic_call_constraints.rs` を追加し、`GenericCallConstraintSource::{Argument, ExpectedResult}` と `GenericCallConstraint { source, declared, instantiated, actual, span }` を導入した。
+- selected call は expected result constraint を先に `GenericCallConstraint::check` へ通し、その後 argument constraint を同じ typed object で検査する。
+- implicit generic type argument は `infer_instantiated_type_arg` の whole-signature fallback ではなく、保持した call constraints から `resolve_generic_type_args_from_constraints` で解く。
+- source policy は generic call constraint enum / struct、`match self.source` による type parameter 推論、expected-result-before-argument の順序、直接 `ctx.unify(c_result, expectation.target())` への退行禁止を監視する。
+
+残作業:
+
+- constraint が閉じても一意に決まらない場合の typed diagnostic payload 化。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+- `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass

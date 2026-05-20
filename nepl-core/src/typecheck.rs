@@ -25,6 +25,7 @@ mod field_access;
 mod field_apply;
 mod function_apply;
 mod function_check;
+mod generic_call_constraints;
 mod hir_finalize;
 mod indirect_apply;
 mod match_check;
