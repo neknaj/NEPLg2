@@ -8,13 +8,14 @@
 //: - fact そのものは「証明済み」の印ではなく、solver が obligation と[照合/しょうごう]する typed input です。
 //:
 //: [拡張/かくちょう][方針/ほうしん]:
-//: - type / trait / effect / resource の fact を追加するときは `SelfhostProofDomain` と `SelfhostProofFact` の match を更新します。
+//: - type / trait / lifetime / effect / resource の fact を追加するときは `SelfhostProofDomain` と `SelfhostProofFact` の match を更新します。
 //: - wildcard arm で未対応 domain を握りつぶさず、新しい fact 追加時に source policy と compiler の両方で見つけやすい形を保ちます。
 
 #import "core/traits/copy" as *
 #import "core/option" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/resource/borrow_state" as *
+#import "neplg2/core/resource/lifetime" as *
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
@@ -30,6 +31,7 @@ pub enum SelfhostProofDomain:
     Module
     Type
     Trait
+    Lifetime
     Effect
     Resource
 
@@ -259,6 +261,30 @@ impl Copy for SelfhostBorrowAccessFact:
 pub fn selfhost_borrow_access_fact_new <(SelfhostBorrowRequestKind,SelfhostSourceSpan)->SelfhostBorrowAccessFact> (request, span):
     SelfhostBorrowAccessFact request span
 
+//: SelfhostLifetimeOutlivesFact: lifetime outlives proof へ渡す relation observation
+//:
+//: [目的/もくてき]:
+//: - source scope lowering が観測した subject lifetime、required lifetime、relation、利用種別、span を typed fact として保持します。
+//: - relation は source scope graph から導出し、この fact だけでは要求 lifetime と一致するかや outlives 成立を主張しません。
+pub struct SelfhostLifetimeOutlivesFact:
+    subject <SelfhostLifetimeId>
+    required <SelfhostLifetimeId>
+    relation <SelfhostLifetimeRelation>
+    use_kind <SelfhostLifetimeUseKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostLifetimeOutlivesFact:
+    fn clone <(&SelfhostLifetimeOutlivesFact)->SelfhostLifetimeOutlivesFact> (self):
+        *self
+
+impl Copy for SelfhostLifetimeOutlivesFact:
+    fn copy_mark <(SelfhostLifetimeOutlivesFact)->SelfhostLifetimeOutlivesFact> (self):
+        self
+
+//: selfhost_lifetime_outlives_fact_new: lifetime outlives fact を[作/つく]る
+pub fn selfhost_lifetime_outlives_fact_new <(SelfhostLifetimeId,SelfhostLifetimeId,SelfhostLifetimeRelation,SelfhostLifetimeUseKind,SelfhostSourceSpan)->SelfhostLifetimeOutlivesFact> (subject, required, relation, use_kind, span):
+    SelfhostLifetimeOutlivesFact subject required relation use_kind span
+
 //: SelfhostEffectObservationFact: effect boundary proof へ渡す effect observation
 //:
 //: [目的/もくてき]:
@@ -291,6 +317,7 @@ pub enum SelfhostProofFact:
     TraitImplPairObserved <SelfhostTraitImplPairFact>
     ResourceCellEventObserved <SelfhostResourceCellEventFact>
     BorrowAccessObserved <SelfhostBorrowAccessFact>
+    LifetimeOutlivesObserved <SelfhostLifetimeOutlivesFact>
     EffectObserved <SelfhostEffectObservationFact>
 
 impl Clone for SelfhostProofFact:
@@ -316,6 +343,8 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
             SelfhostProofDomain::Type
         SelfhostProofFact::TraitImplPairObserved _trait_fact:
             SelfhostProofDomain::Trait
+        SelfhostProofFact::LifetimeOutlivesObserved _lifetime_fact:
+            SelfhostProofDomain::Lifetime
         SelfhostProofFact::ResourceCellEventObserved _event_fact:
             SelfhostProofDomain::Resource
         SelfhostProofFact::BorrowAccessObserved _borrow_fact:

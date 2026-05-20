@@ -1,0 +1,197 @@
+#indent 4
+
+//: # lifetime
+//: self-host Resource IR の lifetime outlives 関係を typed value として[扱/あつか]うモジュールです。
+//:
+//: [目的/もくてき]:
+//: - borrow が return value、長寿命 storage、closure capture へ逃げるときの lifetime 関係を、文字列名や数値 tag ではなく enum と struct で保持します。
+//: - lifetime checker は source scope graph から relation fact を作り、`neplg2/core/proof` の Lifetime domain obligation へ渡します。
+//:
+//: [注意/ちゅうい]:
+//: - `SelfhostLifetimeId` は self-host compiler 内の arena-local id です。
+//: - `SelfhostLifetimePosition.scope_depth` は診断や ordering sanity check の補助情報です。depth だけでは兄弟 scope を区別できないため、outlives 証明には source scope graph が出す `SelfhostLifetimeScopePathKind` を使います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/resource/lifetime" as *
+//: fn main <()*>i32> ():
+//:     let root <SelfhostLifetimePosition> selfhost_lifetime_position_new (selfhost_lifetime_id_new 0) 0
+//:     let child <SelfhostLifetimePosition> selfhost_lifetime_position_new (selfhost_lifetime_id_new 1) 2
+//:     let relation <SelfhostLifetimeRelation> selfhost_lifetime_relation_from_scope_path root child SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired
+//:     if selfhost_lifetime_relation_proves_outlives relation 0 1
+//: ```
+
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+//: SelfhostLifetimeId: lifetime arena 内の stable index
+pub struct SelfhostLifetimeId:
+    index <i32>
+
+impl Clone for SelfhostLifetimeId:
+    fn clone <(&SelfhostLifetimeId)->SelfhostLifetimeId> (self):
+        *self
+
+impl Copy for SelfhostLifetimeId:
+    fn copy_mark <(SelfhostLifetimeId)->SelfhostLifetimeId> (self):
+        self
+
+//: selfhost_lifetime_id_new: lifetime id を[作/つく]る
+pub fn selfhost_lifetime_id_new <(i32)->SelfhostLifetimeId> (index):
+    SelfhostLifetimeId index
+
+//: selfhost_lifetime_id_index: lifetime id の index を[返/かえ]す
+pub fn selfhost_lifetime_id_index <(SelfhostLifetimeId)->i32> (lifetime):
+    lifetime.index
+
+//: selfhost_lifetime_id_is_valid: lifetime id が有効か[返/かえ]す
+pub fn selfhost_lifetime_id_is_valid <(SelfhostLifetimeId)->bool> (lifetime):
+    ge lifetime.index 0
+
+//: selfhost_lifetime_id_eq: lifetime id が同じか[返/かえ]す
+pub fn selfhost_lifetime_id_eq <(SelfhostLifetimeId,SelfhostLifetimeId)->bool> (left, right):
+    eq left.index right.index
+
+//: SelfhostLifetimePosition: source scope graph 上の lifetime 位置
+//:
+//: [目的/もくてき]:
+//: - source lowering が観測した lifetime id と lexical scope depth を保持します。
+//: - 小さい depth は外側 scope の候補ですが、depth だけでは ancestry proof になりません。
+pub struct SelfhostLifetimePosition:
+    lifetime <SelfhostLifetimeId>
+    scope_depth <i32>
+
+impl Clone for SelfhostLifetimePosition:
+    fn clone <(&SelfhostLifetimePosition)->SelfhostLifetimePosition> (self):
+        *self
+
+impl Copy for SelfhostLifetimePosition:
+    fn copy_mark <(SelfhostLifetimePosition)->SelfhostLifetimePosition> (self):
+        self
+
+//: selfhost_lifetime_position_new: lifetime position を[作/つく]る
+pub fn selfhost_lifetime_position_new <(SelfhostLifetimeId,i32)->SelfhostLifetimePosition> (lifetime, scope_depth):
+    SelfhostLifetimePosition lifetime scope_depth
+
+//: selfhost_lifetime_position_is_valid: source scope position が有効か[返/かえ]す
+pub fn selfhost_lifetime_position_is_valid <(SelfhostLifetimePosition)->bool> (position):
+    and selfhost_lifetime_id_is_valid position.lifetime ge position.scope_depth 0
+
+//: SelfhostLifetimeScopePathKind: source scope graph が観測した 2 lifetime 間の path 関係
+//:
+//: [目的/もくてき]:
+//: - outlives 証明を depth 比較だけにせず、source scope graph の ancestor relation を typed value として保持します。
+//: - 兄弟 scope や graph で接続できない lifetime は `Unrelated` として扱い、偶然の depth ordering で通しません。
+pub enum SelfhostLifetimeScopePathKind:
+    SameNode
+    SubjectAncestorOfRequired
+    RequiredAncestorOfSubject
+    Unrelated
+
+impl Clone for SelfhostLifetimeScopePathKind:
+    fn clone <(&SelfhostLifetimeScopePathKind)->SelfhostLifetimeScopePathKind> (self):
+        *self
+
+impl Copy for SelfhostLifetimeScopePathKind:
+    fn copy_mark <(SelfhostLifetimeScopePathKind)->SelfhostLifetimeScopePathKind> (self):
+        self
+
+//: SelfhostLifetimeRelation: 2 つの lifetime の outlives 関係
+//:
+//: [目的/もくてき]:
+//: - `subject` が `required` を outlive するかを bool に潰さず、証明に使った関係を evidence/refutation へ残します。
+//: - invalid lifetime は別 variant として保持し、関係がないだけの状態に見せかけて通さないようにします。
+pub enum SelfhostLifetimeRelation:
+    InvalidSubject
+    InvalidRequired
+    SameLifetime
+    SubjectOutlivesRequired
+    SubjectShorterThanRequired
+    Unrelated
+
+impl Clone for SelfhostLifetimeRelation:
+    fn clone <(&SelfhostLifetimeRelation)->SelfhostLifetimeRelation> (self):
+        *self
+
+impl Copy for SelfhostLifetimeRelation:
+    fn copy_mark <(SelfhostLifetimeRelation)->SelfhostLifetimeRelation> (self):
+        self
+
+//: selfhost_lifetime_relation_from_scope_path: source scope graph path から outlives 関係を[導出/どうしゅつ]する
+//:
+//: [実装/じっそう]:
+//: - 同じ lifetime id は同一 lifetime として扱います。
+//: - subject が required の ancestor であることを source scope graph が示す場合だけ outlives evidence にします。
+//: - required が subject の ancestor である場合は subject が短い lifetime として拒否対象にします。
+//: - graph で接続できない場合は `Unrelated` として保持します。
+pub fn selfhost_lifetime_relation_from_scope_path <(SelfhostLifetimePosition,SelfhostLifetimePosition,SelfhostLifetimeScopePathKind)->SelfhostLifetimeRelation> (subject, required, path):
+    if:
+        selfhost_lifetime_position_is_valid subject
+        then:
+            if:
+                selfhost_lifetime_position_is_valid required
+                then:
+                    match path:
+                        SelfhostLifetimeScopePathKind::SameNode:
+                            if selfhost_lifetime_id_eq subject.lifetime required.lifetime SelfhostLifetimeRelation::SameLifetime SelfhostLifetimeRelation::Unrelated
+                        SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired:
+                            SelfhostLifetimeRelation::SubjectOutlivesRequired
+                        SelfhostLifetimeScopePathKind::RequiredAncestorOfSubject:
+                            SelfhostLifetimeRelation::SubjectShorterThanRequired
+                        SelfhostLifetimeScopePathKind::Unrelated:
+                            SelfhostLifetimeRelation::Unrelated
+                else:
+                    SelfhostLifetimeRelation::InvalidRequired
+        else:
+            SelfhostLifetimeRelation::InvalidSubject
+
+//: selfhost_lifetime_relation_from_positions: depth だけからは異なる lifetime の ancestry を証明しない
+//:
+//: [注意/ちゅうい]:
+//: - 互換用の小さな helper ですが、異なる id の lifetime では `Unrelated` を返します。
+//: - outlives proof には `selfhost_lifetime_relation_from_scope_path` を使い、source scope graph の path evidence を渡してください。
+pub fn selfhost_lifetime_relation_from_positions <(SelfhostLifetimePosition,SelfhostLifetimePosition)->SelfhostLifetimeRelation> (subject, required):
+    if:
+        selfhost_lifetime_position_is_valid subject
+        then:
+            if:
+                selfhost_lifetime_position_is_valid required
+                then:
+                    if selfhost_lifetime_id_eq subject.lifetime required.lifetime SelfhostLifetimeRelation::SameLifetime SelfhostLifetimeRelation::Unrelated
+                else:
+                    SelfhostLifetimeRelation::InvalidRequired
+        else:
+            SelfhostLifetimeRelation::InvalidSubject
+
+//: selfhost_lifetime_relation_proves_outlives: relation が outlives 証明になるか[返/かえ]す
+pub fn selfhost_lifetime_relation_proves_outlives <(SelfhostLifetimeRelation)->bool> (relation):
+    match relation:
+        SelfhostLifetimeRelation::SameLifetime:
+            true
+        SelfhostLifetimeRelation::SubjectOutlivesRequired:
+            true
+        SelfhostLifetimeRelation::SubjectShorterThanRequired:
+            false
+        SelfhostLifetimeRelation::Unrelated:
+            false
+        SelfhostLifetimeRelation::InvalidSubject:
+            false
+        SelfhostLifetimeRelation::InvalidRequired:
+            false
+
+//: SelfhostLifetimeUseKind: lifetime outlives proof を要求する利用種別
+pub enum SelfhostLifetimeUseKind:
+    ReturnBorrow
+    StoreInLongerStorage
+    ClosureCapture
+    ReferenceAssignment
+
+impl Clone for SelfhostLifetimeUseKind:
+    fn clone <(&SelfhostLifetimeUseKind)->SelfhostLifetimeUseKind> (self):
+        *self
+
+impl Copy for SelfhostLifetimeUseKind:
+    fn copy_mark <(SelfhostLifetimeUseKind)->SelfhostLifetimeUseKind> (self):
+        self

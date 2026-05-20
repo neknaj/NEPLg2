@@ -12,6 +12,7 @@
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
 #import "neplg2/core/resource/borrow_state" as *
+#import "neplg2/core/resource/lifetime" as *
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
@@ -29,6 +30,7 @@ pub enum SelfhostProofEvidence:
     ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>
     TypeKindCompatible <SelfhostTypeKind>
     TraitImplNonOverlapping <SelfhostTraitImplRelation>
+    LifetimeOutlives <SelfhostLifetimeRelation>
     ResourceCellTransition <SelfhostResourceCellState>
     ResourceBorrowAccess <SelfhostBorrowState>
     EffectAllowed <SelfhostEffectContext>
@@ -163,6 +165,44 @@ impl Copy for SelfhostBorrowAccessIssue:
 pub fn selfhost_borrow_access_issue_new <(SelfhostBorrowState,SelfhostBorrowRequestKind,SelfhostSourceSpan,SelfhostBorrowAccessError)->SelfhostBorrowAccessIssue> (state, request, span, reason):
     SelfhostBorrowAccessIssue state request span reason
 
+//: SelfhostLifetimeOutlivesError: lifetime outlives proof の失敗分類
+pub enum SelfhostLifetimeOutlivesError:
+    RequiredLifetimeMismatch
+    InvalidSubjectLifetime
+    InvalidRequiredLifetime
+    SubjectDoesNotOutliveRequired
+    UnrelatedLifetimes
+
+impl Clone for SelfhostLifetimeOutlivesError:
+    fn clone <(&SelfhostLifetimeOutlivesError)->SelfhostLifetimeOutlivesError> (self):
+        *self
+
+impl Copy for SelfhostLifetimeOutlivesError:
+    fn copy_mark <(SelfhostLifetimeOutlivesError)->SelfhostLifetimeOutlivesError> (self):
+        self
+
+//: SelfhostLifetimeOutlivesIssue: 不正な lifetime outlives proof の refutation payload
+pub struct SelfhostLifetimeOutlivesIssue:
+    subject <SelfhostLifetimeId>
+    expected_required <SelfhostLifetimeId>
+    observed_required <SelfhostLifetimeId>
+    relation <SelfhostLifetimeRelation>
+    use_kind <SelfhostLifetimeUseKind>
+    span <SelfhostSourceSpan>
+    reason <SelfhostLifetimeOutlivesError>
+
+impl Clone for SelfhostLifetimeOutlivesIssue:
+    fn clone <(&SelfhostLifetimeOutlivesIssue)->SelfhostLifetimeOutlivesIssue> (self):
+        *self
+
+impl Copy for SelfhostLifetimeOutlivesIssue:
+    fn copy_mark <(SelfhostLifetimeOutlivesIssue)->SelfhostLifetimeOutlivesIssue> (self):
+        self
+
+//: selfhost_lifetime_outlives_issue_new: lifetime outlives issue payload を[作/つく]る
+pub fn selfhost_lifetime_outlives_issue_new <(SelfhostLifetimeId,SelfhostLifetimeId,SelfhostLifetimeId,SelfhostLifetimeRelation,SelfhostLifetimeUseKind,SelfhostSourceSpan,SelfhostLifetimeOutlivesError)->SelfhostLifetimeOutlivesIssue> (subject, expected_required, observed_required, relation, use_kind, span, reason):
+    SelfhostLifetimeOutlivesIssue subject expected_required observed_required relation use_kind span reason
+
 //: SelfhostEffectBoundaryError: effect boundary proof の失敗分類
 //:
 //: [目的/もくてき]:
@@ -294,6 +334,7 @@ pub enum SelfhostProofRefutation:
     ModuleDeclarationHeaderInvalid <SelfhostModuleDeclarationHeaderIssue>
     TypeKindMismatch <SelfhostTypeKindMismatch>
     TraitImplCoherenceInvalid <SelfhostTraitImplCoherenceIssue>
+    LifetimeOutlivesInvalid <SelfhostLifetimeOutlivesIssue>
     ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>
     BorrowAccessInvalid <SelfhostBorrowAccessIssue>
     EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>

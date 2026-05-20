@@ -337,6 +337,8 @@ fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDia
             selfhost_module_check_unexpected_proof_diag
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
             selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             selfhost_module_check_unexpected_proof_diag
         SelfhostProofRefutation::BorrowAccessInvalid _issue:

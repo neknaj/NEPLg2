@@ -120,6 +120,8 @@ fn check_bool_i32_mismatch <(Result<SelfhostTypeKind,SelfhostProofRefutation>)->
                     Result<(),str>::Err "expected type kind mismatch"
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
                     Result<(),str>::Err "expected type kind mismatch"
+                SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
+                    Result<(),str>::Err "expected type kind mismatch"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected type kind mismatch"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:

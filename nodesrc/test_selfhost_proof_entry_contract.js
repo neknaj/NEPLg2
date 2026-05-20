@@ -36,6 +36,7 @@ const moduleChecker = read("stdlib/neplg2/core/check/module.nepl");
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
 const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
 const borrowState = read("stdlib/neplg2/core/resource/borrow_state.nepl");
+const lifetime = read("stdlib/neplg2/core/resource/lifetime.nepl");
 
 assert.match(proofFacade, /pub #import "\.\/proof\/fact" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/obligation" as \*/);
@@ -98,6 +99,11 @@ assert.match(
 );
 assert.match(
     proofFact,
+    /LifetimeOutlivesObserved <SelfhostLifetimeOutlivesFact>/,
+    "lifetime outlives observations must enter proof as typed facts",
+);
+assert.match(
+    proofFact,
     /EffectObserved <SelfhostEffectObservationFact>/,
     "effect observations must enter proof as typed facts",
 );
@@ -128,6 +134,11 @@ assert.match(
 );
 assert.match(
     proofObligation,
+    /LifetimeOutlives <SelfhostLifetimeId>/,
+    "lifetime outlives checks must enter proof as typed obligations",
+);
+assert.match(
+    proofObligation,
     /EffectAllowedInContext <SelfhostEffectContext>/,
     "effect boundary checks must enter proof as typed obligations",
 );
@@ -155,6 +166,11 @@ assert.match(
     proofQuery,
     /ResourceBorrowAccess <SelfhostBorrowState>/,
     "borrow access proof evidence must carry the next typed state",
+);
+assert.match(
+    proofQuery,
+    /LifetimeOutlives <SelfhostLifetimeRelation>/,
+    "lifetime outlives proof evidence must carry the source-derived relation",
 );
 assert.match(
     proofQuery,
@@ -198,6 +214,11 @@ assert.match(
 );
 assert.match(
     proofQuery,
+    /LifetimeOutlivesInvalid <SelfhostLifetimeOutlivesIssue>/,
+    "invalid lifetime outlives checks must return typed refutations",
+);
+assert.match(
+    proofQuery,
     /EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>/,
     "invalid effect boundary checks must return typed refutations",
 );
@@ -236,6 +257,7 @@ const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_module_declaration_header",
     "selfhost_proof_resource_cell_transition",
     "selfhost_proof_borrow_access",
+    "selfhost_proof_lifetime_outlives",
     "selfhost_proof_type_kind_compatible",
     "selfhost_proof_trait_impl_non_overlapping",
     "selfhost_proof_effect_allowed",
@@ -285,6 +307,11 @@ assert.match(
 );
 assert.match(
     proofSolver,
+    /(?:^|\n)fn\s+selfhost_proof_solve_lifetime_outlives\b[\s\S]*SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch/,
+    "lifetime outlives checks must live in the proof solver",
+);
+assert.match(
+    proofSolver,
     /(?:^|\n)fn\s+selfhost_proof_solve_effect_allowed\b[\s\S]*match\s+context:/,
     "effect boundary checks must live in the proof solver",
 );
@@ -315,6 +342,20 @@ assert.doesNotMatch(
 );
 assert.match(borrowState, /pub enum SelfhostBorrowState:/, "borrow state must be a typed enum");
 assert.match(borrowState, /pub enum SelfhostBorrowRequestKind:/, "borrow requests must be a typed enum");
+assert.match(lifetime, /pub struct SelfhostLifetimeId:/, "lifetime id must be a typed value");
+assert.match(lifetime, /pub enum SelfhostLifetimeScopePathKind:/, "lifetime scope path relation must be a typed enum");
+assert.match(lifetime, /pub enum SelfhostLifetimeRelation:/, "lifetime relation must be a typed enum");
+assert.match(lifetime, /pub enum SelfhostLifetimeUseKind:/, "lifetime use kind must be a typed enum");
+assert.doesNotMatch(
+    functionBlock(lifetime, "selfhost_lifetime_relation_from_positions"),
+    /"[A-Za-z0-9_.:-]+"/,
+    "lifetime relation derivation must not depend on module or lifetime name strings",
+);
+assert.match(
+    functionBlock(lifetime, "selfhost_lifetime_relation_from_positions"),
+    /SelfhostLifetimeRelation::Unrelated/,
+    "depth-only lifetime helper must not prove outlives for different lifetime ids",
+);
 
 assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");
 const publicModuleCheckerFunctions = Array.from(

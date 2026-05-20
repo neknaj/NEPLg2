@@ -123,6 +123,8 @@ fn check_coherence_refutation <(SelfhostProofRefutation,(SelfhostTraitImplCohere
             Result<(),str>::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::TypeKindMismatch _issue:
             Result<(),str>::Err "expected trait impl coherence refutation"
+        SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
+            Result<(),str>::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:

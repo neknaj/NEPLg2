@@ -116,6 +116,8 @@ fn check_borrow_refutation <(SelfhostProofRefutation,(SelfhostBorrowAccessError)
             Result<(),str>::Err "expected borrow access refutation"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
             Result<(),str>::Err "expected borrow access refutation"
+        SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
+            Result<(),str>::Err "expected borrow access refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected borrow access refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:

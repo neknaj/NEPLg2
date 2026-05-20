@@ -42956,3 +42956,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_proof.n.md --no-tree -o tmp/agent1-borrow-proof-type-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-borrow-proof-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_effect_proof.n.md --no-tree -o tmp/agent1-borrow-proof-effect-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host lifetime outlives proof 境界追加
+
+- `ISS-20260520T011528599Z-SELF-HOST-LIFETIME-OUTLIVES-IS-NOT-R-6C9E1A5D` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、borrow access proof が shared / mutable conflict を扱えるようになった一方で、borrow が return value、長寿命 storage、closure capture へ逃げる時の lifetime outlives 関係を typed proof として保持する入口がなかったことだった。
+- `core/resource/lifetime.nepl` を追加し、`SelfhostLifetimeId`、`SelfhostLifetimePosition`、`SelfhostLifetimeScopePathKind`、`SelfhostLifetimeRelation`、`SelfhostLifetimeUseKind` を定義した。scope depth だけでは兄弟 scope を区別できないため、outlives relation は source scope graph の typed path evidence から作り、depth-only helper は異なる lifetime id を `Unrelated` として扱う。
+- `SelfhostProofDomain::Lifetime`、`SelfhostLifetimeOutlivesFact`、`SelfhostProofObligation::LifetimeOutlives`、`SelfhostProofEvidence::LifetimeOutlives`、`SelfhostProofRefutation::LifetimeOutlivesInvalid` を追加した。required lifetime mismatch、invalid lifetime、shorter subject、unrelated relation は `SelfhostLifetimeOutlivesError` enum と issue payload に残す。
+- `selfhost_proof_lifetime_outlives` は public typed wrapper だが、内部では generic `selfhost_proof_solve` を通す。lifetime checker は checker-local escape rule を持たず、source scope graph / Resource IR lowering の fact producer としてこの Lifetime proof boundary に接続する方針になる。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/resource/lifetime.nepl --no-tree -o tmp/agent1-lifetime-model.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lifetime_proof.n.md --no-tree -o tmp/agent1-lifetime-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-lifetime-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-lifetime-existing-proof-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_borrow_proof.n.md --no-tree -o tmp/agent1-lifetime-borrow-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_effect_proof.n.md --no-tree -o tmp/agent1-lifetime-effect-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-lifetime-trait-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_proof.n.md --no-tree -o tmp/agent1-lifetime-type-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-lifetime-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed

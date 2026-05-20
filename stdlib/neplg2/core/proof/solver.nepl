@@ -20,6 +20,7 @@
 #import "neplg2/core/proof/obligation" as *
 #import "neplg2/core/proof/query" as *
 #import "neplg2/core/resource/borrow_state" as *
+#import "neplg2/core/resource/lifetime" as *
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
@@ -530,6 +531,37 @@ fn selfhost_proof_solve_borrow_access <(SelfhostBorrowAccessFact,SelfhostBorrowS
         SelfhostBorrowState::Mutable:
             selfhost_proof_solve_borrow_access_mutable fact
 
+fn selfhost_proof_lifetime_outlives_proven <(SelfhostLifetimeRelation)->SelfhostProofResult> (relation):
+    selfhost_proof_result_proven SelfhostProofEvidence::LifetimeOutlives relation
+
+fn selfhost_proof_lifetime_outlives_invalid <(SelfhostLifetimeOutlivesFact,SelfhostLifetimeId,SelfhostLifetimeOutlivesError)->SelfhostProofResult> (fact, expected_required, reason):
+    selfhost_proof_result_refuted SelfhostProofRefutation::LifetimeOutlivesInvalid selfhost_lifetime_outlives_issue_new fact.subject expected_required fact.required fact.relation fact.use_kind fact.span reason
+
+//: selfhost_proof_solve_lifetime_outlives_relation: source-derived lifetime relation を[解/と]く
+fn selfhost_proof_solve_lifetime_outlives_relation <(SelfhostLifetimeOutlivesFact,SelfhostLifetimeId)->SelfhostProofResult> (fact, expected_required):
+    match fact.relation:
+        SelfhostLifetimeRelation::InvalidSubject:
+            selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::InvalidSubjectLifetime
+        SelfhostLifetimeRelation::InvalidRequired:
+            selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::InvalidRequiredLifetime
+        SelfhostLifetimeRelation::SameLifetime:
+            selfhost_proof_lifetime_outlives_proven fact.relation
+        SelfhostLifetimeRelation::SubjectOutlivesRequired:
+            selfhost_proof_lifetime_outlives_proven fact.relation
+        SelfhostLifetimeRelation::SubjectShorterThanRequired:
+            selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::SubjectDoesNotOutliveRequired
+        SelfhostLifetimeRelation::Unrelated:
+            selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::UnrelatedLifetimes
+
+//: selfhost_proof_solve_lifetime_outlives: lifetime outlives obligation を[解/と]く
+fn selfhost_proof_solve_lifetime_outlives <(SelfhostLifetimeOutlivesFact,SelfhostLifetimeId)->SelfhostProofResult> (fact, expected_required):
+    if:
+        selfhost_lifetime_id_eq fact.required expected_required
+        then:
+            selfhost_proof_solve_lifetime_outlives_relation fact expected_required
+        else:
+            selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch
+
 fn selfhost_proof_type_kind_compatible_result <(SelfhostTypeKind)->SelfhostProofResult> (kind):
     selfhost_proof_result_proven SelfhostProofEvidence::TypeKindCompatible kind
 
@@ -664,6 +696,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
@@ -683,6 +717,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -704,6 +740,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
@@ -723,6 +761,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -746,6 +786,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -766,6 +808,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -783,6 +827,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -803,6 +849,30 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::LifetimeOutlives required:
+            match query.fact:
+                SelfhostProofFact::LifetimeOutlivesObserved lifetime_fact:
+                    selfhost_proof_solve_lifetime_outlives lifetime_fact required
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -825,6 +895,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -854,6 +926,8 @@ pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),Selfhos
                 SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -888,6 +962,8 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
@@ -920,6 +996,8 @@ pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState
                 SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -957,6 +1035,8 @@ pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,
                 SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -997,6 +1077,8 @@ pub fn selfhost_proof_resource_cell_transition <(SelfhostResourceCellState,Selfh
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
@@ -1030,12 +1112,49 @@ pub fn selfhost_proof_borrow_access <(SelfhostBorrowState,SelfhostBorrowAccessFa
                     Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
                     Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostBorrowState,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_lifetime_outlives: lifetime outlives query を[作/つく]る
+fn selfhost_proof_query_lifetime_outlives <(SelfhostLifetimeId,SelfhostLifetimeOutlivesFact)->SelfhostProofQuery> (required, fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::LifetimeOutlivesObserved fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::LifetimeOutlives required
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_lifetime_outlives: subject lifetime が required lifetime を outlive するか typed result として[返/かえ]す
+pub fn selfhost_proof_lifetime_outlives <(SelfhostLifetimeId,SelfhostLifetimeOutlivesFact)->Result<SelfhostLifetimeRelation,SelfhostProofRefutation>> (required, fact):
+    let query <SelfhostProofQuery> selfhost_proof_query_lifetime_outlives required fact
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::LifetimeOutlives relation:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Ok relation
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceBorrowAccess _state:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_type_kind_compatible: type kind compatibility query を[作/つく]る
 fn selfhost_proof_query_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFact)->SelfhostProofQuery> (expected, fact):
@@ -1062,6 +1181,8 @@ pub fn selfhost_proof_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFa
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -1093,6 +1214,8 @@ pub fn selfhost_proof_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->R
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -1128,6 +1251,8 @@ pub fn selfhost_proof_effect_allowed <(SelfhostEffectContext,SelfhostEffectObser
                 SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
