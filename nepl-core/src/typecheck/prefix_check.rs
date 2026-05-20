@@ -870,17 +870,27 @@ impl<'a> BlockChecker<'a> {
                                         }
                                         if let Some(sig) = trait_info.methods.get(method_name) {
                                             let applied_trait_args = self
-                                                .infer_trait_application_args(
+                                                .resolve_trait_application_args(
                                                     trait_info,
                                                     *sig,
                                                     &[],
                                                     None,
                                                 );
+                                            if let Some(conflict) =
+                                                applied_trait_args.conflicts.first().copied()
+                                            {
+                                                self.diagnostics.push(type_error(
+                                                    TypeDiagnosticCode::TraitConstraintConflict,
+                                                    conflict.diagnostic_message(self.ctx),
+                                                    id.span,
+                                                ));
+                                                return None;
+                                            }
                                             let trait_id = TraitId::from_name(trait_name);
                                             let method_self = self
                                                 .infer_unique_type_param_for_trait_ref(
                                                     &trait_id,
-                                                    &applied_trait_args,
+                                                    &applied_trait_args.resolved_args,
                                                 )
                                                 .unwrap_or_else(|| {
                                                     self.ctx.fresh_var(Some(String::from("Self")))

@@ -183,8 +183,9 @@ enum TypeExpectationSource {
 - 2026-05-20: trait method resolution は expected result を `TypeExpectation` として受け取り、trait application inference には target type を渡す。診断 span は `TypeExpectation` が管理する。
 - 2026-05-20: trait application inference は `TypeParamInferenceSource` / `TypeParamInferenceConstraint` により、argument 由来制約と expected result 由来制約を typed object として保持するようにした。`infer_trait_application_args` は `Option<TypeExpectation>` を直接受け、呼び出し側で target `TypeId` へ落とさない。
 - 2026-05-20: selected generic function call も `GenericCallConstraintSource` / `GenericCallConstraint` で argument 由来制約と expected result 由来制約を typed object として保持するようにした。期待戻り値制約は引数制約より先に適用するため、`id<T>(T)->T` のような関数で `<u8>` の期待型が `T` を拘束し、その後の char literal 引数検査にも context が伝わる。
-- 2026-05-20: generic function call の implicit type argument 解決で、制約が閉じた後の矛盾を `GenericTypeArgumentInference::{NoEvidence, Unique, Conflict}` と `GenericTypeArgumentConflict` payload として保持するようにした。selected call だけでは候補選択前に `same<T>(T,T)` のような矛盾が `OverloadNoMatch` に潰れるため、overload selection も同じ `GenericCallConstraint` を使って expected result と argument evidence を集約し、候補棄却理由として `GenericConstraintConflict` を残す。
-- 未完了: trait application 側で constraint が閉じても一意に決まらない場合の診断 payload 化。
+- 2026-05-20: generic function call の implicit type argument 解決で、制約が閉じた後の矛盾を `TypeArgumentInference::{NoEvidence, Unique, Conflict}` と `TypeArgumentConflict` payload として保持するようにした。selected call だけでは候補選択前に `same<T>(T,T)` のような矛盾が `OverloadNoMatch` に潰れるため、overload selection も同じ `GenericCallConstraint` を使って expected result と argument evidence を集約し、候補棄却理由として `GenericConstraintConflict` を残す。
+- 2026-05-20: generic function と trait application が個別に `Option<TypeId>` merge を持たないよう、type argument inference を `type_argument_inference.rs` の `TypeArgumentInference::{NoEvidence, Unique, Conflict}` / `TypeArgumentResolution` へ共通化した。trait application も expected result と argument evidence の矛盾を `TraitConstraintConflict` として報告する。
+- 未完了: trait application 側で conflict ではなく複数候補が残る ambiguity payload の整理。
 
 ### Stage E: performance guard
 

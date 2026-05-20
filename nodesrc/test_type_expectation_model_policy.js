@@ -15,6 +15,7 @@ const selectedCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/selec
 const indirectApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/indirect_apply.rs');
 const traitCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/trait_call_apply.rs');
 const traitCheckPath = path.join(repoRoot, 'nepl-core/src/typecheck/trait_check.rs');
+const typeArgumentInferencePath = path.join(repoRoot, 'nepl-core/src/typecheck/type_argument_inference.rs');
 
 const typeExpectation = fs.readFileSync(typeExpectationPath, 'utf8');
 const prefixCheck = fs.readFileSync(prefixCheckPath, 'utf8');
@@ -27,6 +28,7 @@ const selectedCallApply = fs.readFileSync(selectedCallApplyPath, 'utf8');
 const indirectApply = fs.readFileSync(indirectApplyPath, 'utf8');
 const traitCallApply = fs.readFileSync(traitCallApplyPath, 'utf8');
 const traitCheck = fs.readFileSync(traitCheckPath, 'utf8');
+const typeArgumentInference = fs.readFileSync(typeArgumentInferencePath, 'utf8');
 
 assert.match(typeExpectation, /enum\s+TypeExpectationSource\s*{[\s\S]*ExplicitAscription[\s\S]*BlockResult[\s\S]*OuterConsumerArgument[\s\S]*}/);
 assert.match(typeExpectation, /struct\s+TypeExpectation\s*{[\s\S]*target:\s*TypeId[\s\S]*base_depth:\s*usize[\s\S]*span:\s*Span[\s\S]*source:\s*TypeExpectationSource[\s\S]*}/);
@@ -138,14 +140,44 @@ assert.match(
     'trait type-parameter inference must use a structured constraint object',
 );
 assert.match(
+    typeArgumentInference,
+    /enum\s+TypeArgumentInference\s*{[\s\S]*NoEvidence[\s\S]*Unique\(TypeId\)[\s\S]*Conflict\(TypeArgumentConflict\)[\s\S]*}/,
+    'type-argument inference must use a shared typed result model',
+);
+assert.match(
+    typeArgumentInference,
+    /struct\s+TypeArgumentResolution\s*{[\s\S]*resolved_args:\s*Vec<TypeId>[\s\S]*conflicts:\s*Vec<TypeArgumentConflict>[\s\S]*}/,
+    'type-argument resolution must return typed conflict payloads',
+);
+assert.match(
+    typeArgumentInference,
+    /fn\s+resolve_type_arguments_from_constraints\([\s\S]*match\s+inference\s*{[\s\S]*TypeArgumentInference::NoEvidence[\s\S]*TypeArgumentInference::Unique[\s\S]*TypeArgumentInference::Conflict/,
+    'type-argument resolution must branch through exhaustive typed inference states',
+);
+assert.match(
     traitCheck,
     /expected_ret:\s*Option<\s*TypeExpectation\s*>/,
     'trait application inference must keep expected return evidence typed',
+);
+assert.match(
+    traitCheck,
+    /resolve_type_arguments_from_constraints\([\s\S]*trait_info\.type_params\.clone\(\)/,
+    'trait application inference must use the shared type-argument constraint resolver',
+);
+assert.doesNotMatch(
+    traitCheck,
+    /merge_inferred_instantiation/,
+    'trait application inference must not collapse conflict and no-evidence through Option merging',
 );
 assert.doesNotMatch(
     traitCallApply,
     /infer_trait_application_args\([\s\S]*expected_ret\.map\(\|expectation\|\s*expectation\.target\(\)\)/,
     'trait call resolution must not erase TypeExpectation before inference',
+);
+assert.match(
+    traitCallApply,
+    /TraitMethodResolution::ConstraintConflict\s*{[\s\S]*TypeDiagnosticCode::TraitConstraintConflict[\s\S]*conflict\.diagnostic_message\(self\.ctx\)/,
+    'trait method resolution must report type-argument constraint conflicts from typed payloads',
 );
 assert.match(
     genericCallConstraints,
@@ -159,17 +191,7 @@ assert.match(
 );
 assert.match(
     genericCallConstraints,
-    /enum\s+GenericTypeArgumentInference\s*{[\s\S]*NoEvidence[\s\S]*Unique\(TypeId\)[\s\S]*Conflict\(GenericTypeArgumentConflict\)[\s\S]*}/,
-    'generic call type-argument inference must distinguish no evidence, unique evidence, and conflict',
-);
-assert.match(
-    genericCallConstraints,
-    /struct\s+GenericTypeArgumentResolution\s*{[\s\S]*resolved_args:\s*Vec<TypeId>[\s\S]*conflicts:\s*Vec<GenericTypeArgumentConflict>[\s\S]*}/,
-    'generic call type-argument resolution must return typed conflict payloads',
-);
-assert.match(
-    genericCallConstraints,
-    /fn\s+infer_for_type_param\([\s\S]*match\s+self\.source\s*{[\s\S]*GenericCallConstraintSource::Argument[\s\S]*GenericCallConstraintSource::ExpectedResult[\s\S]*infer_type_param_from_instantiated_pair/,
+    /fn\s+type_argument_constraint\([\s\S]*match\s+self\.source\s*{[\s\S]*GenericCallConstraintSource::Argument[\s\S]*GenericCallConstraintSource::ExpectedResult[\s\S]*TypeArgumentConstraint::new/,
     'generic call type-argument inference must dispatch through the typed constraint source',
 );
 assert.match(

@@ -1,8 +1,31 @@
+# 2026-05-20 Agent 1 shared type argument inference and trait conflict payload
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、generic function と trait application の type argument inference を共通 model に切り出した。`plan.md` は変更していない。
+- `type_argument_inference.rs` を追加し、`TypeArgumentConstraint`、`TypeArgumentInference::{NoEvidence, Unique, Conflict}`、`TypeArgumentResolution`、`TypeArgumentConflict` を共通化した。
+- `generic_call_constraints.rs` は call source enum を保持したまま、type argument 解決を共通 resolver に委譲する。
+- `trait_check.rs` は `merge_inferred_instantiation` を使わず、trait application の argument / expected result evidence を共通 resolver に渡す。
+- `TraitMethodResolution::ConstraintConflict` と `TypeDiagnosticCode::TraitConstraintConflict` を追加し、trait application の制約矛盾を typed diagnostic として報告する。
+- `trait_application_type_param_conflict_has_type_code` を追加し、`Mapper<T>::map(Self,T)->T` に `T=i32` と期待結果 `T=bool` が同時に要求されるケースを固定した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_application_type_param_conflict_has_type_code -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 trait_method_call_with_impl_compiles -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 trait_bound_satisfied_in_generic -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 impl_type_params_in_trait_args_allowed_for_concrete_target -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 trait_bound_missing_impl_is_error -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+  - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core diagnostic_codes_have_unique_serialized_names -- --nocapture`: pass
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+  - `node nodesrc/issues.js check`: pass
+
 # 2026-05-20 Agent 1 generic constraint conflict payload
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、generic call constraint が閉じた後の type argument 矛盾を typed diagnostic payload として扱うようにした。`plan.md` は変更していない。
 - selected call だけでは `same<T>(T,T)` に `i32` と `bool` を渡すケースが overload selection で先に落ち、矛盾が `OverloadNoMatch` に潰れることを確認した。
-- `GenericTypeArgumentInference::{NoEvidence, Unique, Conflict}` と `GenericTypeArgumentResolution { resolved_args, conflicts }` を追加し、no evidence と conflict を `Option<TypeId>` の `None` にまとめないようにした。
+- `TypeArgumentInference::{NoEvidence, Unique, Conflict}` と `TypeArgumentResolution { resolved_args, conflicts }` を追加し、no evidence と conflict を `Option<TypeId>` の `None` にまとめないようにした。
 - overload selection も `GenericCallConstraint` で expected result / argument evidence を集約し、`OverloadCandidateRejection::GenericConstraintConflict` と `TypeDiagnosticCode::GenericConstraintConflict` で報告するようにした。
 - 未使用になった `char_literal_matches_context` helper は削除し、overload selection では `char_literal_context_type` から得た実際の context type を constraint actual として使う。
 - 検証:

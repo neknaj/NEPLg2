@@ -41,6 +41,7 @@ mod trait_bound_apply;
 mod trait_call_apply;
 mod trait_check;
 mod traits;
+mod type_argument_inference;
 mod type_expectation;
 mod type_expr;
 use crate::intrinsic_kinds::{

@@ -2519,6 +2519,27 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn trait_application_type_param_conflict_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait Mapper<.T>:
+    fn map <(Self,.T)->.T> (_self, value):
+        value
+
+impl<.T> Mapper<.T> for i32:
+    fn map <(i32,.T)->.T> (_self, value):
+        value
+
+fn main <()->i32> ():
+    let _x <bool> Mapper::map 0 123
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitConstraintConflict);
+}
+
+#[test]
 fn impl_generic_target_diagnostic_uses_type_expr_span() {
     let src = r#"
 #entry main

@@ -3,9 +3,9 @@ use alloc::vec::Vec;
 use crate::types::{TypeId, TypeKind};
 
 use super::signature::type_contains_unbound_var;
-use super::traits::{
-    infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
-    type_param_has_trait_application_bound, TraitBound, TraitId, TraitInfo,
+use super::traits::{type_param_has_trait_application_bound, TraitBound, TraitId, TraitInfo};
+use super::type_argument_inference::{
+    resolve_type_arguments_from_constraints, TypeArgumentConstraint, TypeArgumentResolution,
 };
 use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
@@ -53,21 +53,10 @@ impl TypeParamInferenceConstraint {
         }
     }
 
-    fn infer_for_type_param(
-        self,
-        checker: &BlockChecker<'_>,
-        target_tp: TypeId,
-        target_label: Option<&str>,
-    ) -> Option<TypeId> {
+    fn type_argument_constraint(self) -> TypeArgumentConstraint {
         match self.source {
             TypeParamInferenceSource::Argument | TypeParamInferenceSource::ExpectedResult => {
-                infer_type_param_from_instantiated_pair(
-                    checker.ctx,
-                    self.original,
-                    self.actual,
-                    target_tp,
-                    target_label,
-                )
+                TypeArgumentConstraint::new(self.original, self.actual)
             }
         }
     }
@@ -156,19 +145,25 @@ impl<'a> BlockChecker<'a> {
         matched
     }
 
-    pub(super) fn infer_trait_application_args(
+    pub(super) fn resolve_trait_application_args(
         &self,
         trait_info: &TraitInfo,
         sig: TypeId,
         args: &[StackEntry],
         expected_ret: Option<TypeExpectation>,
-    ) -> Vec<TypeId> {
+    ) -> TypeArgumentResolution {
         if trait_info.type_params.is_empty() {
-            return Vec::new();
+            return TypeArgumentResolution {
+                resolved_args: Vec::new(),
+                conflicts: Vec::new(),
+            };
         }
         let resolved_sig = self.ctx.resolve_id(sig);
         let TypeKind::Function { params, result, .. } = self.ctx.get(resolved_sig) else {
-            return Vec::new();
+            return TypeArgumentResolution {
+                resolved_args: Vec::new(),
+                conflicts: Vec::new(),
+            };
         };
         let mut constraints = Vec::new();
         for (param_ty, arg) in params.iter().zip(args.iter()) {
@@ -180,22 +175,16 @@ impl<'a> BlockChecker<'a> {
                 expectation.target(),
             ));
         }
-        let mut inferred = Vec::new();
-        for tp in &trait_info.type_params {
-            let label = match self.ctx.get(self.ctx.resolve_id(*tp)) {
-                TypeKind::Var(v) => v.label.clone(),
-                _ => None,
-            };
-            let mut found = None;
-            for constraint in constraints.iter().copied() {
-                found = merge_inferred_instantiation(
-                    self.ctx,
-                    found,
-                    constraint.infer_for_type_param(self, *tp, label.as_deref()),
-                );
-            }
-            inferred.push(found.unwrap_or(*tp));
-        }
-        inferred
+        let type_argument_constraints = constraints
+            .iter()
+            .copied()
+            .map(TypeParamInferenceConstraint::type_argument_constraint)
+            .collect::<Vec<_>>();
+        resolve_type_arguments_from_constraints(
+            self.ctx,
+            &trait_info.type_params,
+            trait_info.type_params.clone(),
+            &type_argument_constraints,
+        )
     }
 }
