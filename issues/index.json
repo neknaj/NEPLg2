@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T13:37:14.035Z",
+  "generated_at": "2026-05-20T13:46:21.458Z",
   "counts": {
-    "total": 1123,
-    "open": 3,
+    "total": 1124,
+    "open": 4,
     "resolved": 1120,
     "by_area": {
       "stdlib": {
-        "total": 307,
-        "open": 2,
+        "total": 308,
+        "open": 3,
         "resolved": 305
       },
       "selfhost": {
@@ -148,6 +148,21 @@
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
+    },
+    {
+      "id": "ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D",
+      "title": "Collection owner-producing APIs lack cross-family Copy-only policy",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nodesrc/test_stdlib_collection_cleanup_contract.js, tests/stdlib/collection_cleanup_contract.n.md, issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

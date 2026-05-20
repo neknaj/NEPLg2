@@ -11,6 +11,7 @@ const inspected = [];
 const ownerAccessorInspected = [];
 const popOwnerAccessorInspected = [];
 const fallibleOwnerConsumerInspected = [];
+const ownerSurfaceInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -44,6 +45,17 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 fallibleOwnerConsumerInspected.push(`${relPath}:${signature.name}`);
                 if (fallibleOwnerConsumer.errorKind === 'bare') {
                     violations.push(`${relPath}:${index + 1}: ${signature.name} consumes a generic collection owner but returns bare Diag/StdErrorKind on failure; use an owner-bearing error payload`);
+                }
+            }
+            const ownerSurfaceCopyRequirement = signature && generics.length > 0
+                ? collectionOwnerSurfaceCopyRequirement(typeSignature)
+                : null;
+            if (ownerSurfaceCopyRequirement && ownerSurfaceCopyRequirement.size > 0) {
+                ownerSurfaceInspected.push(`${relPath}:${signature.name}`);
+                const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
+                if (missingCopy.length > 0) {
+                    const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
                 }
             }
             continue;
@@ -141,7 +153,41 @@ for (const expected of [
     );
 }
 
-assert.deepEqual(violations, [], `generic collection cleanup and owner recovery APIs must remain Copy-only:\n${violations.join('\n')}`);
+assert.ok(
+    ownerSurfaceInspected.length >= 45,
+    `collection owner surface policy must inspect constructors, mutators, observers, and typed view APIs, inspected only ${ownerSurfaceInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/vec/storage/api.nepl:new',
+    'stdlib/alloc/collections/vec/storage/api.nepl:with_capacity',
+    'stdlib/alloc/collections/vec/storage/view.nepl:vec_empty',
+    'stdlib/alloc/collections/vec/access/data.nepl:data_mem_view',
+    'stdlib/alloc/collections/vec/query/get.nepl:get',
+    'stdlib/alloc/collections/vec/mutation/push.nepl:push',
+    'stdlib/alloc/collections/vec/mutation/replace.nepl:replace',
+    'stdlib/alloc/collections/vec/mutation/pop.nepl:pop',
+    'stdlib/alloc/collections/hashmap/api.nepl:new',
+    'stdlib/alloc/collections/hashmap/api.nepl:insert',
+    'stdlib/alloc/collections/hashmap/api.nepl:get',
+    'stdlib/alloc/collections/hashmap/api.nepl:remove',
+    'stdlib/alloc/collections/hashset/api.nepl:insert',
+    'stdlib/alloc/collections/btreemap/api/insert.nepl:insert',
+    'stdlib/alloc/collections/btreeset/api/insert.nepl:insert',
+    'stdlib/alloc/collections/stack/api.nepl:push',
+    'stdlib/alloc/collections/queue/api.nepl:push',
+    'stdlib/alloc/collections/deque/api.nepl:push_front',
+    'stdlib/alloc/collections/ringbuffer/api.nepl:push',
+    'stdlib/alloc/collections/binary_heap/api/push.nepl:push',
+    'stdlib/alloc/collections/list/basic.nepl:push',
+]) {
+    assert.ok(
+        ownerSurfaceInspected.some((entry) => entry.includes(expected)),
+        `collection owner surface policy did not inspect expected signature: ${expected}`,
+    );
+}
+
+assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, and owner-producing APIs must remain Copy-only:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
 
@@ -230,6 +276,142 @@ function classifyFallibleOwnerConsumer(typeSignature) {
     return {
         errorKind: /^(?:Diag|StdErrorKind)$/.test(errorType.trim()) ? 'bare' : 'owner-bearing',
     };
+}
+
+function collectionOwnerSurfaceCopyRequirement(typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType) {
+        return null;
+    }
+
+    const required = new Set();
+    const ownerGenericNames = new Set();
+    for (const text of [...functionType.parameters, functionType.returnType]) {
+        for (const name of ownerAggregateGenericNames(text)) {
+            ownerGenericNames.add(name);
+        }
+    }
+
+    if (ownerGenericNames.size === 0) {
+        return null;
+    }
+
+    const returnType = functionType.returnType.trim();
+    if (!returnType.startsWith('&')) {
+        for (const name of ownerAggregateGenericNames(returnType)) {
+            required.add(name);
+        }
+
+        const returnGenericNames = genericNames(returnType);
+        if (setIntersects(ownerGenericNames, returnGenericNames)) {
+            for (const name of returnGenericNames) {
+                if (ownerGenericNames.has(name)) {
+                    required.add(name);
+                }
+            }
+        }
+    }
+
+    let exposesPayloadThroughByValueInput = false;
+    for (const parameter of functionType.parameters) {
+        const trimmed = parameter.trim();
+        if (trimmed.startsWith('&')) {
+            continue;
+        }
+
+        const parameterOwnerNames = ownerAggregateGenericNames(trimmed);
+        for (const name of parameterOwnerNames) {
+            required.add(name);
+        }
+
+        const parameterGenericNames = genericNames(trimmed);
+        if (setIntersects(ownerGenericNames, parameterGenericNames)) {
+            exposesPayloadThroughByValueInput = true;
+            for (const name of parameterGenericNames) {
+                if (ownerGenericNames.has(name)) {
+                    required.add(name);
+                }
+            }
+        }
+    }
+
+    if (exposesPayloadThroughByValueInput) {
+        for (const name of ownerGenericNames) {
+            required.add(name);
+        }
+    }
+
+    return required;
+}
+
+function ownerAggregateGenericNames(text) {
+    const names = new Set();
+    const aggregatePattern = /\b([A-Z][A-Za-z0-9_]*)\s*</g;
+    let match;
+    while ((match = aggregatePattern.exec(text)) !== null) {
+        const typeName = match[1];
+        if (!isOwnerAggregateName(typeName)) {
+            continue;
+        }
+
+        const angleStart = text.indexOf('<', match.index + typeName.length);
+        const angleEnd = topLevelAngleEnd(text.slice(angleStart));
+        if (angleStart === -1 || angleEnd === -1) {
+            continue;
+        }
+
+        const inner = text.slice(angleStart + 1, angleStart + angleEnd);
+        for (const name of genericNames(inner)) {
+            names.add(name);
+        }
+    }
+    return names;
+}
+
+function isOwnerAggregateName(typeName) {
+    return [
+        'Vec',
+        'OwnedBuffer',
+        'VecStorage',
+        'VecDataView',
+        'VecPartition',
+        'Stack',
+        'Queue',
+        'Deque',
+        'RingBuffer',
+        'BinaryHeap',
+        'BTreeMap',
+        'BTreeSet',
+        'HashMap',
+        'HashSet',
+        'List',
+        'BloomFilter',
+        'CountingBloomFilter',
+        'RegionToken',
+    ].includes(typeName) || /(?:Error|Pop)$/.test(typeName);
+}
+
+function genericNames(text) {
+    const names = new Set();
+    const genericPattern = /\.(\w+)/g;
+    let match;
+    while ((match = genericPattern.exec(text)) !== null) {
+        names.add(match[1]);
+    }
+    return names;
+}
+
+function setIntersects(left, right) {
+    for (const value of left) {
+        if (right.has(value)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function parseGenericParameters(afterName) {

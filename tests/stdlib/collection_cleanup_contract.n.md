@@ -71,6 +71,93 @@ fn main <()->i32> ():
     0
 ```
 
+## vec_new_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn make_vec_new <()->Result<Vec<CleanupPayload>, StdErrorKind>> ():
+    new<CleanupPayload>
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_with_capacity_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn make_vec_with_capacity <()->Result<Vec<CleanupPayload>, StdErrorKind>> ():
+    with_capacity<CleanupPayload> 4
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_push_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn push_non_copy_vec <(Vec<CleanupPayload>, CleanupPayload)->Result<Vec<CleanupPayload>, VecPushError<CleanupPayload>>> (v, item):
+    push<CleanupPayload> v item
+
+fn main <()->i32> ():
+    0
+```
+
+## vec_get_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn read_non_copy_vec <(&Vec<CleanupPayload>, i32)->Option<CleanupPayload>> (v, idx):
+    get<CleanupPayload> v idx
+
+fn main <()->i32> ():
+    0
+```
+
 ## vec_pop_vec_rejects_non_copy_payload
 
 neplg2:test[compile_fail]
@@ -375,6 +462,27 @@ fn main <()->i32> ():
     0
 ```
 
+## btreemap_insert_value_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/btreemap" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn insert_btreemap_value <(BTreeMap<i32, CleanupPayload>, CleanupPayload)*>Result<BTreeMap<i32, CleanupPayload>, BTreeMapInsertError<i32, CleanupPayload>>> (hm, value):
+    insert<i32, CleanupPayload> hm 1 value
+
+fn main <()->i32> ():
+    0
+```
+
 ## list_free_rejects_non_copy_payload
 
 neplg2:test[compile_fail]
@@ -412,6 +520,28 @@ struct CleanupPayload:
 
 fn recover_list_from_transform_error <(ListTransformError<CleanupPayload>)->List<CleanupPayload>> (e):
     list_transform_error_list<CleanupPayload> e
+
+fn main <()->i32> ():
+    0
+```
+
+## hashmap_insert_value_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap" as *
+#import "core/traits/hash" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn insert_hashmap_value <(HashMap<i32, CleanupPayload, DefaultHash32>, CleanupPayload)*>Result<HashMap<i32, CleanupPayload, DefaultHash32>, HashMapUpdateError<i32, CleanupPayload, DefaultHash32>>> (hm, value):
+    insert<i32, CleanupPayload, DefaultHash32> hm 1 value
 
 fn main <()->i32> ():
     0

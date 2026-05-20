@@ -43657,3 +43657,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl -i stdlib/alloc/collections/vec/invariant.nepl --no-tree --dist web/dist -o tmp/agent1-vec-doc-contract-1036.json -j 1 --assert-io`: 7/7 passed
   - `node nodesrc/run_source_policy_regressions.js`: passed
+
+## 2026-05-20 Agent 1 collection owner-producing API Copy-only policy
+
+- `ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、RV-STDLIB-004 の現行対策が cleanup/free、owner-returning error accessor、pop owner accessor の検査に寄っており、constructor / update / observer / typed data-view が non-Copy collection owner を作る・返す・更新する入口として横断監視されていなかったことだった。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` に owner-producing/updating generic collection surface の検出を追加した。関数型に現れる collection owner aggregate と payload view を見て、対象 payload generic に `Copy` bound を要求する。borrowed storage view は owner/payload を動かさないため対象外にした。
+- `tests/stdlib/collection_cleanup_contract.n.md` には `Vec.new` / `Vec.with_capacity` / `Vec.push` / `Vec.get` / `BTreeMap.insert` / `HashMap.insert` の non-Copy payload compile-fail を追加した。
+- `RV-STDLIB-004` 親 issue は閉じていない。今回閉じたのは Copy-only 期間の回帰ガードであり、non-Copy payload collection の drop traversal / moved slot / compiler-issued owner token は Stage 6 残件である。
+- focused verification:
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree --dist web/dist -o tmp/agent1-collection-owner-surface-contract.json -j 4 --assert-io`: 37/37 passed
