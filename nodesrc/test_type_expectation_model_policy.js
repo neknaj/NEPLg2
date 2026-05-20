@@ -68,5 +68,15 @@ assert.match(prefixCheck, /TypeExpectation::explicit_ascription/);
 assert.match(prefixCheck, /TypeExpectation::block_result/);
 assert.match(callResolution, /TypeExpectation::outer_consumer_argument/);
 assert.match(callReduction, /call_result_expectation_after_args/);
+assert.match(
+    overloadSelection,
+    /let\s+func_data\s*=\s*match\s+self\.ctx\.get\(binding\.ty\)[\s\S]*let\s+checkpoint\s*=\s*self\.ctx\.checkpoint\(\);[\s\S]*self\.ctx\.instantiate\(binding\.ty\)/,
+    'overload selection must classify declared function shape before instantiating candidates',
+);
+assert.ok(
+    overloadSelection.indexOf('let func_data = match self.ctx.get(binding.ty)') <
+        overloadSelection.indexOf('let checkpoint = self.ctx.checkpoint();'),
+    'overload selection must not checkpoint and instantiate before cheap declared-shape pruning',
+);
 
 console.log('type expectation model source policy passed');

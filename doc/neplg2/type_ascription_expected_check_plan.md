@@ -155,7 +155,8 @@ enum TypeExpectationSource {
 実装状況:
 
 - 2026-05-20: `select_overload_candidate`、`apply_function`、selected call、indirect call、trait call の expected result 境界を `Option<TypeExpectation>` に移した。call reduction で得た期待型の由来を call 適用層まで落とさずに保持できる。
-- 未完了: 候補を instantiate する前の分類と candidate count guard は未実装。現時点では typed evidence の伝播と result constraint の早期 commit を先に固定している。
+- 2026-05-20: overload selection は binding の declared function shape を先に読み、関数でない候補、明示 type args 数不一致、capture 数不整合、arity 不一致を checkpoint / instantiate 前に除外するようにした。
+- 未完了: expected result の形まで使った instantiate 前分類と candidate count guard は未実装。現時点では typed evidence の伝播、result constraint の早期 commit、declared-shape pruning を固定している。
 
 ### Stage D: generics / trait expected-check
 

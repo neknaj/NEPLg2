@@ -110,3 +110,34 @@ Stage C の前半として、call reduction から先の `expected_ret: Option<T
 - `cargo test -p nepl-core --test generics -- --nocapture`: 24 passed
 - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
+## 2026-05-20 Stage C overload declared-shape pruning
+
+Stage C 後半の一部として、`select_overload_candidate` で checkpoint / instantiate する前に binding の declared function shape を分類するようにした。これにより、関数でない候補、明示 type args 数不一致、capture 数不整合、arity 不一致は fresh type variable を作る前に除外される。
+
+設計上の意図:
+
+- expected-check は単に最後の unify を早くするだけでなく、探索対象そのものを typed rule で減らす。
+- stdlib 関数名や module allowlist ではなく、候補の型シグネチャそのものから削れる候補を削る。
+- source policy で、`select_overload_candidate` が declared shape を見てから checkpoint / instantiate する順序を監視する。
+
+今回完了した範囲:
+
+- declared `TypeKind::Function` の取得を instantiate 前へ移動。
+- explicit type args count / capture len / arity の mismatch を instantiate 前に `continue` する。
+- `nodesrc/test_type_expectation_model_policy.js` に declared-shape pruning の順序検査を追加。
+
+残作業:
+
+- expected result の型構造まで使った pre-instantiate pruning。
+- candidate count guard / test-only counter。
+- ambiguity 診断の理由構造化。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_make_some_wrapper -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
