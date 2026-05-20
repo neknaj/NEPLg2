@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T13:20:41.224Z",
+  "generated_at": "2026-05-20T13:37:14.035Z",
   "counts": {
     "total": 1123,
-    "open": 4,
-    "resolved": 1119,
+    "open": 3,
+    "resolved": 1120,
     "by_area": {
       "stdlib": {
         "total": 307,
-        "open": 3,
-        "resolved": 304
+        "open": 2,
+        "resolved": 305
       },
       "selfhost": {
         "total": 106,
@@ -148,21 +148,6 @@
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
-    },
-    {
-      "id": "ISS-20260520T131842206Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-7DA20949",
-      "title": "Stdlib documentation contract declaration doctest baseline regressed to 1036",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "doc",
-      "created": "2026-05-20",
-      "updated": "2026-05-20",
-      "target": "stdlib/core/**, stdlib/alloc/**, stdlib/std/**, nodesrc/test_stdlib_documentation_contract.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260520T131842206Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-7DA20949.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -13123,6 +13108,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T113031972Z-VEC-DATA-VIEW-COLLAPSES-INVALID-INVA-D6378EBA.md"
+    },
+    {
+      "id": "ISS-20260520T131842206Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-7DA20949",
+      "title": "Stdlib documentation contract declaration doctest baseline regressed to 1036",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/core/**, stdlib/alloc/**, stdlib/std/**, nodesrc/test_stdlib_documentation_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T131842206Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-7DA20949.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -43645,3 +43645,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
   - `node nodesrc/test_selfhost_checker_report_contract.js`: passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl --no-tree --dist web/dist -o tmp/agent1-selfhost-checker-doctest-timeout.json -j 1 --assert-io`: 2/2 passed
+
+## 2026-05-20 Agent 1 Vec documentation contract baseline 復旧
+
+- `ISS-20260520T131842206Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-7DA20949` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、Vec raw access invariant の enum proof 化で `VecDataView`、`VecCopyInvariantInvalid`、`VecCopyInvariant`、`vec_current_copy_invariant` の public declaration が増えた一方で、各宣言直前の doc block に executable doctest が無かったことだった。
+- `VecDataView` には `with_capacity 0` が `Empty` view、初期容量を持つ `new` が `Data` view になることを示す doctest を追加した。既存の `data_mem_view` doctest も `new` を empty storage と誤解しないよう `with_capacity 0` に修正し、`exit_code: 0` を明示した。
+- `VecCopyInvariantInvalid` / `VecCopyInvariant` には typed reason と `Valid` / `Invalid(reason)` を match で扱う doctest を追加した。`vec_current_copy_invariant` には public `Vec` facade から invariant proof を得る例を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed (`declarationNoDoctest=1032`)
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl -i stdlib/alloc/collections/vec/invariant.nepl --no-tree --dist web/dist -o tmp/agent1-vec-doc-contract-1036.json -j 1 --assert-io`: 7/7 passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed

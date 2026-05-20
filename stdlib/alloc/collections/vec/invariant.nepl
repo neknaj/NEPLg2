@@ -22,6 +22,30 @@
 //: ### [目的/もくてき]
 //: - invariant failure を bool に[潰/つぶ]さず、どの metadata / storage 相関が[壊/こわ]れたかを enum として[残/のこ]します。
 //: - 新しい failure case を[追加/ついか]したとき、`match` の[網羅性/もうらせい]で caller / diagnostic / policy の[追従/ついじゅう]漏れを[見/み]つけやすくします。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/invariant" as *
+//: fn main <()->i32> ():
+//:     let reason <VecCopyInvariantInvalid> VecCopyInvariantInvalid::LengthExceedsCapacity
+//:     let ok <bool> match reason:
+//:         VecCopyInvariantInvalid::NegativeLength:
+//:             false
+//:         VecCopyInvariantInvalid::InitializedLengthMismatch:
+//:             false
+//:         VecCopyInvariantInvalid::LengthExceedsCapacity:
+//:             true
+//:         VecCopyInvariantInvalid::EmptyStorageMetadataMismatch:
+//:             false
+//:         VecCopyInvariantInvalid::OwnedStorageCapacityMismatch:
+//:             false
+//:         VecCopyInvariantInvalid::OwnedStorageExtentMismatch:
+//:             false
+//:     if ok 0 1
+//: ```
 pub enum VecCopyInvariantInvalid:
     NegativeLength
     InitializedLengthMismatch
@@ -36,6 +60,44 @@ pub enum VecCopyInvariantInvalid:
 //: ### [目的/もくてき]
 //: - `Valid` は raw load/store の前提となる `OwnedBuffer` 相関が[証明/しょうめい]されたことを[表/あらわ]します。
 //: - `Invalid(reason)` は raw access を[拒否/きょひ]すべき状態で、理由を typed payload として[保持/ほじ]します。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/invariant" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok new<i32>
+//:     let valid_ok <bool> match vec_current_copy_invariant<i32> &v:
+//:         VecCopyInvariant::Valid:
+//:             true
+//:         VecCopyInvariant::Invalid _reason:
+//:             false
+//:     free<i32> v
+//:     let invalid <VecCopyInvariant> VecCopyInvariant::Invalid VecCopyInvariantInvalid::OwnedStorageExtentMismatch
+//:     let invalid_ok <bool> match invalid:
+//:         VecCopyInvariant::Valid:
+//:             false
+//:         VecCopyInvariant::Invalid reason:
+//:             match reason:
+//:                 VecCopyInvariantInvalid::OwnedStorageExtentMismatch:
+//:                     true
+//:                 VecCopyInvariantInvalid::NegativeLength:
+//:                     false
+//:                 VecCopyInvariantInvalid::InitializedLengthMismatch:
+//:                     false
+//:                 VecCopyInvariantInvalid::LengthExceedsCapacity:
+//:                     false
+//:                 VecCopyInvariantInvalid::EmptyStorageMetadataMismatch:
+//:                     false
+//:                 VecCopyInvariantInvalid::OwnedStorageCapacityMismatch:
+//:                     false
+//:     if and valid_ok invalid_ok 0 1
+//: ```
 pub enum VecCopyInvariant:
     Valid
     Invalid <VecCopyInvariantInvalid>
@@ -117,6 +179,26 @@ pub fn vec_buffer_current_copy_invariant <.T> <(&OwnedBuffer<.T>)->VecCopyInvari
 //:
 //: ### [目的/もくてき]
 //: - public `Vec` facade から `OwnedBuffer` を[借用/しゃくよう]し、raw element access 前の invariant [検査/けんさ]を[共通化/きょうつうか]します。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/invariant" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>
+//:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 1
+//:     let ok <bool> match vec_current_copy_invariant<i32> &v1:
+//:         VecCopyInvariant::Valid:
+//:             true
+//:         VecCopyInvariant::Invalid _reason:
+//:             false
+//:     free<i32> v1
+//:     if ok 0 1
+//: ```
 pub fn vec_current_copy_invariant <.T> <(&Vec<.T>)->VecCopyInvariant> (v):
     let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     vec_buffer_current_copy_invariant<.T> buffer
