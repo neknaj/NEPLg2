@@ -1,3 +1,15 @@
+# 2026-05-21 Agent 1 canonical memory effects test fixtures
+
+- `ISS-20260520T235639756Z-COLLECTION-SLOT-EFFECTS-FIXTURES-USE-7246C053` を追加して fixed にした。`plan.md` は変更していない。
+- 直前の compiler-memory canonical definition 化により、effects test 内で arbitrary stdlib path に local same-shape `MemPtr` / `RegionToken` を定義する fixture は正しく拒否されるようになった。
+- collection slot lifecycle / storage dealloc / storage relocate の tests は、temporary stdlib root の canonical `core/mem/types.nepl` を import する形へ更新し、テストの意図を fake type 許可ではなく canonical anchor validation に戻した。
+- 未使用になった旧 stdlib inline helper は削除した。
+- 検証:
+  - `cargo test -p nepl-core collection_slot --test effects -- --test-threads=1`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+
 # 2026-05-21 Agent 1 compiler memory canonical owner token authority
 
 - `ISS-20260520T224333208Z-COMPILER-MEMORY-OWNER-TOKEN-AUTHORIT-7FCBF376` を fixed にした。`plan.md` は変更していない。

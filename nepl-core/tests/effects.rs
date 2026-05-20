@@ -73,16 +73,39 @@ fn check_source_as_core_mem_boundary(
     check_module_with_source_map(loaded.module, Some(&loaded.source_map), options(target))
 }
 
-fn check_source_as_stdlib_path(
+fn check_source_with_canonical_mem_types(
     src: &str,
-    path: &str,
+    relative_path: &str,
     target: CompileTarget,
 ) -> Result<(), CoreError> {
-    let stdlib_root = std::path::PathBuf::from("C:/repo/stdlib");
+    let temp = tempfile::tempdir().expect("tempdir");
+    let stdlib_root = temp.path().join("stdlib");
+    let core_mem = stdlib_root.join("core").join("mem");
+    std::fs::create_dir_all(&core_mem).expect("create canonical core/mem dir");
+    std::fs::write(
+        core_mem.join("types.nepl"),
+        r#"
+#indent 4
+#target wasm
+
+pub struct MemPtr<.T>:
+    raw <i32>
+
+pub struct RegionToken<.T>:
+    raw <i32>
+    size <i32>
+"#,
+    )
+    .expect("write canonical mem types");
+
+    let entry = stdlib_root.join(relative_path);
+    if let Some(parent) = entry.parent() {
+        std::fs::create_dir_all(parent).expect("create stdlib entry parent");
+    }
+    std::fs::write(&entry, src).expect("write stdlib entry source");
+
     let mut loader = Loader::new(stdlib_root);
-    let loaded = loader
-        .load_inline(std::path::PathBuf::from(path), String::from(src))
-        .expect("load");
+    let loaded = loader.load(&entry).expect("load stdlib entry");
     check_module_with_source_map(loaded.module, Some(&loaded.source_map), options(target))
 }
 
@@ -573,16 +596,15 @@ fn collection_slot_lifecycle_intrinsic_accepts_matching_stdlib_anchor() {
 #indent 4
 #target wasm
 
-pub struct MemPtr<.T>:
-    raw <i32>
+#import "core/mem/types" as *
 
 fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
     #intrinsic "collection_slot_initialize_empty" <i32> (ptr, offset)
 "#;
 
-    check_source_as_stdlib_path(
+    check_source_with_canonical_mem_types(
         src,
-        "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+        "alloc/collections/vec/slot_boundary.nepl",
         CompileTarget::Wasm,
     )
     .expect("stdlib collection slot intrinsic with matching anchor type is allowed");
@@ -596,17 +618,16 @@ fn collection_slot_lifecycle_intrinsic_rejects_anchor_type_mismatch() {
 #indent 4
 #target wasm
 
-pub struct MemPtr<.T>:
-    raw <i32>
+#import "core/mem/types" as *
 
 fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
     #intrinsic "collection_slot_initialize_empty" <u8> (ptr, offset)
 "#;
 
     assert_has_diag(
-        check_source_as_stdlib_path(
+        check_source_with_canonical_mem_types(
             src,
-            "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+            "alloc/collections/vec/slot_boundary.nepl",
             CompileTarget::Wasm,
         ),
         DiagnosticCode::Type(
@@ -623,17 +644,16 @@ fn collection_slot_storage_dealloc_requires_owner_token_anchor() {
 #indent 4
 #target wasm
 
-pub struct MemPtr<.T>:
-    raw <i32>
+#import "core/mem/types" as *
 
 fn helper <(MemPtr<i32>)->()> (ptr):
     #intrinsic "collection_slot_storage_dealloc" <> (ptr)
 "#;
 
     assert_has_diag(
-        check_source_as_stdlib_path(
+        check_source_with_canonical_mem_types(
             src,
-            "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+            "alloc/collections/vec/slot_boundary.nepl",
             CompileTarget::Wasm,
         ),
         DiagnosticCode::Type(
@@ -650,17 +670,15 @@ fn collection_slot_storage_relocate_accepts_matching_owner_tokens() {
 #indent 4
 #target wasm
 
-pub struct RegionToken<.T>:
-    raw <i32>
-    size <i32>
+#import "core/mem/types" as *
 
 fn helper <(RegionToken<i32>,RegionToken<i32>)->()> (old, new):
     #intrinsic "collection_slot_storage_relocate" <> (old, new)
 "#;
 
-    check_source_as_stdlib_path(
+    check_source_with_canonical_mem_types(
         src,
-        "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+        "alloc/collections/vec/slot_boundary.nepl",
         CompileTarget::Wasm,
     )
     .expect("storage relocate with matching owner token element types is allowed");
@@ -674,18 +692,16 @@ fn collection_slot_storage_relocate_rejects_mismatched_owner_tokens() {
 #indent 4
 #target wasm
 
-pub struct RegionToken<.T>:
-    raw <i32>
-    size <i32>
+#import "core/mem/types" as *
 
 fn helper <(RegionToken<i32>,RegionToken<u8>)->()> (old, new):
     #intrinsic "collection_slot_storage_relocate" <> (old, new)
 "#;
 
     assert_has_diag(
-        check_source_as_stdlib_path(
+        check_source_with_canonical_mem_types(
             src,
-            "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+            "alloc/collections/vec/slot_boundary.nepl",
             CompileTarget::Wasm,
         ),
         DiagnosticCode::Type(
