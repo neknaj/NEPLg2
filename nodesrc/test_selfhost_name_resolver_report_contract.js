@@ -2,14 +2,14 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
 const { parseFile } = require("./parser");
+const { readNameResolverSource } = require("./selfhost_name_resolver_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/resolve/name_resolver.nepl";
 const file = path.join(repoRoot, relPath);
-const source = fs.readFileSync(file, "utf8");
+const source = readNameResolverSource(repoRoot);
 const parsed = parseFile(file);
 
 const expectedCheckCounts = [5, 3];

@@ -1,0 +1,29 @@
+#indent 4
+#import "core/math" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "./binding" as *
+#import "./id" as *
+#import "./kind" as *
+#import "./scope" as *
+
+//: selfhost_name_resolver_stage0: Stage 0 marker 互換の smoke API
+//:
+//: [目的/もくてき]:
+//: - 既存の Stage 0 doctest import 経路を[保/たも]ちながら、scope table の最小実装も[確認/かくにん]します。
+pub fn selfhost_name_resolver_stage0 <()*>i32> ():
+    match selfhost_name_scope_new:
+        Result::Ok scope0:
+            let binding <SelfhostNameBinding> selfhost_name_binding_pending "main" SelfhostDefKind::Function source_span_empty 0 0
+            match selfhost_name_scope_add_binding scope0 binding:
+                Result::Ok scope_add:
+                    let def_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &scope_add
+                    let scope1 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope scope_add
+                    let ok <bool> selfhost_def_id_eq def_id selfhost_def_id_new 0
+                    selfhost_name_scope_free scope1
+                    if ok 0 1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1
+

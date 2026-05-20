@@ -1,0 +1,42 @@
+#indent 4
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "./id" as *
+#import "./kind" as *
+
+//: SelfhostNameBinding: 1 つの名前と定義 id の対応
+//:
+//: [目的/もくてき]:
+//: - scope 内の宣言順、定義分類、宣言位置を 1 record にまとめます。
+pub struct SelfhostNameBinding:
+    name <str>
+    def_id <Option<SelfhostDefId>>
+    kind <SelfhostDefKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostNameBinding:
+    fn clone <(&SelfhostNameBinding)->SelfhostNameBinding> (self):
+        *self
+
+impl Copy for SelfhostNameBinding:
+    fn copy_mark <(SelfhostNameBinding)->SelfhostNameBinding> (self):
+        self
+
+
+//: selfhost_name_binding_new: binding record を[作/つく]る
+pub fn selfhost_name_binding_new <(str,Option<SelfhostDefId>,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
+    SelfhostNameBinding name def_id kind span
+
+//: selfhost_name_binding_pending: scope table 追加前の binding record を[作/つく]る
+pub fn selfhost_name_binding_pending <(str,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, kind, span):
+    selfhost_name_binding_new name selfhost_def_id_pending kind span
+
+//: selfhost_name_binding_def_id_eq: binding の DefId が指定 id と同じか[返/かえ]す
+pub fn selfhost_name_binding_def_id_eq <(SelfhostNameBinding,SelfhostDefId)->bool> (binding, def_id):
+    match binding.def_id:
+        Option::Some actual:
+            selfhost_def_id_eq actual def_id
+        Option::None:
+            false
+

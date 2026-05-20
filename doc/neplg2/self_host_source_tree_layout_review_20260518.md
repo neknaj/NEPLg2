@@ -18,6 +18,7 @@ NEPLg2 self-host compiler の実装をさらに進める前に、現行 Rust com
 - [ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6](../../issues/items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md): `core/proof/` の巨大化した file を責務単位へ分割する follow-up。
 - [ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690](../../issues/items/ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690.md): `core/ty/ty.nepl` を facade 化し、id / kind / record / arena / equality / stage0 へ分割する。
 - [ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805](../../issues/items/ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805.md): `core/syntax/parser/module_parser.nepl` を facade 化し、state / action / diagnostic / item_kind / declaration / loop / entry へ分割する。
+- [ISS-20260520T045142622Z-SELF-HOST-NAME-RESOLVER-REMAINS-A-FL-8D5B56B9](../../issues/items/ISS-20260520T045142622Z-SELF-HOST-NAME-RESOLVER-REMAINS-A-FL-8D5B56B9.md): `core/resolve/name_resolver.nepl` を facade 化し、id / kind / binding / scope / stage0 へ分割する。
 - [static_check_complexity_reduction_plan.md](./static_check_complexity_reduction_plan.md): Resource IR / owner / initialized / borrow / effect の複雑化解消計画。
 - [compiler_diagnostics_redesign_plan.md](./compiler_diagnostics_redesign_plan.md): diagnostic code を階層 enum にする計画。
 - [stdlib_documentation_contract_plan.md](./stdlib_documentation_contract_plan.md): stdlib documentation comment / doctest 整備方針。
@@ -71,6 +72,7 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 | `core/syntax/token.nepl` | 38 | 2026-05-20 に `syntax/token/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/ty/ty.nepl` | 40 | 2026-05-20 に `ty/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/syntax/parser/module_parser.nepl` | 44 | 2026-05-20 に `syntax/parser/module_parser/` 配下へ分割済み。root は facade と doctest のみ。 |
+| `core/resolve/name_resolver.nepl` | 154 | 2026-05-20 に `resolve/name_resolver/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/infra/diag.nepl` | 361 | `infra/diag/` 配下に code、value、collection、query を分ける。 |
 
 これらは「今すぐ全分割してから実装する」という意味ではない。だが、今後の実装をこれらの巨大 file に直接足さない。関連 issue を解く commit では、必要な責務単位を切り出してから実装する。
@@ -533,6 +535,19 @@ source policy は implementation detail の文字列検索だけにしない。�
 | `core/syntax/parser/module_parser/entry.nepl` | 49 | token stream / source text entry point と stage0 smoke。 |
 
 `nodesrc/test_selfhost_module_parser_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `module_parser.nepl` facade への曖昧 import を拒否する。`TokenKind` と `SelfhostParserTokenAction` の exhaustive match policy は `nodesrc/selfhost_module_parser_sources.js` を通して split 後の parser source 全体を読む。
+
+2026-05-20 に [ISS-20260520T045142622Z-SELF-HOST-NAME-RESOLVER-REMAINS-A-FL-8D5B56B9](../../issues/items/ISS-20260520T045142622Z-SELF-HOST-NAME-RESOLVER-REMAINS-A-FL-8D5B56B9.md) で `core/resolve/name_resolver.nepl` を分割した。現行の配置は次の通りである。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/resolve/name_resolver.nepl` | 154 | doctest を保持する implementation-free facade。 |
+| `core/resolve/name_resolver/id.nepl` | 31 | `SelfhostDefId` と typed absence / index / equality helper。 |
+| `core/resolve/name_resolver/kind.nepl` | 172 | `SelfhostDefKind` enum と exhaustive equality。 |
+| `core/resolve/name_resolver/binding.nepl` | 34 | binding payload と pending / assigned id helper。 |
+| `core/resolve/name_resolver/scope.nepl` | 123 | scope owner operation、DefId assignment、lookup loops。 |
+| `core/resolve/name_resolver/stage0.nepl` | 27 | name resolver smoke entry。 |
+
+`nodesrc/test_selfhost_name_resolver_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `name_resolver.nepl` facade への曖昧 import を拒否する。DefId absence policy、DefKind numeric tag 禁止、add-result owner accessor policy は `nodesrc/selfhost_name_resolver_sources.js` を通して split 後の resolver source 全体を読む。
 
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 
