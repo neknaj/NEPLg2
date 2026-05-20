@@ -34,6 +34,7 @@ const proofQuery = read("stdlib/neplg2/core/proof/query.nepl");
 const proofSolver = read("stdlib/neplg2/core/proof/solver.nepl");
 const moduleChecker = read("stdlib/neplg2/core/check/module.nepl");
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
+const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
 
 assert.match(proofFacade, /pub #import "\.\/proof\/fact" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/obligation" as \*/);
@@ -100,6 +101,11 @@ assert.match(
     "type kind observations must enter proof as typed facts",
 );
 assert.match(
+    proofFact,
+    /TraitImplPairObserved <SelfhostTraitImplPairFact>/,
+    "trait impl coherence facts must enter proof as typed facts",
+);
+assert.match(
     proofObligation,
     /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>/,
     "declaration header availability must enter proof as a typed obligation",
@@ -120,6 +126,11 @@ assert.match(
     "type kind compatibility must enter proof as a typed obligation",
 );
 assert.match(
+    proofObligation,
+    /TraitImplNonOverlapping/,
+    "trait impl coherence must enter proof as a typed obligation",
+);
+assert.match(
     proofQuery,
     /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>/,
     "declaration header proof evidence must carry the typed header",
@@ -138,6 +149,11 @@ assert.match(
     proofQuery,
     /TypeKindCompatible <SelfhostTypeKind>/,
     "type kind compatibility proof evidence must carry the proven kind",
+);
+assert.match(
+    proofQuery,
+    /TraitImplNonOverlapping <SelfhostTraitImplRelation>/,
+    "trait impl coherence proof evidence must carry the typed relation",
 );
 assert.match(
     proofQuery,
@@ -169,6 +185,11 @@ assert.match(
     /TypeKindMismatch <SelfhostTypeKindMismatch>/,
     "type kind mismatches must return typed refutations",
 );
+assert.match(
+    proofQuery,
+    /TraitImplCoherenceInvalid <SelfhostTraitImplCoherenceIssue>/,
+    "invalid trait impl coherence must return typed refutations",
+);
 assert.doesNotMatch(
     proofQuery,
     /^\s+FactObligationMismatch\s*$/m,
@@ -181,6 +202,7 @@ assert.doesNotMatch(
 );
 
 const solverBlock = functionBlock(proofSolver, "selfhost_proof_solve");
+const traitRelationBlock = functionBlock(traitRef, "selfhost_trait_impl_relation");
 const publicSolverFunctions = Array.from(
     proofSolver.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
     (match) => match[1],
@@ -193,6 +215,7 @@ const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_module_declaration_header",
     "selfhost_proof_resource_cell_transition",
     "selfhost_proof_type_kind_compatible",
+    "selfhost_proof_trait_impl_non_overlapping",
     "selfhost_proof_effect_allowed",
 ]);
 for (const fnName of publicSolverFunctions) {
@@ -245,8 +268,23 @@ assert.match(
 );
 assert.match(
     proofSolver,
+    /(?:^|\n)fn\s+selfhost_proof_solve_trait_impl_non_overlapping\b[\s\S]*match\s+fact\.relation:/,
+    "trait impl coherence must live in the proof solver",
+);
+assert.match(
+    proofSolver,
     /^pub fn\s+selfhost_proof_source_span_valid\b[^\n]*Result<\(\),SelfhostProofRefutation>/m,
     "source span validity must preserve typed refutations instead of returning bool",
+);
+assert.match(
+    traitRef,
+    /selfhost_trait_impl_relation[\s\S]*selfhost_type_arena_types_equal/,
+    "trait impl relation must be derived from the typed source type arena",
+);
+assert.doesNotMatch(
+    traitRelationBlock,
+    /"[A-Za-z0-9_.:-]+"/,
+    "trait impl relation must not depend on trait or module name strings",
 );
 
 assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");

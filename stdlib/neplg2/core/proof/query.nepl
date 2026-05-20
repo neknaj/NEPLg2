@@ -14,6 +14,7 @@
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/trait_ref" as *
 #import "neplg2/core/ty/ty" as *
 
 //: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
@@ -26,6 +27,7 @@ pub enum SelfhostProofEvidence:
     ModuleDirectiveTransition <SelfhostModuleDirectiveState>
     ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>
     TypeKindCompatible <SelfhostTypeKind>
+    TraitImplNonOverlapping <SelfhostTraitImplRelation>
     ResourceCellTransition <SelfhostResourceCellState>
     EffectAllowed <SelfhostEffectContext>
 
@@ -182,6 +184,43 @@ impl Copy for SelfhostTypeKindMismatch:
 pub fn selfhost_type_kind_mismatch_new <(SelfhostTypeKind,SelfhostTypeKind,SelfhostSourceSpan)->SelfhostTypeKindMismatch> (expected, actual, span):
     SelfhostTypeKindMismatch expected actual span
 
+//: SelfhostTraitImplCoherenceError: trait impl coherence proof の失敗分類
+//:
+//: [目的/もくてき]:
+//: - duplicate impl と invalid key を typed reason として分け、diagnostic 生成を proof solver 外へ分離します。
+pub enum SelfhostTraitImplCoherenceError:
+    DuplicateImpl
+    InvalidCandidateKey
+    InvalidExistingKey
+
+impl Clone for SelfhostTraitImplCoherenceError:
+    fn clone <(&SelfhostTraitImplCoherenceError)->SelfhostTraitImplCoherenceError> (self):
+        *self
+
+impl Copy for SelfhostTraitImplCoherenceError:
+    fn copy_mark <(SelfhostTraitImplCoherenceError)->SelfhostTraitImplCoherenceError> (self):
+        self
+
+//: SelfhostTraitImplCoherenceIssue: 不正な trait impl coherence の refutation payload
+pub struct SelfhostTraitImplCoherenceIssue:
+    candidate <SelfhostTraitImplKey>
+    existing <SelfhostTraitImplKey>
+    relation <SelfhostTraitImplRelation>
+    span <SelfhostSourceSpan>
+    reason <SelfhostTraitImplCoherenceError>
+
+impl Clone for SelfhostTraitImplCoherenceIssue:
+    fn clone <(&SelfhostTraitImplCoherenceIssue)->SelfhostTraitImplCoherenceIssue> (self):
+        *self
+
+impl Copy for SelfhostTraitImplCoherenceIssue:
+    fn copy_mark <(SelfhostTraitImplCoherenceIssue)->SelfhostTraitImplCoherenceIssue> (self):
+        self
+
+//: selfhost_trait_impl_coherence_issue_new: trait impl coherence issue payload を[作/つく]る
+pub fn selfhost_trait_impl_coherence_issue_new <(SelfhostTraitImplKey,SelfhostTraitImplKey,SelfhostTraitImplRelation,SelfhostSourceSpan,SelfhostTraitImplCoherenceError)->SelfhostTraitImplCoherenceIssue> (candidate, existing, relation, span, reason):
+    SelfhostTraitImplCoherenceIssue candidate existing relation span reason
+
 //: SelfhostProofMismatch: fact と obligation の domain が[噛/か]み[合/あ]わない refutation payload
 //:
 //: [目的/もくてき]:
@@ -216,6 +255,7 @@ pub enum SelfhostProofRefutation:
     ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>
     ModuleDeclarationHeaderInvalid <SelfhostModuleDeclarationHeaderIssue>
     TypeKindMismatch <SelfhostTypeKindMismatch>
+    TraitImplCoherenceInvalid <SelfhostTraitImplCoherenceIssue>
     ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>
     EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>
 

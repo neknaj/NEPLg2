@@ -1,0 +1,137 @@
+#indent 4
+
+//: # trait_ref
+//: self-host compiler が trait と impl の identity を typed value として[扱/あつか]うためのモジュールです。
+//:
+//: [目的/もくてき]:
+//: - trait coherence proof が trait 名や module 名の文字列比較へ依存しないよう、trait id と impl key を小さな enum/struct として保持します。
+//: - impl の self type は `SelfhostTypeId` として表し、重複判定では `SelfhostTypeArena` の構造的 type equality を使います。
+//:
+//: [注意/ちゅうい]:
+//: - `SelfhostTraitId` は self-host compiler 内の arena-local id です。Rust compiler の DefId とは混ぜないでください。
+//: - この段階では trait method set や where clause は未実装です。後続 stage はこの key に method / bound evidence を足し、同じ proof solver へ接続します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/ty/trait_ref" as *
+//: fn main <()*>i32> ():
+//:     let trait_id <SelfhostTraitId> selfhost_trait_id_new 0
+//:     if selfhost_trait_id_is_valid trait_id 0 1
+//: ```
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostTraitId: trait table 内の stable index
+pub struct SelfhostTraitId:
+    index <i32>
+
+impl Clone for SelfhostTraitId:
+    fn clone <(&SelfhostTraitId)->SelfhostTraitId> (self):
+        *self
+
+impl Copy for SelfhostTraitId:
+    fn copy_mark <(SelfhostTraitId)->SelfhostTraitId> (self):
+        self
+
+//: selfhost_trait_id_new: trait id を[作/つく]る
+pub fn selfhost_trait_id_new <(i32)->SelfhostTraitId> (index):
+    SelfhostTraitId index
+
+//: selfhost_trait_id_index: trait id の index を[返/かえ]す
+pub fn selfhost_trait_id_index <(SelfhostTraitId)->i32> (trait_id):
+    trait_id.index
+
+//: selfhost_trait_id_is_valid: trait id が有効範囲か[返/かえ]す
+pub fn selfhost_trait_id_is_valid <(SelfhostTraitId)->bool> (trait_id):
+    ge trait_id.index 0
+
+//: selfhost_trait_id_eq: trait id が同じか[返/かえ]す
+pub fn selfhost_trait_id_eq <(SelfhostTraitId,SelfhostTraitId)->bool> (a, b):
+    eq a.index b.index
+
+//: SelfhostTraitImplKey: impl coherence 判定の identity
+//:
+//: [目的/もくてき]:
+//: - `impl Trait for Type` の trait と self type を、文字列名ではなく arena-local id で保持します。
+//: - generic parameter や where clause は後続で key payload を拡張します。現段階では concrete self type の overlap を扱います。
+pub struct SelfhostTraitImplKey:
+    trait_id <SelfhostTraitId>
+    self_type <SelfhostTypeId>
+
+impl Clone for SelfhostTraitImplKey:
+    fn clone <(&SelfhostTraitImplKey)->SelfhostTraitImplKey> (self):
+        *self
+
+impl Copy for SelfhostTraitImplKey:
+    fn copy_mark <(SelfhostTraitImplKey)->SelfhostTraitImplKey> (self):
+        self
+
+//: selfhost_trait_impl_key_new: trait impl key を[作/つく]る
+pub fn selfhost_trait_impl_key_new <(SelfhostTraitId,SelfhostTypeId)->SelfhostTraitImplKey> (trait_id, self_type):
+    SelfhostTraitImplKey trait_id self_type
+
+//: selfhost_trait_impl_key_self_type_is_valid: impl key の self type が arena に存在するか[返/かえ]す
+pub fn selfhost_trait_impl_key_self_type_is_valid <(&SelfhostTypeArena,SelfhostTraitImplKey)->bool> (arena, key):
+    match selfhost_type_arena_get_record arena key.self_type:
+        Option::Some _record:
+            true
+        Option::None:
+            false
+
+//: selfhost_trait_impl_key_is_valid: impl key が有効な trait id と self type を持つか[返/かえ]す
+pub fn selfhost_trait_impl_key_is_valid <(&SelfhostTypeArena,SelfhostTraitImplKey)->bool> (arena, key):
+    and selfhost_trait_id_is_valid key.trait_id selfhost_trait_impl_key_self_type_is_valid arena key
+
+//: SelfhostTraitImplRelation: 2 つの impl key の coherence 関係
+//:
+//: [目的/もくてき]:
+//: - overlap 判定を bool に潰さず、どの関係だったかを proof solver の evidence/refutation に残します。
+//: - invalid key は別 variant として保持し、overlap がないように見せかけて通さないようにします。
+pub enum SelfhostTraitImplRelation:
+    InvalidCandidate
+    InvalidExisting
+    DifferentTrait
+    SameTraitDifferentSelfType
+    SameTraitSameSelfType
+
+impl Clone for SelfhostTraitImplRelation:
+    fn clone <(&SelfhostTraitImplRelation)->SelfhostTraitImplRelation> (self):
+        *self
+
+impl Copy for SelfhostTraitImplRelation:
+    fn copy_mark <(SelfhostTraitImplRelation)->SelfhostTraitImplRelation> (self):
+        self
+
+//: selfhost_trait_impl_relation: candidate impl と existing impl の coherence 関係を[計算/けいさん]する
+//:
+//: [実装/じっそう]:
+//: - trait id または self type が不正な key は invalid relation にします。
+//: - trait id が異なる場合は overlap しません。
+//: - trait id が同じ場合は `SelfhostTypeArena` の構造的 type equality で self type overlap を判定します。
+pub fn selfhost_trait_impl_relation <(&SelfhostTypeArena,SelfhostTraitImplKey,SelfhostTraitImplKey)->SelfhostTraitImplRelation> (arena, candidate, existing):
+    if:
+        selfhost_trait_impl_key_is_valid arena candidate
+        then:
+            if:
+                selfhost_trait_impl_key_is_valid arena existing
+                then:
+                    if:
+                        selfhost_trait_id_eq candidate.trait_id existing.trait_id
+                        then:
+                            if:
+                                selfhost_type_arena_types_equal arena candidate.self_type existing.self_type
+                                then:
+                                    SelfhostTraitImplRelation::SameTraitSameSelfType
+                                else:
+                                    SelfhostTraitImplRelation::SameTraitDifferentSelfType
+                        else:
+                            SelfhostTraitImplRelation::DifferentTrait
+                else:
+                    SelfhostTraitImplRelation::InvalidExisting
+        else:
+            SelfhostTraitImplRelation::InvalidCandidate

@@ -17,6 +17,7 @@
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/trait_ref" as *
 #import "neplg2/core/ty/ty" as *
 
 //: SelfhostProofDomain: proof fact / obligation が属する[領域/りょういき]
@@ -191,6 +192,30 @@ impl Copy for SelfhostTypeKindFact:
 pub fn selfhost_type_kind_fact_new <(SelfhostTypeKind,SelfhostSourceSpan)->SelfhostTypeKindFact> (kind, span):
     SelfhostTypeKindFact kind span
 
+//: SelfhostTraitImplPairFact: trait impl coherence proof へ渡す impl pair observation
+//:
+//: [目的/もくてき]:
+//: - candidate impl と既存 impl の key、arena から計算した relation、source span を typed fact として保持します。
+//: - relation は trait 名や stdlib module 名ではなく、trait id と TypeArena の構造的 self type 比較から作ります。
+pub struct SelfhostTraitImplPairFact:
+    candidate <SelfhostTraitImplKey>
+    existing <SelfhostTraitImplKey>
+    relation <SelfhostTraitImplRelation>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostTraitImplPairFact:
+    fn clone <(&SelfhostTraitImplPairFact)->SelfhostTraitImplPairFact> (self):
+        *self
+
+impl Copy for SelfhostTraitImplPairFact:
+    fn copy_mark <(SelfhostTraitImplPairFact)->SelfhostTraitImplPairFact> (self):
+        self
+
+//: selfhost_trait_impl_pair_fact_new: trait impl pair fact を[作/つく]る
+pub fn selfhost_trait_impl_pair_fact_new <(&SelfhostTypeArena,SelfhostTraitImplKey,SelfhostTraitImplKey,SelfhostSourceSpan)->SelfhostTraitImplPairFact> (arena, candidate, existing, span):
+    let relation <SelfhostTraitImplRelation> selfhost_trait_impl_relation arena candidate existing
+    SelfhostTraitImplPairFact candidate existing relation span
+
 //: SelfhostResourceCellEventFact: Resource cell に対する event observation
 //:
 //: [目的/もくてき]:
@@ -241,6 +266,7 @@ pub enum SelfhostProofFact:
     ModuleDirectiveObserved <SelfhostModuleDirectiveFact>
     ModuleDeclarationObserved <SelfhostModuleDeclarationFact>
     TypeKindObserved <SelfhostTypeKindFact>
+    TraitImplPairObserved <SelfhostTraitImplPairFact>
     ResourceCellEventObserved <SelfhostResourceCellEventFact>
     EffectObserved <SelfhostEffectObservationFact>
 
@@ -265,6 +291,8 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
             SelfhostProofDomain::Module
         SelfhostProofFact::TypeKindObserved _type_fact:
             SelfhostProofDomain::Type
+        SelfhostProofFact::TraitImplPairObserved _trait_fact:
+            SelfhostProofDomain::Trait
         SelfhostProofFact::ResourceCellEventObserved _event_fact:
             SelfhostProofDomain::Resource
         SelfhostProofFact::EffectObserved _effect_fact:

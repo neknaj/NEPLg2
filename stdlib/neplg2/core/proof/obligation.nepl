@@ -96,6 +96,7 @@ pub enum SelfhostProofObligation:
     ModuleDirectiveTransition <SelfhostModuleDirectiveState>
     ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>
     TypeKindCompatible <SelfhostTypeKind>
+    TraitImplNonOverlapping
     ResourceCellTransition <SelfhostResourceCellState>
     EffectAllowedInContext <SelfhostEffectContext>
 
@@ -120,6 +121,8 @@ pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProo
             SelfhostProofDomain::Module
         SelfhostProofObligation::TypeKindCompatible _kind:
             SelfhostProofDomain::Type
+        SelfhostProofObligation::TraitImplNonOverlapping:
+            SelfhostProofDomain::Trait
         SelfhostProofObligation::ResourceCellTransition _state:
             SelfhostProofDomain::Resource
         SelfhostProofObligation::EffectAllowedInContext _context:

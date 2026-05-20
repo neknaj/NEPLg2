@@ -7,9 +7,9 @@
 //: - 個別 checker が独自の証明器を持たず、すべての静的検査 domain が同じ query / result 境界を[使/つか]えるようにします。
 //: - solver の分岐は enum の exhaustive match で[書/か]き、文字列 category や module allowlist による許可を置きません。
 //:
-//: [初期/しょき][範囲/はんい]:
-//: - source span validity と raw backend block transition の proof を実装します。
-//: - type / trait / effect / Resource IR の obligation は同じ enum / match 構造へ追加し、専用 checker-local proof を増やさない方針を固定します。
+//: [範囲/はんい]:
+//: - source span、module raw/directive/declaration、type kind、trait impl coherence、Resource cell、effect boundary の proof を扱います。
+//: - 後続の owner / borrow / lifetime proof も同じ enum / match 構造へ追加し、専用 checker-local proof を増やさない方針を固定します。
 
 #import "core/field" as field
 #import "core/math" as *
@@ -22,6 +22,7 @@
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/trait_ref" as *
 #import "neplg2/core/ty/ty" as *
 
 //: selfhost_proof_source_span_eq: source span が同じ range か[返/かえ]す
@@ -477,6 +478,26 @@ fn selfhost_proof_solve_type_kind_compatible <(SelfhostTypeKindFact,SelfhostType
         else:
             selfhost_proof_type_kind_mismatch fact expected
 
+fn selfhost_proof_trait_impl_non_overlapping_result <(SelfhostTraitImplRelation)->SelfhostProofResult> (relation):
+    selfhost_proof_result_proven SelfhostProofEvidence::TraitImplNonOverlapping relation
+
+fn selfhost_proof_trait_impl_invalid <(SelfhostTraitImplPairFact,SelfhostTraitImplCoherenceError)->SelfhostProofResult> (fact, reason):
+    selfhost_proof_result_refuted SelfhostProofRefutation::TraitImplCoherenceInvalid selfhost_trait_impl_coherence_issue_new fact.candidate fact.existing fact.relation fact.span reason
+
+//: selfhost_proof_solve_trait_impl_non_overlapping: trait impl coherence obligation を[解/と]く
+fn selfhost_proof_solve_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->SelfhostProofResult> (fact):
+    match fact.relation:
+        SelfhostTraitImplRelation::InvalidCandidate:
+            selfhost_proof_trait_impl_invalid fact SelfhostTraitImplCoherenceError::InvalidCandidateKey
+        SelfhostTraitImplRelation::InvalidExisting:
+            selfhost_proof_trait_impl_invalid fact SelfhostTraitImplCoherenceError::InvalidExistingKey
+        SelfhostTraitImplRelation::DifferentTrait:
+            selfhost_proof_trait_impl_non_overlapping_result fact.relation
+        SelfhostTraitImplRelation::SameTraitDifferentSelfType:
+            selfhost_proof_trait_impl_non_overlapping_result fact.relation
+        SelfhostTraitImplRelation::SameTraitSameSelfType:
+            selfhost_proof_trait_impl_invalid fact SelfhostTraitImplCoherenceError::DuplicateImpl
+
 fn selfhost_proof_effect_allowed_result <(SelfhostEffectContext)->SelfhostProofResult> (context):
     selfhost_proof_result_proven SelfhostProofEvidence::EffectAllowed context
 
@@ -574,6 +595,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -589,6 +612,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -606,6 +631,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -621,6 +648,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -640,6 +669,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
                     selfhost_proof_query_mismatch_result query
         SelfhostProofObligation::TypeKindCompatible expected:
@@ -653,6 +684,26 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::TraitImplNonOverlapping:
+            match query.fact:
+                SelfhostProofFact::TraitImplPairObserved trait_fact:
+                    selfhost_proof_solve_trait_impl_non_overlapping trait_fact
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -671,6 +722,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -696,6 +749,8 @@ pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),Selfhos
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -726,6 +781,8 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
@@ -754,6 +811,8 @@ pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -787,6 +846,8 @@ pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -823,6 +884,8 @@ pub fn selfhost_proof_resource_cell_transition <(SelfhostResourceCellState,Selfh
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
@@ -852,10 +915,43 @@ pub fn selfhost_proof_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFa
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostTypeKind,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_trait_impl_non_overlapping: trait impl coherence query を[作/つく]る
+fn selfhost_proof_query_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->SelfhostProofQuery> (fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::TraitImplPairObserved fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::TraitImplNonOverlapping
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_trait_impl_non_overlapping: candidate impl が existing impl と overlap しないか typed result として[返/かえ]す
+pub fn selfhost_proof_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->Result<SelfhostTraitImplRelation,SelfhostProofRefutation>> (fact):
+    let query <SelfhostProofQuery> selfhost_proof_query_trait_impl_non_overlapping fact
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::TraitImplNonOverlapping relation:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Ok relation
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_effect_allowed: effect boundary query を[作/つく]る
 fn selfhost_proof_query_effect_allowed <(SelfhostEffectContext,SelfhostEffectObservationFact)->SelfhostProofQuery> (context, fact):
@@ -880,6 +976,8 @@ pub fn selfhost_proof_effect_allowed <(SelfhostEffectContext,SelfhostEffectObser
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query

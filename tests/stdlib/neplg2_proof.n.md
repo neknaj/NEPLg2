@@ -45,6 +45,8 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
                     Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -121,6 +123,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::TypeKindMismatch _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -189,6 +193,8 @@ fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation
     match refutation:
         SelfhostProofRefutation::TypeKindMismatch _issue:
             Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
+            Result<(),str>::Err "expected proof refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid issue:
             match issue.reason:
                 SelfhostResourceCellTransitionError::DropAfterMove:
@@ -332,6 +338,8 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::TypeKindMismatch _issue:
             Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
+            Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -449,6 +457,8 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::TypeKindMismatch _issue:
             Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -551,6 +561,8 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
                     Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
+                    Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -577,6 +589,8 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"

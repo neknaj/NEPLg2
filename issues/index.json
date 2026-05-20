@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T00:31:05.761Z",
+  "generated_at": "2026-05-20T00:50:25.151Z",
   "counts": {
-    "total": 1087,
+    "total": 1088,
     "open": 4,
-    "resolved": 1083,
+    "resolved": 1084,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 86,
+        "total": 87,
         "open": 1,
-        "resolved": 85
+        "resolved": 86
       },
       "cli": {
         "total": 19,
@@ -9443,6 +9443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T001923700Z-SELF-HOST-TYPE-KIND-COMPATIBILITY-IS-8009C28D.md"
+    },
+    {
+      "id": "ISS-20260520T003842270Z-SELF-HOST-TRAIT-COHERENCE-IS-NOT-A-G-E107D307",
+      "title": "self-host trait coherence is not a generic proof obligation",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/ty/trait_ref.nepl, stdlib/neplg2/core/proof/**, tests/stdlib/neplg2_trait_proof.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T003842270Z-SELF-HOST-TRAIT-COHERENCE-IS-NOT-A-G-E107D307.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
