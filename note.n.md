@@ -1,3 +1,18 @@
+# 2026-05-20 Agent 1 typecheck responsibility split
+
+- `ISS-20260520T084048270Z-TYPECHECK-DRIVER-EXCEEDS-RESPONSIBIL-3935301A` を修正した。`plan.md` は変更していない。
+- `typecheck/driver.rs` から top-level declaration span/key helper を `typecheck/driver_span.rs` に分離し、driver は top-level orchestration と declaration pass の制御に集中させた。
+- `overload_selection.rs` から overload candidate model / rejection stats / materialization phase / ambiguity reason を `typecheck/overload_candidate.rs` に分離した。
+- overload narrowing の pure preference、signature dedup、ordinary function preference、specificity 比較を `typecheck/overload_narrowing.rs` に分離し、`overload_selection.rs` は candidate construction、generic constraint、diagnostic connection を主責務に戻した。
+- line limit policy は変更していない。policy が検出した巨大 orchestration file の責務超過を、閾値緩和ではなく module 分割で解消した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 10 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-20 Agent 1 region_new raw owner boundary
 
 - `ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9` を修正した。`plan.md` は変更していない。

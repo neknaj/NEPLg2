@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T08:58:01.203Z",
+  "generated_at": "2026-05-20T09:00:51.448Z",
   "counts": {
-    "total": 1109,
+    "total": 1110,
     "open": 4,
-    "resolved": 1105,
+    "resolved": 1106,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 531,
+        "total": 532,
         "open": 0,
-        "resolved": 531
+        "resolved": 532
       },
       "CORE": {
         "total": 5,
@@ -8098,6 +8098,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9.md"
+    },
+    {
+      "id": "ISS-20260520T084048270Z-TYPECHECK-DRIVER-EXCEEDS-RESPONSIBIL-3935301A",
+      "title": "typecheck driver and overload selection exceed responsibility split limits",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/typecheck/driver.rs, nepl-core/src/typecheck/driver_span.rs, nepl-core/src/typecheck/overload_selection.rs, nepl-core/src/typecheck/overload_candidate.rs, nepl-core/src/typecheck/overload_narrowing.rs, nepl-core/src/typecheck.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T084048270Z-TYPECHECK-DRIVER-EXCEEDS-RESPONSIBIL-3935301A.md"
     },
     {
       "id": "ISS-20260520T085512257Z-OVERLOAD-EXPECTED-RESULT-PRUNING-REJ-28A631E9",
