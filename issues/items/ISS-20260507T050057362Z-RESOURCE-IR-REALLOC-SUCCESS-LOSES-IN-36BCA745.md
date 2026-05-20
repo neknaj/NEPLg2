@@ -2,12 +2,12 @@
 id: ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745
 title: "Resource IR realloc success loses initialized raw range facts"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-07
-updated: 2026-05-20
+updated: 2026-05-21
 target: "nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/tests/resource_ir.rs"
 source: "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行"
 ---
@@ -71,3 +71,25 @@ Add Resource IR regressions for guarded fill_u8 and fill_i32 loads after realloc
 Resource raw cell lifecycle 境界の監査中に、`resource_ir_cell_check_realloc_transfers_initialized_element_ranges` が current main baseline でも `RawMemoryLoadCell` / `Uninit` で失敗することを確認した。これは 2026-05-07 の修正後に別変更で再発した regression と扱う。
 
 再修正では、`RawCellLifecycleEvent::ReallocSuccessTransfer` が単に range entry を再投影するだけでなく、element stride、count、success/failure 分岐、raw alias の postcondition を typed transition proof として保持する必要がある。timeout 延長、テスト緩和、stdlib helper 名の allowlist ではなく、Resource IR state から initialized range preservation を証明すること。
+
+## 2026-05-21 再修正
+
+再発原因は `realloc` の range 転送自体ではなく、`off = mul i 4` の scalar scale fact が `i` の既知値に引きずられて誤った source を選んでいたことだった。`i` が `id 2` で既知値を持つと、旧実装は `off = 2 * 4` として literal 側を scale source にし、`i < len` の branch condition fact と element range proof を接続できなかった。
+
+修正内容:
+
+- `record_direct_call_i32_facts` の `mul` scale fact で、単に「先に見つかった既知正数」を scale にするのではなく、literal / temporary constant 由来の operand を scale として優先し、local / return / storage など意味を持つ scalar origin を source として保持する。
+- これにより、`i` が既知値を持つ場合でも `off = i * 4` は `source = i, scale = 4` として Resource IR の generic range proof へ渡される。
+- stdlib helper 名や個別モジュールの allowlist は追加していない。`RawCellAddressAliases` の scalar fact と branch condition fact を用いた汎用証明の修正である。
+
+追加した回帰:
+
+- `records_i32_scale_result_preferring_literal_scale_over_known_index`
+
+検証:
+
+- `cargo test -p nepl-core i32_call_facts -- --test-threads=1`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_realloc_transfers_initialized_element_ranges -- --test-threads=1 --exact`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_realloc_transfers_initialized_byte_ranges -- --test-threads=1 --exact`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_word_fill_accepts_scaled_symbolic_load_with_range_guard -- --test-threads=1 --exact`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_word_fill_requires_guard_for_scaled_symbolic_load -- --test-threads=1 --exact`: passed
