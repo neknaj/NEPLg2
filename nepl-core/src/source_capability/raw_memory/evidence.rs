@@ -47,3 +47,17 @@ impl RawAddressAliasEvidence {
         None
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::source_capability) enum OwnerTokenConstructEvidence {
+    RegionNew,
+}
+
+impl OwnerTokenConstructEvidence {
+    pub(in crate::source_capability) fn from_symbol(name: &str) -> Option<Self> {
+        match MemoryHelperPrimitive::from_symbol(name) {
+            Some(MemoryHelperPrimitive::RegionNew) => Some(Self::RegionNew),
+            _ => None,
+        }
+    }
+}

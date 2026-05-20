@@ -221,6 +221,7 @@ impl fmt::Display for RawAddressViewKind {
 pub enum RawAddressAliasKind {
     Transparent,
     InternalHelper,
+    OwnerTokenConstruct,
 }
 
 impl fmt::Display for RawAddressAliasKind {
@@ -228,6 +229,7 @@ impl fmt::Display for RawAddressAliasKind {
         let name = match self {
             RawAddressAliasKind::Transparent => "transparent",
             RawAddressAliasKind::InternalHelper => "internal_helper",
+            RawAddressAliasKind::OwnerTokenConstruct => "owner_token_construct",
         };
         f.write_str(name)
     }

@@ -766,6 +766,12 @@ mod tests {
         })
     }
 
+    fn owner_token_construct_capabilities(span: Span) -> SourceCapabilities {
+        use_site_capabilities(SourceCapabilityUseSite::OwnerTokenConstructBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
     #[test]
     fn resource_cell_gate_maps_cell_diagnostics_to_cell_code() {
         let types = crate::types::TypeCtx::new();
@@ -1267,6 +1273,32 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_keeps_owner_token_construct_separate_from_raw_alias() {
+        let mut source_map = SourceMap::new();
+        let raw_file = source_map.add("stdlib/core/mem/pointer/region.nepl", String::new());
+        let span = Span::new(raw_file, 0, 1);
+        source_map.set_capabilities(raw_file, raw_address_alias_capabilities(span));
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+            function: String::from("region_new"),
+            kind: RawAddressAliasKind::OwnerTokenConstruct,
+            span,
+        };
+
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &diagnostic,
+                Some(&source_map),
+            )
+        );
+
+        source_map.set_capabilities(raw_file, owner_token_construct_capabilities(span));
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &diagnostic,
+            Some(&source_map),
+        ));
+    }
+
+    #[test]
     fn resource_effect_gate_requires_matching_raw_operation_capability() {
         let mut source_map = SourceMap::new();
         let raw_file = source_map.add("stdlib/core/mem/raw_store.nepl", String::new());
@@ -1411,13 +1443,22 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
+            kind,
             ..
         } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
             };
             source_map
-                .map(|map| map.raw_address_alias_boundary_allowed_at(span))
+                .map(|map| match kind {
+                    crate::resource::RawAddressAliasKind::OwnerTokenConstruct => {
+                        map.owner_token_construct_boundary_allowed_at(span)
+                    }
+                    crate::resource::RawAddressAliasKind::InternalHelper
+                    | crate::resource::RawAddressAliasKind::Transparent => {
+                        map.raw_address_alias_boundary_allowed_at(span)
+                    }
+                })
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary {

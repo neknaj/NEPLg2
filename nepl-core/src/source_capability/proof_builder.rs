@@ -12,6 +12,7 @@ pub(in crate::source_capability) enum SourceCapabilityProofFact {
     RawMemoryStructuralBoundary,
     RawAddressViewBoundary,
     RawAddressAliasBoundary,
+    OwnerTokenConstructBoundary,
     RawMemoryOperationBoundary(RawMemoryOp),
     RawBodyMemoryOperationBoundary(RawBodyMemoryOp),
     OwnerAggregateFieldBoundary,
@@ -56,6 +57,11 @@ impl SourceCapabilityProof {
             }
             SourceCapabilityProofFact::RawAddressAliasBoundary => {
                 self.insert_use_site(SourceCapabilityUseSite::RawAddressAliasBoundary {
+                    span: Self::site_span(span),
+                });
+            }
+            SourceCapabilityProofFact::OwnerTokenConstructBoundary => {
+                self.insert_use_site(SourceCapabilityUseSite::OwnerTokenConstructBoundary {
                     span: Self::site_span(span),
                 });
             }

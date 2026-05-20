@@ -786,6 +786,7 @@ mod tests {
         fn allows_raw_memory_structural_boundary(&self) -> bool;
         fn allows_raw_address_view_boundary(&self) -> bool;
         fn allows_raw_address_alias_boundary(&self) -> bool;
+        fn allows_owner_token_construct_boundary(&self) -> bool;
         fn allows_raw_memory_operation_boundary(&self, operation: RawMemoryOp) -> bool;
         fn allows_raw_body_memory_operation_boundary(&self, operation: RawBodyMemoryOp) -> bool;
         fn allows_owner_aggregate_constructor_boundary(&self, name: &str) -> bool;
@@ -814,6 +815,15 @@ mod tests {
                 matches!(
                     site,
                     SourceCapabilityUseSite::RawAddressAliasBoundary { .. }
+                )
+            })
+        }
+
+        fn allows_owner_token_construct_boundary(&self) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::OwnerTokenConstructBoundary { .. }
                 )
             })
         }
@@ -2108,8 +2118,9 @@ mod tests {
         assert!(
             !capabilities.allows_raw_memory_structural_boundary()
                 && !capabilities.allows_raw_address_view_boundary()
-                && capabilities.allows_raw_address_alias_boundary(),
-            "owner-token helper calls prove raw-address alias authority, not representation or raw-address-view authority"
+                && !capabilities.allows_raw_address_alias_boundary()
+                && capabilities.allows_owner_token_construct_boundary(),
+            "owner-token helper calls prove owner-token construction authority, not representation, raw-address-view, or generic alias authority"
         );
     }
 

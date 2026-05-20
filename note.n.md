@@ -1,3 +1,18 @@
+# 2026-05-20 Agent 1 RegionToken owner-token construction boundary separation
+
+- `ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0` を修正した。`plan.md` は変更していない。
+- `region_new` が `mem_ptr_wrap` と同じ `RawAddressAliasBoundary` を証明していたため、owner-token construction と non-owning raw-address alias が source capability / Resource IR effect gate 上で混ざっていた。
+- `OwnerTokenConstructBoundary` / `SourceCapabilityProofFact::OwnerTokenConstructBoundary` / `RawAddressAliasKind::OwnerTokenConstruct` を追加し、`region_new` だけを owner-token construction 専用境界へ移した。`mem_ptr_wrap` は generic raw-address alias boundary に残した。
+- `RegionToken` を完全な compiler-issued owner token に置き換えたわけではない。non-Copy collection payload support の次段階で `OwnedRegion` / `OwnedBuffer` / initialized cell state / drop traversal を接続するため、generic alias と owner issuance の proof domain を分離した。
+- 検証:
+  - `cargo test -p nepl-core source_map::tests --lib`: pass
+  - `cargo test -p nepl-core resource_primitives::tests --lib`: pass
+  - `cargo test -p nepl-core loader::tests::raw_memory_boundary --lib`: pass
+  - `cargo test -p nepl-core resource_effect_gate_keeps_owner_token_construct_separate_from_raw_alias --lib`: pass
+  - `cargo test -p nepl-core --test resource_ir region_new`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_returned_allocated_region_token`: pass
+
 # 2026-05-20 Agent 1 collection drop legacy issue closure audit
 
 - `ISS-20260425T000000Z-RV-STDLIB-004-91534828` を closure audit で `fixed` / `resolved: true` にした。`plan.md` は変更していない。

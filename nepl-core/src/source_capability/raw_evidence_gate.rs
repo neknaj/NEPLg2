@@ -1,6 +1,9 @@
 use crate::effects::raw_memory_op_from_name;
 use crate::source_capability::binding::SourceCapabilityBindingKind;
-use crate::source_capability::raw_memory::{RawAddressViewEvidence, RawMemoryStructuralEvidence};
+use crate::source_capability::raw_memory::{
+    OwnerTokenConstructEvidence, RawAddressAliasEvidence, RawAddressViewEvidence,
+    RawMemoryStructuralEvidence,
+};
 
 pub(super) fn raw_symbol_shadow_allows_evidence(
     symbol: &str,
@@ -15,5 +18,7 @@ pub(super) fn raw_symbol_shadow_allows_evidence(
 fn raw_symbol_has_source_evidence(symbol: &str) -> bool {
     RawMemoryStructuralEvidence::from_symbol(symbol).is_some()
         || RawAddressViewEvidence::from_symbol(symbol).is_some()
+        || RawAddressAliasEvidence::from_symbol(symbol).is_some()
+        || OwnerTokenConstructEvidence::from_symbol(symbol).is_some()
         || raw_memory_op_from_name(symbol).is_some()
 }

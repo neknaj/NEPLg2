@@ -88,6 +88,9 @@ pub enum SourceCapabilityUseSite {
     RawAddressAliasBoundary {
         span: SourceCapabilitySpan,
     },
+    OwnerTokenConstructBoundary {
+        span: SourceCapabilitySpan,
+    },
     RawMemoryOperationBoundary {
         operation: RawMemoryOp,
         span: SourceCapabilitySpan,
@@ -175,6 +178,12 @@ impl SourceCapabilities {
 
     pub fn allows_raw_address_alias_boundary_at(&self, span: Span) -> bool {
         self.allows_use_site(SourceCapabilityUseSite::RawAddressAliasBoundary {
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    pub fn allows_owner_token_construct_boundary_at(&self, span: Span) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::OwnerTokenConstructBoundary {
             span: SourceCapabilitySpan::from_span(span),
         })
     }
@@ -285,6 +294,11 @@ impl SourceMap {
     pub fn raw_address_alias_boundary_allowed_at(&self, span: Span) -> bool {
         self.capabilities(span.file_id)
             .allows_raw_address_alias_boundary_at(span)
+    }
+
+    pub fn owner_token_construct_boundary_allowed_at(&self, span: Span) -> bool {
+        self.capabilities(span.file_id)
+            .allows_owner_token_construct_boundary_at(span)
     }
 
     pub fn raw_memory_operation_boundary_allowed_at(
@@ -425,6 +439,7 @@ mod tests {
         assert!(!none.allows_raw_memory_structural_boundary_at(proven));
         assert!(!none.allows_raw_address_view_boundary_at(proven));
         assert!(!none.allows_raw_address_alias_boundary_at(proven));
+        assert!(!none.allows_owner_token_construct_boundary_at(proven));
         assert!(!none.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, proven));
         assert!(!none
             .allows_compiler_memory_type_definition_at(CompilerMemoryType::RawPointer, proven,));
@@ -436,6 +451,7 @@ mod tests {
         assert!(raw_boundary.allows_raw_memory_structural_boundary_at(proven));
         assert!(!raw_boundary.allows_raw_memory_structural_boundary_at(other));
         assert!(!raw_boundary.allows_raw_address_view_boundary_at(proven));
+        assert!(!raw_boundary.allows_owner_token_construct_boundary_at(proven));
         assert!(!raw_boundary.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, proven));
 
         let raw_load = use_site_capabilities(SourceCapabilityUseSite::RawMemoryOperationBoundary {
@@ -448,6 +464,7 @@ mod tests {
         assert!(!raw_load.allows_raw_memory_structural_boundary_at(proven));
         assert!(!raw_load.allows_raw_address_view_boundary_at(proven));
         assert!(!raw_load.allows_raw_address_alias_boundary_at(proven));
+        assert!(!raw_load.allows_owner_token_construct_boundary_at(proven));
 
         let owner_constructor =
             use_site_capabilities(SourceCapabilityUseSite::OwnerAggregateConstructorBoundary {
@@ -460,6 +477,7 @@ mod tests {
         assert!(!owner_constructor.allows_owner_aggregate_field_boundary_at(proven));
         assert!(!owner_constructor.allows_raw_memory_structural_boundary_at(proven));
         assert!(!owner_constructor.allows_raw_address_view_boundary_at(proven));
+        assert!(!owner_constructor.allows_owner_token_construct_boundary_at(proven));
 
         let owner_field =
             use_site_capabilities(SourceCapabilityUseSite::OwnerAggregateFieldBoundary {
@@ -473,6 +491,7 @@ mod tests {
         );
         assert!(!owner_field.allows_raw_memory_structural_boundary_at(proven));
         assert!(!owner_field.allows_raw_address_view_boundary_at(proven));
+        assert!(!owner_field.allows_owner_token_construct_boundary_at(proven));
 
         let compiler_field =
             use_site_capabilities(SourceCapabilityUseSite::CompilerMemoryFieldBoundary {
@@ -486,6 +505,7 @@ mod tests {
         assert!(!compiler_field
             .allows_compiler_memory_field_boundary_at(CompilerMemoryField::Size, proven));
         assert!(!compiler_field.allows_owner_aggregate_field_boundary_at(proven));
+        assert!(!compiler_field.allows_owner_token_construct_boundary_at(proven));
 
         let address_view = use_site_capabilities(SourceCapabilityUseSite::RawAddressViewBoundary {
             span: SourceCapabilitySpan::from_span(proven),
@@ -494,6 +514,7 @@ mod tests {
         assert!(!address_view.allows_raw_address_view_boundary_at(other));
         assert!(!address_view.allows_raw_memory_structural_boundary_at(proven));
         assert!(!address_view.allows_raw_address_alias_boundary_at(proven));
+        assert!(!address_view.allows_owner_token_construct_boundary_at(proven));
 
         let address_alias =
             use_site_capabilities(SourceCapabilityUseSite::RawAddressAliasBoundary {
@@ -503,6 +524,16 @@ mod tests {
         assert!(!address_alias.allows_raw_address_alias_boundary_at(other));
         assert!(!address_alias.allows_raw_address_view_boundary_at(proven));
         assert!(!address_alias.allows_raw_memory_structural_boundary_at(proven));
+        assert!(!address_alias.allows_owner_token_construct_boundary_at(proven));
+
+        let owner_token_construct =
+            use_site_capabilities(SourceCapabilityUseSite::OwnerTokenConstructBoundary {
+                span: SourceCapabilitySpan::from_span(proven),
+            });
+        assert!(owner_token_construct.allows_owner_token_construct_boundary_at(proven));
+        assert!(!owner_token_construct.allows_owner_token_construct_boundary_at(other));
+        assert!(!owner_token_construct.allows_raw_address_alias_boundary_at(proven));
+        assert!(!owner_token_construct.allows_raw_memory_structural_boundary_at(proven));
 
         let memory_type =
             use_site_capabilities(SourceCapabilityUseSite::CompilerMemoryTypeDefinition {
@@ -534,9 +565,11 @@ mod tests {
         assert!(!source_map.raw_memory_structural_boundary_allowed_at(plain_span));
         assert!(!source_map.raw_address_view_boundary_allowed_at(plain_span));
         assert!(!source_map.raw_address_alias_boundary_allowed_at(plain_span));
+        assert!(!source_map.owner_token_construct_boundary_allowed_at(plain_span));
         assert!(source_map.raw_memory_structural_boundary_allowed_at(raw_span));
         assert!(!source_map.raw_address_view_boundary_allowed_at(raw_span));
         assert!(!source_map.raw_address_alias_boundary_allowed_at(raw_span));
+        assert!(!source_map.owner_token_construct_boundary_allowed_at(raw_span));
         assert!(!source_map.raw_memory_operation_boundary_allowed_at(raw_span, RawMemoryOp::Load));
         assert!(!source_map.owner_aggregate_constructor_boundary_allowed_at(raw_span, "Vec"));
         assert!(!source_map.owner_aggregate_field_boundary_allowed_at(raw_span));

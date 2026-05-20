@@ -56,6 +56,8 @@
 
 2026-05-20 追記 5: `data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` は互換 alias を残さず削除した。`MemPtr<T>` を直接返す API は、valid empty storage と invalid owner aggregate を同じ null pointer sentinel に畳み、proof/refutation evidence を caller の `match` から隠すためである。raw boundary caller は `data_mem_view<T>` を `match` し、`VecDataView::Data(data)` branch の中だけで `mem_ptr_addr` / `load` / `store` へ進む。`VecDataView::Empty` は valid empty state、`VecDataView::Invalid(reason)` は malformed `OwnedBuffer<T>` として扱い、両者を値で同一視しない。
 
+2026-05-20 追記 6: `region_new` は `RegionToken<T>` owner token construction として、`mem_ptr_wrap` の generic raw-address alias boundary から分離した。Rust compiler 側では `OwnerTokenConstructBoundary` と `RawAddressAliasKind::OwnerTokenConstruct` を追加し、`region_new` lowering は owner-token construction 専用の effect boundary proof を要求する。これにより `MemPtr<T>` の non-owning projection と `RegionToken<T>` の free obligation owner issuance を同じ source capability に混ぜない。これはまだ compiler-issued `OwnedRegion<T>` の完成ではないが、non-Copy collection payload support に必要な owner token / initialized cell / drop traversal proof を generic Resource IR 境界へ載せるための前提である。関連 issue は [ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0](../../issues/items/ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

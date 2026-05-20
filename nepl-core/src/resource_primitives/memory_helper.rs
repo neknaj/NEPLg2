@@ -56,9 +56,10 @@ impl MemoryHelperPrimitive {
 
     pub(crate) const fn is_raw_address_alias_boundary_evidence(self) -> bool {
         match self {
-            Self::MemPtrWrap | Self::RegionNew => true,
+            Self::MemPtrWrap => true,
             Self::MemPtrAddr
             | Self::MemPtrAdd
+            | Self::RegionNew
             | Self::RegionPtr
             | Self::RegionPtrAt
             | Self::RegionTokenRawRef

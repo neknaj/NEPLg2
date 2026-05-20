@@ -647,7 +647,7 @@ impl ResourceEffectBoundaryEngine<'_> {
 
     fn report_raw_address_alias_boundary_use(&mut self, kind: RawAddressAliasKind, span: Span) {
         match kind {
-            RawAddressAliasKind::InternalHelper => {
+            RawAddressAliasKind::InternalHelper | RawAddressAliasKind::OwnerTokenConstruct => {
                 self.diagnostics.push(
                     ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary {
                         function: String::from(self.function),

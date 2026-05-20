@@ -90,7 +90,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             ops.push(ResourceOp::RawAddressAlias {
                 source: raw.clone(),
                 target,
-                kind: RawAddressAliasKind::InternalHelper,
+                kind: RawAddressAliasKind::OwnerTokenConstruct,
                 span,
             });
             true

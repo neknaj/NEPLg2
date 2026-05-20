@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T15:24:00.508Z",
+  "generated_at": "2026-05-20T15:52:56.771Z",
   "counts": {
-    "total": 1128,
+    "total": 1129,
     "open": 3,
-    "resolved": 1125,
+    "resolved": 1126,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -47,9 +47,9 @@
         "resolved": 4
       },
       "compiler": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "compiler/resource-ir": {
         "total": 5,
@@ -1078,6 +1078,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T153348188Z-PUBLIC-MEM-PTR-ADD-BYPASSES-REGION-B-F82F9BBB.md"
+    },
+    {
+      "id": "ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0",
+      "title": "RegionToken construction shares generic raw-address alias capability",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/source_map.rs, nepl-core/src/source_capability/**, nepl-core/src/resource/model.rs, nepl-core/src/resource/lower_raw_address.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",
