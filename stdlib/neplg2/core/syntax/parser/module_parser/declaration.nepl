@@ -1,0 +1,401 @@
+#indent 4
+#import "alloc/collections/vec" as v
+#import "alloc/string/slice" as string_slice
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "./action" as *
+#import "./diagnostic" as *
+
+//: selfhost_parser_declaration_visibility: declaration header の visibility を[取/と]り[出/だ]す
+fn selfhost_parser_declaration_visibility <(&Vec<SelfhostToken>,i32)->SelfhostModuleDeclarationVisibility> (tokens, idx):
+    if:
+        le idx 0
+        then:
+            SelfhostModuleDeclarationVisibility::Private
+        else:
+            match v::get<SelfhostToken> tokens sub idx 1:
+                Option::Some prev:
+                    match prev.kind:
+                        TokenKind::KwPub:
+                            SelfhostModuleDeclarationVisibility::Public
+                        TokenKind::Indent:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Dedent:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Newline:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Eof:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Colon:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Semicolon:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Pipe:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::LParen:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::RParen:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Comma:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::LAngle:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::RAngle:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Arrow:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::PathSep:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::At:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Dot:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Ampersand:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Star:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Minus:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Equals:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Ident:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::IntLiteral:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::FloatLiteral:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::BoolLiteral:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::CharLiteral:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::StringLiteral:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::UnitLiteral:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwFn:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwLet:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwMut:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwNoShadow:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwSet:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwIf:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwWhile:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwCond:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwThen:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwElse:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwDo:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwStruct:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwEnum:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwMatch:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwTrait:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwImpl:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwFor:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwBlock:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwTuple:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::KwMlstr:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirEntry:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirTarget:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirImport:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirUse:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirIfTarget:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirIfProfile:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirCapability:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirWasm:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirLlvmIr:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirIndentWidth:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirInclude:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirExtern:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirIntrinsic:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirPrelude:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirNoPrelude:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::WasmText:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::LlvmIrText:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::MlstrLine:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DocComment:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::UnterminatedChar:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::UnterminatedString:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Unknown:
+                            SelfhostModuleDeclarationVisibility::Private
+                Option::None:
+                    SelfhostModuleDeclarationVisibility::Private
+
+fn selfhost_parser_declaration_header_start <(&Vec<SelfhostToken>,i32,SelfhostToken)->i32> (tokens, idx, token):
+    match selfhost_parser_declaration_visibility tokens idx:
+        SelfhostModuleDeclarationVisibility::Public:
+            match v::get<SelfhostToken> tokens sub idx 1:
+                Option::Some prev:
+                    prev.span.start
+                Option::None:
+                    token.span.start
+        SelfhostModuleDeclarationVisibility::Private:
+            token.span.start
+
+fn selfhost_parser_declaration_head_kind <(TokenKind)->Option<SelfhostModuleDeclarationHeadKind>> (kind):
+    match kind:
+        TokenKind::Ident:
+            some<SelfhostModuleDeclarationHeadKind> SelfhostModuleDeclarationHeadKind::Name
+        TokenKind::Dot:
+            some<SelfhostModuleDeclarationHeadKind> SelfhostModuleDeclarationHeadKind::TypeLabel
+        TokenKind::LAngle:
+            some<SelfhostModuleDeclarationHeadKind> SelfhostModuleDeclarationHeadKind::GenericParams
+        TokenKind::Indent:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Dedent:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Newline:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Eof:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Colon:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Semicolon:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Pipe:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::LParen:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::RParen:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Comma:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::RAngle:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Arrow:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::PathSep:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::At:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Ampersand:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Star:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Minus:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Equals:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::IntLiteral:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::FloatLiteral:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::BoolLiteral:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::CharLiteral:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::StringLiteral:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::UnitLiteral:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwFn:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwLet:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwMut:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwNoShadow:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwSet:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwIf:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwWhile:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwCond:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwThen:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwElse:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwDo:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwStruct:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwEnum:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwMatch:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwTrait:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwImpl:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwFor:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwPub:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwBlock:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwTuple:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::KwMlstr:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirEntry:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirTarget:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirImport:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirUse:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirIfTarget:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirIfProfile:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirCapability:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirWasm:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirLlvmIr:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirIndentWidth:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirInclude:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirExtern:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirIntrinsic:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirPrelude:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DirNoPrelude:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::WasmText:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::LlvmIrText:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::MlstrLine:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::DocComment:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::UnterminatedChar:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::UnterminatedString:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Unknown:
+            none<SelfhostModuleDeclarationHeadKind>
+
+fn selfhost_parser_declaration_head <(&Vec<SelfhostToken>,i32,i32)->Option<SelfhostModuleDeclarationHead>> (tokens, n, idx):
+    let head_idx <i32> add idx 1
+    if:
+        ge head_idx n
+        then:
+            none<SelfhostModuleDeclarationHead>
+        else:
+            match v::get<SelfhostToken> tokens head_idx:
+                Option::Some head:
+                    match selfhost_parser_declaration_head_kind head.kind:
+                        Option::Some kind:
+                            some<SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new kind head.span
+                        Option::None:
+                            none<SelfhostModuleDeclarationHead>
+                Option::None:
+                    none<SelfhostModuleDeclarationHead>
+
+fn selfhost_parser_header_end_loop <(&Vec<SelfhostToken>,i32,i32,i32)->i32> (tokens, n, idx, last_end):
+    if:
+        ge idx n
+        then:
+            last_end
+        else:
+            match v::get<SelfhostToken> tokens idx:
+                Option::Some token:
+                    match selfhost_parser_token_action token.kind:
+                        SelfhostParserTokenAction::End:
+                            last_end
+                        SelfhostParserTokenAction::Skip:
+                            last_end
+                        SelfhostParserTokenAction::Indent:
+                            last_end
+                        SelfhostParserTokenAction::Dedent:
+                            last_end
+                        SelfhostParserTokenAction::WasmText:
+                            selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+                        SelfhostParserTokenAction::LlvmIrText:
+                            selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+                        SelfhostParserTokenAction::DirWasm:
+                            selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+                        SelfhostParserTokenAction::DirLlvmIr:
+                            selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+                        SelfhostParserTokenAction::Regular:
+                            selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+                Option::None:
+                    last_end
+
+fn selfhost_parser_declaration_header <(&Vec<SelfhostToken>,i32,i32,SelfhostToken,SelfhostModuleDeclarationKind)->SelfhostModuleDeclarationHeader> (tokens, n, idx, token, decl_kind):
+    let visibility <SelfhostModuleDeclarationVisibility> selfhost_parser_declaration_visibility tokens idx
+    let header_start <i32> selfhost_parser_declaration_header_start tokens idx token
+    let header_end <i32> selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+    let token_span <SelfhostSourceSpan> token.span
+    let file_id <i32> field::get token_span "file_id"
+    let header_span <SelfhostSourceSpan> source_span_new file_id header_start header_end
+    let head <Option<SelfhostModuleDeclarationHead>> selfhost_parser_declaration_head tokens n idx
+    selfhost_module_declaration_header_new decl_kind visibility header_span token_span head
+
+fn selfhost_parser_declaration_item <(str,&Vec<SelfhostToken>,i32,i32,SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind,SelfhostModuleDeclarationKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, ast, token, item_kind, decl_kind):
+    let header <SelfhostModuleDeclarationHeader> selfhost_parser_declaration_header tokens n idx token decl_kind
+    let lexeme <str> string_slice::str_slice source header.header_span.start header.header_span.end
+    let item <SelfhostModuleItem> selfhost_module_item_new_with_declaration item_kind lexeme header
+    match selfhost_module_ast_push ast item:
+        Result::Ok next_ast:
+            Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok next_ast
+        Result::Err _e:
+            Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
+
+//: selfhost_parser_push_item: token を module item として AST に[追加/ついか]する
+pub fn selfhost_parser_push_item <(str,&Vec<SelfhostToken>,i32,i32,SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, ast, token, item_kind):
+    match selfhost_module_item_kind_declaration item_kind:
+        Option::Some decl_kind:
+            selfhost_parser_declaration_item source tokens n idx ast token item_kind decl_kind
+        Option::None:
+            let lexeme <str> selfhost_token_lexeme source token
+            let item <SelfhostModuleItem> selfhost_module_item_new item_kind token.span lexeme
+            match selfhost_module_ast_push ast item:
+                Result::Ok next_ast:
+                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok next_ast
+                Result::Err _e:
+                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag

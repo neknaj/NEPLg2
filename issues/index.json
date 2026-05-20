@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T04:38:50.705Z",
+  "generated_at": "2026-05-20T04:49:23.064Z",
   "counts": {
-    "total": 1101,
+    "total": 1102,
     "open": 4,
-    "resolved": 1097,
+    "resolved": 1098,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 100,
+        "total": 101,
         "open": 1,
-        "resolved": 99
+        "resolved": 100
       },
       "cli": {
         "total": 19,
@@ -15488,6 +15488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690.md"
+    },
+    {
+      "id": "ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805",
+      "title": "self-host module parser remains a flat implementation file",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl; stdlib/neplg2/core/syntax/parser/module_parser/**; doc/neplg2/self_host_source_tree_layout_review_20260518.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

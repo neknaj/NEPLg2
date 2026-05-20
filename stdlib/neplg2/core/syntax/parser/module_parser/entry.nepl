@@ -1,0 +1,54 @@
+#indent 4
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "./diagnostic" as *
+#import "./loop" as *
+#import "./state" as *
+
+//: selfhost_parse_module_tokens: lexer token stream から module AST を[作/つく]る
+pub fn selfhost_parse_module_tokens <(str,&Vec<SelfhostToken>)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens):
+    match selfhost_module_ast_new:
+        Result::Ok ast:
+            let n <i32> v::len<SelfhostToken> tokens
+            selfhost_parse_module_loop source tokens n 0 0 SelfhostParserRawMode::Normal ast
+        Result::Err _e:
+            Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
+
+//: selfhost_parse_module_source_with_file_id: file_id 付き source text を lex して module AST を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - 返された AST の item lexeme は source text の slice です。呼び出し側は source text の lifetime を AST 利用中に保つ必要があります。
+pub fn selfhost_parse_module_source_with_file_id <(str,i32)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, file_id):
+    match lex_all_with_file_id source file_id:
+        Result::Ok tokens:
+            match selfhost_parse_module_tokens source &tokens:
+                Result::Ok ast:
+                    v::free<SelfhostToken> tokens
+                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast
+                Result::Err diag:
+                    v::free<SelfhostToken> tokens
+                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
+        Result::Err lex_diag:
+            Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_diag_from_lex lex_diag
+
+//: selfhost_parse_module_source: source text を lex して module AST を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - single-source 互換の wrapper です。複数 file loader からは `selfhost_parse_module_source_with_file_id` を[使/つか]ってください。
+pub fn selfhost_parse_module_source <(str)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source):
+    selfhost_parse_module_source_with_file_id source 0
+
+//: selfhost_module_parser_stage0: parser 入口の smoke API
+pub fn selfhost_module_parser_stage0 <()*>i32> ():
+    match selfhost_parse_module_source "fn main <()->i32> ():\n    0\n":
+        Result::Ok ast:
+            let n <i32> selfhost_module_ast_len &ast
+            selfhost_module_ast_free ast
+            n
+        Result::Err _diag:
+            1
+

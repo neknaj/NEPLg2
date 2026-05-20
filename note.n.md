@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 self-host module parser source tree 分割
+
+- `ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/neplg2/core/syntax/parser/module_parser.nepl` が parser state、TokenKind action classification、diagnostic adapter、module item classification、declaration header extraction、raw backend loop handling、parse entry point を1ファイルに持ち、Rust 側 `parser.rs` の flat 構造を self-host 側で再現し始めていたこと。
+- `module_parser.nepl` は doctest と public re-export だけを持つ implementation-free facade にした。実装は `module_parser/state.nepl`、`action.nepl`、`diagnostic.nepl`、`item_kind.nepl`、`declaration.nepl`、`loop.nepl`、`entry.nepl` へ分割した。
+- `TokenKind` / `SelfhostParserTokenAction` の分岐は exhaustive match のまま維持した。元は同一 file 内 private だった declaration item construction は `declaration.nepl` に閉じ、loop は `selfhost_parser_push_item` だけを呼ぶ形にした。
+- `nodesrc/selfhost_module_parser_sources.js` と `nodesrc/test_selfhost_module_parser_split_contract.js` を追加し、facade への実装再導入、split file の 450 行超過、submodule から module parser facade への曖昧 import を監視する。
+- 検証:
+  - `node nodesrc/test_selfhost_module_parser_split_contract.js`: pass
+  - `node nodesrc/test_selfhost_parser_tokenkind_match.js`: pass
+  - `node nodesrc/test_selfhost_parser_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree -o tmp/agent1-module-parser-split-core.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/agent1-module-parser-split-parser.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+
 # 2026-05-20 Agent 1 self-host type model source tree 分割
 
 - `ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690` を追加し、fixed / resolved にした。`plan.md` は変更していない。

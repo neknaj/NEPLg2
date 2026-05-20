@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { readModuleParserSource } = require("./selfhost_module_parser_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -11,13 +12,12 @@ function read(rel) {
     return fs.readFileSync(path.join(repoRoot, rel), "utf8").replace(/\r\n/g, "\n");
 }
 
-function functionBlock(file, name) {
-    const src = read(file);
+function functionBlockFromSource(src, label, name) {
     const lines = src.split("\n");
     const start = lines.findIndex((line) =>
         line.startsWith(`fn ${name} `) || line.startsWith(`pub fn ${name} `)
     );
-    assert.notEqual(start, -1, `${name} not found in ${file}`);
+    assert.notEqual(start, -1, `${name} not found in ${label}`);
 
     const topLevelDef = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
@@ -30,12 +30,11 @@ function functionBlock(file, name) {
     return lines.slice(start, end).join("\n");
 }
 
-function enumVariants(file, enumName) {
-    const src = read(file);
+function enumVariantsFromSource(src, label, enumName) {
     const lines = src.split("\n");
     const declaration = new RegExp(`^(?:pub\\s+)?enum\\s+${enumName}:$`);
     const start = lines.findIndex((line) => declaration.test(line));
-    assert.notEqual(start, -1, `${enumName} enum not found`);
+    assert.notEqual(start, -1, `${enumName} enum not found in ${label}`);
 
     const variants = [];
     for (let i = start + 1; i < lines.length; i += 1) {
@@ -52,6 +51,10 @@ function enumVariants(file, enumName) {
     return variants;
 }
 
+function enumVariants(file, enumName) {
+    return enumVariantsFromSource(read(file), file, enumName);
+}
+
 function assertTokenKindExhaustiveMatch(block, label, variants) {
     assert.match(block, /\bmatch\s+kind:/, `${label} must dispatch directly on TokenKind`);
     assert.doesNotMatch(block, /^\s*_:/m, `${label} must not use wildcard arms for TokenKind`);
@@ -64,12 +67,9 @@ function assertTokenKindExhaustiveMatch(block, label, variants) {
     }
 }
 
-const parser = read("stdlib/neplg2/core/syntax/parser/module_parser.nepl");
+const parser = readModuleParserSource(repoRoot);
 const tokenKindVariants = enumVariants("stdlib/neplg2/core/syntax/token/kind.nepl", "TokenKind");
-const actionVariants = enumVariants(
-    "stdlib/neplg2/core/syntax/parser/module_parser.nepl",
-    "SelfhostParserTokenAction",
-);
+const actionVariants = enumVariantsFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "SelfhostParserTokenAction");
 
 assert.doesNotMatch(
     parser,
@@ -88,18 +88,18 @@ assert.doesNotMatch(
 );
 
 assertTokenKindExhaustiveMatch(
-    functionBlock("stdlib/neplg2/core/syntax/parser/module_parser.nepl", "selfhost_parser_token_action"),
+    functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "selfhost_parser_token_action"),
     "selfhost_parser_token_action",
     tokenKindVariants,
 );
 
 assertTokenKindExhaustiveMatch(
-    functionBlock("stdlib/neplg2/core/syntax/parser/module_parser.nepl", "selfhost_parser_item_kind_from_token"),
+    functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "selfhost_parser_item_kind_from_token"),
     "selfhost_parser_item_kind_from_token",
     tokenKindVariants,
 );
 
-const moduleLoop = functionBlock("stdlib/neplg2/core/syntax/parser/module_parser.nepl", "selfhost_parse_module_loop");
+const moduleLoop = functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "selfhost_parse_module_loop");
 assert.match(
     moduleLoop,
     /\bmatch\s+selfhost_parser_token_action\s+kind:/,

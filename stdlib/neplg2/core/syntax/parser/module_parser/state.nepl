@@ -1,0 +1,71 @@
+#indent 4
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+//: SelfhostParserRawMode: raw backend block の parser 状態
+//:
+//: [目的/もくてき]:
+//: - `DirWasm` / `DirLlvmIr` を読んだ直後の pending 状態と、raw text を読んでいる active 状態を分けます。
+//: - pending と active を enum で表すことで、raw text の種類不一致を match で明示的に検出します。
+pub enum SelfhostParserRawMode:
+    Normal
+    PendingWasm
+    PendingLlvmIr
+    Wasm
+    LlvmIr
+
+impl Clone for SelfhostParserRawMode:
+    fn clone <(&SelfhostParserRawMode)->SelfhostParserRawMode> (self):
+        *self
+
+impl Copy for SelfhostParserRawMode:
+    fn copy_mark <(SelfhostParserRawMode)->SelfhostParserRawMode> (self):
+        self
+
+//: SelfhostParserTokenAction: parser loop が token に対して行う処理
+//:
+//: [目的/もくてき]:
+//: - `TokenKind` の分類を文字列や hash ではなく enum の `match` で固定します。
+//: - loop 本体はこの action を処理し、TokenKind 追加時の網羅性検査は分類 helper に集約します。
+pub enum SelfhostParserTokenAction:
+    End
+    Skip
+    Indent
+    Dedent
+    WasmText
+    LlvmIrText
+    DirWasm
+    DirLlvmIr
+    Regular
+
+impl Clone for SelfhostParserTokenAction:
+    fn clone <(&SelfhostParserTokenAction)->SelfhostParserTokenAction> (self):
+        *self
+
+impl Copy for SelfhostParserTokenAction:
+    fn copy_mark <(SelfhostParserTokenAction)->SelfhostParserTokenAction> (self):
+        self
+
+//: selfhost_parser_raw_mode_is_pending: raw block indent 待ちか[返/かえ]す
+pub fn selfhost_parser_raw_mode_is_pending <(SelfhostParserRawMode)->bool> (mode):
+    match mode:
+        SelfhostParserRawMode::PendingWasm:
+            true
+        SelfhostParserRawMode::PendingLlvmIr:
+            true
+        SelfhostParserRawMode::Normal:
+            false
+        SelfhostParserRawMode::Wasm:
+            false
+        SelfhostParserRawMode::LlvmIr:
+            false
+
+//: selfhost_parser_depth_dec: 通常 block depth を 0 未満にしないで 1 [戻/もど]す
+pub fn selfhost_parser_depth_dec <(i32)->i32> (depth):
+    if:
+        gt depth 0
+        then:
+            sub depth 1
+        else:
+            0
+

@@ -1,0 +1,163 @@
+#indent 4
+#import "core/math" as *
+#import "core/option" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+
+//: selfhost_parser_decl_item_kind: top-level 宣言 token だけを module item にする
+pub fn selfhost_parser_decl_item_kind <(SelfhostModuleItemKind,i32)->Option<SelfhostModuleItemKind>> (item_kind, depth):
+    if:
+        eq depth 0
+        then:
+            some<SelfhostModuleItemKind> item_kind
+        else:
+            none<SelfhostModuleItemKind>
+
+//: selfhost_parser_item_kind_from_token: token kind を module item kind へ写す
+//:
+//: [目的/もくてき]:
+//: - parser の入口で保持すべき token だけを `SelfhostModuleItemKind` に変換します。
+//: - 宣言 keyword は通常 block depth 0 のものだけを module 宣言として扱います。
+pub fn selfhost_parser_item_kind_from_token <(TokenKind,i32)->Option<SelfhostModuleItemKind>> (kind, depth):
+    match kind:
+        TokenKind::Indent:
+            none<SelfhostModuleItemKind>
+        TokenKind::Dedent:
+            none<SelfhostModuleItemKind>
+        TokenKind::Newline:
+            none<SelfhostModuleItemKind>
+        TokenKind::Eof:
+            none<SelfhostModuleItemKind>
+        TokenKind::Colon:
+            none<SelfhostModuleItemKind>
+        TokenKind::Semicolon:
+            none<SelfhostModuleItemKind>
+        TokenKind::Pipe:
+            none<SelfhostModuleItemKind>
+        TokenKind::LParen:
+            none<SelfhostModuleItemKind>
+        TokenKind::RParen:
+            none<SelfhostModuleItemKind>
+        TokenKind::Comma:
+            none<SelfhostModuleItemKind>
+        TokenKind::LAngle:
+            none<SelfhostModuleItemKind>
+        TokenKind::RAngle:
+            none<SelfhostModuleItemKind>
+        TokenKind::Arrow:
+            none<SelfhostModuleItemKind>
+        TokenKind::PathSep:
+            none<SelfhostModuleItemKind>
+        TokenKind::At:
+            none<SelfhostModuleItemKind>
+        TokenKind::Dot:
+            none<SelfhostModuleItemKind>
+        TokenKind::Ampersand:
+            none<SelfhostModuleItemKind>
+        TokenKind::Star:
+            none<SelfhostModuleItemKind>
+        TokenKind::Minus:
+            none<SelfhostModuleItemKind>
+        TokenKind::Equals:
+            none<SelfhostModuleItemKind>
+        TokenKind::Ident:
+            none<SelfhostModuleItemKind>
+        TokenKind::IntLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::FloatLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::BoolLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::CharLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::StringLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::UnitLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwFn:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::FunctionDecl depth
+        TokenKind::KwLet:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwMut:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwNoShadow:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwSet:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwIf:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwWhile:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwCond:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwThen:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwElse:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwDo:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwStruct:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::StructDecl depth
+        TokenKind::KwEnum:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::EnumDecl depth
+        TokenKind::KwMatch:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwTrait:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::TraitDecl depth
+        TokenKind::KwImpl:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::ImplDecl depth
+        TokenKind::KwFor:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwPub:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwBlock:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwTuple:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwMlstr:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirEntry:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::EntryDirective
+        TokenKind::DirTarget:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::TargetDirective
+        TokenKind::DirImport:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::ImportDirective
+        TokenKind::DirUse:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::UseDirective
+        TokenKind::DirIfTarget:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::IfTargetDirective
+        TokenKind::DirIfProfile:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::IfProfileDirective
+        TokenKind::DirCapability:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::CapabilityDirective
+        TokenKind::DirWasm:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::WasmBlock
+        TokenKind::DirLlvmIr:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::LlvmIrBlock
+        TokenKind::DirIndentWidth:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirInclude:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirExtern:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirIntrinsic:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::IntrinsicDirective
+        TokenKind::DirPrelude:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::PreludeDirective
+        TokenKind::DirNoPrelude:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::NoPreludeDirective
+        TokenKind::WasmText:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::WasmText
+        TokenKind::LlvmIrText:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::LlvmIrText
+        TokenKind::MlstrLine:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::MlstrLine
+        TokenKind::DocComment:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::DocComment
+        TokenKind::UnterminatedChar:
+            none<SelfhostModuleItemKind>
+        TokenKind::UnterminatedString:
+            none<SelfhostModuleItemKind>
+        TokenKind::Unknown:
+            none<SelfhostModuleItemKind>
+
