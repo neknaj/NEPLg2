@@ -165,6 +165,13 @@ impl SourceCapabilities {
         self.use_sites.iter()
     }
 
+    pub(crate) fn retain_use_sites(
+        &mut self,
+        mut keep: impl FnMut(&SourceCapabilityUseSite) -> bool,
+    ) {
+        self.use_sites.retain(|site| keep(site));
+    }
+
     fn allows_use_site(&self, use_site: SourceCapabilityUseSite) -> bool {
         self.use_sites.contains(&use_site)
     }

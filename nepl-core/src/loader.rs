@@ -4,6 +4,7 @@ use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
 use crate::source_capability::module_source_capabilities;
+use crate::source_map::{CompilerMemoryType, SourceCapabilityUseSite};
 use crate::span::FileId;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
@@ -691,9 +692,36 @@ impl Loader {
         module: &Module,
     ) -> SourceCapabilities {
         if self.configured_stdlib_source_path(canon) {
-            module_source_capabilities(module)
+            let mut capabilities = module_source_capabilities(module);
+            capabilities
+                .retain_use_sites(|site| self.source_capability_use_site_allowed(canon, site));
+            capabilities
         } else {
             SourceCapabilities::none()
+        }
+    }
+
+    fn source_capability_use_site_allowed(
+        &self,
+        canon: &PathBuf,
+        site: &SourceCapabilityUseSite,
+    ) -> bool {
+        match site {
+            SourceCapabilityUseSite::CompilerMemoryTypeDefinition { memory_type, .. } => {
+                self.canonical_compiler_memory_type_definition_path(*memory_type) == *canon
+            }
+            _ => true,
+        }
+    }
+
+    fn canonical_compiler_memory_type_definition_path(
+        &self,
+        memory_type: CompilerMemoryType,
+    ) -> PathBuf {
+        match memory_type {
+            CompilerMemoryType::RawPointer | CompilerMemoryType::OwnerToken => {
+                canonicalize_path(&self.stdlib_root.join("core").join("mem").join("types.nepl"))
+            }
         }
     }
 
@@ -1701,6 +1729,33 @@ mod tests {
     }
 
     #[test]
+    fn compiler_memory_type_definition_requires_canonical_core_mem_types_path() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "fake_types.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "pub struct MemPtr<.T>:\n",
+                "    raw <i32>\n\n",
+                "pub struct RegionToken<.T>:\n",
+                "    raw <i32>\n",
+                "    size <i32>\n",
+            ),
+        );
+
+        assert!(!capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::RawPointer
+        ));
+        assert!(!capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::OwnerToken
+        ));
+    }
+
+    #[test]
     fn actual_core_mem_types_expose_both_compiler_memory_type_capabilities() {
         let loader = real_test_loader();
         let path = canonicalize_path(&stdlib_path(
@@ -1711,7 +1766,7 @@ mod tests {
         let module = loader
             .parse_module(FileId(0), src)
             .expect("parse core/mem/types.nepl");
-        let capabilities = module_source_capabilities(&module);
+        let capabilities = loader.source_capabilities_for_module(&path, &module);
 
         assert!(capabilities.allows_compiler_memory_type_definition(
             crate::source_map::CompilerMemoryType::RawPointer

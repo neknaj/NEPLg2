@@ -2,12 +2,12 @@
 id: ISS-20260520T224333208Z-COMPILER-MEMORY-OWNER-TOKEN-AUTHORIT-7FCBF376
 title: "Compiler memory owner token authority is name-shape based instead of canonical"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-20
-updated: 2026-05-20
+updated: 2026-05-21
 target: "nepl-core/src/source_capability/**, nepl-core/src/typecheck/**, nepl-core/src/resource_primitives/**"
 ---
 
@@ -42,3 +42,20 @@ Bind CompilerMemoryType marking to canonical compiler-memory definition identity
 ## 検証
 
 Add tests proving user fake RegionToken, stdlib-root non-canonical fake RegionToken, and fake/real mixed storage_relocate anchors are rejected while the canonical imported RegionToken remains constructor/field restricted and valid at compiler-owned boundaries.
+
+## 2026-05-21 修正
+
+- loader が `CompilerMemoryTypeDefinition` capability を発行する条件を、configured stdlib root 配下一般ではなく canonical `core/mem/types.nepl` に限定した。
+- source capability は従来どおり `CompilerMemoryType` enum と span を保持しつつ、capability 生成時に canonical source path を検査することで、非 canonical stdlib-root file の同名同形 `MemPtr` / `RegionToken` が compiler-memory authority を得ないようにした。
+- typecheck 側は既存の `source_map.compiler_memory_type_definition_allowed_at(def.name.span, memory_type)` を経由するため、canonical file 由来の definition span だけが `TypeCtx::mark_compiler_memory_type` に到達する。
+- 回帰テストとして、stdlib root 配下の非 canonical `core/mem/fake_types.nepl` に同名同形 `MemPtr` / `RegionToken` を置いても source capability と typecheck registration が発生しないことを固定した。
+- canonical `core/mem/types.nepl` と通常 import 経由の `RegionToken` は引き続き compiler-memory type definition capability を持つことを確認した。
+
+検証:
+
+- `cargo check -p nepl-core`
+- `cargo fmt --check -p nepl-core`
+- `cargo test -p nepl-core compiler_memory_type_definition -- --test-threads=1`
+- `cargo test -p nepl-core typecheck_requires_canonical_source_for_compiler_memory_type_registration -- --test-threads=1`
+- `cargo test -p nepl-core typecheck_marks_imported_compiler_memory_types_in_type_context -- --test-threads=1`
+- `node nodesrc/issues.js check --dir issues`

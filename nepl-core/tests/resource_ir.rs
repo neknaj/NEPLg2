@@ -13206,6 +13206,56 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_requires_canonical_source_for_compiler_memory_type_registration() {
+    let source = r#"
+#no_prelude
+#entry main
+#indent 4
+#target std
+
+pub struct MemPtr<.T>:
+    raw <i32>
+
+pub struct RegionToken<.T>:
+    raw <i32>
+    size <i32>
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline(
+            stdlib_root()
+                .join("core")
+                .join("mem")
+                .join("fake_types.nepl"),
+            source.to_string(),
+        )
+        .expect("load non-canonical same-shape compiler memory source");
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+
+    assert!(
+        checked.diagnostics.is_empty(),
+        "non-canonical same-shape compiler memory source should remain ordinary user-visible types: {:#?}",
+        checked.diagnostics
+    );
+    let mem_ptr = checked.types.lookup_named("MemPtr").expect("MemPtr type");
+    let region_token = checked
+        .types
+        .lookup_named("RegionToken")
+        .expect("RegionToken type");
+    assert_eq!(checked.types.compiler_memory_type(mem_ptr), None);
+    assert_eq!(checked.types.compiler_memory_type(region_token), None);
+}
+
+#[test]
 fn typecheck_allows_user_struct_named_region_token() {
     let source = r#"
 #no_prelude

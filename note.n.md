@@ -1,3 +1,18 @@
+# 2026-05-21 Agent 1 compiler memory canonical owner token authority
+
+- `ISS-20260520T224333208Z-COMPILER-MEMORY-OWNER-TOKEN-AUTHORIT-7FCBF376` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CompilerMemoryTypeDefinition` capability が configured stdlib root 配下であれば同名同形 `MemPtr` / `RegionToken` に付与され、canonical `core/mem/types.nepl` の definition identity には結び付いていなかったことだった。
+- loader の source capability filtering で、`CompilerMemoryTypeDefinition` だけは canonical `stdlib/core/mem/types.nepl` 由来の definition span に限定した。通常の raw helper / collection lifecycle など他の source evidence は従来どおり source evidence ベースで扱う。
+- typecheck は既存の `source_map.compiler_memory_type_definition_allowed_at(def.name.span, memory_type)` を通るため、非 canonical stdlib-root file の同名同形 struct は `TypeCtx::mark_compiler_memory_type` に到達しない。
+- 回帰テストとして、非 canonical `core/mem/fake_types.nepl` の同名同形 `MemPtr` / `RegionToken` が source capability と typecheck registration を得ないこと、canonical import は引き続き有効であることを固定した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core compiler_memory_type_definition -- --test-threads=1`: pass
+  - `cargo test -p nepl-core typecheck_requires_canonical_source_for_compiler_memory_type_registration -- --test-threads=1`: pass
+  - `cargo test -p nepl-core typecheck_marks_imported_compiler_memory_types_in_type_context -- --test-threads=1`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+
 # 2026-05-21 Agent 1 collection slot value transfer state propagation
 
 - `ISS-20260520T223249968Z-COLLECTION-SLOT-STATE-DOES-NOT-FOLLO-A808C521` を fixed にした。`plan.md` は変更していない。
