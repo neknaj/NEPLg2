@@ -14,6 +14,7 @@
 #import "core/traits/copy" as *
 #import "core/option" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 
 //: SelfhostProofDomain: proof fact / obligation が属する[領域/りょういき]
@@ -167,12 +168,34 @@ impl Copy for SelfhostModuleDeclarationFact:
 pub fn selfhost_module_declaration_fact_new <(SelfhostModuleItemKind,Option<SelfhostModuleDeclarationHeader>,SelfhostSourceSpan)->SelfhostModuleDeclarationFact> (item_kind, declaration, span):
     SelfhostModuleDeclarationFact item_kind declaration span
 
+//: SelfhostResourceCellEventFact: Resource cell に対する event observation
+//:
+//: [目的/もくてき]:
+//: - Resource IR lowering や checker が観測した initialize / move / drop event を proof solver へ渡します。
+//: - event が正しい状態から実行されているかは、この fact だけでは主張せず、`ResourceCellTransition` obligation が検査します。
+pub struct SelfhostResourceCellEventFact:
+    event <SelfhostResourceCellEventKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostResourceCellEventFact:
+    fn clone <(&SelfhostResourceCellEventFact)->SelfhostResourceCellEventFact> (self):
+        *self
+
+impl Copy for SelfhostResourceCellEventFact:
+    fn copy_mark <(SelfhostResourceCellEventFact)->SelfhostResourceCellEventFact> (self):
+        self
+
+//: selfhost_resource_cell_event_fact_new: Resource cell event fact を[作/つく]る
+pub fn selfhost_resource_cell_event_fact_new <(SelfhostResourceCellEventKind,SelfhostSourceSpan)->SelfhostResourceCellEventFact> (event, span):
+    SelfhostResourceCellEventFact event span
+
 //: SelfhostProofFact: solver に渡す typed fact
 pub enum SelfhostProofFact:
     SourceSpanObserved <SelfhostSourceSpanFact>
     RawBackendItemObserved <SelfhostRawBackendItemFact>
     ModuleDirectiveObserved <SelfhostModuleDirectiveFact>
     ModuleDeclarationObserved <SelfhostModuleDeclarationFact>
+    ResourceCellEventObserved <SelfhostResourceCellEventFact>
 
 impl Clone for SelfhostProofFact:
     fn clone <(&SelfhostProofFact)->SelfhostProofFact> (self):
@@ -193,3 +216,5 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
             SelfhostProofDomain::Module
         SelfhostProofFact::ModuleDeclarationObserved _declaration_fact:
             SelfhostProofDomain::Module
+        SelfhostProofFact::ResourceCellEventObserved _event_fact:
+            SelfhostProofDomain::Resource

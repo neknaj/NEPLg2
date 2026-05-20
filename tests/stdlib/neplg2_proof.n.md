@@ -43,6 +43,8 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
                     Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
         Result::Ok _:
             Result<(),str>::Err "invalid span was accepted"
 
@@ -113,6 +115,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
 
 fn main <()*>i32> ():
     let span <SelfhostSourceSpan> source_span_new 0 0 5
@@ -127,6 +131,114 @@ fn main <()*>i32> ():
             checks_exit_code shown
         SelfhostProofResult::Proven _evidence:
             let checks1 checks_push checks0 Result<(),str>::Err "mismatched proof query was accepted"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
+## resource_cell_transition_uses_generic_proof
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof" as *
+#import "neplg2/core/resource/move_state" as *
+#import "std/test" as *
+
+fn check_initialized <(SelfhostResourceCellState)->Result<(),str>> (state):
+    match state:
+        SelfhostResourceCellState::Initialized:
+            Result<(),str>::Ok ()
+        SelfhostResourceCellState::Uninitialized:
+            Result<(),str>::Err "expected initialized cell"
+        SelfhostResourceCellState::Moved:
+            Result<(),str>::Err "expected initialized cell"
+        SelfhostResourceCellState::Dropped:
+            Result<(),str>::Err "expected initialized cell"
+
+fn check_moved <(SelfhostResourceCellState)->Result<(),str>> (state):
+    match state:
+        SelfhostResourceCellState::Moved:
+            Result<(),str>::Ok ()
+        SelfhostResourceCellState::Uninitialized:
+            Result<(),str>::Err "expected moved cell"
+        SelfhostResourceCellState::Initialized:
+            Result<(),str>::Err "expected moved cell"
+        SelfhostResourceCellState::Dropped:
+            Result<(),str>::Err "expected moved cell"
+
+fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation):
+    match refutation:
+        SelfhostProofRefutation::ResourceCellTransitionInvalid issue:
+            match issue.reason:
+                SelfhostResourceCellTransitionError::DropAfterMove:
+                    Result<(),str>::Ok ()
+                SelfhostResourceCellTransitionError::InitializeAlreadyInitialized:
+                    Result<(),str>::Err "expected drop-after-move"
+                SelfhostResourceCellTransitionError::InitializeAfterDrop:
+                    Result<(),str>::Err "expected drop-after-move"
+                SelfhostResourceCellTransitionError::MoveUninitialized:
+                    Result<(),str>::Err "expected drop-after-move"
+                SelfhostResourceCellTransitionError::MoveAfterMove:
+                    Result<(),str>::Err "expected drop-after-move"
+                SelfhostResourceCellTransitionError::MoveAfterDrop:
+                    Result<(),str>::Err "expected drop-after-move"
+                SelfhostResourceCellTransitionError::DropUninitialized:
+                    Result<(),str>::Err "expected drop-after-move"
+                SelfhostResourceCellTransitionError::DoubleDrop:
+                    Result<(),str>::Err "expected drop-after-move"
+        SelfhostProofRefutation::FactObligationMismatch _mismatch:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::SourceSpanInvalid _span:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+            Result<(),str>::Err "expected resource transition refutation"
+
+fn main <()*>i32> ():
+    let span <SelfhostSourceSpan> source_span_new 0 0 4
+    let init_event <SelfhostResourceCellEventFact> selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Initialize span
+    let move_event <SelfhostResourceCellEventFact> selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::MoveOut span
+    let drop_event <SelfhostResourceCellEventFact> selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Drop span
+    let checks0 checks_new
+    match selfhost_proof_resource_cell_transition selfhost_resource_cell_state_initial init_event:
+        Result::Ok state1:
+            let checks1 checks_push checks0 check_initialized state1
+            match selfhost_proof_resource_cell_transition state1 move_event:
+                Result::Ok state2:
+                    let checks2 checks_push checks1 check_moved state2
+                    match selfhost_proof_resource_cell_transition state2 drop_event:
+                        Result::Err refutation:
+                            let checks3 checks_push checks2 check_drop_after_move refutation
+                            let shown checks_print_report checks3
+                            checks_exit_code shown
+                        Result::Ok _state:
+                            let checks3 checks_push checks2 Result<(),str>::Err "drop after move was accepted"
+                            let shown checks_print_report checks3
+                            checks_exit_code shown
+                Result::Err _refutation:
+                    let checks2 checks_push checks1 Result<(),str>::Err "move transition failed"
+                    let shown checks_print_report checks2
+                    checks_exit_code shown
+        Result::Err _refutation:
+            let checks1 checks_push checks0 Result<(),str>::Err "initialize transition failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -205,6 +317,8 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+            Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
 
 fn main <()*>i32> ():
@@ -317,6 +431,8 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
 
 fn main <()*>i32> ():
     let span <SelfhostSourceSpan> source_span_new 0 0 5
@@ -413,6 +529,8 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
                     Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+                    Result<(),str>::Err "expected missing declaration header"
         Result::Ok _header:
             Result<(),str>::Err "missing declaration header was accepted"
 
@@ -433,6 +551,8 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"
         Result::Ok _header:
             Result<(),str>::Err "invalid declaration header was accepted"

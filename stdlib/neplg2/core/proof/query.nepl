@@ -11,6 +11,7 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 
 //: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
@@ -22,6 +23,7 @@ pub enum SelfhostProofEvidence:
     RawBackendTransition <SelfhostRawBackendState>
     ModuleDirectiveTransition <SelfhostModuleDirectiveState>
     ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>
+    ResourceCellTransition <SelfhostResourceCellState>
 
 impl Clone for SelfhostProofEvidence:
     fn clone <(&SelfhostProofEvidence)->SelfhostProofEvidence> (self):
@@ -73,6 +75,50 @@ impl Copy for SelfhostModuleDeclarationHeaderIssue:
 pub fn selfhost_module_declaration_header_issue_new <(SelfhostModuleDeclarationKind,SelfhostSourceSpan)->SelfhostModuleDeclarationHeaderIssue> (kind, span):
     SelfhostModuleDeclarationHeaderIssue kind span
 
+//: SelfhostResourceCellTransitionError: Resource cell state transition の失敗分類
+//:
+//: [目的/もくてき]:
+//: - uninitialized move、move 後の再 move、double drop などを自由文字列ではなく enum として表します。
+pub enum SelfhostResourceCellTransitionError:
+    InitializeAlreadyInitialized
+    InitializeAfterDrop
+    MoveUninitialized
+    MoveAfterMove
+    MoveAfterDrop
+    DropUninitialized
+    DropAfterMove
+    DoubleDrop
+
+impl Clone for SelfhostResourceCellTransitionError:
+    fn clone <(&SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionError> (self):
+        *self
+
+impl Copy for SelfhostResourceCellTransitionError:
+    fn copy_mark <(SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionError> (self):
+        self
+
+//: SelfhostResourceCellTransitionIssue: 不正な Resource cell transition の refutation payload
+//:
+//: [目的/もくてき]:
+//: - 失敗時の元 state、event、span、理由を typed value として保持し、diagnostic は caller 境界で生成できるようにします。
+pub struct SelfhostResourceCellTransitionIssue:
+    state <SelfhostResourceCellState>
+    event <SelfhostResourceCellEventKind>
+    span <SelfhostSourceSpan>
+    reason <SelfhostResourceCellTransitionError>
+
+impl Clone for SelfhostResourceCellTransitionIssue:
+    fn clone <(&SelfhostResourceCellTransitionIssue)->SelfhostResourceCellTransitionIssue> (self):
+        *self
+
+impl Copy for SelfhostResourceCellTransitionIssue:
+    fn copy_mark <(SelfhostResourceCellTransitionIssue)->SelfhostResourceCellTransitionIssue> (self):
+        self
+
+//: selfhost_resource_cell_transition_issue_new: Resource cell transition issue payload を[作/つく]る
+pub fn selfhost_resource_cell_transition_issue_new <(SelfhostResourceCellState,SelfhostResourceCellEventKind,SelfhostSourceSpan,SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionIssue> (state, event, span, reason):
+    SelfhostResourceCellTransitionIssue state event span reason
+
 //: SelfhostProofMismatch: fact と obligation の domain が[噛/か]み[合/あ]わない refutation payload
 //:
 //: [目的/もくてき]:
@@ -106,6 +152,7 @@ pub enum SelfhostProofRefutation:
     ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>
     ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>
     ModuleDeclarationHeaderInvalid <SelfhostModuleDeclarationHeaderIssue>
+    ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>
 
 impl Clone for SelfhostProofRefutation:
     fn clone <(&SelfhostProofRefutation)->SelfhostProofRefutation> (self):

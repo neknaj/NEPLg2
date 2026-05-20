@@ -333,6 +333,8 @@ fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDia
             selfhost_module_check_declaration_header_missing_diag issue
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid issue:
             selfhost_module_check_declaration_header_invalid_diag issue
+        SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag
 
 fn selfhost_module_check_raw_backend_fact <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostDiagnostic>> (state, item):
     match selfhost_proof_raw_backend_transition state item:

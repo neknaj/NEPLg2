@@ -19,6 +19,7 @@
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
 #import "neplg2/core/proof/query" as *
+#import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 
 //: selfhost_proof_source_span_eq: source span が同じ range か[返/かえ]す
@@ -401,6 +402,64 @@ fn selfhost_proof_query_mismatch_refutation <(SelfhostProofQuery)->SelfhostProof
 fn selfhost_proof_query_mismatch_result <(SelfhostProofQuery)->SelfhostProofResult> (query):
     selfhost_proof_result_refuted selfhost_proof_query_mismatch_refutation query
 
+fn selfhost_proof_resource_cell_proven <(SelfhostResourceCellState)->SelfhostProofResult> (state):
+    selfhost_proof_result_proven SelfhostProofEvidence::ResourceCellTransition state
+
+fn selfhost_proof_resource_cell_invalid <(SelfhostResourceCellState,SelfhostResourceCellEventFact,SelfhostResourceCellTransitionError)->SelfhostProofResult> (state, event_fact, reason):
+    selfhost_proof_result_refuted SelfhostProofRefutation::ResourceCellTransitionInvalid selfhost_resource_cell_transition_issue_new state event_fact.event event_fact.span reason
+
+//: selfhost_proof_solve_resource_cell_uninitialized: 未初期化 cell の event transition を[解/と]く
+fn selfhost_proof_solve_resource_cell_uninitialized <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+    match event_fact.event:
+        SelfhostResourceCellEventKind::Initialize:
+            selfhost_proof_resource_cell_proven SelfhostResourceCellState::Initialized
+        SelfhostResourceCellEventKind::MoveOut:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Uninitialized event_fact SelfhostResourceCellTransitionError::MoveUninitialized
+        SelfhostResourceCellEventKind::Drop:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Uninitialized event_fact SelfhostResourceCellTransitionError::DropUninitialized
+
+//: selfhost_proof_solve_resource_cell_initialized: 初期化済み cell の event transition を[解/と]く
+fn selfhost_proof_solve_resource_cell_initialized <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+    match event_fact.event:
+        SelfhostResourceCellEventKind::Initialize:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Initialized event_fact SelfhostResourceCellTransitionError::InitializeAlreadyInitialized
+        SelfhostResourceCellEventKind::MoveOut:
+            selfhost_proof_resource_cell_proven SelfhostResourceCellState::Moved
+        SelfhostResourceCellEventKind::Drop:
+            selfhost_proof_resource_cell_proven SelfhostResourceCellState::Dropped
+
+//: selfhost_proof_solve_resource_cell_moved: move 済み cell の event transition を[解/と]く
+fn selfhost_proof_solve_resource_cell_moved <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+    match event_fact.event:
+        SelfhostResourceCellEventKind::Initialize:
+            selfhost_proof_resource_cell_proven SelfhostResourceCellState::Initialized
+        SelfhostResourceCellEventKind::MoveOut:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Moved event_fact SelfhostResourceCellTransitionError::MoveAfterMove
+        SelfhostResourceCellEventKind::Drop:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Moved event_fact SelfhostResourceCellTransitionError::DropAfterMove
+
+//: selfhost_proof_solve_resource_cell_dropped: drop 済み cell の event transition を[解/と]く
+fn selfhost_proof_solve_resource_cell_dropped <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+    match event_fact.event:
+        SelfhostResourceCellEventKind::Initialize:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Dropped event_fact SelfhostResourceCellTransitionError::InitializeAfterDrop
+        SelfhostResourceCellEventKind::MoveOut:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Dropped event_fact SelfhostResourceCellTransitionError::MoveAfterDrop
+        SelfhostResourceCellEventKind::Drop:
+            selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Dropped event_fact SelfhostResourceCellTransitionError::DoubleDrop
+
+//: selfhost_proof_solve_resource_cell_transition: Resource cell transition obligation を[解/と]く
+fn selfhost_proof_solve_resource_cell_transition <(SelfhostResourceCellEventFact,SelfhostResourceCellState)->SelfhostProofResult> (event_fact, state):
+    match state:
+        SelfhostResourceCellState::Uninitialized:
+            selfhost_proof_solve_resource_cell_uninitialized event_fact
+        SelfhostResourceCellState::Initialized:
+            selfhost_proof_solve_resource_cell_initialized event_fact
+        SelfhostResourceCellState::Moved:
+            selfhost_proof_solve_resource_cell_moved event_fact
+        SelfhostResourceCellState::Dropped:
+            selfhost_proof_solve_resource_cell_dropped event_fact
+
 //: selfhost_proof_solve_module_declaration_header: declaration header availability obligation を[解/と]く
 fn selfhost_proof_solve_module_declaration_header <(SelfhostModuleDeclarationFact,SelfhostModuleDeclarationKind)->SelfhostProofResult> (fact, kind):
     if:
@@ -432,6 +491,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
         SelfhostProofObligation::RawBackendTransition state:
             match query.fact:
                 SelfhostProofFact::RawBackendItemObserved item:
@@ -441,6 +502,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
         SelfhostProofObligation::ModuleDirectiveTransition state:
             match query.fact:
@@ -452,6 +515,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
         SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind:
             match query.fact:
                 SelfhostProofFact::ModuleDeclarationObserved declaration:
@@ -461,6 +526,20 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::RawBackendItemObserved _item:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::ResourceCellTransition state:
+            match query.fact:
+                SelfhostProofFact::ResourceCellEventObserved event_fact:
+                    selfhost_proof_solve_resource_cell_transition event_fact state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
 
 //: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
@@ -482,6 +561,8 @@ pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),Selfhos
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<(),SelfhostProofRefutation>::Err refutation
@@ -506,6 +587,8 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
 
@@ -528,6 +611,8 @@ pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState
                 SelfhostProofEvidence::RawBackendTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err refutation
@@ -556,5 +641,36 @@ pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_resource_cell_transition: Resource cell transition query を[作/つく]る
+fn selfhost_proof_query_resource_cell_transition <(SelfhostResourceCellState,SelfhostResourceCellEventFact)->SelfhostProofQuery> (state, event_fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::ResourceCellEventObserved event_fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::ResourceCellTransition state
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_resource_cell_transition: Resource cell transition の evidence を next state として[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - initialized / moved / dropped の state machine を Resource domain の proof obligation として通します。
+//: - caller は typed refutation を match し、diagnostic は proof solver 外で生成します。
+pub fn selfhost_proof_resource_cell_transition <(SelfhostResourceCellState,SelfhostResourceCellEventFact)->Result<SelfhostResourceCellState,SelfhostProofRefutation>> (state, event_fact):
+    let query <SelfhostProofQuery> selfhost_proof_query_resource_cell_transition state event_fact
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::ResourceCellTransition next_state:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Ok next_state
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err refutation

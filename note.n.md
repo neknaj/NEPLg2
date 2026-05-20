@@ -42878,3 +42878,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-proof-mismatch-domains.json -j 1 --dist web/dist --assert-io`: 5/5 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-mismatch-core-proof.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-proof-mismatch-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host Resource cell proof 境界追加
+
+- `ISS-20260519T235256769Z-SELF-HOST-RESOURCE-CELL-STATE-STAYS--847C852A` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`core/resource/move_state.nepl` が Stage 0 marker だけで、initialized / moved / dropped の cell state を typed model として持たず、Resource domain の fact / obligation として proof solver に渡せなかったことだった。
+- `SelfhostResourceCellState` と `SelfhostResourceCellEventKind` を追加し、cell state と initialize / move out / drop event を enum で表すようにした。
+- `SelfhostResourceCellEventFact`、`SelfhostProofObligation::ResourceCellTransition`、`SelfhostProofEvidence::ResourceCellTransition`、`SelfhostProofRefutation::ResourceCellTransitionInvalid` を追加し、Resource cell transition を generic proof solver の exhaustive match に載せた。
+- 不正遷移は `SelfhostResourceCellTransitionError` enum と `SelfhostResourceCellTransitionIssue` payload に保持する。Resource checker 側に個別 state machine を置くのではなく、後続 stage は event fact producer として接続する。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/resource/move_state.nepl --no-tree -o tmp/agent1-resource-cell-move-state.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-resource-cell-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-resource-cell-proof-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-resource-cell-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
