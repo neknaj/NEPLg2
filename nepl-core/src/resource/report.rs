@@ -113,6 +113,7 @@ pub enum ResourceCheckOperation {
     RawMemoryBulkDestinationCell,
     RawMemoryBulkSourceAddress,
     RawMemoryBulkSourceCell,
+    RawMemoryBulkCount,
     IndirectCallee,
 }
 

@@ -138,6 +138,9 @@ impl ResourceCheckEngine<'_> {
                 };
                 let destination = raw_aliases.canonicalize(destination);
                 let source = raw_aliases.canonicalize(source);
+                let count = args
+                    .get(2)
+                    .map(|count| raw_aliases.canonicalize_scalar(count));
                 let destination_available = self.ensure_available(
                     cells,
                     &destination,
@@ -150,6 +153,14 @@ impl ResourceCheckEngine<'_> {
                     ResourceCheckOperation::RawMemoryBulkSourceAddress,
                     span,
                 );
+                let count_available = count.as_ref().is_none_or(|count| {
+                    self.ensure_available(
+                        cells,
+                        count,
+                        ResourceCheckOperation::RawMemoryBulkCount,
+                        span,
+                    )
+                });
                 let destination_cells_released = self.ensure_no_live_non_copy_raw_cells(
                     cells,
                     &destination,
@@ -164,13 +175,15 @@ impl ResourceCheckEngine<'_> {
                 );
                 if destination_available
                     && source_available
+                    && count_available
                     && destination_cells_released
                     && source_cells_copyable
                 {
                     cells.apply_raw_cell_lifecycle_event(
-                        RawCellLifecycleEvent::BulkCopyInitializedCopyCells {
+                        RawCellLifecycleEvent::BulkCopyInitializedRawState {
                             source: &source,
                             destination: &destination,
+                            count: count.as_ref(),
                         },
                         raw_aliases,
                         self.types,

@@ -27,9 +27,10 @@ pub(super) enum RawCellLifecycleEvent<'a> {
         source: &'a Place,
         result: &'a Place,
     },
-    BulkCopyInitializedCopyCells {
+    BulkCopyInitializedRawState {
         source: &'a Place,
         destination: &'a Place,
+        count: Option<&'a Place>,
     },
     FillBytes {
         address: &'a Place,
@@ -92,13 +93,35 @@ impl CellTable {
                 self.extend_entries(relocated);
                 self.extend_initialized_raw_byte_ranges(relocated_ranges);
             }
-            RawCellLifecycleEvent::BulkCopyInitializedCopyCells {
+            RawCellLifecycleEvent::BulkCopyInitializedRawState {
                 source,
                 destination,
+                count,
             } => {
-                let copied = self.copy_initialized_copy_raw_cells(source, destination, types);
+                let copied = count
+                    .map(|count| {
+                        self.copy_initialized_copy_raw_cells_covered_by_count(
+                            source,
+                            destination,
+                            count,
+                            raw_aliases,
+                            types,
+                        )
+                    })
+                    .unwrap_or_default();
+                let copied_ranges = count
+                    .map(|count| {
+                        self.copy_initialized_raw_byte_ranges_for_bulk_copy(
+                            source,
+                            destination,
+                            count,
+                            raw_aliases,
+                        )
+                    })
+                    .unwrap_or_default();
                 self.clear_raw_cells_under(destination);
                 self.extend_entries(copied);
+                self.extend_initialized_raw_byte_ranges(copied_ranges);
             }
             RawCellLifecycleEvent::FillBytes { address, count } => {
                 self.clear_raw_cells_under(address);

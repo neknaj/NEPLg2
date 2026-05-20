@@ -17744,6 +17744,215 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_bulk_copy_transfers_initialized_byte_ranges() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+
+fn id <(i32)->i32> (x):
+    x
+
+fn copy_byte_range <()->i32> ():
+    let len <i32> 4
+    let src <i32> alloc_raw len
+    let dst <i32> alloc_raw len
+    memset_u8 src len 65
+    mem_copy dst src len
+    let i <i32> id 2
+    let v <i32> if:
+        and ge i 0 lt i len
+        then:
+            load_u8 add dst i
+        else:
+            0
+    dealloc_raw src len
+    dealloc_raw dst len
+    v
+
+fn main <()->i32> ():
+    copy_byte_range
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let copy_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("copy_byte_range__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        copy_diagnostics.is_empty(),
+        "bulk copy must transfer initialized byte ranges covered by the copied byte count: {:#?}\nresource:\n{}",
+        copy_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_bulk_copy_transfers_initialized_copy_cells_with_extent() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+
+fn copy_i32_cell <()->i32> ():
+    let bytes <i32> 4
+    let src <i32> alloc_raw bytes
+    let dst <i32> alloc_raw bytes
+    store_i32 src 99
+    mem_copy dst src bytes
+    let v <i32> load_i32 dst
+    dealloc_raw src bytes
+    dealloc_raw dst bytes
+    v
+
+fn main <()->i32> ():
+    copy_i32_cell
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let copy_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("copy_i32_cell__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        copy_diagnostics.is_empty(),
+        "bulk copy must transfer initialized Copy cells only when the byte count covers the cell: {:#?}\nresource:\n{}",
+        copy_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_bulk_move_transfers_initialized_element_ranges() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+
+fn id <(i32)->i32> (x):
+    x
+
+fn move_element_range <()->i32> ():
+    let len <i32> 4
+    let bytes <i32> mul len 4
+    let src <i32> alloc_raw bytes
+    let dst <i32> alloc_raw bytes
+    fill_i32 src len 42
+    mem_move dst src bytes
+    let i <i32> id 2
+    let off <i32> mul i 4
+    let v <i32> if:
+        and ge i 0 lt i len
+        then:
+            load_i32 add dst off
+        else:
+            0
+    dealloc_raw src bytes
+    dealloc_raw dst bytes
+    v
+
+fn main <()->i32> ():
+    move_element_range
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let move_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("move_element_range__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        move_diagnostics.is_empty(),
+        "bulk move must transfer initialized element ranges when the copied byte count proves the whole element prefix: {:#?}\nresource:\n{}",
+        move_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_bulk_copy_does_not_transfer_uncovered_byte_ranges() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+
+fn main <()->i32> ():
+    let src_len <i32> 8
+    let copy_len <i32> 4
+    let src <i32> alloc_raw src_len
+    let dst <i32> alloc_raw src_len
+    memset_u8 src src_len 65
+    mem_copy dst src copy_len
+    let value <i32> load_u8 add dst 7
+    dealloc_raw src src_len
+    dealloc_raw dst src_len
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            }
+        )),
+        "bulk copy must not transfer initialized byte evidence beyond the copied extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_raw_fill_helpers_initialize_copy_cells() {
     let source = r#"
 #entry main

@@ -97,6 +97,7 @@ mod host_size_contract;
 mod i32_call_facts;
 #[cfg(test)]
 mod i32_call_facts_tests;
+mod i32_extent_proof;
 mod initialized;
 mod initialized_alias;
 mod initialized_alias_difference;

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T17:17:04.736Z",
+  "generated_at": "2026-05-20T17:35:10.313Z",
   "counts": {
     "total": 1136,
-    "open": 6,
-    "resolved": 1130,
+    "open": 5,
+    "resolved": 1131,
     "by_area": {
       "core": {
         "total": 535,
-        "open": 2,
-        "resolved": 533
+        "open": 1,
+        "resolved": 534
       },
       "stdlib": {
         "total": 312,
@@ -134,21 +134,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD",
-      "title": "Bulk raw copy does not transfer initialized raw range evidence",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-20",
-      "updated": "2026-05-20",
-      "target": "nepl-core/src/resource/raw_cell_lifecycle.rs, nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/tests/resource_ir.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD.md"
-    },
     {
       "id": "ISS-20260520T165035652Z-RAW-FILL-LIFECYCLE-EVENT-CONFLATES-C-3A87C0FB",
       "title": "Raw fill lifecycle event conflates Copy element proof with destructive discard",
@@ -8203,6 +8188,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T161920508Z-RESOURCE-IR-RAW-CELL-LIFECYCLE-TRANS-35AEA479.md"
+    },
+    {
+      "id": "ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD",
+      "title": "Bulk raw copy does not transfer initialized raw range evidence",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/raw_cell_lifecycle.rs, nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
