@@ -1,3 +1,13 @@
+# 2026-05-20 Agent 1 selfhost checker report contract
+
+- `ISS-20260520T091103104Z-SELFHOST-CHECKER-REPORT-CONTRACT-IS--9A95998A` を修正した。`plan.md` は変更していない。
+- `tests/stdlib/neplg2_checker.n.md` は declaration-header evidence の stdout doctest を含む 4 件構成になっていたが、`nodesrc/test_selfhost_checker_report_contract.js` が旧 3 件前提のままで失敗していた。
+- report contract の期待値を fixture title と check count の配列に整理し、4 件目の `rejects_declaration_items_without_parser_header_evidence` も stdout report 契約として監視するようにした。
+- 検証:
+  - `node nodesrc/test_selfhost_checker_report_contract.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-20 Agent 1 typecheck responsibility split
 
 - `ISS-20260520T084048270Z-TYPECHECK-DRIVER-EXCEEDS-RESPONSIBIL-3935301A` を修正した。`plan.md` は変更していない。
