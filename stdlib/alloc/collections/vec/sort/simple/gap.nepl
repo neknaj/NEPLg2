@@ -12,6 +12,7 @@
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
+#import "alloc/collections/vec/invariant" as vec_invariant
 #import "alloc/collections/vec/sort/common" as *
 
 //: sort_shell: shell sort で in-place 整列する
@@ -29,38 +30,42 @@
 //: [計算量/けいさんりょう]:
 //: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
 pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
-    let n <i32> len<.T> v
-    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
-        le n 1
+        not vec_invariant::vec_current_copy_invariant<.T> v
         then ()
         else:
-            let mut gap <i32> div_s n 2;
+            let n <i32> len<.T> v
+            let data <MemPtr<.T>> data_mem_ptr<.T> v
+            if:
+                le n 1
+                then ()
+                else:
+                    let mut gap <i32> div_s n 2;
 
-            while lt 0 gap:
-                do:
-                    let mut i <i32> gap;
-                    while lt i n:
+                    while lt 0 gap:
                         do:
-                            let temp <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                            let mut j <i32> i;
-
-                            let mut done <i32> 0;
-                            while eq done 0:
+                            let mut i <i32> gap;
+                            while lt i n:
                                 do:
-                                    if:
-                                        and le gap j sort_lt<.T> temp load<.T> add mem_ptr_addr data mul sub j gap size_of<.T>
-                                        then:
-                                            let src <i32> sub j gap
-                                            let x <.T> load<.T> add mem_ptr_addr data mul src size_of<.T>;
-                                            store<.T> add mem_ptr_addr data mul j size_of<.T> x;
-                                            set j sub j gap;
-                                        else set done 1
+                                    let temp <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                    let mut j <i32> i;
 
-                            store<.T> add mem_ptr_addr data mul j size_of<.T> temp;
-                            set i add i 1;
-                    set gap div_s gap 2;
-            ()
+                                    let mut done <i32> 0;
+                                    while eq done 0:
+                                        do:
+                                            if:
+                                                and le gap j sort_lt<.T> temp load<.T> add mem_ptr_addr data mul sub j gap size_of<.T>
+                                                then:
+                                                    let src <i32> sub j gap
+                                                    let x <.T> load<.T> add mem_ptr_addr data mul src size_of<.T>;
+                                                    store<.T> add mem_ptr_addr data mul j size_of<.T> x;
+                                                    set j sub j gap;
+                                                else set done 1
+
+                                    store<.T> add mem_ptr_addr data mul j size_of<.T> temp;
+                                    set i add i 1;
+                            set gap div_s gap 2;
+                    ()
 
 //: sort_comb: comb sort で in-place 整列する
 //:
@@ -76,49 +81,53 @@ pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
 pub fn sort_comb <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
-    let n <i32> len<.T> v
-    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
-        le n 1
+        not vec_invariant::vec_current_copy_invariant<.T> v
         then ()
         else:
-            let mut gap <i32> n;
-            let mut sorted <i32> 0;
+            let n <i32> len<.T> v
+            let data <MemPtr<.T>> data_mem_ptr<.T> v
+            if:
+                le n 1
+                then ()
+                else:
+                    let mut gap <i32> n;
+                    let mut sorted <i32> 0;
 
-            while eq sorted 0:
-                do:
-                    let scaled_gap <i32> mul gap 10;
-                    let reduced_gap <i32> div_s scaled_gap 13;
-                    set gap reduced_gap;
-                    if:
-                        lt gap 1
-                        then set gap 1
-                        else ()
-
-                    if:
-                        eq gap 1
-                        then set sorted 1
-                        else ()
-
-                    let mut i <i32> 0;
-                    let mut done_scan <i32> 0;
-                    while eq done_scan 0:
+                    while eq sorted 0:
                         do:
-                            let next_i <i32> add i gap;
+                            let scaled_gap <i32> mul gap 10;
+                            let reduced_gap <i32> div_s scaled_gap 13;
+                            set gap reduced_gap;
                             if:
-                                lt next_i n
-                                then:
-                                    let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                    let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                lt gap 1
+                                then set gap 1
+                                else ()
+
+                            if:
+                                eq gap 1
+                                then set sorted 1
+                                else ()
+
+                            let mut i <i32> 0;
+                            let mut done_scan <i32> 0;
+                            while eq done_scan 0:
+                                do:
+                                    let next_i <i32> add i gap;
                                     if:
-                                        sort_lt<.T> b a
+                                        lt next_i n
                                         then:
-                                            store<.T> add mem_ptr_addr data mul i size_of<.T> b;
-                                            store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
-                                            set sorted 0;
+                                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                            let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                            if:
+                                                sort_lt<.T> b a
+                                                then:
+                                                    store<.T> add mem_ptr_addr data mul i size_of<.T> b;
+                                                    store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
+                                                    set sorted 0;
+                                                    ()
+                                                else ()
+                                            set i add i 1;
                                             ()
-                                        else ()
-                                    set i add i 1;
-                                    ()
-                                else set done_scan 1
-            ()
+                                        else set done_scan 1
+                    ()

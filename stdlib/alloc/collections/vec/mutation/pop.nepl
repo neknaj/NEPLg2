@@ -15,6 +15,7 @@
 #import "../types" as *
 #import "../storage" as vec_storage
 #import "../access/data" as vec_data
+#import "../invariant" as vec_invariant
 #import "core/field" as *
 
 //: ## pop
@@ -73,21 +74,27 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
     let v_len <i32> *field::get_ref v_buffer_ref "len"
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
+    let v_invariant_ok <bool> vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
     let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &v
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
     if:
-        eq v_len 0
+        not v_invariant_ok
         then:
             VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
         else:
-            match v_storage:
-                VecStorage::Empty:
-                    VecPop<.T> vec_storage::vec_empty<.T> none<.T>
-                VecStorage::Owned v_region:
-                    let next_len <i32> sub v_len 1
-                    let item <.T> load<.T> add mem_ptr_addr v_data mul next_len size_of<.T>
-                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
+            if:
+                eq v_len 0
+                then:
+                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
+                else:
+                    match v_storage:
+                        VecStorage::Empty:
+                            VecPop<.T> vec_storage::vec_empty<.T> none<.T>
+                        VecStorage::Owned v_region:
+                            let next_len <i32> sub v_len 1
+                            let item <.T> load<.T> add mem_ptr_addr v_data mul next_len size_of<.T>
+                            VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
 
 //: ## drop_last
 //: [末尾/まつび][要素/ようそ]を[捨/す]て、次の `Vec` owner だけを[返/かえ]す
@@ -124,8 +131,15 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
 pub fn drop_last <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let v_len <i32> *field::get_ref v_buffer_ref "len"
+    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
+    let v_invariant_ok <bool> vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
-    let next_len <i32> if eq v_len 0 0 sub v_len 1
-    Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap v_storage)
+    if:
+        not v_invariant_ok
+        then:
+            Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)
+        else:
+            let next_len <i32> if eq v_len 0 0 sub v_len 1
+            Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap v_storage)

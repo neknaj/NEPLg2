@@ -34,6 +34,18 @@
 | Rust Resource IR | `CellState` / `OwnerState` / `BorrowState` / `StorageOrigin` があり、raw memory op、aggregate projection、enum payload、branch merge を追跡している。 | 方向は正しい。現状は stdlib の曖昧な所有権表現を補うための alias 処理が多い。 | stdlib 側の owner wrapper 化に合わせ、特例的 alias summary を減らす。 |
 | self-host stdlib 利用 | ByteBuf / builders / Copy-only Vec / typed slot collection は使えるが、non-Copy payload collection や fallible update は危険。 | 制限付き開始は可能。ただし ResourceIR / typecheck 実装で raw collection discipline を増やしてはいけない。 | token stream / diagnostics / symbol table は安全 subset か専用 typed collection を使う。 |
 
+## 2026-05-20 Vec raw access invariant 追記
+
+`Vec<T>` の current Copy-only raw element access は、`OwnedBuffer<T>` の metadata を個別に読むだけでは不十分である。raw load/store、range copy、sort traversal、grow path の直前には、少なくとも次の相関を 1 つの invariant として確認する。
+
+- `0 <= len == initialized_len <= cap`
+- `VecStorage::Empty` なら `len == 0` かつ `cap == 0`
+- `VecStorage::Owned(_)` なら `cap > 0`
+
+このため `stdlib/alloc/collections/vec/invariant.nepl` を追加し、`vec_buffer_current_copy_invariant<T>` / `vec_current_copy_invariant<T>` を raw access boundary の共通入口にした。`get` / `replace` / `push` / `pop` / transform / sort family は raw data view の導出や raw load/store より前にこの helper を通す。これにより、Copy-only 期間の `Vec` は「各 API が len/cap を読む」状態ではなく、「raw memory operation の前提となる `OwnedBuffer<T>` 全体の相関を検査する」状態になる。
+
+これは final non-Copy collection design ではない。`initialized_len` が moved slot / drop traversal / compiler-issued owner token と接続されるまでは、raw element operation は `.T: Copy` に限定する。今回の invariant helper は、その後続段階で `InitializedCell` / Resource IR が接続される位置を明示するための過渡境界である。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

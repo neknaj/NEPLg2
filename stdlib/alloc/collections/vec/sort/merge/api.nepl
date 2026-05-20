@@ -16,6 +16,7 @@
 #import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
+#import "alloc/collections/vec/invariant" as vec_invariant
 #import "core/field" as field
 #import "core/field" as *
 
@@ -194,23 +195,27 @@ pub fn vec_sort_merge_error_vec <.T: Copy> <(VecSortMergeError<.T>)->Vec<.T>> (e
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
 pub fn sort_merge <.T: Ord&Copy> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
-    let n <i32> len<.T> v
-    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:
-        le n 1
-        then Result<(), StdErrorKind>::Ok ()
+        not vec_invariant::vec_current_copy_invariant<.T> v
+        then Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
         else:
-            match alloc_region<.T> n:
-                Result::Err _e:
-                    Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
-                Result::Ok buf_region:
-                    let buf <MemPtr<.T>> region_ptr &buf_region
-                    sort_merge_range_data<.T> data_ptr buf 0 n;
-                    match dealloc_region<.T> buf_region:
-                        Result::Ok _:
-                            Result<(), StdErrorKind>::Ok ()
-                        Result::Err _:
-                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+            let n <i32> len<.T> v
+            let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
+            if:
+                le n 1
+                then Result<(), StdErrorKind>::Ok ()
+                else:
+                    match alloc_region<.T> n:
+                        Result::Err _e:
+                            Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
+                        Result::Ok buf_region:
+                            let buf <MemPtr<.T>> region_ptr &buf_region
+                            sort_merge_range_data<.T> data_ptr buf 0 n;
+                            match dealloc_region<.T> buf_region:
+                                Result::Ok _:
+                                    Result<(), StdErrorKind>::Ok ()
+                                Result::Err _:
+                                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 //: ## sort_merge_ret
 //: merge sort 後の Vec を Result で返す
@@ -225,20 +230,24 @@ pub fn sort_merge <.T: Ord&Copy> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
 //: [計算量/けいさんりょう]:
 //: - `sort_merge` と同じです。
 pub fn sort_merge_ret <.T: Ord&Copy> <(Vec<.T>)*>Result<Vec<.T>, VecSortMergeError<.T>>> (v):
-    let n <i32> len<.T> &v
-    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
     if:
-        le n 1
-        then Result<Vec<.T>, VecSortMergeError<.T>>::Ok v
+        not vec_invariant::vec_current_copy_invariant<.T> &v
+        then Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
         else:
-            match alloc_region<.T> n:
-                Result::Err _e:
-                    Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::OutOfMemory
-                Result::Ok buf_region:
-                    let buf <MemPtr<.T>> region_ptr &buf_region
-                    sort_merge_range_data<.T> data_ptr buf 0 n;
-                    match dealloc_region<.T> buf_region:
-                        Result::Ok _:
-                            Result<Vec<.T>, VecSortMergeError<.T>>::Ok v
-                        Result::Err _:
-                            Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
+            let n <i32> len<.T> &v
+            let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
+            if:
+                le n 1
+                then Result<Vec<.T>, VecSortMergeError<.T>>::Ok v
+                else:
+                    match alloc_region<.T> n:
+                        Result::Err _e:
+                            Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::OutOfMemory
+                        Result::Ok buf_region:
+                            let buf <MemPtr<.T>> region_ptr &buf_region
+                            sort_merge_range_data<.T> data_ptr buf 0 n;
+                            match dealloc_region<.T> buf_region:
+                                Result::Ok _:
+                                    Result<Vec<.T>, VecSortMergeError<.T>>::Ok v
+                                Result::Err _:
+                                    Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation

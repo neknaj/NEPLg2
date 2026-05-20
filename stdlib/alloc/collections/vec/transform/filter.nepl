@@ -22,6 +22,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../query/get" as vec_get
 #import "../access/data" as vec_data
+#import "../invariant" as vec_invariant
 
 //: filter: [条件/じょうけん]を[満/み]たす[要素/ようそ]だけを[残/のこ]す
 //:
@@ -67,44 +68,49 @@
 pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    let mut keep_len <i32> 0
-    let mut i <i32> 0
-    while lt i src_len:
-        do:
-            match vec_get::get<.T> &v i:
-                Option::Some item:
-                    if cond p item:
-                        then set keep_len add keep_len 1
-                        else ()
-                Option::None:
-                    ()
-            set i add i 1
-    match vec_storage::with_capacity<.T> keep_len:
-        Result::Err e:
-            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
-        Result::Ok out0:
-            let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
-            let out_cap <i32> *field::get_ref out_buffer_ref "cap"
-            let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
-            let mut read_i <i32> 0
-            let mut write_i <i32> 0
-            while lt read_i src_len:
+    if:
+        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
+        then:
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+        else:
+            let mut keep_len <i32> 0
+            let mut i <i32> 0
+            while lt i src_len:
                 do:
-                    match vec_get::get<.T> &v read_i:
+                    match vec_get::get<.T> &v i:
                         Option::Some item:
-                            if:
-                                cond p item
-                                then:
-                                    store<.T> add mem_ptr_addr out_data mul write_i size_of<.T> item
-                                    set write_i add write_i 1
+                            if cond p item:
+                                then set keep_len add keep_len 1
                                 else ()
                         Option::None:
                             ()
-                    set read_i add read_i 1
-            vec_cleanup::free<.T> v
-            let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
-            let out_storage <VecStorage<.T>> field::get out_buffer "storage"
-            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
+                    set i add i 1
+            match vec_storage::with_capacity<.T> keep_len:
+                Result::Err e:
+                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                Result::Ok out0:
+                    let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
+                    let out_cap <i32> *field::get_ref out_buffer_ref "cap"
+                    let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
+                    let mut read_i <i32> 0
+                    let mut write_i <i32> 0
+                    while lt read_i src_len:
+                        do:
+                            match vec_get::get<.T> &v read_i:
+                                Option::Some item:
+                                    if:
+                                        cond p item
+                                        then:
+                                            store<.T> add mem_ptr_addr out_data mul write_i size_of<.T> item
+                                            set write_i add write_i 1
+                                        else ()
+                                Option::None:
+                                    ()
+                            set read_i add read_i 1
+                    vec_cleanup::free<.T> v
+                    let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
+                    let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
 
 //: partition: [条件/じょうけん]で 2 [群/ぐん]に[分/わ]ける
 //:
@@ -148,58 +154,63 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformErr
 pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    let mut left_len <i32> 0
-    let mut i <i32> 0
-    while lt i src_len:
-        do:
-            match vec_get::get<.T> &v i:
-                Option::Some item:
-                    if cond p item:
-                        then set left_len add left_len 1
-                        else ()
-                Option::None:
-                    ()
-            set i add i 1
-    let right_len <i32> sub src_len left_len
-    match vec_storage::with_capacity<.T> left_len:
-        Result::Err e:
-            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v e
-        Result::Ok left0:
-            match vec_storage::with_capacity<.T> right_len:
+    if:
+        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
+        then:
+            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+        else:
+            let mut left_len <i32> 0
+            let mut i <i32> 0
+            while lt i src_len:
+                do:
+                    match vec_get::get<.T> &v i:
+                        Option::Some item:
+                            if cond p item:
+                                then set left_len add left_len 1
+                                else ()
+                        Option::None:
+                            ()
+                    set i add i 1
+            let right_len <i32> sub src_len left_len
+            match vec_storage::with_capacity<.T> left_len:
                 Result::Err e:
-                    vec_cleanup::free<.T> left0
                     Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v e
-                Result::Ok right0:
-                    let left_buffer_ref <&OwnedBuffer<.T>> field::get_ref &left0 "buffer"
-                    let left_cap <i32> *field::get_ref left_buffer_ref "cap"
-                    let left_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &left0
-                    let right_buffer_ref <&OwnedBuffer<.T>> field::get_ref &right0 "buffer"
-                    let right_cap <i32> *field::get_ref right_buffer_ref "cap"
-                    let right_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &right0
-                    let mut read_i <i32> 0
-                    let mut left_i <i32> 0
-                    let mut right_i <i32> 0
-                    while lt read_i src_len:
-                        do:
-                            match vec_get::get<.T> &v read_i:
-                                Option::Some item:
-                                    if:
-                                        cond p item
-                                        then:
-                                            store<.T> add mem_ptr_addr left_data mul left_i size_of<.T> item
-                                            set left_i add left_i 1
-                                        else:
-                                            store<.T> add mem_ptr_addr right_data mul right_i size_of<.T> item
-                                            set right_i add right_i 1
-                                Option::None:
-                                    ()
-                            set read_i add read_i 1
-                    vec_cleanup::free<.T> v
-                    let left_buffer <OwnedBuffer<.T>> field::get left0 "buffer"
-                    let left_storage <VecStorage<.T>> field::get left_buffer "storage"
-                    let right_buffer <OwnedBuffer<.T>> field::get right0 "buffer"
-                    let right_storage <VecStorage<.T>> field::get right_buffer "storage"
-                    Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
+                Result::Ok left0:
+                    match vec_storage::with_capacity<.T> right_len:
+                        Result::Err e:
+                            vec_cleanup::free<.T> left0
+                            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                        Result::Ok right0:
+                            let left_buffer_ref <&OwnedBuffer<.T>> field::get_ref &left0 "buffer"
+                            let left_cap <i32> *field::get_ref left_buffer_ref "cap"
+                            let left_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &left0
+                            let right_buffer_ref <&OwnedBuffer<.T>> field::get_ref &right0 "buffer"
+                            let right_cap <i32> *field::get_ref right_buffer_ref "cap"
+                            let right_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &right0
+                            let mut read_i <i32> 0
+                            let mut left_i <i32> 0
+                            let mut right_i <i32> 0
+                            while lt read_i src_len:
+                                do:
+                                    match vec_get::get<.T> &v read_i:
+                                        Option::Some item:
+                                            if:
+                                                cond p item
+                                                then:
+                                                    store<.T> add mem_ptr_addr left_data mul left_i size_of<.T> item
+                                                    set left_i add left_i 1
+                                                else:
+                                                    store<.T> add mem_ptr_addr right_data mul right_i size_of<.T> item
+                                                    set right_i add right_i 1
+                                        Option::None:
+                                            ()
+                                    set read_i add read_i 1
+                            vec_cleanup::free<.T> v
+                            let left_buffer <OwnedBuffer<.T>> field::get left0 "buffer"
+                            let left_storage <VecStorage<.T>> field::get left_buffer "storage"
+                            let right_buffer <OwnedBuffer<.T>> field::get right0 "buffer"
+                            let right_storage <VecStorage<.T>> field::get right_buffer "storage"
+                            Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
 
 //: ## vec_partition_matched_len
 //: `partition` の true 側 `Vec` の[長/なが]さを[返/かえ]す
