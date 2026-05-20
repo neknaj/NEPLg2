@@ -1,3 +1,12 @@
+# 2026-05-20 Agent 1 type ascription expected-check issue fixed
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage A-E を再監査し、古い残作業表記を現在の実装状態へ揃えて issue を `fixed` / `resolved: true` にした。`plan.md` は変更していない。
+- Stage C の generic function constraint object 化は、Stage D の `GenericCallConstraint` / `TypeArgumentInference` で完了済みであることを `doc/neplg2/type_ascription_expected_check_plan.md` に反映した。
+- 検証:
+  - `node nodesrc/issues.js index`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 overload materialization phase guard
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage E として、overload candidate rejection の materialization phase を typed enum にした。`plan.md` は変更していない。
