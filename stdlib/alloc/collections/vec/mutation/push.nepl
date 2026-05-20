@@ -17,6 +17,7 @@
 #import "core/result" as *
 #import "core/field" as field
 #import "../types" as *
+#import "../invariant" as vec_invariant
 #import "core/field" as *
 
 //: ## push
@@ -186,47 +187,53 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
     let v_len <i32> *field::get_ref v_buffer_ref "len"
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
+    let v_invariant_ok <bool> vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
     if:
-        eq v_len v_cap
+        not v_invariant_ok
         then:
-            match vec_next_capacity<.T> v_cap:
-                Result::Err grow_error:
-                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) grow_error
-                Result::Ok grown_cap:
-                    match v_storage:
-                        VecStorage::Empty:
-                            if:
-                                and eq v_len 0 eq v_cap 0
-                                then:
-                                    match alloc_region<.T> grown_cap:
+            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq v_len v_cap
+                then:
+                    match vec_next_capacity<.T> v_cap:
+                        Result::Err grow_error:
+                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) grow_error
+                        Result::Ok grown_cap:
+                            match v_storage:
+                                VecStorage::Empty:
+                                    if:
+                                        and eq v_len 0 eq v_cap 0
+                                        then:
+                                            match alloc_region<.T> grown_cap:
+                                                Result::Ok grown_region:
+                                                    let next_len <i32> add v_len 1
+                                                    let grown_data <MemPtr<.T>> region_ptr &grown_region
+                                                    store<.T> add mem_ptr_addr grown_data mul v_len size_of<.T> item
+                                                    Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
+                                                Result::Err _e:
+                                                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::OutOfMemory
+                                        else:
+                                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::InvalidOperation
+                                VecStorage::Owned v_region:
+                                    match vec_realloc_region_or_keep<.T> v_region grown_cap:
                                         Result::Ok grown_region:
                                             let next_len <i32> add v_len 1
                                             let grown_data <MemPtr<.T>> region_ptr &grown_region
                                             store<.T> add mem_ptr_addr grown_data mul v_len size_of<.T> item
                                             Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
-                                        Result::Err _e:
-                                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::OutOfMemory
-                                else:
-                                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::InvalidOperation
+                                        Result::Err e:
+                                            let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
+                                            let old_region <RegionToken<.T>> vec_realloc_region_error_region<.T> e
+                                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned old_region))) error
+                else:
+                    match v_storage:
+                        VecStorage::Empty:
+                            Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::InvalidOperation
                         VecStorage::Owned v_region:
-                            match vec_realloc_region_or_keep<.T> v_region grown_cap:
-                                Result::Ok grown_region:
-                                    let next_len <i32> add v_len 1
-                                    let grown_data <MemPtr<.T>> region_ptr &grown_region
-                                    store<.T> add mem_ptr_addr grown_data mul v_len size_of<.T> item
-                                    Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
-                                Result::Err e:
-                                    let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
-                                    let old_region <RegionToken<.T>> vec_realloc_region_error_region<.T> e
-                                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned old_region))) error
-        else:
-            match v_storage:
-                VecStorage::Empty:
-                    Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::InvalidOperation
-                VecStorage::Owned v_region:
-                    let next_len <i32> add v_len 1
-                    let v_data <MemPtr<.T>> region_ptr &v_region
-                    store<.T> add mem_ptr_addr v_data mul v_len size_of<.T> item
-                    Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
+                            let next_len <i32> add v_len 1
+                            let v_data <MemPtr<.T>> region_ptr &v_region
+                            store<.T> add mem_ptr_addr v_data mul v_len size_of<.T> item
+                            Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))

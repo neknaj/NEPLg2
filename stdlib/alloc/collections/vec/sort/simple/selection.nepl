@@ -12,6 +12,7 @@
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
+#import "alloc/collections/vec/invariant" as vec_invariant
 #import "alloc/collections/vec/sort/common" as *
 
 //: sort_selection: selection sort で in-place 整列する
@@ -28,29 +29,33 @@
 //: [計算量/けいさんりょう]:
 //: - 比較 O(n^2)、追加領域 O(1)
 pub fn sort_selection <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
-    let n <i32> len<.T> v
-    let data <MemPtr<.T>> data_mem_ptr<.T> v
     if:
-        le n 1
+        not vec_invariant::vec_current_copy_invariant<.T> v
         then ()
         else:
-            let mut i <i32> 0
-            while lt i n:
-                do:
-                    let mut min_idx <i32> i;
-                    let mut j <i32> add i 1;
-                    while lt j n:
+            let n <i32> len<.T> v
+            let data <MemPtr<.T>> data_mem_ptr<.T> v
+            if:
+                le n 1
+                then ()
+                else:
+                    let mut i <i32> 0
+                    while lt i n:
                         do:
-                            let a <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
-                            let b <.T> load<.T> add mem_ptr_addr data mul min_idx size_of<.T>;
-                            if:
-                                sort_lt<.T> a b
-                                then set min_idx j
-                                else ()
-                            set j add j 1;
-                    let left <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>
-                    let right <.T> load<.T> add mem_ptr_addr data mul min_idx size_of<.T>
-                    store<.T> add mem_ptr_addr data mul i size_of<.T> right;
-                    store<.T> add mem_ptr_addr data mul min_idx size_of<.T> left;
-                    set i add i 1;
-            ()
+                            let mut min_idx <i32> i;
+                            let mut j <i32> add i 1;
+                            while lt j n:
+                                do:
+                                    let a <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
+                                    let b <.T> load<.T> add mem_ptr_addr data mul min_idx size_of<.T>;
+                                    if:
+                                        sort_lt<.T> a b
+                                        then set min_idx j
+                                        else ()
+                                    set j add j 1;
+                            let left <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>
+                            let right <.T> load<.T> add mem_ptr_addr data mul min_idx size_of<.T>
+                            store<.T> add mem_ptr_addr data mul i size_of<.T> right;
+                            store<.T> add mem_ptr_addr data mul min_idx size_of<.T> left;
+                            set i add i 1;
+                    ()

@@ -22,6 +22,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../query/get" as vec_get
 #import "../access/data" as vec_data
+#import "../invariant" as vec_invariant
 #import "core/field" as *
 
 //: vec_take_while_len: borrowed Vec から prefix 境界を[求/もと]める[内部/ないぶ] helper
@@ -103,19 +104,24 @@ fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src,
 pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    let keep_len <i32> vec_take_while_len<.T> &v src_len p
-    match vec_storage::with_capacity<.T> keep_len:
-        Result::Err e:
-            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
-        Result::Ok out0:
-            let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
-            let out_cap <i32> *field::get_ref out_buffer_ref "cap"
-            let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
-            vec_copy_range_to_raw<.T> &v out_data 0 keep_len
-            vec_cleanup::free<.T> v
-            let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
-            let out_storage <VecStorage<.T>> field::get out_buffer "storage"
-            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
+    if:
+        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
+        then:
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+        else:
+            let keep_len <i32> vec_take_while_len<.T> &v src_len p
+            match vec_storage::with_capacity<.T> keep_len:
+                Result::Err e:
+                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                Result::Ok out0:
+                    let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
+                    let out_cap <i32> *field::get_ref out_buffer_ref "cap"
+                    let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
+                    vec_copy_range_to_raw<.T> &v out_data 0 keep_len
+                    vec_cleanup::free<.T> v
+                    let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
+                    let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
 
 //: drop_while: [条件/じょうけん]が[成/な]り[立/た]つ[先頭/せんとう][連続部分/れんぞくぶぶん]を[捨/す]てる
 //:
@@ -163,17 +169,22 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransfor
 pub fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    let drop_len <i32> vec_take_while_len<.T> &v src_len p
-    let keep_len <i32> sub src_len drop_len
-    match vec_storage::with_capacity<.T> keep_len:
-        Result::Err e:
-            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
-        Result::Ok out0:
-            let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
-            let out_cap <i32> *field::get_ref out_buffer_ref "cap"
-            let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
-            vec_copy_range_to_raw<.T> &v out_data drop_len keep_len
-            vec_cleanup::free<.T> v
-            let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
-            let out_storage <VecStorage<.T>> field::get out_buffer "storage"
-            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
+    if:
+        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
+        then:
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+        else:
+            let drop_len <i32> vec_take_while_len<.T> &v src_len p
+            let keep_len <i32> sub src_len drop_len
+            match vec_storage::with_capacity<.T> keep_len:
+                Result::Err e:
+                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                Result::Ok out0:
+                    let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
+                    let out_cap <i32> *field::get_ref out_buffer_ref "cap"
+                    let out_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &out0
+                    vec_copy_range_to_raw<.T> &v out_data drop_len keep_len
+                    vec_cleanup::free<.T> v
+                    let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
+                    let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)

@@ -13,6 +13,7 @@
 #import "core/field" as field
 #import "../types" as *
 #import "../access/data" as vec_data
+#import "../invariant" as vec_invariant
 #import "core/field" as *
 
 //: ## replace
@@ -50,17 +51,21 @@ pub fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     let v_len <i32> *field::get_ref v_buffer "len"
     let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
-    let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> v
     if:
-        lt idx 0
+        not vec_invariant::vec_current_copy_invariant<.T> v
         then ()
         else:
             if:
-                le v_len idx
+                lt idx 0
                 then ()
                 else:
-                    match v_storage:
-                        VecStorage::Empty:
-                            ()
-                        VecStorage::Owned _region:
-                            store<.T> add mem_ptr_addr v_data mul idx size_of<.T> item
+                    if:
+                        le v_len idx
+                        then ()
+                        else:
+                            match v_storage:
+                                VecStorage::Empty:
+                                    ()
+                                VecStorage::Owned _region:
+                                    let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> v
+                                    store<.T> add mem_ptr_addr v_data mul idx size_of<.T> item

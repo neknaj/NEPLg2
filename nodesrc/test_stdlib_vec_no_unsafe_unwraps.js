@@ -8,6 +8,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const relPaths = [
     'stdlib/alloc/collections/vec.nepl',
     'stdlib/alloc/collections/vec/types.nepl',
+    'stdlib/alloc/collections/vec/invariant.nepl',
     'stdlib/alloc/collections/vec/storage.nepl',
     'stdlib/alloc/collections/vec/storage/view.nepl',
     'stdlib/alloc/collections/vec/storage/api.nepl',
@@ -90,6 +91,7 @@ for (const [relPath, code] of codeByPath) {
 
 const vecRootCode = codeByPath.get('stdlib/alloc/collections/vec.nepl');
 const vecTypesCode = codeByPath.get('stdlib/alloc/collections/vec/types.nepl');
+const vecInvariantCode = codeByPath.get('stdlib/alloc/collections/vec/invariant.nepl');
 const vecStorageRootCode = codeByPath.get('stdlib/alloc/collections/vec/storage.nepl');
 const vecStorageViewCode = codeByPath.get('stdlib/alloc/collections/vec/storage/view.nepl');
 const vecStorageApiCode = codeByPath.get('stdlib/alloc/collections/vec/storage/api.nepl');
@@ -118,7 +120,7 @@ const vecMutationReplaceCode = codeByPath.get('stdlib/alloc/collections/vec/muta
 const vecMutationPopCode = codeByPath.get('stdlib/alloc/collections/vec/mutation/pop.nepl');
 const vecMutationCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/mutation/cleanup.nepl');
 const vecMutationCode = [vecMutationRootCode, vecMutationPushCode, vecMutationReplaceCode, vecMutationPopCode, vecMutationCleanupCode].join('\n');
-const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecTransformCode, vecQueryCode, vecMutationCode, vecRootCode].join('\n');
+const vecCode = [vecTypesCode, vecInvariantCode, vecStorageCode, vecAccessCode, vecTransformCode, vecQueryCode, vecMutationCode, vecRootCode].join('\n');
 const sortMergeRootCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
 const sortMergeApiCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/api.nepl');
 const sortFamilyCode = relPaths
@@ -132,6 +134,19 @@ function between(code, start, end) {
     const endIdx = code.indexOf(end, startIdx + start.length);
     assert.notEqual(endIdx, -1, `missing section end: ${end}`);
     return code.slice(startIdx, endIdx);
+}
+
+function publicFunctionSection(code, name) {
+    const startPattern = new RegExp(`\\bpub\\s+fn\\s+${name}\\b`);
+    const match = startPattern.exec(code);
+    assert.notEqual(match, null, `missing public function: ${name}`);
+    const startIdx = match.index;
+    const rest = code.slice(startIdx + match[0].length);
+    const nextMatch = /\n\s*pub\s+fn\s+\w+\b/.exec(rest);
+    if (nextMatch === null) {
+        return code.slice(startIdx);
+    }
+    return code.slice(startIdx, startIdx + match[0].length + nextMatch.index);
 }
 
 const pushSection = between(vecCode, 'fn push ', 'fn replace ');
@@ -156,6 +171,8 @@ const vecStructSection = between(vecTypesCode, 'pub struct Vec<.T>:', 'pub struc
 const dataMemPtrUsageExample = between(vecAccessDataSource, '//: ### [使用例/しようれい]', '//: neplg2:test[compile_fail]');
 
 assert.doesNotMatch(vecCode, /\bfield::get\s+\w+\s+"(?:len|cap)"/, 'Vec implementation must read Copy len/cap header fields through field::get_ref so owner-consuming helpers do not move them');
+assert.match(vecInvariantCode, /fn\s+vec_buffer_current_copy_invariant\s+<\.T>\s+<\(&OwnedBuffer<\.T>\)->bool>[\s\S]*let\s+len0\s+<i32>[\s\S]*let\s+initialized_len0\s+<i32>[\s\S]*let\s+cap0\s+<i32>[\s\S]*VecStorage::Empty:[\s\S]*eq\s+len0\s+0[\s\S]*eq\s+cap0\s+0[\s\S]*VecStorage::Owned\s+_region:[\s\S]*gt\s+cap0\s+0/, 'Vec invariant helper must prove len/initialized_len/cap/storage correlation with enum match before raw element access');
+assert.match(vecInvariantCode, /fn\s+vec_current_copy_invariant\s+<\.T>\s+<\(&Vec<\.T>\)->bool>[\s\S]*vec_buffer_current_copy_invariant<\.T>/, 'Vec invariant helper must expose a Vec facade observer for raw access boundaries');
 assert.match(withCapacitySection, /fn\s+with_capacity\s+<\.T:\s*Copy>[\s\S]*if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*else:\s+alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must reject negative capacity before allocating owned storage and remain Copy-only');
 for (const name of ['types', 'storage', 'access', 'mutation', 'query', 'transform', 'sort']) {
     assert.match(vecRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/vec\\/${name}"\\s+as\\s+@merge`), `Vec root must merge re-export vec/${name}.nepl`);
@@ -343,6 +360,7 @@ for (const relPath of walkNeplFiles(path.join(repoRoot, 'stdlib'))) {
 }
 assert.match(pushSection, /let\s+v_buffer\s+<OwnedBuffer<\.T>>\s+field::get\s+v\s+"buffer"[\s\S]*let\s+v_storage\s+<VecStorage<\.T>>\s+field::get\s+v_buffer\s+"storage"/, 'Vec.push must move the owner-carrying storage enum through OwnedBuffer from the consumed input Vec');
 assert.match(pushSection, /let\s+v_initialized_len\s+<i32>\s+\*field::get_ref\s+v_buffer_ref\s+"initialized_len"/, 'Vec.push must read and preserve initialized_len separately from len on failure paths');
+assert.match(pushSection, /vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*not\s+v_invariant_ok[\s\S]*VecPushError<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage\)\)\s+StdErrorKind::InvalidOperation/, 'Vec.push must reject malformed OwnedBuffer metadata before raw store or grow');
 assert.match(pushSection, /fn\s+push\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*VecPushError<\.T>>>/, 'Vec.push must return an owner-preserving VecPushError payload on failure');
 assert.match(vecCode, /fn\s+vec_next_capacity\s+<\.T>\s+<\(i32\)->Result<i32,\s*StdErrorKind>>[\s\S]*size_of<\.T>[\s\S]*max_alloc_payload_bytes[\s\S]*StdErrorKind::CapacityExceeded[\s\S]*half_limit[\s\S]*Result<i32,\s*StdErrorKind>::Ok\s+mul\s+cap0\s+2/, 'Vec.push growth must prove next capacity against element size and allocator payload bounds before doubling');
 assert.match(pushSection, /match\s+vec_next_capacity<\.T>\s+v_cap:[\s\S]*Result::Err\s+grow_error:[\s\S]*VecPushError<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage\)\)\s+grow_error[\s\S]*Result::Ok\s+grown_cap:/, 'Vec.push must compute grow capacity through the checked capacity helper and return the Vec owner on grow proof failure');
@@ -350,6 +368,7 @@ assert.match(pushSection, /match\s+v_storage:[\s\S]*VecStorage::Empty:[\s\S]*all
 assert.match(pushSection, /OwnedBuffer<\.T>\s+next_len\s+next_len\s+(?:grown_cap|v_cap)\s+\(VecStorage<\.T>::Owned/, 'Vec.push success paths must advance initialized_len with len for the current Copy-only contract');
 assert.match(popSection, /let\s+v_data\s+<MemPtr<\.T>>\s+vec_data::data_mem_ptr<\.T>\s+&v[\s\S]*let\s+v_buffer\s+<OwnedBuffer<\.T>>\s+field::get\s+v\s+"buffer"[\s\S]*let\s+v_storage\s+<VecStorage<\.T>>\s+field::get\s+v_buffer\s+"storage"/, 'Vec.pop must borrow a data view before moving the owner-carrying storage enum into the returned Vec');
 assert.match(popSection, /let\s+v_initialized_len\s+<i32>\s+\*field::get_ref\s+v_buffer_ref\s+"initialized_len"[\s\S]*OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage/, 'Vec.pop empty path must preserve initialized_len separately from len');
+assert.match(popSection, /vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*not\s+v_invariant_ok[\s\S]*VecPop<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage\)\)\s+none<\.T>/, 'Vec.pop must not raw-load from malformed OwnedBuffer metadata');
 assert.match(popSection, /OwnedBuffer<\.T>\s+next_len\s+next_len\s+v_cap/, 'Vec.pop/drop_last success paths must update initialized_len with len under the current Copy-only contract');
 assert.match(popSection, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, 'Vec.pop must return named VecPop and remain Copy-only until initialized slot move state exists');
 assert.match(vecCode, /fn\s+vec_pop_vec\s+<\.T:\s*Copy>\s+<\(VecPop<\.T>\)->Vec<\.T>>/, 'Vec.pop Vec accessor must remain Copy-only because it discards the popped Option<T> payload');
@@ -364,6 +383,38 @@ assert.match(vecMutationPushCode, /fn\s+vec_push_error_vec\s+<\.T:\s*Copy>\s+<\(
 assert.match(vecMutationPushCode, /fn\s+vec_realloc_region_error_region\s+<\.T:\s*Copy>\s+<\(VecReallocRegionError<\.T>\)->RegionToken<\.T>>/, 'Vec grow internal region recovery accessor must remain Copy-only with the current push contract');
 assert.match(vecCode, /struct\s+VecTransformError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>[\s\S]*fn\s+vec_transform_error_vec\s+<\.T:\s*Copy>\s+<\(VecTransformError<\.T>\)->Vec<\.T>>/, 'Vec transform failure payload must carry the consumed input Vec owner and expose a Copy-only owner-moving accessor');
 assert.match(vecCode, /fn\s+vec_realloc_region_or_keep\s+<\.T:\s*Copy>[\s\S]*le\s+new_cap\s+0[\s\S]*max_alloc_payload_bytes[\s\S]*gt\s+new_cap\s+max_count[\s\S]*match\s+realloc_region_bytes_keep<\.T>\s+region\s+new_bytes:[\s\S]*Result::Ok\s+grown_region:[\s\S]*Result::Ok<RegionToken<\.T>,\s*VecReallocRegionError<\.T>>\s+grown_region[\s\S]*Result::Err\s+e:[\s\S]*VecReallocRegionError<\.T>\s+\(region_realloc_error_region<\.T>\s+e\)\s+StdErrorKind::OutOfMemory/, 'Vec.push grow helper must prove capacity bounds and return the old RegionToken owner through core/mem realloc failure payload');
+assert.match(vecQueryGetCode, /vec_current_copy_invariant<\.T>\s+v[\s\S]*then\s+none<\.T>[\s\S]*load<\.T>/, 'Vec.get must prove current Copy-only invariant before raw load');
+assert.match(vecMutationReplaceCode, /vec_current_copy_invariant<\.T>\s+v[\s\S]*then\s+\(\)[\s\S]*store<\.T>/, 'Vec.replace must prove current Copy-only invariant before raw store');
+assert.match(vecTransformMapCode, /vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*store<\.U>/, 'Vec.map must reject malformed input invariant before constructing a supposedly fully initialized output');
+assert.match(vecTransformFilterCode, /fn\s+filter[\s\S]*vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*store<\.T>/, 'Vec.filter must reject malformed input invariant before output raw writes');
+assert.match(vecTransformFilterCode, /fn\s+partition[\s\S]*vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*store<\.T>/, 'Vec.partition must reject malformed input invariant before output raw writes');
+assert.match(vecTransformPrefixCode, /fn\s+take_while[\s\S]*vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*vec_copy_range_to_raw/, 'Vec.take_while must reject malformed input invariant before raw range copy');
+assert.match(vecTransformPrefixCode, /fn\s+drop_while[\s\S]*vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*vec_copy_range_to_raw/, 'Vec.drop_while must reject malformed input invariant before raw range copy');
+for (const [name, code] of [
+    ['sort_quick', codeByPath.get('stdlib/alloc/collections/vec/sort/quick.nepl')],
+    ['sort_quick_ret', codeByPath.get('stdlib/alloc/collections/vec/sort/quick.nepl')],
+    ['sort_heap', codeByPath.get('stdlib/alloc/collections/vec/sort/heap.nepl')],
+    ['sort_heap_ret', codeByPath.get('stdlib/alloc/collections/vec/sort/heap.nepl')],
+    ['sort_merge', sortMergeApiCode],
+    ['sort_merge_ret', sortMergeApiCode],
+    ['sort_insertion', codeByPath.get('stdlib/alloc/collections/vec/sort/simple/insertion.nepl')],
+    ['sort_gnome', codeByPath.get('stdlib/alloc/collections/vec/sort/simple/insertion.nepl')],
+    ['sort_selection', codeByPath.get('stdlib/alloc/collections/vec/sort/simple/selection.nepl')],
+    ['sort_bubble', codeByPath.get('stdlib/alloc/collections/vec/sort/simple/exchange.nepl')],
+    ['sort_cocktail', codeByPath.get('stdlib/alloc/collections/vec/sort/simple/exchange.nepl')],
+    ['sort_shell', codeByPath.get('stdlib/alloc/collections/vec/sort/simple/gap.nepl')],
+    ['sort_comb', codeByPath.get('stdlib/alloc/collections/vec/sort/simple/gap.nepl')],
+]) {
+    const section = publicFunctionSection(code, name);
+    const invariantIdx = section.search(/vec_current_copy_invariant<\.T>/);
+    const rawIdx = section.search(/\b(?:data_mem_ptr|load|store|alloc_region)<\.T>|sort_\w+_range_data<\.T>/);
+    assert.notEqual(invariantIdx, -1, `${name} must prove Vec invariant before raw sort traversal`);
+    assert.notEqual(rawIdx, -1, `${name} source-policy test must identify its raw traversal boundary`);
+    assert(
+        invariantIdx < rawIdx,
+        `${name} must prove Vec invariant before deriving a raw data view, loading/storing elements, or allocating sort scratch space`,
+    );
+}
 assert.doesNotMatch(pushSection, /\b(?:let\s+grown_cap\s+<i32>\s+if\s+eq\s+v_cap\s+0\s+1\s+mul\s+v_cap\s+2|\bmul\s+v_cap\s+2\b)/, 'Vec.push must not compute unchecked cap*2 in the hot path');
 assert.doesNotMatch(vecCode, /fn\s+vec_realloc_region_or_keep\s+<\.T:\s*Copy>[\s\S]*\brealloc_ptr<\.T>\b/, 'Vec grow helper must not reimplement raw MemPtr realloc outside core/mem');
 assert.doesNotMatch(pushSection, /\bdealloc_region<\.T>\s+v_region\b|\bvec_realloc_region_or_free\b/, 'Vec.push must not consume and free the input Vec owner on grow failure');

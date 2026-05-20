@@ -43492,3 +43492,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/token.nepl --no-tree -o tmp/agent1-token-split-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree -o tmp/agent1-token-split-parser-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-token-split-lexer.json -j 1 --dist web/dist --assert-io`: 13/13 passed
+
+## 2026-05-20 Agent 1 Vec raw access invariant 境界追加
+
+- `ISS-20260520T101635029Z-VEC-RAW-ELEMENT-OPERATIONS-DO-NOT-PR-277B4BF0` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`OwnedBuffer<T>` に `len` / `initialized_len` / `cap` / `VecStorage<T>` が分離された後も、`get` / `replace` / `push` / `pop` / transform / sort の raw memory boundary がそれらの相関を共通 invariant として証明せず、個別の `len` / `cap` 読み取りから raw load/store へ進めたことだった。
+- `stdlib/alloc/collections/vec/invariant.nepl` を追加し、current Copy-only `Vec` の invariant を `vec_buffer_current_copy_invariant<T>` / `vec_current_copy_invariant<T>` に集約した。`0 <= len == initialized_len <= cap`、`Empty` なら `len == 0 && cap == 0`、`Owned(_)` なら `cap > 0` を enum `match` で確認する。
+- `get` / `replace` / `push` / `pop` / `drop_last` / `map` / `filter` / `partition` / `take_while` / `drop_while` / quick / heap / merge / simple sort family が raw data view、raw load/store、range copy、scratch allocation の前に invariant を通るようにした。malformed owner aggregate は no-op または owner-preserving error/result に戻す。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を強化し、sort family の各 public raw traversal entry について invariant 判定が raw boundary より前にあることを関数単位で検査する。`vec/invariant.nepl` 自体にも runnable doctest を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/invariant.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-root-invariant.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/push.nepl --no-tree --dist web/dist -o tmp/agent1-vec-push-invariant.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/pop.nepl --no-tree --dist web/dist -o tmp/agent1-vec-pop-invariant.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/replace.nepl --no-tree --dist web/dist -o tmp/agent1-vec-replace-invariant.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/get.nepl --no-tree --dist web/dist -o tmp/agent1-vec-get-invariant.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/map.nepl --no-tree --dist web/dist -o tmp/agent1-vec-map-invariant.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter.nepl --no-tree --dist web/dist -o tmp/agent1-vec-filter-invariant.json -j 1 --assert-io`: 7/7 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/prefix.nepl --no-tree --dist web/dist -o tmp/agent1-vec-prefix-invariant.json -j 1 --assert-io`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree --dist web/dist -o tmp/agent1-vec-sort-facade-invariant-2.json -j 1 --assert-io`: 3/3 passed

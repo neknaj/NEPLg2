@@ -1,0 +1,65 @@
+//: # vec/invariant
+//: `Vec` の current Copy-only storage invariant
+//:
+//: ### [目的/もくてき]
+//: - raw element access の[直前/ちょくぜん]に、`OwnedBuffer` の metadata と storage state が[矛盾/むじゅん]していないことを[確認/かくにん]します。
+//: - `len`、`initialized_len`、`cap`、`VecStorage` の相関を 1 箇所に[集約/しゅうやく]し、各 raw load/store 境界が同じ条件を[使/つか]えるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - この invariant は現行の `.T: Copy` 専用 `Vec` API のためのものです。
+//: - non-Copy payload 対応では、`initialized_len == len` だけではなく moved slot / drop traversal の typed state を Resource IR と[接続/せつぞく]します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/field" as field
+#import "./types" as *
+
+//: ## vec_buffer_current_copy_invariant
+//: `OwnedBuffer` が current Copy-only `Vec` として raw access できる状態かを[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `0 <= len == initialized_len <= cap` を[確認/かくにん]します。
+//: - `VecStorage::Empty` は `len = initialized_len = cap = 0` の時だけ[妥当/だとう]とします。
+//: - `VecStorage::Owned(_)` は `cap > 0` の時だけ[妥当/だとう]とします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/invariant" as inv
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok new<i32>;
+//:     let ok <bool> inv::vec_current_copy_invariant<i32> &v
+//:     free<i32> v;
+//:     if ok 0 1
+//: ```
+pub fn vec_buffer_current_copy_invariant <.T> <(&OwnedBuffer<.T>)->bool> (buffer):
+    let len0 <i32> *field::get_ref buffer "len"
+    let initialized_len0 <i32> *field::get_ref buffer "initialized_len"
+    let cap0 <i32> *field::get_ref buffer "cap"
+    let storage <&VecStorage<.T>> field::get_ref buffer "storage"
+    let metadata_ok <bool> and (and (ge len0 0) (eq initialized_len0 len0)) (le len0 cap0)
+    if:
+        metadata_ok
+        then:
+            match storage:
+                VecStorage::Empty:
+                    and (eq len0 0) (eq cap0 0)
+                VecStorage::Owned _region:
+                    gt cap0 0
+        else false
+
+//: ## vec_current_copy_invariant
+//: `Vec` が current Copy-only raw access invariant を[満/み]たすかを[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - public `Vec` facade から `OwnedBuffer` を[借用/しゃくよう]し、raw element access 前の invariant [検査/けんさ]を[共通化/きょうつうか]します。
+pub fn vec_current_copy_invariant <.T> <(&Vec<.T>)->bool> (v):
+    let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+    vec_buffer_current_copy_invariant<.T> buffer

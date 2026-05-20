@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T10:08:36.464Z",
+  "generated_at": "2026-05-20T10:35:49.833Z",
   "counts": {
-    "total": 1113,
+    "total": 1114,
     "open": 3,
-    "resolved": 1110,
+    "resolved": 1111,
     "by_area": {
       "stdlib": {
-        "total": 299,
+        "total": 300,
         "open": 2,
-        "resolved": 297
+        "resolved": 298
       },
       "selfhost": {
         "total": 104,
@@ -13018,6 +13018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T095125772Z-STDIO-FD-WRITE-HELPERS-LACK-DECLARAT-ADAF46CD.md"
+    },
+    {
+      "id": "ISS-20260520T101635029Z-VEC-RAW-ELEMENT-OPERATIONS-DO-NOT-PR-277B4BF0",
+      "title": "Vec raw element operations do not prove OwnedBuffer invariants before memory access",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/vec/**, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T101635029Z-VEC-RAW-ELEMENT-OPERATIONS-DO-NOT-PR-277B4BF0.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
