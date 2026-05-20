@@ -141,3 +141,33 @@ Stage C 後半の一部として、`select_overload_candidate` で checkpoint / 
 - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
 - `cargo test -p nepl-core --test generics generics_make_some_wrapper -- --nocapture`: 1 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
+## 2026-05-20 Stage C expected-result shape pruning
+
+multiple overload かつ明示 type args がない場合に、declared result と expected target を `TypeCtx::type_pattern_matches` で照合し、結果型が明らかに合わない候補を checkpoint / instantiate 前に除外するようにした。
+
+設計上の意図:
+
+- generic result の type parameter は pattern variable として扱い、`Option<T>` と `Option<i32>` のように成立し得る候補は残す。
+- `i32` と `bool` のように top-level で成立しない候補は fresh type variable を作る前に落とす。
+- explicit type args がある候補では、未代入の declared result だけで判断すると誤除外する可能性があるため、既存の substitution 後 unify に任せる。
+
+今回完了した範囲:
+
+- `select_overload_candidate` に `type_pattern_matches(result, expectation.target())` による expected result shape pruning を追加。
+- source policy で、この pruning が checkpoint / instantiate より前にあることを監視。
+
+残作業:
+
+- candidate count guard / test-only counter。
+- ambiguity 診断の理由構造化。
+- Stage D の不足 constraint object 化。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_ascription_mismatch_is_error -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass

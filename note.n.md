@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 overload expected-result shape pruning
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C として、multiple overload かつ明示 type args がない場合に、declared result と expected target を `TypeCtx::type_pattern_matches` で照合するようにした。`plan.md` は変更していない。
+- 結果型が明らかに合わない候補は checkpoint / instantiate 前に除外される。generic result の type parameter は pattern variable として扱うため、成立し得る候補は誤って落とさない。
+- explicit type args がある候補は、未代入の declared result だけで判断すると誤除外する可能性があるため、substitution 後の既存 unify に任せる。
+- `nodesrc/test_type_expectation_model_policy.js` に、expected result shape pruning が checkpoint / instantiate より前にあることの source policy を追加した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_ascription_mismatch_is_error -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 overload declared-shape pruning
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C として、`select_overload_candidate` の checkpoint / instantiate 前に declared function shape を分類するようにした。`plan.md` は変更していない。
