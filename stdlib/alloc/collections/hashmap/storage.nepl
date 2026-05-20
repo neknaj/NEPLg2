@@ -22,11 +22,13 @@ pub fn hashmap_storage_states <.K,.V> <(&HashMapStorage<.K,.V>)->&Vec<HashMapBuc
     field::get_ref storage "states"
 
 //: hashmap_storage_keys: storage の key Vec を borrow する
-pub fn hashmap_storage_keys <.K,.V> <(&HashMapStorage<.K,.V>)->&Vec<Option<.K>>> (storage):
+//: 現行 storage view は payload storage 形状を返すため、non-Copy collection drop traversal が入るまで key 側を Copy に限定します。
+pub fn hashmap_storage_keys <.K: Copy,.V> <(&HashMapStorage<.K,.V>)->&Vec<Option<.K>>> (storage):
     field::get_ref storage "keys"
 
 //: hashmap_storage_values: storage の value Vec を borrow する
-pub fn hashmap_storage_values <.K,.V> <(&HashMapStorage<.K,.V>)->&Vec<Option<.V>>> (storage):
+//: 現行 storage view は payload storage 形状を返すため、non-Copy collection drop traversal が入るまで value 側を Copy に限定します。
+pub fn hashmap_storage_values <.K,.V: Copy> <(&HashMapStorage<.K,.V>)->&Vec<Option<.V>>> (storage):
     field::get_ref storage "values"
 
 //: hashmap_normalize_capacity: hash map の[実容量/じつようりょう]を[下限/かげん]つきで[決/き]める

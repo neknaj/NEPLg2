@@ -723,6 +723,150 @@ fn main <()->i32> ():
     hashset_alloc_storage 4
 ```
 
+## btreemap_storage_key_view_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/btreemap/storage" as *
+#import "alloc/collections/btreemap/types" as *
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn borrow_btreemap_keys <(&BTreeMapStorage<CleanupPayload, i32>)->&Vec<Option<CleanupPayload>>> (storage):
+    btreemap_storage_keys<CleanupPayload, i32> storage
+
+fn main <()->i32> ():
+    0
+```
+
+## btreemap_storage_value_view_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/btreemap/storage" as *
+#import "alloc/collections/btreemap/types" as *
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn borrow_btreemap_values <(&BTreeMapStorage<i32, CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+    btreemap_storage_values<i32, CleanupPayload> storage
+
+fn main <()->i32> ():
+    0
+```
+
+## btreeset_storage_key_view_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/btreeset/storage" as *
+#import "alloc/collections/btreeset/types" as *
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn borrow_btreeset_keys <(&BTreeSetStorage<CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+    btreeset_storage_keys<CleanupPayload> storage
+
+fn main <()->i32> ():
+    0
+```
+
+## hashmap_storage_key_view_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap/storage" as *
+#import "alloc/collections/hashmap/types" as *
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn borrow_hashmap_keys <(&HashMapStorage<CleanupPayload, i32>)->&Vec<Option<CleanupPayload>>> (storage):
+    hashmap_storage_keys<CleanupPayload, i32> storage
+
+fn main <()->i32> ():
+    0
+```
+
+## hashmap_storage_value_view_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap/storage" as *
+#import "alloc/collections/hashmap/types" as *
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn borrow_hashmap_values <(&HashMapStorage<i32, CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+    hashmap_storage_values<i32, CleanupPayload> storage
+
+fn main <()->i32> ():
+    0
+```
+
+## hashset_storage_key_view_rejects_non_copy_payload
+
+neplg2:test[compile_fail]
+diag_code: type.trait_bound.unsatisfied
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashset/storage" as *
+#import "alloc/collections/hashset/types" as *
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+
+struct CleanupPayload:
+    value <i32>
+
+fn borrow_hashset_keys <(&HashSetStorage<CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+    hashset_storage_keys<CleanupPayload> storage
+
+fn main <()->i32> ():
+    0
+```
+
 ## bloom_filter_free_rejects_non_copy_hasher
 
 neplg2:test[compile_fail]

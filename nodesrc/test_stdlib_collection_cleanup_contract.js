@@ -12,6 +12,7 @@ const ownerAccessorInspected = [];
 const popOwnerAccessorInspected = [];
 const fallibleOwnerConsumerInspected = [];
 const ownerSurfaceInspected = [];
+const borrowedStorageViewInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -56,6 +57,17 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (missingCopy.length > 0) {
                     const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                     violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
+                }
+            }
+            const borrowedStorageViewCopyRequirement = signature && generics.length > 0
+                ? borrowedPayloadStorageViewCopyRequirement(typeSignature)
+                : null;
+            if (borrowedStorageViewCopyRequirement && borrowedStorageViewCopyRequirement.size > 0) {
+                borrowedStorageViewInspected.push(`${relPath}:${signature.name}`);
+                const missingCopy = generics.filter((generic) => borrowedStorageViewCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
+                if (missingCopy.length > 0) {
+                    const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} borrowed payload storage view generic(s) ${names} must carry Copy until collection drop traversal exists`);
                 }
             }
             continue;
@@ -187,7 +199,26 @@ for (const expected of [
     );
 }
 
-assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, and owner-producing APIs must remain Copy-only:\n${violations.join('\n')}`);
+assert.ok(
+    borrowedStorageViewInspected.length >= 6,
+    `collection borrowed storage view policy must inspect payload-bearing Vec<Option<T>> storage views, inspected only ${borrowedStorageViewInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/btreemap/storage.nepl:btreemap_storage_keys',
+    'stdlib/alloc/collections/btreemap/storage.nepl:btreemap_storage_values',
+    'stdlib/alloc/collections/btreeset/storage.nepl:btreeset_storage_keys',
+    'stdlib/alloc/collections/hashmap/storage.nepl:hashmap_storage_keys',
+    'stdlib/alloc/collections/hashmap/storage.nepl:hashmap_storage_values',
+    'stdlib/alloc/collections/hashset/storage.nepl:hashset_storage_keys',
+]) {
+    assert.ok(
+        borrowedStorageViewInspected.some((entry) => entry.includes(expected)),
+        `collection borrowed storage view policy did not inspect expected signature: ${expected}`,
+    );
+}
+
+assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, and borrowed payload storage views must remain Copy-only:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
 
@@ -346,6 +377,24 @@ function collectionOwnerSurfaceCopyRequirement(typeSignature) {
     }
 
     return required;
+}
+
+function borrowedPayloadStorageViewCopyRequirement(typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType) {
+        return null;
+    }
+
+    const returnType = functionType.returnType.trim();
+    if (!/^&Vec<Option<\./.test(returnType)) {
+        return null;
+    }
+
+    return genericNames(returnType);
 }
 
 function ownerAggregateGenericNames(text) {

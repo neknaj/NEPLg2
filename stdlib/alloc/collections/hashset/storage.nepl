@@ -22,7 +22,8 @@ pub fn hashset_storage_states <.T> <(&HashSetStorage<.T>)->&Vec<HashSetBucketSta
     field::get_ref storage "states"
 
 //: hashset_storage_keys: storage の key Vec を borrow する
-pub fn hashset_storage_keys <.T> <(&HashSetStorage<.T>)->&Vec<Option<.T>>> (storage):
+//: 現行 storage view は payload storage 形状を返すため、non-Copy collection drop traversal が入るまで Copy に限定します。
+pub fn hashset_storage_keys <.T: Copy> <(&HashSetStorage<.T>)->&Vec<Option<.T>>> (storage):
     field::get_ref storage "keys"
 
 //: hashset_normalize_capacity: hash set の[実容量/じつようりょう]を[下限/かげん]つきで[決/き]める

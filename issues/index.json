@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T13:46:21.458Z",
+  "generated_at": "2026-05-20T14:04:43.608Z",
   "counts": {
-    "total": 1124,
+    "total": 1125,
     "open": 4,
-    "resolved": 1120,
+    "resolved": 1121,
     "by_area": {
       "stdlib": {
-        "total": 308,
+        "total": 309,
         "open": 3,
-        "resolved": 305
+        "resolved": 306
       },
       "selfhost": {
         "total": 106,
@@ -150,19 +150,19 @@
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
     },
     {
-      "id": "ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D",
-      "title": "Collection owner-producing APIs lack cross-family Copy-only policy",
+      "id": "ISS-20260520T140443378Z-COLLECTION-STORAGE-VIEW-HELPERS-EXPO-9839D32C",
+      "title": "Collection storage view helpers expose non-Copy payload internals",
       "area": "stdlib",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "test",
+      "type": "bug",
       "created": "2026-05-20",
       "updated": "2026-05-20",
-      "target": "nodesrc/test_stdlib_collection_cleanup_contract.js, tests/stdlib/collection_cleanup_contract.n.md, issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md",
+      "target": "stdlib/alloc/collections/{hashmap,hashset,btreemap,btreeset}/storage.nepl, nodesrc/test_stdlib_collection_cleanup_contract.js, tests/stdlib/collection_cleanup_contract.n.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D.md"
+      "file": "items/ISS-20260520T140443378Z-COLLECTION-STORAGE-VIEW-HELPERS-EXPO-9839D32C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -13138,6 +13138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T131842206Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-7DA20949.md"
+    },
+    {
+      "id": "ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D",
+      "title": "Collection owner-producing APIs lack cross-family Copy-only policy",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nodesrc/test_stdlib_collection_cleanup_contract.js, tests/stdlib/collection_cleanup_contract.n.md, issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T134621232Z-COLLECTION-OWNER-PRODUCING-APIS-LACK-8845B15D.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
