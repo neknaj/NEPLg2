@@ -1,0 +1,129 @@
+#indent 4
+
+//: # proof/api/module
+//: module proof API wrapper を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - raw backend、singleton directive、declaration header の wrapper を generic solver 経由に揃えます。
+
+#import "core/result" as *
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/proof/query" as *
+#import "neplg2/core/proof/solver" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+
+//: selfhost_proof_query_raw_backend_transition: raw backend transition query を[作/つく]る
+fn selfhost_proof_query_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->SelfhostProofQuery> (state, item):
+    let fact <SelfhostProofFact> SelfhostProofFact::RawBackendItemObserved item
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::RawBackendTransition state
+    selfhost_proof_query_new fact obligation
+
+//: selfhost_proof_raw_backend_transition: raw backend transition の evidence を next state として[取/と]り[出/だ]す
+pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostProofRefutation>> (state, item):
+    let query <SelfhostProofQuery> selfhost_proof_query_raw_backend_transition state item
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::RawBackendTransition next_state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Ok next_state
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceBorrowAccess _state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_module_directive_transition: module directive transition query を[作/つく]る
+fn selfhost_proof_query_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->SelfhostProofQuery> (state, item):
+    let fact <SelfhostProofFact> SelfhostProofFact::ModuleDirectiveObserved item
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::ModuleDirectiveTransition state
+    selfhost_proof_query_new fact obligation
+
+//: selfhost_proof_module_directive_transition: module directive transition の evidence を next state として[取/と]り[出/だ]す
+pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>> (state, item):
+    let query <SelfhostProofQuery> selfhost_proof_query_module_directive_transition state item
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::ModuleDirectiveTransition next_state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Ok next_state
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceBorrowAccess _state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_module_declaration_header: declaration header availability query を[作/つく]る
+fn selfhost_proof_query_module_declaration_header <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationFact)->SelfhostProofQuery> (kind, fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::ModuleDeclarationObserved fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_module_declaration_header: declaration header availability の typed result を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - parser が観測した declaration header evidence と、checker が要求する declaration kind を照合します。
+//: - header が欠けている場合や span/head が不整合な場合は typed refutation を返し、caller は診断変換だけを行います。
+pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationFact)->Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>> (kind, fact):
+    let query <SelfhostProofQuery> selfhost_proof_query_module_declaration_header kind fact
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable header:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Ok header
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceBorrowAccess _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err refutation

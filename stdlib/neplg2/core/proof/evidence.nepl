@@ -1,0 +1,98 @@
+#indent 4
+
+//: # proof/evidence
+//: proof が成立したときの typed evidence と kind を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - API projection が証明の種類を enum kind で照合できるようにし、違う evidence を domain mismatch と混同しないようにします。
+
+#import "core/traits/copy" as *
+#import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/resource/borrow_state" as *
+#import "neplg2/core/resource/lifetime" as *
+#import "neplg2/core/resource/move_state" as *
+#import "neplg2/core/resource/owner" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/trait_ref" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostProofEvidenceKind: proof success evidence の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - public API wrapper が期待した evidence と実際の evidence の不一致を、fact/obligation mismatch と混同せず typed refutation として返せるようにします。
+//: - evidence payload を diagnostic 文字列に潰さず、kind だけを enum として比較・記録します。
+pub enum SelfhostProofEvidenceKind:
+    SourceSpanValid
+    RawBackendTransition
+    ModuleDirectiveTransition
+    ModuleDeclarationHeaderAvailable
+    TypeKindCompatible
+    TraitImplNonOverlapping
+    LifetimeOutlives
+    ResourceCellTransition
+    OwnerTransition
+    ResourceBorrowAccess
+    EffectAllowed
+
+impl Clone for SelfhostProofEvidenceKind:
+    fn clone <(&SelfhostProofEvidenceKind)->SelfhostProofEvidenceKind> (self):
+        *self
+
+impl Copy for SelfhostProofEvidenceKind:
+    fn copy_mark <(SelfhostProofEvidenceKind)->SelfhostProofEvidenceKind> (self):
+        self
+
+//: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
+//:
+//: [目的/もくてき]:
+//: - 成功した proof が何を証明したかを enum payload として残し、caller が証明の種類を match で確認できるようにします。
+pub enum SelfhostProofEvidence:
+    SourceSpanValid
+    RawBackendTransition <SelfhostRawBackendState>
+    ModuleDirectiveTransition <SelfhostModuleDirectiveState>
+    ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>
+    TypeKindCompatible <SelfhostTypeKind>
+    TraitImplNonOverlapping <SelfhostTraitImplRelation>
+    LifetimeOutlives <SelfhostLifetimeRelation>
+    ResourceCellTransition <SelfhostResourceCellState>
+    OwnerTransition <SelfhostOwnerState>
+    ResourceBorrowAccess <SelfhostBorrowState>
+    EffectAllowed <SelfhostEffectContext>
+
+impl Clone for SelfhostProofEvidence:
+    fn clone <(&SelfhostProofEvidence)->SelfhostProofEvidence> (self):
+        *self
+
+impl Copy for SelfhostProofEvidence:
+    fn copy_mark <(SelfhostProofEvidence)->SelfhostProofEvidence> (self):
+        self
+
+//: selfhost_proof_evidence_kind: evidence から kind を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - payload を捨てて証明の種類だけを比較するときも、文字列 code ではなく enum の exhaustive match を使います。
+pub fn selfhost_proof_evidence_kind <(SelfhostProofEvidence)->SelfhostProofEvidenceKind> (evidence):
+    match evidence:
+        SelfhostProofEvidence::SourceSpanValid:
+            SelfhostProofEvidenceKind::SourceSpanValid
+        SelfhostProofEvidence::RawBackendTransition _state:
+            SelfhostProofEvidenceKind::RawBackendTransition
+        SelfhostProofEvidence::ModuleDirectiveTransition _state:
+            SelfhostProofEvidenceKind::ModuleDirectiveTransition
+        SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+            SelfhostProofEvidenceKind::ModuleDeclarationHeaderAvailable
+        SelfhostProofEvidence::TypeKindCompatible _kind:
+            SelfhostProofEvidenceKind::TypeKindCompatible
+        SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+            SelfhostProofEvidenceKind::TraitImplNonOverlapping
+        SelfhostProofEvidence::LifetimeOutlives _relation:
+            SelfhostProofEvidenceKind::LifetimeOutlives
+        SelfhostProofEvidence::ResourceCellTransition _state:
+            SelfhostProofEvidenceKind::ResourceCellTransition
+        SelfhostProofEvidence::OwnerTransition _state:
+            SelfhostProofEvidenceKind::OwnerTransition
+        SelfhostProofEvidence::ResourceBorrowAccess _state:
+            SelfhostProofEvidenceKind::ResourceBorrowAccess
+        SelfhostProofEvidence::EffectAllowed _context:
+            SelfhostProofEvidenceKind::EffectAllowed

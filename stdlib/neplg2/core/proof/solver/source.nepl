@@ -1,0 +1,30 @@
+#indent 4
+
+//: # proof/solver/source
+//: source span validity の proof rule を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - source span の妥当性を generic proof solver の rule として扱い、checker-local boolean 判定へ戻さないようにします。
+
+#import "core/field" as field
+#import "core/math" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/query" as *
+
+//: selfhost_proof_source_span_eq: source span が同じ range か[返/かえ]す
+fn selfhost_proof_source_span_eq <(SelfhostSourceSpan,SelfhostSourceSpan)->bool> (a, b):
+    and and eq field::get a "file_id" field::get b "file_id" eq field::get a "start" field::get b "start" eq field::get a "end" field::get b "end"
+
+//: selfhost_proof_source_span_fact_supports: span fact が span validity obligation を[満/み]たすか[返/かえ]す
+fn selfhost_proof_source_span_fact_supports <(SelfhostSourceSpanFact,SelfhostSourceSpan)->bool> (fact, span):
+    and selfhost_proof_source_span_eq fact.span span source_span_is_valid span
+
+//: selfhost_proof_solve_source_span_valid: source span validity obligation を[解/と]く
+pub fn selfhost_proof_solve_source_span_valid <(SelfhostSourceSpanFact,SelfhostSourceSpan)->SelfhostProofResult> (fact, span):
+    if:
+        selfhost_proof_source_span_fact_supports fact span
+        then:
+            selfhost_proof_result_proven SelfhostProofEvidence::SourceSpanValid
+        else:
+            selfhost_proof_result_refuted SelfhostProofRefutation::SourceSpanInvalid span

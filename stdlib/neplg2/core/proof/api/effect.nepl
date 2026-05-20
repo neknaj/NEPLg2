@@ -1,0 +1,51 @@
+#indent 4
+
+//: # proof/api/effect
+//: effect proof API wrapper を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - effect boundary proof の成功 context と失敗 reason を typed result として公開します。
+
+#import "core/result" as *
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/proof/query" as *
+#import "neplg2/core/proof/solver" as *
+#import "neplg2/core/ty/effect" as *
+
+//: selfhost_proof_query_effect_allowed: effect boundary query を[作/つく]る
+fn selfhost_proof_query_effect_allowed <(SelfhostEffectContext,SelfhostEffectObservationFact)->SelfhostProofQuery> (context, fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::EffectObserved fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::EffectAllowedInContext context
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_effect_allowed: effect が context で許可されるか typed result として[返/かえ]す
+pub fn selfhost_proof_effect_allowed <(SelfhostEffectContext,SelfhostEffectObservationFact)->Result<SelfhostEffectContext,SelfhostProofRefutation>> (context, fact):
+    let query <SelfhostProofQuery> selfhost_proof_query_effect_allowed context fact
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::EffectAllowed proven_context:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Ok proven_context
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceBorrowAccess _state:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostEffectContext,SelfhostProofRefutation>::Err refutation

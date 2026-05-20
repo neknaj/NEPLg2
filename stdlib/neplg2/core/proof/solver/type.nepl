@@ -1,0 +1,47 @@
+#indent 4
+
+//: # proof/solver/type
+//: type kind と trait impl coherence の proof rule を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - 型安全と抽象化機能の整合性を、文字列名や module allowlist ではなく typed arena / relation から証明します。
+
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/query" as *
+#import "neplg2/core/ty/trait_ref" as *
+#import "neplg2/core/ty/ty" as *
+
+fn selfhost_proof_type_kind_compatible_result <(SelfhostTypeKind)->SelfhostProofResult> (kind):
+    selfhost_proof_result_proven SelfhostProofEvidence::TypeKindCompatible kind
+
+fn selfhost_proof_type_kind_mismatch <(SelfhostTypeKindFact,SelfhostTypeKind)->SelfhostProofResult> (fact, expected):
+    selfhost_proof_result_refuted SelfhostProofRefutation::TypeKindMismatch selfhost_type_kind_mismatch_new expected fact.kind fact.span
+
+//: selfhost_proof_solve_type_kind_compatible: type kind compatibility obligation を[解/と]く
+pub fn selfhost_proof_solve_type_kind_compatible <(SelfhostTypeKindFact,SelfhostTypeKind)->SelfhostProofResult> (fact, expected):
+    if:
+        selfhost_type_kind_eq fact.kind expected
+        then:
+            selfhost_proof_type_kind_compatible_result expected
+        else:
+            selfhost_proof_type_kind_mismatch fact expected
+
+fn selfhost_proof_trait_impl_non_overlapping_result <(SelfhostTraitImplRelation)->SelfhostProofResult> (relation):
+    selfhost_proof_result_proven SelfhostProofEvidence::TraitImplNonOverlapping relation
+
+fn selfhost_proof_trait_impl_invalid <(SelfhostTraitImplPairFact,SelfhostTraitImplCoherenceError)->SelfhostProofResult> (fact, reason):
+    selfhost_proof_result_refuted SelfhostProofRefutation::TraitImplCoherenceInvalid selfhost_trait_impl_coherence_issue_new fact.candidate fact.existing fact.relation fact.span reason
+
+//: selfhost_proof_solve_trait_impl_non_overlapping: trait impl coherence obligation を[解/と]く
+pub fn selfhost_proof_solve_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->SelfhostProofResult> (fact):
+    match fact.relation:
+        SelfhostTraitImplRelation::InvalidCandidate:
+            selfhost_proof_trait_impl_invalid fact SelfhostTraitImplCoherenceError::InvalidCandidateKey
+        SelfhostTraitImplRelation::InvalidExisting:
+            selfhost_proof_trait_impl_invalid fact SelfhostTraitImplCoherenceError::InvalidExistingKey
+        SelfhostTraitImplRelation::DifferentTrait:
+            selfhost_proof_trait_impl_non_overlapping_result fact.relation
+        SelfhostTraitImplRelation::SameTraitDifferentSelfType:
+            selfhost_proof_trait_impl_non_overlapping_result fact.relation
+        SelfhostTraitImplRelation::SameTraitSameSelfType:
+            selfhost_proof_trait_impl_invalid fact SelfhostTraitImplCoherenceError::DuplicateImpl

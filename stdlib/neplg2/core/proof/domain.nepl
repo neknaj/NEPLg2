@@ -1,0 +1,183 @@
+#indent 4
+
+//: # proof/domain
+//: proof fact / obligation が属する domain を[定義/ていぎ]するモジュールです。
+//:
+//: [目的/もくてき]:
+//: - proof domain を文字列 tag ではなく enum として保持し、domain 追加時に match の網羅性で更新漏れを見つけやすくします。
+
+#import "core/traits/copy" as *
+
+//: SelfhostProofDomain: proof fact / obligation が属する[領域/りょういき]
+//:
+//: [目的/もくてき]:
+//: - source / module / type / trait / effect / resource の[区分/くぶん]を enum として[持/も]ち、文字列 category を分岐条件にしないようにします。
+pub enum SelfhostProofDomain:
+    Source
+    Module
+    Type
+    Trait
+    Lifetime
+    Owner
+    Effect
+    Resource
+
+impl Clone for SelfhostProofDomain:
+    fn clone <(&SelfhostProofDomain)->SelfhostProofDomain> (self):
+        *self
+
+impl Copy for SelfhostProofDomain:
+    fn copy_mark <(SelfhostProofDomain)->SelfhostProofDomain> (self):
+        self
+
+//: selfhost_proof_domain_eq: proof domain が[等/ひと]しいかを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - solver dispatch の前段で fact と obligation の domain を照合し、domain mismatch を個別 proof rule に持ち込まないようにします。
+//: - wildcard arm を使わず全 variant を列挙することで、domain 追加時に比較規則の更新漏れを静的に見つけやすくします。
+pub fn selfhost_proof_domain_eq <(SelfhostProofDomain,SelfhostProofDomain)->bool> (left, right):
+    match left:
+        SelfhostProofDomain::Source:
+            match right:
+                SelfhostProofDomain::Source:
+                    true
+                SelfhostProofDomain::Module:
+                    false
+                SelfhostProofDomain::Type:
+                    false
+                SelfhostProofDomain::Trait:
+                    false
+                SelfhostProofDomain::Lifetime:
+                    false
+                SelfhostProofDomain::Owner:
+                    false
+                SelfhostProofDomain::Effect:
+                    false
+                SelfhostProofDomain::Resource:
+                    false
+        SelfhostProofDomain::Module:
+            match right:
+                SelfhostProofDomain::Module:
+                    true
+                SelfhostProofDomain::Source:
+                    false
+                SelfhostProofDomain::Type:
+                    false
+                SelfhostProofDomain::Trait:
+                    false
+                SelfhostProofDomain::Lifetime:
+                    false
+                SelfhostProofDomain::Owner:
+                    false
+                SelfhostProofDomain::Effect:
+                    false
+                SelfhostProofDomain::Resource:
+                    false
+        SelfhostProofDomain::Type:
+            match right:
+                SelfhostProofDomain::Type:
+                    true
+                SelfhostProofDomain::Source:
+                    false
+                SelfhostProofDomain::Module:
+                    false
+                SelfhostProofDomain::Trait:
+                    false
+                SelfhostProofDomain::Lifetime:
+                    false
+                SelfhostProofDomain::Owner:
+                    false
+                SelfhostProofDomain::Effect:
+                    false
+                SelfhostProofDomain::Resource:
+                    false
+        SelfhostProofDomain::Trait:
+            match right:
+                SelfhostProofDomain::Trait:
+                    true
+                SelfhostProofDomain::Source:
+                    false
+                SelfhostProofDomain::Module:
+                    false
+                SelfhostProofDomain::Type:
+                    false
+                SelfhostProofDomain::Lifetime:
+                    false
+                SelfhostProofDomain::Owner:
+                    false
+                SelfhostProofDomain::Effect:
+                    false
+                SelfhostProofDomain::Resource:
+                    false
+        SelfhostProofDomain::Lifetime:
+            match right:
+                SelfhostProofDomain::Lifetime:
+                    true
+                SelfhostProofDomain::Source:
+                    false
+                SelfhostProofDomain::Module:
+                    false
+                SelfhostProofDomain::Type:
+                    false
+                SelfhostProofDomain::Trait:
+                    false
+                SelfhostProofDomain::Owner:
+                    false
+                SelfhostProofDomain::Effect:
+                    false
+                SelfhostProofDomain::Resource:
+                    false
+        SelfhostProofDomain::Owner:
+            match right:
+                SelfhostProofDomain::Owner:
+                    true
+                SelfhostProofDomain::Source:
+                    false
+                SelfhostProofDomain::Module:
+                    false
+                SelfhostProofDomain::Type:
+                    false
+                SelfhostProofDomain::Trait:
+                    false
+                SelfhostProofDomain::Lifetime:
+                    false
+                SelfhostProofDomain::Effect:
+                    false
+                SelfhostProofDomain::Resource:
+                    false
+        SelfhostProofDomain::Effect:
+            match right:
+                SelfhostProofDomain::Effect:
+                    true
+                SelfhostProofDomain::Source:
+                    false
+                SelfhostProofDomain::Module:
+                    false
+                SelfhostProofDomain::Type:
+                    false
+                SelfhostProofDomain::Trait:
+                    false
+                SelfhostProofDomain::Lifetime:
+                    false
+                SelfhostProofDomain::Owner:
+                    false
+                SelfhostProofDomain::Resource:
+                    false
+        SelfhostProofDomain::Resource:
+            match right:
+                SelfhostProofDomain::Resource:
+                    true
+                SelfhostProofDomain::Source:
+                    false
+                SelfhostProofDomain::Module:
+                    false
+                SelfhostProofDomain::Type:
+                    false
+                SelfhostProofDomain::Trait:
+                    false
+                SelfhostProofDomain::Lifetime:
+                    false
+                SelfhostProofDomain::Owner:
+                    false
+                SelfhostProofDomain::Effect:
+                    false

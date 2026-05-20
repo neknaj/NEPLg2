@@ -1,0 +1,51 @@
+#indent 4
+
+//: # proof/api/source
+//: source span proof API wrapper を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - caller が source span validity を typed result として取得できるようにし、証明規則は generic solver へ委譲します。
+
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/proof/query" as *
+#import "neplg2/core/proof/solver" as *
+
+//: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
+fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostProofQuery> (span):
+    let fact <SelfhostProofFact> SelfhostProofFact::SourceSpanObserved selfhost_source_span_fact_new span
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::SourceSpanValid span
+    selfhost_proof_query_new fact obligation
+
+//: selfhost_proof_source_span_valid: source span validity の typed result を[返/かえ]す
+pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),SelfhostProofRefutation>> (span):
+    let query <SelfhostProofQuery> selfhost_proof_query_source_span_valid span
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<(),SelfhostProofRefutation>::Ok ()
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::ResourceBorrowAccess _state:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+        SelfhostProofResult::Refuted refutation:
+            Result<(),SelfhostProofRefutation>::Err refutation

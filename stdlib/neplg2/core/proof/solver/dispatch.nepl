@@ -1,0 +1,304 @@
+#indent 4
+
+//: # proof/solver/dispatch
+//: typed query を proof rule へ[振/ふ]り[分/わ]ける generic solver entry です。
+//:
+//: [目的/もくてき]:
+//: - public entry で domain mismatch を弾き、matching-domain query だけを obligation / fact の exhaustive match で rule へ渡します。
+//: - 個別 module ごとの証明器ではなく、共通の query/result 境界をすべての rule に適用します。
+
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/proof/query" as *
+#import "neplg2/core/proof/solver/effect" as *
+#import "neplg2/core/proof/solver/module" as *
+#import "neplg2/core/proof/solver/resource" as *
+#import "neplg2/core/proof/solver/source" as *
+#import "neplg2/core/proof/solver/type" as *
+
+//: selfhost_proof_solve_matching_domain: domain 照合後の query を proof rule へ[振/ふ]り[分/わ]ける
+//:
+//: [目的/もくてき]:
+//: - public entry は domain mismatch を先に弾き、この関数は同じ domain 内の obligation / fact 対応だけを扱います。
+//: - obligation と fact はどちらも enum の exhaustive match で扱い、新しい proof case を追加した時に更新漏れを検出しやすくします。
+fn selfhost_proof_solve_matching_domain <(SelfhostProofQuery)->SelfhostProofResult> (query):
+    match query.obligation:
+        SelfhostProofObligation::SourceSpanValid span:
+            match query.fact:
+                SelfhostProofFact::SourceSpanObserved span_fact:
+                    selfhost_proof_solve_source_span_valid span_fact span
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::RawBackendTransition state:
+            match query.fact:
+                SelfhostProofFact::RawBackendItemObserved item:
+                    selfhost_proof_solve_raw_backend_transition item state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::ModuleDirectiveTransition state:
+            match query.fact:
+                SelfhostProofFact::ModuleDirectiveObserved directive:
+                    selfhost_proof_solve_module_directive_transition directive state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind:
+            match query.fact:
+                SelfhostProofFact::ModuleDeclarationObserved declaration:
+                    selfhost_proof_solve_module_declaration_header declaration kind
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::ResourceCellTransition state:
+            match query.fact:
+                SelfhostProofFact::ResourceCellEventObserved event_fact:
+                    selfhost_proof_solve_resource_cell_transition event_fact state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::OwnerTransition state:
+            match query.fact:
+                SelfhostProofFact::OwnerEventObserved owner_fact:
+                    selfhost_proof_solve_owner_transition owner_fact state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::ResourceBorrowAccess state:
+            match query.fact:
+                SelfhostProofFact::BorrowAccessObserved borrow_fact:
+                    selfhost_proof_solve_borrow_access borrow_fact state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::TypeKindCompatible expected:
+            match query.fact:
+                SelfhostProofFact::TypeKindObserved type_fact:
+                    selfhost_proof_solve_type_kind_compatible type_fact expected
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::TraitImplNonOverlapping:
+            match query.fact:
+                SelfhostProofFact::TraitImplPairObserved trait_fact:
+                    selfhost_proof_solve_trait_impl_non_overlapping trait_fact
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::LifetimeOutlives required:
+            match query.fact:
+                SelfhostProofFact::LifetimeOutlivesObserved lifetime_fact:
+                    selfhost_proof_solve_lifetime_outlives lifetime_fact required
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::EffectAllowedInContext context:
+            match query.fact:
+                SelfhostProofFact::EffectObserved effect_fact:
+                    selfhost_proof_solve_effect_allowed effect_fact context
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+
+//: selfhost_proof_solve: query を[解/と]いて typed result を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - fact と obligation の domain を solver 入口で照合し、domain mismatch を個別 proof rule へ流さないようにします。
+//: - domain が合う場合だけ内部 dispatch に渡すため、caller は常に generic proof solver を通して typed evidence / refutation を受け取ります。
+pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
+    let fact_domain <SelfhostProofDomain> selfhost_proof_fact_domain query.fact
+    let obligation_domain <SelfhostProofDomain> selfhost_proof_obligation_domain query.obligation
+    if:
+        selfhost_proof_domain_eq fact_domain obligation_domain
+        then:
+            selfhost_proof_solve_matching_domain query
+        else:
+            selfhost_proof_query_mismatch_result query
