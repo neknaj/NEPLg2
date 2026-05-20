@@ -65,7 +65,7 @@ function assertTokenKindExhaustiveMatch(block, label, variants) {
 }
 
 const parser = read("stdlib/neplg2/core/syntax/parser/module_parser.nepl");
-const tokenKindVariants = enumVariants("stdlib/neplg2/core/syntax/token.nepl", "TokenKind");
+const tokenKindVariants = enumVariants("stdlib/neplg2/core/syntax/token/kind.nepl", "TokenKind");
 const actionVariants = enumVariants(
     "stdlib/neplg2/core/syntax/parser/module_parser.nepl",
     "SelfhostParserTokenAction",

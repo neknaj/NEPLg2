@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readTokenSource } = require('./selfhost_token_sources');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -13,7 +14,7 @@ function read(rel) {
 const stringSrc = read('stdlib/alloc/string.nepl');
 const stringSearchSrc = read('stdlib/alloc/string/search.nepl');
 const stringSearchCompareSrc = read('stdlib/alloc/string/search/compare.nepl');
-const tokenSrc = read('stdlib/neplg2/core/syntax/token.nepl');
+const tokenSrc = readTokenSource(repoRoot);
 const lexerSrc = [
     'stdlib/neplg2/core/syntax/lexer.nepl',
     'stdlib/neplg2/core/syntax/lexer/indent.nepl',

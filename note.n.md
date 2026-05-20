@@ -43092,3 +43092,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_selfhost_hir_expr_id_absence.js`: passed
   - `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`: passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/hir/hir.nepl --no-tree -o tmp/agent1-hir-split-core.json -j 1 --dist web/dist --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 self-host token source tree 分割
+
+- `ISS-20260520T041611797Z-SELF-HOST-TOKEN-MODEL-REMAINS-A-FLAT-3513A7ED` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`core/syntax/token.nepl` が `TokenKind`、`SelfhostToken`、lexeme slice、stable name mapping、4 種類の predicate、stage smoke API を 1 file に抱えていたことだった。
+- `core/syntax/token.nepl` は doctest を保持する implementation-free facade にした。実装は `token/kind.nepl`、`value.nepl`、`name.nepl`、`predicate/eof.nepl`、`predicate/error.nepl`、`predicate/newline.nepl`、`predicate/expr_start.nepl`、`stage0.nepl` へ分割した。
+- predicate helper の `TokenKind` exhaustive match は維持した。token doctest は `core/math` の偶発的な推移 import に依存しないよう明示 import へ直した。
+- `nodesrc/selfhost_token_sources.js` と `nodesrc/test_selfhost_token_split_contract.js` を追加し、facade への実装再導入、split file の 450 行超過、submodule から facade への曖昧 import を監視する。
+- focused verification:
+  - `node nodesrc/test_selfhost_token_split_contract.js`: passed
+  - `node nodesrc/test_selfhost_parser_tokenkind_match.js`: passed
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+  - `node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/token.nepl --no-tree -o tmp/agent1-token-split-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree -o tmp/agent1-token-split-parser-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-token-split-lexer.json -j 1 --dist web/dist --assert-io`: 13/13 passed
