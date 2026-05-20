@@ -74,7 +74,13 @@ impl ResourceCheckEngine<'_> {
         } else {
             record_direct_call_i32_facts(raw_aliases, target, output, args);
         }
-        self.apply_call_collection_slot_lifecycle_summary(collection_slots, target, args, span);
+        self.apply_call_collection_slot_lifecycle_summary(
+            collection_slots,
+            output,
+            target,
+            args,
+            span,
+        );
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
         pending_reallocs.clear_result(output);
     }
@@ -127,6 +133,7 @@ impl ResourceCheckEngine<'_> {
         self.apply_indirect_call_collection_slot_lifecycle_summary(
             collection_slots,
             function_aliases,
+            output,
             callee,
             args,
             span,

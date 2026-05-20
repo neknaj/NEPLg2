@@ -16,18 +16,22 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn apply_call_collection_slot_lifecycle_summary(
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
+        output: &Place,
         target: &ResourceCallTarget,
         args: &[Place],
         span: crate::span::Span,
     ) {
         let ResourceCallTarget::User { name, .. } = target else {
+            collection_slots.clear_storage_prefix(output);
             return;
         };
         let Some(summary) = self.collection_slot_summaries.get(name) else {
+            collection_slots.clear_storage_prefix(output);
             return;
         };
         self.apply_collection_slot_lifecycle_function_summary(
             collection_slots,
+            output,
             args,
             summary,
             span,
@@ -38,12 +42,14 @@ impl ResourceCheckEngine<'_> {
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
         function_aliases: &FunctionAliasTable,
+        output: &Place,
         callee: &Place,
         args: &[Place],
         span: crate::span::Span,
     ) {
         let functions = function_aliases.functions(callee);
         if functions.is_empty() {
+            collection_slots.clear_storage_prefix(output);
             return;
         }
         let mut paths = Vec::new();
@@ -51,8 +57,10 @@ impl ResourceCheckEngine<'_> {
             let mut path = collection_slots.clone();
             if let Some(summary) = self.collection_slot_summaries.get(function) {
                 self.apply_collection_slot_lifecycle_function_summary(
-                    &mut path, args, summary, span,
+                    &mut path, output, args, summary, span,
                 );
+            } else {
+                path.clear_storage_prefix(output);
             }
             paths.push(path);
         }
@@ -62,6 +70,7 @@ impl ResourceCheckEngine<'_> {
     fn apply_collection_slot_lifecycle_function_summary(
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
+        output: &Place,
         args: &[Place],
         summary: &CollectionSlotLifecycleFunctionSummary,
         span: crate::span::Span,
@@ -72,6 +81,7 @@ impl ResourceCheckEngine<'_> {
             &summary.ops,
             span,
         );
+        self.apply_collection_slot_return_slots(collection_slots, output, &summary.return_slots);
     }
 
     fn apply_collection_slot_lifecycle_summary_ops(

@@ -48,6 +48,7 @@ pub enum CollectionSlotLifecycleOp {
     DropInitialized,
     StorageDealloc,
     StorageRelocate,
+    ValueTransfer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

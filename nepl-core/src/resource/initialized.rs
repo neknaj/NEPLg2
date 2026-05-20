@@ -260,6 +260,12 @@ impl ResourceCheckEngine<'_> {
                             place,
                             raw_aliases,
                         );
+                        self.transfer_slot_state_if_moved(
+                            collection_slots,
+                            initializer,
+                            place,
+                            *span,
+                        );
                         function_aliases.copy_alias(initializer, place);
                         pending_reallocs.copy_result(initializer, place);
                         variant_initializations.copy_result(initializer, place);
@@ -299,6 +305,7 @@ impl ResourceCheckEngine<'_> {
                         output,
                         raw_aliases,
                     );
+                    self.transfer_slot_state_if_moved(collection_slots, source, output, *span);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -334,6 +341,7 @@ impl ResourceCheckEngine<'_> {
                         target,
                         raw_aliases,
                     );
+                    self.transfer_slot_state_if_moved(collection_slots, value, target, *span);
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
                     variant_initializations.copy_result(value, target);
@@ -380,6 +388,7 @@ impl ResourceCheckEngine<'_> {
                         output,
                         raw_aliases,
                     );
+                    self.transfer_slot_state(collection_slots, source, output, *span);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -526,6 +535,7 @@ impl ResourceCheckEngine<'_> {
                             &field,
                             raw_aliases,
                         );
+                        self.transfer_slot_state_if_moved(collection_slots, input, &field, *span);
                     }
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
                     seed_str_storage_layout(self.types, cells, raw_aliases, output);

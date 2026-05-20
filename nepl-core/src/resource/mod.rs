@@ -37,12 +37,18 @@ mod collection_slot_state_merge;
 mod collection_slot_state_relocate;
 #[cfg(test)]
 mod collection_slot_state_relocate_tests;
+mod collection_slot_state_return;
 mod collection_slot_state_table;
 #[cfg(test)]
 mod collection_slot_state_table_tests;
+mod collection_slot_state_transfer;
+#[cfg(test)]
+mod collection_slot_state_transfer_tests;
 mod collection_slot_summary_apply;
 mod collection_slot_summary_build;
 mod collection_slot_summary_model;
+mod collection_slot_summary_return;
+mod collection_slot_summary_return_build;
 mod compiler_memory_place;
 mod condition_fact;
 mod coverage;
@@ -161,7 +167,9 @@ mod initialized_alias_utils;
 mod initialized_availability;
 mod initialized_call;
 mod initialized_collection_slot;
+mod initialized_collection_slot_transfer;
 mod initialized_control;
+mod initialized_control_slot_transfer;
 mod initialized_drop_assignment;
 mod initialized_drop_requirement;
 mod initialized_drop_scope;

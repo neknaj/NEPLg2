@@ -67,7 +67,7 @@ fn merge_released_storage(paths: &[CollectionSlotStateTable], out: &mut Collecti
     }
 }
 
-fn merge_collection_slot_states(
+pub(super) fn merge_collection_slot_states(
     left: CollectionSlotState,
     right: CollectionSlotState,
 ) -> CollectionSlotState {

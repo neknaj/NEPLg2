@@ -66,6 +66,8 @@
 
 2026-05-21 追記 4: collection storage の grow / realloc / owner replacement は、Vec 固有の proof や stdlib 関数名 allowlist では扱わない。Rust compiler 側では `CollectionSlotLifecyclePrimitive::StorageRelocate` と `ResourceOp::CollectionStorageRelocate` を追加し、old storage prefix 配下の initialized / moved / dropped slot state を new storage prefix へ rekey する。new storage に既存 slot state がある場合は typed refutation とし、old storage は relocation 後に released として閉じる。call summary も `Relocate { old_storage, new_storage }` を parameter-relative target として保持し、caller actual storage へ replay する。これにより `OwnedBuffer<T>` / `Vec<T>` の grow path は、個別 module proof ではなく generic Resource IR operation として non-Copy payload state を保持できる。関連 issue は [ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2](../../issues/items/ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2.md)。
 
+2026-05-21 追記 5: collection slot state は storage relocate だけでなく、Resource IR の通常の value transfer にも追従する必要がある。`RegionToken<T>` / `OwnedBuffer<T>` 相当の owner が local へ束縛される、aggregate field に入る、branch / match の結果になる、callee から return される、といった普通の所有権移動で slot state が old place に残ると、移動先 owner の storage dealloc が live non-Copy payload を見落とす。Rust compiler 側では `CollectionSlotStateTable::transfer_storage_prefix` を追加し、`Move`、`Construct`、assignment/initializer、branch/match output、call return summary に接続した。これは Vec 固有の proof ではなく、`Place` prefix replacement に基づく generic Resource IR proof である。関連 issue は [ISS-20260520T223249968Z-COLLECTION-SLOT-STATE-DOES-NOT-FOLLO-A808C521](../../issues/items/ISS-20260520T223249968Z-COLLECTION-SLOT-STATE-DOES-NOT-FOLLO-A808C521.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

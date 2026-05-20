@@ -1,3 +1,21 @@
+# 2026-05-21 Agent 1 collection slot value transfer state propagation
+
+- `ISS-20260520T223249968Z-COLLECTION-SLOT-STATE-DOES-NOT-FOLLO-A808C521` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot lifecycle proof が explicit slot event / storage relocate / call-side param summary には接続されていた一方で、通常の Resource IR value transfer が slot state を stale source prefix に残していたことだった。
+- `CollectionSlotStateTable::transfer_storage_prefix` を追加し、source prefix 配下の initialized / moved / dropped slot state と released / maybe released marker を target prefix へ rekey するようにした。
+- `DeclareLocal` / `Read` / `Assign` / `Move` / `Construct` / branch output / match bind / match output から同じ transfer helper を呼び、non-Copy owner value movement で storage state が移動先に追従するようにした。Vec 固有 proof や stdlib 関数名 allowlist は追加していない。
+- collection slot lifecycle summary に `return_slots` を追加し、callee が live slot state や released marker を持つ owner を return した場合に caller の call output へ復元する。return-only summary も空扱いしないようにした。
+- subagent review で return summary が release marker を落とす問題と call output の stale state 置換漏れを確認し、コミット前に修正した。
+- subagent 監査で、`RegionToken` owner-token authority が canonical definition identity ではなく stdlib-root 内の同名同形 definition に依存している残件を確認したため、`ISS-20260520T224333208Z-COMPILER-MEMORY-OWNER-TOKEN-AUTHORIT-7FCBF376` を追加した。
+- 検証:
+  - `cargo test -p nepl-core collection_slot -- --test-threads=1`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-05-21 Agent 1 collection slot storage relocation state transfer
 
 - `ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2` を fixed にした。`plan.md` は変更していない。

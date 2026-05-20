@@ -10,6 +10,7 @@ use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{CellState, Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
@@ -121,6 +122,7 @@ impl ResourceCheckEngine<'_> {
                     output,
                     &then_aliases,
                 );
+                transfer_slots(self, &mut then_collection_slots, then_value, output, span);
                 then_function_aliases.copy_alias(then_value, output);
                 then_pending_reallocs.copy_result(then_value, output);
                 then_variant_initializations.copy_result(then_value, output);
@@ -152,6 +154,7 @@ impl ResourceCheckEngine<'_> {
                     output,
                     &else_aliases,
                 );
+                transfer_slots(self, &mut else_collection_slots, else_value, output, span);
                 else_function_aliases.copy_alias(else_value, output);
                 else_pending_reallocs.copy_result(else_value, output);
                 else_variant_initializations.copy_result(else_value, output);
@@ -337,6 +340,7 @@ impl ResourceCheckEngine<'_> {
                         &source,
                         bind_local,
                     );
+                    transfer_slots(self, &mut arm_collection_slots, &source, bind_local, span);
                     arm_function_aliases.copy_alias(&source, bind_local);
                     arm_pending_reallocs.copy_result(&source, bind_local);
                     arm_variant_initializations.copy_result(&source, bind_local);
@@ -366,9 +370,10 @@ impl ResourceCheckEngine<'_> {
                     .with_step(ResourceDropPointStep::MatchArm { index: arm_index }),
             );
             if !self.place_is_never(&arm.value) {
+                let arm_value = &arm.value;
                 let arm_available = self.consume_by_value(
                     &mut arm_cells,
-                    &arm.value,
+                    arm_value,
                     ResourceCheckOperation::MatchValue,
                     arm.span,
                 );
@@ -377,17 +382,18 @@ impl ResourceCheckEngine<'_> {
                     self.copy_raw_alias_and_rekey_cells_preferring_target(
                         &mut arm_cells,
                         &mut arm_aliases,
-                        &arm.value,
+                        arm_value,
                         output,
                     );
                     arm_cells.copy_initialized_raw_byte_ranges_through_value_aliases(
-                        &arm.value,
+                        arm_value,
                         output,
                         &arm_aliases,
                     );
-                    arm_function_aliases.copy_alias(&arm.value, output);
-                    arm_pending_reallocs.copy_result(&arm.value, output);
-                    arm_variant_initializations.copy_result(&arm.value, output);
+                    transfer_slots(self, &mut arm_collection_slots, arm_value, output, arm.span);
+                    arm_function_aliases.copy_alias(arm_value, output);
+                    arm_pending_reallocs.copy_result(arm_value, output);
+                    arm_variant_initializations.copy_result(arm_value, output);
                 }
                 arm_paths.push(arm_cells);
                 collection_slot_paths.push(arm_collection_slots);
