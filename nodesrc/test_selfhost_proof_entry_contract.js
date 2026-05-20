@@ -90,6 +90,11 @@ assert.match(
     "resource cell events must enter proof as typed facts",
 );
 assert.match(
+    proofFact,
+    /EffectObserved <SelfhostEffectObservationFact>/,
+    "effect observations must enter proof as typed facts",
+);
+assert.match(
     proofObligation,
     /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>/,
     "declaration header availability must enter proof as a typed obligation",
@@ -100,6 +105,11 @@ assert.match(
     "resource cell transitions must enter proof as typed obligations",
 );
 assert.match(
+    proofObligation,
+    /EffectAllowedInContext <SelfhostEffectContext>/,
+    "effect boundary checks must enter proof as typed obligations",
+);
+assert.match(
     proofQuery,
     /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>/,
     "declaration header proof evidence must carry the typed header",
@@ -108,6 +118,11 @@ assert.match(
     proofQuery,
     /ResourceCellTransition <SelfhostResourceCellState>/,
     "resource cell transition proof evidence must carry the next typed state",
+);
+assert.match(
+    proofQuery,
+    /EffectAllowed <SelfhostEffectContext>/,
+    "effect boundary proof evidence must carry the proven context",
 );
 assert.match(
     proofQuery,
@@ -128,6 +143,11 @@ assert.match(
     proofQuery,
     /ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>/,
     "invalid resource cell transitions must return typed refutations",
+);
+assert.match(
+    proofQuery,
+    /EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>/,
+    "invalid effect boundary checks must return typed refutations",
 );
 assert.doesNotMatch(
     proofQuery,
@@ -152,6 +172,7 @@ const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_module_directive_transition",
     "selfhost_proof_module_declaration_header",
     "selfhost_proof_resource_cell_transition",
+    "selfhost_proof_effect_allowed",
 ]);
 for (const fnName of publicSolverFunctions) {
     assert.ok(
@@ -190,6 +211,11 @@ assert.match(
     proofSolver,
     /(?:^|\n)fn\s+selfhost_proof_solve_resource_cell_transition\b[\s\S]*match\s+state:/,
     "resource cell transitions must live in the proof solver",
+);
+assert.match(
+    proofSolver,
+    /(?:^|\n)fn\s+selfhost_proof_solve_effect_allowed\b[\s\S]*match\s+context:/,
+    "effect boundary checks must live in the proof solver",
 );
 assert.match(
     proofSolver,

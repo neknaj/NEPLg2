@@ -13,6 +13,7 @@
 #import "neplg2/core/proof/obligation" as *
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
 
 //: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
 //:
@@ -24,6 +25,7 @@ pub enum SelfhostProofEvidence:
     ModuleDirectiveTransition <SelfhostModuleDirectiveState>
     ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>
     ResourceCellTransition <SelfhostResourceCellState>
+    EffectAllowed <SelfhostEffectContext>
 
 impl Clone for SelfhostProofEvidence:
     fn clone <(&SelfhostProofEvidence)->SelfhostProofEvidence> (self):
@@ -119,6 +121,43 @@ impl Copy for SelfhostResourceCellTransitionIssue:
 pub fn selfhost_resource_cell_transition_issue_new <(SelfhostResourceCellState,SelfhostResourceCellEventKind,SelfhostSourceSpan,SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionIssue> (state, event, span, reason):
     SelfhostResourceCellTransitionIssue state event span reason
 
+//: SelfhostEffectBoundaryError: effect boundary proof の失敗分類
+//:
+//: [目的/もくてき]:
+//: - pure context の impure effect、unsafe boundary 外の unsafe memory、no-escape 未証明の internal allocation を typed reason として表します。
+pub enum SelfhostEffectBoundaryError:
+    ImpureEffectInPureContext
+    UnsafeMemoryOutsideBoundary
+    InternalAllocEscapeNotProven
+
+impl Clone for SelfhostEffectBoundaryError:
+    fn clone <(&SelfhostEffectBoundaryError)->SelfhostEffectBoundaryError> (self):
+        *self
+
+impl Copy for SelfhostEffectBoundaryError:
+    fn copy_mark <(SelfhostEffectBoundaryError)->SelfhostEffectBoundaryError> (self):
+        self
+
+//: SelfhostEffectBoundaryIssue: 不正な effect boundary の refutation payload
+pub struct SelfhostEffectBoundaryIssue:
+    effect <SelfhostEffectKind>
+    escape <SelfhostEffectEscapeState>
+    context <SelfhostEffectContext>
+    span <SelfhostSourceSpan>
+    reason <SelfhostEffectBoundaryError>
+
+impl Clone for SelfhostEffectBoundaryIssue:
+    fn clone <(&SelfhostEffectBoundaryIssue)->SelfhostEffectBoundaryIssue> (self):
+        *self
+
+impl Copy for SelfhostEffectBoundaryIssue:
+    fn copy_mark <(SelfhostEffectBoundaryIssue)->SelfhostEffectBoundaryIssue> (self):
+        self
+
+//: selfhost_effect_boundary_issue_new: effect boundary issue payload を[作/つく]る
+pub fn selfhost_effect_boundary_issue_new <(SelfhostEffectKind,SelfhostEffectEscapeState,SelfhostEffectContext,SelfhostSourceSpan,SelfhostEffectBoundaryError)->SelfhostEffectBoundaryIssue> (effect, escape, context, span, reason):
+    SelfhostEffectBoundaryIssue effect escape context span reason
+
 //: SelfhostProofMismatch: fact と obligation の domain が[噛/か]み[合/あ]わない refutation payload
 //:
 //: [目的/もくてき]:
@@ -153,6 +192,7 @@ pub enum SelfhostProofRefutation:
     ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>
     ModuleDeclarationHeaderInvalid <SelfhostModuleDeclarationHeaderIssue>
     ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>
+    EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>
 
 impl Clone for SelfhostProofRefutation:
     fn clone <(&SelfhostProofRefutation)->SelfhostProofRefutation> (self):

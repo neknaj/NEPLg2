@@ -16,6 +16,7 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
 
 //: SelfhostProofDomain: proof fact / obligation が属する[領域/りょういき]
 //:
@@ -189,6 +190,28 @@ impl Copy for SelfhostResourceCellEventFact:
 pub fn selfhost_resource_cell_event_fact_new <(SelfhostResourceCellEventKind,SelfhostSourceSpan)->SelfhostResourceCellEventFact> (event, span):
     SelfhostResourceCellEventFact event span
 
+//: SelfhostEffectObservationFact: effect boundary proof へ渡す effect observation
+//:
+//: [目的/もくてき]:
+//: - checker や Resource IR が観測した effect kind と escape proof 状態を solver へ渡します。
+//: - `InternalAlloc` は `NoEscapeProven` を伴う場合だけ pure context へ fold できます。
+pub struct SelfhostEffectObservationFact:
+    effect <SelfhostEffectKind>
+    escape <SelfhostEffectEscapeState>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostEffectObservationFact:
+    fn clone <(&SelfhostEffectObservationFact)->SelfhostEffectObservationFact> (self):
+        *self
+
+impl Copy for SelfhostEffectObservationFact:
+    fn copy_mark <(SelfhostEffectObservationFact)->SelfhostEffectObservationFact> (self):
+        self
+
+//: selfhost_effect_observation_fact_new: effect observation fact を[作/つく]る
+pub fn selfhost_effect_observation_fact_new <(SelfhostEffectKind,SelfhostEffectEscapeState,SelfhostSourceSpan)->SelfhostEffectObservationFact> (effect, escape, span):
+    SelfhostEffectObservationFact effect escape span
+
 //: SelfhostProofFact: solver に渡す typed fact
 pub enum SelfhostProofFact:
     SourceSpanObserved <SelfhostSourceSpanFact>
@@ -196,6 +219,7 @@ pub enum SelfhostProofFact:
     ModuleDirectiveObserved <SelfhostModuleDirectiveFact>
     ModuleDeclarationObserved <SelfhostModuleDeclarationFact>
     ResourceCellEventObserved <SelfhostResourceCellEventFact>
+    EffectObserved <SelfhostEffectObservationFact>
 
 impl Clone for SelfhostProofFact:
     fn clone <(&SelfhostProofFact)->SelfhostProofFact> (self):
@@ -218,3 +242,5 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
             SelfhostProofDomain::Module
         SelfhostProofFact::ResourceCellEventObserved _event_fact:
             SelfhostProofDomain::Resource
+        SelfhostProofFact::EffectObserved _effect_fact:
+            SelfhostProofDomain::Effect

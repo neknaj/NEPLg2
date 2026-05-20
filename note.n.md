@@ -42892,3 +42892,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-resource-cell-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-resource-cell-proof-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-resource-cell-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host effect boundary proof 境界追加
+
+- `ISS-20260520T000413115Z-SELF-HOST-EFFECT-BOUNDARY-IS-NOT-REP-0CB47C08` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、self-host compiler 側に pure / impure / unsafe / internal allocation effect を表す typed model がなく、後続の effect checker が bool/string flag や checker-local special-case を増やす危険があったことだった。
+- `core/ty/effect.nepl` に `SelfhostEffectKind`、`SelfhostEffectEscapeState`、`SelfhostEffectContext` を追加した。`InternalAlloc` は no-escape 証明状態を別 enum payload として保持し、関数名や stdlib module の個別許可にしない。
+- `SelfhostEffectObservationFact`、`SelfhostProofObligation::EffectAllowedInContext`、`SelfhostProofEvidence::EffectAllowed`、`SelfhostProofRefutation::EffectBoundaryInvalid` を追加し、effect boundary を generic proof solver の exhaustive match に載せた。
+- pure context は `Pure` と `NoEscapeProven` の `InternalAlloc` だけを許可し、`ExternalIo` / `Nondet` / unsafe memory / escape し得る allocation は typed reason 付き refutation にした。unsafe memory は `UnsafeBoundary` context でのみ許可する。
+- `nodesrc/test_selfhost_proof_entry_contract.js` で effect fact / obligation / evidence / refutation と public solver surface を監視するため、typed proof boundary から ad hoc helper へ戻る退行を検出できる。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/effect.nepl --no-tree -o tmp/agent1-effect-model.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_effect_proof.n.md --no-tree -o tmp/agent1-effect-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-effect-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-effect-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-effect-proof-existing-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed

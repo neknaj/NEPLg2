@@ -45,6 +45,8 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::EffectBoundaryInvalid _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
         Result::Ok _:
             Result<(),str>::Err "invalid span was accepted"
 
@@ -116,6 +118,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
 
 fn main <()*>i32> ():
@@ -210,6 +214,8 @@ fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
             Result<(),str>::Err "expected resource transition refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected resource transition refutation"
 
 fn main <()*>i32> ():
@@ -319,6 +325,8 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
 
 fn main <()*>i32> ():
@@ -433,6 +441,8 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::EffectBoundaryInvalid _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
 
 fn main <()*>i32> ():
     let span <SelfhostSourceSpan> source_span_new 0 0 5
@@ -531,6 +541,8 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::EffectBoundaryInvalid _issue:
+                    Result<(),str>::Err "expected missing declaration header"
         Result::Ok _header:
             Result<(),str>::Err "missing declaration header was accepted"
 
@@ -553,6 +565,8 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::EffectBoundaryInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"
         Result::Ok _header:
             Result<(),str>::Err "invalid declaration header was accepted"

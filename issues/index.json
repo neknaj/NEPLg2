@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T00:01:44.344Z",
+  "generated_at": "2026-05-20T00:15:10.843Z",
   "counts": {
-    "total": 1085,
+    "total": 1086,
     "open": 4,
-    "resolved": 1081,
+    "resolved": 1082,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 84,
+        "total": 85,
         "open": 1,
-        "resolved": 83
+        "resolved": 84
       },
       "cli": {
         "total": 19,
@@ -9413,6 +9413,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T235256769Z-SELF-HOST-RESOURCE-CELL-STATE-STAYS--847C852A.md"
+    },
+    {
+      "id": "ISS-20260520T000413115Z-SELF-HOST-EFFECT-BOUNDARY-IS-NOT-REP-0CB47C08",
+      "title": "self-host effect boundary is not represented as a generic proof obligation",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/ty/effect.nepl, stdlib/neplg2/core/proof/**, tests/stdlib/neplg2_effect_proof.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T000413115Z-SELF-HOST-EFFECT-BOUNDARY-IS-NOT-REP-0CB47C08.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

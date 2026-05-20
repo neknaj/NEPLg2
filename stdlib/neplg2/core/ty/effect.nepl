@@ -1,0 +1,141 @@
+#indent 4
+
+//: # effect
+//: NEPLg2.0 self-host compiler の effect model を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - pure / impure / unsafe boundary と、内部 allocation effect の fold 条件を enum として表します。
+//: - effect checker が文字列や bool flag ではなく、typed fact を proof solver へ渡せるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `InternalAlloc` は単独では pure に fold しません。Resource IR 側が no-escape を証明した場合だけ `NoEscapeProven` fact として渡します。
+//: - この module は effect の型だけを持ち、証明規則は `neplg2/core/proof` に置きます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/ty/effect" as *
+//: fn main <()*>i32> ():
+//:     if selfhost_effect_kind_eq SelfhostEffectKind::Pure SelfhostEffectKind::Pure 0 1
+//: ```
+
+#import "core/traits/copy" as *
+
+//: SelfhostEffectKind: self-host compiler が扱う内部 effect 分類
+//:
+//: [目的/もくてき]:
+//: - surface pure / impure へ fold する前の effect を enum として保持します。
+//: - raw memory や I/O を bool の impure flag に潰さず、proof solver が分類ごとに検査できるようにします。
+pub enum SelfhostEffectKind:
+    Pure
+    InternalAlloc
+    UnsafeMemory
+    ExternalIo
+    Nondet
+
+impl Clone for SelfhostEffectKind:
+    fn clone <(&SelfhostEffectKind)->SelfhostEffectKind> (self):
+        *self
+
+impl Copy for SelfhostEffectKind:
+    fn copy_mark <(SelfhostEffectKind)->SelfhostEffectKind> (self):
+        self
+
+//: SelfhostEffectEscapeState: internal effect が safe surface へ漏れないことの証明状態
+//:
+//: [目的/もくてき]:
+//: - `InternalAlloc` を pure surface へ fold できるかを、関数名ではなく Resource IR などから得た typed fact で表します。
+pub enum SelfhostEffectEscapeState:
+    NotApplicable
+    NoEscapeProven
+    MayEscape
+
+impl Clone for SelfhostEffectEscapeState:
+    fn clone <(&SelfhostEffectEscapeState)->SelfhostEffectEscapeState> (self):
+        *self
+
+impl Copy for SelfhostEffectEscapeState:
+    fn copy_mark <(SelfhostEffectEscapeState)->SelfhostEffectEscapeState> (self):
+        self
+
+//: SelfhostEffectContext: effect を許可する surface / boundary context
+//:
+//: [目的/もくてき]:
+//: - pure function、impure function、unsafe boundary を enum で分け、effect gate が context を文字列で判断しないようにします。
+pub enum SelfhostEffectContext:
+    PureContext
+    ImpureContext
+    UnsafeBoundary
+
+impl Clone for SelfhostEffectContext:
+    fn clone <(&SelfhostEffectContext)->SelfhostEffectContext> (self):
+        *self
+
+impl Copy for SelfhostEffectContext:
+    fn copy_mark <(SelfhostEffectContext)->SelfhostEffectContext> (self):
+        self
+
+//: selfhost_effect_kind_eq: effect kind が同じ分類か[返/かえ]す
+pub fn selfhost_effect_kind_eq <(SelfhostEffectKind,SelfhostEffectKind)->bool> (left, right):
+    match left:
+        SelfhostEffectKind::Pure:
+            match right:
+                SelfhostEffectKind::Pure:
+                    true
+                SelfhostEffectKind::InternalAlloc:
+                    false
+                SelfhostEffectKind::UnsafeMemory:
+                    false
+                SelfhostEffectKind::ExternalIo:
+                    false
+                SelfhostEffectKind::Nondet:
+                    false
+        SelfhostEffectKind::InternalAlloc:
+            match right:
+                SelfhostEffectKind::InternalAlloc:
+                    true
+                SelfhostEffectKind::Pure:
+                    false
+                SelfhostEffectKind::UnsafeMemory:
+                    false
+                SelfhostEffectKind::ExternalIo:
+                    false
+                SelfhostEffectKind::Nondet:
+                    false
+        SelfhostEffectKind::UnsafeMemory:
+            match right:
+                SelfhostEffectKind::UnsafeMemory:
+                    true
+                SelfhostEffectKind::Pure:
+                    false
+                SelfhostEffectKind::InternalAlloc:
+                    false
+                SelfhostEffectKind::ExternalIo:
+                    false
+                SelfhostEffectKind::Nondet:
+                    false
+        SelfhostEffectKind::ExternalIo:
+            match right:
+                SelfhostEffectKind::ExternalIo:
+                    true
+                SelfhostEffectKind::Pure:
+                    false
+                SelfhostEffectKind::InternalAlloc:
+                    false
+                SelfhostEffectKind::UnsafeMemory:
+                    false
+                SelfhostEffectKind::Nondet:
+                    false
+        SelfhostEffectKind::Nondet:
+            match right:
+                SelfhostEffectKind::Nondet:
+                    true
+                SelfhostEffectKind::Pure:
+                    false
+                SelfhostEffectKind::InternalAlloc:
+                    false
+                SelfhostEffectKind::UnsafeMemory:
+                    false
+                SelfhostEffectKind::ExternalIo:
+                    false
