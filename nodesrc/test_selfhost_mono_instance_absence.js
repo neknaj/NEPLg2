@@ -33,6 +33,7 @@ assert.doesNotMatch(mono, /\bfn\s+selfhost_mono_instance_id_is_valid\b/, "mono i
 assert.doesNotMatch(mono, /\bselfhost_mono_instance_id_new\s+-1\b/, "mono instance IDs must not construct -1 sentinels");
 assert.match(mono, /\bpub\s+struct\s+SelfhostMonoInstanceRecord:/, "mono must model assigned cache records as a typed struct");
 assert.match(mono, /#import "alloc\/collections\/vec" as v/, "mono cache storage must use the typed Vec facade");
+assert.match(mono, /\bpub\s+enum\s+SelfhostMonoInstanceCacheInternError:/, "mono cache intern failures must use a typed enum");
 
 const pending = topLevelBlock(mono, "fn", "selfhost_mono_instance_id_pending");
 assert.match(pending, /Option<SelfhostMonoInstanceId>/, "pending state must return Option<SelfhostMonoInstanceId>");
@@ -68,6 +69,11 @@ const internResult = topLevelBlock(mono, "struct", "SelfhostMonoInstanceCacheInt
 assert.match(internResult, /\bcache\s+<SelfhostMonoInstanceCache>/, "mono cache intern result must return the cache owner");
 assert.match(internResult, /\binstance_id\s+<SelfhostMonoInstanceId>/, "mono cache intern result must return a typed instance id");
 
+const internError = topLevelBlock(mono, "enum", "SelfhostMonoInstanceCacheInternError");
+assert.match(internError, /\bInvalidKey\s+<SelfhostMonoInstanceKey>/, "mono cache intern invalid-key failure must keep the rejected typed key");
+assert.match(internError, /\bStorage\s+<StdErrorKind>/, "mono cache intern storage failure must keep the stdlib storage error kind as enum payload");
+assert.doesNotMatch(internError, /\bstr\b|\"invalid|\"storage/i, "mono cache intern errors must not be string sentinels");
+
 const cacheRecordAt = topLevelBlock(mono, "fn", "selfhost_mono_instance_cache_record_at");
 assert.match(cacheRecordAt, /Option<SelfhostMonoInstanceRecord>/, "cache record lookup must use typed Option absence");
 assert.match(cacheRecordAt, /\bv::get<SelfhostMonoInstanceRecord>\s+records\s+instance_id\.index\b/, "cache record lookup must index the typed record table with the instance id payload");
@@ -82,10 +88,15 @@ assert.match(cacheLookupLoop, /\bsome<SelfhostMonoInstanceId>\s+record\.instance
 assert.doesNotMatch(cacheLookupLoop, /\bselfhost_mono_instance_key_seed\b/, "cache lookup must not use mangle seed as identity");
 
 const cacheIntern = topLevelBlock(mono, "fn", "selfhost_mono_instance_cache_intern");
-assert.match(cacheIntern, /Result<SelfhostMonoInstanceCacheInternResult,\s*StdErrorKind>/, "cache intern must return an owner-carrying typed result");
+assert.match(cacheIntern, /Result<SelfhostMonoInstanceCacheInternResult,\s*SelfhostMonoInstanceCacheInternError>/, "cache intern must return an owner-carrying typed result with typed intern errors");
+assert.match(cacheIntern, /\bnot\s+selfhost_mono_instance_key_is_valid\s+key\b/, "cache intern must reject invalid keys before storage lookup");
+assert.match(cacheIntern, /\bselfhost_mono_instance_cache_free\s+cache\b/, "cache intern must release cache owner when rejecting an invalid key");
+assert.match(cacheIntern, /\bselfhost_mono_instance_cache_intern_error_invalid_key\s+key\b/, "cache intern must report invalid keys through the typed error enum");
 assert.match(cacheIntern, /\bmatch\s+selfhost_mono_instance_cache_lookup\s+&cache\s+key:/, "cache intern must check existing keys before allocating");
 assert.match(cacheIntern, /\bselfhost_mono_instance_record_new\s+key\s+instance_id\b/, "cache intern must store key/id as a typed record");
 assert.match(cacheIntern, /\bv::push<SelfhostMonoInstanceRecord>\s+records\s+record\b/, "cache intern must append typed records to storage");
+assert.match(cacheIntern, /\bselfhost_mono_instance_cache_intern_error_storage\s+error\b/, "cache intern must wrap storage failures in the typed error enum");
+assert.doesNotMatch(cacheIntern, /Result<SelfhostMonoInstanceCacheInternResult,\s*StdErrorKind>/, "cache intern must not collapse invalid key and storage errors into StdErrorKind");
 assert.doesNotMatch(cacheIntern, /\bSelfhostMonoInstanceId\b\s+-1\b|\bselfhost_mono_instance_id_new\s+-1\b/, "cache intern must not reintroduce invalid IDs");
 
 assert.match(stage0, /\bselfhost_mono_instance_cache_new\b/, "stage0 must exercise typed mono cache storage creation");

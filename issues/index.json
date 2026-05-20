@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T19:11:52.600Z",
+  "generated_at": "2026-05-20T19:26:30.199Z",
   "counts": {
-    "total": 1141,
+    "total": 1142,
     "open": 3,
-    "resolved": 1138,
+    "resolved": 1139,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -12,9 +12,9 @@
         "resolved": 310
       },
       "selfhost": {
-        "total": 109,
+        "total": 110,
         "open": 1,
-        "resolved": 108
+        "resolved": 109
       },
       "cli": {
         "total": 19,
@@ -16033,6 +16033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T185255970Z-SELF-HOST-MONO-NEEDS-TYPED-INSTANCE--71C76C96.md"
+    },
+    {
+      "id": "ISS-20260520T192459057Z-SELF-HOST-MONO-CACHE-INTERN-ACCEPTS--D424CF2E",
+      "title": "Self-host mono cache intern accepts invalid keys as records",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-21",
+      "target": "stdlib/neplg2/core/mono/mono.nepl, tests/stdlib/neplg2_mono.n.md, nodesrc/test_selfhost_mono_instance_absence.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T192459057Z-SELF-HOST-MONO-CACHE-INTERN-ACCEPTS--D424CF2E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

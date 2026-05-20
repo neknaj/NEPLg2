@@ -1,3 +1,15 @@
+# 2026-05-21 Worker selfhost mono invalid key intern boundary
+
+- `plan.md` は変更していない。
+- `core/mono/mono.nepl` の `SelfhostMonoInstanceCache` intern 境界で、invalid `SelfhostMonoInstanceKey` が typed record storage に入る問題を修正した。
+- `SelfhostMonoInstanceCacheInternError` を追加し、invalid key は `InvalidKey(SelfhostMonoInstanceKey)`、Vec storage failure は `Storage(StdErrorKind)` として enum payload で区別する。文字列 sentinel / 数値 sentinel は導入していない。
+- `selfhost_mono_instance_cache_intern` は key 検証に失敗した場合、cache owner を解放してから typed error を返す。valid key の lookup / intern は既存の full key equality と `Vec<SelfhostMonoInstanceRecord>` storage を維持する。
+- `tests/stdlib/neplg2_mono.n.md` に invalid key rejection fixture を追加し、`nodesrc/test_selfhost_mono_instance_absence.js` に typed intern error と invalid-key precheck の source policy を追加した。
+- 検証:
+  - `node nodesrc/test_selfhost_mono_instance_absence.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/mono/mono.nepl --no-tree --dist web/dist -o tmp/agent-selfhost-mono-invalid-key-module.json -j 1 --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_mono.n.md --no-tree --dist web/dist -o tmp/agent-selfhost-mono-invalid-key-fixture.json -j 1 --assert-io`: 5 passed
+
 # 2026-05-20 Agent 1 raw fill non-Copy initialized range guard
 
 - `ISS-20260520T160659900Z-RAW-FILL-CAN-CREATE-INITIALIZED-RANG-641CBC9C` を修正した。`plan.md` は変更していない。

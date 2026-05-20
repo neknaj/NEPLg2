@@ -14,6 +14,7 @@
 //: - `SelfhostMonoInstanceKey` は generic instance cache の lookup key です。
 //: - `SelfhostMonoInstanceRecord` は cache に登録済みの key と割り当て済み instance id を 1 value として保持します。
 //: - `SelfhostMonoInstanceCache` は record table を所有し、key lookup と instance id 割り当てを 1 つの storage 境界に閉じます。
+//: - `SelfhostMonoInstanceCacheInternError` は invalid key と storage failure を typed enum として区別します。
 //: - `selfhost_mono_instance_key_seed` は key から symbol suffix / cache bucket 用の deterministic seed を作ります。
 //:
 //: [注意/ちゅうい]:
@@ -134,6 +135,23 @@ impl Copy for SelfhostMonoInstanceRecord:
 //: - 現段階では小さい stage fixture 向けの線形探索です。hash bucket を追加する場合も identity は seed ではなく full key equality で確認してください。
 pub struct SelfhostMonoInstanceCache:
     records <Vec<SelfhostMonoInstanceRecord>>
+
+//: SelfhostMonoInstanceCacheInternError: cache intern の失敗分類
+//:
+//: [目的/もくてき]:
+//: - invalid key を storage failure と混ぜず、caller が enum match で原因を分岐できるようにします。
+//: - invalid key は payload として元 key を残し、diagnostic 境界がどの def / type arg range を拒否したかを読めるようにします。
+pub enum SelfhostMonoInstanceCacheInternError:
+    InvalidKey <SelfhostMonoInstanceKey>
+    Storage <StdErrorKind>
+
+impl Clone for SelfhostMonoInstanceCacheInternError:
+    fn clone <(&SelfhostMonoInstanceCacheInternError)->SelfhostMonoInstanceCacheInternError> (self):
+        *self
+
+impl Copy for SelfhostMonoInstanceCacheInternError:
+    fn copy_mark <(SelfhostMonoInstanceCacheInternError)->SelfhostMonoInstanceCacheInternError> (self):
+        self
 
 //: SelfhostMonoInstanceCacheInternResult: cache intern 後の owner と instance id
 //:
@@ -290,29 +308,44 @@ pub fn selfhost_mono_instance_cache_intern_result_id <(&SelfhostMonoInstanceCach
 pub fn selfhost_mono_instance_cache_intern_result_into_cache <(SelfhostMonoInstanceCacheInternResult)*>SelfhostMonoInstanceCache> (result):
     field::get result "cache"
 
-//: selfhost_mono_instance_cache_intern: key を cache に登録し、stable instance id を返す
+//: selfhost_mono_instance_cache_intern_error_invalid_key: invalid key error を作る
+pub fn selfhost_mono_instance_cache_intern_error_invalid_key <(SelfhostMonoInstanceKey)->SelfhostMonoInstanceCacheInternError> (key):
+    SelfhostMonoInstanceCacheInternError::InvalidKey key
+
+//: selfhost_mono_instance_cache_intern_error_storage: storage error を作る
+pub fn selfhost_mono_instance_cache_intern_error_storage <(StdErrorKind)->SelfhostMonoInstanceCacheInternError> (kind):
+    SelfhostMonoInstanceCacheInternError::Storage kind
+
+//: selfhost_mono_instance_cache_intern: key を検証して cache に登録し、stable instance id を返す
 //:
 //: [目的/もくてき]:
+//: - invalid def / type argument range を含む key は cache storage へ入れず、`InvalidKey(key)` を返します。
 //: - 既存 key なら既存 id を返し、未登録 key なら末尾に `SelfhostMonoInstanceRecord` を追加して新しい id を割り当てます。
 //: - 呼び出し側が key と id を別々に管理しないよう、storage 更新と id 返却を 1 つの API に集約します。
 //:
 //: [注意/ちゅうい]:
-//: - `Vec::push` 失敗時は cache owner を解放して `StdErrorKind` を返します。abort する compilation pass の境界で使う最小 storage API です。
-pub fn selfhost_mono_instance_cache_intern <(SelfhostMonoInstanceCache,SelfhostMonoInstanceKey)*>Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>> (cache, key):
-    match selfhost_mono_instance_cache_lookup &cache key:
-        Option::Some instance_id:
-            Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>::Ok selfhost_mono_instance_cache_intern_result_new cache instance_id
-        Option::None:
-            let instance_id <SelfhostMonoInstanceId> selfhost_mono_instance_id_new selfhost_mono_instance_cache_len &cache
-            let record <SelfhostMonoInstanceRecord> selfhost_mono_instance_record_new key instance_id
-            let records <Vec<SelfhostMonoInstanceRecord>> field::get cache "records"
-            match v::push<SelfhostMonoInstanceRecord> records record:
-                Result::Ok next_records:
-                    Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>::Ok selfhost_mono_instance_cache_intern_result_new (SelfhostMonoInstanceCache next_records) instance_id
-                Result::Err e:
-                    let error <StdErrorKind> v::vec_push_error_kind<SelfhostMonoInstanceRecord> &e
-                    v::free<SelfhostMonoInstanceRecord> v::vec_push_error_vec<SelfhostMonoInstanceRecord> e
-                    Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>::Err error
+//: - invalid key と `Vec::push` 失敗時は cache owner を解放して error を返します。abort する compilation pass の境界で使う最小 storage API です。
+pub fn selfhost_mono_instance_cache_intern <(SelfhostMonoInstanceCache,SelfhostMonoInstanceKey)*>Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>> (cache, key):
+    if:
+        not selfhost_mono_instance_key_is_valid key
+        then:
+            selfhost_mono_instance_cache_free cache
+            Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Err selfhost_mono_instance_cache_intern_error_invalid_key key
+        else:
+            match selfhost_mono_instance_cache_lookup &cache key:
+                Option::Some instance_id:
+                    Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Ok selfhost_mono_instance_cache_intern_result_new cache instance_id
+                Option::None:
+                    let instance_id <SelfhostMonoInstanceId> selfhost_mono_instance_id_new selfhost_mono_instance_cache_len &cache
+                    let record <SelfhostMonoInstanceRecord> selfhost_mono_instance_record_new key instance_id
+                    let records <Vec<SelfhostMonoInstanceRecord>> field::get cache "records"
+                    match v::push<SelfhostMonoInstanceRecord> records record:
+                        Result::Ok next_records:
+                            Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Ok selfhost_mono_instance_cache_intern_result_new (SelfhostMonoInstanceCache next_records) instance_id
+                        Result::Err e:
+                            let error <StdErrorKind> v::vec_push_error_kind<SelfhostMonoInstanceRecord> &e
+                            v::free<SelfhostMonoInstanceRecord> v::vec_push_error_vec<SelfhostMonoInstanceRecord> e
+                            Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Err selfhost_mono_instance_cache_intern_error_storage error
 
 //: selfhost_mono_seed_mix: mangle seed 用の 32-bit mixing step
 //:

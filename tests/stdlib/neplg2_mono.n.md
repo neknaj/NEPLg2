@@ -162,3 +162,38 @@ fn main <()*>i32> ():
         Result::Err _e:
             1
 ```
+
+## instance_cache_rejects_invalid_key_with_typed_error
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "neplg2/core/mono/mono" as *
+
+fn main <()*>i32> ():
+    let invalid_def <SelfhostMonoDefId> selfhost_mono_def_id_new -1 3
+    let args <SelfhostMonoTypeArgRange> selfhost_mono_type_arg_range_new 0 1
+    let invalid_key <SelfhostMonoInstanceKey> selfhost_mono_instance_key_new invalid_def args
+    match selfhost_mono_instance_cache_new:
+        Result::Ok cache:
+            match selfhost_mono_instance_cache_intern cache invalid_key:
+                Result::Ok intern:
+                    let leaked <SelfhostMonoInstanceCache> selfhost_mono_instance_cache_intern_result_into_cache intern
+                    selfhost_mono_instance_cache_free leaked
+                    1
+                Result::Err err:
+                    let ok <bool> match err:
+                        SelfhostMonoInstanceCacheInternError::InvalidKey rejected:
+                            selfhost_mono_instance_key_eq invalid_key rejected
+                        SelfhostMonoInstanceCacheInternError::Storage _kind:
+                            false
+                    if ok 0 1
+        Result::Err _e:
+            1
+```
