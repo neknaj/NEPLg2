@@ -17,6 +17,7 @@ NEPLg2 self-host compiler の実装をさらに進める前に、現行 Rust com
 - [ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A](../../issues/items/ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A.md): Stage 6 proof architecture 拡張後の source tree / file split 方針をこの文書へ反映する。
 - [ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6](../../issues/items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md): `core/proof/` の巨大化した file を責務単位へ分割する follow-up。
 - [ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690](../../issues/items/ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690.md): `core/ty/ty.nepl` を facade 化し、id / kind / record / arena / equality / stage0 へ分割する。
+- [ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805](../../issues/items/ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805.md): `core/syntax/parser/module_parser.nepl` を facade 化し、state / action / diagnostic / item_kind / declaration / loop / entry へ分割する。
 - [static_check_complexity_reduction_plan.md](./static_check_complexity_reduction_plan.md): Resource IR / owner / initialized / borrow / effect の複雑化解消計画。
 - [compiler_diagnostics_redesign_plan.md](./compiler_diagnostics_redesign_plan.md): diagnostic code を階層 enum にする計画。
 - [stdlib_documentation_contract_plan.md](./stdlib_documentation_contract_plan.md): stdlib documentation comment / doctest 整備方針。
@@ -69,7 +70,7 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 | `core/hir/hir.nepl` | 278 | 2026-05-20 に `hir/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/syntax/token.nepl` | 38 | 2026-05-20 に `syntax/token/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/ty/ty.nepl` | 40 | 2026-05-20 に `ty/` 配下へ分割済み。root は facade と doctest のみ。 |
-| `core/syntax/parser/module_parser.nepl` | 603 | `syntax/parser/` 配下に module loop、directive parser、raw block parser、item start classifier を分ける。 |
+| `core/syntax/parser/module_parser.nepl` | 44 | 2026-05-20 に `syntax/parser/module_parser/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/infra/diag.nepl` | 361 | `infra/diag/` 配下に code、value、collection、query を分ける。 |
 
 これらは「今すぐ全分割してから実装する」という意味ではない。だが、今後の実装をこれらの巨大 file に直接足さない。関連 issue を解く commit では、必要な責務単位を切り出してから実装する。
@@ -517,6 +518,21 @@ source policy は implementation detail の文字列検索だけにしない。�
 | `core/ty/ty/stage0.nepl` | 21 | TypeArena smoke entry。 |
 
 `nodesrc/test_selfhost_ty_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `ty.nepl` facade への曖昧 import を拒否する。`SelfhostTypeKind` の numeric tag 禁止と record payload source policy は `nodesrc/selfhost_ty_sources.js` を通して split 後の type source 全体を読む。
+
+2026-05-20 に [ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805](../../issues/items/ISS-20260520T044411118Z-SELF-HOST-MODULE-PARSER-REMAINS-A-FL-70910805.md) で `core/syntax/parser/module_parser.nepl` を分割した。現行の配置は次の通りである。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/syntax/parser/module_parser.nepl` | 44 | doctest を保持する implementation-free facade。 |
+| `core/syntax/parser/module_parser/state.nepl` | 62 | raw backend parser mode と parser token action enum、depth helper。 |
+| `core/syntax/parser/module_parser/action.nepl` | 146 | `TokenKind` から parser action への exhaustive classifier。 |
+| `core/syntax/parser/module_parser/diagnostic.nepl` | 33 | parser diagnostic と lexer diagnostic adapter。 |
+| `core/syntax/parser/module_parser/item_kind.nepl` | 160 | token から module item kind への exhaustive classifier。 |
+| `core/syntax/parser/module_parser/declaration.nepl` | 393 | declaration visibility / header / item construction。 |
+| `core/syntax/parser/module_parser/loop.nepl` | 138 | raw backend block と module item stream の parse loop。 |
+| `core/syntax/parser/module_parser/entry.nepl` | 49 | token stream / source text entry point と stage0 smoke。 |
+
+`nodesrc/test_selfhost_module_parser_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `module_parser.nepl` facade への曖昧 import を拒否する。`TokenKind` と `SelfhostParserTokenAction` の exhaustive match policy は `nodesrc/selfhost_module_parser_sources.js` を通して split 後の parser source 全体を読む。
 
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 
