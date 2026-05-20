@@ -120,6 +120,7 @@ const checks = [
     "nodesrc/test_selfhost_diag_code_enum.js",
     "nodesrc/test_selfhost_model_no_numeric_kind_tags.js",
     "nodesrc/test_selfhost_builtin_signature_payload.js",
+    "nodesrc/test_selfhost_ty_split_contract.js",
     "nodesrc/test_selfhost_type_record_payload.js",
     "nodesrc/test_selfhost_type_arena_report_contract.js",
     "nodesrc/test_selfhost_hir_split_contract.js",

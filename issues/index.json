@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T04:21:09.137Z",
+  "generated_at": "2026-05-20T04:38:50.705Z",
   "counts": {
-    "total": 1100,
+    "total": 1101,
     "open": 4,
-    "resolved": 1096,
+    "resolved": 1097,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 99,
+        "total": 100,
         "open": 1,
-        "resolved": 98
+        "resolved": 99
       },
       "cli": {
         "total": 19,
@@ -15473,6 +15473,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T041611797Z-SELF-HOST-TOKEN-MODEL-REMAINS-A-FLAT-3513A7ED.md"
+    },
+    {
+      "id": "ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690",
+      "title": "self-host type model remains a flat implementation file",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/ty/ty.nepl; stdlib/neplg2/core/ty/ty/**; doc/neplg2/self_host_source_tree_layout_review_20260518.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

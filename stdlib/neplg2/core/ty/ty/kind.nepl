@@ -1,0 +1,6 @@
+#indent 4
+
+pub #import "./kind/model" as *
+pub #import "./kind/eq" as *
+pub #import "./kind/name" as *
+

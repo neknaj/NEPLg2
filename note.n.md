@@ -1,3 +1,18 @@
+# 2026-05-20 Agent 1 self-host type model source tree 分割
+
+- `ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/neplg2/core/ty/ty.nepl` が TypeId、primitive/general TypeKind、type record payload、arena owner operation、structural equality、stage0 smoke を1ファイルに持ち、Rust 側 `types.rs` の flat 構造を self-host 側で再現し始めていたこと。
+- `ty.nepl` は doctest と public re-export だけを持つ implementation-free facade にした。実装は `ty/id.nepl`、`ty/kind/{model,eq,name}.nepl`、`ty/record.nepl`、`ty/arena.nepl`、`ty/eq.nepl`、`ty/stage0.nepl` へ分割した。
+- `SelfhostTypeKind` equality は numeric tag helper や wildcard arm にせず、`kind/eq.nepl` の exhaustive match に残した。`SelfhostTypeRecord` も enum payload と match-based accessor を維持し、flat record field へ戻していない。
+- `nodesrc/selfhost_ty_sources.js` と `nodesrc/test_selfhost_ty_split_contract.js` を追加し、facade への実装再導入、split file の 450 行超過、submodule から ty facade への曖昧 import を監視する。
+- 検証:
+  - `node nodesrc/test_selfhost_ty_split_contract.js`: pass
+  - `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`: pass
+  - `node nodesrc/test_selfhost_type_record_payload.js`: pass
+  - `node nodesrc/test_selfhost_type_arena_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/agent1-ty-split-core.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/agent1-ty-split-arena.json -j 1 --dist web/dist --assert-io`: total=5, passed=5
+
 # 2026-05-20 Agent 1 self-host declaration header proof evidence
 
 - `ISS-20260519T221017627Z-SELF-HOST-MODULE-AST-DROPS-DECLARATI-7F9E1FD2` を fixed / resolved にした。`plan.md` は変更していない。

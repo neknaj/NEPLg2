@@ -1,0 +1,88 @@
+#indent 4
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "./id" as *
+#import "./kind/eq" as *
+#import "./kind/model" as *
+#import "./record" as *
+#import "./arena" as *
+
+//: selfhost_type_arena_function_args_equal: function 引数列が構造的に同じか[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - `first_a` / `first_b` は arena 内部の argument table offset です。
+//: - 呼び出し側で function record の `arg_count` が同じであることを確認してから使います。
+pub fn selfhost_type_arena_function_args_equal <(&SelfhostTypeArena,i32,i32,i32,i32)->bool> (arena, first_a, first_b, n, idx):
+    if:
+        ge idx n
+        then:
+            true
+        else:
+            let function_args <&Vec<SelfhostTypeId>> field::get_ref arena "function_args"
+            match v::get<SelfhostTypeId> function_args add first_a idx:
+                Option::Some arg_a:
+                    match v::get<SelfhostTypeId> function_args add first_b idx:
+                        Option::Some arg_b:
+                            if:
+                                selfhost_type_arena_types_equal arena arg_a arg_b
+                                then:
+                                    selfhost_type_arena_function_args_equal arena first_a first_b n add idx 1
+                                else:
+                                    false
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_type_arena_records_equal: 2 つの型 record が構造的に同じか[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - primitive type は `SelfhostTypeKind` が一致すれば同形とします。
+//: - function type は arity、各引数 TypeId の構造、戻り値 TypeId の構造を比較します。
+pub fn selfhost_type_arena_records_equal <(&SelfhostTypeArena,SelfhostTypeRecord,SelfhostTypeRecord)->bool> (arena, a, b):
+    match a:
+        SelfhostTypeRecord::Primitive a_kind:
+            match b:
+                SelfhostTypeRecord::Primitive b_kind:
+                    let a_general <SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind a_kind
+                    let b_general <SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind b_kind
+                    selfhost_type_kind_eq a_general b_general
+                SelfhostTypeRecord::Function _b_function:
+                    false
+        SelfhostTypeRecord::Function a_function:
+            match b:
+                SelfhostTypeRecord::Primitive _b_kind:
+                    false
+                SelfhostTypeRecord::Function b_function:
+                    if:
+                        ne a_function.arg_count b_function.arg_count
+                        then:
+                            false
+                        else:
+                            and:
+                                selfhost_type_arena_function_args_equal arena a_function.first_arg b_function.first_arg a_function.arg_count 0
+                                selfhost_type_arena_types_equal arena a_function.result b_function.result
+
+//: selfhost_type_arena_types_equal: 同じ arena 内の TypeId が構造的に同じ型か[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - `TypeId` は arena-local なので、別 arena の `TypeId` を混ぜないでください。
+//: - invalid TypeId や範囲外 TypeId は、同じ invalid index 同士でも false です。
+pub fn selfhost_type_arena_types_equal <(&SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)->bool> (arena, a, b):
+    match selfhost_type_arena_get_record arena a:
+        Option::Some record_a:
+            match selfhost_type_arena_get_record arena b:
+                Option::Some record_b:
+                    if:
+                        selfhost_type_id_eq a b
+                        then:
+                            true
+                        else:
+                            selfhost_type_arena_records_equal arena record_a record_b
+                Option::None:
+                    false
+        Option::None:
+            false
+

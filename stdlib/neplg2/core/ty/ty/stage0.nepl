@@ -1,0 +1,23 @@
+#indent 4
+#import "core/math" as *
+#import "core/result" as *
+#import "./id" as *
+#import "./kind/model" as *
+#import "./arena" as *
+
+//: selfhost_ty_stage0: TypeArena の smoke API
+pub fn selfhost_ty_stage0 <()*>i32> ():
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok allocated:
+                    let unit_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena allocated
+                    let ok <bool> and eq selfhost_type_id_index unit_id 0 eq selfhost_type_arena_len &arena1 1
+                    selfhost_type_arena_free arena1
+                    if ok 0 1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1
+

@@ -1,0 +1,40 @@
+#indent 4
+#import "core/option" as *
+#import "./model" as *
+
+//: selfhost_type_kind_canonical_name: primitive TypeKind の canonical name を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - type 表示、prelude registry、diagnostic が同じ primitive spelling を使えるようにします。
+//: - source 上の `()` は type model では `unit`、発散型は `never` として正規化します。
+//: - Rust parser が named type として扱う `i64` / `f64` も、self-host の primitive registry ではこの canonical name で扱います。
+//:
+//: [注意/ちゅうい]:
+//: - `Error` と `Function` は primitive name を持たないため `None` を返します。
+pub fn selfhost_type_kind_canonical_name <(SelfhostTypeKind)->Option<str>> (kind):
+    match kind:
+        SelfhostTypeKind::Error:
+            none<str>
+        SelfhostTypeKind::Unit:
+            some<str> "unit"
+        SelfhostTypeKind::Bool:
+            some<str> "bool"
+        SelfhostTypeKind::I32:
+            some<str> "i32"
+        SelfhostTypeKind::I64:
+            some<str> "i64"
+        SelfhostTypeKind::U8:
+            some<str> "u8"
+        SelfhostTypeKind::Char:
+            some<str> "char"
+        SelfhostTypeKind::Str:
+            some<str> "str"
+        SelfhostTypeKind::F32:
+            some<str> "f32"
+        SelfhostTypeKind::F64:
+            some<str> "f64"
+        SelfhostTypeKind::Never:
+            some<str> "never"
+        SelfhostTypeKind::Function:
+            none<str>
+

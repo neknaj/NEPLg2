@@ -1,0 +1,82 @@
+#indent 4
+#import "core/traits/copy" as *
+
+//: SelfhostPrimitiveTypeKind: S3 初期段階で扱う primitive 型の分類
+//:
+//: [目的/もくてき]:
+//: - arena の primitive record に保存できる型だけを enum として表します。
+//: - function type は `SelfhostTypeRecord::Function` が payload を持つため、primitive payload には含めません。
+pub enum SelfhostPrimitiveTypeKind:
+    Error
+    Unit
+    Bool
+    I32
+    I64
+    U8
+    Char
+    Str
+    F32
+    F64
+    Never
+
+impl Clone for SelfhostPrimitiveTypeKind:
+    fn clone <(&SelfhostPrimitiveTypeKind)->SelfhostPrimitiveTypeKind> (self):
+        *self
+
+impl Copy for SelfhostPrimitiveTypeKind:
+    fn copy_mark <(SelfhostPrimitiveTypeKind)->SelfhostPrimitiveTypeKind> (self):
+        self
+
+//: SelfhostTypeKind: S3 初期段階で扱う型の分類
+pub enum SelfhostTypeKind:
+    Error
+    Unit
+    Bool
+    I32
+    I64
+    U8
+    Char
+    Str
+    F32
+    F64
+    Never
+    Function
+
+impl Clone for SelfhostTypeKind:
+    fn clone <(&SelfhostTypeKind)->SelfhostTypeKind> (self):
+        *self
+
+impl Copy for SelfhostTypeKind:
+    fn copy_mark <(SelfhostTypeKind)->SelfhostTypeKind> (self):
+        self
+
+
+//: selfhost_primitive_type_kind_to_type_kind: primitive type kind を general type kind へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - arena の primitive payload は `SelfhostPrimitiveTypeKind` に限定し、外部 API では従来通り `SelfhostTypeKind` として参照できるようにします。
+pub fn selfhost_primitive_type_kind_to_type_kind <(SelfhostPrimitiveTypeKind)->SelfhostTypeKind> (kind):
+    match kind:
+        SelfhostPrimitiveTypeKind::Error:
+            SelfhostTypeKind::Error
+        SelfhostPrimitiveTypeKind::Unit:
+            SelfhostTypeKind::Unit
+        SelfhostPrimitiveTypeKind::Bool:
+            SelfhostTypeKind::Bool
+        SelfhostPrimitiveTypeKind::I32:
+            SelfhostTypeKind::I32
+        SelfhostPrimitiveTypeKind::I64:
+            SelfhostTypeKind::I64
+        SelfhostPrimitiveTypeKind::U8:
+            SelfhostTypeKind::U8
+        SelfhostPrimitiveTypeKind::Char:
+            SelfhostTypeKind::Char
+        SelfhostPrimitiveTypeKind::Str:
+            SelfhostTypeKind::Str
+        SelfhostPrimitiveTypeKind::F32:
+            SelfhostTypeKind::F32
+        SelfhostPrimitiveTypeKind::F64:
+            SelfhostTypeKind::F64
+        SelfhostPrimitiveTypeKind::Never:
+            SelfhostTypeKind::Never
+

@@ -16,6 +16,7 @@ NEPLg2 self-host compiler の実装をさらに進める前に、現行 Rust com
 - [ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2](../../issues/items/ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2.md): raw backend block 状態検査を checker-local state machine から typed proof transition へ移す。
 - [ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A](../../issues/items/ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A.md): Stage 6 proof architecture 拡張後の source tree / file split 方針をこの文書へ反映する。
 - [ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6](../../issues/items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md): `core/proof/` の巨大化した file を責務単位へ分割する follow-up。
+- [ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690](../../issues/items/ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690.md): `core/ty/ty.nepl` を facade 化し、id / kind / record / arena / equality / stage0 へ分割する。
 - [static_check_complexity_reduction_plan.md](./static_check_complexity_reduction_plan.md): Resource IR / owner / initialized / borrow / effect の複雑化解消計画。
 - [compiler_diagnostics_redesign_plan.md](./compiler_diagnostics_redesign_plan.md): diagnostic code を階層 enum にする計画。
 - [stdlib_documentation_contract_plan.md](./stdlib_documentation_contract_plan.md): stdlib documentation comment / doctest 整備方針。
@@ -67,7 +68,7 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 | `core/syntax/lexer.nepl` | 1,329 | 2026-05-20 に `syntax/lexer/` 配下へ分割済み。root は facade のみ。 |
 | `core/hir/hir.nepl` | 278 | 2026-05-20 に `hir/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/syntax/token.nepl` | 38 | 2026-05-20 に `syntax/token/` 配下へ分割済み。root は facade と doctest のみ。 |
-| `core/ty/ty.nepl` | 769 | `ty/` 配下に id、kind、record、arena、eq、function type を分ける。 |
+| `core/ty/ty.nepl` | 40 | 2026-05-20 に `ty/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/syntax/parser/module_parser.nepl` | 603 | `syntax/parser/` 配下に module loop、directive parser、raw block parser、item start classifier を分ける。 |
 | `core/infra/diag.nepl` | 361 | `infra/diag/` 配下に code、value、collection、query を分ける。 |
 
@@ -499,6 +500,23 @@ source policy は implementation detail の文字列検索だけにしない。�
 | `core/syntax/token/stage0.nepl` | 10 | token smoke entry。 |
 
 `nodesrc/test_selfhost_token_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から facade への曖昧 import を拒否する。parser の `TokenKind` exhaustive match policy は `token/kind.nepl` を正として参照し、string helper boundary policy は `nodesrc/selfhost_token_sources.js` を通して split 後の token source をまとめて読む。
+
+2026-05-20 に [ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690](../../issues/items/ISS-20260520T043317729Z-SELF-HOST-TYPE-MODEL-REMAINS-A-FLAT--386A1690.md) で `core/ty/ty.nepl` を分割した。現行の配置は次の通りである。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/ty/ty.nepl` | 40 | doctest を保持する implementation-free facade。 |
+| `core/ty/ty/id.nepl` | 21 | arena-local `SelfhostTypeId` と index / equality helper。 |
+| `core/ty/ty/kind.nepl` | 4 | kind model / equality / canonical name の sub-facade。 |
+| `core/ty/ty/kind/model.nepl` | 73 | primitive / general type kind enum と primitive -> general 変換。 |
+| `core/ty/ty/kind/eq.nepl` | 321 | `SelfhostTypeKind` の exhaustive match equality。 |
+| `core/ty/ty/kind/name.nepl` | 38 | primitive type kind の canonical name。 |
+| `core/ty/ty/record.nepl` | 39 | primitive / function type record payload と constructor。 |
+| `core/ty/ty/arena.nepl` | 170 | type record table と function argument table の owner operation。 |
+| `core/ty/ty/eq.nepl` | 84 | arena 内 TypeId / record の構造等価性。 |
+| `core/ty/ty/stage0.nepl` | 21 | TypeArena smoke entry。 |
+
+`nodesrc/test_selfhost_ty_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から `ty.nepl` facade への曖昧 import を拒否する。`SelfhostTypeKind` の numeric tag 禁止と record payload source policy は `nodesrc/selfhost_ty_sources.js` を通して split 後の type source 全体を読む。
 
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 

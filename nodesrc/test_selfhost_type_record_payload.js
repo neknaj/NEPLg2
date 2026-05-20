@@ -2,12 +2,11 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
+const { readTySource } = require("./selfhost_ty_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
-const tyPath = "stdlib/neplg2/core/ty/ty.nepl";
-const ty = fs.readFileSync(path.join(repoRoot, tyPath), "utf8").replace(/\r\n/g, "\n");
+const ty = readTySource(repoRoot);
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");
