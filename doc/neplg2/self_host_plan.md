@@ -14,7 +14,7 @@ NEPLg3 向けの `doc/neplg3/impl/compiler_structure.md` は、ディレクト�
 
 branch、commit、Rust 側 compiler 修正の取り込み、self-host 実装中に発覚した Rust 側 Issue の提出規則は [self_host_execution_plan.md](./self_host_execution_plan.md) を正とする。
 
-2026-05-18 時点の Rust 実装の分量と構造を踏まえた self-host 版の詳細なディレクトリ構造・ファイル分割方針は [self_host_source_tree_layout_review_20260518.md](./self_host_source_tree_layout_review_20260518.md) を正とする。今後の self-host 実装では、同文書に反して `checker.nepl`、`pipeline.nepl`、parser、typecheck、Resource IR、codegen の巨大 flat file を増やさない。
+2026-05-18 時点の Rust 実装の分量と構造を踏まえた self-host 版の詳細なディレクトリ構造・ファイル分割方針は [self_host_source_tree_layout_review_20260518.md](./self_host_source_tree_layout_review_20260518.md) を正とする。2026-05-20 の Stage 6 proof architecture 拡張後の追補も同文書に統合済みであり、今後の self-host 実装では、同文書に反して `checker.nepl`、`pipeline.nepl`、parser、typecheck、Resource IR、codegen、`core/proof/solver.nepl` などの巨大 flat file を増やさない。
 
 ---
 

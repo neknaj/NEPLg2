@@ -14,6 +14,8 @@ NEPLg2 self-host compiler の実装をさらに進める前に、現行 Rust com
 - [ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649](../../issues/items/ISS-20260518T140937691Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-BE-R-5C746649.md): self-host source tree plan を現行 Rust compiler 構造に合わせて再検証する。
 - [ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062](../../issues/items/ISS-20260519T204942256Z-SELF-HOST-CHECKER-LACKS-A-GENERIC-PR-35D60062.md): self-host checker に汎用 proof entry point を追加し、module item span 検査を typed fact / obligation / solver 境界へ接続する。
 - [ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2](../../issues/items/ISS-20260519T210448628Z-SELF-HOST-RAW-BACKEND-BLOCK-VALIDATI-FA9ABCD2.md): raw backend block 状態検査を checker-local state machine から typed proof transition へ移す。
+- [ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A](../../issues/items/ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A.md): Stage 6 proof architecture 拡張後の source tree / file split 方針をこの文書へ反映する。
+- [ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6](../../issues/items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md): `core/proof/` の巨大化した file を責務単位へ分割する follow-up。
 - [static_check_complexity_reduction_plan.md](./static_check_complexity_reduction_plan.md): Resource IR / owner / initialized / borrow / effect の複雑化解消計画。
 - [compiler_diagnostics_redesign_plan.md](./compiler_diagnostics_redesign_plan.md): diagnostic code を階層 enum にする計画。
 - [stdlib_documentation_contract_plan.md](./stdlib_documentation_contract_plan.md): stdlib documentation comment / doctest 整備方針。
@@ -70,6 +72,42 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 | `core/infra/diag.nepl` | 361 | `infra/diag/` 配下に code、value、collection、query を分ける。 |
 
 これらは「今すぐ全分割してから実装する」という意味ではない。だが、今後の実装をこれらの巨大 file に直接足さない。関連 issue を解く commit では、必要な責務単位を切り出してから実装する。
+
+## 2026-05-20 proof architecture refresh
+
+2026-05-20 時点で Stage 6 proof architecture は大きく前進し、source span、raw backend、module directive、module declaration、type kind、trait coherence、lifetime、Resource cell、owner、borrow、effect を `core/proof/` の fact / obligation / evidence / refutation / solver に載せた。
+
+この進捗により、2026-05-18 の source tree review で想定した「`core/proof/` は最小 model」という前提は古くなった。現行 `stdlib/neplg2/` の大きい proof file は次の通りである。
+
+| file | lines | 評価 |
+|---|---:|---|
+| `core/proof/solver.nepl` | 959 | pass implementation の 900 行目安を超えている。次の proof domain / rule 追加前に entry / dispatch / domain rule へ分割する。 |
+| `core/proof/query.nepl` | 490 | query、evidence、refutation payload、helper が同居している。variant 追加時の網羅性はあるが、model と projection helper は分ける。 |
+| `core/proof/fact.nepl` | 469 | fact payload と domain helper が同居している。fact domain ごとに分けられる段階に入っている。 |
+| `core/proof/api.nepl` | 418 | public API projection が証明 domain 数に比例して増える。wrapper 生成ではなく、typed projection policy を domain ごとに分ける。 |
+| `core/proof/obligation.nepl` | 120 | まだ小さいが、obligation payload は fact/evidence/refutation と同じ domain 分割方針に合わせる。 |
+
+Rust 側も 2026-05-20 時点で `parser.rs` 4,044 行、`codegen_llvm.rs` 3,847 行、`codegen_wasm.rs` 2,392 行、`compiler.rs` 2,183 行、`types.rs` 2,176 行、`loader.rs` 2,165 行、`typecheck/prefix_check.rs` 1,800 行、`typecheck/driver.rs` 1,662 行が残っている。self-host はこの file 単位を移植せず、proof / check / resource / abstraction の責務単位で分ける。
+
+### proof split policy
+
+`core/proof/` は「個別 module ごとの証明器」ではなく、全 stage が使う汎用 proof engine である。この方針は維持する。ただし、汎用 engine であることと file を少数に押し込めることは同じではない。
+
+今後の proof 関連実装は、次の責務へ分ける。
+
+- `proof/domain.nepl`: `SelfhostProofDomain` と domain equality。文字列 code や numeric tag にしない。
+- `proof/fact/*`: source / module / type / trait / lifetime / resource / owner / effect などの fact payload。
+- `proof/obligation/*`: fact と同じ domain 分割の obligation payload。
+- `proof/evidence/*`: success evidence と evidence kind。API projection が payload を直接潰さないようにする。
+- `proof/refutation/*`: mismatch、unexpected evidence、domain-specific failure payload。
+- `proof/solver/entry.nepl`: public `SelfhostProofQuery -> SelfhostProofResult` entry と domain precheck。
+- `proof/solver/dispatch.nepl`: fact / obligation の domain が一致した後の exhaustive dispatch。
+- `proof/solver/rules/*`: source、module、type、trait、lifetime、resource、owner、borrow、effect などの proof rule。rule は private に保ち、public API を増やさない。
+- `proof/api/*`: caller 向け typed wrapper と evidence projection。projection failure は `UnexpectedEvidence` にする。
+
+この分割は汎用証明器を弱めるものではない。domain rule は `SelfhostProofQuery` を受ける同じ proof system の一部であり、checker / resource / typecheck は fact producer または obligation producer に留まる。
+
+次に `core/proof/` に新しい domain、evidence、refutation、API wrapper を追加する前に、[ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6](../../issues/items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md) で上記の分割を先に行う。
 
 ## 目標ディレクトリ構造
 

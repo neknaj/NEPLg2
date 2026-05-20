@@ -43027,3 +43027,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-unexpected-evidence-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-proof-unexpected-evidence-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-unexpected-evidence-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed
+
+## 2026-05-20 Agent 1 self-host source tree plan proof architecture refresh
+
+- `ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、2026-05-18 の self-host source tree layout review が、Stage 6 proof architecture 拡張前の `core/proof/` を前提にしていたことだった。2026-05-20 時点では `solver.nepl` 959 行、`query.nepl` 490 行、`fact.nepl` 469 行、`api.nepl` 418 行まで伸び、次の proof domain 追加前に分割 gate が必要になっている。
+- `doc/neplg2/self_host_source_tree_layout_review_20260518.md` に proof architecture refresh を追加し、Rust 側巨大 file の現在値、self-host proof file の現在値、`proof/domain`、`proof/fact/*`、`proof/obligation/*`、`proof/evidence/*`、`proof/refutation/*`、`proof/solver/*`、`proof/api/*` への分割方針を明記した。
+- `doc/neplg2/self_host_plan.md` と self-host parent issue にも、2026-05-20 追補込みの source tree review を正として扱うことを反映した。
+- follow-up として `ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6` を追加した。次に proof domain / API wrapper を増やす前にこの分割 issue を優先する。
+- verification:
+  - `node nodesrc/issues.js index`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T02:52:30.852Z",
+  "generated_at": "2026-05-20T03:00:38.351Z",
   "counts": {
-    "total": 1094,
-    "open": 4,
-    "resolved": 1090,
+    "total": 1096,
+    "open": 5,
+    "resolved": 1091,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 93,
-        "open": 1,
-        "resolved": 92
+        "total": 95,
+        "open": 2,
+        "resolved": 93
       },
       "cli": {
         "total": 19,
@@ -173,6 +173,21 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6",
+      "title": "self-host proof files exceed split threshold after Stage 6 expansion",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/solver.nepl, stdlib/neplg2/core/proof/query.nepl, stdlib/neplg2/core/proof/fact.nepl, stdlib/neplg2/core/proof/api.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -15383,6 +15398,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T232628976Z-SELF-HOST-CHECKER-DOCTEST-SUMMARY-CA-2E6B074B.md"
+    },
+    {
+      "id": "ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A",
+      "title": "self-host source tree plan must reflect expanded proof architecture",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "doc/neplg2/self_host_source_tree_layout_review_20260518.md, doc/neplg2/self_host_plan.md, issues/items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
