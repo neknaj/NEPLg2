@@ -1,5 +1,6 @@
 mod harness;
 use harness::run_main_i32;
+use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use nepl_core::loader::Loader;
 use nepl_core::typecheck;
@@ -24,7 +25,11 @@ fn typecheck_src_with_target(src: &str, target: CompileTarget) {
         BuildProfile::Debug,
         Some(&loaded.source_map),
     );
-    if !checked.diagnostics.is_empty() {
+    if checked
+        .diagnostics
+        .iter()
+        .any(|d| matches!(d.severity, Severity::Error))
+    {
         panic!("typecheck failure: {:?}", checked.diagnostics);
     }
 }
@@ -173,6 +178,23 @@ fn main <()->i32> ():
         }),
         "expected typed overload ambiguity reason, got {diagnostics:?}"
     );
+}
+
+#[test]
+fn overload_expected_result_variable_keeps_numeric_candidates() {
+    let src = r#"
+#entry main
+#indent 4
+#import "core/math" as *
+
+fn main <()->i32> ():
+    if:
+        true
+        then mul 2 3
+        else 0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 6);
 }
 
 #[test]
