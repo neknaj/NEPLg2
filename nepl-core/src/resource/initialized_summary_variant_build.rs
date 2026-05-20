@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
+use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -64,6 +65,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     };
     let mut cells = CellTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
+    let mut collection_slots = CollectionSlotStateTable::new();
     let mut function_aliases = FunctionAliasTable::default();
     let mut pending_reallocs = PendingRawReallocs::default();
     let mut variant_initializations = PendingVariantRawCellInitializations::default();
@@ -125,6 +127,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
         }
         engine.check_ops(
             &mut cells,
+            &mut collection_slots,
             &mut raw_aliases,
             &mut function_aliases,
             &mut pending_reallocs,
@@ -170,6 +173,7 @@ fn collect_branch_variant_param_initialized_raw_cells(
         deferred: ResourceCheckDeferred::default(),
     };
     let mut path_cells = cells.clone();
+    let mut path_collection_slots = CollectionSlotStateTable::new();
     let mut path_aliases = raw_aliases.clone();
     let mut path_function_aliases = function_aliases.clone();
     let mut path_pending_reallocs = pending_reallocs.clone();
@@ -184,6 +188,7 @@ fn collect_branch_variant_param_initialized_raw_cells(
     );
     path_engine.check_ops(
         &mut path_cells,
+        &mut path_collection_slots,
         &mut path_aliases,
         &mut path_function_aliases,
         &mut path_pending_reallocs,

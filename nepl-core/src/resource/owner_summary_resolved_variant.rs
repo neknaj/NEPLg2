@@ -101,8 +101,10 @@ pub(super) fn collect_resolved_parameter_variants_from_return(
                     aliases.clear_aliases_sourced_from(result);
                 }
             }
-            ResourceOp::Loop { .. } | ResourceOp::CallEffect { .. } => {}
-            ResourceOp::StorageOrigin { .. } => {}
+            ResourceOp::Loop { .. }
+            | ResourceOp::CallEffect { .. }
+            | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. } => {}
         }
     }
 }

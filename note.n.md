@@ -1,3 +1,17 @@
+# 2026-05-21 Agent 1 Resource IR collection slot lifecycle 接続
+
+- `ISS-20260520T192939566Z-RESOURCE-IR-DOES-NOT-CARRY-COLLECTIO-5585A1D7` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotLifecycleEvent` / `CollectionSlotStateTable` が compiler-core の typed proof state として存在していた一方で、`ResourceOp` に slot lifecycle を表す命令がなく、initialized checker の branch / loop / match state にも `CollectionSlotStateTable` が含まれていなかったことだった。
+- `ResourceOp::CollectionSlotLifecycle { target, event, span }` を追加し、slot または storage target に対する Initialize / BorrowRead / MoveOut / Replace / Drop / StorageDealloc を Resource IR の通常命令として表すようにした。
+- initialized checker は `CollectionSlotStateTable` を関数状態として保持し、branch / loop / match で path ごとに clone したうえで `CollectionSlotStateTable::merge_paths` により合流する。片側だけ live な slot は `MaybeInitialized` として残り、合流後の storage dealloc は typed refutation で拒否される。
+- `ResourceCheckDiagnostic::CollectionSlotRefuted` と `ResourceCollectionSlotDiagnosticCode` を追加し、slot lifecycle failure を文字列ではなく enum のまま diagnostic gate へ渡すようにした。
+- `ResourceOp` の exhaustive `match` により borrow / owner / effect / summary / coverage / dump へ明示接続した。collection slot lifecycle は raw owner summary や effect summary の個別特例にはせず、initialized checker の slot lifecycle proof boundary に集約する。
+- focused verification:
+  - `cargo test -p nepl-core resource_ir_collection_slot -- --test-threads=1`: passed
+  - `cargo test -p nepl-core collection_slot -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+
 # 2026-05-21 Worker selfhost mono invalid key intern boundary
 
 - `plan.md` は変更していない。

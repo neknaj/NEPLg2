@@ -37,6 +37,7 @@ pub enum ResourceCoveragePlaceOperation {
     RawAddressViewSource,
     RawAddressViewTarget,
     StorageOriginTarget,
+    CollectionSlotLifecycleTarget,
 }
 
 impl ResourceCoveragePlaceOperation {
@@ -79,6 +80,9 @@ impl ResourceCoveragePlaceOperation {
             ResourceCoveragePlaceOperation::RawAddressViewSource => "raw_address_view.source",
             ResourceCoveragePlaceOperation::RawAddressViewTarget => "raw_address_view.target",
             ResourceCoveragePlaceOperation::StorageOriginTarget => "storage_origin.target",
+            ResourceCoveragePlaceOperation::CollectionSlotLifecycleTarget => {
+                "collection_slot_lifecycle.target"
+            }
         }
     }
 }

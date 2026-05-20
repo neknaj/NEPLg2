@@ -94,6 +94,7 @@ fn collect_call_summary_source_seeds(
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
             | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

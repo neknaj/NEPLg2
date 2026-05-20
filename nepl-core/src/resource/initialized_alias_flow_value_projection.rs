@@ -324,7 +324,9 @@ fn propagate_value_projection_op(
         }
         ResourceOp::StorageOrigin { .. } => {}
         ResourceOp::Drop { place, .. } => clear_value_projection_aliases(value_aliases, place),
-        ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
+        ResourceOp::CallEffect { .. }
+        | ResourceOp::EndScope { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. } => {}
     }
 }
 

@@ -10,6 +10,7 @@ pub use crate::effects::{ExternalIoOp, NondetOp, RawMemoryOp};
 use crate::span::Span;
 use crate::types::TypeId;
 
+use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 pub use super::trait_identity::{ResourceTraitApplication, ResourceTraitMethodId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -163,6 +164,11 @@ pub enum ResourceOp {
     StorageOrigin {
         target: Place,
         origin: StorageOrigin,
+        span: Span,
+    },
+    CollectionSlotLifecycle {
+        target: Place,
+        event: CollectionSlotLifecycleEvent,
         span: Span,
     },
     Construct {

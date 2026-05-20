@@ -2,11 +2,10 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::resource_primitives::type_is_raw_pointer;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
-use super::compiler_memory_place::mem_ptr_raw_field_place;
+use super::collection_slot_state_table::{CollectionSlotStateEntry, CollectionSlotStateTable};
 use super::drop_model::ResourceDropPoint;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
@@ -80,12 +79,13 @@ pub fn check_resource_initialized_moves(
             auto_drop_points: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
         };
-        let final_cells = engine.check_function(function);
+        let (final_cells, final_collection_slots) = engine.check_function(function);
         merge_deferred(&mut deferred, engine.deferred);
         diagnostics.extend(engine.diagnostics);
         functions.push(ResourceFunctionCheck {
             name: function.name.clone(),
             final_cells,
+            final_collection_slots,
             auto_drop_points: engine.auto_drop_points,
             deferred: engine.deferred,
         });
@@ -111,8 +111,12 @@ pub(super) struct ResourceCheckEngine<'a> {
 }
 
 impl ResourceCheckEngine<'_> {
-    fn check_function(&mut self, function: &ResourceFunction) -> Vec<CellStateEntry> {
+    fn check_function(
+        &mut self,
+        function: &ResourceFunction,
+    ) -> (Vec<CellStateEntry>, Vec<CollectionSlotStateEntry>) {
         let mut cells = CellTable::default();
+        let mut collection_slots = CollectionSlotStateTable::new();
         let mut raw_aliases = RawCellAddressAliases::default();
         let mut function_aliases = FunctionAliasTable::default();
         let mut pending_reallocs = PendingRawReallocs::default();
@@ -131,6 +135,7 @@ impl ResourceCheckEngine<'_> {
         for block in &function.blocks {
             self.check_block(
                 &mut cells,
+                &mut collection_slots,
                 &mut raw_aliases,
                 &mut function_aliases,
                 &mut pending_reallocs,
@@ -138,27 +143,13 @@ impl ResourceCheckEngine<'_> {
                 block,
             );
         }
-        cells.into_entries()
-    }
-
-    fn seed_external_raw_storage_parameter(
-        &self,
-        cells: &mut CellTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        place: &Place,
-    ) {
-        cells.mark_external_raw_storage_root(place);
-        raw_aliases.mark(place);
-        if type_is_raw_pointer(self.types, place.ty) {
-            let raw = mem_ptr_raw_field_place(self.types, place, self.types.i32());
-            cells.mark_external_raw_storage_root(&raw);
-            raw_aliases.mark(&raw);
-        }
+        (cells.into_entries(), collection_slots.entries().to_vec())
     }
 
     fn check_block(
         &mut self,
         cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
@@ -167,6 +158,7 @@ impl ResourceCheckEngine<'_> {
     ) {
         self.check_ops(
             cells,
+            collection_slots,
             raw_aliases,
             function_aliases,
             pending_reallocs,
@@ -190,6 +182,7 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn check_ops(
         &mut self,
         cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
@@ -200,6 +193,7 @@ impl ResourceCheckEngine<'_> {
         for (index, op) in ops.iter().enumerate() {
             self.check_op(
                 cells,
+                collection_slots,
                 raw_aliases,
                 function_aliases,
                 pending_reallocs,
@@ -213,6 +207,7 @@ impl ResourceCheckEngine<'_> {
     fn check_op(
         &mut self,
         cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
@@ -553,6 +548,13 @@ impl ResourceCheckEngine<'_> {
                 variant_initializations.clear_result(target);
             }
             ResourceOp::StorageOrigin { .. } => {}
+            ResourceOp::CollectionSlotLifecycle {
+                target,
+                event,
+                span,
+            } => {
+                self.apply_collection_slot_lifecycle(collection_slots, target, *event, *span);
+            }
             ResourceOp::Construct {
                 output,
                 kind,
@@ -592,6 +594,7 @@ impl ResourceCheckEngine<'_> {
             } => {
                 self.check_branch(
                     cells,
+                    collection_slots,
                     raw_aliases,
                     function_aliases,
                     pending_reallocs,
@@ -617,6 +620,7 @@ impl ResourceCheckEngine<'_> {
             } => {
                 self.check_loop(
                     cells,
+                    collection_slots,
                     raw_aliases,
                     function_aliases,
                     pending_reallocs,
@@ -640,6 +644,7 @@ impl ResourceCheckEngine<'_> {
             } => {
                 self.check_match(
                     cells,
+                    collection_slots,
                     raw_aliases,
                     function_aliases,
                     pending_reallocs,

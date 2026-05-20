@@ -151,6 +151,7 @@ fn collect_drop_points_from_ops(
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
             | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

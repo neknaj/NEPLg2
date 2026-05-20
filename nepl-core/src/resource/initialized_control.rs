@@ -4,6 +4,7 @@ use crate::span::Span;
 use crate::types::TypeKind;
 
 use super::cell_state::CellTable;
+use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::condition_fact::record_condition_fact_value_constraints;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::FunctionAliasTable;
@@ -23,6 +24,7 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn check_branch(
         &mut self,
         cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
@@ -46,6 +48,8 @@ impl ResourceCheckEngine<'_> {
         );
         let mut then_cells = cells.clone();
         let mut else_cells = cells.clone();
+        let mut then_collection_slots = collection_slots.clone();
+        let mut else_collection_slots = collection_slots.clone();
         let mut then_aliases = raw_aliases.clone();
         let mut else_aliases = raw_aliases.clone();
         let mut then_function_aliases = function_aliases.clone();
@@ -71,6 +75,7 @@ impl ResourceCheckEngine<'_> {
         );
         self.check_ops(
             &mut then_cells,
+            &mut then_collection_slots,
             &mut then_aliases,
             &mut then_function_aliases,
             &mut then_pending_reallocs,
@@ -80,6 +85,7 @@ impl ResourceCheckEngine<'_> {
         );
         self.check_ops(
             &mut else_cells,
+            &mut else_collection_slots,
             &mut else_aliases,
             &mut else_function_aliases,
             &mut else_pending_reallocs,
@@ -89,6 +95,7 @@ impl ResourceCheckEngine<'_> {
         );
 
         let mut cell_paths = Vec::new();
+        let mut collection_slot_paths = Vec::new();
         let mut alias_paths = Vec::new();
         let mut function_alias_paths = Vec::new();
         let mut pending_realloc_paths = Vec::new();
@@ -119,6 +126,7 @@ impl ResourceCheckEngine<'_> {
                 then_variant_initializations.copy_result(then_value, output);
             }
             cell_paths.push(then_cells);
+            collection_slot_paths.push(then_collection_slots);
             alias_paths.push(then_aliases);
             function_alias_paths.push(then_function_aliases);
             pending_realloc_paths.push(then_pending_reallocs);
@@ -149,6 +157,7 @@ impl ResourceCheckEngine<'_> {
                 else_variant_initializations.copy_result(else_value, output);
             }
             cell_paths.push(else_cells);
+            collection_slot_paths.push(else_collection_slots);
             alias_paths.push(else_aliases);
             function_alias_paths.push(else_function_aliases);
             pending_realloc_paths.push(else_pending_reallocs);
@@ -163,6 +172,7 @@ impl ResourceCheckEngine<'_> {
                 &merged_raw_aliases,
             );
             *raw_aliases = merged_raw_aliases;
+            *collection_slots = CollectionSlotStateTable::merge_paths(&collection_slot_paths);
             *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
             *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
             *variant_initializations =
@@ -181,6 +191,7 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn check_loop(
         &mut self,
         cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
@@ -194,12 +205,14 @@ impl ResourceCheckEngine<'_> {
         body_path: ResourceDropPointPath,
     ) {
         let mut condition_cells = cells.clone();
+        let mut condition_collection_slots = collection_slots.clone();
         let mut condition_aliases = raw_aliases.clone();
         let mut condition_function_aliases = function_aliases.clone();
         let mut condition_pending_reallocs = pending_reallocs.clone();
         let mut condition_variant_initializations = variant_initializations.clone();
         self.check_ops(
             &mut condition_cells,
+            &mut condition_collection_slots,
             &mut condition_aliases,
             &mut condition_function_aliases,
             &mut condition_pending_reallocs,
@@ -215,6 +228,7 @@ impl ResourceCheckEngine<'_> {
         );
 
         let mut exit_cells = condition_cells.clone();
+        let exit_collection_slots = condition_collection_slots.clone();
         let mut exit_aliases = condition_aliases.clone();
         let mut exit_pending_reallocs = condition_pending_reallocs.clone();
         self.apply_branch_condition_fact(
@@ -226,6 +240,7 @@ impl ResourceCheckEngine<'_> {
         );
 
         let mut body_cells = condition_cells;
+        let mut body_collection_slots = condition_collection_slots;
         let mut body_aliases = condition_aliases;
         let mut body_function_aliases = condition_function_aliases.clone();
         let mut body_pending_reallocs = condition_pending_reallocs;
@@ -239,6 +254,7 @@ impl ResourceCheckEngine<'_> {
         );
         self.check_ops(
             &mut body_cells,
+            &mut body_collection_slots,
             &mut body_aliases,
             &mut body_function_aliases,
             &mut body_pending_reallocs,
@@ -247,11 +263,13 @@ impl ResourceCheckEngine<'_> {
             body_path,
         );
         let cell_paths = [exit_cells, body_cells];
+        let collection_slot_paths = [exit_collection_slots, body_collection_slots];
         let alias_paths = [exit_aliases, body_aliases];
         let merged_raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
         *cells =
             CellTable::merge_paths_with_raw_aliases(&cell_paths, &alias_paths, &merged_raw_aliases);
         *raw_aliases = merged_raw_aliases;
+        *collection_slots = CollectionSlotStateTable::merge_paths(&collection_slot_paths);
         *function_aliases =
             FunctionAliasTable::merge_paths(&[condition_function_aliases, body_function_aliases]);
         *pending_reallocs =
@@ -265,6 +283,7 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn check_match(
         &mut self,
         cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
@@ -293,6 +312,7 @@ impl ResourceCheckEngine<'_> {
         };
         let mut arms_available = true;
         let mut arm_paths = Vec::new();
+        let mut collection_slot_paths = Vec::new();
         let mut alias_paths = Vec::new();
         let mut function_alias_paths = Vec::new();
         let mut pending_realloc_paths = Vec::new();
@@ -300,6 +320,7 @@ impl ResourceCheckEngine<'_> {
 
         for (arm_index, arm) in arms.iter().enumerate() {
             let mut arm_cells = cells.clone();
+            let mut arm_collection_slots = collection_slots.clone();
             let mut arm_aliases = raw_aliases.clone();
             let mut arm_function_aliases = function_aliases.clone();
             let mut arm_pending_reallocs = pending_reallocs.clone();
@@ -335,6 +356,7 @@ impl ResourceCheckEngine<'_> {
             );
             self.check_ops(
                 &mut arm_cells,
+                &mut arm_collection_slots,
                 &mut arm_aliases,
                 &mut arm_function_aliases,
                 &mut arm_pending_reallocs,
@@ -368,6 +390,7 @@ impl ResourceCheckEngine<'_> {
                     arm_variant_initializations.copy_result(&arm.value, output);
                 }
                 arm_paths.push(arm_cells);
+                collection_slot_paths.push(arm_collection_slots);
                 alias_paths.push(arm_aliases);
                 function_alias_paths.push(arm_function_aliases);
                 pending_realloc_paths.push(arm_pending_reallocs);
@@ -386,6 +409,7 @@ impl ResourceCheckEngine<'_> {
                 &merged_raw_aliases,
             );
             *raw_aliases = merged_raw_aliases;
+            *collection_slots = CollectionSlotStateTable::merge_paths(&collection_slot_paths);
             *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
             *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
             *variant_initializations =

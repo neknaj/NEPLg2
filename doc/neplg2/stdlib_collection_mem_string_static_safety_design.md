@@ -367,6 +367,14 @@ Resource IR / typecheck / match check は次を必須にする。
 - collection free が non-Copy payload を受け入れて要素 Drop を呼ばない旧バグは、[ISS-20260425T000000Z-RV-STDLIB-004-91534828](../../issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md) の closure audit で fixed とした。現行 public surface は Copy-only 境界と source policy で guarded である。
 - これは non-Copy collection の完成を意味しない。compiler-issued owner token、moved slot、drop traversal、`InitializedCell` / Resource IR 接続による final support は [ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543](../../issues/items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md) で扱い、self-host 実装はそれまで safe subset を使う。
 
+2026-05-21 追記:
+
+- `CollectionSlotLifecycleEvent` / `CollectionSlotStateTable` は、`ResourceOp::CollectionSlotLifecycle` として Resource IR の通常命令に接続した。これにより non-Copy collection slot の Initialize / BorrowRead / MoveOut / Replace / Drop / StorageDealloc は、stdlib module ごとの個別許可ではなく compiler core の generic typed proof boundary として検査される。
+- initialized checker は `CollectionSlotStateTable` を関数状態に含め、branch / loop / match の各 path を `CollectionSlotStateTable::merge_paths` で合流する。片側だけ initialized な slot や片側だけ storage release 済みの状態は `MaybeInitialized` / `MaybeReleased` として残り、合流後の reinit / move / drop / storage dealloc を typed refutation で拒否する。
+- `ResourceCheckDiagnostic::CollectionSlotRefuted` と `ResourceCollectionSlotDiagnosticCode` を追加し、slot lifecycle の失敗理由を enum のまま保持する。diagnostic id は serialization 用の dotted string であり、checker 内の authority にはしない。
+- 今回の接続で Resource IR 上の手書き operation は検査対象になったが、stdlib collection lowering が実際の `Vec<T>` / `OwnedBuffer<T>` operation から `ResourceOp::CollectionSlotLifecycle` を発行する段階は未完である。次段階では source policy や module allowlist に逃がさず、collection API の source semantics から generic slot lifecycle event を生成する。
+- 関連 issue: [ISS-20260520T192939566Z-RESOURCE-IR-DOES-NOT-CARRY-COLLECTIO-5585A1D7](../../issues/items/ISS-20260520T192939566Z-RESOURCE-IR-DOES-NOT-CARRY-COLLECTIO-5585A1D7.md)。
+
 ### Stage B: `core/mem` の internal/public 分離
 
 - 前提として、typecheck の import visibility が `pub` / private item boundary を binding authority として扱う必要がある。現状の blocker は [ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573](../../issues/items/ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573.md) で追跡する。

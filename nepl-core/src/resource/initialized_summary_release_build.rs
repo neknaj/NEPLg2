@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::cell_state::{raw_address_suffix_after_address, CellTable};
+use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -35,6 +36,7 @@ pub(super) fn collect_param_release_requirements_from_ops(
     ops: &[ResourceOp],
 ) {
     let mut step_engine = summary_check_engine(engine);
+    let mut collection_slots = CollectionSlotStateTable::new();
     for op in ops {
         collect_param_release_requirements_from_op(
             out,
@@ -50,6 +52,7 @@ pub(super) fn collect_param_release_requirements_from_ops(
         );
         step_engine.check_ops(
             cells,
+            &mut collection_slots,
             raw_aliases,
             function_aliases,
             pending_reallocs,
@@ -213,6 +216,7 @@ fn collect_param_release_requirements_from_op(
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::Construct { .. }
         | ResourceOp::Expr { .. }
         | ResourceOp::EndScope { .. } => {}

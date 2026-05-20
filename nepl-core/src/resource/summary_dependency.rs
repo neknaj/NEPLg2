@@ -100,6 +100,7 @@ fn collect_op_summary_dependencies(op: &ResourceOp, out: &mut BTreeSet<String>) 
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::Construct { .. } => {}
     }
 }

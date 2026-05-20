@@ -158,6 +158,7 @@ pub enum ResourceDiagnosticCode {
     Move(ResourceMoveDiagnosticCode),
     Borrow(ResourceBorrowDiagnosticCode),
     Cell(ResourceCellDiagnosticCode),
+    CollectionSlot(ResourceCollectionSlotDiagnosticCode),
     Owner(ResourceOwnerDiagnosticCode),
     Raw(ResourceRawDiagnosticCode),
     Lower(ResourceLowerDiagnosticCode),
@@ -194,6 +195,16 @@ pub enum ResourceCellDiagnosticCode {
     Dropped,
     PossiblyMoved,
     InitializedConflict,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ResourceCollectionSlotDiagnosticCode {
+    Unavailable,
+    TypeMismatch,
+    LiveSlotOverwrite,
+    MaybeLiveSlotOverwrite,
+    LiveSlotDuringStorageDealloc,
+    MaybeLiveSlotDuringStorageDealloc,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -438,6 +449,24 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
         ResourceCellDiagnosticCode::InitializedConflict,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::Unavailable,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::TypeMismatch,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::LiveSlotOverwrite,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotDuringStorageDealloc,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
         ResourceOwnerDiagnosticCode::NoFreeObligation,
@@ -1014,6 +1043,7 @@ impl ResourceDiagnosticCode {
             ResourceDiagnosticCode::Move(code) => code.as_str(),
             ResourceDiagnosticCode::Borrow(code) => code.as_str(),
             ResourceDiagnosticCode::Cell(code) => code.as_str(),
+            ResourceDiagnosticCode::CollectionSlot(code) => code.as_str(),
             ResourceDiagnosticCode::Owner(code) => code.as_str(),
             ResourceDiagnosticCode::Raw(code) => code.as_str(),
             ResourceDiagnosticCode::Lower(code) => code.as_str(),
@@ -1025,6 +1055,7 @@ impl ResourceDiagnosticCode {
             ResourceDiagnosticCode::Move(code) => code.message(),
             ResourceDiagnosticCode::Borrow(code) => code.message(),
             ResourceDiagnosticCode::Cell(code) => code.message(),
+            ResourceDiagnosticCode::CollectionSlot(code) => code.message(),
             ResourceDiagnosticCode::Owner(code) => code.message(),
             ResourceDiagnosticCode::Raw(code) => code.message(),
             ResourceDiagnosticCode::Lower(code) => code.message(),
@@ -1129,6 +1160,54 @@ impl ResourceCellDiagnosticCode {
             ResourceCellDiagnosticCode::PossiblyMoved => "use of potentially moved resource cell",
             ResourceCellDiagnosticCode::InitializedConflict => {
                 "operation conflicts with initialized non-Copy resource cell"
+            }
+        }
+    }
+}
+
+impl ResourceCollectionSlotDiagnosticCode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            ResourceCollectionSlotDiagnosticCode::Unavailable => {
+                "resource.collection_slot.unavailable"
+            }
+            ResourceCollectionSlotDiagnosticCode::TypeMismatch => {
+                "resource.collection_slot.type_mismatch"
+            }
+            ResourceCollectionSlotDiagnosticCode::LiveSlotOverwrite => {
+                "resource.collection_slot.live_overwrite"
+            }
+            ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite => {
+                "resource.collection_slot.maybe_live_overwrite"
+            }
+            ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
+                "resource.collection_slot.live_during_storage_dealloc"
+            }
+            ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotDuringStorageDealloc => {
+                "resource.collection_slot.maybe_live_during_storage_dealloc"
+            }
+        }
+    }
+
+    const fn message(self) -> &'static str {
+        match self {
+            ResourceCollectionSlotDiagnosticCode::Unavailable => {
+                "collection slot lifecycle operation is unavailable for the current slot state"
+            }
+            ResourceCollectionSlotDiagnosticCode::TypeMismatch => {
+                "collection slot lifecycle operation found a different stored type"
+            }
+            ResourceCollectionSlotDiagnosticCode::LiveSlotOverwrite => {
+                "cannot overwrite a live collection slot"
+            }
+            ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite => {
+                "cannot overwrite a collection slot that may still be live"
+            }
+            ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
+                "cannot deallocate storage while a collection slot is still live"
+            }
+            ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotDuringStorageDealloc => {
+                "cannot deallocate storage while a collection slot may still be live"
             }
         }
     }

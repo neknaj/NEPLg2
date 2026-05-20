@@ -414,7 +414,10 @@ impl ResourceEffectBoundaryEngine<'_> {
                 let literal = Place::i32_constant(*value, *ty);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, &literal, output);
             }
-            ResourceOp::Expr { .. } | ResourceOp::Drop { .. } | ResourceOp::EndScope { .. } => {}
+            ResourceOp::Expr { .. }
+            | ResourceOp::Drop { .. }
+            | ResourceOp::EndScope { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. } => {}
         }
     }
 
@@ -470,6 +473,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             | ResourceOp::EndScope { .. }
             | ResourceOp::FunctionValue { .. }
             | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::Construct { .. } => {}
             ResourceOp::RawAddressAlias { kind, span, .. } => {
                 self.report_raw_address_alias_boundary_use(*kind, *span);

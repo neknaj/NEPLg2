@@ -7,6 +7,8 @@ use crate::diagnostic_codes::{
 };
 use crate::span::Span;
 
+use super::collection_slot_lifecycle::CollectionSlotLifecycleRefutation;
+use super::collection_slot_state_table::CollectionSlotStateEntry;
 use super::coverage::ResourceLoweringCoverage;
 use super::drop_model::ResourceDropPoint;
 use super::effect::ResourceEffectBoundaryReport;
@@ -14,6 +16,7 @@ use super::model::{
     BorrowState, BorrowStateEntry, CellState, CellStateEntry, OwnerState, OwnerStateEntry, Place,
     StorageId,
 };
+use super::report_collection_slot::resource_collection_slot_refutation_diagnostic_code;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceSafetyShadowReport {
@@ -59,6 +62,7 @@ pub struct ResourceCheckReport {
 pub struct ResourceFunctionCheck {
     pub name: String,
     pub final_cells: Vec<CellStateEntry>,
+    pub final_collection_slots: Vec<CollectionSlotStateEntry>,
     pub auto_drop_points: Vec<ResourceDropPoint>,
     pub deferred: ResourceCheckDeferred,
 }
@@ -77,6 +81,12 @@ pub enum ResourceCheckDiagnostic {
         operation: ResourceCheckOperation,
         place: Place,
         state: CellState,
+        span: Span,
+    },
+    CollectionSlotRefuted {
+        function: String,
+        target: Place,
+        reason: CollectionSlotLifecycleRefutation,
         span: Span,
     },
 }
@@ -122,6 +132,9 @@ impl ResourceCheckDiagnostic {
         match self {
             ResourceCheckDiagnostic::CellUnavailable { state, .. } => {
                 resource_cell_state_diagnostic_code(state)
+            }
+            ResourceCheckDiagnostic::CollectionSlotRefuted { reason, .. } => {
+                resource_collection_slot_refutation_diagnostic_code(*reason)
             }
         }
     }

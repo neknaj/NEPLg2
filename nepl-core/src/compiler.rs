@@ -605,6 +605,19 @@ fn resource_cell_diagnostic_to_error(
             ),
             *span,
         ),
+        crate::resource::ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function,
+            target,
+            reason,
+            span,
+        } => Diagnostic::error_with_code(
+            diagnostic.diagnostic_code(),
+            format!(
+                "resource ir collection slot lifecycle violation in function '{}': {:?} on {:?}",
+                function, reason, target
+            ),
+            *span,
+        ),
     }
 }
 

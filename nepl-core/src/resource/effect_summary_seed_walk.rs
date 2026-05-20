@@ -155,6 +155,9 @@ pub(super) fn collect_parameter_descendant_places(
                     push_parameter_descendant_place(places, parameter, &arm_aliases, &arm.value);
                 }
             }
+            ResourceOp::CollectionSlotLifecycle { target, .. } => {
+                push_parameter_descendant_place(places, parameter, aliases, target);
+            }
             ResourceOp::CallEffect { .. } => {}
         }
     }

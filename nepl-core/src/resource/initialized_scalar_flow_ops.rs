@@ -306,6 +306,8 @@ fn propagate_i32_scalar_op(
             raw_aliases.copy_alias_if_tracked(source, &target);
         }
         ResourceOp::Drop { place, .. } => raw_aliases.clear(place),
-        ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
+        ResourceOp::CallEffect { .. }
+        | ResourceOp::EndScope { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. } => {}
     }
 }

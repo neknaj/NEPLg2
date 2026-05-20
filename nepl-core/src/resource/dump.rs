@@ -328,6 +328,21 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 span.end
             );
         }
+        ResourceOp::CollectionSlotLifecycle {
+            target,
+            event,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "collection_slot_lifecycle {:?} {} span={}:{}-{}",
+                event,
+                dump_place(target),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
         ResourceOp::Construct {
             output,
             kind,

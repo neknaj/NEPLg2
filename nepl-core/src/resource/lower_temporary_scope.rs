@@ -54,7 +54,8 @@ fn push_copy_state_only_temporary_from_op(
         }
         ResourceOp::RawAddressAlias { target, .. }
         | ResourceOp::RawAddressView { target, .. }
-        | ResourceOp::StorageOrigin { target, .. } => {
+        | ResourceOp::StorageOrigin { target, .. }
+        | ResourceOp::CollectionSlotLifecycle { target, .. } => {
             push_copy_state_only_temporary(types, target, temporaries);
         }
         ResourceOp::Branch { output, .. } | ResourceOp::Match { output, .. } => {

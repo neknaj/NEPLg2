@@ -15,9 +15,10 @@ use nepl_core::resource::{
     compute_resource_drop_elaboration_plan, compute_resource_drop_plan, lower_hir_module,
     lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
     resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
-    BorrowKind, BorrowState, CellState, EffectOp, ExternalIoOp, NondetOp, OwnerState, Place,
-    PlaceProjection, PlaceRoot, RawAddressAliasKind, RawAddressViewKind, RawMemoryOp,
-    ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
+    BorrowKind, BorrowState, CellState, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
+    CollectionSlotLifecycleRefutation, CollectionSlotState, EffectOp, ExternalIoOp, NondetOp,
+    OwnerState, Place, PlaceProjection, PlaceRoot, RawAddressAliasKind, RawAddressViewKind,
+    RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
     ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
     ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact,
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
@@ -2864,6 +2865,7 @@ fn main <()->i32> ():
                     || function.starts_with("get_op")
                     || function.starts_with("main")
             }
+            ResourceCheckDiagnostic::CollectionSlotRefuted { .. } => false,
         })
         .collect::<Vec<_>>();
     assert_eq!(callable_diagnostics, Vec::<&ResourceCheckDiagnostic>::new());
@@ -6137,6 +6139,7 @@ fn resource_ir_drop_elaboration_plan_rejects_missing_source_binding() {
         functions: vec![ResourceFunctionCheck {
             name: "main".to_string(),
             final_cells: vec![],
+            final_collection_slots: vec![],
             auto_drop_points: vec![ResourceDropPoint {
                 path: path.clone(),
                 span,
@@ -22870,6 +22873,7 @@ fn main <()->i32> ():
             ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
                 function.starts_with("main__")
             }
+            ResourceCheckDiagnostic::CollectionSlotRefuted { .. } => false,
         })
         .collect::<Vec<_>>();
     assert!(
@@ -22909,6 +22913,7 @@ fn main <()->i32> ():
             ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
                 function.starts_with("main__")
             }
+            ResourceCheckDiagnostic::CollectionSlotRefuted { .. } => false,
         })
         .collect::<Vec<_>>();
     assert!(
@@ -23078,6 +23083,151 @@ fn main <()->i32> ():
         "non-literal raw address helper offset must remain conservative:\nresource:\n{}",
         resource.dump_text()
     );
+}
+
+#[test]
+fn resource_ir_collection_slot_rejects_double_move() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let slot = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let resource = manual_resource_module(
+        types.unit(),
+        span,
+        vec![
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot,
+            reason: CollectionSlotLifecycleRefutation::Unavailable {
+                operation: CollectionSlotLifecycleOp::MoveOut,
+                state: CollectionSlotState::Moved(owned_ty),
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_merges_branch_liveness_before_storage_dealloc() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let i32_ty = types.i32();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let slot = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let condition = Place::temporary(ResourceId(600), i32_ty);
+    let output = Place::temporary(ResourceId(601), unit_ty);
+    let then_value = Place::temporary(ResourceId(602), unit_ty);
+    let else_value = Place::temporary(ResourceId(603), unit_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(1),
+                output: condition.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Branch {
+                output,
+                condition,
+                condition_fact: None,
+                then_ops: vec![
+                    ResourceOp::CollectionSlotLifecycle {
+                        target: slot.clone(),
+                        event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                        span,
+                    },
+                    ResourceOp::CollectionSlotLifecycle {
+                        target: slot.clone(),
+                        event: CollectionSlotLifecycleEvent::MoveOut {
+                            expected_ty: owned_ty,
+                        },
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: then_value.clone(),
+                        ty: unit_ty,
+                        span,
+                    },
+                ],
+                then_value,
+                else_ops: vec![
+                    ResourceOp::CollectionSlotLifecycle {
+                        target: slot.clone(),
+                        event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: else_value.clone(),
+                        ty: unit_ty,
+                        span,
+                    },
+                ],
+                else_value,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(matches!(
+        report.diagnostics.as_slice(),
+        [ResourceCheckDiagnostic::CollectionSlotRefuted {
+            target,
+            reason:
+                CollectionSlotLifecycleRefutation::MaybeLiveSlotDuringStorageDealloc {
+                    slot_ty: Some(found_ty),
+                },
+            ..
+        }] if *target == slot && *found_ty == owned_ty
+    ));
+    assert!(report.functions[0]
+        .final_collection_slots
+        .iter()
+        .any(|entry| entry.slot == slot
+            && entry.state == CollectionSlotState::MaybeInitialized(Some(owned_ty))));
 }
 
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {

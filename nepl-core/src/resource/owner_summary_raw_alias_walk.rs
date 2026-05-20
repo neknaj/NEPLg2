@@ -127,7 +127,8 @@ pub(super) fn collect_raw_owner_aliases_with_views(
             | ResourceOp::FunctionValue { .. }
             | ResourceOp::IndirectCall { .. }
             | ResourceOp::RawMemory { .. }
-            | ResourceOp::StorageOrigin { .. } => {}
+            | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. } => {}
             ResourceOp::Call {
                 output,
                 target,

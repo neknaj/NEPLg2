@@ -199,6 +199,7 @@ fn resource_op_uses_place(op: &ResourceOp, place: &Place) -> bool {
         }
         ResourceOp::CallEffect { .. } => false,
         ResourceOp::StorageOrigin { target, .. } => place_mentions_token(target, place),
+        ResourceOp::CollectionSlotLifecycle { target, .. } => place_mentions_token(target, place),
         ResourceOp::RawMemory { output, args, .. } => {
             place_mentions_token(output, place)
                 || args.iter().any(|arg| place_mentions_token(arg, place))

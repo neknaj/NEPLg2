@@ -380,7 +380,8 @@ impl ResourceBorrowCheckEngine<'_> {
             | ResourceOp::RawMemory { .. }
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
-            | ResourceOp::StorageOrigin { .. } => {}
+            | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. } => {}
             ResourceOp::Construct {
                 output,
                 kind,

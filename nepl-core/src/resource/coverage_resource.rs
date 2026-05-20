@@ -477,6 +477,16 @@ fn resource_ops_coverage(
                     diagnostics,
                 );
             }
+            ResourceOp::CollectionSlotLifecycle { target, span, .. } => {
+                resource_alias_place_coverage(
+                    function,
+                    CoveragePlaceOp::CollectionSlotLifecycleTarget,
+                    target,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+            }
             ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
         }
     }

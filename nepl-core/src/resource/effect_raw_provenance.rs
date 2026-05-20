@@ -119,6 +119,7 @@ fn ops_contain_checked_mem_ptr_access(ops: &[ResourceOp], types: &TypeCtx) -> bo
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
             | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

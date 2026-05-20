@@ -100,6 +100,7 @@ fn collect_source_bindings_from_ops(
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
             | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }
