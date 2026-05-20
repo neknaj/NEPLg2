@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T08:36:30.950Z",
+  "generated_at": "2026-05-20T08:58:01.203Z",
   "counts": {
-    "total": 1108,
+    "total": 1109,
     "open": 4,
-    "resolved": 1104,
+    "resolved": 1105,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 530,
+        "total": 531,
         "open": 0,
-        "resolved": 530
+        "resolved": 531
       },
       "CORE": {
         "total": 5,
@@ -8098,6 +8098,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9.md"
+    },
+    {
+      "id": "ISS-20260520T085512257Z-OVERLOAD-EXPECTED-RESULT-PRUNING-REJ-28A631E9",
+      "title": "overload expected-result pruning rejects unresolved expectation variables",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/typecheck/overload_selection.rs, nepl-core/src/typecheck/type_expectation.rs, nepl-core/tests/overload.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T085512257Z-OVERLOAD-EXPECTED-RESULT-PRUNING-REJ-28A631E9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

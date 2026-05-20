@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::ast::Effect;
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
-use crate::types::{TypeId, TypeKind};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::binding_rules::function_user_param_specificity;
 use super::diagnostics::type_error;
@@ -211,6 +211,16 @@ impl OverloadAmbiguityReason {
     }
 }
 
+fn result_may_satisfy_expectation(
+    ctx: &TypeCtx,
+    declared_result: TypeId,
+    expectation: TypeExpectation,
+) -> bool {
+    let expected = expectation.target();
+    ctx.type_pattern_matches(declared_result, expected)
+        || ctx.type_pattern_matches(expected, declared_result)
+}
+
 impl<'a> BlockChecker<'a> {
     pub(super) fn select_overload_candidate(
         &mut self,
@@ -303,7 +313,7 @@ impl<'a> BlockChecker<'a> {
             }
             if use_expected && explicit_type_args.is_empty() {
                 if let Some(expectation) = expected_ret {
-                    if !self.ctx.type_pattern_matches(result, expectation.target()) {
+                    if !result_may_satisfy_expectation(self.ctx, result, expectation) {
                         if crate::log::is_verbose() {
                             overload_selection_log!(
                                 "overload debug: skip '{}' candidate {} reason=declared_expected_ret result={} expected={}",
