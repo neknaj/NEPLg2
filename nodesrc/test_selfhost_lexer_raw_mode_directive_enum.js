@@ -6,7 +6,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const lexerPath = "stdlib/neplg2/core/syntax/lexer.nepl";
+const lexerPaths = [
+    "stdlib/neplg2/core/syntax/lexer.nepl",
+    "stdlib/neplg2/core/syntax/lexer/raw_mode.nepl",
+    "stdlib/neplg2/core/syntax/lexer/directive.nepl",
+    "stdlib/neplg2/core/syntax/lexer/indent.nepl",
+    "stdlib/neplg2/core/syntax/lexer/tokenize.nepl",
+];
 
 function read(rel) {
     return fs.readFileSync(path.join(repoRoot, rel), "utf8").replace(/\r\n/g, "\n");
@@ -67,7 +73,7 @@ function assertFunctionCoversEnum(src, functionName, enumName, variants) {
     }
 }
 
-const lexer = read(lexerPath);
+const lexer = lexerPaths.map(read).join("\n");
 const lexerCode = lexer
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))

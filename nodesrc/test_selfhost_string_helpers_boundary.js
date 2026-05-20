@@ -14,7 +14,12 @@ const stringSrc = read('stdlib/alloc/string.nepl');
 const stringSearchSrc = read('stdlib/alloc/string/search.nepl');
 const stringSearchCompareSrc = read('stdlib/alloc/string/search/compare.nepl');
 const tokenSrc = read('stdlib/neplg2/core/syntax/token.nepl');
-const lexerSrc = read('stdlib/neplg2/core/syntax/lexer.nepl');
+const lexerSrc = [
+    'stdlib/neplg2/core/syntax/lexer.nepl',
+    'stdlib/neplg2/core/syntax/lexer/indent.nepl',
+    'stdlib/neplg2/core/syntax/lexer/directive.nepl',
+    'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
+].map(read).join('\n');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
 const moduleGraphSrc = read('stdlib/neplg2/core/module/graph.nepl');
 const stdlibMapSrc = read('stdlib/neplg2/core/module/stdlib_map.nepl');

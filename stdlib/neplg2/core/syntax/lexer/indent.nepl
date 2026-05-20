@@ -1,0 +1,190 @@
+#indent 4
+
+//: # lexer/indent
+//: offside rule と indent stack の helper を[定義/ていぎ]します。
+
+#import "alloc/collections/vec" as *
+#import "alloc/string/access" as string_access
+#import "alloc/string/search" as string_search
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/lexer/byte" as *
+#import "neplg2/core/syntax/lexer/diagnostic" as *
+
+pub fn lex_line_indent_width <(str,i32,i32,i32,i32)->i32> (source, n, idx, indent_unit, width):
+    if:
+        ge idx n
+        then:
+            width
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            match ch:
+                ' ':
+                    lex_line_indent_width source n add idx 1 indent_unit add width 1
+                '\t':
+                    lex_line_indent_width source n add idx 1 indent_unit add width indent_unit
+                '\r':
+                    lex_line_indent_width source n add idx 1 indent_unit width
+                _:
+                    width
+
+//: lex_line_content_start: line start から最初の非 horizontal whitespace offset を[返/かえ]す
+pub fn lex_line_content_start <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            match ch:
+                ' ':
+                    lex_line_content_start source n add idx 1
+                '\t':
+                    lex_line_content_start source n add idx 1
+                '\r':
+                    lex_line_content_start source n add idx 1
+                _:
+                    idx
+
+//: lex_line_end: 現在行の newline 直前、または EOF offset を[返/かえ]す
+pub fn lex_line_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            match ch:
+                '\n':
+                    idx
+                _:
+                    lex_line_end source n add idx 1
+
+//: lex_line_is_blank_or_comment: offside stack を[変/か]えない行か[返/かえ]す
+pub fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_start):
+    if:
+        ge content_start n
+        then:
+            true
+        else:
+            let ch <i32> lex_byte_or_end source content_start
+            match ch:
+                '\n':
+                    true
+                '/':
+                    if:
+                        lt add content_start 1 n
+                        then:
+                            eq lex_byte_or_end source add content_start 1 '/'
+                        else:
+                            false
+                _:
+                    false
+
+//: lex_directive_boundary: `#indent` の後続 byte が directive 境界か[返/かえ]す
+pub fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            true
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            match ch:
+                ' ':
+                    true
+                '\t':
+                    true
+                '\r':
+                    true
+                '\n':
+                    true
+                ':':
+                    true
+                _:
+                    false
+
+//: lex_starts_with_indent_directive: line content が `#indent` で[始/はじ]まるか[返/かえ]す
+pub fn lex_starts_with_indent_directive <(str,i32,i32)->bool> (source, n, start):
+    let directive <str> "#indent"
+    let directive_len <i32> string_access::len directive
+    and string_search::str_starts_with_at source start directive lex_directive_boundary source n add start directive_len
+
+//: lex_skip_horizontal: 同じ行の horizontal whitespace を[読/よ]み[飛/と]ばす
+pub fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            match ch:
+                ' ':
+                    lex_skip_horizontal source n add idx 1
+                '\t':
+                    lex_skip_horizontal source n add idx 1
+                '\r':
+                    lex_skip_horizontal source n add idx 1
+                _:
+                    idx
+
+//: lex_parse_indent_digits: `#indent` の数値引数を[読/よ]む
+pub fn lex_parse_indent_digits <(str,i32,i32,i32,bool)->i32> (source, n, idx, acc, seen):
+    if:
+        ge idx n
+        then:
+            if seen acc -1
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            if:
+                lex_is_digit ch
+                then:
+                    let digit <i32> sub ch '0'
+                    lex_parse_indent_digits source n add idx 1 add mul acc 10 digit true
+                else:
+                    if seen acc -1
+
+//: lex_indent_directive_unit: `#indent N` があれば offside 幅を[更新/こうしん]する
+pub fn lex_indent_directive_unit <(str,i32,i32,i32)->i32> (source, n, content_start, current_unit):
+    if:
+        lex_starts_with_indent_directive source n content_start
+        then:
+            let arg_start <i32> lex_skip_horizontal source n add content_start 7
+            let parsed <i32> lex_parse_indent_digits source n arg_start 0 false
+            if:
+                lt parsed 1
+                then:
+                    current_unit
+                else:
+                    parsed
+        else:
+            current_unit
+
+//: lex_stack_top_result: indent stack の末尾を[読/よ]む
+pub fn lex_stack_top_result <(&Vec<i32>,i32,i32)->Result<i32,LexDiagnostic>> (stack, file_id, offset):
+    let stack_len <i32> len<i32> stack
+    if:
+        le stack_len 0
+        then:
+            Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack is empty"
+        else:
+            match get<i32> stack sub stack_len 1:
+                Option::Some top:
+                    Result<i32,LexDiagnostic>::Ok top
+                Option::None:
+                    Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack top is unavailable"
+
+//: lex_stack_drop_top: indent stack の末尾 level を[捨/す]てた Vec を[返/かえ]す
+pub fn lex_stack_drop_top <(Vec<i32>)->Vec<i32>> (stack):
+    drop_last<i32> stack
+
+//: lex_indent_aligned: indent 幅が offside unit に[揃/そろ]っているか[返/かえ]す
+pub fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):
+    if:
+        le indent_unit 0
+        then:
+            true
+        else:
+            eq rem_s indent_width indent_unit 0

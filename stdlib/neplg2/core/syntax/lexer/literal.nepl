@@ -1,0 +1,120 @@
+#indent 4
+
+//: # lexer/literal
+//: numeric / string / char literal の終端走査を[定義/ていぎ]します。
+
+#import "core/math" as *
+#import "neplg2/core/syntax/lexer/byte" as *
+
+pub fn lex_is_hex_digit <(i32)->bool> (ch):
+    let digit <bool> lex_is_digit ch
+    let lower <bool> and ge ch 'a' le ch 'f'
+    let upper <bool> and ge ch 'A' le ch 'F'
+    or digit or lower upper
+
+//: lex_hex_int_end: hexadecimal integer literal の end offset を[返/かえ]す
+pub fn lex_hex_int_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            if:
+                lex_is_hex_digit ch
+                then:
+                    lex_hex_int_end source n add idx 1
+                else:
+                    idx
+
+//: lex_number_end_loop: decimal integer / float literal の end offset を[返/かえ]す
+pub fn lex_number_end_loop <(str,i32,i32,bool)->i32> (source, n, idx, seen_dot):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            if:
+                lex_is_digit ch
+                then:
+                    lex_number_end_loop source n add idx 1 seen_dot
+                else:
+                    match ch:
+                        '.':
+                            if:
+                                seen_dot
+                                then:
+                                    idx
+                                else:
+                                    lex_number_end_loop source n add idx 1 true
+                        _:
+                            idx
+
+//: lex_range_has_dot: byte range に `.` が含まれるか[返/かえ]す
+pub fn lex_range_has_dot <(str,i32,i32)->bool> (source, idx, end):
+    if:
+        ge idx end
+        then:
+            false
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            if:
+                eq ch '.'
+                then:
+                    true
+                else:
+                    lex_range_has_dot source add idx 1 end
+
+//: lex_string_end: closing quote の offset を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - 見つからない場合は -1 を[返/かえ]します。
+//: - `\"` は string 内の escaped quote として[扱/あつか]います。
+pub fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            -1
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            match ch:
+                '"':
+                    idx
+                '\\':
+                    if:
+                        ge add idx 1 n
+                        then:
+                            -1
+                        else:
+                            lex_string_end source n add idx 2
+                _:
+                    lex_string_end source n add idx 1
+
+//: lex_char_end: char literal の closing quote offset を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - 見つからない場合は -1 を[返/かえ]します。
+//: - `\'` は char 内の escaped quote として[扱/あつか]います。
+//: - 1 scalar かどうかの検査は parser / literal lowering の責務です。
+pub fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            -1
+        else:
+            let ch <i32> lex_byte_or_end source idx
+            match ch:
+                '\'':
+                    idx
+                '\\':
+                    if:
+                        ge add idx 1 n
+                        then:
+                            -1
+                        else:
+                            lex_char_end source n add idx 2
+                '\n':
+                    -1
+                _:
+                    lex_char_end source n add idx 1

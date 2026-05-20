@@ -153,49 +153,49 @@ assertHasLiteralMatch({
 });
 
 assertLiteralMatch({
-    file: 'stdlib/neplg2/core/syntax/lexer.nepl',
+    file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind',
     scrutinee: 'string_access::len lexeme',
     literals: [2, 3, 4, 5, 6, 8],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/core/syntax/lexer.nepl',
+    file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len2',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
     literals: [26222, 26982, 25711],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/core/syntax/lexer.nepl',
+    file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len3',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
     literals: [27749, 28021, 29541, 26223, 28789],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/core/syntax/lexer.nepl',
+    file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len4',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
     literals: [25455, 29800, 25964, 25966, 26989, 29810],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/core/syntax/lexer.nepl',
+    file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len5',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
     literals: [30568, 28001, 25196, 21621, 28012, 26209],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/core/syntax/lexer.nepl',
+    file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len6',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
     literals: [29556, 29810],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/core/syntax/lexer.nepl',
+    file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len8',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
     literals: [28271],
