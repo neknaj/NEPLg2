@@ -43039,3 +43039,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js index`: passed
   - `node nodesrc/issues.js check`: passed
   - `git diff --check`: passed
+
+## 2026-05-20 Agent 1 self-host proof file split
+
+- `ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、Stage 6 proof architecture の拡張で `core/proof/solver.nepl`、`query.nepl`、`fact.nepl`、`api.nepl` が proof domain / evidence / refutation / projection / rule を抱え込み、Rust 側の flat 巨大 file と同じ監査困難な構造へ戻り始めていたことだった。
+- `fact.nepl`、`query.nepl`、`solver.nepl`、`api.nepl` は実装を持たない facade にした。実装は `proof/domain.nepl`、`proof/fact/model.nepl`、`proof/evidence.nepl`、`proof/refutation.nepl`、`proof/query/model.nepl`、`proof/solver/*`、`proof/api/*` に分割した。
+- generic proof engine は弱めていない。`proof/solver/dispatch.nepl` が `SelfhostProofQuery -> SelfhostProofResult` の public entry、domain precheck、exhaustive dispatch を持ち、rule module は dispatch から呼ばれる同一 proof system の一部に留めた。
+- `nodesrc/test_selfhost_proof_entry_contract.js` は、facade が薄いこと、分割後 file size が閾値内であること、solver facade から公開される entry が generic solver だけであること、rule module の public surface が dispatch entry に限定されること、API wrapper が generic solver を経由することを監視するようにした。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-file-split-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-proof-file-split-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-file-split-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed

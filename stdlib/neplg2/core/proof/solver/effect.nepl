@@ -1,0 +1,75 @@
+#indent 4
+
+//: # proof/solver/effect
+//: effect boundary の proof rule を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - pure / impure / unsafe boundary の許可を typed effect observation と context から導出します。
+
+#import "neplg2/core/proof/fact" as *
+#import "neplg2/core/proof/query" as *
+#import "neplg2/core/ty/effect" as *
+
+fn selfhost_proof_effect_allowed_result <(SelfhostEffectContext)->SelfhostProofResult> (context):
+    selfhost_proof_result_proven SelfhostProofEvidence::EffectAllowed context
+
+fn selfhost_proof_effect_invalid <(SelfhostEffectObservationFact,SelfhostEffectContext,SelfhostEffectBoundaryError)->SelfhostProofResult> (fact, context, reason):
+    selfhost_proof_result_refuted SelfhostProofRefutation::EffectBoundaryInvalid selfhost_effect_boundary_issue_new fact.effect fact.escape context fact.span reason
+
+fn selfhost_proof_internal_alloc_allowed <(SelfhostEffectObservationFact,SelfhostEffectContext)->SelfhostProofResult> (fact, context):
+    match fact.escape:
+        SelfhostEffectEscapeState::NoEscapeProven:
+            selfhost_proof_effect_allowed_result context
+        SelfhostEffectEscapeState::NotApplicable:
+            selfhost_proof_effect_invalid fact context SelfhostEffectBoundaryError::InternalAllocEscapeNotProven
+        SelfhostEffectEscapeState::MayEscape:
+            selfhost_proof_effect_invalid fact context SelfhostEffectBoundaryError::InternalAllocEscapeNotProven
+
+fn selfhost_proof_solve_effect_pure_context <(SelfhostEffectObservationFact)->SelfhostProofResult> (fact):
+    match fact.effect:
+        SelfhostEffectKind::Pure:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::PureContext
+        SelfhostEffectKind::InternalAlloc:
+            selfhost_proof_internal_alloc_allowed fact SelfhostEffectContext::PureContext
+        SelfhostEffectKind::UnsafeMemory:
+            selfhost_proof_effect_invalid fact SelfhostEffectContext::PureContext SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary
+        SelfhostEffectKind::ExternalIo:
+            selfhost_proof_effect_invalid fact SelfhostEffectContext::PureContext SelfhostEffectBoundaryError::ImpureEffectInPureContext
+        SelfhostEffectKind::Nondet:
+            selfhost_proof_effect_invalid fact SelfhostEffectContext::PureContext SelfhostEffectBoundaryError::ImpureEffectInPureContext
+
+fn selfhost_proof_solve_effect_impure_context <(SelfhostEffectObservationFact)->SelfhostProofResult> (fact):
+    match fact.effect:
+        SelfhostEffectKind::Pure:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::ImpureContext
+        SelfhostEffectKind::InternalAlloc:
+            selfhost_proof_internal_alloc_allowed fact SelfhostEffectContext::ImpureContext
+        SelfhostEffectKind::UnsafeMemory:
+            selfhost_proof_effect_invalid fact SelfhostEffectContext::ImpureContext SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary
+        SelfhostEffectKind::ExternalIo:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::ImpureContext
+        SelfhostEffectKind::Nondet:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::ImpureContext
+
+fn selfhost_proof_solve_effect_unsafe_boundary <(SelfhostEffectObservationFact)->SelfhostProofResult> (fact):
+    match fact.effect:
+        SelfhostEffectKind::Pure:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
+        SelfhostEffectKind::InternalAlloc:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
+        SelfhostEffectKind::UnsafeMemory:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
+        SelfhostEffectKind::ExternalIo:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
+        SelfhostEffectKind::Nondet:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
+
+//: selfhost_proof_solve_effect_allowed: effect boundary obligation を[解/と]く
+pub fn selfhost_proof_solve_effect_allowed <(SelfhostEffectObservationFact,SelfhostEffectContext)->SelfhostProofResult> (fact, context):
+    match context:
+        SelfhostEffectContext::PureContext:
+            selfhost_proof_solve_effect_pure_context fact
+        SelfhostEffectContext::ImpureContext:
+            selfhost_proof_solve_effect_impure_context fact
+        SelfhostEffectContext::UnsafeBoundary:
+            selfhost_proof_solve_effect_unsafe_boundary fact

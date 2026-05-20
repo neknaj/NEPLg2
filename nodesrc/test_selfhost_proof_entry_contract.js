@@ -28,11 +28,39 @@ function functionBlock(src, name) {
 }
 
 const proofFacade = read("stdlib/neplg2/core/proof.nepl");
-const proofFact = read("stdlib/neplg2/core/proof/fact.nepl");
+const proofFactFacade = read("stdlib/neplg2/core/proof/fact.nepl");
+const proofDomain = read("stdlib/neplg2/core/proof/domain.nepl");
+const proofFactModel = read("stdlib/neplg2/core/proof/fact/model.nepl");
 const proofObligation = read("stdlib/neplg2/core/proof/obligation.nepl");
-const proofQuery = read("stdlib/neplg2/core/proof/query.nepl");
-const proofSolver = read("stdlib/neplg2/core/proof/solver.nepl");
-const proofApi = read("stdlib/neplg2/core/proof/api.nepl");
+const proofQueryFacade = read("stdlib/neplg2/core/proof/query.nepl");
+const proofEvidence = read("stdlib/neplg2/core/proof/evidence.nepl");
+const proofRefutation = read("stdlib/neplg2/core/proof/refutation.nepl");
+const proofQueryModel = read("stdlib/neplg2/core/proof/query/model.nepl");
+const proofSolverFacade = read("stdlib/neplg2/core/proof/solver.nepl");
+const proofSolverDispatch = read("stdlib/neplg2/core/proof/solver/dispatch.nepl");
+const proofSolverSource = read("stdlib/neplg2/core/proof/solver/source.nepl");
+const proofSolverModule = read("stdlib/neplg2/core/proof/solver/module.nepl");
+const proofSolverResource = read("stdlib/neplg2/core/proof/solver/resource.nepl");
+const proofSolverType = read("stdlib/neplg2/core/proof/solver/type.nepl");
+const proofSolverEffect = read("stdlib/neplg2/core/proof/solver/effect.nepl");
+const proofApiFacade = read("stdlib/neplg2/core/proof/api.nepl");
+const proofApiSource = read("stdlib/neplg2/core/proof/api/source.nepl");
+const proofApiModule = read("stdlib/neplg2/core/proof/api/module.nepl");
+const proofApiResource = read("stdlib/neplg2/core/proof/api/resource.nepl");
+const proofApiType = read("stdlib/neplg2/core/proof/api/type.nepl");
+const proofApiEffect = read("stdlib/neplg2/core/proof/api/effect.nepl");
+const proofFact = `${proofFactFacade}\n${proofDomain}\n${proofFactModel}`;
+const proofQuery = `${proofQueryFacade}\n${proofEvidence}\n${proofRefutation}\n${proofQueryModel}`;
+const proofSolverRules = [
+    proofSolverSource,
+    proofSolverModule,
+    proofSolverResource,
+    proofSolverType,
+    proofSolverEffect,
+].join("\n");
+const proofSolver = `${proofSolverFacade}\n${proofSolverDispatch}\n${proofSolverRules}`;
+const proofApiImpl = [proofApiSource, proofApiModule, proofApiResource, proofApiType, proofApiEffect].join("\n");
+const proofApi = `${proofApiFacade}\n${proofApiImpl}`;
 const moduleChecker = read("stdlib/neplg2/core/check/module.nepl");
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
 const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
@@ -45,6 +73,45 @@ assert.match(proofFacade, /pub #import "\.\/proof\/obligation" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/query" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/solver" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/api" as \*/);
+assert.match(proofFactFacade, /pub #import "\.\/domain" as \*/);
+assert.match(proofFactFacade, /pub #import "\.\/fact\/model" as \*/);
+assert.match(proofQueryFacade, /pub #import "\.\/evidence" as \*/);
+assert.match(proofQueryFacade, /pub #import "\.\/refutation" as \*/);
+assert.match(proofQueryFacade, /pub #import "\.\/query\/model" as \*/);
+assert.match(proofSolverFacade, /pub #import "\.\/solver\/dispatch" as \*/);
+assert.match(proofApiFacade, /pub #import "\.\/api\/source" as \*/);
+assert.match(proofApiFacade, /pub #import "\.\/api\/module" as \*/);
+assert.match(proofApiFacade, /pub #import "\.\/api\/resource" as \*/);
+assert.match(proofApiFacade, /pub #import "\.\/api\/type" as \*/);
+assert.match(proofApiFacade, /pub #import "\.\/api\/effect" as \*/);
+for (const [name, src] of [
+    ["proof/fact.nepl", proofFactFacade],
+    ["proof/query.nepl", proofQueryFacade],
+    ["proof/solver.nepl", proofSolverFacade],
+    ["proof/api.nepl", proofApiFacade],
+]) {
+    assert.doesNotMatch(src, /^(?:pub\s+)?(?:fn|struct|enum)\s+/m, `${name} must stay an implementation-free facade`);
+}
+for (const [name, src] of [
+    ["proof/domain.nepl", proofDomain],
+    ["proof/fact/model.nepl", proofFactModel],
+    ["proof/evidence.nepl", proofEvidence],
+    ["proof/refutation.nepl", proofRefutation],
+    ["proof/query/model.nepl", proofQueryModel],
+    ["proof/solver/dispatch.nepl", proofSolverDispatch],
+    ["proof/solver/source.nepl", proofSolverSource],
+    ["proof/solver/module.nepl", proofSolverModule],
+    ["proof/solver/resource.nepl", proofSolverResource],
+    ["proof/solver/type.nepl", proofSolverType],
+    ["proof/solver/effect.nepl", proofSolverEffect],
+    ["proof/api/source.nepl", proofApiSource],
+    ["proof/api/module.nepl", proofApiModule],
+    ["proof/api/resource.nepl", proofApiResource],
+    ["proof/api/type.nepl", proofApiType],
+    ["proof/api/effect.nepl", proofApiEffect],
+]) {
+    assert.ok(src.split("\n").length <= 450, `${name} must remain below the proof split threshold`);
+}
 
 assert.match(proofFact, /pub enum SelfhostProofDomain:/, "proof domain must be a typed enum");
 assert.match(proofFact, /pub enum SelfhostProofFact:/, "proof facts must be typed enum payloads");
@@ -279,15 +346,32 @@ const evidenceKindBlock = functionBlock(proofQuery, "selfhost_proof_evidence_kin
 const obligationEvidenceKindBlock = functionBlock(proofQuery, "selfhost_proof_obligation_evidence_kind");
 const traitRelationBlock = functionBlock(traitRef, "selfhost_trait_impl_relation");
 const publicSolverFunctions = Array.from(
-    proofSolver.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
+    proofSolverDispatch.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
+    (match) => match[1],
+);
+const publicRuleFunctions = Array.from(
+    proofSolverRules.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
     (match) => match[1],
 );
 const publicApiFunctions = Array.from(
-    proofApi.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
+    proofApiImpl.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
     (match) => match[1],
 );
 const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_solve",
+]);
+const allowedPublicRuleFunctions = new Set([
+    "selfhost_proof_solve_source_span_valid",
+    "selfhost_proof_solve_raw_backend_transition",
+    "selfhost_proof_solve_module_directive_transition",
+    "selfhost_proof_solve_module_declaration_header",
+    "selfhost_proof_solve_resource_cell_transition",
+    "selfhost_proof_solve_owner_transition",
+    "selfhost_proof_solve_borrow_access",
+    "selfhost_proof_solve_lifetime_outlives",
+    "selfhost_proof_solve_type_kind_compatible",
+    "selfhost_proof_solve_trait_impl_non_overlapping",
+    "selfhost_proof_solve_effect_allowed",
 ]);
 const allowedPublicApiFunctions = new Set([
     "selfhost_proof_source_span_valid",
@@ -310,6 +394,15 @@ for (const fnName of publicSolverFunctions) {
 }
 for (const fnName of allowedPublicSolverFunctions) {
     assert.ok(publicSolverFunctions.includes(fnName), `proof solver public API must expose ${fnName}`);
+}
+for (const fnName of publicRuleFunctions) {
+    assert.ok(
+        allowedPublicRuleFunctions.has(fnName),
+        `proof solver rule modules must expose only dispatch entry rules, got ${fnName}`,
+    );
+}
+for (const fnName of allowedPublicRuleFunctions) {
+    assert.ok(publicRuleFunctions.includes(fnName), `proof solver rule module must expose ${fnName}`);
 }
 for (const fnName of publicApiFunctions) {
     assert.ok(allowedPublicApiFunctions.has(fnName), `proof api must expose only typed proof wrappers, got ${fnName}`);
@@ -414,52 +507,52 @@ assert.match(
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_raw_backend_transition\b[\s\S]*match\s+state:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_raw_backend_transition\b[\s\S]*match\s+state:/,
     "raw backend state transitions must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_module_directive_transition\b[\s\S]*match\s+state:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_module_directive_transition\b[\s\S]*match\s+state:/,
     "module directive singleton transitions must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_module_declaration_header\b[\s\S]*match\s+fact\.declaration:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_module_declaration_header\b[\s\S]*match\s+fact\.declaration:/,
     "declaration header availability must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_resource_cell_transition\b[\s\S]*match\s+state:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_resource_cell_transition\b[\s\S]*match\s+state:/,
     "resource cell transitions must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_owner_transition\b[\s\S]*match\s+state:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_owner_transition\b[\s\S]*match\s+state:/,
     "owner obligation transitions must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_borrow_access\b[\s\S]*match\s+state:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_borrow_access\b[\s\S]*match\s+state:/,
     "borrow access transitions must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_lifetime_outlives\b[\s\S]*SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_lifetime_outlives\b[\s\S]*SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch/,
     "lifetime outlives checks must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_effect_allowed\b[\s\S]*match\s+context:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_effect_allowed\b[\s\S]*match\s+context:/,
     "effect boundary checks must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_type_kind_compatible\b[\s\S]*selfhost_type_kind_eq/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_type_kind_compatible\b[\s\S]*selfhost_type_kind_eq/,
     "type kind compatibility must live in the proof solver",
 );
 assert.match(
     proofSolver,
-    /(?:^|\n)fn\s+selfhost_proof_solve_trait_impl_non_overlapping\b[\s\S]*match\s+fact\.relation:/,
+    /(?:^|\n)(?:pub\s+)?fn\s+selfhost_proof_solve_trait_impl_non_overlapping\b[\s\S]*match\s+fact\.relation:/,
     "trait impl coherence must live in the proof solver",
 );
 assert.match(

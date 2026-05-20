@@ -100,14 +100,34 @@ Rust 側も 2026-05-20 時点で `parser.rs` 4,044 行、`codegen_llvm.rs` 3,847
 - `proof/obligation/*`: fact と同じ domain 分割の obligation payload。
 - `proof/evidence/*`: success evidence と evidence kind。API projection が payload を直接潰さないようにする。
 - `proof/refutation/*`: mismatch、unexpected evidence、domain-specific failure payload。
-- `proof/solver/entry.nepl`: public `SelfhostProofQuery -> SelfhostProofResult` entry と domain precheck。
-- `proof/solver/dispatch.nepl`: fact / obligation の domain が一致した後の exhaustive dispatch。
-- `proof/solver/rules/*`: source、module、type、trait、lifetime、resource、owner、borrow、effect などの proof rule。rule は private に保ち、public API を増やさない。
+- `proof/solver/dispatch.nepl`: public `SelfhostProofQuery -> SelfhostProofResult` entry、domain precheck、fact / obligation の domain が一致した後の exhaustive dispatch。
+- `proof/solver/*`: source、module、type、trait、lifetime、resource、owner、borrow、effect などの proof rule。rule module の entry は dispatch から呼ぶため internal-public にしてよいが、`proof/solver.nepl` facade からは generic solver entry だけを公開する。
 - `proof/api/*`: caller 向け typed wrapper と evidence projection。projection failure は `UnexpectedEvidence` にする。
 
 この分割は汎用証明器を弱めるものではない。domain rule は `SelfhostProofQuery` を受ける同じ proof system の一部であり、checker / resource / typecheck は fact producer または obligation producer に留まる。
 
-次に `core/proof/` に新しい domain、evidence、refutation、API wrapper を追加する前に、[ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6](../../issues/items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md) で上記の分割を先に行う。
+2026-05-20 に [ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6](../../issues/items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md) でこの分割を実施した。`fact.nepl` / `query.nepl` / `solver.nepl` / `api.nepl` は implementation-free facade になり、実装は次の file へ移った。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/proof/domain.nepl` | 177 | proof domain enum と domain equality。 |
+| `core/proof/fact/model.nepl` | 296 | fact payload と fact domain derivation。 |
+| `core/proof/evidence.nepl` | 89 | success evidence と evidence kind。 |
+| `core/proof/refutation.nepl` | 332 | typed refutation payload。 |
+| `core/proof/query/model.nepl` | 97 | query/result model と mismatch / unexpected evidence helper。 |
+| `core/proof/solver/dispatch.nepl` | 300 | generic solver entry、domain precheck、exhaustive dispatch。 |
+| `core/proof/solver/source.nepl` | 25 | source span proof rule。 |
+| `core/proof/solver/module.nepl` | 355 | raw backend、module directive、declaration header proof rule。 |
+| `core/proof/solver/resource.nepl` | 221 | Resource cell、owner、borrow、lifetime proof rule。 |
+| `core/proof/solver/type.nepl` | 39 | type kind、trait coherence proof rule。 |
+| `core/proof/solver/effect.nepl` | 66 | effect boundary proof rule。 |
+| `core/proof/api/source.nepl` | 47 | source span API projection。 |
+| `core/proof/api/module.nepl` | 121 | module proof API projection。 |
+| `core/proof/api/resource.nepl` | 159 | resource / owner / borrow / lifetime API projection。 |
+| `core/proof/api/type.nepl` | 83 | type / trait API projection。 |
+| `core/proof/api/effect.nepl` | 47 | effect API projection。 |
+
+分割後も checker や Resource module は個別 proof engine を持たない。dispatch と rule module は同じ typed fact / obligation / evidence / refutation model を共有し、`nodesrc/test_selfhost_proof_entry_contract.js` が facade の薄さと分割閾値を監視する。
 
 ## 目標ディレクトリ構造
 

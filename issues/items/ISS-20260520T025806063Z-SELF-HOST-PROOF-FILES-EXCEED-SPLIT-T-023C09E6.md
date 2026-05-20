@@ -2,8 +2,8 @@
 id: ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6
 title: "self-host proof files exceed split threshold after Stage 6 expansion"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: architecture
 created: 2026-05-20
@@ -40,6 +40,17 @@ Future type/resource/effect/abstraction proofs become harder to audit, and match
 
 Split proof model and solver code by responsibility: domain model, fact/obligation/evidence/refutation payloads, public API projection, solver entry/dispatch, and domain-specific proof rules. Keep facade imports stable only as implementation-free boundaries.
 
+## 対応内容
+
+- `proof/fact.nepl`, `proof/query.nepl`, `proof/solver.nepl`, `proof/api.nepl` を実装を持たない facade にし、責務別の実装 file へ分割した。
+- domain model は `proof/domain.nepl`、fact payload は `proof/fact/model.nepl`、evidence は `proof/evidence.nepl`、refutation payload は `proof/refutation.nepl`、query/result model は `proof/query/model.nepl` へ移した。
+- solver は `proof/solver/dispatch.nepl` を generic entry / exhaustive dispatch とし、rule 実装を `source.nepl`, `module.nepl`, `resource.nepl`, `type.nepl`, `effect.nepl` に分けた。個別 checker 側へ証明器を戻さず、引き続き `SelfhostProofQuery -> SelfhostProofResult` の境界を使う。
+- public typed API wrapper は `proof/api/source.nepl`, `module.nepl`, `resource.nepl`, `type.nepl`, `effect.nepl` に分けた。wrapper は引き続き generic solver を経由し、unexpected evidence を typed refutation にする。
+- `nodesrc/test_selfhost_proof_entry_contract.js` を更新し、薄い facade、分割後 file size threshold、solver public entry、rule module public surface、generic solver 経由の API projection を監視するようにした。
+
 ## 検証
 
-Run selfhost proof entry contract and focused proof doctests after the split.
+- `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-file-split-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-proof-file-split-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-file-split-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed

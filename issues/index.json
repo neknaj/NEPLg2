@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T03:00:38.351Z",
+  "generated_at": "2026-05-20T03:28:01.134Z",
   "counts": {
     "total": 1096,
-    "open": 5,
-    "resolved": 1091,
+    "open": 4,
+    "resolved": 1092,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -13,8 +13,8 @@
       },
       "selfhost": {
         "total": 95,
-        "open": 2,
-        "resolved": 93
+        "open": 1,
+        "resolved": 94
       },
       "cli": {
         "total": 19,
@@ -173,21 +173,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6",
-      "title": "self-host proof files exceed split threshold after Stage 6 expansion",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-05-20",
-      "updated": "2026-05-20",
-      "target": "stdlib/neplg2/core/proof/solver.nepl, stdlib/neplg2/core/proof/query.nepl, stdlib/neplg2/core/proof/fact.nepl, stdlib/neplg2/core/proof/api.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -15413,6 +15398,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T025724995Z-SELF-HOST-SOURCE-TREE-PLAN-MUST-REFL-30112F4A.md"
+    },
+    {
+      "id": "ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6",
+      "title": "self-host proof files exceed split threshold after Stage 6 expansion",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/solver.nepl, stdlib/neplg2/core/proof/query.nepl, stdlib/neplg2/core/proof/fact.nepl, stdlib/neplg2/core/proof/api.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T025806063Z-SELF-HOST-PROOF-FILES-EXCEED-SPLIT-T-023C09E6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
