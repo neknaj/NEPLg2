@@ -1,0 +1,85 @@
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/proof" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+
+fn selfhost_module_directive_item_kind <(SelfhostModuleItemKind)->SelfhostModuleDirectiveKind> (kind):
+    match kind:
+        SelfhostModuleItemKind::EntryDirective:
+            SelfhostModuleDirectiveKind::Entry
+        SelfhostModuleItemKind::TargetDirective:
+            SelfhostModuleDirectiveKind::Target
+        SelfhostModuleItemKind::DocComment:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::MlstrLine:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::ImportDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::UseDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::IfTargetDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::IfProfileDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::CapabilityDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::PreludeDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::NoPreludeDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::IntrinsicDirective:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::WasmBlock:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::LlvmIrBlock:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::WasmText:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::LlvmIrText:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::FunctionDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::StructDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::EnumDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::TraitDecl:
+            SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::ImplDecl:
+            SelfhostModuleDirectiveKind::Other
+
+fn selfhost_module_directive_item_fact <(SelfhostModuleItem)->SelfhostModuleDirectiveFact> (item):
+    selfhost_module_directive_fact_new selfhost_module_directive_item_kind item.kind item.span
+
+pub fn selfhost_module_check_directive_fact <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>> (state, item):
+    match selfhost_proof_module_directive_transition state item:
+        Result::Ok next_state:
+            Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Ok next_state
+        Result::Err refutation:
+            Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err refutation
+
+pub fn selfhost_module_check_item_directive_state <(SelfhostModuleDirectiveState,SelfhostModuleItem)->Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>> (state, item):
+    selfhost_module_check_directive_fact state selfhost_module_directive_item_fact item
+
+pub fn selfhost_module_check_item_span <(SelfhostModuleItem)->Result<(),SelfhostProofRefutation>> (item):
+    match selfhost_proof_source_span_valid item.span:
+        Result::Ok _:
+            Result<(),SelfhostProofRefutation>::Ok ()
+        Result::Err refutation:
+            Result<(),SelfhostProofRefutation>::Err refutation
+
+fn selfhost_module_declaration_item_fact <(SelfhostModuleItem)->SelfhostModuleDeclarationFact> (item):
+    selfhost_module_declaration_fact_new item.kind item.declaration item.span
+
+pub fn selfhost_module_check_item_declaration_header <(SelfhostModuleItem)->Result<(),SelfhostProofRefutation>> (item):
+    match selfhost_module_item_kind_declaration item.kind:
+        Option::Some kind:
+            match selfhost_proof_module_declaration_header kind selfhost_module_declaration_item_fact item:
+                Result::Ok _header:
+                    Result<(),SelfhostProofRefutation>::Ok ()
+                Result::Err refutation:
+                    Result<(),SelfhostProofRefutation>::Err refutation
+        Option::None:
+            Result<(),SelfhostProofRefutation>::Ok ()

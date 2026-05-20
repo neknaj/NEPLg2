@@ -43616,3 +43616,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/prefix.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-prefix.json -j 1 --assert-io`: 2/2 passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-sort.json -j 1 --assert-io`: 3/3 passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-root.json -j 1 --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 self-host module checker source tree 分割
+
+- `ISS-20260520T123547344Z-SELF-HOST-MODULE-CHECKER-REMAINS-A-F-DBFBD85F` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/neplg2/core/check/module.nepl` が summary 型/accessor、summary update、raw backend proof adapter、directive/declaration/span proof adapter、proof refutation の診断化、実行 loop を同居させ、静的検査の generic proof boundary に接続する層として肥大化し始めていたことだった。
+- `module.nepl` は doctest と public re-export だけを持つ facade にした。実装は `module/summary.nepl`、`summary_update.nepl`、`diagnostic.nepl`、`raw_backend_adapter.nepl`、`declaration_adapter.nepl`、`orchestrate.nepl` へ分割した。
+- adapter は `SelfhostDiagnostic` を返さず `SelfhostProofRefutation` を返す。diagnostic conversion は `diagnostic.nepl` に集約し、orchestration は adapter result を match して summary update へ進める。
+- `nodesrc/test_selfhost_module_checker_split_contract.js` を追加し、facade への実装再導入、summary/proof/diagnostic の責務混入、adapter が診断を返す退行、orchestration が proof solver や診断文字列を直接持つ退行を監視する。`nodesrc/run_source_policy_regressions.js` にも追加済み。
+- subagent review で、facade の追加 `pub #import` を明示的に拒否する contract が足りないことを確認したため、`module.nepl` facade が `summary` と `orchestrate` だけを public re-export することを policy に追加した。
+- 検証中に module/checker doc-comment doctest が compile timeout する既存問題を確認した。detached HEAD `41c89210` でも再現したため、今回の分割による退行ではなく `ISS-20260520T125846092Z-SELFHOST-MODULE-CHECKER-DOC-COMMENT--EA72F33D` として分離した。
+- focused verification:
+  - `node nodesrc/test_selfhost_module_checker_split_contract.js`: passed
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/test_selfhost_checker_report_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree --dist web/dist -o tmp/agent1-selfhost-module-checker-split-module-180.json -j 1 --assert-io`: `NEPL_TEST_CASE_TIMEOUT_MS=180000` でも compile timeout。別 issue に分離済み。

@@ -1,0 +1,85 @@
+#indent 4
+
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof" as *
+
+fn selfhost_module_check_diag <(SelfhostCheckerDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
+    selfhost_diag_error SelfhostDiagnosticCode::Checker code message
+
+fn selfhost_module_check_labeled_diag <(SelfhostCheckerDiagnosticCode,str,SelfhostSourceSpan,str)->SelfhostDiagnostic> (code, message, span, label):
+    selfhost_diag_with_primary_label selfhost_module_check_diag code message selfhost_diag_label_new span label
+
+fn selfhost_module_check_raw_block_empty_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
+    selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items" span "raw backend block starts here"
+
+fn selfhost_module_check_unexpected_proof_diag <()->SelfhostDiagnostic> ():
+    let span <SelfhostSourceSpan> source_span_empty 0 0
+    selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module checker received an unexpected proof result" span "unexpected proof result"
+
+fn selfhost_module_check_directive_duplicate_message <(SelfhostModuleDirectiveKind)->str> (kind):
+    match kind:
+        SelfhostModuleDirectiveKind::Entry:
+            "multiple #entry directives are not allowed"
+        SelfhostModuleDirectiveKind::Target:
+            "multiple #target directives are not allowed"
+        SelfhostModuleDirectiveKind::Other:
+            "module singleton directive appeared more than once"
+
+fn selfhost_module_check_directive_duplicate_label <(SelfhostModuleDirectiveKind)->str> (kind):
+    match kind:
+        SelfhostModuleDirectiveKind::Entry:
+            "duplicate #entry appears here"
+        SelfhostModuleDirectiveKind::Target:
+            "duplicate #target appears here"
+        SelfhostModuleDirectiveKind::Other:
+            "duplicate directive appears here"
+
+fn selfhost_module_check_directive_duplicate_diag <(SelfhostModuleDirectiveDuplicate)->SelfhostDiagnostic> (duplicate):
+    let diag <SelfhostDiagnostic> selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate selfhost_module_check_directive_duplicate_message duplicate.kind duplicate.duplicate_span selfhost_module_check_directive_duplicate_label duplicate.kind
+    selfhost_diag_with_note diag "module-level singleton directives must be proven unique before resolve/type/effect stages"
+
+fn selfhost_module_check_declaration_header_missing_diag <(SelfhostModuleDeclarationHeaderIssue)->SelfhostDiagnostic> (issue):
+    let diag <SelfhostDiagnostic> selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderMissing "declaration item is missing parser-provided header evidence" issue.span "declaration header evidence is required here"
+    selfhost_diag_with_note diag "declaration well-formedness must be proven from typed parser evidence, not reconstructed from keyword strings"
+
+fn selfhost_module_check_declaration_header_invalid_diag <(SelfhostModuleDeclarationHeaderIssue)->SelfhostDiagnostic> (issue):
+    let diag <SelfhostDiagnostic> selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid "declaration header evidence is not valid for this declaration kind" issue.span "invalid declaration header evidence"
+    selfhost_diag_with_note diag "the parser must preserve a valid header span, keyword span, and declaration head before type/trait/effect checks run"
+
+pub fn selfhost_module_check_index_unavailable_diag <()->SelfhostDiagnostic> ():
+    let span <SelfhostSourceSpan> source_span_empty 0 0
+    selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module AST item index was unavailable" span "unavailable module item"
+
+pub fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDiagnostic> (refutation):
+    match refutation:
+        SelfhostProofRefutation::RawBackendTextWithoutBlock item:
+            selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawTextWithoutBlock "raw backend text appeared without a matching raw block" item.span "raw text appears here"
+        SelfhostProofRefutation::RawBackendBlockEmpty open_block:
+            selfhost_module_check_raw_block_empty_diag open_block.span
+        SelfhostProofRefutation::SourceSpanInvalid span:
+            selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid "module item has an invalid source span" span "invalid module item span"
+        SelfhostProofRefutation::FactObligationMismatch _mismatch:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::UnexpectedEvidence _issue:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::ModuleDirectiveDuplicate duplicate:
+            selfhost_module_check_directive_duplicate_diag duplicate
+        SelfhostProofRefutation::ModuleDeclarationHeaderMissing issue:
+            selfhost_module_check_declaration_header_missing_diag issue
+        SelfhostProofRefutation::ModuleDeclarationHeaderInvalid issue:
+            selfhost_module_check_declaration_header_invalid_diag issue
+        SelfhostProofRefutation::TypeKindMismatch _issue:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::BorrowAccessInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag
+        SelfhostProofRefutation::EffectBoundaryInvalid _issue:
+            selfhost_module_check_unexpected_proof_diag

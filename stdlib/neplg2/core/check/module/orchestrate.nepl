@@ -1,0 +1,76 @@
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/proof" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "./declaration_adapter" as *
+#import "./diagnostic" as *
+#import "./raw_backend_adapter" as *
+#import "./summary" as *
+#import "./summary_update" as *
+
+//: SelfhostModuleCheckStep: 1 item 検査後の summary と raw/directive state
+struct SelfhostModuleCheckStep:
+    summary <SelfhostModuleCheckSummary>
+    raw_state <SelfhostRawBackendState>
+    directive_state <SelfhostModuleDirectiveState>
+
+impl Clone for SelfhostModuleCheckStep:
+    fn clone <(&SelfhostModuleCheckStep)->SelfhostModuleCheckStep> (self):
+        *self
+
+impl Copy for SelfhostModuleCheckStep:
+    fn copy_mark <(SelfhostModuleCheckStep)->SelfhostModuleCheckStep> (self):
+        self
+
+fn selfhost_module_check_step_new <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState)->SelfhostModuleCheckStep> (summary, raw_state, directive_state):
+    SelfhostModuleCheckStep summary raw_state directive_state
+
+fn selfhost_module_check_item <(SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState,SelfhostModuleItem)->Result<SelfhostModuleCheckStep,SelfhostDiagnostic>> (summary, raw_state, directive_state, item):
+    match selfhost_module_check_item_span item:
+        Result::Ok _:
+            match selfhost_module_check_item_declaration_header item:
+                Result::Ok _:
+                    match selfhost_module_check_item_raw_state raw_state item:
+                        Result::Ok next_state:
+                            match selfhost_module_check_item_directive_state directive_state item:
+                                Result::Ok next_directive_state:
+                                    let next_summary <SelfhostModuleCheckSummary> selfhost_module_check_summary_record summary item.kind
+                                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Ok selfhost_module_check_step_new next_summary next_state next_directive_state
+                                Result::Err refutation:
+                                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+                        Result::Err refutation:
+                            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+                Result::Err refutation:
+                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+        Result::Err refutation:
+            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+
+fn selfhost_check_module_ast_loop <(&SelfhostModuleAst,i32,i32,SelfhostModuleCheckSummary,SelfhostRawBackendState,SelfhostModuleDirectiveState)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast, n, idx, summary, raw_state, directive_state):
+    if:
+        ge idx n
+        then:
+            match selfhost_module_check_finish_raw_state raw_state:
+                Result::Ok _:
+                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Ok summary
+                Result::Err refutation:
+                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_module_check_item summary raw_state directive_state item:
+                        Result::Ok step:
+                            selfhost_check_module_ast_loop ast n add idx 1 step.summary step.raw_state step.directive_state
+                        Result::Err diag:
+                            Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err diag
+                Option::None:
+                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err selfhost_module_check_index_unavailable_diag
+
+//: selfhost_check_module_ast: module item stream を[検査/けんさ]して summary を[返/かえ]す
+pub fn selfhost_check_module_ast <(&SelfhostModuleAst)->Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>> (ast):
+    let n <i32> selfhost_module_ast_len ast
+    selfhost_check_module_ast_loop ast n 0 selfhost_module_check_summary_new SelfhostRawBackendState::Normal SelfhostModuleDirectiveState::NoneSeen

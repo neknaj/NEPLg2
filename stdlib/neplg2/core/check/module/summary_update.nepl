@@ -1,0 +1,55 @@
+#indent 4
+
+#import "core/math" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "./summary" as *
+
+//: selfhost_module_check_summary_new: [空/から]の module check summary を[作/つく]る
+pub fn selfhost_module_check_summary_new <()->SelfhostModuleCheckSummary> ():
+    SelfhostModuleCheckSummary 0 0 0 0 0 0 0 0 0 0 0 0
+
+pub fn selfhost_module_check_summary_record <(SelfhostModuleCheckSummary,SelfhostModuleItemKind)->SelfhostModuleCheckSummary> (summary, kind):
+    let item_count <i32> add summary.item_count 1
+    match kind:
+        SelfhostModuleItemKind::DocComment:
+            SelfhostModuleCheckSummary item_count add summary.doc_comment_count 1 summary.directive_count summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::MlstrLine:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::EntryDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 add summary.entry_count 1 summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::TargetDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count add summary.target_count 1 summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::ImportDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count add summary.import_count 1 summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::UseDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::IfTargetDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::IfProfileDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::CapabilityDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::PreludeDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::NoPreludeDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::IntrinsicDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::WasmBlock:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count add summary.raw_block_count 1 summary.raw_text_count
+        SelfhostModuleItemKind::LlvmIrBlock:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count add summary.raw_block_count 1 summary.raw_text_count
+        SelfhostModuleItemKind::WasmText:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count add summary.raw_text_count 1
+        SelfhostModuleItemKind::LlvmIrText:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count add summary.raw_text_count 1
+        SelfhostModuleItemKind::FunctionDecl:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count add summary.declaration_count 1 add summary.function_count 1 summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::StructDecl:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count add summary.declaration_count 1 summary.function_count add summary.type_declaration_count 1 summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::EnumDecl:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count add summary.declaration_count 1 summary.function_count add summary.type_declaration_count 1 summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::TraitDecl:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count add summary.declaration_count 1 summary.function_count add summary.type_declaration_count 1 summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::ImplDecl:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count summary.directive_count summary.entry_count summary.target_count summary.import_count add summary.declaration_count 1 summary.function_count summary.type_declaration_count add summary.impl_count 1 summary.raw_block_count summary.raw_text_count

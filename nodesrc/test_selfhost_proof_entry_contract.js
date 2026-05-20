@@ -61,7 +61,22 @@ const proofSolverRules = [
 const proofSolver = `${proofSolverFacade}\n${proofSolverDispatch}\n${proofSolverRules}`;
 const proofApiImpl = [proofApiSource, proofApiModule, proofApiResource, proofApiType, proofApiEffect].join("\n");
 const proofApi = `${proofApiFacade}\n${proofApiImpl}`;
-const moduleChecker = read("stdlib/neplg2/core/check/module.nepl");
+const moduleCheckerFacade = read("stdlib/neplg2/core/check/module.nepl");
+const moduleCheckerSummary = read("stdlib/neplg2/core/check/module/summary.nepl");
+const moduleCheckerSummaryUpdate = read("stdlib/neplg2/core/check/module/summary_update.nepl");
+const moduleCheckerDiagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
+const moduleCheckerRawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
+const moduleCheckerDeclarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
+const moduleCheckerOrchestrate = read("stdlib/neplg2/core/check/module/orchestrate.nepl");
+const moduleCheckerPublicSurface = `${moduleCheckerSummary}\n${moduleCheckerOrchestrate}`;
+const moduleCheckerImplementation = [
+    moduleCheckerSummary,
+    moduleCheckerSummaryUpdate,
+    moduleCheckerDiagnostic,
+    moduleCheckerRawAdapter,
+    moduleCheckerDeclarationAdapter,
+    moduleCheckerOrchestrate,
+].join("\n");
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
 const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
 const borrowState = read("stdlib/neplg2/core/resource/borrow_state.nepl");
@@ -595,9 +610,27 @@ assert.match(
     "depth-only lifetime helper must not prove outlives for different lifetime ids",
 );
 
-assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");
+assert.match(moduleCheckerFacade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(moduleCheckerFacade, /pub #import "\.\/module\/orchestrate" as \*/);
+assert.deepEqual(
+    Array.from(moduleCheckerFacade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
+        .sort(),
+    ["./module/orchestrate as *", "./module/summary as *"],
+    "module checker facade must re-export only the intended public modules",
+);
+assert.doesNotMatch(
+    moduleCheckerFacade,
+    /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/m,
+    "module checker facade must stay implementation-free",
+);
+assert.doesNotMatch(
+    moduleCheckerFacade,
+    /#import "neplg2\/core\/proof"/,
+    "module checker facade must not depend on proof implementation details",
+);
+assert.match(moduleCheckerImplementation, /#import "neplg2\/core\/proof" as \*/, "module checker internals must depend on the generic proof facade");
 const publicModuleCheckerFunctions = Array.from(
-    moduleChecker.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
+    moduleCheckerPublicSurface.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
     (match) => match[1],
 );
 const allowedPublicModuleCheckerFunctions = new Set([
@@ -625,52 +658,52 @@ for (const fnName of allowedPublicModuleCheckerFunctions) {
     assert.ok(publicModuleCheckerFunctions.includes(fnName), `module checker public API must expose ${fnName}`);
 }
 assert.doesNotMatch(
-    moduleChecker,
+    moduleCheckerOrchestrate,
     /^pub struct SelfhostModuleCheckStep:/m,
     "module checker step state must stay private to avoid exposing checker-internal proof sequencing",
 );
 assert.match(
-    moduleChecker,
+    moduleCheckerDiagnostic,
     /SelfhostProofRefutation::UnexpectedEvidence\s+_issue:/,
     "module checker must handle unexpected proof evidence explicitly",
 );
 assert.match(
-    moduleChecker,
+    moduleCheckerDeclarationAdapter,
     /match\s+selfhost_proof_source_span_valid\s+item\.span:/,
     "module item span validation must match on the proof solver's typed result",
 );
 assert.doesNotMatch(
-    moduleChecker,
+    moduleCheckerDeclarationAdapter,
     /if:[\s\S]{0,120}selfhost_proof_source_span_valid\s+item\.span/,
     "module item span validation must not collapse proof result to a boolean predicate",
 );
 assert.doesNotMatch(
-    moduleChecker,
+    moduleCheckerImplementation,
     /source_span_is_valid\s+item\.span/,
     "module checker must not bypass proof for module item span validation",
 );
 assert.doesNotMatch(
-    moduleChecker,
+    moduleCheckerImplementation,
     /enum\s+SelfhostModuleRawState:/,
     "module checker must not own a checker-local raw backend proof state enum",
 );
 assert.match(
-    moduleChecker,
+    moduleCheckerRawAdapter,
     /selfhost_proof_raw_backend_transition\s+state\s+item/,
     "module checker must ask the proof solver for raw backend transitions",
 );
 assert.match(
-    moduleChecker,
+    moduleCheckerDeclarationAdapter,
     /selfhost_proof_module_directive_transition\s+state\s+item/,
     "module checker must ask the proof solver for module directive transitions",
 );
 assert.match(
-    moduleChecker,
+    moduleCheckerDeclarationAdapter,
     /selfhost_proof_module_declaration_header\s+kind\s+selfhost_module_declaration_item_fact\s+item/,
     "module checker must ask the proof solver for declaration header availability",
 );
 assert.doesNotMatch(
-    moduleChecker,
+    moduleCheckerImplementation,
     /if:\s*\n\s+gt\s+summary\.(?:entry_count|target_count)\s+1/,
     "module checker must not validate singleton directives by summary count checks",
 );

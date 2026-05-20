@@ -1,0 +1,69 @@
+#indent 4
+
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/proof" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+
+fn selfhost_module_raw_backend_item_kind <(SelfhostModuleItemKind)->SelfhostRawBackendItemKind> (kind):
+    match kind:
+        SelfhostModuleItemKind::WasmBlock:
+            SelfhostRawBackendItemKind::WasmBlock
+        SelfhostModuleItemKind::LlvmIrBlock:
+            SelfhostRawBackendItemKind::LlvmIrBlock
+        SelfhostModuleItemKind::WasmText:
+            SelfhostRawBackendItemKind::WasmText
+        SelfhostModuleItemKind::LlvmIrText:
+            SelfhostRawBackendItemKind::LlvmIrText
+        SelfhostModuleItemKind::DocComment:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::MlstrLine:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::EntryDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::TargetDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::ImportDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::UseDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::IfTargetDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::IfProfileDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::CapabilityDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::PreludeDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::NoPreludeDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::IntrinsicDirective:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::FunctionDecl:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::StructDecl:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::EnumDecl:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::TraitDecl:
+            SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::ImplDecl:
+            SelfhostRawBackendItemKind::NonRaw
+
+fn selfhost_module_raw_backend_item_fact <(SelfhostModuleItem)->SelfhostRawBackendItemFact> (item):
+    selfhost_raw_backend_item_fact_new selfhost_module_raw_backend_item_kind item.kind item.span
+
+pub fn selfhost_module_check_raw_backend_fact <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostProofRefutation>> (state, item):
+    match selfhost_proof_raw_backend_transition state item:
+        Result::Ok next_state:
+            Result<SelfhostRawBackendState,SelfhostProofRefutation>::Ok next_state
+        Result::Err refutation:
+            Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
+
+pub fn selfhost_module_check_item_raw_state <(SelfhostRawBackendState,SelfhostModuleItem)->Result<SelfhostRawBackendState,SelfhostProofRefutation>> (state, item):
+    selfhost_module_check_raw_backend_fact state selfhost_module_raw_backend_item_fact item
+
+pub fn selfhost_module_check_finish_raw_state <(SelfhostRawBackendState)->Result<SelfhostRawBackendState,SelfhostProofRefutation>> (state):
+    let span <SelfhostSourceSpan> source_span_empty 0 0
+    let item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
+    selfhost_module_check_raw_backend_fact state item

@@ -1,0 +1,65 @@
+#indent 4
+
+#import "core/traits/copy" as *
+
+//: SelfhostModuleCheckSummary: module item stream の[集計/しゅうけい][結果/けっか]
+//:
+//: [目的/もくてき]:
+//: - 後続 stage が「宣言が何件あるか」「entry / target directive が何件あるか」「raw backend block が含まれるか」を文字列走査なしに参照できるようにします。
+pub struct SelfhostModuleCheckSummary:
+    item_count <i32>
+    doc_comment_count <i32>
+    directive_count <i32>
+    entry_count <i32>
+    target_count <i32>
+    import_count <i32>
+    declaration_count <i32>
+    function_count <i32>
+    type_declaration_count <i32>
+    impl_count <i32>
+    raw_block_count <i32>
+    raw_text_count <i32>
+
+impl Clone for SelfhostModuleCheckSummary:
+    fn clone <(&SelfhostModuleCheckSummary)->SelfhostModuleCheckSummary> (self):
+        *self
+
+impl Copy for SelfhostModuleCheckSummary:
+    fn copy_mark <(SelfhostModuleCheckSummary)->SelfhostModuleCheckSummary> (self):
+        self
+
+pub fn selfhost_module_check_summary_item_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.item_count
+
+pub fn selfhost_module_check_summary_doc_comment_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.doc_comment_count
+
+pub fn selfhost_module_check_summary_directive_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.directive_count
+
+pub fn selfhost_module_check_summary_entry_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.entry_count
+
+pub fn selfhost_module_check_summary_target_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.target_count
+
+pub fn selfhost_module_check_summary_import_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.import_count
+
+pub fn selfhost_module_check_summary_declaration_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.declaration_count
+
+pub fn selfhost_module_check_summary_function_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.function_count
+
+pub fn selfhost_module_check_summary_type_declaration_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.type_declaration_count
+
+pub fn selfhost_module_check_summary_impl_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.impl_count
+
+pub fn selfhost_module_check_summary_raw_block_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.raw_block_count
+
+pub fn selfhost_module_check_summary_raw_text_count <(SelfhostModuleCheckSummary)->i32> (summary):
+    summary.raw_text_count
