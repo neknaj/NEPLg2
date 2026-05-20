@@ -1,9 +1,7 @@
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeMap;
 use alloc::format;
-use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::Effect;
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -14,10 +12,14 @@ use super::env::{Binding, BindingKind};
 use super::generic_call_constraints::{
     resolve_generic_type_args_from_constraints, GenericCallConstraint,
 };
-use super::signature::{function_signature_string, type_contains_unbound_var};
+use super::overload_candidate::{
+    OverloadCandidate, OverloadCandidateRejection, OverloadCandidateStats,
+};
+use super::overload_narrowing::narrow_overload_candidates;
+use super::signature::function_signature_string;
 use super::traits::insert_substitution_mapping;
 use super::type_expectation::TypeExpectation;
-use super::{BlockChecker, FieldAccessorKind, StackEntry};
+use super::{BlockChecker, StackEntry};
 
 macro_rules! overload_selection_log {
     ($($arg:tt)*) => {{
@@ -30,185 +32,6 @@ macro_rules! overload_selection_log {
             std::eprintln!($($arg)*);
         }
     }};
-}
-
-#[derive(Clone, Copy)]
-struct OverloadCandidate<'b> {
-    binding: &'b Binding,
-    type_param_count: usize,
-    instantiated_specificity: usize,
-    declared_specificity: usize,
-    field_accessor: Option<FieldAccessorKind>,
-}
-
-#[derive(Clone, Copy)]
-enum OverloadCandidateRejection {
-    NotFunction,
-    TypeArgumentCount,
-    CaptureArity,
-    UserArity,
-    DeclaredExpectedResult,
-    InstantiatedNotFunction,
-    ArgumentType,
-    ExpectedResult,
-    GenericConstraintConflict,
-}
-
-#[derive(Clone, Copy)]
-enum OverloadCandidateMaterializationPhase {
-    BeforeInstantiation,
-    AfterInstantiation,
-}
-
-impl OverloadCandidateRejection {
-    fn materialization_phase(self) -> OverloadCandidateMaterializationPhase {
-        match self {
-            OverloadCandidateRejection::NotFunction
-            | OverloadCandidateRejection::TypeArgumentCount
-            | OverloadCandidateRejection::CaptureArity
-            | OverloadCandidateRejection::UserArity
-            | OverloadCandidateRejection::DeclaredExpectedResult => {
-                OverloadCandidateMaterializationPhase::BeforeInstantiation
-            }
-            OverloadCandidateRejection::InstantiatedNotFunction
-            | OverloadCandidateRejection::ArgumentType
-            | OverloadCandidateRejection::ExpectedResult
-            | OverloadCandidateRejection::GenericConstraintConflict => {
-                OverloadCandidateMaterializationPhase::AfterInstantiation
-            }
-        }
-    }
-}
-
-#[derive(Default)]
-struct OverloadCandidateStats {
-    considered: usize,
-    materialized: usize,
-    accepted: usize,
-    rejected_before_materialization: usize,
-    rejected_after_materialization: usize,
-    not_function: usize,
-    type_argument_count: usize,
-    capture_arity: usize,
-    user_arity: usize,
-    declared_expected_result: usize,
-    instantiated_not_function: usize,
-    argument_type: usize,
-    expected_result: usize,
-    generic_constraint_conflict: usize,
-}
-
-impl OverloadCandidateStats {
-    fn record_considered(&mut self) {
-        self.considered += 1;
-    }
-
-    fn record_materialized(&mut self) {
-        self.materialized += 1;
-    }
-
-    fn record_accepted(&mut self) {
-        self.accepted += 1;
-    }
-
-    fn record_rejection(&mut self, reason: OverloadCandidateRejection) {
-        match reason.materialization_phase() {
-            OverloadCandidateMaterializationPhase::BeforeInstantiation => {
-                self.rejected_before_materialization += 1
-            }
-            OverloadCandidateMaterializationPhase::AfterInstantiation => {
-                self.rejected_after_materialization += 1
-            }
-        }
-        match reason {
-            OverloadCandidateRejection::NotFunction => self.not_function += 1,
-            OverloadCandidateRejection::TypeArgumentCount => self.type_argument_count += 1,
-            OverloadCandidateRejection::CaptureArity => self.capture_arity += 1,
-            OverloadCandidateRejection::UserArity => self.user_arity += 1,
-            OverloadCandidateRejection::DeclaredExpectedResult => {
-                self.declared_expected_result += 1
-            }
-            OverloadCandidateRejection::InstantiatedNotFunction => {
-                self.instantiated_not_function += 1
-            }
-            OverloadCandidateRejection::ArgumentType => self.argument_type += 1,
-            OverloadCandidateRejection::ExpectedResult => self.expected_result += 1,
-            OverloadCandidateRejection::GenericConstraintConflict => {
-                self.generic_constraint_conflict += 1
-            }
-        }
-    }
-
-    fn pre_materialized_rejections(&self) -> usize {
-        self.rejected_before_materialization
-    }
-
-    fn assert_materialization_guard(&self) {
-        debug_assert!(self.materialized + self.pre_materialized_rejections() <= self.considered);
-    }
-}
-
-#[derive(Clone, Copy)]
-enum OverloadCandidateNarrowingStage {
-    InitialCandidates,
-    PreferPureFunction,
-    SignatureDedup,
-    PreferOrdinaryFunction,
-    PreferConcreteSignature,
-    PreferFewerTypeParameters,
-    PreferInstantiatedSpecificity,
-    PreferDeclaredSpecificity,
-}
-
-impl OverloadCandidateNarrowingStage {
-    fn diagnostic_label(self) -> &'static str {
-        match self {
-            OverloadCandidateNarrowingStage::InitialCandidates => "initial candidate filtering",
-            OverloadCandidateNarrowingStage::PreferPureFunction => "pure function preference",
-            OverloadCandidateNarrowingStage::SignatureDedup => "signature deduplication",
-            OverloadCandidateNarrowingStage::PreferOrdinaryFunction => {
-                "ordinary function preference"
-            }
-            OverloadCandidateNarrowingStage::PreferConcreteSignature => {
-                "concrete signature preference"
-            }
-            OverloadCandidateNarrowingStage::PreferFewerTypeParameters => {
-                "type parameter count preference"
-            }
-            OverloadCandidateNarrowingStage::PreferInstantiatedSpecificity => {
-                "instantiated specificity preference"
-            }
-            OverloadCandidateNarrowingStage::PreferDeclaredSpecificity => {
-                "declared specificity preference"
-            }
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-struct OverloadAmbiguityReason {
-    after_stage: OverloadCandidateNarrowingStage,
-    remaining_candidates: usize,
-}
-
-impl OverloadAmbiguityReason {
-    fn after_stage(
-        after_stage: OverloadCandidateNarrowingStage,
-        remaining_candidates: usize,
-    ) -> Self {
-        Self {
-            after_stage,
-            remaining_candidates,
-        }
-    }
-
-    fn diagnostic_message(self) -> String {
-        format!(
-            "ambiguous overload after {} ({} candidates remain)",
-            self.after_stage.diagnostic_label(),
-            self.remaining_candidates
-        )
-    }
 }
 
 fn result_may_satisfy_expectation(
@@ -505,30 +328,6 @@ impl<'a> BlockChecker<'a> {
             );
         }
 
-        // In a pure context, if both pure and impure candidates match,
-        // prefer pure ones to avoid false pure-call diagnostics from name collisions
-        // between different modules' overloads of the same function.
-        let mut last_narrowing_stage = OverloadCandidateNarrowingStage::InitialCandidates;
-        if candidates.len() > 1 && matches!(self.current_effect, Effect::Pure) {
-            let pure_only: Vec<OverloadCandidate<'_>> = candidates
-                .iter()
-                .filter(|c| {
-                    matches!(
-                        self.ctx.get(c.binding.ty),
-                        TypeKind::Function {
-                            effect: Effect::Pure,
-                            ..
-                        }
-                    )
-                })
-                .cloned()
-                .collect();
-            if !pure_only.is_empty() {
-                candidates = pure_only;
-            }
-            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferPureFunction;
-        }
-
         if candidates.is_empty() {
             if crate::log::is_verbose() {
                 let arg_tys = args
@@ -569,100 +368,17 @@ impl<'a> BlockChecker<'a> {
             }
             return None;
         }
-        if candidates.len() > 1 {
-            let mut sig_seen: BTreeSet<String> = BTreeSet::new();
-            let mut dedup: Vec<OverloadCandidate<'_>> = Vec::new();
-            for c in candidates {
-                let sig = function_signature_string(self.ctx, c.binding.ty);
-                if sig_seen.insert(sig) {
-                    dedup.push(c);
-                }
-            }
-            candidates = dedup;
-            last_narrowing_stage = OverloadCandidateNarrowingStage::SignatureDedup;
-        }
-        if candidates.len() > 1 {
-            let ordinary: Vec<OverloadCandidate<'_>> = candidates
-                .iter()
-                .filter(|b| b.field_accessor.is_none())
-                .cloned()
-                .collect();
-            if !ordinary.is_empty() {
-                candidates = ordinary;
-            }
-            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferOrdinaryFunction;
-        }
-        if candidates.len() > 1 {
-            let concrete: Vec<OverloadCandidate<'_>> = candidates
-                .iter()
-                .filter(|b| !type_contains_unbound_var(self.ctx, b.binding.ty))
-                .cloned()
-                .collect();
-            if !concrete.is_empty() {
-                candidates = concrete;
-            }
-            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferConcreteSignature;
-        }
-        if candidates.len() > 1 {
-            let min_type_params = candidates
-                .iter()
-                .map(|b| b.type_param_count)
-                .min()
-                .unwrap_or(0);
-            let narrowed: Vec<OverloadCandidate<'_>> = candidates
-                .into_iter()
-                .filter(|b| b.type_param_count == min_type_params)
-                .collect();
-            candidates = narrowed;
-            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferFewerTypeParameters;
-        }
-        if candidates.len() > 1 {
-            if crate::log::is_verbose() {
-                for candidate in &candidates {
-                    overload_selection_log!(
-                        "overload debug: specificity '{}' candidate {} score={}",
-                        name,
-                        function_signature_string(self.ctx, candidate.binding.ty),
-                        candidate.instantiated_specificity
-                    );
-                }
-            }
-            let max_specificity = candidates
-                .iter()
-                .map(|b| b.instantiated_specificity)
-                .max()
-                .unwrap_or(0);
-            let narrowed: Vec<OverloadCandidate<'_>> = candidates
-                .into_iter()
-                .filter(|b| b.instantiated_specificity == max_specificity)
-                .collect();
-            candidates = narrowed;
-            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferInstantiatedSpecificity;
-        }
-        if candidates.len() > 1 {
-            let max_declared_specificity = candidates
-                .iter()
-                .map(|b| b.declared_specificity)
-                .max()
-                .unwrap_or(0);
-            let narrowed: Vec<OverloadCandidate<'_>> = candidates
-                .into_iter()
-                .filter(|b| b.declared_specificity == max_declared_specificity)
-                .collect();
-            candidates = narrowed;
-            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferDeclaredSpecificity;
-        }
-        if candidates.len() > 1 {
-            let ambiguity =
-                OverloadAmbiguityReason::after_stage(last_narrowing_stage, candidates.len());
-            self.diagnostics.push(type_error(
-                TypeDiagnosticCode::OverloadAmbiguous,
-                ambiguity.diagnostic_message(),
-                span,
-            ));
-            return None;
-        }
 
-        Some(candidates[0].binding.clone())
+        match narrow_overload_candidates(self.ctx, self.current_effect, name, candidates) {
+            Ok(candidate) => Some(candidate.binding.clone()),
+            Err(ambiguity) => {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::OverloadAmbiguous,
+                    ambiguity.diagnostic_message(),
+                    span,
+                ));
+                None
+            }
+        }
     }
 }
