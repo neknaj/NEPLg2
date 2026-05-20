@@ -50,8 +50,12 @@ fn stdio_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Resul
                     let iov_raw <i32> mem_ptr_addr iov
                     let nwritten_raw <i32> mem_ptr_addr nwritten
                     let data_raw <i32> mem_ptr_addr data
+                    let invalid_iov <bool> math::le iov_raw 0
+                    let invalid_nwritten <bool> math::le nwritten_raw 0
+                    let invalid_data <bool> math::le data_raw 0
+                    let invalid_scratch <bool> math::or invalid_iov invalid_nwritten
                     if:
-                        math::or math::or math::le iov_raw 0 math::le nwritten_raw 0 math::le data_raw 0
+                        math::or invalid_scratch invalid_data
                         then:
                             Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
                         else:
@@ -157,6 +161,21 @@ fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (f
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "std/stdio/write/fd" as *
+//: fn main <()*>i32> ():
+//:     match stdio_write_fd_str_result 1 "fd-str":
+//:         Result::Ok wrote:
+//:             0
+//:         Result::Err error:
+//:             1
+//: ```
 pub fn stdio_write_fd_str_result <(i32,str)*>Result<(), StdErrorKind>> (fd, s):
     stdio_write_fd_mem_result fd string_storage::string_data_ptr s string::len s
 
@@ -169,6 +188,23 @@ pub fn stdio_write_fd_str_result <(i32,str)*>Result<(), StdErrorKind>> (fd, s):
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io" as *
+//:| #import "core/result" as *
+//:| #import "std/stdio/write/fd" as *
+//: fn main <()*>i32> ():
+//:     let bytes <ByteBuf> io_bytebuf_from_str "bytebuf"
+//:     match stdio_write_fd_bytebuf_result 1 bytes:
+//:         Result::Ok wrote:
+//:             0
+//:         Result::Err error:
+//:             1
+//: ```
 pub fn stdio_write_fd_bytebuf_result <(i32,ByteBuf)*>Result<(), StdErrorKind>> (fd, bytes):
     let data_len <i32> io_bytebuf_len_ref &bytes;
     if:
@@ -224,6 +260,21 @@ pub fn stdio_write_fd_bytebuilder_prefix_result <(i32,&ByteBuilder,i32)*>Result<
 //:
 //: ### [目的/もくてき]
 //: - 1 byte scratch owner を `RegionToken<u8>` に閉じ、single-byte output が raw `MemPtr` API を公開しないようにします。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "std/stdio/write/fd" as *
+//: fn main <()*>i32> ():
+//:     match stdio_write_fd_byte_result 1 'Z':
+//:         Result::Ok wrote:
+//:             0
+//:         Result::Err error:
+//:             1
+//: ```
 pub fn stdio_write_fd_byte_result <(i32,i32)*>Result<(), StdErrorKind>> (fd, b):
     match alloc_region<u8> 1:
         Result::Err _e:

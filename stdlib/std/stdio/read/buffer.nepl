@@ -49,8 +49,12 @@ fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result
                     let iov_raw <i32> mem_ptr_addr iov
                     let nread_raw <i32> mem_ptr_addr nread
                     let data_raw <i32> mem_ptr_addr data
+                    let invalid_iov <bool> math::le iov_raw 0
+                    let invalid_nread <bool> math::le nread_raw 0
+                    let invalid_data <bool> math::le data_raw 0
+                    let invalid_scratch <bool> math::or invalid_iov invalid_nread
                     if:
-                        math::or math::or math::le iov_raw 0 math::le nread_raw 0 math::le data_raw 0
+                        math::or invalid_scratch invalid_data
                         then:
                             Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
                         else:
@@ -124,8 +128,12 @@ pub fn stdio_discard_read_buffer <(RegionToken<u8>,StdErrorKind)*>Result<ByteBuf
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
 pub fn stdio_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf, StdErrorKind>> (region, data_len):
     let cap <i32> region_size &region
+    let invalid_cap <bool> math::lt cap 0
+    let invalid_len <bool> math::lt data_len 0
+    let len_exceeds_cap <bool> math::gt data_len cap
+    let invalid_size <bool> math::or invalid_cap invalid_len
     if:
-        math::or math::or math::lt cap 0 math::lt data_len 0 math::gt data_len cap
+        math::or invalid_size len_exceeds_cap
         then:
             match dealloc_region<u8> region:
                 Result::Ok _:
@@ -270,8 +278,10 @@ pub fn stdio_read_all_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                                     set failure e;
                                                     set done 1;
                                                 Result::Ok n:
+                                                    let read_all_negative <bool> math::lt n 0
+                                                    let read_all_exceeds_remaining <bool> math::gt n remaining
                                                     if:
-                                                        math::or math::lt n 0 math::gt n remaining
+                                                        math::or read_all_negative read_all_exceeds_remaining
                                                         then:
                                                             set failed 1;
                                                             set failure StdErrorKind::InvalidOperation;
@@ -388,8 +398,10 @@ pub fn stdio_read_line_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                                             set failure e;
                                                             set done 1;
                                                         Result::Ok n:
+                                                            let read_line_negative <bool> math::lt n 0
+                                                            let read_line_exceeds_one <bool> math::gt n 1
                                                             if:
-                                                                math::or math::lt n 0 math::gt n 1
+                                                                math::or read_line_negative read_line_exceeds_one
                                                                 then:
                                                                     set failed 1;
                                                                     set failure StdErrorKind::InvalidOperation;

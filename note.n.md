@@ -1,3 +1,14 @@
+# 2026-05-20 Agent 1 stdio fd boundary doctest and bool chain cleanup
+
+- `ISS-20260520T095125772Z-STDIO-FD-WRITE-HELPERS-LACK-DECLARAT-ADAF46CD` を修正した。`plan.md` は変更していない。
+- `stdlib/std/stdio/write/fd.nepl` の public fd write helper 3 件に、戻り値で成功を確認する executable doctest を追加した。低レベル fd write の stdout capture に依存せず、`Result` contract を固定する。
+- doctest 実行で露出した `stdio` read/write raw boundary の nested qualified bool chain を、名前付き `<bool>` 中間値へ分解した。`math::or math::lt ...` のような型検査しづらい形を残さず、各 predicate の意味が review できる形にした。
+- stdlib documentation contract は baseline を上げず、`declarationNoDoctest=1032` に戻した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write/fd.nepl --no-tree --dist web/dist -o tmp/agent1-stdio-fd-write-doc.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl --no-tree --dist web/dist -o tmp/agent1-stdio-read-buffer-bool-chain.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass, declarationNoDoctest=1032
+
 # 2026-05-20 Agent 1 parser type expression responsibility split
 
 - `ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587` の parser responsibility freeze 再発を修正した。`plan.md` は変更していない。
