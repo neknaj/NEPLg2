@@ -17,6 +17,7 @@
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
 
 //: SelfhostProofDomain: proof fact / obligation が属する[領域/りょういき]
 //:
@@ -169,6 +170,27 @@ impl Copy for SelfhostModuleDeclarationFact:
 pub fn selfhost_module_declaration_fact_new <(SelfhostModuleItemKind,Option<SelfhostModuleDeclarationHeader>,SelfhostSourceSpan)->SelfhostModuleDeclarationFact> (item_kind, declaration, span):
     SelfhostModuleDeclarationFact item_kind declaration span
 
+//: SelfhostTypeKindFact: type checker が観測した type kind
+//:
+//: [目的/もくてき]:
+//: - 期待型と実型の kind 互換性を bool で潰さず、proof solver に渡す typed fact として保持します。
+//: - span は後続 diagnostic が type mismatch の位置を復元するための source evidence です。
+pub struct SelfhostTypeKindFact:
+    kind <SelfhostTypeKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostTypeKindFact:
+    fn clone <(&SelfhostTypeKindFact)->SelfhostTypeKindFact> (self):
+        *self
+
+impl Copy for SelfhostTypeKindFact:
+    fn copy_mark <(SelfhostTypeKindFact)->SelfhostTypeKindFact> (self):
+        self
+
+//: selfhost_type_kind_fact_new: type kind observation fact を[作/つく]る
+pub fn selfhost_type_kind_fact_new <(SelfhostTypeKind,SelfhostSourceSpan)->SelfhostTypeKindFact> (kind, span):
+    SelfhostTypeKindFact kind span
+
 //: SelfhostResourceCellEventFact: Resource cell に対する event observation
 //:
 //: [目的/もくてき]:
@@ -218,6 +240,7 @@ pub enum SelfhostProofFact:
     RawBackendItemObserved <SelfhostRawBackendItemFact>
     ModuleDirectiveObserved <SelfhostModuleDirectiveFact>
     ModuleDeclarationObserved <SelfhostModuleDeclarationFact>
+    TypeKindObserved <SelfhostTypeKindFact>
     ResourceCellEventObserved <SelfhostResourceCellEventFact>
     EffectObserved <SelfhostEffectObservationFact>
 
@@ -240,6 +263,8 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
             SelfhostProofDomain::Module
         SelfhostProofFact::ModuleDeclarationObserved _declaration_fact:
             SelfhostProofDomain::Module
+        SelfhostProofFact::TypeKindObserved _type_fact:
+            SelfhostProofDomain::Type
         SelfhostProofFact::ResourceCellEventObserved _event_fact:
             SelfhostProofDomain::Resource
         SelfhostProofFact::EffectObserved _effect_fact:

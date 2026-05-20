@@ -13,6 +13,7 @@
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
 
 //: SelfhostRawBackendOpenBlock: raw backend block が text をまだ[持/も]たない[状態/じょうたい]
 pub struct SelfhostRawBackendOpenBlock:
@@ -94,6 +95,7 @@ pub enum SelfhostProofObligation:
     RawBackendTransition <SelfhostRawBackendState>
     ModuleDirectiveTransition <SelfhostModuleDirectiveState>
     ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>
+    TypeKindCompatible <SelfhostTypeKind>
     ResourceCellTransition <SelfhostResourceCellState>
     EffectAllowedInContext <SelfhostEffectContext>
 
@@ -116,6 +118,8 @@ pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProo
             SelfhostProofDomain::Module
         SelfhostProofObligation::ModuleDeclarationHeaderAvailable _kind:
             SelfhostProofDomain::Module
+        SelfhostProofObligation::TypeKindCompatible _kind:
+            SelfhostProofDomain::Type
         SelfhostProofObligation::ResourceCellTransition _state:
             SelfhostProofDomain::Resource
         SelfhostProofObligation::EffectAllowedInContext _context:

@@ -22,6 +22,7 @@
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
 
 //: selfhost_proof_source_span_eq: source span が同じ range か[返/かえ]す
 fn selfhost_proof_source_span_eq <(SelfhostSourceSpan,SelfhostSourceSpan)->bool> (a, b):
@@ -461,6 +462,21 @@ fn selfhost_proof_solve_resource_cell_transition <(SelfhostResourceCellEventFact
         SelfhostResourceCellState::Dropped:
             selfhost_proof_solve_resource_cell_dropped event_fact
 
+fn selfhost_proof_type_kind_compatible_result <(SelfhostTypeKind)->SelfhostProofResult> (kind):
+    selfhost_proof_result_proven SelfhostProofEvidence::TypeKindCompatible kind
+
+fn selfhost_proof_type_kind_mismatch <(SelfhostTypeKindFact,SelfhostTypeKind)->SelfhostProofResult> (fact, expected):
+    selfhost_proof_result_refuted SelfhostProofRefutation::TypeKindMismatch selfhost_type_kind_mismatch_new expected fact.kind fact.span
+
+//: selfhost_proof_solve_type_kind_compatible: type kind compatibility obligation を[解/と]く
+fn selfhost_proof_solve_type_kind_compatible <(SelfhostTypeKindFact,SelfhostTypeKind)->SelfhostProofResult> (fact, expected):
+    if:
+        selfhost_type_kind_eq fact.kind expected
+        then:
+            selfhost_proof_type_kind_compatible_result expected
+        else:
+            selfhost_proof_type_kind_mismatch fact expected
+
 fn selfhost_proof_effect_allowed_result <(SelfhostEffectContext)->SelfhostProofResult> (context):
     selfhost_proof_result_proven SelfhostProofEvidence::EffectAllowed context
 
@@ -556,6 +572,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -569,6 +587,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -584,6 +604,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -597,6 +619,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::RawBackendItemObserved _item:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -614,6 +638,24 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::TypeKindCompatible expected:
+            match query.fact:
+                SelfhostProofFact::TypeKindObserved type_fact:
+                    selfhost_proof_solve_type_kind_compatible type_fact expected
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
                     selfhost_proof_query_mismatch_result query
         SelfhostProofObligation::EffectAllowedInContext context:
@@ -627,6 +669,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::ModuleDirectiveObserved _directive:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
@@ -650,6 +694,8 @@ pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),Selfhos
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -678,6 +724,8 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
@@ -704,6 +752,8 @@ pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState
                 SelfhostProofEvidence::RawBackendTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -735,6 +785,8 @@ pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,
                 SelfhostProofEvidence::RawBackendTransition _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -769,10 +821,41 @@ pub fn selfhost_proof_resource_cell_transition <(SelfhostResourceCellState,Selfh
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_type_kind_compatible: type kind compatibility query を[作/つく]る
+fn selfhost_proof_query_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFact)->SelfhostProofQuery> (expected, fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::TypeKindObserved fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::TypeKindCompatible expected
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_type_kind_compatible: observed type kind が expected kind と互換か typed result として[返/かえ]す
+pub fn selfhost_proof_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFact)->Result<SelfhostTypeKind,SelfhostProofRefutation>> (expected, fact):
+    let query <SelfhostProofQuery> selfhost_proof_query_type_kind_compatible expected fact
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::TypeKindCompatible proven_kind:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Ok proven_kind
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostTypeKind,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_effect_allowed: effect boundary query を[作/つく]る
 fn selfhost_proof_query_effect_allowed <(SelfhostEffectContext,SelfhostEffectObservationFact)->SelfhostProofQuery> (context, fact):
@@ -795,6 +878,8 @@ pub fn selfhost_proof_effect_allowed <(SelfhostEffectContext,SelfhostEffectObser
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query

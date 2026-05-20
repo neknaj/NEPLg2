@@ -74,6 +74,8 @@ fn check_impure_effect_rejected <(Result<SelfhostEffectContext,SelfhostProofRefu
                     Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
+                SelfhostProofRefutation::TypeKindMismatch _issue:
+                    Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
         Result::Ok _context:
@@ -104,6 +106,8 @@ fn check_escaping_alloc_rejected <(Result<SelfhostEffectContext,SelfhostProofRef
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+                    Result<(),str>::Err "expected effect boundary refutation"
+                SelfhostProofRefutation::TypeKindMismatch _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected effect boundary refutation"

@@ -42908,3 +42908,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-effect-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-effect-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-effect-proof-existing-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed
+
+## 2026-05-20 Agent 1 self-host type kind proof 境界追加
+
+- `ISS-20260520T001923700Z-SELF-HOST-TYPE-KIND-COMPATIBILITY-IS-8009C28D` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`SelfhostProofDomain::Type` が存在するにもかかわらず、type kind compatibility が `selfhost_type_kind_eq` の bool helper に留まり、proof solver の typed evidence/refutation を経由しない経路を許していたことだった。
+- `SelfhostTypeKindFact`、`SelfhostProofObligation::TypeKindCompatible`、`SelfhostProofEvidence::TypeKindCompatible`、`SelfhostProofRefutation::TypeKindMismatch` を追加し、expected / actual / span を enum payload として保持するようにした。
+- `selfhost_proof_type_kind_compatible` は public typed wrapper だが、内部では generic `selfhost_proof_solve` に `SelfhostProofQuery` を渡す。type checker は個別の checker-local 証明器を持たず、fact producer として Type domain proof boundary に接続する方針になる。
+- `nodesrc/test_selfhost_proof_entry_contract.js` に Type domain fact / obligation / evidence / refutation と public solver surface の監視を追加し、bool helper だけに戻る退行を検出できる。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_proof.n.md --no-tree -o tmp/agent1-type-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-type-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-type-proof-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_effect_proof.n.md --no-tree -o tmp/agent1-type-proof-effect-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-type-proof-existing-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed

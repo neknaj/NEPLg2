@@ -333,6 +333,8 @@ fn selfhost_module_check_refutation_diag <(SelfhostProofRefutation)->SelfhostDia
             selfhost_module_check_declaration_header_missing_diag issue
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid issue:
             selfhost_module_check_declaration_header_invalid_diag issue
+        SelfhostProofRefutation::TypeKindMismatch _issue:
+            selfhost_module_check_unexpected_proof_diag
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             selfhost_module_check_unexpected_proof_diag
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:

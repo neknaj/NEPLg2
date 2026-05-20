@@ -95,6 +95,11 @@ assert.match(
     "effect observations must enter proof as typed facts",
 );
 assert.match(
+    proofFact,
+    /TypeKindObserved <SelfhostTypeKindFact>/,
+    "type kind observations must enter proof as typed facts",
+);
+assert.match(
     proofObligation,
     /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>/,
     "declaration header availability must enter proof as a typed obligation",
@@ -110,6 +115,11 @@ assert.match(
     "effect boundary checks must enter proof as typed obligations",
 );
 assert.match(
+    proofObligation,
+    /TypeKindCompatible <SelfhostTypeKind>/,
+    "type kind compatibility must enter proof as a typed obligation",
+);
+assert.match(
     proofQuery,
     /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>/,
     "declaration header proof evidence must carry the typed header",
@@ -123,6 +133,11 @@ assert.match(
     proofQuery,
     /EffectAllowed <SelfhostEffectContext>/,
     "effect boundary proof evidence must carry the proven context",
+);
+assert.match(
+    proofQuery,
+    /TypeKindCompatible <SelfhostTypeKind>/,
+    "type kind compatibility proof evidence must carry the proven kind",
 );
 assert.match(
     proofQuery,
@@ -149,6 +164,11 @@ assert.match(
     /EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>/,
     "invalid effect boundary checks must return typed refutations",
 );
+assert.match(
+    proofQuery,
+    /TypeKindMismatch <SelfhostTypeKindMismatch>/,
+    "type kind mismatches must return typed refutations",
+);
 assert.doesNotMatch(
     proofQuery,
     /^\s+FactObligationMismatch\s*$/m,
@@ -172,6 +192,7 @@ const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_module_directive_transition",
     "selfhost_proof_module_declaration_header",
     "selfhost_proof_resource_cell_transition",
+    "selfhost_proof_type_kind_compatible",
     "selfhost_proof_effect_allowed",
 ]);
 for (const fnName of publicSolverFunctions) {
@@ -216,6 +237,11 @@ assert.match(
     proofSolver,
     /(?:^|\n)fn\s+selfhost_proof_solve_effect_allowed\b[\s\S]*match\s+context:/,
     "effect boundary checks must live in the proof solver",
+);
+assert.match(
+    proofSolver,
+    /(?:^|\n)fn\s+selfhost_proof_solve_type_kind_compatible\b[\s\S]*selfhost_type_kind_eq/,
+    "type kind compatibility must live in the proof solver",
 );
 assert.match(
     proofSolver,
