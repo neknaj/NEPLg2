@@ -2,12 +2,11 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
+const { readNameResolverSource } = require("./selfhost_name_resolver_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
-const resolverPath = "stdlib/neplg2/core/resolve/name_resolver.nepl";
-const resolver = fs.readFileSync(path.join(repoRoot, resolverPath), "utf8").replace(/\r\n/g, "\n");
+const resolver = readNameResolverSource(repoRoot);
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");

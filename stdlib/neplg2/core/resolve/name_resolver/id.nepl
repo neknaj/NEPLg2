@@ -1,0 +1,41 @@
+#indent 4
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: SelfhostDefId: 名前解決後の定義 table index
+//:
+//: [目的/もくてき]:
+//: - HIR / check / diagnostic が raw name ではなく安定 id で定義を参照できるようにします。
+pub struct SelfhostDefId:
+    index <i32>
+
+impl Clone for SelfhostDefId:
+    fn clone <(&SelfhostDefId)->SelfhostDefId> (self):
+        *self
+
+impl Copy for SelfhostDefId:
+    fn copy_mark <(SelfhostDefId)->SelfhostDefId> (self):
+        self
+
+
+//: selfhost_def_id_new: DefId を[作/つく]る
+pub fn selfhost_def_id_new <(i32)->SelfhostDefId> (index):
+    SelfhostDefId index
+
+//: selfhost_def_id_pending: DefId がまだ割り当てられていない状態を[返/かえ]す
+pub fn selfhost_def_id_pending <()->Option<SelfhostDefId>> ():
+    none<SelfhostDefId>
+
+//: selfhost_def_id_assigned: DefId を Option に[包/つつ]む
+pub fn selfhost_def_id_assigned <(SelfhostDefId)->Option<SelfhostDefId>> (def_id):
+    some<SelfhostDefId> def_id
+
+//: selfhost_def_id_index: DefId の index を[返/かえ]す
+pub fn selfhost_def_id_index <(SelfhostDefId)->i32> (def_id):
+    def_id.index
+
+//: selfhost_def_id_eq: DefId が同じ index か[返/かえ]す
+pub fn selfhost_def_id_eq <(SelfhostDefId,SelfhostDefId)->bool> (a, b):
+    eq a.index b.index
+

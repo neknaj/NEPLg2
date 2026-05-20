@@ -1,0 +1,178 @@
+#indent 4
+#import "core/traits/copy" as *
+
+//: SelfhostDefKind: 定義の分類
+//:
+//: [目的/もくてき]:
+//: - 同じ名前で見つかった定義が value / type / trait などどの名前空間に属するかを後続 stage が判定できるようにします。
+pub enum SelfhostDefKind:
+    Function
+    Struct
+    Enum
+    Trait
+    Impl
+    Local
+    Param
+    Builtin
+
+impl Clone for SelfhostDefKind:
+    fn clone <(&SelfhostDefKind)->SelfhostDefKind> (self):
+        *self
+
+impl Copy for SelfhostDefKind:
+    fn copy_mark <(SelfhostDefKind)->SelfhostDefKind> (self):
+        self
+
+
+//: selfhost_def_kind_eq: DefKind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - DefKind を i32 tag に変換せず、名前空間の分類を enum match で直接比較します。
+//: - variant 追加時に比較分岐の更新漏れを見つけやすい形にします。
+pub fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
+    match a:
+        SelfhostDefKind::Function:
+            match b:
+                SelfhostDefKind::Function:
+                    true
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Struct:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    true
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Enum:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    true
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Trait:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    true
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Impl:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    true
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Local:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    true
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Param:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    true
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Builtin:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    true
+
