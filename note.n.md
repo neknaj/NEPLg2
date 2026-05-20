@@ -43770,3 +43770,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_documentation_contract.js`: passed (`declarationNoDoctest=1032`)
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-20 self-host Resource cell tree split scout
+
+- 対象 issue: `ISS-20260520T163240311Z-SELF-HOST-RESOURCE-CELL-MODEL-REMAI-3B6F7A90`
+- `doc/neplg2/self_host_source_tree_layout_review_20260518.md` と現行 `stdlib/neplg2/core/resource` を照合し、次の最小実装ギャップを「Resource cell state model が `resource/init/` ではなく legacy `move_state.nepl` に残っていること」と判断した。
+- `stdlib/neplg2/core/resource/init/cell.nepl` を追加し、`SelfhostResourceCellState` / `SelfhostResourceCellEventKind` / state helper を移した。
+- `stdlib/neplg2/core/resource/move_state.nepl` は `./init/cell` を re-export する互換 facade に限定した。
+- `stdlib/neplg2/core/proof/fact/model.nepl` だけでなく、evidence / obligation / refutation / api / solver resource の active proof core import も final path の `neplg2/core/resource/init/cell` に変更した。
+- `nodesrc/test_selfhost_resource_tree_split_contract.js` を追加し、legacy facade への実装再導入、active proof core の legacy import、Resource cell model の proof engine 化、文字列 authority 化を拒否する。
+- Agent 1 の `nepl-core/src/resource/**` 作業には触れていない。既存作業ツリーには Agent 1 の dirty files があるため、この作業単独では merge-ready 判定をしない。
+
+## 2026-05-20 Agent 1 raw cell lifecycle transition boundary
+
+- `ISS-20260520T161920508Z-RESOURCE-IR-RAW-CELL-LIFECYCLE-TRANS-35AEA479` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw load/store/fill/bulk/realloc/dealloc がそれぞれ `CellTable` の raw cell state、initialized byte range、owned storage root を直接更新しており、non-Copy collection slot lifecycle に必要な initialized/moved/released transition を横断的に監査できなかったことだった。
+- `RawCellLifecycleEvent` を追加し、raw memory operation は typed event を `CellTable::apply_raw_cell_lifecycle_event` へ渡す形にした。各 operation の個別 mutation sequence ではなく、enum と exhaustive `match` で raw cell lifecycle を管理する。
+- 非Copy raw load が cell を `Moved` にするとき、同じ raw address 範囲の initialized cell entry と initialized raw byte range を同時に破棄するようにした。これにより、古い byte-range proof や aggregate initialized proof が後続 load を再び初期化済みに見せる経路を閉じた。
+- store は同じ lifecycle boundary から cell を再初期化するため、move-out 後の正当な replace / re-store は許可される。
+- review subagent の監査で、realloc success path の initialized element range transfer、bulk raw copy/move の initialized range transfer、`FillCopyElements` event の Copy proof 表現、source policy の表面検査化を残件として確認した。realloc は既存 issue `ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745` を再オープンし、bulk copy / fill event / policy は新規 issue に分離した。
+- focused verification:
+  - `cargo test -p nepl-core cell_state::tests --lib`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_moves_non_copy_raw_load_cell -- --test-threads=1 --exact`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_store_reinitializes_moved_raw_cell -- --test-threads=1 --exact`: passed
+  - `node nodesrc/test_resource_raw_cell_lifecycle_policy.js`: passed

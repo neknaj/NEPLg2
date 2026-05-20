@@ -93,6 +93,7 @@ const checks = [
     "nodesrc/test_type_expectation_model_policy.js",
     "nodesrc/test_abstraction_static_verification_policy.js",
     "nodesrc/test_resource_checker_responsibility.js",
+    "nodesrc/test_resource_raw_cell_lifecycle_policy.js",
     "nodesrc/test_parser_backend_responsibility_policy.js",
     "nodesrc/test_resource_gate_order.js",
     "nodesrc/test_monomorphize_unresolved_api_policy.js",

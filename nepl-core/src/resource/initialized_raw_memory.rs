@@ -4,6 +4,7 @@ use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerStorageExtent, Place, RawMemoryOp};
+use super::raw_cell_lifecycle::RawCellLifecycleEvent;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
@@ -68,8 +69,11 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
                 if address_available && cells_released {
-                    cells.clear_raw_cells_under(&address);
-                    cells.release_owned_raw_storage_under(&address);
+                    cells.apply_raw_cell_lifecycle_event(
+                        RawCellLifecycleEvent::ReleaseStorage { address: &address },
+                        raw_aliases,
+                        self.types,
+                    );
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                 }
@@ -163,10 +167,14 @@ impl ResourceCheckEngine<'_> {
                     && destination_cells_released
                     && source_cells_copyable
                 {
-                    let copied =
-                        cells.copy_initialized_copy_raw_cells(&source, &destination, self.types);
-                    cells.clear_raw_cells_under(&destination);
-                    cells.extend_entries(copied);
+                    cells.apply_raw_cell_lifecycle_event(
+                        RawCellLifecycleEvent::BulkCopyInitializedCopyCells {
+                            source: &source,
+                            destination: &destination,
+                        },
+                        raw_aliases,
+                        self.types,
+                    );
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                 }

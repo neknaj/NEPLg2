@@ -1,11 +1,10 @@
-use crate::layout::storage_size_bytes;
 use crate::span::Span;
 
 use super::cell_state::CellTable;
-use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
+use super::raw_cell_lifecycle::RawCellLifecycleEvent;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
@@ -39,14 +38,20 @@ impl ResourceCheckEngine<'_> {
             span,
         );
         if address_available && cells_released {
-            cells.clear_raw_cells_under(&address);
             if let (Some(count), Some(_value)) = (args.get(1), args.get(2)) {
-                cells.mark_initialized_raw_byte_range_extending_appended_difference(
-                    &address,
-                    count,
-                    InitializedRawRangeUnit::Bytes,
-                    self.types.u8(),
+                cells.apply_raw_cell_lifecycle_event(
+                    RawCellLifecycleEvent::FillBytes {
+                        address: &address,
+                        count,
+                    },
                     raw_aliases,
+                    self.types,
+                );
+            } else {
+                cells.apply_raw_cell_lifecycle_event(
+                    RawCellLifecycleEvent::DiscardCellsUnderAddress { address: &address },
+                    raw_aliases,
+                    self.types,
                 );
             }
             cells.mark_initialized(output);
@@ -83,18 +88,22 @@ impl ResourceCheckEngine<'_> {
             span,
         );
         if address_available && cells_released {
-            cells.clear_raw_cells_under(&address);
             if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
-                if self.types.is_copy(value.ty) {
-                    cells.mark_initialized_raw_byte_range(
-                        &address,
+                cells.apply_raw_cell_lifecycle_event(
+                    RawCellLifecycleEvent::FillCopyElements {
+                        address: &address,
                         count,
-                        InitializedRawRangeUnit::Elements {
-                            stride: storage_size_bytes(self.types, value.ty),
-                        },
-                        value.ty,
-                    );
-                }
+                        value_ty: value.ty,
+                    },
+                    raw_aliases,
+                    self.types,
+                );
+            } else {
+                cells.apply_raw_cell_lifecycle_event(
+                    RawCellLifecycleEvent::DiscardCellsUnderAddress { address: &address },
+                    raw_aliases,
+                    self.types,
+                );
             }
             cells.mark_initialized(output);
             raw_aliases.clear(output);

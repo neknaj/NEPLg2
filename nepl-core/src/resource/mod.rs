@@ -302,6 +302,7 @@ mod owner_variant_unreachable;
 mod owner_variant_utils;
 mod owner_variant_value_condition;
 mod place_utils;
+mod raw_cell_lifecycle;
 #[cfg(test)]
 mod raw_pointer_owner_carrier_tests;
 mod raw_pointer_type;

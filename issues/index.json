@@ -1,30 +1,35 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T16:11:01.128Z",
+  "generated_at": "2026-05-20T16:54:02.898Z",
   "counts": {
-    "total": 1130,
-    "open": 3,
-    "resolved": 1127,
+    "total": 1136,
+    "open": 7,
+    "resolved": 1129,
     "by_area": {
+      "core": {
+        "total": 535,
+        "open": 3,
+        "resolved": 532
+      },
       "stdlib": {
         "total": 312,
         "open": 2,
         "resolved": 310
       },
       "selfhost": {
-        "total": 106,
+        "total": 108,
         "open": 1,
-        "resolved": 105
+        "resolved": 107
+      },
+      "tools": {
+        "total": 4,
+        "open": 1,
+        "resolved": 3
       },
       "cli": {
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 532,
-        "open": 0,
-        "resolved": 532
       },
       "CORE": {
         "total": 5,
@@ -111,11 +116,6 @@
         "open": 0,
         "resolved": 1
       },
-      "tools": {
-        "total": 3,
-        "open": 0,
-        "resolved": 3
-      },
       "tutorials": {
         "total": 3,
         "open": 0,
@@ -134,6 +134,51 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745",
+      "title": "Resource IR realloc success loses initialized raw range facts",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745.md"
+    },
+    {
+      "id": "ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD",
+      "title": "Bulk raw copy does not transfer initialized raw range evidence",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/resource/raw_cell_lifecycle.rs, nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD.md"
+    },
+    {
+      "id": "ISS-20260520T165035652Z-RAW-FILL-LIFECYCLE-EVENT-CONFLATES-C-3A87C0FB",
+      "title": "Raw fill lifecycle event conflates Copy element proof with destructive discard",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/resource/raw_cell_lifecycle.rs, nepl-core/src/resource/initialized_raw_fill.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T165035652Z-RAW-FILL-LIFECYCLE-EVENT-CONFLATES-C-3A87C0FB.md"
+    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",
@@ -178,6 +223,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260520T165159064Z-RAW-CELL-LIFECYCLE-SOURCE-POLICY-ONL-848A217D",
+      "title": "Raw cell lifecycle source policy only checks surface strings",
+      "area": "tools",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nodesrc/test_resource_raw_cell_lifecycle_policy.js, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T165159064Z-RAW-CELL-LIFECYCLE-SOURCE-POLICY-ONL-848A217D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -4680,21 +4740,6 @@
       "file": "items/ISS-20260507T043123048Z-RESOURCE-EXTERNAL-IO-INITIALIZED-EFF-3792771D.md"
     },
     {
-      "id": "ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745",
-      "title": "Resource IR realloc success loses initialized raw range facts",
-      "area": "core",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/tests/resource_ir.rs",
-      "legacy_id": "",
-      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
-      "file": "items/ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745.md"
-    },
-    {
       "id": "ISS-20260507T050848630Z-RESOURCE-IR-FD-READ-INITIALIZES-IOVE-A43EAA89",
       "title": "Resource IR fd_read initializes iovec payloads as unbounded unknown cells",
       "area": "core",
@@ -8145,6 +8190,21 @@
       "file": "items/ISS-20260520T085512257Z-OVERLOAD-EXPECTED-RESULT-PRUNING-REJ-28A631E9.md"
     },
     {
+      "id": "ISS-20260520T161920508Z-RESOURCE-IR-RAW-CELL-LIFECYCLE-TRANS-35AEA479",
+      "title": "Resource IR raw cell lifecycle transitions are scattered across checker operations",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/resource/cell_state*.rs, nepl-core/src/resource/initialized_raw_memory*.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T161920508Z-RESOURCE-IR-RAW-CELL-LIFECYCLE-TRANS-35AEA479.md"
+    },
+    {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
       "title": "Resource owner storage origin crosses raw deref into Copy cell payloads",
       "area": "core/resource",
@@ -9628,6 +9688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T023713808Z-SELF-HOST-PROOF-API-REPORTS-UNEXPECT-31BEEAB9.md"
+    },
+    {
+      "id": "ISS-20260520T163240311Z-SELF-HOST-RESOURCE-CELL-MODEL-REMAI-3B6F7A90",
+      "title": "self-host Resource cell model remains outside the resource/init tree",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/resource/move_state.nepl, stdlib/neplg2/core/resource/init/cell.nepl, nodesrc/test_selfhost_resource_tree_split_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T163240311Z-SELF-HOST-RESOURCE-CELL-MODEL-REMAI-3B6F7A90.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
@@ -15883,6 +15958,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T125846092Z-SELFHOST-MODULE-CHECKER-DOC-COMMENT--EA72F33D.md"
+    },
+    {
+      "id": "ISS-20260520T164036020Z-SELF-HOST-MONO-LACKS-TYPED-INSTANCE--93C7721D",
+      "title": "self-host mono lacks typed instance record model",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/mono/mono.nepl, tests/stdlib/neplg2_mono.n.md, nodesrc/test_selfhost_mono_instance_absence.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T164036020Z-SELF-HOST-MONO-LACKS-TYPED-INSTANCE--93C7721D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

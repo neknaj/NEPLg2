@@ -34,6 +34,9 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 - [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md) は、Resource IR、owner、initialized cell、borrow、effect を enum / match / proof boundary へ載せる方針を完了条件にしている。
 - [ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0](./ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0.md) で、`region_new` の owner-token construction capability を `mem_ptr_wrap` の generic raw-address alias capability から分離した。これは compiler-issued owner token / initialized cell state へ進む前提整備であり、non-Copy collection support 全体は引き続き open である。
 - [ISS-20260520T160659900Z-RAW-FILL-CAN-CREATE-INITIALIZED-RANG-641CBC9C](./ISS-20260520T160659900Z-RAW-FILL-CAN-CREATE-INITIALIZED-RANG-641CBC9C.md) で、Resource IR の raw fill range initialization proof を Copy payload に限定した。non-Copy slot lifecycle は shallow fill ではなく個別 move/drop proof へ接続する。
+- [ISS-20260520T161920508Z-RESOURCE-IR-RAW-CELL-LIFECYCLE-TRANS-35AEA479](./ISS-20260520T161920508Z-RESOURCE-IR-RAW-CELL-LIFECYCLE-TRANS-35AEA479.md) で、raw load/store/fill/bulk/realloc/dealloc の initialized/moved/released transition を `RawCellLifecycleEvent` 境界へ集約し、non-Copy raw load 後に stale initialized evidence が残る経路を閉じた。
+- [ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745](./ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745.md) は 2026-05-20 の監査で再オープンした。realloc success path の initialized element range transfer は current main baseline でまだ失敗している。
+- [ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD](./ISS-20260520T165035484Z-BULK-RAW-COPY-DOES-NOT-TRANSFER-INIT-C34AC2CD.md) で、bulk raw copy/move の initialized range transfer を別 issue として分離した。
 - `nodesrc/test_stdlib_collection_cleanup_contract.js` は現行の Copy-only mitigation を横断 policy として固定しているが、non-Copy payload lifecycle の compile-pass coverage はまだ存在しない。
 
 ## 問題

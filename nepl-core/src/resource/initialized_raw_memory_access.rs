@@ -6,6 +6,7 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::place_utils::raw_memory_cell_place;
+use super::raw_cell_lifecycle::RawCellLifecycleEvent;
 use super::report::ResourceCheckOperation;
 
 impl ResourceCheckEngine<'_> {
@@ -48,25 +49,31 @@ impl ResourceCheckEngine<'_> {
                 span,
             );
         if address_available && cell_available {
-            if !self.types.is_copy(cell_ty) {
-                cells.mark_raw_cell_moved(&address, cell_ty);
-            }
+            cells.apply_raw_cell_lifecycle_event(
+                RawCellLifecycleEvent::MoveOutLoadedCell {
+                    address: &address,
+                    cell_ty,
+                },
+                raw_aliases,
+                self.types,
+            );
             cells.mark_initialized(output);
-            if raw_aliases.value_is_known_raw_address(&cell) {
+            let loaded_cell = raw_memory_cell_place(&address, cell_ty);
+            if raw_aliases.value_is_known_raw_address(&loaded_cell) {
                 self.copy_raw_alias_and_rekey_cells_preferring_target(
                     cells,
                     raw_aliases,
-                    &cell,
+                    &loaded_cell,
                     output,
                 );
             } else if loaded_from_untracked_source && self.output_can_hold_raw_address(output.ty) {
                 cells.mark_external_raw_storage_root(output);
                 raw_aliases.mark(output);
             } else {
-                raw_aliases.copy_alias_if_tracked(&cell, output);
+                raw_aliases.copy_alias_if_tracked(&loaded_cell, output);
             }
             cells.copy_initialized_raw_byte_ranges_through_value_aliases(
-                &cell,
+                &loaded_cell,
                 output,
                 raw_aliases,
             );
@@ -115,16 +122,14 @@ impl ResourceCheckEngine<'_> {
         if address_available && cell_available && value_available {
             if let Some(value) = args.get(1) {
                 let stored_ty = cell_ty.unwrap_or(value.ty);
-                let cell = raw_memory_cell_place(&address, stored_ty);
-                cells.clear_raw_cells_overwritten_by_store(&address, stored_ty, self.types);
-                cells.clear_initialized_raw_byte_ranges_through_value(&cell);
-                cells.mark_initialized(&cell);
-                raw_aliases.clear(&cell);
-                raw_aliases.copy_alias_if_tracked(value, &cell);
-                cells.copy_initialized_raw_byte_ranges_through_value_aliases(
-                    value,
-                    &cell,
+                cells.apply_raw_cell_lifecycle_event(
+                    RawCellLifecycleEvent::StoreValue {
+                        address: &address,
+                        value,
+                        stored_ty,
+                    },
                     raw_aliases,
+                    self.types,
                 );
             }
             cells.mark_initialized(output);

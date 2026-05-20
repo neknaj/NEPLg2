@@ -13,6 +13,7 @@ use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{CellState, Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::place_utils::match_bind_payload_place;
+use super::raw_cell_lifecycle::RawCellLifecycleEvent;
 use super::raw_realloc::{
     raw_realloc_condition_outcome, PendingRawReallocs, RawReallocConditionOutcome,
 };
@@ -419,22 +420,14 @@ impl ResourceCheckEngine<'_> {
         };
         match outcome {
             RawReallocConditionOutcome::Success => {
-                let source_owned = cells.owns_raw_storage_under(&pending.source);
-                let relocated = cells.copy_initialized_copy_raw_cells(
-                    &pending.source,
-                    &pending.result,
+                cells.apply_raw_cell_lifecycle_event(
+                    RawCellLifecycleEvent::ReallocSuccessTransfer {
+                        source: &pending.source,
+                        result: &pending.result,
+                    },
+                    raw_aliases,
                     self.types,
                 );
-                let relocated_ranges =
-                    cells.copy_initialized_raw_byte_ranges_under(&pending.source, &pending.result);
-                cells.clear_raw_cells_under(&pending.source);
-                cells.release_owned_raw_storage_under(&pending.source);
-                cells.mark_initialized(&pending.result);
-                if source_owned {
-                    cells.mark_owned_raw_storage_root(&pending.result);
-                }
-                cells.extend_entries(relocated);
-                cells.extend_initialized_raw_byte_ranges(relocated_ranges);
                 raw_aliases.clear(&pending.source);
                 raw_aliases.mark(&pending.result);
             }

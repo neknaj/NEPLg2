@@ -1,0 +1,132 @@
+use crate::layout::storage_size_bytes;
+use crate::types::{TypeCtx, TypeId};
+
+use super::cell_state::CellTable;
+use super::cell_state_raw_range::InitializedRawRangeUnit;
+use super::initialized_alias::RawCellAddressAliases;
+use super::model::Place;
+use super::place_utils::raw_memory_cell_place;
+
+pub(super) enum RawCellLifecycleEvent<'a> {
+    MoveOutLoadedCell {
+        address: &'a Place,
+        cell_ty: TypeId,
+    },
+    StoreValue {
+        address: &'a Place,
+        value: &'a Place,
+        stored_ty: TypeId,
+    },
+    DiscardCellsUnderAddress {
+        address: &'a Place,
+    },
+    ReleaseStorage {
+        address: &'a Place,
+    },
+    ReallocSuccessTransfer {
+        source: &'a Place,
+        result: &'a Place,
+    },
+    BulkCopyInitializedCopyCells {
+        source: &'a Place,
+        destination: &'a Place,
+    },
+    FillBytes {
+        address: &'a Place,
+        count: &'a Place,
+    },
+    FillCopyElements {
+        address: &'a Place,
+        count: &'a Place,
+        value_ty: TypeId,
+    },
+}
+
+impl CellTable {
+    pub(super) fn apply_raw_cell_lifecycle_event(
+        &mut self,
+        event: RawCellLifecycleEvent<'_>,
+        raw_aliases: &mut RawCellAddressAliases,
+        types: &TypeCtx,
+    ) {
+        match event {
+            RawCellLifecycleEvent::MoveOutLoadedCell { address, cell_ty } => {
+                if !types.is_copy(cell_ty) {
+                    self.mark_raw_cell_moved(address, cell_ty);
+                }
+            }
+            RawCellLifecycleEvent::StoreValue {
+                address,
+                value,
+                stored_ty,
+            } => {
+                let cell = raw_memory_cell_place(address, stored_ty);
+                self.clear_raw_cells_overwritten_by_store(address, stored_ty, types);
+                self.clear_initialized_raw_byte_ranges_through_value(&cell);
+                self.mark_initialized(&cell);
+                raw_aliases.clear(&cell);
+                raw_aliases.copy_alias_if_tracked(value, &cell);
+                self.copy_initialized_raw_byte_ranges_through_value_aliases(
+                    value,
+                    &cell,
+                    raw_aliases,
+                );
+            }
+            RawCellLifecycleEvent::DiscardCellsUnderAddress { address } => {
+                self.clear_raw_cells_under(address);
+            }
+            RawCellLifecycleEvent::ReleaseStorage { address } => {
+                self.clear_raw_cells_under(address);
+                self.release_owned_raw_storage_under(address);
+            }
+            RawCellLifecycleEvent::ReallocSuccessTransfer { source, result } => {
+                let source_owned = self.owns_raw_storage_under(source);
+                let relocated = self.copy_initialized_copy_raw_cells(source, result, types);
+                let relocated_ranges = self.copy_initialized_raw_byte_ranges_under(source, result);
+                self.clear_raw_cells_under(source);
+                self.release_owned_raw_storage_under(source);
+                self.mark_initialized(result);
+                if source_owned {
+                    self.mark_owned_raw_storage_root(result);
+                }
+                self.extend_entries(relocated);
+                self.extend_initialized_raw_byte_ranges(relocated_ranges);
+            }
+            RawCellLifecycleEvent::BulkCopyInitializedCopyCells {
+                source,
+                destination,
+            } => {
+                let copied = self.copy_initialized_copy_raw_cells(source, destination, types);
+                self.clear_raw_cells_under(destination);
+                self.extend_entries(copied);
+            }
+            RawCellLifecycleEvent::FillBytes { address, count } => {
+                self.clear_raw_cells_under(address);
+                self.mark_initialized_raw_byte_range_extending_appended_difference(
+                    address,
+                    count,
+                    InitializedRawRangeUnit::Bytes,
+                    types.u8(),
+                    raw_aliases,
+                );
+            }
+            RawCellLifecycleEvent::FillCopyElements {
+                address,
+                count,
+                value_ty,
+            } => {
+                self.clear_raw_cells_under(address);
+                if types.is_copy(value_ty) {
+                    self.mark_initialized_raw_byte_range(
+                        address,
+                        count,
+                        InitializedRawRangeUnit::Elements {
+                            stride: storage_size_bytes(types, value_ty),
+                        },
+                        value_ty,
+                    );
+                }
+            }
+        }
+    }
+}

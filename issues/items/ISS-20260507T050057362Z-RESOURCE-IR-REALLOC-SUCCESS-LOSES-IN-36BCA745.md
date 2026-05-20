@@ -2,12 +2,12 @@
 id: ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745
 title: "Resource IR realloc success loses initialized raw range facts"
 area: core
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-05-07
-updated: 2026-05-07
+updated: 2026-05-20
 target: "nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/tests/resource_ir.rs"
 source: "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行"
 ---
@@ -65,3 +65,9 @@ Add Resource IR regressions for guarded fill_u8 and fill_i32 loads after realloc
 - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_realloc_transfers_copy_raw_cells -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range -- --nocapture`: passed
+
+## 2026-05-20 再オープン
+
+Resource raw cell lifecycle 境界の監査中に、`resource_ir_cell_check_realloc_transfers_initialized_element_ranges` が current main baseline でも `RawMemoryLoadCell` / `Uninit` で失敗することを確認した。これは 2026-05-07 の修正後に別変更で再発した regression と扱う。
+
+再修正では、`RawCellLifecycleEvent::ReallocSuccessTransfer` が単に range entry を再投影するだけでなく、element stride、count、success/failure 分岐、raw alias の postcondition を typed transition proof として保持する必要がある。timeout 延長、テスト緩和、stdlib helper 名の allowlist ではなく、Resource IR state から initialized range preservation を証明すること。
