@@ -1,3 +1,24 @@
+# 2026-05-20 Agent 1 region_new raw owner boundary
+
+- `ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9` を修正した。`plan.md` は変更していない。
+- `region_new<T>` は `MemPtr<T>` を受け取らず、allocator / realloc が返した raw owner identity と size だけを受け取る internal boundary にした。`MemPtr<T>` は `region_ptr` / `region_ptr_at` の non-owning projection view として扱う。
+- Resource IR lowering は `RegionToken.raw` を第一引数 raw owner identity へ直接 alias し、owner checker は transferable owner または storage origin を持つ raw source だけを owner transfer として扱う。non-owning raw view から owner token を作る経路は拒否する。
+- owner summary は returned raw owner leaf だけを seed し、`RegionToken.size` のような metadata `i32` を owner と誤認しないようにした。extent mismatch は dealloc / realloc まで遅れず `ConstructInput` で検出される。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test resource_ir region_token_forged -- --nocapture`: 6 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowers_dedicated_memory_helpers_once_per_call -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_new_extent_mismatch_through_summary -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_new_extent_mismatch_before_realloc_summary -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_mem_ptr_alias_after_region_token -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_region_token_ptr_helper_alias_after_token_move -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_borrowed_region_ptr_at_known_offset_alias -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_rejects_borrowed_region_ptr_at_unknown_offset_dealloc_with_live_cell -- --nocapture`: pass
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`: pass
+  - `node nodesrc/test_stdlib_mem_internal_region_new_docs.js`: pass
+  - `node nodesrc/issues.js check`: pass
+- 別件として `node nodesrc/test_static_check_boundary_responsibility.js` は `typecheck/driver.rs has 1701 lines; responsibility split limit is 1700` で失敗する。`typecheck/driver.rs` は今回の修正対象ではないため、次 issue として責務分割を切り分ける。
+
 # 2026-05-20 Agent 1 type ascription expected-check issue fixed
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage A-E を再監査し、古い残作業表記を現在の実装状態へ揃えて issue を `fixed` / `resolved: true` にした。`plan.md` は変更していない。

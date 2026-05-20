@@ -215,7 +215,7 @@ pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
             if:
                 lt 0 raw
                 then:
-                    Result<RegionToken<.T>,str>::Ok region_new mem_ptr_wrap<.T> raw bytes
+                    Result<RegionToken<.T>,str>::Ok region_new<.T> raw bytes
                 else:
                     Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes failed"
 
@@ -346,7 +346,7 @@ pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken
             if:
                 lt 0 next_raw
                 then:
-                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok region_new mem_ptr_wrap<.T> next_raw new_size
+                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok region_new<.T> next_raw new_size
                 else:
                     Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
 

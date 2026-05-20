@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T07:40:11.470Z",
+  "generated_at": "2026-05-20T08:36:30.950Z",
   "counts": {
-    "total": 1107,
+    "total": 1108,
     "open": 4,
-    "resolved": 1103,
+    "resolved": 1104,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 529,
+        "total": 530,
         "open": 0,
-        "resolved": 529
+        "resolved": 530
       },
       "CORE": {
         "total": 5,
@@ -1673,7 +1673,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-13",
+      "updated": "2026-05-20",
       "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md",
       "legacy_id": "",
       "source": "",
@@ -8085,6 +8085,21 @@
       "file": "items/ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9.md"
     },
     {
+      "id": "ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9",
+      "title": "region_new accepts non-owning MemPtr as owner-token input",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/core/mem/internal.nepl, stdlib/core/mem/pointer/region.nepl, nepl-core/src/resource/lower_raw_address.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9.md"
+    },
+    {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
       "title": "Resource owner storage origin crosses raw deref into Copy cell payloads",
       "area": "core/resource",
@@ -11573,7 +11588,7 @@
       "priority": "P1",
       "type": "test",
       "created": "2026-05-14",
-      "updated": "2026-05-15",
+      "updated": "2026-05-20",
       "target": "stdlib/core/mem/internal.nepl, nodesrc/test_stdlib_mem_internal_region_new_docs.js",
       "legacy_id": "",
       "source": "",
@@ -12113,7 +12128,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-15",
-      "updated": "2026-05-16",
+      "updated": "2026-05-20",
       "target": "stdlib/core/mem/types.nepl; stdlib/core/mem/internal.nepl; stdlib/core/mem/pointer/region.nepl; nepl-core/src/resource/lower_raw_address*.rs; nodesrc/test_stdlib_memptr_owner_field_policy.js",
       "legacy_id": "",
       "source": "",

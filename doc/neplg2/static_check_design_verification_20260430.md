@@ -118,7 +118,7 @@ raw memory 上で cell / owner violation が起きた場合も、原因が cell 
 - `StorageState<T>`: `Empty` / `Allocated(OwnedRegion<T>)`。
 - `BucketState<K,V>`: `Empty` / `Full(Bucket<K,V>)` / `Tombstone`。
 
-`RegionToken<T>` のような token は、stdlib code から任意に作れる struct のままでは compiler capability として不十分である。`region_new(MemPtr<T>, i32)` で forge できる経路は廃止対象にする。
+`RegionToken<T>` のような token は、stdlib code から任意に作れる struct のままでは compiler capability として不十分である。`region_new(MemPtr<T>, i32)` で non-owning pointer view を owner token へ昇格する API shape は廃止し、過渡期の `region_new(i32, i32)` も allocator / realloc 由来 raw owner identity を compiler が Resource IR で検査する boundary に限定する。最終的には `OwnedRegion<T>` のような compiler-issued owner capability へ移行する。
 
 ### collection API
 

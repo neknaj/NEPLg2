@@ -730,8 +730,7 @@ fn string_addr_probe <(str)->i32> (s):
 
 fn forge_region_from_str <(str)*>Result<(), str>> (s):
     let raw <i32> string_addr_probe s
-    let p <MemPtr<u8>> mem_ptr_wrap raw
-    let token <RegionToken<u8>> region_new p 1
+    let token <RegionToken<u8>> region_new<u8> raw 1
     dealloc_region token
 
 fn main <()*>()> ():
@@ -742,7 +741,7 @@ fn main <()*>()> ():
             ()
 ```
 
-## region_new は固定 raw address 由来の MemPtr を owner token にできない
+## region_new は固定 raw address を owner token にできない
 
 neplg2:test[compile_fail]
 diag_code: resource.raw.memory_outside_boundary
@@ -758,8 +757,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/result" as *
 
 fn forge_fixed_region <()* >Result<(), str>> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 16
-    let token <RegionToken<u8>> region_new p 1
+    let token <RegionToken<u8>> region_new<u8> 16 1
     dealloc_region token
 
 fn main <()*>()> ():
@@ -786,8 +784,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/result" as *
 
 fn forge_fixed_region <()* >RegionToken<u8>> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 16
-    region_new p 1
+    region_new<u8> 16 1
 
 fn main <()*>()> ():
     let token <RegionToken<u8>> forge_fixed_region
@@ -886,7 +883,8 @@ fn borrowed_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (token):
 
 fn forge_region_from_region_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
     let p <MemPtr<u8>> borrowed_region_ptr &token
-    let forged <RegionToken<u8>> region_new p 1
+    let raw <i32> mem_ptr_addr p
+    let forged <RegionToken<u8>> region_new<u8> raw 1
     dealloc_region forged
 
 fn main <()*>()> ():
@@ -928,7 +926,8 @@ fn borrowed_region_ptr_via_callback <(&RegionToken<u8>)->MemPtr<u8>> (token):
 
 fn forge_region_from_callback_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
     let p <MemPtr<u8>> borrowed_region_ptr_via_callback &token
-    let forged <RegionToken<u8>> region_new p 1
+    let raw <i32> mem_ptr_addr p
+    let forged <RegionToken<u8>> region_new<u8> raw 1
     dealloc_region forged
 
 fn main <()*>()> ():
@@ -1000,7 +999,8 @@ fn forge_region_from_region_ptr_at <(RegionToken<u8>)*>Result<(), str>> (token):
         Result::Err e:
             Result<(), str>::Err e
         Result::Ok p:
-            let forged <RegionToken<u8>> region_new p 1
+            let raw <i32> mem_ptr_addr p
+            let forged <RegionToken<u8>> region_new<u8> raw 1
             dealloc_region forged
 
 fn main <()*>()> ():

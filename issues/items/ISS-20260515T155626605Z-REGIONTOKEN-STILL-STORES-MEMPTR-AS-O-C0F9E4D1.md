@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: architecture
 created: 2026-05-15
-updated: 2026-05-16
+updated: 2026-05-20
 target: "stdlib/core/mem/types.nepl; stdlib/core/mem/internal.nepl; stdlib/core/mem/pointer/region.nepl; nepl-core/src/resource/lower_raw_address*.rs; nodesrc/test_stdlib_memptr_owner_field_policy.js"
 ---
 
@@ -80,3 +80,16 @@ Focused core/mem doctests, tests/stdlib/memory_safety.n.md, ResourceIR raw-addre
 - `node nodesrc/run_doctest.js -i stdlib/core/mem/pointer/region.nepl --assert-io --dist web/dist`
 
 補足: `stdlib/alloc/string/storage.nepl` は該当ファイル内に doctest がないため、source policy 回帰で確認した。
+
+## 2026-05-20 Agent 1 追記
+
+この issue の修正時点では `RegionToken<T>` の field から `MemPtr<T>` を外した一方で、`region_new<T>` の入力はまだ `MemPtr<T>` だった。後続の `ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9` でその残りも解消し、`region_new<T>` は allocator / realloc 由来の raw owner identity と size だけを受け取る internal boundary になった。
+
+現在の責務分割は次の通りである。
+
+- `RegionToken<T>.raw`: free obligation owner identity。
+- `RegionToken<T>.size`: owner extent metadata。raw owner seed にはしない。
+- `MemPtr<T>`: `region_ptr` / `region_ptr_at` が返す non-owning projection view。
+- Resource IR: `RegionToken.raw` の owner transfer / extent proof / non-owning view rejection を検査する。
+
+この追記により、`RegionToken` から `MemPtr` field を削除しただけでなく、`MemPtr` を owner token construction input として扱う過渡設計も閉じた。

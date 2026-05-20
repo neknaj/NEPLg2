@@ -3083,7 +3083,8 @@ fn resource_ir_lowers_dedicated_memory_helpers_once_per_call() {
 fn main <()->i32> ():
     let p <MemPtr<u8>> mem_ptr_wrap<u8> 16
     let q <MemPtr<u8>> mem_ptr_add<u8> p 1
-    let token <RegionToken<u8>> region_new<u8> q 8
+    let raw <i32> 17
+    let token <RegionToken<u8>> region_new<u8> raw 8
     let view <MemPtr<u8>> region_ptr<u8> &token
     let raw_ref <&i32> region_token_raw_ref<u8> &token
     0
@@ -9553,7 +9554,7 @@ fn main <(i32)*>()> (len):
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_dealloc_region_extent_mismatch_through_summary() {
+fn resource_ir_owner_check_rejects_region_new_extent_mismatch_through_summary() {
     let source = r#"
 #entry main
 #indent 4
@@ -9565,7 +9566,7 @@ fn resource_ir_owner_check_rejects_dealloc_region_extent_mismatch_through_summar
 
 fn main <()*>()> ():
     let raw <i32> alloc_raw 4
-    let token <RegionToken<i32>> region_new<i32> mem_ptr_wrap<i32> raw 8
+    let token <RegionToken<i32>> region_new<i32> raw 8
     match dealloc_region<i32> token:
         Result::Ok _:
             ()
@@ -9580,19 +9581,19 @@ fn main <()*>()> ():
         report.diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::DeallocExtent,
+                operation: ResourceOwnerOperation::ConstructInput,
                 state: OwnerState::Live { .. },
                 ..
             }
         )),
-        "dealloc_region summary must preserve the allocation extent requirement: {:#?}\nresource:\n{}",
+        "region_new summary must preserve the allocation extent requirement before dealloc_region: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_realloc_region_old_extent_mismatch_through_summary() {
+fn resource_ir_owner_check_rejects_region_new_extent_mismatch_before_realloc_summary() {
     let source = r#"
 #entry main
 #indent 4
@@ -9604,7 +9605,7 @@ fn resource_ir_owner_check_rejects_realloc_region_old_extent_mismatch_through_su
 
 fn main <()*>()> ():
     let raw <i32> alloc_raw 4
-    let token <RegionToken<i32>> region_new<i32> mem_ptr_wrap<i32> raw 8
+    let token <RegionToken<i32>> region_new<i32> raw 8
     match realloc_region_bytes_keep<i32> token 16:
         Result::Ok q:
             match dealloc_region<i32> q:
@@ -9628,12 +9629,12 @@ fn main <()*>()> ():
         report.diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::ReallocExtent,
+                operation: ResourceOwnerOperation::ConstructInput,
                 state: OwnerState::Live { .. },
                 ..
             }
         )),
-        "realloc_region summary must preserve the old-size extent requirement: {:#?}\nresource:\n{}",
+        "region_new summary must preserve the old-size allocation extent requirement before realloc_region: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
@@ -12872,8 +12873,7 @@ fn string_addr <(str)->i32> (s):
 
 fn forge_region_from_str <(str)*>Result<(), str>> (s):
     let raw <i32> string_addr s
-    let p <MemPtr<u8>> mem_ptr_wrap raw
-    let token <RegionToken<u8>> region_new p 1
+    let token <RegionToken<u8>> region_new<u8> raw 1
     dealloc_region token
 
 fn main <()*>()> ():
@@ -12897,14 +12897,14 @@ fn main <()*>()> ():
             } if function.starts_with("main__")
                 || function.starts_with("forge_region_from_str__")
         )),
-        "region_new must not turn a non-owning str_addr MemPtr view into a RegionToken owner: {:#?}\nresource:\n{}",
+        "region_new must not turn a non-owning str_addr raw identity into a RegionToken owner: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_region_token_forged_from_fixed_mem_ptr() {
+fn resource_ir_owner_check_rejects_region_token_forged_from_fixed_raw() {
     let source = r#"
 #entry main
 #indent 4
@@ -12917,8 +12917,7 @@ fn resource_ir_owner_check_rejects_region_token_forged_from_fixed_mem_ptr() {
 #import "core/result" as *
 
 fn forge_fixed_region <()* >Result<(), str>> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 16
-    let token <RegionToken<u8>> region_new p 1
+    let token <RegionToken<u8>> region_new<u8> 16 1
     dealloc_region token
 
 fn main <()*>()> ():
@@ -12942,14 +12941,14 @@ fn main <()*>()> ():
             } if function.starts_with("main__")
                 || function.starts_with("forge_fixed_region__")
         )),
-        "region_new must not turn a fixed raw MemPtr into a RegionToken owner: {:#?}\nresource:\n{}",
+        "region_new must not turn a fixed raw address into a RegionToken owner: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
 }
 
 #[test]
-fn resource_ir_owner_check_rejects_returned_region_token_forged_from_fixed_mem_ptr() {
+fn resource_ir_owner_check_rejects_returned_region_token_forged_from_fixed_raw() {
     let source = r#"
 #entry main
 #indent 4
@@ -12962,8 +12961,7 @@ fn resource_ir_owner_check_rejects_returned_region_token_forged_from_fixed_mem_p
 #import "core/result" as *
 
 fn forge_fixed_region <()* >RegionToken<u8>> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 16
-    region_new p 1
+    region_new<u8> 16 1
 
 fn main <()*>()> ():
     let token <RegionToken<u8>> forge_fixed_region
@@ -12986,7 +12984,7 @@ fn main <()*>()> ():
                 ..
             } if function.starts_with("main__")
         )),
-        "returned region_new token from fixed raw MemPtr must carry its owned storage obligation to the caller: {:#?}\nresource:\n{}",
+        "returned region_new token from fixed raw address must carry its owned storage obligation to the caller: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );
@@ -13671,7 +13669,8 @@ fn borrowed_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (token):
 
 fn forge_region_from_region_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
     let p <MemPtr<u8>> borrowed_region_ptr &token
-    let forged <RegionToken<u8>> region_new p 1
+    let raw <i32> mem_ptr_addr p
+    let forged <RegionToken<u8>> region_new<u8> raw 1
     dealloc_region forged
 
 fn main <()*>()> ():
@@ -13706,7 +13705,7 @@ fn main <()*>()> ():
     assert_compile_resource_source_reports_code(
         source,
         CompileTarget::Wasm,
-        "resource.owner.no_free_obligation",
+        "resource.raw.memory_outside_boundary",
     );
 }
 
@@ -13877,7 +13876,8 @@ fn borrowed_region_ptr_via_callback <(&RegionToken<u8>)->MemPtr<u8>> (token):
 
 fn forge_region_from_callback_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
     let p <MemPtr<u8>> borrowed_region_ptr_via_callback &token
-    let forged <RegionToken<u8>> region_new p 1
+    let raw <i32> mem_ptr_addr p
+    let forged <RegionToken<u8>> region_new<u8> raw 1
     dealloc_region forged
 
 fn main <()*>()> ():
@@ -13934,7 +13934,7 @@ fn main <()*>()> ():
     assert_compile_resource_source_reports_code(
         source,
         CompileTarget::Wasm,
-        "resource.owner.no_free_obligation",
+        "resource.raw.memory_outside_boundary",
     );
 }
 
@@ -13956,7 +13956,8 @@ fn forge_region_from_region_ptr_at <(RegionToken<u8>)*>Result<(), str>> (token):
         Result::Err e:
             Result<(), str>::Err e
         Result::Ok p:
-            let forged <RegionToken<u8>> region_new p 1
+            let raw <i32> mem_ptr_addr p
+            let forged <RegionToken<u8>> region_new<u8> raw 1
             dealloc_region forged
 
 fn main <()*>()> ():
@@ -13991,7 +13992,7 @@ fn main <()*>()> ():
     assert_compile_resource_source_reports_code(
         source,
         CompileTarget::Wasm,
-        "resource.owner.no_free_obligation",
+        "resource.raw.memory_outside_boundary",
     );
 }
 
@@ -21608,7 +21609,8 @@ fn token_id <(i32)->i32> (x):
 
 fn main <()->i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let a <LocalToken> load<LocalToken> mem_ptr_addr p
     let r <Result<(),str>> dealloc_region<LocalToken> token
@@ -21656,11 +21658,12 @@ fn token_id <(i32)->i32> (x):
     x
 
 fn token_ptr <(RegionToken<LocalToken>)->MemPtr<LocalToken>> (token):
-    get token "ptr"
+    region_ptr &token
 
 fn main <()->i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let q <MemPtr<LocalToken>> token_ptr token
     let a <LocalToken> load<LocalToken> mem_ptr_addr q
@@ -21715,7 +21718,8 @@ fn token_id <(i32)->i32> (x):
 
 fn main <()->i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     match region_ptr_at<LocalToken,LocalToken> &token 0:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -21768,7 +21772,8 @@ fn choose_offset <(bool)->i32> (flag):
 
 fn main <()->i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     let off <i32> choose_offset true
     match region_ptr_at<LocalToken,LocalToken> &token off:
         Result::Ok q:

@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: test
 created: 2026-05-14
-updated: 2026-05-15
+updated: 2026-05-20
 target: "stdlib/core/mem/internal.nepl, nodesrc/test_stdlib_mem_internal_region_new_docs.js"
 ---
 
@@ -53,3 +53,9 @@ Run the new source policy, the focused stdlib/core/mem/internal doctest, issue c
 
 - `node nodesrc/test_stdlib_mem_internal_region_new_docs.js`: passed
 - `node nodesrc/tests.js -i stdlib/core/mem/internal.nepl --no-tree -o tmp/agent1-mem-internal-region-new-docs.json -j 1 --dist web/dist`: total=4, passed=4
+
+## 2026-05-20 Agent 1 追記
+
+`ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9` の修正により、`region_new<T>` の doctest は `alloc_ptr` / `MemPtr<T>` を経由せず、`allocator::alloc` が返す raw owner identity を直接 `region_new<T>(raw, size)` へ渡す形に更新した。
+
+`nodesrc/test_stdlib_mem_internal_region_new_docs.js` もこの方針に合わせ、`region_new` doctest に `mem_ptr_wrap` が現れないこと、allocator-issued raw owner identity を渡すこと、作成した owner token を `dealloc_region` で閉じることを監視する。これは doctest だけの表現変更ではなく、`MemPtr<T> = non-owning view` を API shape からも崩さないための Stage 6 境界整理である。

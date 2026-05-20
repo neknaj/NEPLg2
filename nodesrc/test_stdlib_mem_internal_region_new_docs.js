@@ -13,7 +13,12 @@ const regionNewDoc = extractDocBlockBeforeFunction(source, "region_new");
 assertIncludes(
     regionNewDoc,
     "match allocator::alloc 4:",
-    "region_new doctest must derive its MemPtr from allocator-issued storage",
+    "region_new doctest must derive its raw owner identity from allocator-issued storage",
+);
+assertIncludes(
+    regionNewDoc,
+    "let token <RegionToken<u8>> region_new<u8> raw 4",
+    "region_new doctest must pass allocator-issued raw owner identity directly",
 );
 assertIncludes(
     regionNewDoc,
@@ -24,6 +29,11 @@ assertNotMatches(
     regionNewDoc,
     /\bregion_new\s+(?:<[^>\n]+>\s*)?mem_ptr_wrap\b/,
     "region_new doctest must not construct owner tokens directly from fixed raw addresses",
+);
+assertNotMatches(
+    regionNewDoc,
+    /\bmem_ptr_wrap\b/,
+    "region_new doctest must not involve MemPtr because MemPtr is a non-owning view",
 );
 assertNotMatches(
     regionNewDoc,

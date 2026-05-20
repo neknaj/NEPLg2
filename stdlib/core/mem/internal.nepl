@@ -84,12 +84,13 @@ pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
 //: region_new: RegionToken を構築する
 //:
 //: 目的:
-//: - allocator wrapper が所有領域の pointer と size をまとめ、free obligation owner token を作ります。
+//: - allocator wrapper が所有領域の raw identity と size をまとめ、free obligation owner token を作ります。
 //: - token 内部には `MemPtr<T>` ではなく raw owner identity を保存し、`MemPtr<T>` は projection view としてだけ外へ作ります。
 //:
 //: 注意(重要):
-//: - 呼び出し側は ptr が allocator から得た owned storage であることを保証します。
-//: - public source へ露出すると non-owning pointer から owner token を forged できるため、root facade からは公開しません。
+//: - 呼び出し側は raw が allocator から得た owned storage identity であることを保証します。
+//: - `MemPtr<T>` は non-owning view なので、この関数の入力にはしません。
+//: - public source へ露出すると任意 raw address から owner token を forged できるため、root facade からは公開しません。
 //:
 //: neplg2:test[compile_fail]
 //: diag_code: resource.raw.memory_outside_boundary
@@ -106,8 +107,7 @@ pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
 //:         Result::Err _e:
 //:             0
 //:         Result::Ok raw:
-//:             let ptr <MemPtr<u8>> mem_ptr_wrap<u8> raw
-//:             let token <RegionToken<u8>> region_new ptr 4
+//:             let token <RegionToken<u8>> region_new<u8> raw 4
 //:             let ok <i32> if eq region_size &token 4 1 0
 //:             match dealloc_region<u8> token:
 //:                 Result::Err _cleanup:
@@ -115,5 +115,5 @@ pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
 //:                 Result::Ok _:
 //:                     ok
 //: ```
-pub fn region_new <.T> <(MemPtr<.T>,i32)->RegionToken<.T>> (ptr, size):
-    RegionToken get ptr "raw" size
+pub fn region_new <.T> <(i32,i32)->RegionToken<.T>> (raw, size):
+    RegionToken raw size

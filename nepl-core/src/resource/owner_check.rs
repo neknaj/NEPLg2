@@ -64,6 +64,25 @@ impl ResourceOwnerCheckEngine<'_> {
         owners.into_entries()
     }
 
+    fn raw_owner_alias_transfer_source(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &StorageOriginTable,
+        source: &Place,
+    ) -> Option<Place> {
+        if self.has_transferable_owner(owners, raw_aliases, source) {
+            return Some(source.clone());
+        }
+        if raw_views.contains_non_owning(source) {
+            return None;
+        }
+        let origin = storage_origins.origin_source(source)?;
+        self.has_transferable_owner(owners, raw_aliases, &origin)
+            .then_some(origin)
+    }
+
     fn check_block(
         &mut self,
         owners: &mut OwnerTable,
@@ -568,17 +587,27 @@ impl ResourceOwnerCheckEngine<'_> {
                 ..
             } => {
                 let moves_into_owner_wrapper = raw_owner_alias_moves_into_wrapper(source, target);
-                let source_transfers_owner = moves_into_owner_wrapper
-                    && self.has_transferable_owner(owners, raw_aliases, source);
+                let transfer_source = moves_into_owner_wrapper
+                    .then(|| {
+                        self.raw_owner_alias_transfer_source(
+                            owners,
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            source,
+                        )
+                    })
+                    .flatten();
+                let source_transfers_owner = transfer_source.is_some();
                 let target_already_owns = moves_into_owner_wrapper
                     && self.has_transferable_owner(owners, raw_aliases, target);
-                if source_transfers_owner {
+                if let Some(transfer_source) = transfer_source.as_ref() {
                     self.transfer_owner(
                         owners,
                         raw_aliases,
                         raw_views,
                         storage_origins,
-                        source,
+                        transfer_source,
                         target,
                         ResourceOwnerOperation::Move,
                         *span,
