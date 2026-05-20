@@ -8,27 +8,37 @@
 
 #import "core/math" as *
 #import "core/mem" as *
-#import "core/mem/internal" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
 #import "../invariant" as *
 
-//: ## data_mem_ptr
-//: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
+//: ## VecDataView
+//: `Vec` の backing storage view を typed enum として[表/あらわ]す
 //:
 //: ### [目的/もくてき]
-//: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付きポインタとして[安全/あんぜん]に[扱/あつか]えるようにします。
+//: - valid empty storage、valid allocated storage、invalid owner aggregate を `match` で[区別/くべつ]できるようにします。
+//: - invariant failure を null pointer sentinel に[潰/つぶ]さず、`VecCopyInvariantInvalid` payload として[保持/ほじ]します。
+pub enum VecDataView<.T>:
+    Empty
+    Data <MemPtr<.T>>
+    Invalid <VecCopyInvariantInvalid>
+
+//: ## data_mem_view
+//: [内部/ないぶ]データ[領域/りょういき]を typed data view として[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付き view として[安全/あんぜん]に[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
 //: - `Vec` の `buffer` field を[借用/しゃくよう]し、current Copy-only invariant が[成/な]り[立/た]つことを[確認/かくにん]します。
-//: - `OwnedBuffer.storage` が `Owned(region)` のときだけ `region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
-//: - `VecStorage::Empty` は allocation を[持/も]たないため、0 address の typed view を[返/かえ]します。
-//: - invariant が[壊/こわ]れている `Vec` からは raw storage view を[導出/どうしゅつ]せず、0 address の typed view を[返/かえ]します。
+//: - `OwnedBuffer.storage` が `Owned(region)` のときだけ `VecDataView::Data(region_ptr region)` を[返/かえ]します。
+//: - `VecStorage::Empty` は allocation を[持/も]たないため、`VecDataView::Empty` を[返/かえ]します。
+//: - invariant が[壊/こわ]れている `Vec` からは raw storage view を[導出/どうしゅつ]せず、`VecDataView::Invalid(reason)` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
-//: - public API は typed `MemPtr<.T>` view で止め、raw `i32` address observer は[提供/ていきょう]しません。raw-memory boundary の[実装/じっそう]が番地を必要とする場合だけ、呼び出し位置で明示的に `mem_ptr_addr` を使います。
+//: - public API は typed `VecDataView<.T>` で止め、raw `i32` address observer は[提供/ていきょう]しません。raw-memory boundary の[実装/じっそう]が番地を必要とする場合だけ、`VecDataView::Data` branch 内で明示的に `mem_ptr_addr` を使います。
 //: - [再確保/さいかくほ]が[起/お]きると pointer は[無効化/むこうか]されうるので、[長期/ちょうき][保持/ほじ]は[避/さ]けます。
 //: - 現行 raw data observer は `.T: Copy` 専用です。non-Copy payload の borrowed observer は pointer escape ではなく dedicated API として[設計/せっけい]します。
 //:
@@ -46,8 +56,13 @@
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let _data <MemPtr<i32>> data_mem_ptr<i32> &v
-//:     let ok <bool> is_empty<i32> &v
+//:     let ok <bool> match data_mem_view<i32> &v:
+//:         VecDataView::Empty:
+//:             true
+//:         VecDataView::Data _p:
+//:             false
+//:         VecDataView::Invalid _reason:
+//:             false
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
@@ -62,18 +77,18 @@
 //:     value <i32>
 //: fn main <()*>i32> ():
 //:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
-//:     let _p <MemPtr<NonCopyPayload>> data_mem_ptr<NonCopyPayload> &v;
+//:     let _view <VecDataView<NonCopyPayload>> data_mem_view<NonCopyPayload> &v;
 //:     0
 //: ```
-pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
+pub fn data_mem_view <.T: Copy> <(&Vec<.T>)->VecDataView<.T>> (v):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
-        VecCopyInvariant::Invalid _reason:
-            mem_ptr_wrap 0
+        VecCopyInvariant::Invalid reason:
+            VecDataView<.T>::Invalid reason
         VecCopyInvariant::Valid:
             match v_storage:
                 VecStorage::Empty:
-                    mem_ptr_wrap 0
+                    VecDataView<.T>::Empty
                 VecStorage::Owned region:
-                    region_ptr region
+                    VecDataView<.T>::Data region_ptr region

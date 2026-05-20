@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T11:25:17.546Z",
+  "generated_at": "2026-05-20T12:01:00.263Z",
   "counts": {
-    "total": 1118,
+    "total": 1119,
     "open": 3,
-    "resolved": 1115,
+    "resolved": 1116,
     "by_area": {
       "stdlib": {
-        "total": 304,
+        "total": 305,
         "open": 2,
-        "resolved": 302
+        "resolved": 303
       },
       "selfhost": {
         "total": 104,
@@ -13093,6 +13093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T111714158Z-VEC-INVARIANT-DOES-NOT-PROVE-BACKING-46A3C801.md"
+    },
+    {
+      "id": "ISS-20260520T113031972Z-VEC-DATA-VIEW-COLLAPSES-INVALID-INVA-D6378EBA",
+      "title": "Vec data view collapses invalid invariant into null MemPtr",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/vec/access/data.nepl, stdlib/alloc/collections/vec callers, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T113031972Z-VEC-DATA-VIEW-COLLAPSES-INVALID-INVA-D6378EBA.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

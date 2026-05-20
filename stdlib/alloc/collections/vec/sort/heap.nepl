@@ -96,30 +96,35 @@ pub fn sort_heap <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
             ()
         VecCopyInvariant::Valid:
             let n <i32> len<.T> v
-            let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
             if:
                 le n 1
                 then ()
                 else:
-                    let n_minus_two <i32> sub n 2;
-                    let mut start <i32> div_s n_minus_two 2;
-                    let mut done0 <i32> 0;
-                    while eq done0 0:
-                        do:
-                            if:
-                                lt start 0
-                                then set done0 1
-                                else:
-                                    sort_heap_sift_down_data<.T> data_ptr start n;
-                                    set start sub start 1;
-                                    ();
-                    let mut end <i32> sub n 1;
-                    while lt 0 end:
-                        do:
-                            sort_heap_swap_data<.T> data_ptr 0 end;
-                            sort_heap_sift_down_data<.T> data_ptr 0 end;
-                            set end sub end 1;
-                    ()
+                    match data_mem_view<.T> v:
+                        VecDataView::Empty:
+                            ()
+                        VecDataView::Invalid _reason:
+                            ()
+                        VecDataView::Data data_ptr:
+                            let n_minus_two <i32> sub n 2;
+                            let mut start <i32> div_s n_minus_two 2;
+                            let mut done0 <i32> 0;
+                            while eq done0 0:
+                                do:
+                                    if:
+                                        lt start 0
+                                        then set done0 1
+                                        else:
+                                            sort_heap_sift_down_data<.T> data_ptr start n;
+                                            set start sub start 1;
+                                            ();
+                            let mut end <i32> sub n 1;
+                            while lt 0 end:
+                                do:
+                                    sort_heap_swap_data<.T> data_ptr 0 end;
+                                    sort_heap_sift_down_data<.T> data_ptr 0 end;
+                                    set end sub end 1;
+                            ()
 
 //: sort_heap_ret: heap sort 後の Vec を返す
 //:
@@ -140,23 +145,28 @@ pub fn sort_heap_ret <.T: Ord&Copy> <(Vec<.T>)*>Vec<.T>> (v):
             ()
         VecCopyInvariant::Valid:
             let n <i32> len<.T> &v
-            let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
             if:
                 le n 1
                 then ()
                 else:
-                    let n_minus_two <i32> sub n 2;
-                    let mut start <i32> div_s n_minus_two 2;
-                    while ge start 0:
-                        do:
-                            sort_heap_sift_down_data<.T> data_ptr start n;
-                            set start sub start 1;
+                    match data_mem_view<.T> &v:
+                        VecDataView::Empty:
+                            ()
+                        VecDataView::Invalid _reason:
+                            ()
+                        VecDataView::Data data_ptr:
+                            let n_minus_two <i32> sub n 2;
+                            let mut start <i32> div_s n_minus_two 2;
+                            while ge start 0:
+                                do:
+                                    sort_heap_sift_down_data<.T> data_ptr start n;
+                                    set start sub start 1;
 
-                    let mut end <i32> sub n 1;
-                    while gt end 0:
-                        do:
-                            sort_heap_swap_data<.T> data_ptr 0 end;
-                            sort_heap_sift_down_data<.T> data_ptr 0 end;
-                            set end sub end 1;
-                    ()
+                            let mut end <i32> sub n 1;
+                            while gt end 0:
+                                do:
+                                    sort_heap_swap_data<.T> data_ptr 0 end;
+                                    sort_heap_sift_down_data<.T> data_ptr 0 end;
+                                    set end sub end 1;
+                            ()
     v
