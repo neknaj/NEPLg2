@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+const { readDiagSource } = require('./selfhost_diag_sources');
 
 const root = path.resolve(__dirname, '..');
 
@@ -67,7 +68,7 @@ function assertLeafCodeMapping({ enumName, functionName, prefix }) {
   }
 }
 
-const diag = read('stdlib/neplg2/core/infra/diag.nepl');
+const diag = readDiagSource(root);
 const reporter = [
   read('stdlib/neplg2/cli/reporter/render/single.nepl'),
   read('stdlib/neplg2/cli/reporter/render/collection.nepl'),

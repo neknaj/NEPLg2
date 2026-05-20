@@ -115,6 +115,7 @@ const checks = [
     "nodesrc/test_selfhost_checker_report_contract.js",
     "nodesrc/test_selfhost_module_loader_report_contract.js",
     "nodesrc/test_selfhost_diag_outcome_report_contract.js",
+    "nodesrc/test_selfhost_diag_split_contract.js",
     "nodesrc/test_selfhost_import_spec_report_contract.js",
     "nodesrc/test_selfhost_module_graph_report_contract.js",
     "nodesrc/test_selfhost_stdlib_map_report_contract.js",

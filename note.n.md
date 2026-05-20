@@ -1,3 +1,18 @@
+# 2026-05-20 Agent 1 self-host diagnostic infrastructure source tree 分割
+
+- `ISS-20260520T045937560Z-SELF-HOST-DIAGNOSTIC-INFRASTRUCTURE--D61FA83C` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/neplg2/core/infra/diag.nepl` が diagnostic code enum、stable string mapping、diagnostic payload、collection owner operation、stage0 smoke を1ファイルに持ち、今後の compiler diagnostic / reporter / checker 改修が同じ root file に積まれやすい構造だったこと。
+- `diag.nepl` は doctest と public re-export だけを持つ implementation-free facade にした。実装は `diag/code.nepl`、`value.nepl`、`collection.nepl`、`stage0.nepl` へ分割した。
+- `SelfhostDiagnosticCode` は階層 enum のまま `diag/code.nepl` に残し、category / leaf code の stable string mapping も wildcard arm なしの exhaustive match を維持した。raw string code や numeric id へ戻していない。
+- `nodesrc/selfhost_diag_sources.js` と `nodesrc/test_selfhost_diag_split_contract.js` を追加し、facade への実装再導入、split file の 450 行超過、submodule から diag facade への曖昧 import を監視する。
+- 検証:
+  - `node nodesrc/test_selfhost_diag_split_contract.js`: pass
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: pass
+  - `node nodesrc/test_selfhost_cli_reporter_boundary.js`: pass
+  - `node nodesrc/test_selfhost_diag_outcome_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/infra/diag.nepl --no-tree -o tmp/agent1-diag-split-core.json -j 1 --dist web/dist --assert-io`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/agent1-diag-split-outcome.json -j 1 --dist web/dist --assert-io`: total=3, passed=3
+
 # 2026-05-20 Agent 1 self-host name resolver source tree 分割
 
 - `ISS-20260520T045142622Z-SELF-HOST-NAME-RESOLVER-REMAINS-A-FL-8D5B56B9` を追加し、fixed / resolved にした。`plan.md` は変更していない。
