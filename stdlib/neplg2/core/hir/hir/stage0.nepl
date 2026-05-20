@@ -1,0 +1,27 @@
+#indent 4
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "./id" as *
+#import "./module" as *
+#import "./arena" as *
+
+//: selfhost_hir_stage0: HIR module の smoke API
+pub fn selfhost_hir_stage0 <()*>i32> ():
+    match selfhost_hir_module_new:
+        Result::Ok module:
+            let n <i32> selfhost_hir_module_function_len &module
+            let expr_id <SelfhostHirExprId> selfhost_hir_expr_id_new 0
+            let pending <Option<SelfhostHirExprId>> selfhost_hir_expr_id_pending
+            let assigned <Option<SelfhostHirExprId>> selfhost_hir_expr_id_assigned expr_id
+            let assigned_ok <bool>:
+                match assigned:
+                    Option::Some assigned_id:
+                        eq 0 selfhost_hir_expr_id_index assigned_id
+                    Option::None:
+                        false
+            let option_ok <bool> and is_none<SelfhostHirExprId> pending assigned_ok
+            selfhost_hir_module_free module
+            if and eq n 0 option_ok 0 1
+        Result::Err _e:
+            1

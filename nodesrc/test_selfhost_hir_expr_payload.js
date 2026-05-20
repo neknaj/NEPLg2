@@ -2,12 +2,11 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
+const { readHirSource } = require("./selfhost_hir_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
-const hirPath = "stdlib/neplg2/core/hir/hir.nepl";
-const hir = fs.readFileSync(path.join(repoRoot, hirPath), "utf8").replace(/\r\n/g, "\n");
+const hir = readHirSource(repoRoot);
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");

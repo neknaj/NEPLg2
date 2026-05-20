@@ -1,0 +1,68 @@
+#indent 4
+#import "core/math" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "./id" as *
+#import "./range" as *
+
+//: SelfhostHirParam: HIR function parameter record
+//:
+//: [目的/もくてき]:
+//: - checker が確定した parameter name / type / mutability を function table から参照できるようにします。
+pub struct SelfhostHirParam:
+    name <str>
+    ty <SelfhostTypeId>
+    mutable <bool>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostHirParam:
+    fn clone <(&SelfhostHirParam)->SelfhostHirParam> (self):
+        *self
+
+impl Copy for SelfhostHirParam:
+    fn copy_mark <(SelfhostHirParam)->SelfhostHirParam> (self):
+        self
+
+//: SelfhostHirFunction: HIR function record
+//:
+//: [目的/もくてき]:
+//: - function name、戻り値型、span、root expression、parameter table 範囲を保持します。
+pub struct SelfhostHirFunction:
+    name <str>
+    result <SelfhostTypeId>
+    span <SelfhostSourceSpan>
+    root <SelfhostHirExprId>
+    first_param <i32>
+    param_count <i32>
+
+impl Clone for SelfhostHirFunction:
+    fn clone <(&SelfhostHirFunction)->SelfhostHirFunction> (self):
+        *self
+
+impl Copy for SelfhostHirFunction:
+    fn copy_mark <(SelfhostHirFunction)->SelfhostHirFunction> (self):
+        self
+
+//: selfhost_hir_param_new: parameter record を[作/つく]る
+pub fn selfhost_hir_param_new <(str,SelfhostTypeId,bool,SelfhostSourceSpan)->SelfhostHirParam> (name, ty, mutable, span):
+    SelfhostHirParam name ty mutable span
+
+//: selfhost_hir_function_new: function record を[作/つく]る
+pub fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
+    SelfhostHirFunction name result span root first_param param_count
+
+//: selfhost_hir_function_with_params: parameter range を持つ function record を[作/つく]る
+pub fn selfhost_hir_function_with_params <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,SelfhostHirParamRange)->SelfhostHirFunction> (name, result, span, root, param_range):
+    let first_param <i32> selfhost_hir_param_range_first param_range
+    let param_count <i32> selfhost_hir_param_range_count param_range
+    selfhost_hir_function_new name result span root first_param param_count
+
+//: selfhost_hir_function_param_range: function record の parameter 範囲を[返/かえ]す
+pub fn selfhost_hir_function_param_range <(SelfhostHirFunction)->SelfhostHirParamRange> (func):
+    if:
+        eq func.param_count 0
+        then:
+            selfhost_hir_param_range_empty
+        else:
+            selfhost_hir_param_range_new func.first_param func.param_count

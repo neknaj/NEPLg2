@@ -1,0 +1,51 @@
+#indent 4
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: SelfhostHirFunctionId: HIR module 内の function table index
+pub struct SelfhostHirFunctionId:
+    index <i32>
+
+impl Clone for SelfhostHirFunctionId:
+    fn clone <(&SelfhostHirFunctionId)->SelfhostHirFunctionId> (self):
+        *self
+
+impl Copy for SelfhostHirFunctionId:
+    fn copy_mark <(SelfhostHirFunctionId)->SelfhostHirFunctionId> (self):
+        self
+
+//: SelfhostHirExprId: HIR module 内の expression table index
+pub struct SelfhostHirExprId:
+    index <i32>
+
+impl Clone for SelfhostHirExprId:
+    fn clone <(&SelfhostHirExprId)->SelfhostHirExprId> (self):
+        *self
+
+impl Copy for SelfhostHirExprId:
+    fn copy_mark <(SelfhostHirExprId)->SelfhostHirExprId> (self):
+        self
+
+//: selfhost_hir_function_id_new: function id を[作/つく]る
+pub fn selfhost_hir_function_id_new <(i32)->SelfhostHirFunctionId> (index):
+    SelfhostHirFunctionId index
+
+//: selfhost_hir_function_id_index: function id の index を[返/かえ]す
+pub fn selfhost_hir_function_id_index <(SelfhostHirFunctionId)->i32> (function_id):
+    function_id.index
+
+//: selfhost_hir_expr_id_new: expression id を[作/つく]る
+pub fn selfhost_hir_expr_id_new <(i32)->SelfhostHirExprId> (index):
+    SelfhostHirExprId index
+
+//: selfhost_hir_expr_id_pending: expression id がまだ設定されていない状態を[返/かえ]す
+pub fn selfhost_hir_expr_id_pending <()->Option<SelfhostHirExprId>> ():
+    none<SelfhostHirExprId>
+
+//: selfhost_hir_expr_id_assigned: expression id を Option に[包/つつ]む
+pub fn selfhost_hir_expr_id_assigned <(SelfhostHirExprId)->Option<SelfhostHirExprId>> (expr_id):
+    some<SelfhostHirExprId> expr_id
+
+//: selfhost_hir_expr_id_index: expression id の index を[返/かえ]す
+pub fn selfhost_hir_expr_id_index <(SelfhostHirExprId)->i32> (expr_id):
+    expr_id.index

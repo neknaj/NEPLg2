@@ -43076,3 +43076,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_selfhost_parser_report_contract.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/agent1-parser-report-contract.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host HIR source tree 分割
+
+- `ISS-20260520T040120122Z-SELF-HOST-HIR-REMAINS-A-FLAT-IMPLEME-C9744663` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`core/hir/hir.nepl` が HIR id、range、expression payload、function、module arena、allocation result accessor、table copy/get、stage smoke API を 1 file に抱え、self-host source tree review の P2 方針とずれていたことだった。
+- `core/hir/hir.nepl` は doctest を保持する implementation-free facade にした。実装は `hir/id.nepl`、`range.nepl`、`expr.nepl`、`function.nepl`、`module.nepl`、`arena.nepl`、`stage0.nepl` へ分割した。
+- expression payload enum、range enum、typed absence、owner-safe allocation accessor は維持した。既存 HIR source policy は `nodesrc/selfhost_hir_sources.js` で facade と split files をまとめて読むように更新した。
+- `nodesrc/test_selfhost_hir_split_contract.js` を追加し、facade への実装再導入、split file の 450 行超過、submodule から facade への曖昧 import を監視する。
+- focused verification:
+  - `node nodesrc/test_selfhost_hir_split_contract.js`: passed
+  - `node nodesrc/test_selfhost_hir_report_contract.js`: passed
+  - `node nodesrc/test_selfhost_hir_range_payload.js`: passed
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: passed
+  - `node nodesrc/test_selfhost_hir_expr_id_absence.js`: passed
+  - `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/hir/hir.nepl --no-tree -o tmp/agent1-hir-split-core.json -j 1 --dist web/dist --assert-io`: 3/3 passed

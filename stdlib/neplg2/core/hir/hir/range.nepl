@@ -1,0 +1,114 @@
+#indent 4
+#import "core/traits/copy" as *
+
+//: SelfhostHirChildRangeItems: nonempty expression child table 範囲の payload
+//:
+//: [目的/もくてき]:
+//: - child を持つ expression だけが child table の開始 index と個数を保持します。
+pub struct SelfhostHirChildRangeItems:
+    first_child <i32>
+    child_count <i32>
+
+impl Clone for SelfhostHirChildRangeItems:
+    fn clone <(&SelfhostHirChildRangeItems)->SelfhostHirChildRangeItems> (self):
+        *self
+
+impl Copy for SelfhostHirChildRangeItems:
+    fn copy_mark <(SelfhostHirChildRangeItems)->SelfhostHirChildRangeItems> (self):
+        self
+
+//: SelfhostHirChildRange: expression child table 上の連続範囲
+//:
+//: [目的/もくてき]:
+//: - 空範囲を `-1` sentinel ではなく `Empty` variant として表し、payload の有無を match で確定します。
+pub enum SelfhostHirChildRange:
+    Empty
+    Range <SelfhostHirChildRangeItems>
+
+impl Clone for SelfhostHirChildRange:
+    fn clone <(&SelfhostHirChildRange)->SelfhostHirChildRange> (self):
+        *self
+
+impl Copy for SelfhostHirChildRange:
+    fn copy_mark <(SelfhostHirChildRange)->SelfhostHirChildRange> (self):
+        self
+
+//: SelfhostHirParamRangeItems: nonempty parameter table 範囲の payload
+//:
+//: [目的/もくてき]:
+//: - parameter を持つ function だけが parameter table の開始 index と個数を保持します。
+pub struct SelfhostHirParamRangeItems:
+    first_param <i32>
+    param_count <i32>
+
+impl Clone for SelfhostHirParamRangeItems:
+    fn clone <(&SelfhostHirParamRangeItems)->SelfhostHirParamRangeItems> (self):
+        *self
+
+impl Copy for SelfhostHirParamRangeItems:
+    fn copy_mark <(SelfhostHirParamRangeItems)->SelfhostHirParamRangeItems> (self):
+        self
+
+//: SelfhostHirParamRange: parameter table 上の連続範囲
+//:
+//: [目的/もくてき]:
+//: - 空範囲を `-1` sentinel ではなく `Empty` variant として表し、payload の有無を match で確定します。
+pub enum SelfhostHirParamRange:
+    Empty
+    Range <SelfhostHirParamRangeItems>
+
+impl Clone for SelfhostHirParamRange:
+    fn clone <(&SelfhostHirParamRange)->SelfhostHirParamRange> (self):
+        *self
+
+impl Copy for SelfhostHirParamRange:
+    fn copy_mark <(SelfhostHirParamRange)->SelfhostHirParamRange> (self):
+        self
+
+//: selfhost_hir_child_range_new: child table 範囲を[作/つく]る
+pub fn selfhost_hir_child_range_new <(i32,i32)->SelfhostHirChildRange> (first_child, child_count):
+    SelfhostHirChildRange::Range SelfhostHirChildRangeItems first_child child_count
+
+//: selfhost_hir_child_range_empty: child を持たない範囲を[返/かえ]す
+pub fn selfhost_hir_child_range_empty <()->SelfhostHirChildRange> ():
+    SelfhostHirChildRange::Empty
+
+//: selfhost_hir_child_range_first: child table の開始 index を[返/かえ]す
+pub fn selfhost_hir_child_range_first <(SelfhostHirChildRange)->i32> (child_range):
+    match child_range:
+        SelfhostHirChildRange::Empty:
+            0
+        SelfhostHirChildRange::Range range:
+            range.first_child
+
+//: selfhost_hir_child_range_count: child 数を[返/かえ]す
+pub fn selfhost_hir_child_range_count <(SelfhostHirChildRange)->i32> (child_range):
+    match child_range:
+        SelfhostHirChildRange::Empty:
+            0
+        SelfhostHirChildRange::Range range:
+            range.child_count
+
+//: selfhost_hir_param_range_new: parameter table 範囲を[作/つく]る
+pub fn selfhost_hir_param_range_new <(i32,i32)->SelfhostHirParamRange> (first_param, param_count):
+    SelfhostHirParamRange::Range SelfhostHirParamRangeItems first_param param_count
+
+//: selfhost_hir_param_range_empty: parameter を持たない範囲を[返/かえ]す
+pub fn selfhost_hir_param_range_empty <()->SelfhostHirParamRange> ():
+    SelfhostHirParamRange::Empty
+
+//: selfhost_hir_param_range_first: parameter table の開始 index を[返/かえ]す
+pub fn selfhost_hir_param_range_first <(SelfhostHirParamRange)->i32> (param_range):
+    match param_range:
+        SelfhostHirParamRange::Empty:
+            0
+        SelfhostHirParamRange::Range range:
+            range.first_param
+
+//: selfhost_hir_param_range_count: parameter 数を[返/かえ]す
+pub fn selfhost_hir_param_range_count <(SelfhostHirParamRange)->i32> (param_range):
+    match param_range:
+        SelfhostHirParamRange::Empty:
+            0
+        SelfhostHirParamRange::Range range:
+            range.param_count

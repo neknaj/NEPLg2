@@ -71,7 +71,7 @@ function assertEnumEqUsesMatches(rel, enumName, eqName) {
 }
 
 assertEnumEqUsesMatches("stdlib/neplg2/core/ty/ty.nepl", "SelfhostTypeKind", "selfhost_type_kind_eq");
-assertEnumEqUsesMatches("stdlib/neplg2/core/hir/hir.nepl", "SelfhostHirExprKind", "selfhost_hir_expr_kind_eq");
+assertEnumEqUsesMatches("stdlib/neplg2/core/hir/hir/expr.nepl", "SelfhostHirExprKind", "selfhost_hir_expr_kind_eq");
 assertEnumEqUsesMatches("stdlib/neplg2/core/builtins/prelude.nepl", "SelfhostBuiltinKind", "selfhost_builtin_kind_eq");
 assertEnumEqUsesMatches("stdlib/neplg2/core/resolve/name_resolver.nepl", "SelfhostDefKind", "selfhost_def_kind_eq");
 

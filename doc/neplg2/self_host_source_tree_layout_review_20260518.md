@@ -65,7 +65,7 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 | file | lines | 対応方針 |
 |---|---:|---|
 | `core/syntax/lexer.nepl` | 1,329 | 2026-05-20 に `syntax/lexer/` 配下へ分割済み。root は facade のみ。 |
-| `core/hir/hir.nepl` | 1,036 | `hir/` 配下に id、expr、function、module、arena、range、lower を分ける。 |
+| `core/hir/hir.nepl` | 278 | 2026-05-20 に `hir/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/syntax/token.nepl` | 864 | `syntax/token/` 配下に kind、token value、display/name、directive classification を分ける。 |
 | `core/ty/ty.nepl` | 769 | `ty/` 配下に id、kind、record、arena、eq、function type を分ける。 |
 | `core/syntax/parser/module_parser.nepl` | 603 | `syntax/parser/` 配下に module loop、directive parser、raw block parser、item start classifier を分ける。 |
@@ -468,6 +468,21 @@ source policy は implementation detail の文字列検索だけにしない。�
 | `core/syntax/lexer/tokenize.nepl` | 234 | token stream construction と offside loop。 |
 
 `nodesrc/test_selfhost_lexer_split_contract.js` はこの配置を source policy として固定し、facade への実装再導入、split file の再肥大化、submodule から facade への曖昧 import を拒否する。
+
+2026-05-20 に [ISS-20260520T040120122Z-SELF-HOST-HIR-REMAINS-A-FLAT-IMPLEME-C9744663](../../issues/items/ISS-20260520T040120122Z-SELF-HOST-HIR-REMAINS-A-FLAT-IMPLEME-C9744663.md) で `core/hir/hir.nepl` を分割した。現行の配置は次の通りである。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/hir/hir.nepl` | 278 | doctest を保持する implementation-free facade。 |
+| `core/hir/hir/id.nepl` | 51 | function / expression id と typed absence helper。 |
+| `core/hir/hir/range.nepl` | 114 | child / parameter range enum と accessor。 |
+| `core/hir/hir/expr.nepl` | 350 | expression kind、payload、constructor、payload accessor。 |
+| `core/hir/hir/function.nepl` | 68 | parameter / function record と parameter range helper。 |
+| `core/hir/hir/module.nepl` | 33 | HIR module arena root と allocation result wrapper。 |
+| `core/hir/hir/arena.nepl` | 334 | arena allocation、table add/copy/get、owner-safe allocation accessor。 |
+| `core/hir/hir/stage0.nepl` | 27 | HIR smoke entry。 |
+
+`nodesrc/test_selfhost_hir_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から facade への曖昧 import を拒否する。既存の HIR range / payload / typed absence / report contract source policy は `nodesrc/selfhost_hir_sources.js` を通して facade と split files をまとめて読む。
 
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 
