@@ -270,6 +270,25 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn generics_expected_result_context_checks_char_argument_before_inference() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn id <.T> <(.T)->.T> (x):
+    x
+
+fn main <()->i32> ():
+    let _b <u8> id '\x02'
+    1
+"#;
+
+    let v = run_main_i32(src);
+    assert_eq!(v, 1);
+}
+
+#[test]
 fn generics_generic_calls_generic() {
     let src = r#"
 #entry main

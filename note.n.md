@@ -1,3 +1,16 @@
+# 2026-05-20 Agent 1 generic call constraint object
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、selected generic function call の argument / expected result 制約を typed object に移した。`plan.md` は変更していない。
+- `GenericCallConstraintSource::{Argument, ExpectedResult}` と `GenericCallConstraint { source, declared, instantiated, actual, span }` を追加し、generic call の制約 source を文字列や直接 unify に落とさないようにした。
+- expected result constraint を argument constraint より先に適用するため、`id<T>(T)->T` に `<u8>` の期待型がある場合、`T` が先に `u8` へ拘束され、char literal 引数も u8 context で検査される。
+- implicit generic type argument は保持した call constraints から解くようにし、source policy で直接 `ctx.unify(c_result, expectation.target())` と `infer_instantiated_type_arg` への退行を拒否する。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+  - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 overload ambiguity reason payload
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C として、overload ambiguity の理由を typed payload として保持するようにした。`plan.md` は変更していない。
