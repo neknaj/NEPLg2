@@ -7,6 +7,29 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::place_utils::raw_memory_cell_place;
 
+#[derive(Clone, Copy)]
+pub(super) struct CopyRawElementType {
+    ty: TypeId,
+    stride: usize,
+}
+
+impl CopyRawElementType {
+    pub(super) fn new(ty: TypeId, types: &TypeCtx) -> Option<Self> {
+        types.is_copy(ty).then(|| Self {
+            ty,
+            stride: storage_size_bytes(types, ty),
+        })
+    }
+
+    fn ty(self) -> TypeId {
+        self.ty
+    }
+
+    fn stride(self) -> usize {
+        self.stride
+    }
+}
+
 pub(super) enum RawCellLifecycleEvent<'a> {
     MoveOutLoadedCell {
         address: &'a Place,
@@ -39,7 +62,7 @@ pub(super) enum RawCellLifecycleEvent<'a> {
     FillCopyElements {
         address: &'a Place,
         count: &'a Place,
-        value_ty: TypeId,
+        element_ty: CopyRawElementType,
     },
 }
 
@@ -136,20 +159,47 @@ impl CellTable {
             RawCellLifecycleEvent::FillCopyElements {
                 address,
                 count,
-                value_ty,
+                element_ty,
             } => {
                 self.clear_raw_cells_under(address);
-                if types.is_copy(value_ty) {
-                    self.mark_initialized_raw_byte_range(
-                        address,
-                        count,
-                        InitializedRawRangeUnit::Elements {
-                            stride: storage_size_bytes(types, value_ty),
-                        },
-                        value_ty,
-                    );
-                }
+                self.mark_initialized_raw_byte_range(
+                    address,
+                    count,
+                    InitializedRawRangeUnit::Elements {
+                        stride: element_ty.stride(),
+                    },
+                    element_ty.ty(),
+                );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+    use alloc::vec;
+
+    use crate::types::TypeKind;
+
+    use super::*;
+
+    #[test]
+    fn copy_raw_element_type_requires_copy_evidence() {
+        let mut types = TypeCtx::new();
+        types.set_copy_trait_enabled(true);
+        types.register_copy_impl_target(types.i32());
+        let owned_ty = types.register_named(
+            String::from("Owned"),
+            TypeKind::Struct {
+                name: String::from("Owned"),
+                type_params: vec![],
+                fields: vec![],
+                field_names: vec![],
+            },
+        );
+
+        assert!(CopyRawElementType::new(types.i32(), &types).is_some());
+        assert!(CopyRawElementType::new(owned_ty, &types).is_none());
     }
 }

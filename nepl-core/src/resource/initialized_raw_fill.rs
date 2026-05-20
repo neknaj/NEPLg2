@@ -4,7 +4,7 @@ use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
-use super::raw_cell_lifecycle::RawCellLifecycleEvent;
+use super::raw_cell_lifecycle::{CopyRawElementType, RawCellLifecycleEvent};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
@@ -89,15 +89,23 @@ impl ResourceCheckEngine<'_> {
         );
         if address_available && cells_released {
             if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
-                cells.apply_raw_cell_lifecycle_event(
-                    RawCellLifecycleEvent::FillCopyElements {
-                        address: &address,
-                        count,
-                        value_ty: value.ty,
-                    },
-                    raw_aliases,
-                    self.types,
-                );
+                if let Some(element_ty) = CopyRawElementType::new(value.ty, self.types) {
+                    cells.apply_raw_cell_lifecycle_event(
+                        RawCellLifecycleEvent::FillCopyElements {
+                            address: &address,
+                            count,
+                            element_ty,
+                        },
+                        raw_aliases,
+                        self.types,
+                    );
+                } else {
+                    cells.apply_raw_cell_lifecycle_event(
+                        RawCellLifecycleEvent::DiscardCellsUnderAddress { address: &address },
+                        raw_aliases,
+                        self.types,
+                    );
+                }
             } else {
                 cells.apply_raw_cell_lifecycle_event(
                     RawCellLifecycleEvent::DiscardCellsUnderAddress { address: &address },

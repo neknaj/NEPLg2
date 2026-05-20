@@ -18183,6 +18183,72 @@ fn main <(i32,i32)->i32> (i, len):
 }
 
 #[test]
+fn resource_ir_cell_check_word_fill_non_copy_value_does_not_create_range_evidence() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let address = Place::temporary(ResourceId(0), i32_ty);
+    let count = Place::temporary(ResourceId(1), i32_ty);
+    let value = Place::temporary(ResourceId(2), owned_ty);
+    let fill_out = Place::temporary(ResourceId(3), unit_ty);
+    let loaded = Place::temporary(ResourceId(4), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: address.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: count.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Fill,
+                output: fill_out,
+                args: vec![address.clone(), count, value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded.clone(),
+                args: vec![address],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place.ty == owned_ty
+        )),
+        "non-Copy raw fill must be discard-only and must not create initialized range evidence: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_external_fd_read_initializes_nread_cell() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
