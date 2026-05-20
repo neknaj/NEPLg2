@@ -19,6 +19,7 @@ use super::control_special::ControlSpecialFunction;
 use super::diagnostics::{effect_error, resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
+use super::trait_check::TraitSelfTypeInference;
 use super::traits::TraitId;
 use super::type_expectation::TypeExpectation;
 use super::type_expr::type_from_expr;
@@ -887,14 +888,24 @@ impl<'a> BlockChecker<'a> {
                                                 return None;
                                             }
                                             let trait_id = TraitId::from_name(trait_name);
-                                            let method_self = self
-                                                .infer_unique_type_param_for_trait_ref(
+                                            let method_self = match self
+                                                .resolve_self_type_param_for_trait_ref(
                                                     &trait_id,
                                                     &applied_trait_args.resolved_args,
-                                                )
-                                                .unwrap_or_else(|| {
-                                                    self.ctx.fresh_var(Some(String::from("Self")))
-                                                });
+                                                ) {
+                                                TraitSelfTypeInference::NoEvidence => self
+                                                    .ctx
+                                                    .fresh_var(Some(String::from("Self"))),
+                                                TraitSelfTypeInference::Unique(self_ty) => self_ty,
+                                                TraitSelfTypeInference::Ambiguous(ambiguity) => {
+                                                    self.diagnostics.push(type_error(
+                                                        TypeDiagnosticCode::TraitSelfTypeAmbiguous,
+                                                        ambiguity.diagnostic_message(self),
+                                                        id.span,
+                                                    ));
+                                                    return None;
+                                                }
+                                            };
                                             let mut mapping = BTreeMap::new();
                                             mapping.insert(
                                                 self.ctx.resolve_id(trait_info.self_ty),

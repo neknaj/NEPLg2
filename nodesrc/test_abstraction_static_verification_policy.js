@@ -322,6 +322,7 @@ for (const variant of [
     "TraitMethodResolution::Resolved",
     "TraitMethodResolution::MissingSelfType",
     "TraitMethodResolution::UnsatisfiedBound",
+    "TraitMethodResolution::SelfTypeAmbiguous",
     "TraitMethodResolution::PureCallsImpure",
 ]) {
     assert(traitCallApply.includes(variant), `trait_call_apply.rs must handle ${variant}`);

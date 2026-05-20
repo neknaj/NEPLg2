@@ -264,6 +264,7 @@ impl<'a> BlockChecker<'a> {
                 | TraitMethodResolution::MissingSelfType
                 | TraitMethodResolution::UnsatisfiedBound { .. }
                 | TraitMethodResolution::ConstraintConflict { .. }
+                | TraitMethodResolution::SelfTypeAmbiguous { .. }
                 | TraitMethodResolution::PureCallsImpure => {
                     if !resolved_args.is_empty()
                         && resolved_args

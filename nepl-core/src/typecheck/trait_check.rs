@@ -1,3 +1,5 @@
+use alloc::format;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::types::{TypeId, TypeKind};
@@ -36,6 +38,19 @@ struct TypeParamInferenceConstraint {
     actual: TypeId,
 }
 
+#[derive(Clone)]
+pub(super) struct TraitSelfTypeAmbiguity {
+    trait_id: TraitId,
+    trait_args: Vec<TypeId>,
+    candidates: Vec<TypeId>,
+}
+
+pub(super) enum TraitSelfTypeInference {
+    NoEvidence,
+    Unique(TypeId),
+    Ambiguous(TraitSelfTypeAmbiguity),
+}
+
 impl TypeParamInferenceConstraint {
     fn argument(original: TypeId, actual: TypeId) -> Self {
         Self {
@@ -59,6 +74,32 @@ impl TypeParamInferenceConstraint {
                 TypeArgumentConstraint::new(self.original, self.actual)
             }
         }
+    }
+}
+
+impl TraitSelfTypeAmbiguity {
+    fn new(trait_id: TraitId, trait_args: Vec<TypeId>, candidates: Vec<TypeId>) -> Self {
+        Self {
+            trait_id,
+            trait_args,
+            candidates,
+        }
+    }
+
+    pub(super) fn diagnostic_message(&self, checker: &BlockChecker<'_>) -> String {
+        let application = super::traits::TraitApplication {
+            trait_id: self.trait_id.clone(),
+            args: self.trait_args.clone(),
+        };
+        format!(
+            "trait method self type is ambiguous for '{}' (candidates: {})",
+            application.display_name(checker.ctx),
+            self.candidates
+                .iter()
+                .map(|ty| checker.ctx.type_to_string(*ty))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 
@@ -122,12 +163,12 @@ impl<'a> BlockChecker<'a> {
         })
     }
 
-    pub(super) fn infer_unique_type_param_for_trait_ref(
+    pub(super) fn resolve_self_type_param_for_trait_ref(
         &self,
         trait_id: &TraitId,
         trait_args: &[TypeId],
-    ) -> Option<TypeId> {
-        let mut matched: Option<TypeId> = None;
+    ) -> TraitSelfTypeInference {
+        let mut candidates = Vec::new();
         for (tp, bounds) in self.type_param_bounds.iter() {
             if !bounds
                 .iter()
@@ -136,13 +177,22 @@ impl<'a> BlockChecker<'a> {
                 continue;
             }
             let resolved = self.ctx.resolve_id(tp.type_id());
-            match matched {
-                None => matched = Some(resolved),
-                Some(prev) if self.ctx.same_type(prev, resolved) => {}
-                Some(_) => return None,
+            if !candidates
+                .iter()
+                .any(|candidate| self.ctx.same_type(*candidate, resolved))
+            {
+                candidates.push(resolved);
             }
         }
-        matched
+        match candidates.len() {
+            0 => TraitSelfTypeInference::NoEvidence,
+            1 => TraitSelfTypeInference::Unique(candidates[0]),
+            _ => TraitSelfTypeInference::Ambiguous(TraitSelfTypeAmbiguity::new(
+                trait_id.clone(),
+                trait_args.to_vec(),
+                candidates,
+            )),
+        }
     }
 
     pub(super) fn resolve_trait_application_args(

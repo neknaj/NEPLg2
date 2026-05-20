@@ -10,6 +10,7 @@ use crate::types::TypeId;
 
 use super::diagnostics::{effect_error, type_error};
 use super::syntax_helpers::split_qualified_name;
+use super::trait_check::{TraitSelfTypeAmbiguity, TraitSelfTypeInference};
 use super::traits::{TraitApplication, TraitId};
 use super::type_argument_inference::TypeArgumentConflict;
 use super::type_expectation::TypeExpectation;
@@ -26,6 +27,7 @@ pub(super) enum TraitMethodResolution {
     MissingSelfType,
     UnsatisfiedBound { application: TraitApplication },
     ConstraintConflict { conflict: TypeArgumentConflict },
+    SelfTypeAmbiguous { ambiguity: TraitSelfTypeAmbiguity },
     PureCallsImpure,
 }
 
@@ -118,20 +120,15 @@ impl<'a> BlockChecker<'a> {
                     let _ = self.ctx.unify(result, expectation.target());
                 }
                 let resolved_hint = self.ctx.resolve_id(self_hint);
-                inferred_self_ty = self
-                    .infer_unique_type_param_for_trait_ref(&application.trait_id, &application.args)
-                    .or_else(|| {
-                        if self.type_param_has_trait_application_bound(
-                            resolved_hint,
-                            &application.trait_id,
-                            &application.args,
-                        ) {
-                            Some(resolved_hint)
-                        } else {
-                            None
-                        }
-                    })
-                    .or(Some(resolved_hint));
+                inferred_self_ty = match self
+                    .resolve_self_type_param_for_trait_ref(&application.trait_id, &application.args)
+                {
+                    TraitSelfTypeInference::NoEvidence => Some(resolved_hint),
+                    TraitSelfTypeInference::Unique(self_ty) => Some(self_ty),
+                    TraitSelfTypeInference::Ambiguous(ambiguity) => {
+                        return TraitMethodResolution::SelfTypeAmbiguous { ambiguity };
+                    }
+                };
             }
         }
         if inferred_self_ty.is_none() {
@@ -213,6 +210,14 @@ impl<'a> BlockChecker<'a> {
                 self.diagnostics.push(type_error(
                     TypeDiagnosticCode::TraitConstraintConflict,
                     conflict.diagnostic_message(self.ctx),
+                    span,
+                ));
+                return TraitMethodApplyResult::Handled(None);
+            }
+            TraitMethodResolution::SelfTypeAmbiguous { ambiguity } => {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::TraitSelfTypeAmbiguous,
+                    ambiguity.diagnostic_message(self),
                     span,
                 ));
                 return TraitMethodApplyResult::Handled(None);
