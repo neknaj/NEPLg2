@@ -54,6 +54,18 @@
   - `node nodesrc/issues.js check --dir issues`: pass
   - `git diff --check`: pass
 
+# 2026-05-21 Agent 2 self-host mono instance record
+
+- `ISS-20260520T164036020Z-SELF-HOST-MONO-LACKS-TYPED-INSTANCE--93C7721D` を修正した。`plan.md` は変更していない。
+- `core/mono/mono.nepl` に `SelfhostMonoInstanceRecord` を追加し、mono cache entry の key と assigned instance id を loose tuple ではなく typed record として保持できるようにした。
+- record lookup は deterministic seed ではなく `selfhost_mono_instance_key_eq` の full key equality を使う。未割り当て状態は引き続き `Option<SelfhostMonoInstanceId>` で表し、invalid `-1` sentinel は復帰させていない。
+- `tests/stdlib/neplg2_mono.n.md` の stale invalid-id fixture を Option absence contract に合わせ、record fixture を追加した。
+- `nodesrc/test_selfhost_mono_instance_absence.js` と `stdlib/neplg2/README.md` を更新した。
+- 検証:
+  - `node nodesrc/test_selfhost_mono_instance_absence.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/mono/mono.nepl --no-tree --dist web/dist -o tmp/agent2-selfhost-mono-module.json -j 1 --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_mono.n.md --no-tree --dist web/dist -o tmp/agent2-selfhost-mono-fixture.json -j 1 --assert-io`: 3 passed
+
 # 2026-05-20 Agent 1 Vec data view enum 化
 
 - `ISS-20260520T113031972Z-VEC-DATA-VIEW-COLLAPSES-INVALID-INVA-D6378EBA` を修正した。`plan.md` は変更していない。

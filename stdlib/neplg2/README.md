@@ -25,7 +25,7 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 ## S4 Mono Foundation
 
-`core/mono/mono.nepl` は generic instance の元定義を表す `SelfhostMonoDefId`、type argument table の範囲を表す `SelfhostMonoTypeArgRange`、cache lookup 用の `SelfhostMonoInstanceKey`、instance table index の `SelfhostMonoInstanceId` を提供します。`selfhost_mono_instance_key_seed` は name mangling / cache bucket 用の deterministic seed を返します。実際の cache storage、trait impl lookup、HIR 複製は後続 issue で追加します。
+`core/mono/mono.nepl` は generic instance の元定義を表す `SelfhostMonoDefId`、type argument table の範囲を表す `SelfhostMonoTypeArgRange`、cache lookup 用の `SelfhostMonoInstanceKey`、instance table index の `SelfhostMonoInstanceId`、登録済み cache entry を表す `SelfhostMonoInstanceRecord` を提供します。未割り当て状態は invalid sentinel ではなく `Option<SelfhostMonoInstanceId>` で表します。`selfhost_mono_instance_key_seed` は name mangling / cache bucket 用の deterministic seed を返します。実際の cache storage、trait impl lookup、HIR 複製は後続 issue で追加します。
 
 ## S6 CLI Boundary
 

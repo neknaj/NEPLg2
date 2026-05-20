@@ -12,6 +12,7 @@
 //: - `SelfhostMonoDefId` は module 内 function を `(module_index, function_index)` で表します。
 //: - `SelfhostMonoTypeArgRange` は type argument table の連続範囲を表します。空範囲は `first_arg = 0, arg_count = 0` です。
 //: - `SelfhostMonoInstanceKey` は generic instance cache の lookup key です。
+//: - `SelfhostMonoInstanceRecord` は cache に登録済みの key と割り当て済み instance id を 1 value として保持します。
 //: - `selfhost_mono_instance_key_seed` は key から symbol suffix / cache bucket 用の deterministic seed を作ります。
 //:
 //: [注意/ちゅうい]:
@@ -102,6 +103,23 @@ impl Copy for SelfhostMonoInstanceId:
     fn copy_mark <(SelfhostMonoInstanceId)->SelfhostMonoInstanceId> (self):
         self
 
+//: SelfhostMonoInstanceRecord: cache に登録済みの monomorphize instance
+//:
+//: [目的/もくてき]:
+//: - lookup key と stable instance id を組にし、cache storage / name mangling / codegen が loose tuple を共有しないようにします。
+//: - 未割り当て状態はこの record では表さず、lookup result 側の `Option<SelfhostMonoInstanceId>` で扱います。
+pub struct SelfhostMonoInstanceRecord:
+    key <SelfhostMonoInstanceKey>
+    instance_id <SelfhostMonoInstanceId>
+
+impl Clone for SelfhostMonoInstanceRecord:
+    fn clone <(&SelfhostMonoInstanceRecord)->SelfhostMonoInstanceRecord> (self):
+        *self
+
+impl Copy for SelfhostMonoInstanceRecord:
+    fn copy_mark <(SelfhostMonoInstanceRecord)->SelfhostMonoInstanceRecord> (self):
+        self
+
 //: selfhost_mono_def_id_new: 元 function 定義 ID を作る
 pub fn selfhost_mono_def_id_new <(i32,i32)->SelfhostMonoDefId> (module_index, function_index):
     SelfhostMonoDefId module_index function_index
@@ -162,6 +180,22 @@ pub fn selfhost_mono_instance_id_pending <()->Option<SelfhostMonoInstanceId>> ()
 pub fn selfhost_mono_instance_id_assigned <(SelfhostMonoInstanceId)->Option<SelfhostMonoInstanceId>> (instance_id):
     some<SelfhostMonoInstanceId> instance_id
 
+//: selfhost_mono_instance_record_new: cache 登録済み instance record を作る
+pub fn selfhost_mono_instance_record_new <(SelfhostMonoInstanceKey,SelfhostMonoInstanceId)->SelfhostMonoInstanceRecord> (key, instance_id):
+    SelfhostMonoInstanceRecord key instance_id
+
+//: selfhost_mono_instance_record_key: record の lookup key を返す
+pub fn selfhost_mono_instance_record_key <(SelfhostMonoInstanceRecord)->SelfhostMonoInstanceKey> (record):
+    record.key
+
+//: selfhost_mono_instance_record_id: record の割り当て済み instance id を返す
+pub fn selfhost_mono_instance_record_id <(SelfhostMonoInstanceRecord)->SelfhostMonoInstanceId> (record):
+    record.instance_id
+
+//: selfhost_mono_instance_record_matches_key: record が lookup key と一致するか判定する
+pub fn selfhost_mono_instance_record_matches_key <(SelfhostMonoInstanceRecord,SelfhostMonoInstanceKey)->bool> (record, key):
+    selfhost_mono_instance_key_eq record.key key
+
 //: selfhost_mono_seed_mix: mangle seed 用の 32-bit mixing step
 //:
 //: [目的/もくてき]:
@@ -196,18 +230,26 @@ pub fn selfhost_mono_stage0 <()->i32> ():
     let seed1 <i32> selfhost_mono_instance_key_seed key1
     let seed2 <i32> selfhost_mono_instance_key_seed key2
     let instance_id <SelfhostMonoInstanceId> selfhost_mono_instance_id_new 7
+    let record <SelfhostMonoInstanceRecord> selfhost_mono_instance_record_new key0 instance_id
     let pending <Option<SelfhostMonoInstanceId>> selfhost_mono_instance_id_pending
     let assigned <Option<SelfhostMonoInstanceId>> selfhost_mono_instance_id_assigned instance_id
+    let record_id <SelfhostMonoInstanceId> selfhost_mono_instance_record_id record
     let assigned_ok <bool>:
         match assigned:
             Option::Some assigned_id:
                 eq 7 selfhost_mono_instance_id_index assigned_id
             Option::None:
                 false
+    let record_ok <bool>:
+        and:
+            selfhost_mono_instance_record_matches_key record key1
+            eq 7 selfhost_mono_instance_id_index record_id
     let ok <bool>:
         and:
             and selfhost_mono_instance_key_is_valid key0 selfhost_mono_instance_key_eq key0 key1
             and:
                 and not selfhost_mono_instance_key_eq key0 key2 eq seed0 seed1
-                and ne seed0 seed2 and is_none<SelfhostMonoInstanceId> pending assigned_ok
+                and:
+                    ne seed0 seed2
+                    and and is_none<SelfhostMonoInstanceId> pending assigned_ok record_ok
     if ok 0 1

@@ -31,6 +31,7 @@ assert.match(mono, /#import "core\/option" as \*/, "mono instance absence must u
 assert.doesNotMatch(mono, /\bfn\s+selfhost_mono_instance_id_invalid\b/, "mono instance IDs must not expose an invalid constructor");
 assert.doesNotMatch(mono, /\bfn\s+selfhost_mono_instance_id_is_valid\b/, "mono instance IDs must not rely on validity checks for absence");
 assert.doesNotMatch(mono, /\bselfhost_mono_instance_id_new\s+-1\b/, "mono instance IDs must not construct -1 sentinels");
+assert.match(mono, /\bpub\s+struct\s+SelfhostMonoInstanceRecord:/, "mono must model assigned cache records as a typed struct");
 
 const pending = topLevelBlock(mono, "fn", "selfhost_mono_instance_id_pending");
 assert.match(pending, /Option<SelfhostMonoInstanceId>/, "pending state must return Option<SelfhostMonoInstanceId>");
@@ -47,5 +48,15 @@ assert.match(stage0, /\bmatch\s+assigned:/, "stage0 must inspect assigned state 
 assert.match(stage0, /\bOption::Some\s+assigned_id:/, "stage0 must handle assigned Some payload");
 assert.match(stage0, /\bOption::None:/, "stage0 must handle assigned None payload");
 assert.match(stage0, /\bis_none<SelfhostMonoInstanceId>\s+pending\b/, "stage0 must verify pending is None");
+assert.match(stage0, /\bselfhost_mono_instance_record_new\s+key0\s+instance_id\b/, "stage0 must exercise typed mono instance records");
+assert.match(stage0, /\bselfhost_mono_instance_record_matches_key\s+record\s+key1\b/, "stage0 must compare records through the typed key helper");
+
+const record = topLevelBlock(mono, "struct", "SelfhostMonoInstanceRecord");
+assert.match(record, /\bkey\s+<SelfhostMonoInstanceKey>/, "mono instance records must store the full typed key");
+assert.match(record, /\binstance_id\s+<SelfhostMonoInstanceId>/, "mono instance records must store the assigned instance id");
+
+const recordMatches = topLevelBlock(mono, "fn", "selfhost_mono_instance_record_matches_key");
+assert.match(recordMatches, /\bselfhost_mono_instance_key_eq\s+record\.key\s+key\b/, "record lookup must use full key equality");
+assert.doesNotMatch(recordMatches, /\bselfhost_mono_instance_key_seed\b/, "record lookup must not use seed equality as identity");
 
 console.log("selfhost mono instance absence regression passed");
