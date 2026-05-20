@@ -42990,3 +42990,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-owner-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-related.json -j 1 --dist web/dist --assert-io`: 5/5 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-proof-regression.json -j 1 --dist web/dist --assert-io`: 6/6 passed
+
+## 2026-05-20 Agent 1 self-host proof API / solver 責務分割
+
+- `ISS-20260520T020822877Z-SELF-HOST-PROOF-SOLVER-IS-RE-GROWING-905DDB3F` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、owner / borrow / lifetime / type / trait / effect proof を generic solver に載せたあと、public typed wrapper と内部 proof rule が `core/proof/solver.nepl` に同居し、self-host で避けるべき flat module に戻り始めていたことだった。
+- `core/proof/api.nepl` を追加し、caller 向け query builder と typed result projection を移した。`core/proof/solver.nepl` は `selfhost_proof_solve(SelfhostProofQuery)` と private な enum-matched proof rule に限定した。
+- mismatch refutation 生成は `core/proof/query.nepl` に置き、solver と API wrapper が同じ typed mismatch construction を共有するようにした。
+- `nodesrc/test_selfhost_proof_entry_contract.js` は solver public surface が `selfhost_proof_solve` だけであること、typed wrapper が `proof/api.nepl` にだけあること、API wrapper が generic solver を経由することを監視する。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-api-split-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-api-split-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed

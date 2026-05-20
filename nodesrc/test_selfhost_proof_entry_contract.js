@@ -32,6 +32,7 @@ const proofFact = read("stdlib/neplg2/core/proof/fact.nepl");
 const proofObligation = read("stdlib/neplg2/core/proof/obligation.nepl");
 const proofQuery = read("stdlib/neplg2/core/proof/query.nepl");
 const proofSolver = read("stdlib/neplg2/core/proof/solver.nepl");
+const proofApi = read("stdlib/neplg2/core/proof/api.nepl");
 const moduleChecker = read("stdlib/neplg2/core/check/module.nepl");
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
 const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
@@ -43,6 +44,7 @@ assert.match(proofFacade, /pub #import "\.\/proof\/fact" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/obligation" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/query" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/solver" as \*/);
+assert.match(proofFacade, /pub #import "\.\/proof\/api" as \*/);
 
 assert.match(proofFact, /pub enum SelfhostProofDomain:/, "proof domain must be a typed enum");
 assert.match(proofFact, /pub enum SelfhostProofFact:/, "proof facts must be typed enum payloads");
@@ -270,8 +272,14 @@ const publicSolverFunctions = Array.from(
     proofSolver.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
     (match) => match[1],
 );
+const publicApiFunctions = Array.from(
+    proofApi.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
+    (match) => match[1],
+);
 const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_solve",
+]);
+const allowedPublicApiFunctions = new Set([
     "selfhost_proof_source_span_valid",
     "selfhost_proof_raw_backend_transition",
     "selfhost_proof_module_directive_transition",
@@ -293,12 +301,29 @@ for (const fnName of publicSolverFunctions) {
 for (const fnName of allowedPublicSolverFunctions) {
     assert.ok(publicSolverFunctions.includes(fnName), `proof solver public API must expose ${fnName}`);
 }
+for (const fnName of publicApiFunctions) {
+    assert.ok(allowedPublicApiFunctions.has(fnName), `proof api must expose only typed proof wrappers, got ${fnName}`);
+}
+for (const fnName of allowedPublicApiFunctions) {
+    assert.ok(publicApiFunctions.includes(fnName), `proof api public API must expose ${fnName}`);
+}
+assert.match(proofApi, /#import "neplg2\/core\/proof\/solver" as \*/, "proof api must call the generic solver");
+assert.doesNotMatch(
+    proofApi,
+    /(?:^|\n)fn\s+selfhost_proof_solve_[A-Za-z0-9_]+\b/,
+    "proof api must not implement domain proof rules",
+);
+assert.match(
+    proofApi,
+    /selfhost_proof_solve\s+query/,
+    "proof api wrappers must route through the generic proof solver",
+);
 assert.match(solverBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver must match on obligation enum");
 assert.match(solverBlock, /\bmatch\s+(?:query\.)?fact:/, "solver must match on fact enum");
 assert.doesNotMatch(solverBlock, /^\s*_:/m, "solver must not hide new fact/obligation variants behind wildcard arms");
 assert.doesNotMatch(solverBlock, /"[A-Za-z0-9_.:-]+"/, "proof solver must not depend on string codes or module names");
 assert.match(
-    proofSolver,
+    proofQuery,
     /selfhost_proof_fact_domain\s+fact[\s\S]*selfhost_proof_obligation_domain\s+obligation/,
     "mismatch construction must derive domains from typed fact and obligation values",
 );
@@ -353,7 +378,7 @@ assert.match(
     "trait impl coherence must live in the proof solver",
 );
 assert.match(
-    proofSolver,
+    proofApi,
     /^pub fn\s+selfhost_proof_source_span_valid\b[^\n]*Result<\(\),SelfhostProofRefutation>/m,
     "source span validity must preserve typed refutations instead of returning bool",
 );

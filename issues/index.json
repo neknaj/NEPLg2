@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T02:01:28.130Z",
+  "generated_at": "2026-05-20T02:17:49.830Z",
   "counts": {
-    "total": 1091,
+    "total": 1092,
     "open": 4,
-    "resolved": 1087,
+    "resolved": 1088,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 90,
+        "total": 91,
         "open": 1,
-        "resolved": 89
+        "resolved": 90
       },
       "cli": {
         "total": 19,
@@ -9503,6 +9503,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T014008212Z-SELF-HOST-OWNER-OBLIGATION-IS-NOT-RE-EB1CB46B.md"
+    },
+    {
+      "id": "ISS-20260520T020822877Z-SELF-HOST-PROOF-SOLVER-IS-RE-GROWING-905DDB3F",
+      "title": "Self-host proof solver is re-growing as a flat proof surface",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/solver.nepl, stdlib/neplg2/core/proof/api.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T020822877Z-SELF-HOST-PROOF-SOLVER-IS-RE-GROWING-905DDB3F.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
