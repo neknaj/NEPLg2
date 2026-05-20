@@ -89,12 +89,7 @@ impl<'a> BlockChecker<'a> {
 
         let application = TraitApplication {
             trait_id: TraitId::from_name(trait_name),
-            args: self.infer_trait_application_args(
-                trait_info,
-                sig,
-                args,
-                expected_ret.map(|expectation| expectation.target()),
-            ),
+            args: self.infer_trait_application_args(trait_info, sig, args, expected_ret),
         };
         let mut inferred_self_ty = None;
         if let (Some(self_hint), Some(first_param), Some(arg)) = (
