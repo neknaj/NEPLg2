@@ -43581,6 +43581,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-invariant-2.json -j 1 --assert-io`: 2/2 passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-root-data-view-invariant.json -j 1 --assert-io`: 3/3 passed
 
+## 2026-05-20 Agent 1 Vec transform/filter select/partition 分割
+
+- `ISS-20260520T120931046Z-VEC-TRANSFORM-FILTER-MODULE-STILL-MI-DE8F9BAC` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`stdlib/alloc/collections/vec/transform/filter.nepl` が `filter`、`partition`、`VecPartition` observer/free、raw storage boundary を同居させ、Vec safety 修正後に再び巨大 implementation file 化していたことだった。
+- `filter.nepl` を pure facade にし、`filter/select.nepl` が単一出力 `filter`、`filter/partition.nepl` が partition family facade、`filter/partition/build.nepl` が raw store を伴う `partition` 本体、`filter/partition/view.nepl` が observer/free を所有する構成にした。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は facade への実装再導入、`select` / `build` 以外への raw memory evidence 混入、observer/free の build 側混入を検査する。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter.nepl --no-tree --dist web/dist -o tmp/agent1-vec-transform-filter-split-facade-2.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter/select.nepl --no-tree --dist web/dist -o tmp/agent1-vec-transform-filter-split-select-2.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter/partition.nepl -i stdlib/alloc/collections/vec/transform/filter/partition/build.nepl -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl --no-tree --dist web/dist -o tmp/agent1-vec-transform-filter-split-partition-2.json -j 1 --assert-io`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform.nepl -i stdlib/alloc/collections/vec/transform/map.nepl -i stdlib/alloc/collections/vec/transform/filter.nepl -i stdlib/alloc/collections/vec/transform/filter/select.nepl -i stdlib/alloc/collections/vec/transform/filter/partition.nepl -i stdlib/alloc/collections/vec/transform/filter/partition/build.nepl -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl -i stdlib/alloc/collections/vec/transform/prefix.nepl --no-tree --dist web/dist -o tmp/agent1-vec-transform-filter-split-transform-suite-2.json -j 1 --assert-io`: 11/11 passed
+
 ## 2026-05-20 Agent 1 Vec invariant enum proof 化
 
 - `ISS-20260520T105718879Z-VEC-RAW-ACCESS-INVARIANT-IS-COLLAPSE-31A4E4CA` を追加して fixed にした。`plan.md` は変更していない。

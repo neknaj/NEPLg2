@@ -1,0 +1,121 @@
+//: # vec/transform/filter/select
+//: `Vec.filter` の単一出力 transform
+//:
+//: ### [目的/もくてき]
+//: - `xs |> filter p` の[形/かたち]で、[条件/じょうけん] `p` を[満/み]たす[要素/ようそ]だけを[残/のこ]した[新/あたら]しい `Vec<.T>` を[返/かえ]します。
+//: - `partition` の 2 出力 owner 操作とは分け、単一出力に必要な raw storage boundary だけをこの module に置きます。
+//:
+//: ### [実装/じっそう]
+//: - 1 [回目/かいめ]の loop で[残/のこ]す[要素数/ようそすう]を[数/かぞ]え、2 [回目/かいめ]の loop で exact capacity の[出力/しゅつりょく]バッファへ[詰/つ]めます。
+//: - [入力/にゅうりょく][順序/じゅんじょ]は[維持/いじ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.T>, VecTransformError<.T>>` を[返/かえ]します。
+//: - [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]も入力 `Vec<.T>` は `VecTransformError` に[戻/もど]ります。
+//: - `p` は `(.T)->bool` の[純粋/じゅんすい][関数/かんすう]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let ys <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:         |> push 4 |> uwok
+//:     let zs <Vec<i32>> unwrap_ok filter<i32> ys is_even;
+//:     let ok <bool> eq len<i32> &zs 2
+//:     free<i32> zs;
+//:     if ok 0 1
+//: ```
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "../../types" as *
+#import "../../storage" as vec_storage
+#import "../../mutation/cleanup" as vec_cleanup
+#import "../../query/get" as vec_get
+#import "../../access/data" as *
+#import "../../invariant" as *
+
+pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
+    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let src_len <i32> *field::get_ref v_buffer_ref "len"
+    match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
+        VecCopyInvariant::Invalid _reason:
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+        VecCopyInvariant::Valid:
+            let mut keep_len <i32> 0
+            let mut i <i32> 0
+            while lt i src_len:
+                do:
+                    match vec_get::get<.T> &v i:
+                        Option::Some item:
+                            if cond p item:
+                                then set keep_len add keep_len 1
+                                else ()
+                        Option::None:
+                            ()
+                    set i add i 1
+            match vec_storage::with_capacity<.T> keep_len:
+                Result::Err e:
+                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                Result::Ok out0:
+                    let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
+                    let out_cap <i32> *field::get_ref out_buffer_ref "cap"
+                    match data_mem_view<.T> &out0:
+                        VecDataView::Empty:
+                            if:
+                                eq keep_len 0
+                                then:
+                                    vec_cleanup::free<.T> v
+                                    let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
+                                    let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
+                                else:
+                                    vec_cleanup::free<.T> out0
+                                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                        VecDataView::Invalid _reason:
+                            vec_cleanup::free<.T> out0
+                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                        VecDataView::Data out_data:
+                            let mut read_i <i32> 0
+                            let mut write_i <i32> 0
+                            while lt read_i src_len:
+                                do:
+                                    match vec_get::get<.T> &v read_i:
+                                        Option::Some item:
+                                            if:
+                                                cond p item
+                                                then:
+                                                    store<.T> add mem_ptr_addr out_data mul write_i size_of<.T> item
+                                                    set write_i add write_i 1
+                                                else ()
+                                        Option::None:
+                                            ()
+                                    set read_i add read_i 1
+                            vec_cleanup::free<.T> v
+                            let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
+                            let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
