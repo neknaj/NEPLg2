@@ -1,3 +1,11 @@
+# 2026-05-20 Agent 1 raw fill non-Copy initialized range guard
+
+- `ISS-20260520T160659900Z-RAW-FILL-CAN-CREATE-INITIALIZED-RANG-641CBC9C` を修正した。`plan.md` は変更していない。
+- `RawMemoryOp::Fill` は同じ value を複数 element へ複製する操作なので、Resource IR が non-Copy value type から initialized range evidence を作ると、owner payload の shallow duplication を静的検査が正当化してしまう。
+- `check_raw_memory_fill_words` は `TypeCtx::is_copy(value.ty)` の場合だけ `InitializedRawRangeUnit::Elements` を作るようにした。non-Copy payload の slot 初期化は raw fill ではなく、個別 store / move-out / drop traversal の proof へ接続する。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir raw_fill -- --test-threads=1`: pass
+
 # 2026-05-20 Agent 1 RegionToken owner-token construction boundary separation
 
 - `ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0` を修正した。`plan.md` は変更していない。

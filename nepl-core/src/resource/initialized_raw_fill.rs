@@ -85,14 +85,16 @@ impl ResourceCheckEngine<'_> {
         if address_available && cells_released {
             cells.clear_raw_cells_under(&address);
             if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
-                cells.mark_initialized_raw_byte_range(
-                    &address,
-                    count,
-                    InitializedRawRangeUnit::Elements {
-                        stride: storage_size_bytes(self.types, value.ty),
-                    },
-                    value.ty,
-                );
+                if self.types.is_copy(value.ty) {
+                    cells.mark_initialized_raw_byte_range(
+                        &address,
+                        count,
+                        InitializedRawRangeUnit::Elements {
+                            stride: storage_size_bytes(self.types, value.ty),
+                        },
+                        value.ty,
+                    );
+                }
             }
             cells.mark_initialized(output);
             raw_aliases.clear(output);

@@ -21508,6 +21508,71 @@ fn resource_ir_cell_check_raw_fill_does_not_initialize_non_copy_cell() {
 }
 
 #[test]
+fn resource_ir_cell_check_raw_fill_with_non_copy_value_does_not_initialize_range() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let len = Place::temporary(ResourceId(1), i32_ty);
+    let fill_value = Place::temporary(ResourceId(2), owned_ty);
+    let fill_out = Place::temporary(ResourceId(3), unit_ty);
+    let loaded = Place::temporary(ResourceId(4), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: ptr.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fill_value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Fill,
+                output: fill_out,
+                args: vec![ptr.clone(), len, fill_value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![ptr],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place.ty == owned_ty
+        )),
+        "raw fill with a non-Copy value must not create repeated initialized owner cells: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets() {
     let source = r#"
 #entry main

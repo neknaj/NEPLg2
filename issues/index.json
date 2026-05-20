@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T15:52:56.771Z",
+  "generated_at": "2026-05-20T16:11:01.128Z",
   "counts": {
-    "total": 1129,
+    "total": 1130,
     "open": 3,
-    "resolved": 1126,
+    "resolved": 1127,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -47,9 +47,9 @@
         "resolved": 4
       },
       "compiler": {
-        "total": 6,
+        "total": 7,
         "open": 0,
-        "resolved": 6
+        "resolved": 7
       },
       "compiler/resource-ir": {
         "total": 5,
@@ -1093,6 +1093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T153639309Z-REGIONTOKEN-CONSTRUCTION-SHARES-GENE-C5BF72D0.md"
+    },
+    {
+      "id": "ISS-20260520T160659900Z-RAW-FILL-CAN-CREATE-INITIALIZED-RANG-641CBC9C",
+      "title": "Raw fill can create initialized ranges for non-Copy values in Resource IR",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/resource/initialized_raw_fill.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T160659900Z-RAW-FILL-CAN-CREATE-INITIALIZED-RANG-641CBC9C.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",
