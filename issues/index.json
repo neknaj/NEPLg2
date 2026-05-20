@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T03:51:07.435Z",
+  "generated_at": "2026-05-20T03:56:23.873Z",
   "counts": {
-    "total": 1097,
+    "total": 1098,
     "open": 4,
-    "resolved": 1093,
+    "resolved": 1094,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 96,
+        "total": 97,
         "open": 1,
-        "resolved": 95
+        "resolved": 96
       },
       "cli": {
         "total": 19,
@@ -15428,6 +15428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T033313620Z-SELF-HOST-LEXER-REMAINS-A-FLAT-IMPLE-4314DA2B.md"
+    },
+    {
+      "id": "ISS-20260520T035443109Z-SELFHOST-PARSER-REPORT-CONTRACT-EXPE-2F0D52E2",
+      "title": "selfhost parser report contract expects stale assertion count",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nodesrc/test_selfhost_parser_report_contract.js, tests/stdlib/neplg2_parser.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T035443109Z-SELFHOST-PARSER-REPORT-CONTRACT-EXPE-2F0D52E2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
