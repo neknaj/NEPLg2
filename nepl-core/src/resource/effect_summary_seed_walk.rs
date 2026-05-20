@@ -158,6 +158,14 @@ pub(super) fn collect_parameter_descendant_places(
             ResourceOp::CollectionSlotLifecycle { target, .. } => {
                 push_parameter_descendant_place(places, parameter, aliases, target);
             }
+            ResourceOp::CollectionStorageRelocate {
+                old_storage,
+                new_storage,
+                ..
+            } => {
+                push_parameter_descendant_place(places, parameter, aliases, old_storage);
+                push_parameter_descendant_place(places, parameter, aliases, new_storage);
+            }
             ResourceOp::CallEffect { .. } => {}
         }
     }

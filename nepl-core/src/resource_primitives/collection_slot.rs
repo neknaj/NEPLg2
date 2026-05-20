@@ -7,6 +7,7 @@ pub enum CollectionSlotLifecyclePrimitive {
     ReplaceDropOld,
     DropInitialized,
     StorageDealloc,
+    StorageRelocate,
 }
 
 impl CollectionSlotLifecyclePrimitive {
@@ -19,6 +20,7 @@ impl CollectionSlotLifecyclePrimitive {
             "collection_slot_replace_drop_old" => Some(Self::ReplaceDropOld),
             "collection_slot_drop_initialized" => Some(Self::DropInitialized),
             "collection_slot_storage_dealloc" => Some(Self::StorageDealloc),
+            "collection_slot_storage_relocate" => Some(Self::StorageRelocate),
             _ => None,
         }
     }
@@ -33,6 +35,7 @@ impl CollectionSlotLifecyclePrimitive {
             Self::ReplaceDropOld => "collection_slot_replace_drop_old",
             Self::DropInitialized => "collection_slot_drop_initialized",
             Self::StorageDealloc => "collection_slot_storage_dealloc",
+            Self::StorageRelocate => "collection_slot_storage_relocate",
         }
     }
 
@@ -40,7 +43,7 @@ impl CollectionSlotLifecyclePrimitive {
         match self {
             Self::InitializeEmpty | Self::BorrowRead | Self::MoveOut | Self::DropInitialized => 1,
             Self::ReplaceReturnOld | Self::ReplaceDropOld => 2,
-            Self::StorageDealloc => 0,
+            Self::StorageDealloc | Self::StorageRelocate => 0,
         }
     }
 
@@ -53,6 +56,7 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::ReplaceDropOld
             | Self::DropInitialized => 2,
             Self::StorageDealloc => 1,
+            Self::StorageRelocate => 2,
         }
     }
 
@@ -64,7 +68,20 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::ReplaceReturnOld
             | Self::ReplaceDropOld
             | Self::DropInitialized => true,
-            Self::StorageDealloc => false,
+            Self::StorageDealloc | Self::StorageRelocate => false,
+        }
+    }
+
+    pub(crate) const fn requires_storage_pair(self) -> bool {
+        match self {
+            Self::StorageRelocate => true,
+            Self::InitializeEmpty
+            | Self::BorrowRead
+            | Self::MoveOut
+            | Self::ReplaceReturnOld
+            | Self::ReplaceDropOld
+            | Self::DropInitialized
+            | Self::StorageDealloc => false,
         }
     }
 
@@ -74,7 +91,7 @@ impl CollectionSlotLifecyclePrimitive {
                 Some(0)
             }
             Self::ReplaceReturnOld | Self::ReplaceDropOld => Some(0),
-            Self::StorageDealloc => None,
+            Self::StorageDealloc | Self::StorageRelocate => None,
         }
     }
 }

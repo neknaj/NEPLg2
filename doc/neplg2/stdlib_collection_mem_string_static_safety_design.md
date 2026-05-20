@@ -64,6 +64,8 @@
 
 2026-05-21 追記 3: collection slot state は制御フロー合流時の不確実性を `MaybeInitialized` / `MaybeReleased` として保持する。片方の分岐だけで move/drop/release された slot を definite な `Moved` や `Released` に潰すと、後続の move/drop/storage release が安全であるかを証明できなくなるため、合流後は typed refutation により reinit / move / drop / release を拒否する。関連 issue は [ISS-20260520T190336025Z-COLLECTION-SLOT-STATE-LACKS-PATH-MER-3E8FEBA9](../../issues/items/ISS-20260520T190336025Z-COLLECTION-SLOT-STATE-LACKS-PATH-MER-3E8FEBA9.md)。
 
+2026-05-21 追記 4: collection storage の grow / realloc / owner replacement は、Vec 固有の proof や stdlib 関数名 allowlist では扱わない。Rust compiler 側では `CollectionSlotLifecyclePrimitive::StorageRelocate` と `ResourceOp::CollectionStorageRelocate` を追加し、old storage prefix 配下の initialized / moved / dropped slot state を new storage prefix へ rekey する。new storage に既存 slot state がある場合は typed refutation とし、old storage は relocation 後に released として閉じる。call summary も `Relocate { old_storage, new_storage }` を parameter-relative target として保持し、caller actual storage へ replay する。これにより `OwnedBuffer<T>` / `Vec<T>` の grow path は、個別 module proof ではなく generic Resource IR operation として non-Copy payload state を保持できる。関連 issue は [ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2](../../issues/items/ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。
@@ -443,6 +445,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | raw-memory-backed stdlib API の段階移行親 issue。2026-05-20 に closure audit 済み。 |
 | `ISS-20260425T000000Z-RV-STDLIB-004-91534828` | 旧 collection free/drop bug。2026-05-20 に Copy-only public surface と policy coverage の closure audit で fixed。 |
 | `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` | non-Copy payload collection の final support。compiler-issued owner token、initialized/moved/drop state、Resource IR proof boundary へ接続する後続 issue。 |
+| `ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2` | collection storage relocation で slot lifecycle state を old storage prefix から new storage prefix へ rekey する Resource IR operation。 |
 | `ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF` | `VecDataLen` raw storage view carrier の削除。 |
 | `ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F` | `StringBuilder` 固有 raw owner field を `ByteBuilder` owner boundary へ集約。 |
 | `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` | `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field を `RegionToken` owner boundary へ集約。 |

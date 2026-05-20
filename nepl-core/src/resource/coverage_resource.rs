@@ -487,6 +487,28 @@ fn resource_ops_coverage(
                     diagnostics,
                 );
             }
+            ResourceOp::CollectionStorageRelocate {
+                old_storage,
+                new_storage,
+                span,
+            } => {
+                resource_alias_place_coverage(
+                    function,
+                    CoveragePlaceOp::CollectionStorageRelocateOld,
+                    old_storage,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+                resource_alias_place_coverage(
+                    function,
+                    CoveragePlaceOp::CollectionStorageRelocateNew,
+                    new_storage,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+            }
             ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
         }
     }

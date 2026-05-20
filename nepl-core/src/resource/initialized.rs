@@ -494,6 +494,18 @@ impl ResourceCheckEngine<'_> {
             } => {
                 self.apply_collection_slot_lifecycle(collection_slots, target, *event, *span);
             }
+            ResourceOp::CollectionStorageRelocate {
+                old_storage,
+                new_storage,
+                span,
+            } => {
+                self.apply_collection_storage_relocate(
+                    collection_slots,
+                    old_storage,
+                    new_storage,
+                    *span,
+                );
+            }
             ResourceOp::Construct {
                 output,
                 kind,

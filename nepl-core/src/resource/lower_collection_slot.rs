@@ -25,6 +25,10 @@ pub(super) fn push_collection_slot_lifecycle_intrinsic(
     let Some(primitive) = CollectionSlotLifecyclePrimitive::from_intrinsic_name(name) else {
         return false;
     };
+    if primitive.requires_storage_pair() {
+        push_collection_storage_relocate(hir_args, arg_places, ops, env, span);
+        return true;
+    }
     let Some(target) =
         collection_slot_lifecycle_target(primitive, type_args, hir_args, arg_places, env)
     else {
@@ -39,6 +43,36 @@ pub(super) fn push_collection_slot_lifecycle_intrinsic(
         span,
     });
     true
+}
+
+fn push_collection_storage_relocate(
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    ops: &mut Vec<ResourceOp>,
+    env: &LoweringEnvironment,
+    span: Span,
+) {
+    let Some(old_storage) = storage_lifecycle_place(0, hir_args, arg_places, env) else {
+        return;
+    };
+    let Some(new_storage) = storage_lifecycle_place(1, hir_args, arg_places, env) else {
+        return;
+    };
+    ops.push(ResourceOp::CollectionStorageRelocate {
+        old_storage,
+        new_storage,
+        span,
+    });
+}
+
+fn storage_lifecycle_place(
+    index: usize,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    let source = raw_address_source_from_actual_arg(index, hir_args, arg_places, env)?;
+    Some(source.into_place_and_view(env.types.i32()).place)
 }
 
 fn collection_slot_lifecycle_target(
@@ -103,6 +137,7 @@ fn collection_slot_lifecycle_event(
         CollectionSlotLifecyclePrimitive::StorageDealloc => {
             Some(CollectionSlotLifecycleEvent::StorageDealloc)
         }
+        CollectionSlotLifecyclePrimitive::StorageRelocate => None,
     }
 }
 

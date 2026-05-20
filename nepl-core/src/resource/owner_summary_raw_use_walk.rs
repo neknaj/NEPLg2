@@ -169,7 +169,8 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
             | ResourceOp::FunctionValue { .. }
             | ResourceOp::IndirectCall { .. }
             | ResourceOp::StorageOrigin { .. }
-            | ResourceOp::CollectionSlotLifecycle { .. } => {}
+            | ResourceOp::CollectionSlotLifecycle { .. }
+            | ResourceOp::CollectionStorageRelocate { .. } => {}
         }
     }
     false

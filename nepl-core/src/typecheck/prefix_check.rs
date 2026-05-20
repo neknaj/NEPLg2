@@ -202,6 +202,14 @@ impl<'a> BlockChecker<'a> {
         if let Some(anchor) = args.first() {
             match self.collection_slot_lifecycle_anchor(anchor.ty) {
                 Some(anchor_kind) => {
+                    if primitive.requires_storage_pair() {
+                        self.validate_collection_storage_relocate_anchor_pair(
+                            anchor_kind,
+                            args,
+                            span,
+                        );
+                        return;
+                    }
                     if !primitive.has_slot_offset() && !anchor_kind.is_owner_token() {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::IntrinsicArgTypeMismatch,
@@ -237,6 +245,50 @@ impl<'a> BlockChecker<'a> {
                     args[1].span,
                 ));
             }
+        }
+    }
+
+    fn validate_collection_storage_relocate_anchor_pair(
+        &mut self,
+        old_anchor: CollectionSlotLifecycleAnchor,
+        args: &[HirExpr],
+        span: Span,
+    ) {
+        if !old_anchor.is_owner_token() {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot storage relocate old target must be a compiler owner token",
+                args.first().map(|arg| arg.span).unwrap_or(span),
+            ));
+        }
+        let Some(new_arg) = args.get(1) else {
+            return;
+        };
+        let Some(new_anchor) = self.collection_slot_lifecycle_anchor(new_arg.ty) else {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot storage relocate new target must be a compiler owner token",
+                new_arg.span,
+            ));
+            return;
+        };
+        if !new_anchor.is_owner_token() {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot storage relocate new target must be a compiler owner token",
+                new_arg.span,
+            ));
+        }
+        if self
+            .ctx
+            .unify(old_anchor.value_ty(), new_anchor.value_ty())
+            .is_err()
+        {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot storage relocate owner token element types must match",
+                new_arg.span,
+            ));
         }
     }
 

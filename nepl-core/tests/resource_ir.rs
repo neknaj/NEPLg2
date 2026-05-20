@@ -23290,6 +23290,143 @@ fn resource_ir_collection_slot_call_summary_moves_slot_before_storage_dealloc() 
 }
 
 #[test]
+fn resource_ir_collection_storage_relocate_transfers_live_slot_to_new_storage() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let old_storage = Place::local("old_buffer".to_string(), owned_ty);
+    let new_storage = Place::local("new_buffer".to_string(), owned_ty);
+    let old_slot = old_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let new_slot = new_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::CollectionSlotLifecycle {
+                target: old_slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::CollectionStorageRelocate {
+                old_storage: old_storage.clone(),
+                new_storage: new_storage.clone(),
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: old_storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: new_storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: new_slot.clone(),
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+    assert!(report.functions[0]
+        .final_collection_slots
+        .iter()
+        .any(|entry| entry.slot == new_slot
+            && entry.state == CollectionSlotState::Initialized(owned_ty)));
+}
+
+#[test]
+fn resource_ir_collection_storage_relocate_call_summary_transfers_slot() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let old_storage = Place::local("old_buffer".to_string(), owned_ty);
+    let new_storage = Place::local("new_buffer".to_string(), owned_ty);
+    let old_slot = old_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let new_slot = new_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let resource = collection_slot_relocate_summary_resource(
+        unit_ty,
+        owned_ty,
+        span,
+        vec![ResourceOp::CollectionStorageRelocate {
+            old_storage: Place::local("old_storage".to_string(), owned_ty),
+            new_storage: Place::local("new_storage".to_string(), owned_ty),
+            span,
+        }],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: old_storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: new_storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: old_slot,
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(709), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "relocate_storage".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![old_storage.clone(), new_storage.clone()],
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: new_storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: new_slot,
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_call_summary_rejects_live_slot_during_storage_dealloc() {
     let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();
@@ -23554,6 +23691,66 @@ fn collection_slot_summary_resource(
                     mutable: true,
                     place: param_place,
                 }],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: helper_ops,
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: main_ops,
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    }
+}
+
+fn collection_slot_relocate_summary_resource(
+    unit_ty: TypeId,
+    owned_ty: TypeId,
+    span: Span,
+    helper_ops: Vec<ResourceOp>,
+    main_ops: Vec<ResourceOp>,
+) -> ResourceModule {
+    ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "relocate_storage".to_string(),
+                origin_name: "relocate_storage".to_string(),
+                type_params: Vec::new(),
+                params: vec![
+                    ResourceLocal {
+                        name: "old_storage".to_string(),
+                        ty: owned_ty,
+                        mutable: true,
+                        place: Place::local("old_storage".to_string(), owned_ty),
+                    },
+                    ResourceLocal {
+                        name: "new_storage".to_string(),
+                        ty: owned_ty,
+                        mutable: true,
+                        place: Place::local("new_storage".to_string(), owned_ty),
+                    },
+                ],
                 result: unit_ty,
                 effect: Effect::Pure,
                 entry_block: ResourceBlockId(0),

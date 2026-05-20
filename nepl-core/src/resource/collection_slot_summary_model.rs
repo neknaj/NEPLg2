@@ -30,6 +30,10 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
         target: CollectionSlotLifecycleSummaryPlace,
         event: CollectionSlotLifecycleEvent,
     },
+    Relocate {
+        old_storage: CollectionSlotLifecycleSummaryPlace,
+        new_storage: CollectionSlotLifecycleSummaryPlace,
+    },
     Merge {
         paths: Vec<Vec<CollectionSlotLifecycleSummaryOp>>,
     },

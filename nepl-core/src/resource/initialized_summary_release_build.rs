@@ -217,6 +217,7 @@ fn collect_param_release_requirements_from_op(
         | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::Construct { .. }
         | ResourceOp::Expr { .. }
         | ResourceOp::EndScope { .. } => {}

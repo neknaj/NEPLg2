@@ -93,6 +93,25 @@ impl ResourceCheckEngine<'_> {
                         );
                     }
                 }
+                CollectionSlotLifecycleSummaryOp::Relocate {
+                    old_storage,
+                    new_storage,
+                } => {
+                    let Some(old_storage) = instantiate_summary_target(self, args, old_storage)
+                    else {
+                        continue;
+                    };
+                    let Some(new_storage) = instantiate_summary_target(self, args, new_storage)
+                    else {
+                        continue;
+                    };
+                    self.apply_collection_storage_relocate(
+                        collection_slots,
+                        &old_storage,
+                        &new_storage,
+                        span,
+                    );
+                }
                 CollectionSlotLifecycleSummaryOp::Merge { paths } => {
                     if paths.is_empty() {
                         continue;

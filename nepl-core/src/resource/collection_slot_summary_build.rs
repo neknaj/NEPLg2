@@ -211,6 +211,21 @@ fn collect_summary_ops_from_op(
                 });
             }
         }
+        ResourceOp::CollectionStorageRelocate {
+            old_storage,
+            new_storage,
+            ..
+        } => {
+            if let (Some(old_storage), Some(new_storage)) = (
+                summary_place_for_params(params, old_storage),
+                summary_place_for_params(params, new_storage),
+            ) {
+                out.push(CollectionSlotLifecycleSummaryOp::Relocate {
+                    old_storage,
+                    new_storage,
+                });
+            }
+        }
         ResourceOp::Call { target, args, .. } => {
             collect_direct_call_summary_ops(
                 out,
@@ -383,6 +398,26 @@ fn translate_summary_ops_through_args(
                     out.push(CollectionSlotLifecycleSummaryOp::Event {
                         target,
                         event: *event,
+                    });
+                }
+            }
+            CollectionSlotLifecycleSummaryOp::Relocate {
+                old_storage,
+                new_storage,
+            } => {
+                let Some(actual_old) = instantiate_summary_target(engine, args, old_storage) else {
+                    continue;
+                };
+                let Some(actual_new) = instantiate_summary_target(engine, args, new_storage) else {
+                    continue;
+                };
+                if let (Some(old_storage), Some(new_storage)) = (
+                    summary_place_for_params(params, &actual_old),
+                    summary_place_for_params(params, &actual_new),
+                ) {
+                    out.push(CollectionSlotLifecycleSummaryOp::Relocate {
+                        old_storage,
+                        new_storage,
                     });
                 }
             }

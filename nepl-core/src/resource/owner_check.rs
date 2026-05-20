@@ -697,7 +697,9 @@ impl ResourceOwnerCheckEngine<'_> {
                     *span,
                 );
             }
-            ResourceOp::CallEffect { .. } | ResourceOp::CollectionSlotLifecycle { .. } => {}
+            ResourceOp::CallEffect { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. }
+            | ResourceOp::CollectionStorageRelocate { .. } => {}
         }
     }
 

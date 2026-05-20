@@ -40,4 +40,22 @@ impl ResourceCheckEngine<'_> {
                 });
         }
     }
+
+    pub(super) fn apply_collection_storage_relocate(
+        &mut self,
+        collection_slots: &mut CollectionSlotStateTable,
+        old_storage: &Place,
+        new_storage: &Place,
+        span: Span,
+    ) {
+        if let Err(refutation) = collection_slots.relocate_storage(old_storage, new_storage) {
+            self.diagnostics
+                .push(ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: self.function.to_string(),
+                    target: refutation.slot,
+                    reason: refutation.reason,
+                    span,
+                });
+        }
+    }
 }

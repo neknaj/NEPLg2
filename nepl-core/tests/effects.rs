@@ -643,6 +643,58 @@ fn helper <(MemPtr<i32>)->()> (ptr):
 }
 
 #[test]
+fn collection_slot_storage_relocate_accepts_matching_owner_tokens() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+pub struct RegionToken<.T>:
+    raw <i32>
+    size <i32>
+
+fn helper <(RegionToken<i32>,RegionToken<i32>)->()> (old, new):
+    #intrinsic "collection_slot_storage_relocate" <> (old, new)
+"#;
+
+    check_source_as_stdlib_path(
+        src,
+        "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+        CompileTarget::Wasm,
+    )
+    .expect("storage relocate with matching owner token element types is allowed");
+}
+
+#[test]
+fn collection_slot_storage_relocate_rejects_mismatched_owner_tokens() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+pub struct RegionToken<.T>:
+    raw <i32>
+    size <i32>
+
+fn helper <(RegionToken<i32>,RegionToken<u8>)->()> (old, new):
+    #intrinsic "collection_slot_storage_relocate" <> (old, new)
+"#;
+
+    assert_has_diag(
+        check_source_as_stdlib_path(
+            src,
+            "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
 fn pure_llvm_raw_comment_with_impure_marker_is_allowed() {
     let src = r#"
 #entry main

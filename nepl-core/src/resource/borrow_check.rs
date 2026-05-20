@@ -381,7 +381,8 @@ impl ResourceBorrowCheckEngine<'_> {
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
             | ResourceOp::StorageOrigin { .. }
-            | ResourceOp::CollectionSlotLifecycle { .. } => {}
+            | ResourceOp::CollectionSlotLifecycle { .. }
+            | ResourceOp::CollectionStorageRelocate { .. } => {}
             ResourceOp::Construct {
                 output,
                 kind,

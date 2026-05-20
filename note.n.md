@@ -1,3 +1,20 @@
+# 2026-05-21 Agent 1 collection slot storage relocation state transfer
+
+- `ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot lifecycle proof が単一 storage prefix 上では機能していた一方で、grow / realloc / owner replacement 後に slot state を old storage から new storage へ移す generic Resource IR transition が存在しなかったことだった。
+- `CollectionSlotLifecyclePrimitive::StorageRelocate` と `ResourceOp::CollectionStorageRelocate` を追加し、old/new storage pair を typed enum operation として Resource IR に載せた。
+- `CollectionSlotStateTable::relocate_storage` は old storage 配下の initialized / moved / dropped slot state を new storage prefix に rekey し、new storage に既存 slot がある場合は typed refutation で拒否する。old storage は relocation 後に released として閉じる。
+- HIR lowering、typecheck prefix check、initialized checker、dump、coverage、borrow usage、call summary build/apply の exhaustive `match` に接続した。stdlib module 名や関数名 allowlist は追加していない。
+- 責務肥大化を避けるため、`collection_slot_state_relocate.rs` / `collection_slot_state_relocate_tests.rs` / `lower_temporary_scope_op.rs` に分割し、resource checker line-limit policy を緩めずに通した。
+- 検証:
+  - `cargo test -p nepl-core storage_relocate -- --test-threads=1`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo check -p nepl-core`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-05-21 Agent 1 collection slot lifecycle production lowering producer
 
 - `ISS-20260520T200531197Z-COLLECTION-SLOT-LIFECYCLE-HAS-NO-PRO-298A1B25` を fixed にした。`plan.md` は変更していない。

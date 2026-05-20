@@ -34,6 +34,9 @@ mod collection_slot_lifecycle;
 #[cfg(test)]
 mod collection_slot_lifecycle_tests;
 mod collection_slot_state_merge;
+mod collection_slot_state_relocate;
+#[cfg(test)]
+mod collection_slot_state_relocate_tests;
 mod collection_slot_state_table;
 #[cfg(test)]
 mod collection_slot_state_table_tests;
@@ -217,6 +220,8 @@ mod lower_aggregate_selector;
 mod lower_call;
 mod lower_collection_slot;
 #[cfg(test)]
+mod lower_collection_slot_relocate_tests;
+#[cfg(test)]
 mod lower_collection_slot_tests;
 mod lower_condition;
 mod lower_layout_intrinsic;
@@ -229,6 +234,7 @@ mod lower_raw_address_return_util;
 mod lower_raw_address_source;
 mod lower_raw_memory;
 mod lower_temporary_scope;
+mod lower_temporary_scope_op;
 mod model;
 mod owner_alias;
 mod owner_check;

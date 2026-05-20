@@ -343,6 +343,21 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 span.end
             );
         }
+        ResourceOp::CollectionStorageRelocate {
+            old_storage,
+            new_storage,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "collection_storage_relocate old={} new={} span={}:{}-{}",
+                dump_place(old_storage),
+                dump_place(new_storage),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
         ResourceOp::Construct {
             output,
             kind,

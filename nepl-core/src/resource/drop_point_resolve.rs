@@ -209,6 +209,7 @@ pub(super) fn op_kind(op: &ResourceOp) -> ResourceDropPointOpKind {
         | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::Construct { .. } => ResourceDropPointOpKind::Leaf,
     }
 }

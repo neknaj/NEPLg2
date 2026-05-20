@@ -171,6 +171,11 @@ pub enum ResourceOp {
         event: CollectionSlotLifecycleEvent,
         span: Span,
     },
+    CollectionStorageRelocate {
+        old_storage: Place,
+        new_storage: Place,
+        span: Span,
+    },
     Construct {
         output: Place,
         kind: AggregateKind,

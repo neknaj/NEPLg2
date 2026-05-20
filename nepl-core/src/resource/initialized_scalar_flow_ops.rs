@@ -308,6 +308,7 @@ fn propagate_i32_scalar_op(
         ResourceOp::Drop { place, .. } => raw_aliases.clear(place),
         ResourceOp::CallEffect { .. }
         | ResourceOp::EndScope { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. } => {}
+        | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. } => {}
     }
 }
