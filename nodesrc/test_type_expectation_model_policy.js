@@ -106,6 +106,21 @@ assert.match(
 );
 assert.match(
     overloadSelection,
+    /enum\s+OverloadCandidateMaterializationPhase\s*{[\s\S]*BeforeInstantiation[\s\S]*AfterInstantiation[\s\S]*}/,
+    'overload candidate rejection materialization phase must be typed',
+);
+assert.match(
+    overloadSelection,
+    /fn\s+materialization_phase\(self\)\s*->\s*OverloadCandidateMaterializationPhase[\s\S]*match\s+self\s*{[\s\S]*OverloadCandidateRejection::DeclaredExpectedResult[\s\S]*BeforeInstantiation[\s\S]*OverloadCandidateRejection::GenericConstraintConflict[\s\S]*AfterInstantiation[\s\S]*}/,
+    'overload rejection reasons must classify pre/post instantiation through exhaustive match',
+);
+assert.match(
+    overloadSelection,
+    /fn\s+record_rejection\(&mut self,\s*reason:\s*OverloadCandidateRejection\)[\s\S]*match\s+reason\.materialization_phase\(\)[\s\S]*rejected_before_materialization[\s\S]*rejected_after_materialization[\s\S]*match\s+reason\s*{/,
+    'overload candidate stats must update materialization phase counters from the typed rejection phase',
+);
+assert.match(
+    overloadSelection,
     /fn\s+assert_materialization_guard\(&self\)[\s\S]*debug_assert!\(self\.materialized\s*\+\s*self\.pre_materialized_rejections\(\)\s*<=\s*self\.considered\)/,
     'overload selection must guard candidate materialization count',
 );

@@ -54,11 +54,39 @@ enum OverloadCandidateRejection {
     GenericConstraintConflict,
 }
 
+#[derive(Clone, Copy)]
+enum OverloadCandidateMaterializationPhase {
+    BeforeInstantiation,
+    AfterInstantiation,
+}
+
+impl OverloadCandidateRejection {
+    fn materialization_phase(self) -> OverloadCandidateMaterializationPhase {
+        match self {
+            OverloadCandidateRejection::NotFunction
+            | OverloadCandidateRejection::TypeArgumentCount
+            | OverloadCandidateRejection::CaptureArity
+            | OverloadCandidateRejection::UserArity
+            | OverloadCandidateRejection::DeclaredExpectedResult => {
+                OverloadCandidateMaterializationPhase::BeforeInstantiation
+            }
+            OverloadCandidateRejection::InstantiatedNotFunction
+            | OverloadCandidateRejection::ArgumentType
+            | OverloadCandidateRejection::ExpectedResult
+            | OverloadCandidateRejection::GenericConstraintConflict => {
+                OverloadCandidateMaterializationPhase::AfterInstantiation
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 struct OverloadCandidateStats {
     considered: usize,
     materialized: usize,
     accepted: usize,
+    rejected_before_materialization: usize,
+    rejected_after_materialization: usize,
     not_function: usize,
     type_argument_count: usize,
     capture_arity: usize,
@@ -84,6 +112,14 @@ impl OverloadCandidateStats {
     }
 
     fn record_rejection(&mut self, reason: OverloadCandidateRejection) {
+        match reason.materialization_phase() {
+            OverloadCandidateMaterializationPhase::BeforeInstantiation => {
+                self.rejected_before_materialization += 1
+            }
+            OverloadCandidateMaterializationPhase::AfterInstantiation => {
+                self.rejected_after_materialization += 1
+            }
+        }
         match reason {
             OverloadCandidateRejection::NotFunction => self.not_function += 1,
             OverloadCandidateRejection::TypeArgumentCount => self.type_argument_count += 1,
@@ -104,11 +140,7 @@ impl OverloadCandidateStats {
     }
 
     fn pre_materialized_rejections(&self) -> usize {
-        self.not_function
-            + self.type_argument_count
-            + self.capture_arity
-            + self.user_arity
-            + self.declared_expected_result
+        self.rejected_before_materialization
     }
 
     fn assert_materialization_guard(&self) {

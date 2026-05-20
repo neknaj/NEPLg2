@@ -1,3 +1,14 @@
+# 2026-05-20 Agent 1 overload materialization phase guard
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage E として、overload candidate rejection の materialization phase を typed enum にした。`plan.md` は変更していない。
+- `OverloadCandidateMaterializationPhase::{BeforeInstantiation, AfterInstantiation}` と `OverloadCandidateRejection::materialization_phase()` を追加し、expected result pruning など instantiate 前に落ちる reason を exhaustive match で分類する。
+- `OverloadCandidateStats::record_rejection()` は typed phase から pre/post counter を更新し、`pre_materialized_rejections()` は手書き合計ではなく phase counter を返す。
+- source policy は materialization phase enum、phase 分類 match、phase counter 更新、materialization guard を監視する。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 trait self type ambiguity payload
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、trait method self type 推論の ambiguity を typed payload にした。`plan.md` は変更していない。
