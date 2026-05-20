@@ -2,8 +2,8 @@
 id: ISS-20260520T125846092Z-SELFHOST-MODULE-CHECKER-DOC-COMMENT--EA72F33D
 title: "selfhost module checker doc-comment doctests exceed compile timeout"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: performance
 created: 2026-05-20
@@ -39,6 +39,20 @@ The doc-comment doctests cannot be used as a focused regression gate for the sel
 
 Investigate whether the broad parser+checker fixture, proof/checker monomorphization, Resource IR summary propagation, or unused imported selfhost code drives the timeout. Prefer compiler-side cost reduction or principled fixture decomposition with stdout assertions; do not solve by deleting coverage or merely raising the timeout.
 
+## 修正
+
+- `checker.nepl` の smoke API から `module_parser` import と `selfhost_parse_module_source` 呼び出しを削除した。
+- `selfhost_checker_stage0` と `check/module.nepl` の doc-comment doctest は parser source string ではなく、`SelfhostModuleAst`、`SelfhostModuleDeclarationHeader`、`SelfhostModuleDeclarationHead` を直接構築する typed fixture にした。
+- declaration item は `selfhost_module_item_new_with_declaration` を使い、header evidence 欠落を隠さず checker が本来受け取る AST boundary を検査する。
+- `nodesrc/test_selfhost_module_checker_split_contract.js` に、checker/module の focused coverage が parser import / parse entry 呼び出しへ戻らないことを監視する contract を追加した。
+
+## 根本原因
+
+The selfhost checker focused doctests were unintentionally exercising parser + checker integration. Import-only checker smoke passed quickly, while parser + checker timed out even on detached HEAD `41c89210`. The checker boundary is `SelfhostModuleAst -> SelfhostModuleCheckSummary`; parser integration should be tested by integration tests, not by every focused checker doctest.
+
 ## 検証
 
-Run module/checker doc-comment doctests under the default 60000ms timeout with --assert-io and confirm they pass, while keeping source-policy contracts and tests/stdlib/neplg2_checker.n.md passing.
+- `node nodesrc/test_selfhost_module_checker_split_contract.js`: passed
+- `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+- `node nodesrc/test_selfhost_checker_report_contract.js`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl --no-tree --dist web/dist -o tmp/agent1-selfhost-checker-doctest-timeout.json -j 1 --assert-io`: 2/2 passed under the default timeout.

@@ -16,6 +16,7 @@ function publicFunctions(src) {
 }
 
 const facade = read("stdlib/neplg2/core/check/module.nepl");
+const checkerFacade = read("stdlib/neplg2/core/check/checker.nepl");
 const summary = read("stdlib/neplg2/core/check/module/summary.nepl");
 const summaryUpdate = read("stdlib/neplg2/core/check/module/summary_update.nepl");
 const diagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
@@ -34,6 +35,33 @@ assert.deepEqual(
 );
 assert.doesNotMatch(facade, /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/m, "module facade must not own implementation");
 assert.doesNotMatch(facade, /#import "neplg2\/core\/proof"/, "module facade must not import proof internals");
+assert.doesNotMatch(facade, /syntax\/parser\/module_parser/, "module doctest must not pull the parser into focused checker coverage");
+assert.doesNotMatch(
+    facade,
+    /selfhost_parse_module_source(?:_with_file_id)?/,
+    "module doctest must use typed AST evidence instead of parser source text",
+);
+
+assert.doesNotMatch(
+    checkerFacade,
+    /syntax\/parser\/module_parser/,
+    "checker smoke API must not pull the parser into focused checker coverage",
+);
+assert.doesNotMatch(
+    checkerFacade,
+    /selfhost_parse_module_source(?:_with_file_id)?/,
+    "checker smoke API must use typed AST evidence instead of parser source text",
+);
+assert.match(
+    checkerFacade,
+    /selfhost_module_ast_new/,
+    "checker smoke API should construct a minimal typed AST directly",
+);
+assert.match(
+    checkerFacade,
+    /selfhost_module_item_new_with_declaration/,
+    "checker smoke API must include declaration header evidence instead of relying on parser text",
+);
 
 assert.match(summary, /pub struct SelfhostModuleCheckSummary:/);
 assert.doesNotMatch(summary, /#import "neplg2\/core\/proof"/, "summary storage must not know proof details");

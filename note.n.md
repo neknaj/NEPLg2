@@ -43631,3 +43631,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
   - `node nodesrc/test_selfhost_checker_report_contract.js`: passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree --dist web/dist -o tmp/agent1-selfhost-module-checker-split-module-180.json -j 1 --assert-io`: `NEPL_TEST_CASE_TIMEOUT_MS=180000` でも compile timeout。別 issue に分離済み。
+
+## 2026-05-20 Agent 1 self-host checker doctest compile scope 縮小
+
+- `ISS-20260520T125846092Z-SELFHOST-MODULE-CHECKER-DOC-COMMENT--EA72F33D` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、checker の focused doc-comment doctest が parser+checker 統合 fixture になっており、`module_parser` と `selfhost_parse_module_source` を通して過大な compile scope を引き込んでいたことだった。
+- `checker.nepl` の smoke API と `check/module.nepl` の doctest は parser source string ではなく、`SelfhostModuleAst`、`SelfhostModuleDeclarationHeader`、`SelfhostModuleDeclarationHead` を直接構築する typed fixture にした。
+- declaration item は `selfhost_module_item_new_with_declaration` で header evidence を持たせ、header 欠落を隠さず checker の本来の AST boundary を検査する。
+- `nodesrc/test_selfhost_module_checker_split_contract.js` に、checker/module の focused coverage が parser import / parse entry 呼び出しへ戻らないことを監視する source policy を追加した。
+- 一括 source policy 実行で global stdlib documentation contract が `declarationNoDoctest=1036 > 1032` と失敗することを確認した。今回触った `stdlib/neplg2` 外の regression なので、`ISS-20260520T131842206Z-STDLIB-DOCUMENTATION-CONTRACT-DECLAR-7DA20949` として分離した。
+- focused verification:
+  - `node nodesrc/test_selfhost_module_checker_split_contract.js`: passed
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/test_selfhost_checker_report_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl -i stdlib/neplg2/core/check/checker.nepl --no-tree --dist web/dist -o tmp/agent1-selfhost-checker-doctest-timeout.json -j 1 --assert-io`: 2/2 passed

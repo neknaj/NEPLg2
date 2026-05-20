@@ -21,22 +21,35 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/math" as *
+//:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/core/check/module" as *
+//:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//:| #import "neplg2/core/syntax/parser/module_parser" as *
 //: fn main <()*>i32> ():
-//:     match selfhost_parse_module_source "#entry main\nfn main <()->i32> ():\n    0\n":
-//:         Result::Ok ast:
-//:             match selfhost_check_module_ast &ast:
-//:                 Result::Ok summary:
-//:                     let n <i32> selfhost_module_check_summary_item_count summary
-//:                     selfhost_module_ast_free ast
-//:                     if eq n 2 0 1
-//:                 Result::Err _diag:
-//:                     selfhost_module_ast_free ast
+//:     match selfhost_module_ast_new:
+//:         Result::Ok ast0:
+//:             let entry <SelfhostModuleItem> selfhost_module_item_new SelfhostModuleItemKind::EntryDirective source_span_new 0 0 11 "#entry main"
+//:             match selfhost_module_ast_push ast0 entry:
+//:                 Result::Ok ast1:
+//:                     let head <SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name source_span_new 0 15 19
+//:                     let header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private source_span_new 0 12 19 source_span_new 0 12 14 some<SelfhostModuleDeclarationHead> head
+//:                     let decl <SelfhostModuleItem> selfhost_module_item_new_with_declaration SelfhostModuleItemKind::FunctionDecl "fn main" header
+//:                     match selfhost_module_ast_push ast1 decl:
+//:                         Result::Ok ast2:
+//:                             match selfhost_check_module_ast &ast2:
+//:                                 Result::Ok summary:
+//:                                     let n <i32> selfhost_module_check_summary_item_count summary
+//:                                     selfhost_module_ast_free ast2
+//:                                     if eq n 2 0 1
+//:                                 Result::Err _diag:
+//:                                     selfhost_module_ast_free ast2
+//:                                     1
+//:                         Result::Err _e:
+//:                             1
+//:                 Result::Err _e:
 //:                     1
-//:         Result::Err _diag:
+//:         Result::Err _e:
 //:             1
 //: ```
 
