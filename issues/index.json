@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T09:19:44.026Z",
+  "generated_at": "2026-05-20T09:27:51.603Z",
   "counts": {
     "total": 1112,
     "open": 4,
@@ -4583,8 +4583,8 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/owner_summary_leaf.rs; nodesrc/test_resource_checker_responsibility.js",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/resource/owner_summary_leaf.rs; nepl-core/src/resource/owner_summary_seed_leaf.rs; nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE.md"

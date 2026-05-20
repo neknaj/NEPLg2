@@ -7,8 +7,8 @@ resolved: true
 priority: P1
 type: architecture
 created: 2026-05-07
-updated: 2026-05-07
-target: "nepl-core/src/resource/owner_summary_leaf.rs; nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-05-20
+target: "nepl-core/src/resource/owner_summary_leaf.rs; nepl-core/src/resource/owner_summary_seed_leaf.rs; nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE: Resource owner summary leaf exceeds responsibility split policy
@@ -62,3 +62,17 @@ Run node nodesrc/test_resource_checker_responsibility.js after the split and foc
 - `node nodesrc/run_source_policy_regressions.js --warn-only`: owner summary leaf 側は解消。`initialized_alias_flow.rs` 超過のみ警告。
 - `node nodesrc/issues.js check`
 - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_owner_summary_leaf_split.json -j 1 --assert-io`
+
+## 2026-05-20 Agent 1 regression fix
+
+- raw i32 owner seed 判定が `owner_summary_leaf.rs` に再集中し、`owner_summary_leaf.rs` が再び responsibility split limit を超えたため、同 issue の再発として修正した。
+- `owner_summary_leaf.rs` は owner leaf projection と public leaf place construction に責務を戻した。
+- raw i32 owner seed の追加、copy metadata の除外、returned owner leaf 内 raw owner 返却判定を `owner_summary_seed_leaf.rs` に分離した。
+- `owner_summary_parameters.rs` と `owner_summary_variant_build.rs` は seed 専用 module から `owner_seed_leaf_places` を参照するようにした。
+- source policy に `owner_summary_seed_leaf.rs` を登録し、今後 seed 判定が leaf projection module へ再集中した場合に検出できるようにした。
+- 行数は `owner_summary_leaf.rs` 216/260、`owner_summary_seed_leaf.rs` 79/100。
+
+確認:
+
+- `node nodesrc/test_resource_checker_responsibility.js`: pass
+- `cargo check -p nepl-core`: pass
