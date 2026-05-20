@@ -1,3 +1,16 @@
+# 2026-05-20 Agent 1 raw-memory-backed API migration closure audit
+
+- `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` を closure audit で `fixed` / `resolved: true` にした。`plan.md` は変更していない。
+- raw memory primitive の staged effect migration は、compiler internal effect、Resource IR effect boundary gate、source capability proof、stdlib public raw surface policy まで接続済みであることを再確認した。
+- `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に、raw-memory-backed API parent は閉じ、collection element Drop traversal / `free` contract は `ISS-20260425T000000Z-RV-STDLIB-004-91534828` で継続することを追記した。
+- 残る open issue は collection free、self-host 部分実装、stdlib file split に分離される。raw memory primitive の public pure migration と混ぜて扱わない。
+- 検証:
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`: pass
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: pass
+  - `node nodesrc/test_resource_gate_order.js`: pass
+  - `cargo test -p nepl-core --test effects raw_memory -- --nocapture`: pass
+
 # 2026-05-20 Agent 1 stdio fd boundary doctest and bool chain cleanup
 
 - `ISS-20260520T095125772Z-STDIO-FD-WRITE-HELPERS-LACK-DECLARAT-ADAF46CD` を修正した。`plan.md` は変更していない。

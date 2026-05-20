@@ -2,8 +2,8 @@
 id: ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84
 title: "stdlib raw-memory-backed APIs require staged effect migration"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-27
@@ -845,3 +845,19 @@ source policy と compile-fail doctest は、`std/stdio/raw` の `MemPtr` wrappe
 `ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9` を解決し、`region_new<T>` が `MemPtr<T>` を owner-token construction input として受け取る過渡形を廃止した。`alloc_region_bytes` は `allocator::alloc_raw` が返す raw owner identity を直接 `region_new<T>(raw, bytes)` へ渡し、`realloc_region_bytes_keep` も `realloc_raw` の結果 `next_raw` をそのまま新しい `RegionToken<T>` に束ねる。
 
 この親 issue の Stage 6 方針では、raw-memory-backed stdlib implementation が raw operation を使うこと自体は許容するが、public API や non-owning pointer view に free obligation を混ぜないことが必須である。今回の修正で `MemPtr<T>` は `region_ptr` / `region_ptr_at` の projection view に限定され、owner identity は `RegionToken.raw` と Resource IR の owner/extent proof へ寄せられた。残件は引き続き compiler-issued owner token、`OwnedBuffer<T>`、non-Copy collection drop traversal、collection free の Drop 呼び出しである。
+
+## 2026-05-20 Agent 1 closure audit
+
+この親 issue の元の主題である「raw-memory-backed stdlib API の effect migration」は完了と判断する。raw memory primitive は compiler 側で `InternalEffect::{InternalAlloc, UnsafeMemory}` として分類され、pure source からの raw allocator / raw load / raw store は `effect.pure.calls_impure` または Resource IR effect boundary gate で拒否される。compiler-owned raw-memory-boundary capability は stdlib path allowlist ではなく、SourceMap に登録された compiler-owned source provenance と `RawMemoryBoundaryEvidence` enum に基づく source property proof で付与される。
+
+stdlib 側では `core/mem` safe facade が raw/internal/allocator module を再公開せず、`MemPtr<T>` は non-owning view、`RegionToken<T>` は過渡的な free obligation owner に分離済みである。`alloc_ptr` / `realloc_ptr` / `dealloc_ptr` の direct-import module は削除済みで、`RegionToken<T>` の `MemPtr` owner field も削除済みである。`Vec` / `ByteBuf` / `ByteBuilder` / `StringBuilder` / `std/fs` / `std/stdio` / `std/env/cliarg` の public raw `MemPtr` surface は子 issue で閉じ、source policy は public raw helper の復活を拒否する。
+
+残件はこの parent issue に残さない。collection の non-Copy payload / element Drop traversal / `free` contract は `ISS-20260425T000000Z-RV-STDLIB-004-91534828` が open のまま追跡する。self-host compiler の未実装範囲は `ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD`、stdlib の巨大 file split は `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` が追跡する。これらは raw memory primitive の staged effect migration そのものではなく、次段の collection/self-host implementation issue である。
+
+検証:
+
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+- `node nodesrc/test_stdlib_core_mem_boundary.js`: pass
+- `node nodesrc/test_static_check_boundary_responsibility.js`: pass
+- `node nodesrc/test_resource_gate_order.js`: pass
+- `cargo test -p nepl-core --test effects raw_memory -- --nocapture`: pass
