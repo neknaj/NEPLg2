@@ -97,7 +97,8 @@ fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src,
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
 //:     let ys <Vec<i32>> unwrap_ok take_while<i32> xs lt_three;
-//:     let ok <bool> eq len<i32> &ys 2
+//:     let observed_len <i32> len<i32> &ys
+//:     let ok <bool> eq observed_len 2
 //:     free<i32> ys;
 //:     if ok 0 1
 //: ```

@@ -23,10 +23,12 @@
 //:| #target std
 //:| #import "alloc/collections/btreeset" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> new<i32>;
-//:     let ok <bool> eq len<i32> &s 0
+//:     let observed_len <i32> len<i32> &s
+//:     let ok <bool> eq observed_len 0
 //:     free<i32> s
 //:     if ok 1 0
 //: ```

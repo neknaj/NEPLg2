@@ -100,7 +100,8 @@
 //:         |> push 11 |> uwok
 //:         |> push 22 |> uwok
 //:         |> clear<i32>
-//:     let ok <bool> eq len<i32> &cleared 0
+//:     let observed_len <i32> len<i32> &cleared
+//:     let ok <bool> eq observed_len 0
 //:     free<i32> cleared;
 //:     if ok 0 1
 //: ```

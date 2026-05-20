@@ -37,10 +37,12 @@ pub fn counting_bloom_invalid_len_diag <()*>Diag> ():
 //:| #import "alloc/collections/counting_bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let bf <CountingBloomFilter<i32, DefaultHash32>> unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let ok <bool> eq len &bf 64;
+//:     let observed_len <i32> len<i32, DefaultHash32> &bf;
+//:     let ok <bool> eq observed_len 64;
 //:     free bf
 //:     if ok 1 0
 //: ```

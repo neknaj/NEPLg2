@@ -53,7 +53,8 @@
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 7;
-//:     let ok <bool> eq len<i32> &v1 1
+//:     let observed_len <i32> len<i32> &v1
+//:     let ok <bool> eq observed_len 1
 //:     free<i32> v1;
 //:     if ok 0 1
 //: ```
@@ -122,7 +123,8 @@ pub fn vec_realloc_region_error_region <.T: Copy> <(VecReallocRegionError<.T>)->
 //:     let v0 <Vec<i32>> unwrap_ok with_capacity<i32> 1;
 //:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 10;
 //:     let v2 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v1 20;
-//:     let ok_len <bool> eq len<i32> &v2 2
+//:     let observed_len <i32> len<i32> &v2
+//:     let ok_len <bool> eq observed_len 2
 //:     let ok_cap <bool> ge cap<i32> &v2 2
 //:     let ok <bool> and ok_len ok_cap
 //:     free<i32> v2;

@@ -38,10 +38,12 @@ pub fn bloom_invalid_len_diag <()*>Diag> ():
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let bf <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let ok <bool> eq len &bf 64;
+//:     let observed_len <i32> len<i32, DefaultHash32> &bf;
+//:     let ok <bool> eq observed_len 64;
 //:     free bf
 //:     if ok 1 0
 //: ```
@@ -68,10 +70,12 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let bf <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 32;
-//:     let ok <bool> eq len &bf 32;
+//:     let observed_len <i32> len<i32, DefaultHash32> &bf;
+//:     let ok <bool> eq observed_len 32;
 //:     free bf
 //:     if ok 1 0
 //: ```

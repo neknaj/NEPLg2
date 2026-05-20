@@ -24,10 +24,12 @@
 //:| #target std
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 64;
-//:     let ok <bool> eq len &bs 64;
+//:     let observed_len <i32> len &bs;
+//:     let ok <bool> eq observed_len 64;
 //:     free bs
 //:     if ok 1 0
 //: ```

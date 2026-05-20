@@ -24,10 +24,12 @@
 //:| #target std
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 5;
-//:     let ok <bool> eq len &st 5;
+//:     let observed_len <i32> len &st;
+//:     let ok <bool> eq observed_len 5;
 //:     free st
 //:     if ok 1 0
 //: ```

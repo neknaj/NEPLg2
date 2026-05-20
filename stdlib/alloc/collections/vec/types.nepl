@@ -237,7 +237,8 @@ pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
 //:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 9;
 //:     let p <VecPop<i32>> pop<i32> v1;
 //:     let next <Vec<i32>> vec_pop_vec<i32> p;
-//:     let ok <bool> eq len<i32> &next 0;
+//:     let observed_len <i32> len<i32> &next;
+//:     let ok <bool> eq observed_len 0;
 //:     free<i32> next;
 //:     if ok 0 1
 //: ```

@@ -135,7 +135,8 @@ pub fn stack_pop_item <.T: Copy> <(&StackPop<.T>)->Option<.T>> (p):
 //:     let st1 <Stack<i32>> unwrap_ok push<i32> st0 5;
 //:     let p <StackPop<i32>> pop_top<i32> st1;
 //:     let st2 <Stack<i32>> stack_pop_stack<i32> p;
-//:     let ok <bool> eq len<i32> &st2 0;
+//:     let observed_len <i32> len<i32> &st2;
+//:     let ok <bool> eq observed_len 0;
 //:     free<i32> st2;
 //:     if ok 0 1
 //: ```

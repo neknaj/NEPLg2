@@ -17,7 +17,8 @@
 //: fn main <()*>i32> ():
 //:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 1;
-//:     let ok <i32> if contains &hs1 1 0 1;
+//:     let found <bool> contains<i32, DefaultHash32> &hs1 1;
+//:     let ok <i32> if found 0 1;
 //:     free hs1;
 //:     ok
 //: ```
@@ -58,7 +59,9 @@
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let ok <i32> if eq len &hs 0 0 1;
+//:     let observed_len <i32> len<i32, DefaultHash32> &hs;
+//:     let empty <bool> eq observed_len 0;
+//:     let ok <i32> if empty 0 1;
 //:     free hs;
 //:     ok
 //: ```
@@ -82,7 +85,9 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, 
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> with_capacity DefaultHash32 4;
-//:     let ok <i32> if eq len &hs 0 0 1;
+//:     let observed_len <i32> len<i32, DefaultHash32> &hs;
+//:     let empty <bool> eq observed_len 0;
+//:     let ok <i32> if empty 0 1;
 //:     free hs;
 //:     ok
 //: ```
@@ -112,7 +117,8 @@ pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<Ha
 //: fn main <()*>i32> ():
 //:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 7;
-//:     let ok <i32> if contains &hs1 7 0 1;
+//:     let found <bool> contains<i32, DefaultHash32> &hs1 7;
+//:     let ok <i32> if found 0 1;
 //:     free hs1;
 //:     ok
 //: ```
@@ -165,7 +171,8 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Resul
 //: fn main <()*>i32> ():
 //:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 2;
-//:     let ok <i32> if contains &hs1 2 0 1;
+//:     let found <bool> contains<i32, DefaultHash32> &hs1 2;
+//:     let ok <i32> if found 0 1;
 //:     free hs1;
 //:     ok
 //: ```
@@ -199,7 +206,8 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bo
 //:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 3;
 //:     let hs2 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> remove hs1 3;
-//:     let ok <i32> if contains &hs2 3 1 0;
+//:     let found <bool> contains<i32, DefaultHash32> &hs2 3;
+//:     let ok <i32> if found 1 0;
 //:     free hs2;
 //:     ok
 //: ```
@@ -238,7 +246,9 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Resul
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let ok <i32> if eq len &hs 0 0 1;
+//:     let observed_len <i32> len<i32, DefaultHash32> &hs;
+//:     let empty <bool> eq observed_len 0;
+//:     let ok <i32> if empty 0 1;
 //:     free hs;
 //:     ok
 //: ```

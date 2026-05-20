@@ -14,7 +14,13 @@
 pub fn bitset_write_masked <(&Vec<u8>,i32,i32,bool)*>bool> (bits, byte_idx, mask, set_bit):
     match bitset_byte_at bits byte_idx:
         Option::Some cur:
-            let next <i32> if set_bit or cur mask and cur xor mask 255
+            let set_value <i32> or cur mask
+            let clear_mask <i32> xor mask 255
+            let clear_value <i32> and cur clear_mask
+            let next <i32> if:
+                set_bit
+                then set_value
+                else clear_value
             bitset_store_byte bits byte_idx next
             true
         Option::None:

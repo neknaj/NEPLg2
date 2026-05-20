@@ -23,7 +23,8 @@
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let ys <Vec<i32>> unwrap_ok filter<i32> xs is_even;
-//:     let ok <bool> eq len<i32> &ys 1;
+//:     let observed_len <i32> len<i32> &ys;
+//:     let ok <bool> eq observed_len 1;
 //:     free<i32> ys;
 //:     if ok 0 1
 //: ```

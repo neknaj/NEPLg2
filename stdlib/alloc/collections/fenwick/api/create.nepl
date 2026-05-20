@@ -30,10 +30,12 @@
 //:| #target std
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 5;
-//:     let ok <bool> eq len &fw 5;
+//:     let observed_len <i32> len &fw;
+//:     let ok <bool> eq observed_len 5;
 //:     free fw
 //:     if ok 1 0
 //: ```

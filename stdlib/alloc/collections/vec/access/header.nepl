@@ -39,7 +39,8 @@
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 3;
-//:     let ok <bool> eq len<i32> &v1 1
+//:     let observed_len <i32> len<i32> &v1
+//:     let ok <bool> eq observed_len 1
 //:     free<i32> v1;
 //:     if ok 0 1
 //: ```

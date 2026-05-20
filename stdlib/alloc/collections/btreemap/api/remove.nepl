@@ -26,13 +26,15 @@
 //:| #target std
 //:| #import "alloc/collections/btreemap" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:         |> remove 7
-//:     let ok <bool> eq len<i32, i32> &hm 0
+//:     let observed_len <i32> len<i32, i32> &hm
+//:     let ok <bool> eq observed_len 0
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
@@ -58,13 +60,15 @@ pub fn remove <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (h
 //:| #target std
 //:| #import "alloc/collections/btreemap" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:         |> clear
-//:     let ok <bool> eq len<i32, i32> &hm 0
+//:     let observed_len <i32> len<i32, i32> &hm
+//:     let ok <bool> eq observed_len 0
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```

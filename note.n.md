@@ -1,3 +1,22 @@
+# 2026-05-20 Agent 1 collection observer doctest call form cleanup
+
+- `ISS-20260520T142914786Z-COLLECTION-OBSERVER-DOCTESTS-STILL-U-19B433D2` を修正した。`plan.md` は変更していない。
+- collection doctest に残っていた `eq len ...` / `if eq len ...` / `if contains ...` のような observer 呼び出しを別呼び出しの引数に直接渡す形を、型付き中間値へ束縛してから比較・分岐する形へ統一した。
+- `hashmap_prepare_insert` / `hashset_prepare_insert` の rehash target capacity、`bitset` / `adjacency_matrix` の masked write、`sort_quick_range_data` の右側再帰引数も、inline prefix 式の境界に依存しない型付き中間値へ分解した。
+- doctest の `eq` 使用は `core/math` import を明示し、依存関係が読める executable contract にした。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter/api.nepl -i stdlib/alloc/collections/counting_bloom_filter/api.nepl -i stdlib/alloc/collections/btreemap/api/observer.nepl -i stdlib/alloc/collections/btreeset/api/observer.nepl -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/alloc/collections/hashset/api.nepl --no-tree --dist web/dist -o tmp/agent1-collection-observer-doctest-call-forms.json -j 4 --assert-io`: 34 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/header.nepl -i stdlib/alloc/collections/vec/invariant.nepl -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl -i stdlib/alloc/collections/stack/api.nepl -i stdlib/alloc/collections/queue/api.nepl -i stdlib/alloc/collections/deque/api.nepl -i stdlib/alloc/collections/ringbuffer/api.nepl -i stdlib/alloc/collections/binary_heap/api/observer.nepl -i stdlib/alloc/collections/list/query.nepl -i stdlib/alloc/collections/btreemap/api/observer.nepl -i stdlib/alloc/collections/btreeset/api/observer.nepl -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/alloc/collections/hashset/api.nepl -i stdlib/alloc/collections/bloom_filter/api.nepl -i stdlib/alloc/collections/counting_bloom_filter/api.nepl --no-tree --dist web/dist -o tmp/agent1-borrowed-collection-observer-docs-rerun.json -j 4 --assert-io`: 52 passed
+  - changed `stdlib/alloc/collections` `.nepl` doctests: 84 passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js`: pass
+  - `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-05-20 Agent 1 Vec data view enum 化
 
 - `ISS-20260520T113031972Z-VEC-DATA-VIEW-COLLAPSES-INVALID-INVA-D6378EBA` を修正した。`plan.md` は変更していない。

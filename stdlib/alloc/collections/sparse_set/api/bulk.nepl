@@ -22,13 +22,15 @@
 //:| #target std
 //:| #import "alloc/collections/sparse_set" as *
 //:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let s <SparseSet>:
 //:         unwrap_ok<SparseSet, Diag> new 8
 //:         |> insert 3 |> uwok
 //:         |> clear
-//:     let ok <bool> eq len &s 0;
+//:     let observed_len <i32> len &s;
+//:     let ok <bool> eq observed_len 0;
 //:     free s
 //:     if ok 1 0
 //: ```

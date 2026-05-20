@@ -85,7 +85,12 @@ pub fn hashmap_prepare_insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(
                 gt occupied_after_insert limit
                 then:
                     let count_after_insert <i32> add count0 1
-                    let target_cap <i32> if gt count_after_insert limit then mul cap0 2 else cap0
+                    let grow_cap <i32> mul cap0 2
+                    let should_grow <bool> gt count_after_insert limit
+                    let target_cap <i32> if:
+                        should_grow
+                        then grow_cap
+                        else cap0
                     hashmap_rehash_to<.K,.V,.H> hm target_cap
                 else:
                     Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok hm
