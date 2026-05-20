@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T02:17:49.830Z",
+  "generated_at": "2026-05-20T02:32:19.030Z",
   "counts": {
-    "total": 1092,
+    "total": 1093,
     "open": 4,
-    "resolved": 1088,
+    "resolved": 1089,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 91,
+        "total": 92,
         "open": 1,
-        "resolved": 90
+        "resolved": 91
       },
       "cli": {
         "total": 19,
@@ -9518,6 +9518,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T020822877Z-SELF-HOST-PROOF-SOLVER-IS-RE-GROWING-905DDB3F.md"
+    },
+    {
+      "id": "ISS-20260520T022244664Z-SELF-HOST-PROOF-SOLVER-DISPATCH-IS-S-68651DB4",
+      "title": "Self-host proof solver dispatch is still quadratic across domains",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/proof/solver.nepl, stdlib/neplg2/core/proof/fact.nepl, nodesrc/test_selfhost_proof_entry_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T022244664Z-SELF-HOST-PROOF-SOLVER-DISPATCH-IS-S-68651DB4.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

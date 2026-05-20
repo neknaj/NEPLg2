@@ -43002,3 +43002,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-api-split-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-api-split-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed
+
+## 2026-05-20 Agent 1 self-host proof domain dispatch precheck
+
+- `ISS-20260520T022244664Z-SELF-HOST-PROOF-SOLVER-DISPATCH-IS-S-68651DB4` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、generic proof solver が各 obligation arm の中で全 fact variant を直接 match し、domain mismatch の扱いを各 proof rule に繰り返し埋め込んでいたことだった。これは proof domain を増やすほど、routing の意図と単なる mismatch arm の区別を監査しにくくする。
+- `selfhost_proof_domain_eq` を `proof/fact.nepl` に追加し、`SelfhostProofDomain` の全 variant を wildcard なしの網羅 match で比較するようにした。
+- public `selfhost_proof_solve` は fact / obligation から typed domain を導出して先に照合し、domain が一致した時だけ private `selfhost_proof_solve_matching_domain` へ渡す。domain mismatch は solver entry で typed `FactObligationMismatch` に変換する。
+- `nodesrc/test_selfhost_proof_entry_contract.js` は domain equality の網羅性、public solver entry の domain precheck、内部 dispatch の enum match / wildcard 禁止を監視する。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-proof-domain-dispatch-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-domain-dispatch-related.json -j 2 --dist web/dist --assert-io`: 12/12 passed

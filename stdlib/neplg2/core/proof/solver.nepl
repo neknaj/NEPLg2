@@ -745,8 +745,12 @@ fn selfhost_proof_solve_module_declaration_header <(SelfhostModuleDeclarationFac
         else:
             selfhost_proof_result_refuted selfhost_proof_mismatch_refutation SelfhostProofFact::ModuleDeclarationObserved fact SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind
 
-//: selfhost_proof_solve: query を[解/と]いて typed result を[返/かえ]す
-pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
+//: selfhost_proof_solve_matching_domain: domain 照合後の query を proof rule へ[振/ふ]り[分/わ]ける
+//:
+//: [目的/もくてき]:
+//: - public entry は domain mismatch を先に弾き、この関数は同じ domain 内の obligation / fact 対応だけを扱います。
+//: - obligation と fact はどちらも enum の exhaustive match で扱い、新しい proof case を追加した時に更新漏れを検出しやすくします。
+fn selfhost_proof_solve_matching_domain <(SelfhostProofQuery)->SelfhostProofResult> (query):
     match query.obligation:
         SelfhostProofObligation::SourceSpanValid span:
             match query.fact:
@@ -1012,3 +1016,18 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
+
+//: selfhost_proof_solve: query を[解/と]いて typed result を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - fact と obligation の domain を solver 入口で照合し、domain mismatch を個別 proof rule へ流さないようにします。
+//: - domain が合う場合だけ内部 dispatch に渡すため、caller は常に generic proof solver を通して typed evidence / refutation を受け取ります。
+pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
+    let fact_domain <SelfhostProofDomain> selfhost_proof_fact_domain query.fact
+    let obligation_domain <SelfhostProofDomain> selfhost_proof_obligation_domain query.obligation
+    if:
+        selfhost_proof_domain_eq fact_domain obligation_domain
+        then:
+            selfhost_proof_solve_matching_domain query
+        else:
+            selfhost_proof_query_mismatch_result query

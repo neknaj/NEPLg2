@@ -267,6 +267,8 @@ assert.doesNotMatch(
 );
 
 const solverBlock = functionBlock(proofSolver, "selfhost_proof_solve");
+const solverDispatchBlock = functionBlock(proofSolver, "selfhost_proof_solve_matching_domain");
+const domainEqBlock = functionBlock(proofFact, "selfhost_proof_domain_eq");
 const traitRelationBlock = functionBlock(traitRef, "selfhost_trait_impl_relation");
 const publicSolverFunctions = Array.from(
     proofSolver.matchAll(/^pub fn\s+([A-Za-z0-9_]+)\b/gm),
@@ -318,10 +320,35 @@ assert.match(
     /selfhost_proof_solve\s+query/,
     "proof api wrappers must route through the generic proof solver",
 );
-assert.match(solverBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver must match on obligation enum");
-assert.match(solverBlock, /\bmatch\s+(?:query\.)?fact:/, "solver must match on fact enum");
-assert.doesNotMatch(solverBlock, /^\s*_:/m, "solver must not hide new fact/obligation variants behind wildcard arms");
+for (const variant of ["Source", "Module", "Type", "Trait", "Lifetime", "Owner", "Effect", "Resource"]) {
+    assert.match(domainEqBlock, new RegExp(`SelfhostProofDomain::${variant}\\b`), `domain equality must cover ${variant}`);
+}
+assert.doesNotMatch(domainEqBlock, /^\s*_:/m, "domain equality must not hide new domains behind wildcard arms");
+assert.match(
+    solverBlock,
+    /selfhost_proof_fact_domain\s+query\.fact/,
+    "public solver must derive the fact domain from the typed fact",
+);
+assert.match(
+    solverBlock,
+    /selfhost_proof_obligation_domain\s+query\.obligation/,
+    "public solver must derive the obligation domain from the typed obligation",
+);
+assert.match(
+    solverBlock,
+    /selfhost_proof_domain_eq\s+fact_domain\s+obligation_domain/,
+    "public solver must precheck proof domains before dispatching to proof rules",
+);
+assert.match(
+    solverBlock,
+    /selfhost_proof_solve_matching_domain\s+query/,
+    "public solver must route matching-domain queries through the internal dispatch",
+);
+assert.match(solverDispatchBlock, /\bmatch\s+(?:query\.)?obligation:/, "solver dispatch must match on obligation enum");
+assert.match(solverDispatchBlock, /\bmatch\s+(?:query\.)?fact:/, "solver dispatch must match on fact enum");
+assert.doesNotMatch(solverDispatchBlock, /^\s*_:/m, "solver dispatch must not hide new fact/obligation variants behind wildcard arms");
 assert.doesNotMatch(solverBlock, /"[A-Za-z0-9_.:-]+"/, "proof solver must not depend on string codes or module names");
+assert.doesNotMatch(solverDispatchBlock, /"[A-Za-z0-9_.:-]+"/, "proof dispatch must not depend on string codes or module names");
 assert.match(
     proofQuery,
     /selfhost_proof_fact_domain\s+fact[\s\S]*selfhost_proof_obligation_domain\s+obligation/,
