@@ -49,6 +49,8 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::BorrowAccessInvalid _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
                     Result<(),str>::Err "expected invalid span refutation"
         Result::Ok _:
@@ -126,6 +128,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::BorrowAccessInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
@@ -226,6 +230,8 @@ fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
             Result<(),str>::Err "expected resource transition refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
+            Result<(),str>::Err "expected resource transition refutation"
+        SelfhostProofRefutation::BorrowAccessInvalid _issue:
             Result<(),str>::Err "expected resource transition refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected resource transition refutation"
@@ -341,6 +347,8 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::BorrowAccessInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
@@ -461,6 +469,8 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::BorrowAccessInvalid _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
 
@@ -565,6 +575,8 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::BorrowAccessInvalid _issue:
+                    Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
                     Result<(),str>::Err "expected missing declaration header"
         Result::Ok _header:
@@ -593,6 +605,8 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::BorrowAccessInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"

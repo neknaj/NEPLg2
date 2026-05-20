@@ -11,6 +11,7 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/obligation" as *
+#import "neplg2/core/resource/borrow_state" as *
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
@@ -29,6 +30,7 @@ pub enum SelfhostProofEvidence:
     TypeKindCompatible <SelfhostTypeKind>
     TraitImplNonOverlapping <SelfhostTraitImplRelation>
     ResourceCellTransition <SelfhostResourceCellState>
+    ResourceBorrowAccess <SelfhostBorrowState>
     EffectAllowed <SelfhostEffectContext>
 
 impl Clone for SelfhostProofEvidence:
@@ -124,6 +126,42 @@ impl Copy for SelfhostResourceCellTransitionIssue:
 //: selfhost_resource_cell_transition_issue_new: Resource cell transition issue payload を[作/つく]る
 pub fn selfhost_resource_cell_transition_issue_new <(SelfhostResourceCellState,SelfhostResourceCellEventKind,SelfhostSourceSpan,SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionIssue> (state, event, span, reason):
     SelfhostResourceCellTransitionIssue state event span reason
+
+//: SelfhostBorrowAccessError: Resource borrow access proof の失敗分類
+pub enum SelfhostBorrowAccessError:
+    InvalidSharedBorrowCount
+    SharedBorrowWhileMutable
+    MutableBorrowWhileShared
+    MutableBorrowWhileMutable
+    EndSharedWithoutSharedBorrow
+    EndMutableWithoutMutableBorrow
+
+impl Clone for SelfhostBorrowAccessError:
+    fn clone <(&SelfhostBorrowAccessError)->SelfhostBorrowAccessError> (self):
+        *self
+
+impl Copy for SelfhostBorrowAccessError:
+    fn copy_mark <(SelfhostBorrowAccessError)->SelfhostBorrowAccessError> (self):
+        self
+
+//: SelfhostBorrowAccessIssue: 不正な Resource borrow access の refutation payload
+pub struct SelfhostBorrowAccessIssue:
+    state <SelfhostBorrowState>
+    request <SelfhostBorrowRequestKind>
+    span <SelfhostSourceSpan>
+    reason <SelfhostBorrowAccessError>
+
+impl Clone for SelfhostBorrowAccessIssue:
+    fn clone <(&SelfhostBorrowAccessIssue)->SelfhostBorrowAccessIssue> (self):
+        *self
+
+impl Copy for SelfhostBorrowAccessIssue:
+    fn copy_mark <(SelfhostBorrowAccessIssue)->SelfhostBorrowAccessIssue> (self):
+        self
+
+//: selfhost_borrow_access_issue_new: Resource borrow access issue payload を[作/つく]る
+pub fn selfhost_borrow_access_issue_new <(SelfhostBorrowState,SelfhostBorrowRequestKind,SelfhostSourceSpan,SelfhostBorrowAccessError)->SelfhostBorrowAccessIssue> (state, request, span, reason):
+    SelfhostBorrowAccessIssue state request span reason
 
 //: SelfhostEffectBoundaryError: effect boundary proof の失敗分類
 //:
@@ -257,6 +295,7 @@ pub enum SelfhostProofRefutation:
     TypeKindMismatch <SelfhostTypeKindMismatch>
     TraitImplCoherenceInvalid <SelfhostTraitImplCoherenceIssue>
     ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>
+    BorrowAccessInvalid <SelfhostBorrowAccessIssue>
     EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>
 
 impl Clone for SelfhostProofRefutation:

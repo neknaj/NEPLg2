@@ -125,6 +125,8 @@ fn check_coherence_refutation <(SelfhostProofRefutation,(SelfhostTraitImplCohere
             Result<(),str>::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected trait impl coherence refutation"
+        SelfhostProofRefutation::BorrowAccessInvalid _issue:
+            Result<(),str>::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected trait impl coherence refutation"
 

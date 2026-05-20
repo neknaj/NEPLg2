@@ -52,6 +52,8 @@ fn check_impure_effect_rejected <(Result<SelfhostEffectContext,SelfhostProofRefu
     match result:
         Result::Err refutation:
             match refutation:
+                SelfhostProofRefutation::BorrowAccessInvalid _issue:
+                    Result<(),str>::Err "expected proof refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid issue:
                     match issue.reason:
                         SelfhostEffectBoundaryError::ImpureEffectInPureContext:
@@ -87,6 +89,8 @@ fn check_escaping_alloc_rejected <(Result<SelfhostEffectContext,SelfhostProofRef
     match result:
         Result::Err refutation:
             match refutation:
+                SelfhostProofRefutation::BorrowAccessInvalid _issue:
+                    Result<(),str>::Err "expected proof refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid issue:
                     match issue.reason:
                         SelfhostEffectBoundaryError::InternalAllocEscapeNotProven:

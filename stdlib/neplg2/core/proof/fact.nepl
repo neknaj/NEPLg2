@@ -14,6 +14,7 @@
 #import "core/traits/copy" as *
 #import "core/option" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resource/borrow_state" as *
 #import "neplg2/core/resource/move_state" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
@@ -237,6 +238,27 @@ impl Copy for SelfhostResourceCellEventFact:
 pub fn selfhost_resource_cell_event_fact_new <(SelfhostResourceCellEventKind,SelfhostSourceSpan)->SelfhostResourceCellEventFact> (event, span):
     SelfhostResourceCellEventFact event span
 
+//: SelfhostBorrowAccessFact: Resource borrow state に対する access request observation
+//:
+//: [目的/もくてき]:
+//: - Resource IR lowering や checker が観測した shared/mutable borrow start/end request を proof solver へ渡します。
+//: - request が現在 state で許可されるかは、この fact だけでは主張せず、`ResourceBorrowAccess` obligation が検査します。
+pub struct SelfhostBorrowAccessFact:
+    request <SelfhostBorrowRequestKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostBorrowAccessFact:
+    fn clone <(&SelfhostBorrowAccessFact)->SelfhostBorrowAccessFact> (self):
+        *self
+
+impl Copy for SelfhostBorrowAccessFact:
+    fn copy_mark <(SelfhostBorrowAccessFact)->SelfhostBorrowAccessFact> (self):
+        self
+
+//: selfhost_borrow_access_fact_new: borrow access fact を[作/つく]る
+pub fn selfhost_borrow_access_fact_new <(SelfhostBorrowRequestKind,SelfhostSourceSpan)->SelfhostBorrowAccessFact> (request, span):
+    SelfhostBorrowAccessFact request span
+
 //: SelfhostEffectObservationFact: effect boundary proof へ渡す effect observation
 //:
 //: [目的/もくてき]:
@@ -268,6 +290,7 @@ pub enum SelfhostProofFact:
     TypeKindObserved <SelfhostTypeKindFact>
     TraitImplPairObserved <SelfhostTraitImplPairFact>
     ResourceCellEventObserved <SelfhostResourceCellEventFact>
+    BorrowAccessObserved <SelfhostBorrowAccessFact>
     EffectObserved <SelfhostEffectObservationFact>
 
 impl Clone for SelfhostProofFact:
@@ -294,6 +317,8 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
         SelfhostProofFact::TraitImplPairObserved _trait_fact:
             SelfhostProofDomain::Trait
         SelfhostProofFact::ResourceCellEventObserved _event_fact:
+            SelfhostProofDomain::Resource
+        SelfhostProofFact::BorrowAccessObserved _borrow_fact:
             SelfhostProofDomain::Resource
         SelfhostProofFact::EffectObserved _effect_fact:
             SelfhostProofDomain::Effect

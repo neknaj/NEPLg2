@@ -35,6 +35,7 @@ const proofSolver = read("stdlib/neplg2/core/proof/solver.nepl");
 const moduleChecker = read("stdlib/neplg2/core/check/module.nepl");
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
 const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
+const borrowState = read("stdlib/neplg2/core/resource/borrow_state.nepl");
 
 assert.match(proofFacade, /pub #import "\.\/proof\/fact" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/obligation" as \*/);
@@ -92,6 +93,11 @@ assert.match(
 );
 assert.match(
     proofFact,
+    /BorrowAccessObserved <SelfhostBorrowAccessFact>/,
+    "borrow access requests must enter proof as typed facts",
+);
+assert.match(
+    proofFact,
     /EffectObserved <SelfhostEffectObservationFact>/,
     "effect observations must enter proof as typed facts",
 );
@@ -117,6 +123,11 @@ assert.match(
 );
 assert.match(
     proofObligation,
+    /ResourceBorrowAccess <SelfhostBorrowState>/,
+    "borrow access checks must enter proof as typed obligations",
+);
+assert.match(
+    proofObligation,
     /EffectAllowedInContext <SelfhostEffectContext>/,
     "effect boundary checks must enter proof as typed obligations",
 );
@@ -139,6 +150,11 @@ assert.match(
     proofQuery,
     /ResourceCellTransition <SelfhostResourceCellState>/,
     "resource cell transition proof evidence must carry the next typed state",
+);
+assert.match(
+    proofQuery,
+    /ResourceBorrowAccess <SelfhostBorrowState>/,
+    "borrow access proof evidence must carry the next typed state",
 );
 assert.match(
     proofQuery,
@@ -174,6 +190,11 @@ assert.match(
     proofQuery,
     /ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>/,
     "invalid resource cell transitions must return typed refutations",
+);
+assert.match(
+    proofQuery,
+    /BorrowAccessInvalid <SelfhostBorrowAccessIssue>/,
+    "invalid borrow access must return typed refutations",
 );
 assert.match(
     proofQuery,
@@ -214,6 +235,7 @@ const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_module_directive_transition",
     "selfhost_proof_module_declaration_header",
     "selfhost_proof_resource_cell_transition",
+    "selfhost_proof_borrow_access",
     "selfhost_proof_type_kind_compatible",
     "selfhost_proof_trait_impl_non_overlapping",
     "selfhost_proof_effect_allowed",
@@ -258,6 +280,11 @@ assert.match(
 );
 assert.match(
     proofSolver,
+    /(?:^|\n)fn\s+selfhost_proof_solve_borrow_access\b[\s\S]*match\s+state:/,
+    "borrow access transitions must live in the proof solver",
+);
+assert.match(
+    proofSolver,
     /(?:^|\n)fn\s+selfhost_proof_solve_effect_allowed\b[\s\S]*match\s+context:/,
     "effect boundary checks must live in the proof solver",
 );
@@ -286,6 +313,8 @@ assert.doesNotMatch(
     /"[A-Za-z0-9_.:-]+"/,
     "trait impl relation must not depend on trait or module name strings",
 );
+assert.match(borrowState, /pub enum SelfhostBorrowState:/, "borrow state must be a typed enum");
+assert.match(borrowState, /pub enum SelfhostBorrowRequestKind:/, "borrow requests must be a typed enum");
 
 assert.match(moduleChecker, /#import "neplg2\/core\/proof" as \*/, "module checker must depend on the generic proof facade");
 const publicModuleCheckerFunctions = Array.from(

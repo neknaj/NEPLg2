@@ -42938,3 +42938,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-trait-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-trait-proof-existing-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-trait-proof-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host borrow access proof 境界追加
+
+- `ISS-20260520T005418281Z-SELF-HOST-BORROW-ACCESS-IS-NOT-REPRE-B7FAE5C1` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource domain proof が initialized / moved / dropped cell transition までしか持たず、shared / mutable borrow の排他性と borrow end request の整合性を typed fact / obligation / evidence / refutation として表せなかったことだった。
+- `core/resource/borrow_state.nepl` を追加し、`SelfhostBorrowState` と `SelfhostBorrowRequestKind` を定義した。shared borrow count は `Shared<count>` として保持し、count が 1 以上であることを proof solver が検査する。
+- `SelfhostBorrowAccessFact`、`SelfhostProofObligation::ResourceBorrowAccess`、`SelfhostProofEvidence::ResourceBorrowAccess`、`SelfhostProofRefutation::BorrowAccessInvalid` を追加した。shared while mutable、mutable while shared、二重 mutable borrow、invalid shared count、対応しない end request は `SelfhostBorrowAccessError` enum と issue payload に残す。
+- `selfhost_proof_borrow_access` は public typed wrapper だが、内部では generic `selfhost_proof_solve` を通す。borrow checker は checker-local alias rule を持たず、Resource IR lowering / checker の fact producer としてこの Resource proof boundary に接続する方針になる。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/resource/borrow_state.nepl --no-tree -o tmp/agent1-borrow-state-model.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_borrow_proof.n.md --no-tree -o tmp/agent1-borrow-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-borrow-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-borrow-proof-existing-nmd.json -j 1 --dist web/dist --assert-io`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-borrow-proof-trait-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_proof.n.md --no-tree -o tmp/agent1-borrow-proof-type-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-borrow-proof-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_effect_proof.n.md --no-tree -o tmp/agent1-borrow-proof-effect-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T00:50:25.151Z",
+  "generated_at": "2026-05-20T01:08:02.734Z",
   "counts": {
-    "total": 1088,
+    "total": 1089,
     "open": 4,
-    "resolved": 1084,
+    "resolved": 1085,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 87,
+        "total": 88,
         "open": 1,
-        "resolved": 86
+        "resolved": 87
       },
       "cli": {
         "total": 19,
@@ -9458,6 +9458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T003842270Z-SELF-HOST-TRAIT-COHERENCE-IS-NOT-A-G-E107D307.md"
+    },
+    {
+      "id": "ISS-20260520T005418281Z-SELF-HOST-BORROW-ACCESS-IS-NOT-REPRE-B7FAE5C1",
+      "title": "self-host borrow access is not represented as a Resource proof obligation",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/resource/borrow_state.nepl, stdlib/neplg2/core/proof/**, tests/stdlib/neplg2_borrow_proof.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T005418281Z-SELF-HOST-BORROW-ACCESS-IS-NOT-REPRE-B7FAE5C1.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
