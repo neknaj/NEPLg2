@@ -98,6 +98,23 @@ node nodesrc/issues.js index
 node nodesrc/issues.js check
 ```
 
+## `compare_git_versions.js`
+
+git commit / ref [単位/たんい]で、doctest [通過率/つうかりつ]、compile/run timing、`repo_metrics.ts` の[規模/きぼ]指標を[比較/ひかく]します。
+
+### [主/おも]な[用途/ようと]
+
+- 静的検査や Resource IR の[大規模/だいきぼ][修正/しゅうせい]で、前後の[通過率/つうかりつ]と[速度/そくど]を[同/おな]じ[入力/にゅうりょく]で[比較/ひかく]する。
+- `repo_metrics.ts` の files / lines / source / doc_comment / testCases を commit [単位/たんい]で[一覧/いちらん]する。
+- Discord や issue に[貼/は]る Markdown [要約/ようやく]を[作/つく]る。
+
+### [例/れい]
+
+```bash
+node nodesrc/compare_git_versions.js --rev HEAD~1 --rev HEAD -i tests/compiler/typeannot.n.md --dist-current web/dist --no-tree -o tmp/version_compare/typeannot.json --markdown tmp/version_compare/typeannot.md
+node nodesrc/compare_git_versions.js --rev HEAD~10 --rev HEAD --metrics-only -o tmp/version_compare/metrics.json --markdown tmp/version_compare/metrics.md
+```
+
 ## reboot [中/ちゅう]の[使/つか]い[分/わ]け
 
 1. [広/ひろ]い[回帰/かいき][確認/かくにん]

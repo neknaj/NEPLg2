@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T05:21:51.805Z",
+  "generated_at": "2026-05-20T05:37:03.611Z",
   "counts": {
-    "total": 1106,
+    "total": 1107,
     "open": 5,
-    "resolved": 1101,
+    "resolved": 1102,
     "by_area": {
       "core": {
         "total": 529,
@@ -125,6 +125,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "tooling": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       }
     }
   },
@@ -16553,6 +16558,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T193353066Z-SELFHOST-CLI-ARG-PARSER-DOCTEST-SUIT-CF8C1BA8.md"
+    },
+    {
+      "id": "ISS-20260520T053104419Z-NEED-COMMIT-LEVEL-VERSION-COMPARISON-30FA1700",
+      "title": "Need commit-level version comparison for tests performance and repo metrics",
+      "area": "tooling",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nodesrc/compare_git_versions.js, repo_metrics.ts, doc/neplg2/version_comparison_metrics_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T053104419Z-NEED-COMMIT-LEVEL-VERSION-COMPARISON-30FA1700.md"
     },
     {
       "id": "ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1",

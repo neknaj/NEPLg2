@@ -1,3 +1,15 @@
+# 2026-05-20 Agent 1 git commit version comparison tooling
+
+- `ISS-20260520T053104419Z-NEED-COMMIT-LEVEL-VERSION-COMPARISON-30FA1700` を追加し、fixed / resolved にした。`plan.md` は変更していない。
+- 根本原因は、`nodesrc/tests.js` と `repo_metrics.ts` がそれぞれ timing / pass rate / code-scale metrics を出力できるにもかかわらず、git commit 単位で同一入力・同一集計ロジックに揃えて一覧比較する入口がなかったこと。
+- `nodesrc/compare_git_versions.js` を追加し、`--rev` ごとに一時 `git worktree` を作成して `repo_metrics.ts` と focused doctest を実行し、JSON と Markdown の比較表を出力できるようにした。
+- `--build-cmd` と `--dist-rel` を使うと commit ごとの compiler artifact を build して比較できる。`--dist-current` は軽量比較用で、compiler binary 自体の速度比較ではないことを doc に明記した。
+- `doc/neplg2/version_comparison_metrics_plan.md` と `nodesrc/README.n.md` に使い方と運用方針を追加した。
+- 検証:
+  - `node nodesrc/test_compare_git_versions_summary.js`: pass
+  - `node nodesrc/compare_git_versions.js --rev HEAD --metrics-only -o tmp/agent1-version-compare-smoke.json --markdown tmp/agent1-version-compare-smoke.md --command-timeout-ms 300000`: pass
+  - `node nodesrc/compare_git_versions.js --rev HEAD -i tests/compiler/impl_visibility.n.md --dist-current web/dist --no-tree -o tmp/agent1-version-compare-test-smoke.json --markdown tmp/agent1-version-compare-test-smoke.md --command-timeout-ms 300000`: total=1, passed=1
+
 # 2026-05-20 Agent 1 型注釈 expected-check 設計調査
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` を追加した。`plan.md` は確認のみで変更していない。
