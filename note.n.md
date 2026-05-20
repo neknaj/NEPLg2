@@ -43067,3 +43067,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_selfhost_lexer_rust_parity.js`: passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-lexer-split-lexer.json -j 1 --dist web/dist --assert-io`: 13/13 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree -o tmp/agent1-lexer-split-parser-module.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host parser report contract stale count 修正
+
+- `ISS-20260520T035443109Z-SELFHOST-PARSER-REPORT-CONTRACT-EXPE-2F0D52E2` を追加して fixed にした。`plan.md` は変更していない。
+- lexer 分割後の source policy spot check 中に、`nodesrc/test_selfhost_parser_report_contract.js` が `tests/stdlib/neplg2_parser.n.md` の stdout report を 21 件として期待している一方、実際の fixture は `[0]` から `[21]` までの 22 件を固定していることを発見した。
+- parser doctest metadata は正しかったため、policy の `expectedCheckCounts` を 22 件へ更新した。`ret:` 禁止、stdout report 固定、`checks_print_report` から `checks_exit_code` への順序確認は維持している。
+- focused verification:
+  - `node nodesrc/test_selfhost_parser_report_contract.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/agent1-parser-report-contract.json -j 1 --dist web/dist --assert-io`: 1/1 passed
