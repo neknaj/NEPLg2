@@ -195,12 +195,20 @@ impl<'a> BlockChecker<'a> {
 
         if explicit_type_args.is_empty() {
             if let Some((type_params, _, _, _)) = declared_func_data.as_ref() {
-                resolved_args = resolve_generic_type_args_from_constraints(
+                let resolution = resolve_generic_type_args_from_constraints(
                     self.ctx,
                     type_params,
                     resolved_args,
                     &generic_constraints,
                 );
+                resolved_args = resolution.resolved_args;
+                for conflict in resolution.conflicts {
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::GenericConstraintConflict,
+                        conflict.diagnostic_message(self.ctx),
+                        span,
+                    ));
+                }
             }
         }
 

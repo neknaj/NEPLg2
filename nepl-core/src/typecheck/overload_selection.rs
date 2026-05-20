@@ -11,6 +11,9 @@ use crate::types::{TypeId, TypeKind};
 use super::binding_rules::function_user_param_specificity;
 use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
+use super::generic_call_constraints::{
+    resolve_generic_type_args_from_constraints, GenericCallConstraint,
+};
 use super::signature::{function_signature_string, type_contains_unbound_var};
 use super::traits::insert_substitution_mapping;
 use super::type_expectation::TypeExpectation;
@@ -48,6 +51,7 @@ enum OverloadCandidateRejection {
     InstantiatedNotFunction,
     ArgumentType,
     ExpectedResult,
+    GenericConstraintConflict,
 }
 
 #[derive(Default)]
@@ -63,6 +67,7 @@ struct OverloadCandidateStats {
     instantiated_not_function: usize,
     argument_type: usize,
     expected_result: usize,
+    generic_constraint_conflict: usize,
 }
 
 impl OverloadCandidateStats {
@@ -92,6 +97,9 @@ impl OverloadCandidateStats {
             }
             OverloadCandidateRejection::ArgumentType => self.argument_type += 1,
             OverloadCandidateRejection::ExpectedResult => self.expected_result += 1,
+            OverloadCandidateRejection::GenericConstraintConflict => {
+                self.generic_constraint_conflict += 1
+            }
         }
     }
 
@@ -194,6 +202,7 @@ impl<'a> BlockChecker<'a> {
 
         let mut candidates: Vec<OverloadCandidate<'_>> = Vec::new();
         let mut mismatch_count = false;
+        let mut first_generic_conflict = None;
         let mut stats = OverloadCandidateStats::default();
         for binding in bindings {
             stats.record_considered();
@@ -280,7 +289,7 @@ impl<'a> BlockChecker<'a> {
 
             let checkpoint = self.ctx.checkpoint();
             stats.record_materialized();
-            let inst_ty = if !explicit_type_args.is_empty() {
+            let (inst_ty, instantiated_type_args) = if !explicit_type_args.is_empty() {
                 let mut mapping = BTreeMap::new();
                 for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
                     insert_substitution_mapping(self.ctx, &mut mapping, *p, *a);
@@ -290,11 +299,14 @@ impl<'a> BlockChecker<'a> {
                     .map(|p| self.ctx.substitute(*p, &mapping))
                     .collect::<Vec<_>>();
                 let substituted_result = self.ctx.substitute(result, &mapping);
-                self.ctx
-                    .function(Vec::new(), substituted_params, substituted_result, effect)
+                (
+                    self.ctx
+                        .function(Vec::new(), substituted_params, substituted_result, effect),
+                    Vec::new(),
+                )
             } else {
-                let (inst_ty, _args, _mapping) = self.ctx.instantiate(binding.ty);
-                inst_ty
+                let (inst_ty, args, _mapping) = self.ctx.instantiate(binding.ty);
+                (inst_ty, args)
             };
 
             let func_ty = self.ctx.get(inst_ty);
@@ -320,40 +332,93 @@ impl<'a> BlockChecker<'a> {
             };
             let user_params = &c_params[capture_len..];
             let mut ok = true;
-            for (arg, pty) in args.iter().zip(user_params.iter()) {
-                if !self.char_literal_matches_context(arg, *pty)
-                    && self.ctx.unify(arg.ty, *pty).is_err()
-                {
-                    if crate::log::is_verbose() {
-                        overload_selection_log!(
-                            "overload debug: skip '{}' candidate {} reason=unify arg={} param={}",
-                            name,
-                            function_signature_string(self.ctx, binding.ty),
-                            self.ctx.type_to_string(arg.ty),
-                            self.ctx.type_to_string(*pty)
-                        );
-                    }
-                    stats.record_rejection(OverloadCandidateRejection::ArgumentType);
-                    ok = false;
-                    break;
-                }
-            }
-            if ok && use_expected {
+            let mut generic_constraints = Vec::new();
+            if use_expected {
                 if let Some(expectation) = expected_ret {
-                    let expected = expectation.target();
-                    if self.ctx.unify(c_result, expected).is_err() {
+                    let constraint =
+                        GenericCallConstraint::expected_result(result, c_result, expectation, span);
+                    generic_constraints.push(constraint);
+                    if let Err(_) = constraint.check(self.ctx) {
                         if crate::log::is_verbose() {
                             overload_selection_log!(
                                 "overload debug: skip '{}' candidate {} reason=expected_ret result={} expected={}",
                                 name,
                                 function_signature_string(self.ctx, binding.ty),
                                 self.ctx.type_to_string(c_result),
-                                self.ctx.type_to_string(expected)
+                                self.ctx.type_to_string(expectation.target())
                             );
                         }
                         stats.record_rejection(OverloadCandidateRejection::ExpectedResult);
                         ok = false;
                     }
+                }
+            }
+            if ok {
+                for (idx, (arg, pty)) in args.iter().zip(user_params.iter()).enumerate() {
+                    let actual = match self.char_literal_context_type(arg, *pty) {
+                        Some(Ok(resolved)) => resolved,
+                        Some(Err(())) => {
+                            if crate::log::is_verbose() {
+                                overload_selection_log!(
+                                    "overload debug: skip '{}' candidate {} reason=char_context arg={} param={}",
+                                    name,
+                                    function_signature_string(self.ctx, binding.ty),
+                                    self.ctx.type_to_string(arg.ty),
+                                    self.ctx.type_to_string(*pty)
+                                );
+                            }
+                            stats.record_rejection(OverloadCandidateRejection::ArgumentType);
+                            ok = false;
+                            break;
+                        }
+                        None => arg.ty,
+                    };
+                    let declared_param_ty = params[capture_len + idx];
+                    let constraint = GenericCallConstraint::argument(
+                        idx,
+                        declared_param_ty,
+                        *pty,
+                        actual,
+                        arg.expr.span,
+                    );
+                    generic_constraints.push(constraint);
+                    if let Err(_) = constraint.check(self.ctx) {
+                        if crate::log::is_verbose() {
+                            overload_selection_log!(
+                                "overload debug: skip '{}' candidate {} reason=unify arg={} param={}",
+                                name,
+                                function_signature_string(self.ctx, binding.ty),
+                                self.ctx.type_to_string(actual),
+                                self.ctx.type_to_string(*pty)
+                            );
+                        }
+                        stats.record_rejection(OverloadCandidateRejection::ArgumentType);
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+            if explicit_type_args.is_empty() {
+                let resolution = resolve_generic_type_args_from_constraints(
+                    self.ctx,
+                    &type_params,
+                    instantiated_type_args,
+                    &generic_constraints,
+                );
+                if let Some(conflict) = resolution.conflicts.first().copied() {
+                    if crate::log::is_verbose() {
+                        overload_selection_log!(
+                            "overload debug: skip '{}' candidate {} reason=generic_constraint_conflict message={}",
+                            name,
+                            function_signature_string(self.ctx, binding.ty),
+                            conflict.diagnostic_message(self.ctx)
+                        );
+                    }
+                    if first_generic_conflict.is_none() {
+                        first_generic_conflict = Some(conflict);
+                    }
+                    stats.record_rejection(OverloadCandidateRejection::GenericConstraintConflict);
+                    ok = false;
                 }
             }
             if ok {
@@ -441,7 +506,13 @@ impl<'a> BlockChecker<'a> {
                     all
                 );
             }
-            if mismatch_count {
+            if let Some(conflict) = first_generic_conflict {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::GenericConstraintConflict,
+                    conflict.diagnostic_message(self.ctx),
+                    span,
+                ));
+            } else if mismatch_count {
                 self.diagnostics.push(type_error(
                     TypeDiagnosticCode::OverloadTypeArgsMismatch,
                     "type arguments do not match any overload",

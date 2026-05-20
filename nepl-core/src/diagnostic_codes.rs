@@ -69,6 +69,7 @@ pub enum TypeDiagnosticCode {
     AnnotationMismatch,
     OverloadAmbiguous,
     OverloadNoMatch,
+    GenericConstraintConflict,
     MatchScrutineeNotEnum,
     MatchDuplicateArm,
     MatchNonExhaustive,
@@ -288,6 +289,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::AnnotationMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::OverloadAmbiguous),
     DiagnosticCode::Type(TypeDiagnosticCode::OverloadNoMatch),
+    DiagnosticCode::Type(TypeDiagnosticCode::GenericConstraintConflict),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchScrutineeNotEnum),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchDuplicateArm),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchNonExhaustive),
@@ -712,6 +714,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::AnnotationMismatch => "type.annotation.mismatch",
             TypeDiagnosticCode::OverloadAmbiguous => "type.overload.ambiguous",
             TypeDiagnosticCode::OverloadNoMatch => "type.overload.no_match",
+            TypeDiagnosticCode::GenericConstraintConflict => "type.generic_constraint.conflict",
             TypeDiagnosticCode::MatchScrutineeNotEnum => "type.match.scrutinee_not_enum",
             TypeDiagnosticCode::MatchDuplicateArm => "type.match.duplicate_arm",
             TypeDiagnosticCode::MatchNonExhaustive => "type.match.non_exhaustive",
@@ -831,6 +834,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::AnnotationMismatch => "type annotation mismatch",
             TypeDiagnosticCode::OverloadAmbiguous => "ambiguous overload",
             TypeDiagnosticCode::OverloadNoMatch => "function signature does not match any overload",
+            TypeDiagnosticCode::GenericConstraintConflict => {
+                "generic type argument constraints are inconsistent"
+            }
             TypeDiagnosticCode::MatchScrutineeNotEnum => "match scrutinee must be an enum",
             TypeDiagnosticCode::MatchDuplicateArm => "duplicate match arm",
             TypeDiagnosticCode::MatchNonExhaustive => "non-exhaustive match",

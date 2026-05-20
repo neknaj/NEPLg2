@@ -273,3 +273,33 @@ selected generic function call では、argument mismatch と expected result mi
 - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
 - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
+## 2026-05-20 Stage D generic constraint conflict payload
+
+generic call constraint object を selected call に入れただけでは不十分だった。`same<T>(T,T)` に `i32` と `bool` を渡すような呼び出しは、selected call に到達する前に overload selection の候補検査で落ちるため、矛盾が `OverloadNoMatch` に潰れていた。
+
+実装:
+
+- `TypeDiagnosticCode::GenericConstraintConflict` を追加し、constraint が閉じた後に type parameter へ複数の異なる型が要求されたことを typed diagnostic として表す。
+- `GenericTypeArgumentInference::{NoEvidence, Unique, Conflict}` と `GenericTypeArgumentResolution { resolved_args, conflicts }` を追加し、no evidence と conflict を `Option<TypeId>` の `None` にまとめないようにした。
+- selected call は conflict payload を `GenericConstraintConflict` として報告する。
+- overload selection も expected result と argument evidence を `GenericCallConstraint` に集約し、候補棄却理由 `OverloadCandidateRejection::GenericConstraintConflict` として保持する。
+- overload selection では expected result constraint を先に適用してから argument constraint を検査するため、期待型が char literal や generic parameter の context として働く。
+- `generics_same_type_param_mismatch_is_error` は `GenericConstraintConflict` を明示的に要求する regression になった。
+- source policy は overload selection が `GenericCallConstraint` を使い、payload 由来で `GenericConstraintConflict` を報告することを監視する。
+
+残作業:
+
+- trait application 側の constraint conflict / ambiguity payload は別途 Stage D の残作業として扱う。
+- `infer_type_param_from_instantiated_pair` 内部の単一制約内 conflict 表現は、必要なら別 issue として型付き inference payload へ拡張する。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+- `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+- `cargo test -p nepl-core diagnostic_codes_have_unique_serialized_names -- --nocapture`: pass
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
+- `node nodesrc/issues.js check`: pass
