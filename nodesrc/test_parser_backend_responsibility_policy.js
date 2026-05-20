@@ -54,8 +54,15 @@ assert(
     parser.indexOf(`${parserDocLine}\n${parserDocLine}`) === -1,
     "parser.rs must not repeat the module-level documentation line",
 );
+assertContains(
+    parser,
+    "mod type_expr;",
+    "parser root",
+);
+assertContains(parser, "use type_expr::parse_type_expr_str;", "parser root");
 
-assertLineLimit("nepl-core/src/parser.rs", 4234);
+assertLineLimit("nepl-core/src/parser.rs", 4170);
+assertLineLimit("nepl-core/src/parser/type_expr.rs", 100);
 assertLineLimit("nepl-core/src/codegen_wasm.rs", 2525);
 assertLineLimit("nepl-core/src/codegen_wasm/local_map.rs", 120);
 assertLineLimit("nepl-core/src/codegen_wasm/string_data.rs", 80);

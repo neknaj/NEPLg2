@@ -7,8 +7,8 @@ resolved: true
 priority: P2
 type: architecture
 created: 2026-05-07
-updated: 2026-05-08
-target: "nepl-core/src/parser.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md"
+updated: 2026-05-20
+target: "nepl-core/src/parser.rs, nepl-core/src/parser/type_expr.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md"
 ---
 
 # ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587: Rust parser and backend codegen lack responsibility split policy
@@ -64,3 +64,16 @@ Add nodesrc source-policy tests for parser/codegen/monomorphize responsibility b
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+## 2026-05-20 Agent 1 parser type expression split
+
+- `parser.rs` が responsibility freeze limit を超えたため、同 issue の再発として修正した。
+- `#extern` signature 用の小型 type expression parser を `parser/type_expr.rs` へ分離した。
+- root `parser.rs` は token navigation / declaration / expression parsing の集中をこれ以上増やさず、`parse_type_expr_str` を専用 module から呼ぶだけにした。
+- `nodesrc/test_parser_backend_responsibility_policy.js` は `parser/type_expr.rs` の存在、root parser の module 宣言と import、`parser.rs` 4170 行上限、`parser/type_expr.rs` 100 行上限を監視する。
+- `doc/neplg2/parser_backend_responsibility_split_plan.md` の P4 進捗に今回の分割と下げた limit を追記した。
+
+確認:
+
+- `node nodesrc/test_parser_backend_responsibility_policy.js`: pass
+- `cargo check -p nepl-core`: pass
