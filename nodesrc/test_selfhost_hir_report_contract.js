@@ -5,11 +5,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { parseFile } = require("./parser");
+const { HIR_FACADE, readHirSource } = require("./selfhost_hir_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
-const relPath = "stdlib/neplg2/core/hir/hir.nepl";
+const relPath = HIR_FACADE;
 const file = path.join(repoRoot, relPath);
-const source = fs.readFileSync(file, "utf8");
+const source = readHirSource(repoRoot);
 const parsed = parseFile(file);
 
 const expectedCheckCounts = [6, 7, 7];

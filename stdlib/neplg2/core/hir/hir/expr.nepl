@@ -1,0 +1,350 @@
+#indent 4
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "./range" as *
+
+//: SelfhostHirExprKind: S4 初期段階で扱う HIR expression の分類
+pub enum SelfhostHirExprKind:
+    Error
+    Unit
+    BoolLiteral
+    I32Literal
+    StrLiteral
+    Var
+    Call
+    Block
+    If
+
+impl Clone for SelfhostHirExprKind:
+    fn clone <(&SelfhostHirExprKind)->SelfhostHirExprKind> (self):
+        *self
+
+impl Copy for SelfhostHirExprKind:
+    fn copy_mark <(SelfhostHirExprKind)->SelfhostHirExprKind> (self):
+        self
+
+//: SelfhostHirExpr: HIR expression record
+//:
+//: [目的/もくてき]:
+//: - expression 共通の型 / span と、kind 固有の payload を分けて保持します。
+//:
+//: [注意/ちゅうい]:
+//: - child range や literal 値は `SelfhostHirExprPayload` を match した後でだけ読めます。
+//: - 後続の symbol table / string table 導入までは、Var / Call / StrLiteral payload に `str` を直接保持します。
+pub struct SelfhostHirCallExpr:
+    name <str>
+    args <SelfhostHirChildRange>
+
+impl Clone for SelfhostHirCallExpr:
+    fn clone <(&SelfhostHirCallExpr)->SelfhostHirCallExpr> (self):
+        *self
+
+impl Copy for SelfhostHirCallExpr:
+    fn copy_mark <(SelfhostHirCallExpr)->SelfhostHirCallExpr> (self):
+        self
+
+pub enum SelfhostHirExprPayload:
+    Error
+    Unit
+    BoolLiteral <bool>
+    I32Literal <i32>
+    StrLiteral <str>
+    Var <str>
+    Call <SelfhostHirCallExpr>
+    Block <SelfhostHirChildRange>
+    If <SelfhostHirChildRange>
+
+impl Clone for SelfhostHirExprPayload:
+    fn clone <(&SelfhostHirExprPayload)->SelfhostHirExprPayload> (self):
+        *self
+
+impl Copy for SelfhostHirExprPayload:
+    fn copy_mark <(SelfhostHirExprPayload)->SelfhostHirExprPayload> (self):
+        self
+
+pub struct SelfhostHirExpr:
+    ty <SelfhostTypeId>
+    span <SelfhostSourceSpan>
+    payload <SelfhostHirExprPayload>
+
+impl Clone for SelfhostHirExpr:
+    fn clone <(&SelfhostHirExpr)->SelfhostHirExpr> (self):
+        *self
+
+impl Copy for SelfhostHirExpr:
+    fn copy_mark <(SelfhostHirExpr)->SelfhostHirExpr> (self):
+        self
+
+//: selfhost_hir_expr_kind_eq: expression kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - HIR expression kind を numeric tag に落とさず、variant を直接 match して比較します。
+//: - expression kind 追加時に比較分岐を明示的に更新する形を保ちます。
+pub fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->bool> (a, b):
+    match a:
+        SelfhostHirExprKind::Error:
+            match b:
+                SelfhostHirExprKind::Error:
+                    true
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Unit:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    true
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::BoolLiteral:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    true
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::I32Literal:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    true
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::StrLiteral:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    true
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Var:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    true
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Call:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    true
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Block:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    true
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::If:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    true
+
+//: selfhost_hir_expr_new: expression record を[作/つく]る
+pub fn selfhost_hir_expr_new <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprPayload)->SelfhostHirExpr> (ty, span, payload):
+    SelfhostHirExpr ty span payload
+
+//: selfhost_hir_expr_error: error expression record を[作/つく]る
+pub fn selfhost_hir_expr_error <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Error
+
+//: selfhost_hir_expr_unit: unit expression record を[作/つく]る
+pub fn selfhost_hir_expr_unit <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Unit
+
+//: selfhost_hir_expr_bool_literal: bool literal expression record を[作/つく]る
+pub fn selfhost_hir_expr_bool_literal <(SelfhostTypeId,SelfhostSourceSpan,bool)->SelfhostHirExpr> (ty, span, value):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::BoolLiteral value
+
+//: selfhost_hir_expr_i32_literal: i32 literal expression record を[作/つく]る
+pub fn selfhost_hir_expr_i32_literal <(SelfhostTypeId,SelfhostSourceSpan,i32)->SelfhostHirExpr> (ty, span, value):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::I32Literal value
+
+//: selfhost_hir_expr_str_literal: str literal expression record を[作/つく]る
+pub fn selfhost_hir_expr_str_literal <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, value):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::StrLiteral value
+
+//: selfhost_hir_expr_var: variable reference expression record を[作/つく]る
+pub fn selfhost_hir_expr_var <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, name):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Var name
+
+//: selfhost_hir_expr_call: call expression record を[作/つく]る
+pub fn selfhost_hir_expr_call <(SelfhostTypeId,SelfhostSourceSpan,str,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, name, args):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name args
+
+//: selfhost_hir_expr_block: block expression record を[作/つく]る
+pub fn selfhost_hir_expr_block <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, children):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Block children
+
+//: selfhost_hir_expr_if: if expression record を[作/つく]る
+pub fn selfhost_hir_expr_if <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, branches):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::If branches
+
+//: selfhost_hir_expr_kind: expression record の kind を[返/かえ]す
+pub fn selfhost_hir_expr_kind <(&SelfhostHirExpr)->SelfhostHirExprKind> (expr):
+    match *field::get_ref expr "payload":
+        SelfhostHirExprPayload::Error:
+            SelfhostHirExprKind::Error
+        SelfhostHirExprPayload::Unit:
+            SelfhostHirExprKind::Unit
+        SelfhostHirExprPayload::BoolLiteral _value:
+            SelfhostHirExprKind::BoolLiteral
+        SelfhostHirExprPayload::I32Literal _value:
+            SelfhostHirExprKind::I32Literal
+        SelfhostHirExprPayload::StrLiteral _value:
+            SelfhostHirExprKind::StrLiteral
+        SelfhostHirExprPayload::Var _name:
+            SelfhostHirExprKind::Var
+        SelfhostHirExprPayload::Call _call:
+            SelfhostHirExprKind::Call
+        SelfhostHirExprPayload::Block _children:
+            SelfhostHirExprKind::Block
+        SelfhostHirExprPayload::If _branches:
+            SelfhostHirExprKind::If
+
+//: selfhost_hir_expr_child_range: expression record の child 範囲を[返/かえ]す
+pub fn selfhost_hir_expr_child_range <(&SelfhostHirExpr)->SelfhostHirChildRange> (expr):
+    match *field::get_ref expr "payload":
+        SelfhostHirExprPayload::Error:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::Unit:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::BoolLiteral _value:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::I32Literal _value:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::StrLiteral _value:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::Var _name:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::Call call:
+            call.args
+        SelfhostHirExprPayload::Block children:
+            children
+        SelfhostHirExprPayload::If branches:
+            branches

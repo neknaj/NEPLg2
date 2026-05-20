@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T03:56:23.873Z",
+  "generated_at": "2026-05-20T04:10:49.444Z",
   "counts": {
-    "total": 1098,
+    "total": 1099,
     "open": 4,
-    "resolved": 1094,
+    "resolved": 1095,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 97,
+        "total": 98,
         "open": 1,
-        "resolved": 96
+        "resolved": 97
       },
       "cli": {
         "total": 19,
@@ -15443,6 +15443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T035443109Z-SELFHOST-PARSER-REPORT-CONTRACT-EXPE-2F0D52E2.md"
+    },
+    {
+      "id": "ISS-20260520T040120122Z-SELF-HOST-HIR-REMAINS-A-FLAT-IMPLEME-C9744663",
+      "title": "self-host HIR remains a flat implementation file",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/hir/**, doc/neplg2/self_host_source_tree_layout_review_20260518.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T040120122Z-SELF-HOST-HIR-REMAINS-A-FLAT-IMPLEME-C9744663.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

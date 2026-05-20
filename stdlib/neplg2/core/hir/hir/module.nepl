@@ -1,0 +1,33 @@
+#indent 4
+#import "alloc/collections/vec" as v
+#import "./id" as *
+#import "./range" as *
+#import "./expr" as *
+#import "./function" as *
+
+//: SelfhostHirModule: HIR stage の arena root
+pub struct SelfhostHirModule:
+    functions <Vec<SelfhostHirFunction>>
+    params <Vec<SelfhostHirParam>>
+    exprs <Vec<SelfhostHirExpr>>
+    expr_children <Vec<SelfhostHirExprId>>
+
+//: SelfhostHirModuleExprAlloc: expression 追加結果
+pub struct SelfhostHirModuleExprAlloc:
+    module <SelfhostHirModule>
+    expr_id <SelfhostHirExprId>
+
+//: SelfhostHirModuleFunctionAlloc: function 追加結果
+pub struct SelfhostHirModuleFunctionAlloc:
+    module <SelfhostHirModule>
+    function_id <SelfhostHirFunctionId>
+
+//: SelfhostHirModuleChildRangeAlloc: child range 追加結果
+pub struct SelfhostHirModuleChildRangeAlloc:
+    module <SelfhostHirModule>
+    child_range <SelfhostHirChildRange>
+
+//: SelfhostHirModuleParamRangeAlloc: parameter range 追加結果
+pub struct SelfhostHirModuleParamRangeAlloc:
+    module <SelfhostHirModule>
+    param_range <SelfhostHirParamRange>
