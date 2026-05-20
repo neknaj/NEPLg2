@@ -1,0 +1,266 @@
+#indent 4
+
+#import "core/traits/copy" as *
+
+//: SelfhostDiagSeverity: diagnostic の[重大度/じゅうだいど]
+pub enum SelfhostDiagSeverity:
+    Info
+    Warning
+    Error
+
+impl Clone for SelfhostDiagSeverity:
+    fn clone <(&SelfhostDiagSeverity)->SelfhostDiagSeverity> (self):
+        *self
+
+impl Copy for SelfhostDiagSeverity:
+    fn copy_mark <(SelfhostDiagSeverity)->SelfhostDiagSeverity> (self):
+        self
+
+//: SelfhostDiagnosticCode: self-host compiler diagnostic の[内部/ないぶ][識別子/しきべつし]
+//:
+//: [目的/もくてき]:
+//: - Rust compiler diagnostic redesign と[同/おな]じく、内部では[数値/すうち]や[自由/じゆう]文字列ではなく[階層/かいそう] enum を[保持/ほじ]します。
+//: - stable string は `selfhost_diag_code_name` の exhaustive match でだけ[作/つく]り、JSON / human reporter がそれを[使/つか]います。
+pub enum SelfhostDiagnosticCode:
+    Loader <SelfhostLoaderDiagnosticCode>
+    Lexer <SelfhostLexerDiagnosticCode>
+    Parser <SelfhostParserDiagnosticCode>
+    Resolve <SelfhostResolveDiagnosticCode>
+    Checker <SelfhostCheckerDiagnosticCode>
+    Cli <SelfhostCliDiagnosticCode>
+
+impl Clone for SelfhostDiagnosticCode:
+    fn clone <(&SelfhostDiagnosticCode)->SelfhostDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostDiagnosticCode:
+    fn copy_mark <(SelfhostDiagnosticCode)->SelfhostDiagnosticCode> (self):
+        self
+
+//: SelfhostLoaderDiagnosticCode: source loading / artifact I/O diagnostic の[分類/ぶんるい]
+pub enum SelfhostLoaderDiagnosticCode:
+    FileNotFound
+    SourceReadFailed
+    ArtifactWriteFailed
+    VfsBuildFailed
+
+impl Clone for SelfhostLoaderDiagnosticCode:
+    fn clone <(&SelfhostLoaderDiagnosticCode)->SelfhostLoaderDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostLoaderDiagnosticCode:
+    fn copy_mark <(SelfhostLoaderDiagnosticCode)->SelfhostLoaderDiagnosticCode> (self):
+        self
+
+//: SelfhostLexerDiagnosticCode: self-host lexer diagnostic の[分類/ぶんるい]
+pub enum SelfhostLexerDiagnosticCode:
+    TokenUnknown
+    CharInvalid
+    StringUnterminated
+    IndentLevelMismatch
+    OutOfMemory
+
+impl Clone for SelfhostLexerDiagnosticCode:
+    fn clone <(&SelfhostLexerDiagnosticCode)->SelfhostLexerDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostLexerDiagnosticCode:
+    fn copy_mark <(SelfhostLexerDiagnosticCode)->SelfhostLexerDiagnosticCode> (self):
+        self
+
+//: SelfhostParserDiagnosticCode: self-host parser / directive parser diagnostic の[分類/ぶんるい]
+pub enum SelfhostParserDiagnosticCode:
+    RawBlockExpectedIndent
+    RawTextOutsideBlock
+    TokenIndex
+    OutOfMemory
+    ImportAliasExpected
+    ImportTrailingText
+    ImportAsExpected
+    ImportPathQuoteExpected
+    ImportPathQuoteUnclosed
+    ImportPathEmpty
+    ImportItemKind
+    ImportAstIndex
+
+impl Clone for SelfhostParserDiagnosticCode:
+    fn clone <(&SelfhostParserDiagnosticCode)->SelfhostParserDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostParserDiagnosticCode:
+    fn copy_mark <(SelfhostParserDiagnosticCode)->SelfhostParserDiagnosticCode> (self):
+        self
+
+//: SelfhostResolveDiagnosticCode: import path / module graph resolve diagnostic の[分類/ぶんるい]
+pub enum SelfhostResolveDiagnosticCode:
+    ModulePathOutOfMemory
+    ModulePathInvalidImport
+    ModulePathEscapeRoot
+    ModuleGraphOutOfMemory
+    ModuleGraphMissingModule
+    ModuleGraphCycle
+    ModuleGraphInternal
+
+impl Clone for SelfhostResolveDiagnosticCode:
+    fn clone <(&SelfhostResolveDiagnosticCode)->SelfhostResolveDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostResolveDiagnosticCode:
+    fn copy_mark <(SelfhostResolveDiagnosticCode)->SelfhostResolveDiagnosticCode> (self):
+        self
+
+//: SelfhostCheckerDiagnosticCode: checker / typed validation diagnostic の[分類/ぶんるい]
+pub enum SelfhostCheckerDiagnosticCode:
+    ModuleItemIndex
+    ModuleItemSpanInvalid
+    ModuleDeclarationHeaderMissing
+    ModuleDeclarationHeaderInvalid
+    RawTextWithoutBlock
+    RawBlockEmpty
+    ModuleDirectiveDuplicate
+
+impl Clone for SelfhostCheckerDiagnosticCode:
+    fn clone <(&SelfhostCheckerDiagnosticCode)->SelfhostCheckerDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostCheckerDiagnosticCode:
+    fn copy_mark <(SelfhostCheckerDiagnosticCode)->SelfhostCheckerDiagnosticCode> (self):
+        self
+
+//: SelfhostCliDiagnosticCode: CLI option / usage diagnostic の[分類/ぶんるい]
+pub enum SelfhostCliDiagnosticCode:
+    MissingInput
+
+impl Clone for SelfhostCliDiagnosticCode:
+    fn clone <(&SelfhostCliDiagnosticCode)->SelfhostCliDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostCliDiagnosticCode:
+    fn copy_mark <(SelfhostCliDiagnosticCode)->SelfhostCliDiagnosticCode> (self):
+        self
+
+//: selfhost_diag_severity_name: severity の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
+pub fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
+    match severity:
+        SelfhostDiagSeverity::Info:
+            "info"
+        SelfhostDiagSeverity::Warning:
+            "warning"
+        SelfhostDiagSeverity::Error:
+            "error"
+
+//: selfhost_loader_diag_code_name: loader diagnostic code の stable string を[返/かえ]す
+pub fn selfhost_loader_diag_code_name <(SelfhostLoaderDiagnosticCode)->str> (code):
+    match code:
+        SelfhostLoaderDiagnosticCode::FileNotFound:
+            "loader.source.file_not_found"
+        SelfhostLoaderDiagnosticCode::SourceReadFailed:
+            "loader.source.read_failed"
+        SelfhostLoaderDiagnosticCode::ArtifactWriteFailed:
+            "loader.artifact.write_failed"
+        SelfhostLoaderDiagnosticCode::VfsBuildFailed:
+            "loader.vfs.build_failed"
+
+//: selfhost_lexer_diag_code_name: lexer diagnostic code の stable string を[返/かえ]す
+pub fn selfhost_lexer_diag_code_name <(SelfhostLexerDiagnosticCode)->str> (code):
+    match code:
+        SelfhostLexerDiagnosticCode::TokenUnknown:
+            "lexer.token.unknown"
+        SelfhostLexerDiagnosticCode::CharInvalid:
+            "lexer.char.invalid"
+        SelfhostLexerDiagnosticCode::StringUnterminated:
+            "lexer.string.unterminated"
+        SelfhostLexerDiagnosticCode::IndentLevelMismatch:
+            "lexer.indent.level_mismatch"
+        SelfhostLexerDiagnosticCode::OutOfMemory:
+            "lexer.out_of_memory"
+
+//: selfhost_parser_diag_code_name: parser diagnostic code の stable string を[返/かえ]す
+pub fn selfhost_parser_diag_code_name <(SelfhostParserDiagnosticCode)->str> (code):
+    match code:
+        SelfhostParserDiagnosticCode::RawBlockExpectedIndent:
+            "parser.raw_block.expected_indent"
+        SelfhostParserDiagnosticCode::RawTextOutsideBlock:
+            "parser.raw_text.outside_block"
+        SelfhostParserDiagnosticCode::TokenIndex:
+            "parser.token.index_unavailable"
+        SelfhostParserDiagnosticCode::OutOfMemory:
+            "parser.out_of_memory"
+        SelfhostParserDiagnosticCode::ImportAliasExpected:
+            "parser.import.alias_expected"
+        SelfhostParserDiagnosticCode::ImportTrailingText:
+            "parser.import.trailing_text"
+        SelfhostParserDiagnosticCode::ImportAsExpected:
+            "parser.import.as_expected"
+        SelfhostParserDiagnosticCode::ImportPathQuoteExpected:
+            "parser.import.path_quote_expected"
+        SelfhostParserDiagnosticCode::ImportPathQuoteUnclosed:
+            "parser.import.path_quote_unclosed"
+        SelfhostParserDiagnosticCode::ImportPathEmpty:
+            "parser.import.path_empty"
+        SelfhostParserDiagnosticCode::ImportItemKind:
+            "parser.import.item_kind"
+        SelfhostParserDiagnosticCode::ImportAstIndex:
+            "parser.import.ast_index"
+
+//: selfhost_resolve_diag_code_name: resolve diagnostic code の stable string を[返/かえ]す
+pub fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (code):
+    match code:
+        SelfhostResolveDiagnosticCode::ModulePathOutOfMemory:
+            "resolve.import_path.out_of_memory"
+        SelfhostResolveDiagnosticCode::ModulePathInvalidImport:
+            "resolve.import_path.invalid"
+        SelfhostResolveDiagnosticCode::ModulePathEscapeRoot:
+            "resolve.import_path.escape_root"
+        SelfhostResolveDiagnosticCode::ModuleGraphOutOfMemory:
+            "resolve.import_graph.out_of_memory"
+        SelfhostResolveDiagnosticCode::ModuleGraphMissingModule:
+            "resolve.import_graph.missing_module"
+        SelfhostResolveDiagnosticCode::ModuleGraphCycle:
+            "resolve.import_graph.cycle"
+        SelfhostResolveDiagnosticCode::ModuleGraphInternal:
+            "resolve.import_graph.internal"
+
+//: selfhost_checker_diag_code_name: checker diagnostic code の stable string を[返/かえ]す
+pub fn selfhost_checker_diag_code_name <(SelfhostCheckerDiagnosticCode)->str> (code):
+    match code:
+        SelfhostCheckerDiagnosticCode::ModuleItemIndex:
+            "checker.module.item_index"
+        SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid:
+            "checker.module.item_span_invalid"
+        SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderMissing:
+            "checker.module.declaration_header_missing"
+        SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid:
+            "checker.module.declaration_header_invalid"
+        SelfhostCheckerDiagnosticCode::RawTextWithoutBlock:
+            "checker.module.raw_text_without_block"
+        SelfhostCheckerDiagnosticCode::RawBlockEmpty:
+            "checker.module.raw_block_empty"
+        SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate:
+            "checker.module.directive_duplicate"
+
+//: selfhost_cli_diag_code_name: CLI diagnostic code の stable string を[返/かえ]す
+pub fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
+    match code:
+        SelfhostCliDiagnosticCode::MissingInput:
+            "cli.input.missing"
+
+//: selfhost_diag_code_name: diagnostic code の stable string を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 内部 enum を CLI / JSON / doctest 用の[安定/あんてい]した文字列へ変換します。
+//: - ここでは wildcard arm を使わず、category と下位 code の match 網羅性を[効/き]かせます。
+pub fn selfhost_diag_code_name <(SelfhostDiagnosticCode)->str> (code):
+    match code:
+        SelfhostDiagnosticCode::Loader loader_code:
+            selfhost_loader_diag_code_name loader_code
+        SelfhostDiagnosticCode::Lexer lexer_code:
+            selfhost_lexer_diag_code_name lexer_code
+        SelfhostDiagnosticCode::Parser parser_code:
+            selfhost_parser_diag_code_name parser_code
+        SelfhostDiagnosticCode::Resolve resolve_code:
+            selfhost_resolve_diag_code_name resolve_code
+        SelfhostDiagnosticCode::Checker checker_code:
+            selfhost_checker_diag_code_name checker_code
+        SelfhostDiagnosticCode::Cli cli_code:
+            selfhost_cli_diag_code_name cli_code
