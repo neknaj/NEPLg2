@@ -76,6 +76,10 @@
 - `parser/type_expr.rs`: type constructor、tuple/function type、type argument。
 - `parser/type_recovery.rs`: malformed type expression の復旧。
 
+進捗:
+
+- 2026-05-20: `ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587` の再発対応として、`#extern` signature 用の小型 type expression parser を `parser/type_expr.rs` へ分離した。root `parser.rs` の line limit は 4234 から 4170 へ下げ、新 module は 100 lines 上限で監視する。
+
 ## Backend split stages
 
 ### B1: shared backend model
@@ -150,6 +154,7 @@
 - この計画 document が存在し、P/B/M stage と関連 issue を含む。
 - `parser.rs` の重複 module doc が戻らない。
 - parser/backend/monomorphize の baseline line count を超えて責務を追加しない。
+- `parser/type_expr.rs` が存在し、`#extern` signature 用の type expression parsing が root `parser.rs` へ戻らない。
 - `monomorphize/trait_identity.rs` が存在し、trait / method identity newtype が lookup key module へ戻らない。
 - `monomorphize/trait_lookup.rs` が存在し、trait lookup model が root `monomorphize.rs` へ戻らない。
 - `run_source_policy_regressions.js` から policy が実行される。

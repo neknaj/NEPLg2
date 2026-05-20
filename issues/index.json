@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T09:27:51.603Z",
+  "generated_at": "2026-05-20T09:37:57.283Z",
   "counts": {
     "total": 1112,
     "open": 4,
@@ -14843,8 +14843,8 @@
       "priority": "P2",
       "type": "architecture",
       "created": "2026-05-07",
-      "updated": "2026-05-08",
-      "target": "nepl-core/src/parser.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/parser.rs, nepl-core/src/parser/type_expr.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587.md"

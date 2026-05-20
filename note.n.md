@@ -1,3 +1,12 @@
+# 2026-05-20 Agent 1 parser type expression responsibility split
+
+- `ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587` の parser responsibility freeze 再発を修正した。`plan.md` は変更していない。
+- `#extern` signature 用の小型 type expression parser を `parser/type_expr.rs` へ分離し、root `parser.rs` は `parse_type_expr_str` を呼び出すだけにした。
+- `doc/neplg2/parser_backend_responsibility_split_plan.md` の P4 進捗と source policy の説明を更新し、`parser.rs` 4170、`parser/type_expr.rs` 100 の上限を policy に追加した。
+- 検証:
+  - `node nodesrc/test_parser_backend_responsibility_policy.js`: pass
+  - `cargo check -p nepl-core`: pass
+
 # 2026-05-20 Agent 1 resource owner summary seed leaf split
 
 - `ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE` の再発を修正した。`plan.md` は変更していない。
