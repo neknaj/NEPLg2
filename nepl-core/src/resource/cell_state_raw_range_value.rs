@@ -47,6 +47,9 @@ pub(super) fn replace_raw_range_count_value_prefix(
     source: &Place,
     target: &Place,
 ) -> Option<Place> {
+    if source.ty != target.ty {
+        return None;
+    }
     let suffix = place_suffix_after_prefix(place, source)?;
     if suffix.iter().any(|projection| {
         matches!(

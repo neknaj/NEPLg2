@@ -47,11 +47,11 @@ fn range_count_alias_replacement(
     source: &Place,
     target: &Place,
 ) -> Option<Place> {
-    if raw_aliases.canonicalize_scalar(&range.count) == raw_aliases.canonicalize_scalar(source) {
-        return Some(target.clone());
-    }
     if range.count.ty != source.ty || source.ty != target.ty {
         return None;
+    }
+    if raw_aliases.canonicalize_scalar(&range.count) == raw_aliases.canonicalize_scalar(source) {
+        return Some(target.clone());
     }
     let range_aliases = raw_aliases.scalar_aliases_for_value(&range.count);
     let source_aliases = raw_aliases.scalar_aliases_for_value(source);

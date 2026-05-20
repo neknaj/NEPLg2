@@ -27,6 +27,8 @@ mod cell_state_raw_range_offset;
 mod cell_state_raw_range_value;
 mod cell_state_raw_range_value_alias;
 #[cfg(test)]
+mod cell_state_raw_range_value_alias_tests;
+#[cfg(test)]
 mod cell_state_tests;
 mod compiler_memory_place;
 mod condition_fact;
