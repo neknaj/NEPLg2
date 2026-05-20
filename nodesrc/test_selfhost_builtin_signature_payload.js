@@ -2,12 +2,11 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
+const { readPreludeSource } = require("./selfhost_prelude_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
-const preludePath = "stdlib/neplg2/core/builtins/prelude.nepl";
-const prelude = fs.readFileSync(path.join(repoRoot, preludePath), "utf8").replace(/\r\n/g, "\n");
+const prelude = readPreludeSource(repoRoot);
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");

@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { readTySource } = require("./selfhost_ty_sources");
 const { readNameResolverSource } = require("./selfhost_name_resolver_sources");
+const { readPreludeSource } = require("./selfhost_prelude_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -77,7 +78,7 @@ function assertEnumEqUsesMatches(rel, enumName, eqName) {
 
 assertEnumEqUsesMatchesSource(readTySource(repoRoot), "stdlib/neplg2/core/ty/ty", "SelfhostTypeKind", "selfhost_type_kind_eq");
 assertEnumEqUsesMatches("stdlib/neplg2/core/hir/hir/expr.nepl", "SelfhostHirExprKind", "selfhost_hir_expr_kind_eq");
-assertEnumEqUsesMatches("stdlib/neplg2/core/builtins/prelude.nepl", "SelfhostBuiltinKind", "selfhost_builtin_kind_eq");
+assertEnumEqUsesMatchesSource(readPreludeSource(repoRoot), "stdlib/neplg2/core/builtins/prelude", "SelfhostBuiltinKind", "selfhost_builtin_kind_eq");
 assertEnumEqUsesMatchesSource(readNameResolverSource(repoRoot), "stdlib/neplg2/core/resolve/name_resolver", "SelfhostDefKind", "selfhost_def_kind_eq");
 
 console.log("selfhost model numeric kind tag regression passed");

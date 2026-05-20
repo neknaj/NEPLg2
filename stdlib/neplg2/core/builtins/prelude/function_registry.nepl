@@ -1,0 +1,45 @@
+#indent 4
+
+#import "core/option" as *
+#import "neplg2/core/ty/ty" as *
+#import "./model" as *
+#import "./signature" as *
+
+//: selfhost_builtin_function_new: builtin function record を[作/つく]る
+pub fn selfhost_builtin_function_new <(str,SelfhostBuiltinKind,SelfhostBuiltinSignature,bool)->SelfhostBuiltinFunction> (name, kind, signature, pure):
+    SelfhostBuiltinFunction name kind signature pure
+
+//: selfhost_builtin_function_alloc: `alloc(size: i32) -> i32` の metadata を[返/かえ]す
+pub fn selfhost_builtin_function_alloc <()->SelfhostBuiltinFunction> ():
+    selfhost_builtin_function_new "alloc" SelfhostBuiltinKind::MemAlloc selfhost_builtin_signature_unary SelfhostTypeKind::I32 SelfhostTypeKind::I32 true
+
+//: selfhost_builtin_function_dealloc: `dealloc(ptr: i32, size: i32) -> unit` の metadata を[返/かえ]す
+pub fn selfhost_builtin_function_dealloc <()->SelfhostBuiltinFunction> ():
+    selfhost_builtin_function_new "dealloc" SelfhostBuiltinKind::MemDealloc selfhost_builtin_signature_binary SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::Unit true
+
+//: selfhost_builtin_function_realloc: `realloc(ptr: i32, old: i32, new: i32) -> i32` の metadata を[返/かえ]す
+pub fn selfhost_builtin_function_realloc <()->SelfhostBuiltinFunction> ():
+    selfhost_builtin_function_new "realloc" SelfhostBuiltinKind::MemRealloc selfhost_builtin_signature_ternary SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 true
+
+//: selfhost_builtin_function_count: registry に登録された builtin function 数を[返/かえ]す
+pub fn selfhost_builtin_function_count <()->i32> ():
+    3
+
+//: selfhost_builtin_function_at: registry index から builtin function を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - index は 0 から始まります。範囲外なら `None` です。
+pub fn selfhost_builtin_function_at <(i32)->Option<SelfhostBuiltinFunction>> (index):
+    match index:
+        0:
+            some<SelfhostBuiltinFunction> selfhost_builtin_function_alloc
+        1:
+            some<SelfhostBuiltinFunction> selfhost_builtin_function_dealloc
+        2:
+            some<SelfhostBuiltinFunction> selfhost_builtin_function_realloc
+        _:
+            none<SelfhostBuiltinFunction>
+
+//: selfhost_builtin_function_is_pure: builtin function が現行 registry 上 pure か[返/かえ]す
+pub fn selfhost_builtin_function_is_pure <(SelfhostBuiltinFunction)->bool> (builtin):
+    builtin.pure

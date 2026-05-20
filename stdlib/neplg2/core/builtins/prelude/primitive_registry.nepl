@@ -1,0 +1,42 @@
+#indent 4
+
+#import "core/option" as *
+#import "neplg2/core/ty/ty" as *
+#import "./model" as *
+
+//: selfhost_primitive_type_name_new: primitive type name record を[作/つく]る
+pub fn selfhost_primitive_type_name_new <(str,SelfhostTypeKind)->SelfhostPrimitiveTypeName> (name, kind):
+    SelfhostPrimitiveTypeName name kind
+
+//: selfhost_primitive_type_count: registry に登録された primitive type name 数を[返/かえ]す
+pub fn selfhost_primitive_type_count <()->i32> ():
+    10
+
+//: selfhost_primitive_type_at: registry index から primitive type name を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - index は 0 から始まります。範囲外なら `None` です。
+pub fn selfhost_primitive_type_at <(i32)->Option<SelfhostPrimitiveTypeName>> (index):
+    match index:
+        0:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "unit" SelfhostTypeKind::Unit
+        1:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "bool" SelfhostTypeKind::Bool
+        2:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "i32" SelfhostTypeKind::I32
+        3:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "i64" SelfhostTypeKind::I64
+        4:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "u8" SelfhostTypeKind::U8
+        5:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "char" SelfhostTypeKind::Char
+        6:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "str" SelfhostTypeKind::Str
+        7:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "f32" SelfhostTypeKind::F32
+        8:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "f64" SelfhostTypeKind::F64
+        9:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "never" SelfhostTypeKind::Never
+        _:
+            none<SelfhostPrimitiveTypeName>

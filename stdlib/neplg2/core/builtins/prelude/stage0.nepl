@@ -1,0 +1,109 @@
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "neplg2/core/ty/ty" as *
+#import "./model" as *
+#import "./kind" as *
+#import "./signature" as *
+#import "./function_registry" as *
+#import "./primitive_registry" as *
+
+//: selfhost_prelude_stage0_char_ok: primitive registry に `char` があるか[返/かえ]す
+pub fn selfhost_prelude_stage0_char_ok <()->bool> ():
+    match selfhost_primitive_type_at 5:
+        Option::Some primitive:
+            selfhost_type_kind_eq primitive.kind SelfhostTypeKind::Char
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_float_never_ok: primitive registry に floating / never type があるか[返/かえ]す
+pub fn selfhost_prelude_stage0_float_never_ok <()->bool> ():
+    match selfhost_primitive_type_at 7:
+        Option::Some f32_primitive:
+            match selfhost_primitive_type_at 8:
+                Option::Some f64_primitive:
+                    match selfhost_primitive_type_at 9:
+                        Option::Some never_primitive:
+                            let f32_ok <bool> selfhost_type_kind_eq f32_primitive.kind SelfhostTypeKind::F32
+                            let f64_ok <bool> selfhost_type_kind_eq f64_primitive.kind SelfhostTypeKind::F64
+                            let never_ok <bool> selfhost_type_kind_eq never_primitive.kind SelfhostTypeKind::Never
+                            and f32_ok and f64_ok never_ok
+                        Option::None:
+                            false
+                Option::None:
+                    false
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_alloc_ok: `alloc` builtin metadata が Rust surface と合うか[返/かえ]す
+pub fn selfhost_prelude_stage0_alloc_ok <()->bool> ():
+    match selfhost_builtin_function_at 0:
+        Option::Some builtin:
+            if:
+                not selfhost_builtin_kind_eq builtin.kind SelfhostBuiltinKind::MemAlloc
+                then:
+                    false
+                else:
+                    if:
+                        not eq selfhost_builtin_function_arg_count builtin 1
+                        then:
+                            false
+                        else:
+                            match selfhost_builtin_function_arg_kind builtin 0:
+                                Option::Some arg0:
+                                    let arg_ok <bool> selfhost_type_kind_eq arg0 SelfhostTypeKind::I32
+                                    let result_ok <bool> selfhost_type_kind_eq selfhost_builtin_function_result_kind builtin SelfhostTypeKind::I32
+                                    and arg_ok and result_ok selfhost_builtin_function_is_pure builtin
+                                Option::None:
+                                    false
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_realloc_ok: `realloc` builtin metadata が Rust surface と合うか[返/かえ]す
+pub fn selfhost_prelude_stage0_realloc_ok <()->bool> ():
+    match selfhost_builtin_function_at 2:
+        Option::Some builtin:
+            if:
+                not eq selfhost_builtin_function_arg_count builtin 3
+                then:
+                    false
+                else:
+                    match selfhost_builtin_function_arg_kind builtin 2:
+                        Option::Some arg2:
+                            selfhost_type_kind_eq arg2 SelfhostTypeKind::I32
+                        Option::None:
+                            false
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_no_extra_builtin_ok: 範囲外 index が `None` か[返/かえ]す
+pub fn selfhost_prelude_stage0_no_extra_builtin_ok <()->bool> ():
+    is_none<SelfhostBuiltinFunction> selfhost_builtin_function_at 3
+
+//: selfhost_prelude_stage0: builtins / prelude registry の最小 sanity check
+pub fn selfhost_prelude_stage0 <()->i32> ():
+    if:
+        not eq selfhost_primitive_type_count 10
+        then:
+            1
+        else:
+            if:
+                not eq selfhost_builtin_function_count 3
+                then:
+                    1
+                else:
+                    if:
+                        not selfhost_prelude_stage0_char_ok
+                        then:
+                            1
+                        else:
+                            let primitive_ok <bool> selfhost_prelude_stage0_float_never_ok
+                            let builtin_ok <bool> and selfhost_prelude_stage0_alloc_ok selfhost_prelude_stage0_realloc_ok
+                            let registry_ok <bool> and builtin_ok selfhost_prelude_stage0_no_extra_builtin_ok
+                            if:
+                                and primitive_ok registry_ok
+                                then:
+                                    0
+                                else:
+                                    1
