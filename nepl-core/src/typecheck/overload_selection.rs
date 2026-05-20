@@ -38,6 +38,76 @@ struct OverloadCandidate<'b> {
     field_accessor: Option<FieldAccessorKind>,
 }
 
+#[derive(Clone, Copy)]
+enum OverloadCandidateRejection {
+    NotFunction,
+    TypeArgumentCount,
+    CaptureArity,
+    UserArity,
+    DeclaredExpectedResult,
+    InstantiatedNotFunction,
+    ArgumentType,
+    ExpectedResult,
+}
+
+#[derive(Default)]
+struct OverloadCandidateStats {
+    considered: usize,
+    materialized: usize,
+    accepted: usize,
+    not_function: usize,
+    type_argument_count: usize,
+    capture_arity: usize,
+    user_arity: usize,
+    declared_expected_result: usize,
+    instantiated_not_function: usize,
+    argument_type: usize,
+    expected_result: usize,
+}
+
+impl OverloadCandidateStats {
+    fn record_considered(&mut self) {
+        self.considered += 1;
+    }
+
+    fn record_materialized(&mut self) {
+        self.materialized += 1;
+    }
+
+    fn record_accepted(&mut self) {
+        self.accepted += 1;
+    }
+
+    fn record_rejection(&mut self, reason: OverloadCandidateRejection) {
+        match reason {
+            OverloadCandidateRejection::NotFunction => self.not_function += 1,
+            OverloadCandidateRejection::TypeArgumentCount => self.type_argument_count += 1,
+            OverloadCandidateRejection::CaptureArity => self.capture_arity += 1,
+            OverloadCandidateRejection::UserArity => self.user_arity += 1,
+            OverloadCandidateRejection::DeclaredExpectedResult => {
+                self.declared_expected_result += 1
+            }
+            OverloadCandidateRejection::InstantiatedNotFunction => {
+                self.instantiated_not_function += 1
+            }
+            OverloadCandidateRejection::ArgumentType => self.argument_type += 1,
+            OverloadCandidateRejection::ExpectedResult => self.expected_result += 1,
+        }
+    }
+
+    fn pre_materialized_rejections(&self) -> usize {
+        self.not_function
+            + self.type_argument_count
+            + self.capture_arity
+            + self.user_arity
+            + self.declared_expected_result
+    }
+
+    fn assert_materialization_guard(&self) {
+        debug_assert!(self.materialized + self.pre_materialized_rejections() <= self.considered);
+    }
+}
+
 impl<'a> BlockChecker<'a> {
     pub(super) fn select_overload_candidate(
         &mut self,
@@ -61,7 +131,9 @@ impl<'a> BlockChecker<'a> {
 
         let mut candidates: Vec<OverloadCandidate<'_>> = Vec::new();
         let mut mismatch_count = false;
+        let mut stats = OverloadCandidateStats::default();
         for binding in bindings {
+            stats.record_considered();
             if crate::log::is_verbose() {
                 overload_selection_log!(
                     "overload debug: consider '{}' candidate {}",
@@ -88,12 +160,14 @@ impl<'a> BlockChecker<'a> {
                             function_signature_string(self.ctx, binding.ty)
                         );
                     }
+                    stats.record_rejection(OverloadCandidateRejection::NotFunction);
                     continue;
                 }
             };
             let (type_params, params, result, effect) = func_data;
             if !explicit_type_args.is_empty() && type_params.len() != explicit_type_args.len() {
                 mismatch_count = true;
+                stats.record_rejection(OverloadCandidateRejection::TypeArgumentCount);
                 continue;
             }
             if params.len() < capture_len {
@@ -106,6 +180,7 @@ impl<'a> BlockChecker<'a> {
                         capture_len
                     );
                 }
+                stats.record_rejection(OverloadCandidateRejection::CaptureArity);
                 continue;
             }
             let declared_user_param_count = params.len() - capture_len;
@@ -119,6 +194,7 @@ impl<'a> BlockChecker<'a> {
                         args.len()
                     );
                 }
+                stats.record_rejection(OverloadCandidateRejection::UserArity);
                 continue;
             }
             if use_expected && explicit_type_args.is_empty() {
@@ -133,12 +209,14 @@ impl<'a> BlockChecker<'a> {
                                 self.ctx.type_to_string(expectation.target())
                             );
                         }
+                        stats.record_rejection(OverloadCandidateRejection::DeclaredExpectedResult);
                         continue;
                     }
                 }
             }
 
             let checkpoint = self.ctx.checkpoint();
+            stats.record_materialized();
             let inst_ty = if !explicit_type_args.is_empty() {
                 let mut mapping = BTreeMap::new();
                 for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
@@ -172,6 +250,7 @@ impl<'a> BlockChecker<'a> {
                             function_signature_string(self.ctx, binding.ty)
                         );
                     }
+                    stats.record_rejection(OverloadCandidateRejection::InstantiatedNotFunction);
                     self.ctx.rollback(checkpoint);
                     continue;
                 }
@@ -191,6 +270,7 @@ impl<'a> BlockChecker<'a> {
                             self.ctx.type_to_string(*pty)
                         );
                     }
+                    stats.record_rejection(OverloadCandidateRejection::ArgumentType);
                     ok = false;
                     break;
                 }
@@ -208,6 +288,7 @@ impl<'a> BlockChecker<'a> {
                                 self.ctx.type_to_string(expected)
                             );
                         }
+                        stats.record_rejection(OverloadCandidateRejection::ExpectedResult);
                         ok = false;
                     }
                 }
@@ -220,6 +301,7 @@ impl<'a> BlockChecker<'a> {
                         function_signature_string(self.ctx, binding.ty)
                     );
                 }
+                stats.record_accepted();
                 let type_param_count = match self.ctx.get(self.ctx.resolve_id(binding.ty)) {
                     TypeKind::Function { type_params, .. } => type_params.len(),
                     _ => 0,
@@ -240,6 +322,17 @@ impl<'a> BlockChecker<'a> {
                 });
             }
             self.ctx.rollback(checkpoint);
+        }
+        stats.assert_materialization_guard();
+        if crate::log::is_verbose() {
+            overload_selection_log!(
+                "overload debug: '{}' stats considered={} materialized={} accepted={} pre_materialized_rejected={}",
+                name,
+                stats.considered,
+                stats.materialized,
+                stats.accepted,
+                stats.pre_materialized_rejections()
+            );
         }
 
         // In a pure context, if both pure and impure candidates match,

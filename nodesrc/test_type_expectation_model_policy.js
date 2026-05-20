@@ -83,5 +83,25 @@ assert.match(
     /type_pattern_matches\(result,\s*expectation\.target\(\)\)[\s\S]*let\s+checkpoint\s*=\s*self\.ctx\.checkpoint\(\);/,
     'overload selection must use declared result shape before candidate instantiation when expected result is available',
 );
+assert.match(
+    overloadSelection,
+    /enum\s+OverloadCandidateRejection\s*{[\s\S]*NotFunction[\s\S]*TypeArgumentCount[\s\S]*CaptureArity[\s\S]*UserArity[\s\S]*DeclaredExpectedResult[\s\S]*InstantiatedNotFunction[\s\S]*ArgumentType[\s\S]*ExpectedResult[\s\S]*}/,
+    'overload candidate rejection reasons must be a typed enum',
+);
+assert.match(
+    overloadSelection,
+    /fn\s+record_rejection\(&mut self,\s*reason:\s*OverloadCandidateRejection\)[\s\S]*match\s+reason\s*{[\s\S]*OverloadCandidateRejection::NotFunction[\s\S]*OverloadCandidateRejection::ExpectedResult[\s\S]*}/,
+    'overload candidate rejection stats must dispatch through exhaustive match',
+);
+assert.match(
+    overloadSelection,
+    /fn\s+assert_materialization_guard\(&self\)[\s\S]*debug_assert!\(self\.materialized\s*\+\s*self\.pre_materialized_rejections\(\)\s*<=\s*self\.considered\)/,
+    'overload selection must guard candidate materialization count',
+);
+assert.match(
+    overloadSelection,
+    /stats\.record_materialized\(\);[\s\S]*self\.ctx\.instantiate\(binding\.ty\)/,
+    'overload selection must count candidates that reach instantiation/materialization',
+);
 
 console.log('type expectation model source policy passed');
