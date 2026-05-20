@@ -1,3 +1,14 @@
+# 2026-05-20 Agent 1 型注釈 expected-check 設計調査
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` を追加した。`plan.md` は確認のみで変更していない。
+- 根本原因は、Rust compiler が `PrefixItem::TypeAnnotation` と `pending_ascription` を持ちながら、推論モードと期待型に対する検査モードを typed state として分離できていないこと。`expected_ret` は overload / trait call の一部へ渡っているが、探索をどこまで必要十分に行うかが設計として固定されていない。
+- `doc/neplg2/type_ascription_expected_check_plan.md` を追加し、型注釈を「探索を止める印」ではなく「探索空間を制約する expected type evidence」として扱う方針を定めた。
+- 注釈なしの推論は維持する。注釈が十分なら `Check(TypeExpectation)` として検査し、注釈だけでは generic / trait / overload が一意に決まらない場合は、argument constraint / trait bound / effect context から必要十分な探索を行う。
+- 設計書を `abstraction_static_verification_plan.md` と `static_check_complexity_reduction_plan.md` に接続した。
+- 検証:
+  - `git pull --ff-only origin main`: already up to date
+  - `node nodesrc/issues.js new ...`: issue 作成
+
 # 2026-05-20 Agent 1 self-host builtins prelude source tree 分割
 
 - `ISS-20260520T050900767Z-SELF-HOST-PRELUDE-REGISTRY-REMAINS-A-653CFB79` を追加し、fixed / resolved にした。`plan.md` は変更していない。

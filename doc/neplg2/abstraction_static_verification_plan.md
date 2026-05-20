@@ -5,6 +5,8 @@
 関連 issue:
 
 - [ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429](../../issues/items/ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429.md)
+- [ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9](../../issues/items/ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9.md)
+- [NEPLg2 型注釈 expected-check 設計計画](./type_ascription_expected_check_plan.md)
 - [静的検査の複雑化解消計画](./static_check_complexity_reduction_plan.md)
 
 ## 目的
