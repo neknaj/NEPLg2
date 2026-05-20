@@ -43513,3 +43513,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter.nepl --no-tree --dist web/dist -o tmp/agent1-vec-filter-invariant.json -j 1 --assert-io`: 7/7 passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/prefix.nepl --no-tree --dist web/dist -o tmp/agent1-vec-prefix-invariant.json -j 1 --assert-io`: 2/2 passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree --dist web/dist -o tmp/agent1-vec-sort-facade-invariant-2.json -j 1 --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 Vec query scan bound invariant 境界追加
+
+- `ISS-20260520T104012214Z-VEC-AGGREGATE-QUERIES-USE-LEN-AS-SCA-530B7F3C` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`get<T>` は raw load 前に invariant を確認するようになった一方で、`count` / `fold` / `reduce` / `find` / `any` / `all` が `OwnedBuffer.len` を先に読んで loop bound にしていたことだった。raw load は止まっても、malformed `len` が制御フローと計算量へ影響できる。
+- aggregate / predicate query の entry で `vec_buffer_current_copy_invariant<T>` を確認してから `src_len` を読むようにした。invalid owner aggregate は走査に入らず、`count=0`、`fold=acc`、`reduce/find=None`、`any=false`、`all=false` へ落とす。valid empty `Vec` の `all=true` は維持する。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に、各 query entry が invariant を `src_len` 読み取りより前に置くことを監視する source policy を追加した。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/aggregate.nepl --no-tree --dist web/dist -o tmp/agent1-vec-query-aggregate-invariant.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/predicate.nepl --no-tree --dist web/dist -o tmp/agent1-vec-query-predicate-invariant.json -j 1 --assert-io`: 3/3 passed
