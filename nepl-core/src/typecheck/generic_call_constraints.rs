@@ -1,10 +1,12 @@
+use alloc::format;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-use super::traits::{infer_type_param_from_instantiated_pair, merge_inferred_instantiation};
+use super::traits::infer_type_param_from_instantiated_pair;
 use super::type_expectation::TypeExpectation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,6 +28,25 @@ pub(super) struct GenericCallConstraint {
 pub(super) enum GenericCallConstraintViolation {
     Argument { index: usize, span: Span },
     ExpectedResult { span: Span },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct GenericTypeArgumentConflict {
+    type_param: TypeId,
+    first: TypeId,
+    second: TypeId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum GenericTypeArgumentInference {
+    NoEvidence,
+    Unique(TypeId),
+    Conflict(GenericTypeArgumentConflict),
+}
+
+pub(super) struct GenericTypeArgumentResolution {
+    pub(super) resolved_args: Vec<TypeId>,
+    pub(super) conflicts: Vec<GenericTypeArgumentConflict>,
 }
 
 impl GenericCallConstraintViolation {
@@ -51,6 +72,49 @@ impl GenericCallConstraintViolation {
         match self {
             GenericCallConstraintViolation::Argument { span, .. }
             | GenericCallConstraintViolation::ExpectedResult { span } => span,
+        }
+    }
+}
+
+impl GenericTypeArgumentConflict {
+    fn new(type_param: TypeId, first: TypeId, second: TypeId) -> Self {
+        Self {
+            type_param,
+            first,
+            second,
+        }
+    }
+
+    pub(super) fn diagnostic_message(self, ctx: &TypeCtx) -> String {
+        format!(
+            "generic type parameter {} has inconsistent constraints ({} vs {})",
+            ctx.type_to_string(self.type_param),
+            ctx.type_to_string(self.first),
+            ctx.type_to_string(self.second)
+        )
+    }
+}
+
+impl GenericTypeArgumentInference {
+    fn merge(self, ctx: &TypeCtx, candidate: Option<TypeId>, type_param: TypeId) -> Self {
+        match (self, candidate) {
+            (GenericTypeArgumentInference::Conflict(conflict), _) => {
+                GenericTypeArgumentInference::Conflict(conflict)
+            }
+            (current, None) => current,
+            (GenericTypeArgumentInference::NoEvidence, Some(candidate)) => {
+                GenericTypeArgumentInference::Unique(ctx.resolve_id(candidate))
+            }
+            (GenericTypeArgumentInference::Unique(current), Some(candidate)) => {
+                let candidate = ctx.resolve_id(candidate);
+                if ctx.same_type(current, candidate) {
+                    GenericTypeArgumentInference::Unique(ctx.resolve_id(current))
+                } else {
+                    GenericTypeArgumentInference::Conflict(GenericTypeArgumentConflict::new(
+                        type_param, current, candidate,
+                    ))
+                }
+            }
         }
     }
 }
@@ -133,13 +197,17 @@ pub(super) fn resolve_generic_type_args_from_constraints(
     type_params: &[TypeId],
     fallback_args: Vec<TypeId>,
     constraints: &[GenericCallConstraint],
-) -> Vec<TypeId> {
+) -> GenericTypeArgumentResolution {
     let mut resolved_args = fallback_args
         .into_iter()
         .map(|ty| ctx.resolve_id(ty))
         .collect::<Vec<_>>();
+    let mut conflicts = Vec::new();
     if type_params.len() != resolved_args.len() {
-        return resolved_args;
+        return GenericTypeArgumentResolution {
+            resolved_args,
+            conflicts,
+        };
     }
 
     for (idx, tp) in type_params.iter().enumerate() {
@@ -147,18 +215,25 @@ pub(super) fn resolve_generic_type_args_from_constraints(
             TypeKind::Var(v) => v.label.clone(),
             _ => None,
         };
-        let mut found = None;
+        let mut inference = GenericTypeArgumentInference::NoEvidence;
         for constraint in constraints.iter().copied() {
-            found = merge_inferred_instantiation(
+            inference = inference.merge(
                 ctx,
-                found,
                 constraint.infer_for_type_param(ctx, *tp, label.as_deref()),
+                *tp,
             );
         }
-        if let Some(inferred) = found {
-            resolved_args[idx] = ctx.resolve_id(inferred);
+        match inference {
+            GenericTypeArgumentInference::NoEvidence => {}
+            GenericTypeArgumentInference::Unique(inferred) => {
+                resolved_args[idx] = ctx.resolve_id(inferred);
+            }
+            GenericTypeArgumentInference::Conflict(conflict) => conflicts.push(conflict),
         }
     }
 
-    resolved_args
+    GenericTypeArgumentResolution {
+        resolved_args,
+        conflicts,
+    }
 }

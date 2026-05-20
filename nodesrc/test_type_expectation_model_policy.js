@@ -94,6 +94,11 @@ assert.match(
 );
 assert.match(
     overloadSelection,
+    /OverloadCandidateRejection::GenericConstraintConflict/,
+    'overload candidate rejection reasons must include generic constraint conflict',
+);
+assert.match(
+    overloadSelection,
     /fn\s+record_rejection\(&mut self,\s*reason:\s*OverloadCandidateRejection\)[\s\S]*match\s+reason\s*{[\s\S]*OverloadCandidateRejection::NotFunction[\s\S]*OverloadCandidateRejection::ExpectedResult[\s\S]*}/,
     'overload candidate rejection stats must dispatch through exhaustive match',
 );
@@ -154,6 +159,16 @@ assert.match(
 );
 assert.match(
     genericCallConstraints,
+    /enum\s+GenericTypeArgumentInference\s*{[\s\S]*NoEvidence[\s\S]*Unique\(TypeId\)[\s\S]*Conflict\(GenericTypeArgumentConflict\)[\s\S]*}/,
+    'generic call type-argument inference must distinguish no evidence, unique evidence, and conflict',
+);
+assert.match(
+    genericCallConstraints,
+    /struct\s+GenericTypeArgumentResolution\s*{[\s\S]*resolved_args:\s*Vec<TypeId>[\s\S]*conflicts:\s*Vec<GenericTypeArgumentConflict>[\s\S]*}/,
+    'generic call type-argument resolution must return typed conflict payloads',
+);
+assert.match(
+    genericCallConstraints,
     /fn\s+infer_for_type_param\([\s\S]*match\s+self\.source\s*{[\s\S]*GenericCallConstraintSource::Argument[\s\S]*GenericCallConstraintSource::ExpectedResult[\s\S]*infer_type_param_from_instantiated_pair/,
     'generic call type-argument inference must dispatch through the typed constraint source',
 );
@@ -171,6 +186,26 @@ assert.doesNotMatch(
     selectedCallApply,
     /infer_instantiated_type_arg/,
     'selected calls must derive implicit generic arguments from structured call constraints',
+);
+assert.match(
+    selectedCallApply,
+    /TypeDiagnosticCode::GenericConstraintConflict[\s\S]*conflict\.diagnostic_message\(self\.ctx\)/,
+    'generic call constraint conflicts must be reported from typed payloads',
+);
+assert.match(
+    overloadSelection,
+    /GenericCallConstraint::expected_result\([\s\S]*GenericCallConstraint::argument\(/,
+    'overload selection must feed expected-result and argument evidence through GenericCallConstraint',
+);
+assert.match(
+    overloadSelection,
+    /resolve_generic_type_args_from_constraints\([\s\S]*TypeDiagnosticCode::GenericConstraintConflict[\s\S]*conflict\.diagnostic_message\(self\.ctx\)/,
+    'overload selection must report generic call constraint conflicts from typed payloads',
+);
+assert.doesNotMatch(
+    genericCallConstraints,
+    /merge_inferred_instantiation/,
+    'generic call inference must not collapse conflict and no-evidence through Option merging',
 );
 
 console.log('type expectation model source policy passed');

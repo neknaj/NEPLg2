@@ -1,6 +1,8 @@
 mod harness;
 use harness::run_main_i32;
 
+use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
+use nepl_core::error::CoreError;
 use nepl_core::span::FileId;
 use nepl_core::{compile_wasm, CompileOptions, CompileTarget};
 
@@ -15,6 +17,29 @@ fn compile_err(src: &str) {
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
+}
+
+fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == DiagnosticCode::Type(code)),
+        "missing type diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
 }
 
 #[test]
@@ -576,7 +601,7 @@ fn main <()->i32> ():
     same 1 true
 "#;
 
-    compile_err(src);
+    compile_err_has_type_code(src, TypeDiagnosticCode::GenericConstraintConflict);
 }
 
 #[test]

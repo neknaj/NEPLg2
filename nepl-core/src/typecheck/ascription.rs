@@ -80,8 +80,4 @@ impl<'a> BlockChecker<'a> {
         }
         None
     }
-
-    pub(super) fn char_literal_matches_context(&self, entry: &StackEntry, target: TypeId) -> bool {
-        matches!(self.char_literal_context_type(entry, target), Some(Ok(_)))
-    }
 }
