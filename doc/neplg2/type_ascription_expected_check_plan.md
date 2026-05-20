@@ -157,7 +157,8 @@ enum TypeExpectationSource {
 - 2026-05-20: `select_overload_candidate`、`apply_function`、selected call、indirect call、trait call の expected result 境界を `Option<TypeExpectation>` に移した。call reduction で得た期待型の由来を call 適用層まで落とさずに保持できる。
 - 2026-05-20: overload selection は binding の declared function shape を先に読み、関数でない候補、明示 type args 数不一致、capture 数不整合、arity 不一致を checkpoint / instantiate 前に除外するようにした。
 - 2026-05-20: 明示 type args がない multiple overload では、declared result と expected target を `type_pattern_matches` で照合し、明らかに結果型が合わない候補を checkpoint / instantiate 前に除外するようにした。
-- 未完了: candidate count guard と ambiguity 理由の構造化。現時点では typed evidence の伝播、result constraint の早期 commit、declared-shape pruning、expected-result shape pruning を固定している。
+- 2026-05-20: overload 候補 rejection reason を `OverloadCandidateRejection` enum として構造化し、candidate materialization count と pre-materialized rejection count の不変条件を `OverloadCandidateStats` で監視するようにした。
+- 未完了: ambiguity 理由の診断 payload 化。現時点では typed evidence の伝播、result constraint の早期 commit、declared-shape pruning、expected-result shape pruning、candidate count guard を固定している。
 
 ### Stage D: generics / trait expected-check
 
@@ -190,6 +191,10 @@ enum TypeExpectationSource {
 - source policy または focused test で、期待型がある経路から expected type を捨てる再帰探索が増えないことを監視する。
 - 必要なら verbose log とは別に test-only counter を設け、対象 regression の候補検査数を固定する。
 - full CI では wall-clock を見るが、local regression は候補数や typed path の有無を主に検査する。
+
+実装状況:
+
+- 2026-05-20: `OverloadCandidateStats` が considered / materialized / accepted / rejection reason count を保持し、`debug_assert!` で `materialized + pre_materialized_rejections <= considered` を検査する。source policy は rejection reason enum、exhaustive match、materialization guard、materialization count の位置を監視する。
 
 完了条件:
 

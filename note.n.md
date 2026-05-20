@@ -1,3 +1,18 @@
+# 2026-05-20 Agent 1 overload candidate count guard
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C/E bridge として、overload candidate の rejection reason と materialization count を typed state として記録するようにした。`plan.md` は変更していない。
+- `OverloadCandidateRejection` enum を追加し、候補除外理由を文字列ではなく typed variant として扱う。
+- `OverloadCandidateStats` は considered / materialized / accepted / reason別 rejection count を保持し、`debug_assert!` で materialization count の不変条件を監視する。
+- `record_rejection` は `match` で全 variant を網羅するため、候補除外理由の追加時に静的検査が効く。
+- `nodesrc/test_type_expectation_model_policy.js` は rejection enum、exhaustive match、materialization guard、materialization count の位置を監視する。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+  - `node nodesrc/issues.js check`: pass
+
 # 2026-05-20 Agent 1 overload expected-result shape pruning
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C として、multiple overload かつ明示 type args がない場合に、declared result と expected target を `TypeCtx::type_pattern_matches` で照合するようにした。`plan.md` は変更していない。

@@ -171,3 +171,29 @@ multiple overload かつ明示 type args がない場合に、declared result �
 - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
 - `cargo test -p nepl-core --test generics generics_ascription_mismatch_is_error -- --nocapture`: 1 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
+## 2026-05-20 Stage C/E overload candidate count guard
+
+Stage C の候補 pruning と Stage E の performance guard を接続するため、overload candidate の rejection reason と materialization count を typed state として記録するようにした。
+
+実装:
+
+- `OverloadCandidateRejection` enum を追加し、候補除外理由を文字列ではなく typed variant として扱う。
+- `OverloadCandidateStats` を追加し、considered / materialized / accepted / reason別 rejection count を保持する。
+- `record_rejection` は `match` で全 variant を網羅し、reason 追加時に compile-time の見落としを起こしにくくする。
+- `assert_materialization_guard` で `materialized + pre_materialized_rejections <= considered` を `debug_assert!` し、事前 pruning した候補を materialize してしまう退行を検出しやすくした。
+- source policy で enum、exhaustive match、materialization guard、materialization count が残っていることを監視する。
+
+残作業:
+
+- ambiguity 診断の理由 payload 化。
+- Stage D の不足 type parameter / trait application constraint object 化。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
+- `node nodesrc/issues.js check`: pass
