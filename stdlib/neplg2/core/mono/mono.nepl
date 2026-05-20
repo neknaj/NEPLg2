@@ -13,28 +13,32 @@
 //: - `SelfhostMonoTypeArgRange` は type argument table の連続範囲を表します。空範囲は `first_arg = 0, arg_count = 0` です。
 //: - `SelfhostMonoInstanceKey` は generic instance cache の lookup key です。
 //: - `SelfhostMonoInstanceRecord` は cache に登録済みの key と割り当て済み instance id を 1 value として保持します。
+//: - `SelfhostMonoInstanceCache` は record table を所有し、key lookup と instance id 割り当てを 1 つの storage 境界に閉じます。
 //: - `selfhost_mono_instance_key_seed` は key から symbol suffix / cache bucket 用の deterministic seed を作ります。
 //:
 //: [注意/ちゅうい]:
-//: - ここでは key の値モデルだけを定義します。cache storage、trait impl lookup、実際の HIR 複製は別 issue で追加します。
+//: - ここでは mono instance cache storage までを定義します。trait impl lookup、実際の HIR 複製は別 issue で追加します。
 //: - seed は同一 process / 同一 source で安定する非暗号 hash です。衝突時は `selfhost_mono_instance_key_eq` で実 key を比較してください。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: key の作成、比較、seed 計算はいずれも O(1)
-//: - [空間/くうかん]: O(1)
+//: - [時間/じかん]: key の作成、比較、seed 計算はいずれも O(1)。cache lookup / intern は現在 O(n) です。
+//: - [空間/くうかん]: key / record は O(1)、cache storage は record 数に対して O(n) です。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
 //:| #import "neplg2/core/mono/mono" as *
-//: fn main <()->i32> ():
+//: fn main <()*>i32> ():
 //:     selfhost_mono_stage0
 //: ```
 
+#import "alloc/collections/vec" as v
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
 //: SelfhostMonoDefId: monomorphize 対象の元 function 定義
@@ -120,6 +124,25 @@ impl Copy for SelfhostMonoInstanceRecord:
     fn copy_mark <(SelfhostMonoInstanceRecord)->SelfhostMonoInstanceRecord> (self):
         self
 
+//: SelfhostMonoInstanceCache: monomorphize instance cache の typed storage
+//:
+//: [目的/もくてき]:
+//: - cache storage を `SelfhostMonoInstanceRecord` の table として保持し、key と id を別々の配列や raw tuple として扱わないようにします。
+//: - lookup は `Option<SelfhostMonoInstanceId>` を返し、未登録状態を invalid id で表さない設計を維持します。
+//:
+//: [注意/ちゅうい]:
+//: - 現段階では小さい stage fixture 向けの線形探索です。hash bucket を追加する場合も identity は seed ではなく full key equality で確認してください。
+pub struct SelfhostMonoInstanceCache:
+    records <Vec<SelfhostMonoInstanceRecord>>
+
+//: SelfhostMonoInstanceCacheInternResult: cache intern 後の owner と instance id
+//:
+//: [目的/もくてき]:
+//: - `SelfhostMonoInstanceCache` owner を返しつつ、割り当て済みまたは再利用した `SelfhostMonoInstanceId` を typed value として返します。
+pub struct SelfhostMonoInstanceCacheInternResult:
+    cache <SelfhostMonoInstanceCache>
+    instance_id <SelfhostMonoInstanceId>
+
 //: selfhost_mono_def_id_new: 元 function 定義 ID を作る
 pub fn selfhost_mono_def_id_new <(i32,i32)->SelfhostMonoDefId> (module_index, function_index):
     SelfhostMonoDefId module_index function_index
@@ -196,6 +219,101 @@ pub fn selfhost_mono_instance_record_id <(SelfhostMonoInstanceRecord)->SelfhostM
 pub fn selfhost_mono_instance_record_matches_key <(SelfhostMonoInstanceRecord,SelfhostMonoInstanceKey)->bool> (record, key):
     selfhost_mono_instance_key_eq record.key key
 
+//: selfhost_mono_instance_cache_new: 空の mono instance cache を作る
+pub fn selfhost_mono_instance_cache_new <()*>Result<SelfhostMonoInstanceCache, StdErrorKind>> ():
+    match v::new<SelfhostMonoInstanceRecord>:
+        Result::Ok records:
+            Result<SelfhostMonoInstanceCache, StdErrorKind>::Ok SelfhostMonoInstanceCache records
+        Result::Err e:
+            Result<SelfhostMonoInstanceCache, StdErrorKind>::Err e
+
+//: selfhost_mono_instance_cache_free: cache storage を解放する
+pub fn selfhost_mono_instance_cache_free <(SelfhostMonoInstanceCache)*>()> (cache):
+    v::free<SelfhostMonoInstanceRecord> field::get cache "records"
+
+//: selfhost_mono_instance_cache_len: cache 内の record 数を返す
+pub fn selfhost_mono_instance_cache_len <(&SelfhostMonoInstanceCache)->i32> (cache):
+    let records <&Vec<SelfhostMonoInstanceRecord>> field::get_ref cache "records"
+    v::len<SelfhostMonoInstanceRecord> records
+
+//: selfhost_mono_instance_cache_record_at: instance id に対応する record を返す
+//:
+//: [目的/もくてき]:
+//: - 後続の name mangling / codegen が instance id から元 key を確認できるようにします。
+//: - 範囲外の id は `Option::None` とし、invalid id sentinel を作りません。
+pub fn selfhost_mono_instance_cache_record_at <(&SelfhostMonoInstanceCache,SelfhostMonoInstanceId)->Option<SelfhostMonoInstanceRecord>> (cache, instance_id):
+    if:
+        lt instance_id.index 0
+        then:
+            none<SelfhostMonoInstanceRecord>
+        else:
+            let records <&Vec<SelfhostMonoInstanceRecord>> field::get_ref cache "records"
+            v::get<SelfhostMonoInstanceRecord> records instance_id.index
+
+//: selfhost_mono_instance_cache_lookup_loop: record table を先頭から探索する
+//:
+//: [実装/じっそう]:
+//: - seed bucket ではなく `selfhost_mono_instance_record_matches_key` による full key equality で一致を決めます。
+pub fn selfhost_mono_instance_cache_lookup_loop <(&SelfhostMonoInstanceCache,SelfhostMonoInstanceKey,i32,i32)->Option<SelfhostMonoInstanceId>> (cache, key, idx, n):
+    if:
+        ge idx n
+        then:
+            none<SelfhostMonoInstanceId>
+        else:
+            match selfhost_mono_instance_cache_record_at cache selfhost_mono_instance_id_new idx:
+                Option::Some record:
+                    if:
+                        selfhost_mono_instance_record_matches_key record key
+                        then:
+                            some<SelfhostMonoInstanceId> record.instance_id
+                        else:
+                            selfhost_mono_instance_cache_lookup_loop cache key add idx 1 n
+                Option::None:
+                    none<SelfhostMonoInstanceId>
+
+//: selfhost_mono_instance_cache_lookup: key に対応する assigned instance id を探す
+pub fn selfhost_mono_instance_cache_lookup <(&SelfhostMonoInstanceCache,SelfhostMonoInstanceKey)->Option<SelfhostMonoInstanceId>> (cache, key):
+    selfhost_mono_instance_cache_lookup_loop cache key 0 selfhost_mono_instance_cache_len cache
+
+//: selfhost_mono_instance_cache_intern_result_new: intern result を作る
+pub fn selfhost_mono_instance_cache_intern_result_new <(SelfhostMonoInstanceCache,SelfhostMonoInstanceId)*>SelfhostMonoInstanceCacheInternResult> (cache, instance_id):
+    SelfhostMonoInstanceCacheInternResult cache instance_id
+
+//: selfhost_mono_instance_cache_intern_result_id: intern result から instance id を読む
+//:
+//: [目的/もくてき]:
+//: - cache owner を動かさず、Copy な `SelfhostMonoInstanceId` だけを観測します。
+pub fn selfhost_mono_instance_cache_intern_result_id <(&SelfhostMonoInstanceCacheInternResult)->SelfhostMonoInstanceId> (result):
+    *field::get_ref result "instance_id"
+
+//: selfhost_mono_instance_cache_intern_result_into_cache: intern result から cache owner を取り出す
+pub fn selfhost_mono_instance_cache_intern_result_into_cache <(SelfhostMonoInstanceCacheInternResult)*>SelfhostMonoInstanceCache> (result):
+    field::get result "cache"
+
+//: selfhost_mono_instance_cache_intern: key を cache に登録し、stable instance id を返す
+//:
+//: [目的/もくてき]:
+//: - 既存 key なら既存 id を返し、未登録 key なら末尾に `SelfhostMonoInstanceRecord` を追加して新しい id を割り当てます。
+//: - 呼び出し側が key と id を別々に管理しないよう、storage 更新と id 返却を 1 つの API に集約します。
+//:
+//: [注意/ちゅうい]:
+//: - `Vec::push` 失敗時は cache owner を解放して `StdErrorKind` を返します。abort する compilation pass の境界で使う最小 storage API です。
+pub fn selfhost_mono_instance_cache_intern <(SelfhostMonoInstanceCache,SelfhostMonoInstanceKey)*>Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>> (cache, key):
+    match selfhost_mono_instance_cache_lookup &cache key:
+        Option::Some instance_id:
+            Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>::Ok selfhost_mono_instance_cache_intern_result_new cache instance_id
+        Option::None:
+            let instance_id <SelfhostMonoInstanceId> selfhost_mono_instance_id_new selfhost_mono_instance_cache_len &cache
+            let record <SelfhostMonoInstanceRecord> selfhost_mono_instance_record_new key instance_id
+            let records <Vec<SelfhostMonoInstanceRecord>> field::get cache "records"
+            match v::push<SelfhostMonoInstanceRecord> records record:
+                Result::Ok next_records:
+                    Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>::Ok selfhost_mono_instance_cache_intern_result_new (SelfhostMonoInstanceCache next_records) instance_id
+                Result::Err e:
+                    let error <StdErrorKind> v::vec_push_error_kind<SelfhostMonoInstanceRecord> &e
+                    v::free<SelfhostMonoInstanceRecord> v::vec_push_error_vec<SelfhostMonoInstanceRecord> e
+                    Result<SelfhostMonoInstanceCacheInternResult, StdErrorKind>::Err error
+
 //: selfhost_mono_seed_mix: mangle seed 用の 32-bit mixing step
 //:
 //: [目的/もくてき]:
@@ -219,8 +337,8 @@ pub fn selfhost_mono_instance_key_seed <(SelfhostMonoInstanceKey)->i32> (key):
     let s2 <i32> selfhost_mono_seed_mix s1 args.first_arg
     selfhost_mono_seed_mix s2 args.arg_count
 
-//: selfhost_mono_stage0: mono key model の smoke API
-pub fn selfhost_mono_stage0 <()->i32> ():
+//: selfhost_mono_stage0: mono key / cache storage model の smoke API
+pub fn selfhost_mono_stage0 <()*>i32> ():
     let def0 <SelfhostMonoDefId> selfhost_mono_def_id_new 2 5
     let range0 <SelfhostMonoTypeArgRange> selfhost_mono_type_arg_range_new 9 3
     let key0 <SelfhostMonoInstanceKey> selfhost_mono_instance_key_new def0 range0
@@ -244,12 +362,38 @@ pub fn selfhost_mono_stage0 <()->i32> ():
         and:
             selfhost_mono_instance_record_matches_key record key1
             eq 7 selfhost_mono_instance_id_index record_id
-    let ok <bool>:
-        and:
-            and selfhost_mono_instance_key_is_valid key0 selfhost_mono_instance_key_eq key0 key1
-            and:
-                and not selfhost_mono_instance_key_eq key0 key2 eq seed0 seed1
-                and:
-                    ne seed0 seed2
-                    and and is_none<SelfhostMonoInstanceId> pending assigned_ok record_ok
-    if ok 0 1
+    match selfhost_mono_instance_cache_new:
+        Result::Ok cache0:
+            match selfhost_mono_instance_cache_intern cache0 key0:
+                Result::Ok intern0:
+                    let cached_id0 <SelfhostMonoInstanceId> selfhost_mono_instance_cache_intern_result_id &intern0
+                    let cache1 <SelfhostMonoInstanceCache> selfhost_mono_instance_cache_intern_result_into_cache intern0
+                    match selfhost_mono_instance_cache_intern cache1 key1:
+                        Result::Ok intern1:
+                            let cached_id1 <SelfhostMonoInstanceId> selfhost_mono_instance_cache_intern_result_id &intern1
+                            let cache2 <SelfhostMonoInstanceCache> selfhost_mono_instance_cache_intern_result_into_cache intern1
+                            let lookup1 <Option<SelfhostMonoInstanceId>> selfhost_mono_instance_cache_lookup &cache2 key1
+                            let cache_ok <bool>:
+                                match lookup1:
+                                    Option::Some lookup_id:
+                                        and:
+                                            and eq 1 selfhost_mono_instance_cache_len &cache2 eq selfhost_mono_instance_id_index cached_id0 selfhost_mono_instance_id_index cached_id1
+                                            eq selfhost_mono_instance_id_index lookup_id selfhost_mono_instance_id_index cached_id0
+                                    Option::None:
+                                        false
+                            let ok <bool>:
+                                and:
+                                    and selfhost_mono_instance_key_is_valid key0 selfhost_mono_instance_key_eq key0 key1
+                                    and:
+                                        and not selfhost_mono_instance_key_eq key0 key2 eq seed0 seed1
+                                        and:
+                                            ne seed0 seed2
+                                            and and is_none<SelfhostMonoInstanceId> pending assigned_ok and record_ok cache_ok
+                            selfhost_mono_instance_cache_free cache2
+                            if ok 0 1
+                        Result::Err _e:
+                            1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1

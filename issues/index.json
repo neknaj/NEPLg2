@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T18:37:57.057Z",
+  "generated_at": "2026-05-20T18:53:52.001Z",
   "counts": {
-    "total": 1138,
+    "total": 1139,
     "open": 3,
-    "resolved": 1135,
+    "resolved": 1136,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -12,9 +12,9 @@
         "resolved": 310
       },
       "selfhost": {
-        "total": 108,
+        "total": 109,
         "open": 1,
-        "resolved": 107
+        "resolved": 108
       },
       "cli": {
         "total": 19,
@@ -15988,6 +15988,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T164036020Z-SELF-HOST-MONO-LACKS-TYPED-INSTANCE--93C7721D.md"
+    },
+    {
+      "id": "ISS-20260520T185255970Z-SELF-HOST-MONO-NEEDS-TYPED-INSTANCE--71C76C96",
+      "title": "self-host mono needs typed instance cache storage",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-21",
+      "target": "stdlib/neplg2/core/mono/mono.nepl, tests/stdlib/neplg2_mono.n.md, nodesrc/test_selfhost_mono_instance_absence.js, stdlib/neplg2/README.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T185255970Z-SELF-HOST-MONO-NEEDS-TYPED-INSTANCE--71C76C96.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
