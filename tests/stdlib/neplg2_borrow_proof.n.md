@@ -120,6 +120,8 @@ fn check_borrow_refutation <(SelfhostProofRefutation,(SelfhostBorrowAccessError)
             Result<(),str>::Err "expected borrow access refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected borrow access refutation"
+        SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+            Result<(),str>::Err "expected borrow access refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected borrow access refutation"
 

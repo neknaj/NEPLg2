@@ -84,6 +84,8 @@ fn check_impure_effect_rejected <(Result<SelfhostEffectContext,SelfhostProofRefu
                     Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
+                SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+                    Result<(),str>::Err "expected effect boundary refutation"
         Result::Ok _context:
             Result<(),str>::Err "impure effect was accepted in pure context"
 
@@ -122,6 +124,8 @@ fn check_escaping_alloc_rejected <(Result<SelfhostEffectContext,SelfhostProofRef
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+                    Result<(),str>::Err "expected effect boundary refutation"
+                SelfhostProofRefutation::OwnerTransitionInvalid _issue:
                     Result<(),str>::Err "expected effect boundary refutation"
         Result::Ok _context:
             Result<(),str>::Err "escaping allocation was accepted in pure context"

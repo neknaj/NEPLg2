@@ -14,6 +14,7 @@
 #import "neplg2/core/resource/borrow_state" as *
 #import "neplg2/core/resource/lifetime" as *
 #import "neplg2/core/resource/move_state" as *
+#import "neplg2/core/resource/owner" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/trait_ref" as *
@@ -32,6 +33,7 @@ pub enum SelfhostProofEvidence:
     TraitImplNonOverlapping <SelfhostTraitImplRelation>
     LifetimeOutlives <SelfhostLifetimeRelation>
     ResourceCellTransition <SelfhostResourceCellState>
+    OwnerTransition <SelfhostOwnerState>
     ResourceBorrowAccess <SelfhostBorrowState>
     EffectAllowed <SelfhostEffectContext>
 
@@ -128,6 +130,57 @@ impl Copy for SelfhostResourceCellTransitionIssue:
 //: selfhost_resource_cell_transition_issue_new: Resource cell transition issue payload を[作/つく]る
 pub fn selfhost_resource_cell_transition_issue_new <(SelfhostResourceCellState,SelfhostResourceCellEventKind,SelfhostSourceSpan,SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionIssue> (state, event, span, reason):
     SelfhostResourceCellTransitionIssue state event span reason
+
+//: SelfhostOwnerTransitionError: free obligation owner transition の失敗分類
+//:
+//: [目的/もくてき]:
+//: - double free、move 後の release、owner 不在の view 作成などを自由文字列ではなく enum として表します。
+pub enum SelfhostOwnerTransitionError:
+    InvalidStorageId
+    StorageIdMismatch
+    AcquireWhileOwned
+    AcquireAfterMove
+    AcquireAfterRelease
+    MoveWithoutOwner
+    MoveAfterMove
+    MoveAfterRelease
+    ReleaseWithoutOwner
+    ReleaseAfterMove
+    ReleaseAfterRelease
+    ViewWithoutOwner
+    ViewAfterMove
+    ViewAfterRelease
+
+impl Clone for SelfhostOwnerTransitionError:
+    fn clone <(&SelfhostOwnerTransitionError)->SelfhostOwnerTransitionError> (self):
+        *self
+
+impl Copy for SelfhostOwnerTransitionError:
+    fn copy_mark <(SelfhostOwnerTransitionError)->SelfhostOwnerTransitionError> (self):
+        self
+
+//: SelfhostOwnerTransitionIssue: 不正な free obligation owner transition の refutation payload
+//:
+//: [目的/もくてき]:
+//: - 失敗時の元 state、event、対象 storage、span、理由を typed value として保持します。
+pub struct SelfhostOwnerTransitionIssue:
+    state <SelfhostOwnerState>
+    event <SelfhostOwnerEventKind>
+    storage <SelfhostOwnerStorageId>
+    span <SelfhostSourceSpan>
+    reason <SelfhostOwnerTransitionError>
+
+impl Clone for SelfhostOwnerTransitionIssue:
+    fn clone <(&SelfhostOwnerTransitionIssue)->SelfhostOwnerTransitionIssue> (self):
+        *self
+
+impl Copy for SelfhostOwnerTransitionIssue:
+    fn copy_mark <(SelfhostOwnerTransitionIssue)->SelfhostOwnerTransitionIssue> (self):
+        self
+
+//: selfhost_owner_transition_issue_new: owner transition issue payload を[作/つく]る
+pub fn selfhost_owner_transition_issue_new <(SelfhostOwnerState,SelfhostOwnerEventKind,SelfhostOwnerStorageId,SelfhostSourceSpan,SelfhostOwnerTransitionError)->SelfhostOwnerTransitionIssue> (state, event, storage, span, reason):
+    SelfhostOwnerTransitionIssue state event storage span reason
 
 //: SelfhostBorrowAccessError: Resource borrow access proof の失敗分類
 pub enum SelfhostBorrowAccessError:
@@ -336,6 +389,7 @@ pub enum SelfhostProofRefutation:
     TraitImplCoherenceInvalid <SelfhostTraitImplCoherenceIssue>
     LifetimeOutlivesInvalid <SelfhostLifetimeOutlivesIssue>
     ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>
+    OwnerTransitionInvalid <SelfhostOwnerTransitionIssue>
     BorrowAccessInvalid <SelfhostBorrowAccessIssue>
     EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>
 

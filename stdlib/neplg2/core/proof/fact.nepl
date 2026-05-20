@@ -17,6 +17,7 @@
 #import "neplg2/core/resource/borrow_state" as *
 #import "neplg2/core/resource/lifetime" as *
 #import "neplg2/core/resource/move_state" as *
+#import "neplg2/core/resource/owner" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/trait_ref" as *
@@ -32,6 +33,7 @@ pub enum SelfhostProofDomain:
     Type
     Trait
     Lifetime
+    Owner
     Effect
     Resource
 
@@ -240,6 +242,28 @@ impl Copy for SelfhostResourceCellEventFact:
 pub fn selfhost_resource_cell_event_fact_new <(SelfhostResourceCellEventKind,SelfhostSourceSpan)->SelfhostResourceCellEventFact> (event, span):
     SelfhostResourceCellEventFact event span
 
+//: SelfhostOwnerEventFact: free obligation owner に対する event observation
+//:
+//: [目的/もくてき]:
+//: - Resource IR lowering や checker が観測した acquire / move / release / non-owning view event を proof solver へ渡します。
+//: - event が現在 state で許可されるかは、この fact だけでは主張せず、`OwnerTransition` obligation が検査します。
+pub struct SelfhostOwnerEventFact:
+    event <SelfhostOwnerEventKind>
+    storage <SelfhostOwnerStorageId>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostOwnerEventFact:
+    fn clone <(&SelfhostOwnerEventFact)->SelfhostOwnerEventFact> (self):
+        *self
+
+impl Copy for SelfhostOwnerEventFact:
+    fn copy_mark <(SelfhostOwnerEventFact)->SelfhostOwnerEventFact> (self):
+        self
+
+//: selfhost_owner_event_fact_new: owner event fact を[作/つく]る
+pub fn selfhost_owner_event_fact_new <(SelfhostOwnerEventKind,SelfhostOwnerStorageId,SelfhostSourceSpan)->SelfhostOwnerEventFact> (event, storage, span):
+    SelfhostOwnerEventFact event storage span
+
 //: SelfhostBorrowAccessFact: Resource borrow state に対する access request observation
 //:
 //: [目的/もくてき]:
@@ -316,6 +340,7 @@ pub enum SelfhostProofFact:
     TypeKindObserved <SelfhostTypeKindFact>
     TraitImplPairObserved <SelfhostTraitImplPairFact>
     ResourceCellEventObserved <SelfhostResourceCellEventFact>
+    OwnerEventObserved <SelfhostOwnerEventFact>
     BorrowAccessObserved <SelfhostBorrowAccessFact>
     LifetimeOutlivesObserved <SelfhostLifetimeOutlivesFact>
     EffectObserved <SelfhostEffectObservationFact>
@@ -347,6 +372,8 @@ pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fa
             SelfhostProofDomain::Lifetime
         SelfhostProofFact::ResourceCellEventObserved _event_fact:
             SelfhostProofDomain::Resource
+        SelfhostProofFact::OwnerEventObserved _owner_fact:
+            SelfhostProofDomain::Owner
         SelfhostProofFact::BorrowAccessObserved _borrow_fact:
             SelfhostProofDomain::Resource
         SelfhostProofFact::EffectObserved _effect_fact:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T01:31:38.463Z",
+  "generated_at": "2026-05-20T02:01:28.130Z",
   "counts": {
-    "total": 1090,
+    "total": 1091,
     "open": 4,
-    "resolved": 1086,
+    "resolved": 1087,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -12,9 +12,9 @@
         "resolved": 295
       },
       "selfhost": {
-        "total": 89,
+        "total": 90,
         "open": 1,
-        "resolved": 88
+        "resolved": 89
       },
       "cli": {
         "total": 19,
@@ -9488,6 +9488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T011528599Z-SELF-HOST-LIFETIME-OUTLIVES-IS-NOT-R-6C9E1A5D.md"
+    },
+    {
+      "id": "ISS-20260520T014008212Z-SELF-HOST-OWNER-OBLIGATION-IS-NOT-RE-EB1CB46B",
+      "title": "self-host owner obligation is not represented in generic proof solver",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/neplg2/core/resource/owner.nepl, stdlib/neplg2/core/proof/**, tests/stdlib/neplg2_owner_proof.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T014008212Z-SELF-HOST-OWNER-OBLIGATION-IS-NOT-RE-EB1CB46B.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

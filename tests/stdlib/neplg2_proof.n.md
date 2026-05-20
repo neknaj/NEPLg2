@@ -51,6 +51,8 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected invalid span refutation"
+                SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+                    Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
                     Result<(),str>::Err "expected invalid span refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -101,6 +103,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
                             Result<(),str>::Err "expected source obligation domain"
                         SelfhostProofDomain::Lifetime:
                             Result<(),str>::Err "expected source obligation domain"
+                        SelfhostProofDomain::Owner:
+                            Result<(),str>::Err "expected source obligation domain"
                         SelfhostProofDomain::Effect:
                             Result<(),str>::Err "expected source obligation domain"
                         SelfhostProofDomain::Resource:
@@ -112,6 +116,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
                 SelfhostProofDomain::Trait:
                     Result<(),str>::Err "expected module fact domain"
                 SelfhostProofDomain::Lifetime:
+                    Result<(),str>::Err "expected module fact domain"
+                SelfhostProofDomain::Owner:
                     Result<(),str>::Err "expected module fact domain"
                 SelfhostProofDomain::Effect:
                     Result<(),str>::Err "expected module fact domain"
@@ -136,6 +142,8 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+            Result<(),str>::Err "expected fact/obligation mismatch"
+        SelfhostProofRefutation::OwnerTransitionInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
@@ -227,6 +235,8 @@ fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation
                     Result<(),str>::Err "expected drop-after-move"
                 SelfhostResourceCellTransitionError::DoubleDrop:
                     Result<(),str>::Err "expected drop-after-move"
+        SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+            Result<(),str>::Err "expected resource transition refutation"
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
             Result<(),str>::Err "expected resource transition refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
@@ -360,6 +370,8 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
+        SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+            Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -483,6 +495,8 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
+        SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+            Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -591,6 +605,8 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
                     Result<(),str>::Err "expected missing declaration header"
+                SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+                    Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
                     Result<(),str>::Err "expected missing declaration header"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
@@ -623,6 +639,8 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
+                    Result<(),str>::Err "expected invalid declaration header"
+                SelfhostProofRefutation::OwnerTransitionInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
                     Result<(),str>::Err "expected invalid declaration header"

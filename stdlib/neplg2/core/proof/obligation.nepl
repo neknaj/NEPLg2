@@ -13,6 +13,7 @@
 #import "neplg2/core/resource/borrow_state" as *
 #import "neplg2/core/resource/lifetime" as *
 #import "neplg2/core/resource/move_state" as *
+#import "neplg2/core/resource/owner" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty" as *
@@ -101,6 +102,7 @@ pub enum SelfhostProofObligation:
     TraitImplNonOverlapping
     LifetimeOutlives <SelfhostLifetimeId>
     ResourceCellTransition <SelfhostResourceCellState>
+    OwnerTransition <SelfhostOwnerState>
     ResourceBorrowAccess <SelfhostBorrowState>
     EffectAllowedInContext <SelfhostEffectContext>
 
@@ -131,6 +133,8 @@ pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProo
             SelfhostProofDomain::Lifetime
         SelfhostProofObligation::ResourceCellTransition _state:
             SelfhostProofDomain::Resource
+        SelfhostProofObligation::OwnerTransition _state:
+            SelfhostProofDomain::Owner
         SelfhostProofObligation::ResourceBorrowAccess _state:
             SelfhostProofDomain::Resource
         SelfhostProofObligation::EffectAllowedInContext _context:

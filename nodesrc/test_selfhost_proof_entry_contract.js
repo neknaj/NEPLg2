@@ -37,6 +37,7 @@ const checker = read("stdlib/neplg2/core/check/checker.nepl");
 const traitRef = read("stdlib/neplg2/core/ty/trait_ref.nepl");
 const borrowState = read("stdlib/neplg2/core/resource/borrow_state.nepl");
 const lifetime = read("stdlib/neplg2/core/resource/lifetime.nepl");
+const owner = read("stdlib/neplg2/core/resource/owner.nepl");
 
 assert.match(proofFacade, /pub #import "\.\/proof\/fact" as \*/);
 assert.match(proofFacade, /pub #import "\.\/proof\/obligation" as \*/);
@@ -94,6 +95,11 @@ assert.match(
 );
 assert.match(
     proofFact,
+    /OwnerEventObserved <SelfhostOwnerEventFact>/,
+    "owner obligation events must enter proof as typed facts",
+);
+assert.match(
+    proofFact,
     /BorrowAccessObserved <SelfhostBorrowAccessFact>/,
     "borrow access requests must enter proof as typed facts",
 );
@@ -129,6 +135,11 @@ assert.match(
 );
 assert.match(
     proofObligation,
+    /OwnerTransition <SelfhostOwnerState>/,
+    "owner obligation transitions must enter proof as typed obligations",
+);
+assert.match(
+    proofObligation,
     /ResourceBorrowAccess <SelfhostBorrowState>/,
     "borrow access checks must enter proof as typed obligations",
 );
@@ -161,6 +172,11 @@ assert.match(
     proofQuery,
     /ResourceCellTransition <SelfhostResourceCellState>/,
     "resource cell transition proof evidence must carry the next typed state",
+);
+assert.match(
+    proofQuery,
+    /OwnerTransition <SelfhostOwnerState>/,
+    "owner transition proof evidence must carry the next typed owner state",
 );
 assert.match(
     proofQuery,
@@ -206,6 +222,11 @@ assert.match(
     proofQuery,
     /ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>/,
     "invalid resource cell transitions must return typed refutations",
+);
+assert.match(
+    proofQuery,
+    /OwnerTransitionInvalid <SelfhostOwnerTransitionIssue>/,
+    "invalid owner transitions must return typed refutations",
 );
 assert.match(
     proofQuery,
@@ -256,6 +277,7 @@ const allowedPublicSolverFunctions = new Set([
     "selfhost_proof_module_directive_transition",
     "selfhost_proof_module_declaration_header",
     "selfhost_proof_resource_cell_transition",
+    "selfhost_proof_owner_transition",
     "selfhost_proof_borrow_access",
     "selfhost_proof_lifetime_outlives",
     "selfhost_proof_type_kind_compatible",
@@ -302,6 +324,11 @@ assert.match(
 );
 assert.match(
     proofSolver,
+    /(?:^|\n)fn\s+selfhost_proof_solve_owner_transition\b[\s\S]*match\s+state:/,
+    "owner obligation transitions must live in the proof solver",
+);
+assert.match(
+    proofSolver,
     /(?:^|\n)fn\s+selfhost_proof_solve_borrow_access\b[\s\S]*match\s+state:/,
     "borrow access transitions must live in the proof solver",
 );
@@ -342,6 +369,14 @@ assert.doesNotMatch(
 );
 assert.match(borrowState, /pub enum SelfhostBorrowState:/, "borrow state must be a typed enum");
 assert.match(borrowState, /pub enum SelfhostBorrowRequestKind:/, "borrow requests must be a typed enum");
+assert.match(owner, /pub struct SelfhostOwnerStorageId:/, "owner storage id must be a typed value");
+assert.match(owner, /pub enum SelfhostOwnerState:/, "owner state must be a typed enum");
+assert.match(owner, /pub enum SelfhostOwnerEventKind:/, "owner events must be a typed enum");
+assert.match(
+    owner,
+    /BorrowView/,
+    "owner model must represent non-owning pointer view creation without treating MemPtr as an owner",
+);
 assert.match(lifetime, /pub struct SelfhostLifetimeId:/, "lifetime id must be a typed value");
 assert.match(lifetime, /pub enum SelfhostLifetimeScopePathKind:/, "lifetime scope path relation must be a typed enum");
 assert.match(lifetime, /pub enum SelfhostLifetimeRelation:/, "lifetime relation must be a typed enum");

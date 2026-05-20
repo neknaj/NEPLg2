@@ -93,6 +93,8 @@ fn check_lifetime_refutation <(SelfhostProofRefutation,(SelfhostLifetimeOutlives
             Result<(),str>::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
             Result<(),str>::Err "expected lifetime outlives refutation"
+        SelfhostProofRefutation::OwnerTransitionInvalid _issue:
+            Result<(),str>::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
             Result<(),str>::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:

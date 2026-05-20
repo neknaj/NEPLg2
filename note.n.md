@@ -42975,3 +42975,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-lifetime-trait-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_proof.n.md --no-tree -o tmp/agent1-lifetime-type-proof-nmd.json -j 1 --dist web/dist --assert-io`: 1/1 passed
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/agent1-lifetime-module-check.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+
+## 2026-05-20 Agent 1 self-host owner obligation proof 境界追加
+
+- `ISS-20260520T014008212Z-SELF-HOST-OWNER-OBLIGATION-IS-NOT-RE-EB1CB46B` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource cell / borrow / lifetime proof が generic solver に載った一方で、free obligation owner の acquire / move / release / non-owning view 生成を typed proof として保持する入口がなかったことだった。このままでは後続 Resource IR lowering / checker が `MemPtr` を owner として扱う旧設計へ戻るか、checker-local owner state machine を増やす危険があった。
+- `core/resource/owner.nepl` を追加し、`SelfhostOwnerStorageId`、`SelfhostOwnerState`、`SelfhostOwnerEventKind` を定義した。`BorrowView` は `MemPtr` 由来の non-owning pointer view 生成を表し、owner state を消費しない。
+- `SelfhostProofDomain::Owner`、`SelfhostOwnerEventFact`、`SelfhostProofObligation::OwnerTransition`、`SelfhostProofEvidence::OwnerTransition`、`SelfhostProofRefutation::OwnerTransitionInvalid` を追加し、owner obligation transition を generic proof solver の exhaustive match に載せた。
+- invalid storage id、storage id mismatch、owned 中の再 acquire、moved/released 後の不正操作は `SelfhostOwnerTransitionError` enum と issue payload に残す。後続 stage は owner event fact producer としてこの proof boundary に接続する方針になる。
+- focused verification:
+  - `node nodesrc/test_selfhost_proof_entry_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/resource/owner.nepl --no-tree -o tmp/agent1-owner-model.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_owner_proof.n.md --no-tree -o tmp/agent1-owner-proof.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/proof.nepl --no-tree -o tmp/agent1-owner-proof-core.json -j 1 --dist web/dist --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_borrow_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_type_proof.n.md -i tests/stdlib/neplg2_trait_proof.n.md --no-tree -o tmp/agent1-proof-related.json -j 1 --dist web/dist --assert-io`: 5/5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/agent1-proof-regression.json -j 1 --dist web/dist --assert-io`: 6/6 passed

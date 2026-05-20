@@ -22,6 +22,7 @@
 #import "neplg2/core/resource/borrow_state" as *
 #import "neplg2/core/resource/lifetime" as *
 #import "neplg2/core/resource/move_state" as *
+#import "neplg2/core/resource/owner" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/trait_ref" as *
@@ -465,6 +466,83 @@ fn selfhost_proof_solve_resource_cell_transition <(SelfhostResourceCellEventFact
         SelfhostResourceCellState::Dropped:
             selfhost_proof_solve_resource_cell_dropped event_fact
 
+fn selfhost_proof_owner_transition_proven <(SelfhostOwnerState)->SelfhostProofResult> (state):
+    selfhost_proof_result_proven SelfhostProofEvidence::OwnerTransition state
+
+fn selfhost_proof_owner_transition_invalid <(SelfhostOwnerState,SelfhostOwnerEventFact,SelfhostOwnerTransitionError)->SelfhostProofResult> (state, fact, reason):
+    selfhost_proof_result_refuted SelfhostProofRefutation::OwnerTransitionInvalid selfhost_owner_transition_issue_new state fact.event fact.storage fact.span reason
+
+fn selfhost_proof_owner_transition_storage_mismatch <(SelfhostOwnerState,SelfhostOwnerEventFact)->SelfhostProofResult> (state, fact):
+    selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::StorageIdMismatch
+
+fn selfhost_proof_owner_transition_with_storage <(SelfhostOwnerState,SelfhostOwnerEventFact,SelfhostOwnerStorageId)->SelfhostProofResult> (state, fact, storage):
+    if:
+        selfhost_owner_storage_id_eq storage fact.storage
+        then:
+            match state:
+                SelfhostOwnerState::Owned _owned_storage:
+                    match fact.event:
+                        SelfhostOwnerEventKind::Acquire:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::AcquireWhileOwned
+                        SelfhostOwnerEventKind::MoveOut:
+                            selfhost_proof_owner_transition_proven SelfhostOwnerState::Moved storage
+                        SelfhostOwnerEventKind::Release:
+                            selfhost_proof_owner_transition_proven SelfhostOwnerState::Released storage
+                        SelfhostOwnerEventKind::BorrowView:
+                            selfhost_proof_owner_transition_proven state
+                SelfhostOwnerState::Moved _moved_storage:
+                    match fact.event:
+                        SelfhostOwnerEventKind::Acquire:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::AcquireAfterMove
+                        SelfhostOwnerEventKind::MoveOut:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::MoveAfterMove
+                        SelfhostOwnerEventKind::Release:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::ReleaseAfterMove
+                        SelfhostOwnerEventKind::BorrowView:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::ViewAfterMove
+                SelfhostOwnerState::Released _released_storage:
+                    match fact.event:
+                        SelfhostOwnerEventKind::Acquire:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::AcquireAfterRelease
+                        SelfhostOwnerEventKind::MoveOut:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::MoveAfterRelease
+                        SelfhostOwnerEventKind::Release:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::ReleaseAfterRelease
+                        SelfhostOwnerEventKind::BorrowView:
+                            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::ViewAfterRelease
+                SelfhostOwnerState::NoOwner:
+                    selfhost_proof_owner_transition_storage_mismatch state fact
+        else:
+            selfhost_proof_owner_transition_storage_mismatch state fact
+
+fn selfhost_proof_solve_owner_transition_no_owner <(SelfhostOwnerEventFact)->SelfhostProofResult> (fact):
+    match fact.event:
+        SelfhostOwnerEventKind::Acquire:
+            selfhost_proof_owner_transition_proven SelfhostOwnerState::Owned fact.storage
+        SelfhostOwnerEventKind::MoveOut:
+            selfhost_proof_owner_transition_invalid SelfhostOwnerState::NoOwner fact SelfhostOwnerTransitionError::MoveWithoutOwner
+        SelfhostOwnerEventKind::Release:
+            selfhost_proof_owner_transition_invalid SelfhostOwnerState::NoOwner fact SelfhostOwnerTransitionError::ReleaseWithoutOwner
+        SelfhostOwnerEventKind::BorrowView:
+            selfhost_proof_owner_transition_invalid SelfhostOwnerState::NoOwner fact SelfhostOwnerTransitionError::ViewWithoutOwner
+
+//: selfhost_proof_solve_owner_transition: free obligation owner transition obligation を[解/と]く
+fn selfhost_proof_solve_owner_transition <(SelfhostOwnerEventFact,SelfhostOwnerState)->SelfhostProofResult> (fact, state):
+    if:
+        selfhost_owner_storage_id_is_valid fact.storage
+        then:
+            match state:
+                SelfhostOwnerState::NoOwner:
+                    selfhost_proof_solve_owner_transition_no_owner fact
+                SelfhostOwnerState::Owned storage:
+                    selfhost_proof_owner_transition_with_storage state fact storage
+                SelfhostOwnerState::Moved storage:
+                    selfhost_proof_owner_transition_with_storage state fact storage
+                SelfhostOwnerState::Released storage:
+                    selfhost_proof_owner_transition_with_storage state fact storage
+        else:
+            selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::InvalidStorageId
+
 fn selfhost_proof_borrow_access_proven <(SelfhostBorrowState)->SelfhostProofResult> (state):
     selfhost_proof_result_proven SelfhostProofEvidence::ResourceBorrowAccess state
 
@@ -700,6 +778,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -721,6 +801,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
@@ -744,6 +826,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -766,6 +850,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -787,6 +873,32 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::BorrowAccessObserved _borrow:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::EffectObserved _effect:
+                    selfhost_proof_query_mismatch_result query
+        SelfhostProofObligation::OwnerTransition state:
+            match query.fact:
+                SelfhostProofFact::OwnerEventObserved owner_fact:
+                    selfhost_proof_solve_owner_transition owner_fact state
+                SelfhostProofFact::SourceSpanObserved _span_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::RawBackendItemObserved _item:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDirectiveObserved _directive:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ModuleDeclarationObserved _declaration:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TypeKindObserved _type_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::TraitImplPairObserved _trait_fact:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
@@ -812,6 +924,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
                     selfhost_proof_query_mismatch_result query
         SelfhostProofObligation::TypeKindCompatible expected:
@@ -831,6 +945,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
@@ -854,6 +970,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
                     selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
+                    selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::EffectObserved _effect:
@@ -875,6 +993,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::TraitImplPairObserved _trait_fact:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
@@ -899,6 +1019,8 @@ pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
                 SelfhostProofFact::LifetimeOutlivesObserved _lifetime:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::ResourceCellEventObserved _event:
+                    selfhost_proof_query_mismatch_result query
+                SelfhostProofFact::OwnerEventObserved _owner:
                     selfhost_proof_query_mismatch_result query
                 SelfhostProofFact::BorrowAccessObserved _borrow:
                     selfhost_proof_query_mismatch_result query
@@ -930,6 +1052,8 @@ pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),Selfhos
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<(),SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -966,6 +1090,8 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
@@ -1000,6 +1126,8 @@ pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -1040,6 +1168,8 @@ pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
@@ -1079,12 +1209,51 @@ pub fn selfhost_proof_resource_cell_transition <(SelfhostResourceCellState,Selfh
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
                     Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
         SelfhostProofResult::Refuted refutation:
             Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err refutation
+
+//: selfhost_proof_query_owner_transition: free obligation owner transition query を[作/つく]る
+fn selfhost_proof_query_owner_transition <(SelfhostOwnerState,SelfhostOwnerEventFact)->SelfhostProofQuery> (state, fact):
+    let proof_fact <SelfhostProofFact> SelfhostProofFact::OwnerEventObserved fact
+    let obligation <SelfhostProofObligation> SelfhostProofObligation::OwnerTransition state
+    selfhost_proof_query_new proof_fact obligation
+
+//: selfhost_proof_owner_transition: owner event が state で許可されるか typed result として[返/かえ]す
+pub fn selfhost_proof_owner_transition <(SelfhostOwnerState,SelfhostOwnerEventFact)->Result<SelfhostOwnerState,SelfhostProofRefutation>> (state, fact):
+    let query <SelfhostProofQuery> selfhost_proof_query_owner_transition state fact
+    match selfhost_proof_solve query:
+        SelfhostProofResult::Proven evidence:
+            match evidence:
+                SelfhostProofEvidence::OwnerTransition next_state:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Ok next_state
+                SelfhostProofEvidence::SourceSpanValid:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::RawBackendTransition _state:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDirectiveTransition _state:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TypeKindCompatible _kind:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::TraitImplNonOverlapping _relation:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::LifetimeOutlives _lifetime:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::ResourceBorrowAccess _state:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::EffectAllowed _context:
+                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+        SelfhostProofResult::Refuted refutation:
+            Result<SelfhostOwnerState,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_borrow_access: Resource borrow access query を[作/つく]る
 fn selfhost_proof_query_borrow_access <(SelfhostBorrowState,SelfhostBorrowAccessFact)->SelfhostProofQuery> (state, fact):
@@ -1115,6 +1284,8 @@ pub fn selfhost_proof_borrow_access <(SelfhostBorrowState,SelfhostBorrowAccessFa
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
                     Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
                     Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -1149,6 +1320,8 @@ pub fn selfhost_proof_lifetime_outlives <(SelfhostLifetimeId,SelfhostLifetimeOut
                     Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
@@ -1179,6 +1352,8 @@ pub fn selfhost_proof_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFa
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
                     Result<SelfhostTypeKind,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
@@ -1219,6 +1394,8 @@ pub fn selfhost_proof_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->R
                     Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
                     Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
+                    Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostTraitImplRelation,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::EffectAllowed _context:
@@ -1255,6 +1432,8 @@ pub fn selfhost_proof_effect_allowed <(SelfhostEffectContext,SelfhostEffectObser
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceCellTransition _state:
+                    Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
+                SelfhostProofEvidence::OwnerTransition _state:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
                     Result<SelfhostEffectContext,SelfhostProofRefutation>::Err selfhost_proof_query_mismatch_refutation query

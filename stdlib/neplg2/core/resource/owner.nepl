@@ -1,0 +1,113 @@
+#indent 4
+
+//: # owner
+//: self-host Resource IR の free obligation owner 状態を typed value として[扱/あつか]うモジュールです。
+//:
+//: [目的/もくてき]:
+//: - `MemPtr` を non-owning pointer として扱い、free obligation を持つ storage owner を別の状態として表します。
+//: - owner checker はこの state と event を proof solver へ渡し、checker-local な MemPtr owner 判定を増やさないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - このモジュールは状態と event の型だけを持ちます。遷移の正当性は `neplg2/core/proof` の Owner domain obligation が検査します。
+//: - `BorrowView` は non-owning pointer view の作成を表し、free obligation を消費しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/resource/owner" as *
+//: fn main <()*>i32> ():
+//:     let storage <SelfhostOwnerStorageId> selfhost_owner_storage_id_new 3
+//:     if selfhost_owner_storage_id_is_valid storage 0 1
+//: ```
+
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+//: SelfhostOwnerStorageId: free obligation を持つ storage の stable id
+//:
+//: [目的/もくてき]:
+//: - allocator / lowering が発行した storage owner を、raw address や `MemPtr` ではなく compiler-owned id として扱います。
+pub struct SelfhostOwnerStorageId:
+    index <i32>
+
+impl Clone for SelfhostOwnerStorageId:
+    fn clone <(&SelfhostOwnerStorageId)->SelfhostOwnerStorageId> (self):
+        *self
+
+impl Copy for SelfhostOwnerStorageId:
+    fn copy_mark <(SelfhostOwnerStorageId)->SelfhostOwnerStorageId> (self):
+        self
+
+//: selfhost_owner_storage_id_new: storage id を[作/つく]る
+pub fn selfhost_owner_storage_id_new <(i32)->SelfhostOwnerStorageId> (index):
+    SelfhostOwnerStorageId index
+
+//: selfhost_owner_storage_id_index: storage id の index を[返/かえ]す
+pub fn selfhost_owner_storage_id_index <(SelfhostOwnerStorageId)->i32> (storage):
+    storage.index
+
+//: selfhost_owner_storage_id_is_valid: storage id が有効か[返/かえ]す
+pub fn selfhost_owner_storage_id_is_valid <(SelfhostOwnerStorageId)->bool> (storage):
+    ge storage.index 0
+
+//: selfhost_owner_storage_id_eq: 2 つの storage id が同じか[返/かえ]す
+pub fn selfhost_owner_storage_id_eq <(SelfhostOwnerStorageId,SelfhostOwnerStorageId)->bool> (left, right):
+    eq left.index right.index
+
+//: SelfhostOwnerState: free obligation owner の状態
+//:
+//: [目的/もくてき]:
+//: - owner slot がまだ storage を持たないか、free obligation を保持しているか、move 済みか、release 済みかを enum として表します。
+//: - moved と released を区別し、move 後の free と double free を別の refutation にできます。
+pub enum SelfhostOwnerState:
+    NoOwner
+    Owned <SelfhostOwnerStorageId>
+    Moved <SelfhostOwnerStorageId>
+    Released <SelfhostOwnerStorageId>
+
+impl Clone for SelfhostOwnerState:
+    fn clone <(&SelfhostOwnerState)->SelfhostOwnerState> (self):
+        *self
+
+impl Copy for SelfhostOwnerState:
+    fn copy_mark <(SelfhostOwnerState)->SelfhostOwnerState> (self):
+        self
+
+//: SelfhostOwnerEventKind: owner state に対する操作
+//:
+//: [目的/もくてき]:
+//: - acquire / move / release / non-owning view 作成を enum として表し、proof solver が exhaustive match で遷移を検査できるようにします。
+pub enum SelfhostOwnerEventKind:
+    Acquire
+    MoveOut
+    Release
+    BorrowView
+
+impl Clone for SelfhostOwnerEventKind:
+    fn clone <(&SelfhostOwnerEventKind)->SelfhostOwnerEventKind> (self):
+        *self
+
+impl Copy for SelfhostOwnerEventKind:
+    fn copy_mark <(SelfhostOwnerEventKind)->SelfhostOwnerEventKind> (self):
+        self
+
+//: selfhost_owner_state_no_owner: owner を持たない初期状態を[返/かえ]す
+pub fn selfhost_owner_state_no_owner <()->SelfhostOwnerState> ():
+    SelfhostOwnerState::NoOwner
+
+//: selfhost_owner_state_owned: free obligation owner state を[作/つく]る
+pub fn selfhost_owner_state_owned <(SelfhostOwnerStorageId)->SelfhostOwnerState> (storage):
+    SelfhostOwnerState::Owned storage
+
+//: selfhost_owner_state_is_owned: state が active owner か[返/かえ]す
+pub fn selfhost_owner_state_is_owned <(SelfhostOwnerState)->bool> (state):
+    match state:
+        SelfhostOwnerState::Owned _storage:
+            true
+        SelfhostOwnerState::NoOwner:
+            false
+        SelfhostOwnerState::Moved _storage:
+            false
+        SelfhostOwnerState::Released _storage:
+            false

@@ -31,6 +31,7 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260519T235256769Z-SELF-HOST-RESOURCE-CELL-STATE-STAYS--847C852A](../../issues/items/ISS-20260519T235256769Z-SELF-HOST-RESOURCE-CELL-STATE-STAYS--847C852A.md): self-host Resource cell state transition を `core/resource/move_state` の typed model と `core/proof` の Resource domain fact / obligation / evidence / refutation へ載せる Stage 6 self-host Resource proof issue。2026-05-20 に fixed。
 - [ISS-20260520T005418281Z-SELF-HOST-BORROW-ACCESS-IS-NOT-REPRE-B7FAE5C1](../../issues/items/ISS-20260520T005418281Z-SELF-HOST-BORROW-ACCESS-IS-NOT-REPRE-B7FAE5C1.md): self-host borrow access を `core/resource/borrow_state` の typed state/request model と `core/proof` の Resource domain fact / obligation / evidence / refutation へ載せる Stage 6 self-host borrow proof issue。2026-05-20 に fixed。
 - [ISS-20260520T011528599Z-SELF-HOST-LIFETIME-OUTLIVES-IS-NOT-R-6C9E1A5D](../../issues/items/ISS-20260520T011528599Z-SELF-HOST-LIFETIME-OUTLIVES-IS-NOT-R-6C9E1A5D.md): self-host lifetime outlives を source-derived lifetime relation と `core/proof` の Lifetime domain fact / obligation / evidence / refutation へ載せる Stage 6 self-host lifetime proof issue。2026-05-20 に fixed。
+- [ISS-20260520T014008212Z-SELF-HOST-OWNER-OBLIGATION-IS-NOT-RE-EB1CB46B](../../issues/items/ISS-20260520T014008212Z-SELF-HOST-OWNER-OBLIGATION-IS-NOT-RE-EB1CB46B.md): self-host owner obligation を `core/resource/owner` の typed state/event model と `core/proof` の Owner domain fact / obligation / evidence / refutation へ載せる Stage 6 self-host owner proof issue。2026-05-20 に fixed。
 - [ISS-20260520T000413115Z-SELF-HOST-EFFECT-BOUNDARY-IS-NOT-REP-0CB47C08](../../issues/items/ISS-20260520T000413115Z-SELF-HOST-EFFECT-BOUNDARY-IS-NOT-REP-0CB47C08.md): self-host effect boundary を bool/string flag ではなく `core/ty/effect` の typed model と `core/proof` の Effect domain fact / obligation / evidence / refutation へ載せる Stage 6 self-host effect proof issue。2026-05-20 に fixed。
 - [ISS-20260520T001923700Z-SELF-HOST-TYPE-KIND-COMPATIBILITY-IS-8009C28D](../../issues/items/ISS-20260520T001923700Z-SELF-HOST-TYPE-KIND-COMPATIBILITY-IS-8009C28D.md): self-host type kind compatibility を bool helper だけでなく `core/proof` の Type domain fact / obligation / evidence / refutation へ載せる Stage 6 self-host type proof issue。2026-05-20 に fixed。
 - [ISS-20260520T003842270Z-SELF-HOST-TRAIT-COHERENCE-IS-NOT-A-G-E107D307](../../issues/items/ISS-20260520T003842270Z-SELF-HOST-TRAIT-COHERENCE-IS-NOT-A-G-E107D307.md): self-host trait impl coherence を trait 名文字列や checker-local rule ではなく `core/ty/trait_ref` の typed impl key relation と `core/proof` の Trait domain fact / obligation / evidence / refutation へ載せる Stage 6 self-host abstraction proof issue。2026-05-20 に fixed。
@@ -728,6 +729,12 @@ self-host 実装側の禁止事項:
 - `MemPtr` を owner として保持する新規 public API を増やさない。
 - raw address `i32` を compiler data structure の通常 field に持ち込まない。
 - drop obligation を stdlib の手作業 cleanup だけで完結させる設計にしない。
+
+2026-05-20 の進捗:
+
+- `ISS-20260520T014008212Z-SELF-HOST-OWNER-OBLIGATION-IS-NOT-RE-EB1CB46B` で、self-host 側の free obligation owner を `core/resource/owner.nepl` の typed model と `core/proof` の Owner domain に載せた。
+- `SelfhostOwnerState` は `NoOwner` / `Owned(storage)` / `Moved(storage)` / `Released(storage)` を表し、`SelfhostOwnerEventKind` は `Acquire` / `MoveOut` / `Release` / `BorrowView` を表す。`BorrowView` は `MemPtr` 由来の non-owning pointer view を得る操作であり、owner state を消費しない。
+- owner transition の不正理由は `SelfhostOwnerTransitionError` enum と issue payload に残す。後続 Resource IR lowering / checker は checker-local owner state machine を持たず、source-derived owner event fact producer として `core/proof` の generic solver に接続する。
 
 許容される移行措置:
 
