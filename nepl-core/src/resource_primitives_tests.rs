@@ -116,6 +116,44 @@ fn compiler_memory_type_classifies_base_and_applied_types() {
 }
 
 #[test]
+fn compiler_memory_value_type_requires_applied_element_type() {
+    let mut types = TypeCtx::new();
+    let mem_ptr = register_memory_struct(&mut types, RAW_POINTER_TYPE_NAME, &["raw"]);
+    let region = register_memory_struct(&mut types, OWNER_TOKEN_TYPE_NAME, &["raw", "size"]);
+    let u8_ty = types.u8();
+    let i32_ty = types.i32();
+    let applied_mem_ptr = types.apply(mem_ptr, vec![u8_ty]);
+    let applied_region = types.apply(region, vec![i32_ty]);
+    let ref_region = types.reference(applied_region, false);
+
+    assert_eq!(
+        compiler_memory_value_type(&types, applied_mem_ptr),
+        Some((CompilerMemoryType::RawPointer, u8_ty))
+    );
+    assert_eq!(
+        compiler_memory_value_type(&types, ref_region),
+        Some((CompilerMemoryType::OwnerToken, i32_ty))
+    );
+    assert_eq!(compiler_memory_value_type(&types, mem_ptr), None);
+}
+
+#[test]
+fn collection_slot_lifecycle_primitive_uses_old_type_as_replace_target() {
+    assert_eq!(
+        CollectionSlotLifecyclePrimitive::ReplaceReturnOld.slot_target_type_arg_index(),
+        Some(0)
+    );
+    assert_eq!(
+        CollectionSlotLifecyclePrimitive::ReplaceDropOld.slot_target_type_arg_index(),
+        Some(0)
+    );
+    assert_eq!(
+        CollectionSlotLifecyclePrimitive::StorageDealloc.slot_target_type_arg_index(),
+        None
+    );
+}
+
+#[test]
 fn same_name_structs_are_not_memory_types_without_proven_identity() {
     let mut types = TypeCtx::new();
     let type_param = types.fresh_var(Some("T".to_string()));

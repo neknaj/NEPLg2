@@ -27,6 +27,7 @@ use crate::layout::{
     enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
     storage_align_bytes, storage_size_bytes, tuple_field_layouts_by_result,
 };
+use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
 use crate::runtime_helpers::{self, RuntimeHelperKind};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::span::Span;
@@ -1773,6 +1774,13 @@ fn gen_expr(
                 gen_i32_arithmetic_intrinsic(
                     ctx, kind, args, expr.span, name_map, sig_map, strings, locals, insts,
                 )?
+            } else if CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some() {
+                for arg in args {
+                    if gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts)?.is_some() {
+                        insts.push(Instruction::Drop);
+                    }
+                }
+                None
             } else if name == "unreachable" {
                 insts.push(Instruction::Unreachable);
                 None

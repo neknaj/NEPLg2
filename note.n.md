@@ -1,3 +1,27 @@
+# 2026-05-21 Agent 1 collection slot lifecycle production lowering producer
+
+- `ISS-20260520T200531197Z-COLLECTION-SLOT-LIFECYCLE-HAS-NO-PRO-298A1B25` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`ResourceOp::CollectionSlotLifecycle` / `CollectionSlotStateTable` / call summary が Resource IR 側へ接続済みだった一方で、HIR/source の実際の boundary から `ResourceOp::CollectionSlotLifecycle` を生成する compiler-owned producer が存在しなかったことだった。
+- `CollectionSlotLifecyclePrimitive` を追加し、collection slot lifecycle intrinsic の種別、type arg 数、実引数数、slot offset の有無を typed enum で管理するようにした。
+- source capability に `CollectionSlotLifecycleBoundary` を追加し、compiler-proven source evidence を持つ exact span だけが lifecycle intrinsic を使えるようにした。stdlib function name allowlist や module-specific proof machine は追加していない。
+- typecheck は source capability、arity、anchor が compiler memory pointer / owner token であること、slot offset が `i32` であることを検査する。
+- subagent review で指摘された anchor 検査の粗さを commit 前に修正した。slot event は `MemPtr<T>` / `RegionToken<T>` の element type と intrinsic type args を照合し、`StorageDealloc` は owner token anchor に限定する。replace lowering は old slot type を target place に使う。
+- Resource lowering は collection slot lifecycle intrinsic から `ResourceOp::CollectionSlotLifecycle` を生成する。slot event は raw base + byte offset、storage dealloc は storage anchor として lowering し、Resource IR checker の generic `CollectionSlotStateTable` に接続する。
+- wasm / LLVM codegen は lifecycle intrinsic を runtime no-op として扱い、引数評価だけを保持する。memory safety authority は runtime helper ではなく Resource IR checker に置く。
+- public stdlib wrapper は追加していない。通常 import 可能な wrapper は user source に lifecycle event 偽造の入口を与えるため、non-Copy collection API と drop traversal を接続する段階で compiler-proven source evidence を持つ implementation boundary として使う。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core collection_slot_lifecycle_intrinsic -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot_storage_dealloc_requires_owner_token_anchor -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot_lifecycle_boundary_uses_typed_source_evidence -- --test-threads=1`: pass
+  - `cargo test -p nepl-core compiler_memory_value_type_requires_applied_element_type -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot_lifecycle_primitive_uses_old_type_as_replace_target -- --test-threads=1`: pass
+  - `cargo test -p nepl-core resource_ir_collection_slot -- --test-threads=1`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-05-21 Agent 1 Resource IR collection slot lifecycle 接続
 
 - `ISS-20260520T192939566Z-RESOURCE-IR-DOES-NOT-CARRY-COLLECTIO-5585A1D7` を fixed にした。`plan.md` は変更していない。

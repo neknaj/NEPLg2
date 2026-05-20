@@ -73,6 +73,19 @@ fn check_source_as_core_mem_boundary(
     check_module_with_source_map(loaded.module, Some(&loaded.source_map), options(target))
 }
 
+fn check_source_as_stdlib_path(
+    src: &str,
+    path: &str,
+    target: CompileTarget,
+) -> Result<(), CoreError> {
+    let stdlib_root = std::path::PathBuf::from("C:/repo/stdlib");
+    let mut loader = Loader::new(stdlib_root);
+    let loaded = loader
+        .load_inline(std::path::PathBuf::from(path), String::from(src))
+        .expect("load");
+    check_module_with_source_map(loaded.module, Some(&loaded.source_map), options(target))
+}
+
 fn assert_has_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
     match result {
         Err(CoreError::Diagnostics(diags)) => assert!(
@@ -527,6 +540,106 @@ fn load_i32 <(i32)->i32> (p):
 
     check_source_as_core_mem_boundary(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
         .expect("core/mem intrinsic helper remains allowed during migration");
+}
+
+#[test]
+fn collection_slot_lifecycle_intrinsic_requires_source_evidence() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+pub struct MemPtr<.T>:
+    raw <i32>
+
+fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
+    #intrinsic "collection_slot_initialize_empty" <i32> (ptr, offset)
+"#;
+
+    assert_has_diag(
+        check_source(src, CompileTarget::Wasm),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_lifecycle_intrinsic_accepts_matching_stdlib_anchor() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+pub struct MemPtr<.T>:
+    raw <i32>
+
+fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
+    #intrinsic "collection_slot_initialize_empty" <i32> (ptr, offset)
+"#;
+
+    check_source_as_stdlib_path(
+        src,
+        "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+        CompileTarget::Wasm,
+    )
+    .expect("stdlib collection slot intrinsic with matching anchor type is allowed");
+}
+
+#[test]
+fn collection_slot_lifecycle_intrinsic_rejects_anchor_type_mismatch() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+pub struct MemPtr<.T>:
+    raw <i32>
+
+fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
+    #intrinsic "collection_slot_initialize_empty" <u8> (ptr, offset)
+"#;
+
+    assert_has_diag(
+        check_source_as_stdlib_path(
+            src,
+            "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_storage_dealloc_requires_owner_token_anchor() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+pub struct MemPtr<.T>:
+    raw <i32>
+
+fn helper <(MemPtr<i32>)->()> (ptr):
+    #intrinsic "collection_slot_storage_dealloc" <> (ptr)
+"#;
+
+    assert_has_diag(
+        check_source_as_stdlib_path(
+            src,
+            "C:/repo/stdlib/alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
 }
 
 #[test]

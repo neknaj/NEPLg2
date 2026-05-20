@@ -10,6 +10,7 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
+pub use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
 use crate::span::{FileId, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -112,6 +113,10 @@ pub enum SourceCapabilityUseSite {
     },
     CompilerMemoryTypeDefinition {
         memory_type: CompilerMemoryType,
+        span: SourceCapabilitySpan,
+    },
+    CollectionSlotLifecycleBoundary {
+        primitive: CollectionSlotLifecyclePrimitive,
         span: SourceCapabilitySpan,
     },
 }
@@ -244,6 +249,17 @@ impl SourceCapabilities {
             span: SourceCapabilitySpan::from_span(span),
         })
     }
+
+    pub fn allows_collection_slot_lifecycle_boundary_at(
+        &self,
+        primitive: CollectionSlotLifecyclePrimitive,
+        span: Span,
+    ) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::CollectionSlotLifecycleBoundary {
+            primitive,
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -345,6 +361,15 @@ impl SourceMap {
     ) -> bool {
         self.capabilities(span.file_id)
             .allows_compiler_memory_type_definition_at(memory_type, span)
+    }
+
+    pub fn collection_slot_lifecycle_boundary_allowed_at(
+        &self,
+        span: Span,
+        primitive: CollectionSlotLifecyclePrimitive,
+    ) -> bool {
+        self.capabilities(span.file_id)
+            .allows_collection_slot_lifecycle_boundary_at(primitive, span)
     }
 
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {

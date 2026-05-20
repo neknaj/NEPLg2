@@ -215,6 +215,9 @@ mod lower_aggregate;
 mod lower_aggregate_projection;
 mod lower_aggregate_selector;
 mod lower_call;
+mod lower_collection_slot;
+#[cfg(test)]
+mod lower_collection_slot_tests;
 mod lower_condition;
 mod lower_layout_intrinsic;
 mod lower_match;

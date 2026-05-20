@@ -274,7 +274,7 @@ fn raw_address_source_from_actual_named_expr(
     }
 }
 
-fn raw_address_offset_from_actual_arg(
+pub(super) fn raw_address_offset_from_actual_arg(
     index: usize,
     args: &[HirExpr],
     arg_places: &[Place],
@@ -332,7 +332,7 @@ fn raw_address_place_with_offset(raw: Place, offset: RawAddressOffset, raw_ty: T
     }
 }
 
-fn raw_address_source_from_actual_arg(
+pub(super) fn raw_address_source_from_actual_arg(
     index: usize,
     args: &[HirExpr],
     arg_places: &[Place],

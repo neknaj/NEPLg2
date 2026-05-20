@@ -23,6 +23,7 @@ use super::lower_call::{
     call_effect_skeleton, func_ref_base_name, function_value_effect, intrinsic_effect_skeleton,
     lower_call_target, resource_effect_from_internal,
 };
+use super::lower_collection_slot::push_collection_slot_lifecycle_intrinsic;
 use super::lower_condition::resource_condition_fact;
 use super::lower_layout_intrinsic::{
     layout_intrinsic_i32_value, layout_intrinsic_i32_value_from_callee, size_of_type_arg,
@@ -788,6 +789,15 @@ pub(super) fn lower_expr_skeleton(
                 });
                 output
             } else {
+                let lowered_collection_slot_lifecycle = push_collection_slot_lifecycle_intrinsic(
+                    name,
+                    type_args,
+                    args,
+                    &arg_places,
+                    ops,
+                    env,
+                    expr.span,
+                );
                 let kind = layout_intrinsic_i32_value(name, type_args, env)
                     .map(ResourceExprKind::LiteralI32)
                     .or_else(|| {
@@ -804,6 +814,9 @@ pub(super) fn lower_expr_skeleton(
                     env,
                     expr.span,
                 );
+                if lowered_collection_slot_lifecycle {
+                    return output;
+                }
                 output
             }
         }

@@ -779,6 +779,7 @@ mod tests {
     use super::*;
 
     use crate::effects::{RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
+    use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
     use crate::source_map::{CompilerMemoryField, CompilerMemoryType, SourceCapabilityUseSite};
     use crate::span::Span;
 
@@ -793,6 +794,10 @@ mod tests {
         fn allows_owner_aggregate_field_boundary(&self) -> bool;
         fn allows_compiler_memory_field_boundary(&self, field: CompilerMemoryField) -> bool;
         fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool;
+        fn allows_collection_slot_lifecycle_boundary(
+            &self,
+            primitive: CollectionSlotLifecyclePrimitive,
+        ) -> bool;
     }
 
     impl SourceCapabilitiesTestExt for SourceCapabilities {
@@ -896,6 +901,21 @@ mod tests {
                 )
             })
         }
+
+        fn allows_collection_slot_lifecycle_boundary(
+            &self,
+            primitive: CollectionSlotLifecyclePrimitive,
+        ) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::CollectionSlotLifecycleBoundary {
+                        primitive: site_primitive,
+                        ..
+                    } if *site_primitive == primitive
+                )
+            })
+        }
     }
 
     fn test_loader() -> Loader {
@@ -971,6 +991,34 @@ mod tests {
         assert!(
             !capabilities.allows_raw_memory_structural_boundary(),
             "raw operation evidence must not authorize restricted raw structure manipulation"
+        );
+    }
+
+    #[test]
+    fn collection_slot_lifecycle_boundary_uses_typed_source_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "slot_boundary.nepl"],
+        ));
+
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "fn helper <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+                "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+            ),
+        );
+
+        assert!(capabilities.allows_collection_slot_lifecycle_boundary(
+            CollectionSlotLifecyclePrimitive::InitializeEmpty
+        ));
+        assert!(
+            !capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::StorageDealloc
+            ),
+            "one collection slot lifecycle primitive must not authorize another"
         );
     }
 

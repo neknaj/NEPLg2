@@ -8,6 +8,7 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirModule};
 use crate::intrinsic_kinds::{CoreIntrinsicKind, FieldAccessorKind, ScalarIntrinsicKind};
+use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
 use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::types::TypeCtx;
 use crate::wasm_shared;
@@ -25,6 +26,7 @@ fn is_supported_llvm_intrinsic(name: &str) -> bool {
             FieldAccessorKind::from_intrinsic_name(name).is_some()
                 || ScalarIntrinsicKind::from_intrinsic_name(name).is_some()
                 || I32ArithmeticPrimitive::from_codegen_intrinsic_name(name).is_some()
+                || CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some()
         }
     }
 }

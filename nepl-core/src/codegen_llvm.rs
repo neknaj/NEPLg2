@@ -28,6 +28,7 @@ use crate::layout::{
 use crate::llvm_ir::{
     collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
 };
+use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
 use crate::runtime_helpers::{helper_base_name, helper_candidates, RuntimeHelperKind};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::source_map::SourceMap;
@@ -3297,6 +3298,12 @@ fn lower_hir_expr(
             }
             if let Some(kind) = ScalarIntrinsicKind::from_intrinsic_name(name) {
                 return scalar_intrinsic::lower_scalar_intrinsic(types, ctx, kind, args);
+            }
+            if CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some() {
+                for arg in args {
+                    let _ = lower_hir_expr(types, ctx, arg)?;
+                }
+                return Ok(None);
             }
             Err(llvm_codegen_error(
                 format!(

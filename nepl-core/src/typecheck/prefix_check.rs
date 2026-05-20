@@ -10,7 +10,9 @@ use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
+use crate::resource_primitives::{compiler_memory_value_type, CollectionSlotLifecyclePrimitive};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
+use crate::source_map::CompilerMemoryType;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -58,6 +60,27 @@ macro_rules! prefix_check_dump {
             prefix_check_log!($($arg)*);
         }
     };
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CollectionSlotLifecycleAnchor {
+    RawPointer { value_ty: TypeId },
+    OwnerToken { value_ty: TypeId },
+}
+
+impl CollectionSlotLifecycleAnchor {
+    const fn value_ty(self) -> TypeId {
+        match self {
+            Self::RawPointer { value_ty } | Self::OwnerToken { value_ty } => value_ty,
+        }
+    }
+
+    const fn is_owner_token(self) -> bool {
+        match self {
+            Self::OwnerToken { .. } => true,
+            Self::RawPointer { .. } => false,
+        }
+    }
 }
 
 impl<'a> BlockChecker<'a> {
@@ -133,6 +156,120 @@ impl<'a> BlockChecker<'a> {
                 ),
                 span,
             ));
+        }
+    }
+
+    fn validate_collection_slot_lifecycle_intrinsic(
+        &mut self,
+        primitive: CollectionSlotLifecyclePrimitive,
+        type_args: &[TypeId],
+        args: &[HirExpr],
+        span: Span,
+    ) {
+        if !self.collection_slot_lifecycle_boundary_allowed(primitive, span) {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+                "collection slot lifecycle intrinsic requires compiler-proven source evidence",
+                span,
+            ));
+        }
+
+        let expected_type_args = primitive.type_arg_count();
+        if type_args.len() != expected_type_args {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicTypeArgArityMismatch,
+                format!(
+                    "collection slot lifecycle intrinsic expects {} type arguments",
+                    expected_type_args
+                ),
+                span,
+            ));
+        }
+
+        let expected_args = primitive.argument_count();
+        if args.len() != expected_args {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                format!(
+                    "collection slot lifecycle intrinsic expects {} arguments",
+                    expected_args
+                ),
+                span,
+            ));
+            return;
+        }
+
+        if let Some(anchor) = args.first() {
+            match self.collection_slot_lifecycle_anchor(anchor.ty) {
+                Some(anchor_kind) => {
+                    if !primitive.has_slot_offset() && !anchor_kind.is_owner_token() {
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                            "collection slot lifecycle storage dealloc target must be a compiler owner token",
+                            anchor.span,
+                        ));
+                    }
+                    if primitive.has_slot_offset() {
+                        self.validate_collection_slot_lifecycle_anchor_value_type(
+                            anchor_kind,
+                            type_args,
+                            anchor.span,
+                        );
+                    }
+                }
+                None => {
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                        "collection slot lifecycle target must be a compiler memory pointer or owner token with an element type",
+                        anchor.span,
+                    ));
+                }
+            }
+        }
+
+        if primitive.has_slot_offset() {
+            let offset_ty = args[1].ty;
+            let i32_ty = self.ctx.i32();
+            if let Err(_) = self.ctx.unify(offset_ty, i32_ty) {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                    "collection slot lifecycle offset must be i32 byte offset",
+                    args[1].span,
+                ));
+            }
+        }
+    }
+
+    fn collection_slot_lifecycle_anchor(
+        &self,
+        ty: TypeId,
+    ) -> Option<CollectionSlotLifecycleAnchor> {
+        let (memory_type, value_ty) = compiler_memory_value_type(self.ctx, ty)?;
+        match memory_type {
+            CompilerMemoryType::RawPointer => {
+                Some(CollectionSlotLifecycleAnchor::RawPointer { value_ty })
+            }
+            CompilerMemoryType::OwnerToken => {
+                Some(CollectionSlotLifecycleAnchor::OwnerToken { value_ty })
+            }
+        }
+    }
+
+    fn validate_collection_slot_lifecycle_anchor_value_type(
+        &mut self,
+        anchor: CollectionSlotLifecycleAnchor,
+        type_args: &[TypeId],
+        span: Span,
+    ) {
+        let anchor_ty = anchor.value_ty();
+        for expected_ty in type_args {
+            if self.ctx.unify(anchor_ty, *expected_ty).is_err() {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                    "collection slot lifecycle type argument must match the target element type",
+                    span,
+                ));
+            }
         }
     }
 
@@ -893,9 +1030,9 @@ impl<'a> BlockChecker<'a> {
                                                     &trait_id,
                                                     &applied_trait_args.resolved_args,
                                                 ) {
-                                                TraitSelfTypeInference::NoEvidence => self
-                                                    .ctx
-                                                    .fresh_var(Some(String::from("Self"))),
+                                                TraitSelfTypeInference::NoEvidence => {
+                                                    self.ctx.fresh_var(Some(String::from("Self")))
+                                                }
                                                 TraitSelfTypeInference::Unique(self_ty) => self_ty,
                                                 TraitSelfTypeInference::Ambiguous(ambiguity) => {
                                                     self.diagnostics.push(type_error(
@@ -1213,6 +1350,8 @@ impl<'a> BlockChecker<'a> {
                         FieldAccessorKind::from_intrinsic_name(intrin.name.as_str());
                     let scalar_intrinsic =
                         ScalarIntrinsicKind::from_intrinsic_name(intrin.name.as_str());
+                    let collection_slot_lifecycle_intrinsic =
+                        CollectionSlotLifecyclePrimitive::from_intrinsic_name(intrin.name.as_str());
                     let ty = if let Some(core_intrinsic) = core_intrinsic {
                         self.core_intrinsic_type_id(core_intrinsic, &type_args, *sp)
                     } else if let Some(field_accessor) = field_accessor_intrinsic {
@@ -1224,6 +1363,8 @@ impl<'a> BlockChecker<'a> {
                         }
                     } else if let Some(scalar_intrinsic) = scalar_intrinsic {
                         self.scalar_intrinsic_type_id(scalar_intrinsic.output_type())
+                    } else if collection_slot_lifecycle_intrinsic.is_some() {
+                        self.ctx.unit()
                     } else {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::IntrinsicUnknown,
@@ -1432,6 +1573,12 @@ impl<'a> BlockChecker<'a> {
 
                     if let Some(scalar_intrinsic) = scalar_intrinsic {
                         self.validate_scalar_intrinsic_args(scalar_intrinsic, &args, *sp);
+                    }
+
+                    if let Some(primitive) = collection_slot_lifecycle_intrinsic {
+                        self.validate_collection_slot_lifecycle_intrinsic(
+                            primitive, &type_args, &args, *sp,
+                        );
                     }
 
                     stack.push(StackEntry {

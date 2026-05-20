@@ -138,6 +138,7 @@ pub enum TypeDiagnosticCode {
     MatchPatternUnsupported,
     MatchWildcardNotLast,
     OwnerAggregateConstructorRestricted,
+    CollectionSlotLifecycleBoundaryRestricted,
     OwnerAggregateFieldAccessRestricted,
     OwnerTokenConstructorRestricted,
     RawPointerConstructorRestricted,
@@ -844,6 +845,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::OwnerAggregateConstructorRestricted => {
                 "type.owner_aggregate.constructor_restricted"
             }
+            TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted => {
+                "type.collection_slot_lifecycle.boundary_restricted"
+            }
             TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted => {
                 "type.owner_aggregate.field_access_restricted"
             }
@@ -991,6 +995,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::MatchWildcardNotLast => "wildcard match arm must be last",
             TypeDiagnosticCode::OwnerAggregateConstructorRestricted => {
                 "owner-backed aggregate constructor is restricted to compiler memory boundary"
+            }
+            TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted => {
+                "collection slot lifecycle intrinsic is restricted to compiler-proven source"
             }
             TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted => {
                 "owner-backed aggregate fields are restricted to compiler memory boundary"
