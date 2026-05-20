@@ -1,3 +1,23 @@
+# 2026-05-20 Agent 1 Vec invariant backing extent proof
+
+- `ISS-20260520T111714158Z-VEC-INVARIANT-DOES-NOT-PROVE-BACKING-46A3C801` を修正した。`plan.md` は変更していない。
+- `VecCopyInvariant` の `VecStorage::Owned(region)` branch に、`cap * size_of<T>` と `region_size(region)` の一致検査を追加した。
+- `cap` が allocator payload 上限を超える場合や backing region の byte 数が capacity metadata と一致しない場合は、`VecCopyInvariantInvalid::OwnedStorageExtentMismatch` として raw access へ進まない。
+- これは tag/capacity だけの stdlib 規約ではなく、raw offset 計算に使う capacity metadata と free obligation owner extent の相関を typed enum proof に含める修正である。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/invariant.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent.json -j 1 --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/push.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-push.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-root.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/get.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-get.json -j 1 --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-sort.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/map.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-map.json -j 1 --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-filter.json -j 1 --assert-io`: 7 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/aggregate.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-aggregate.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-region-extent-data.json -j 1 --assert-io`: 2 passed
+
 # 2026-05-20 Agent 1 raw-memory-backed API migration closure audit
 
 - `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` を closure audit で `fixed` / `resolved: true` にした。`plan.md` は変更していない。

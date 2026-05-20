@@ -40,7 +40,7 @@
 
 - `0 <= len == initialized_len <= cap`
 - `VecStorage::Empty` なら `len == 0` かつ `cap == 0`
-- `VecStorage::Owned(_)` なら `cap > 0`
+- `VecStorage::Owned(region)` なら `cap > 0` かつ `region_size(region) == cap * size_of<T>`
 
 このため `stdlib/alloc/collections/vec/invariant.nepl` を追加し、`vec_buffer_current_copy_invariant<T>` / `vec_current_copy_invariant<T>` を raw access boundary の共通入口にした。`get` / `replace` / `push` / `pop` / transform / sort family は raw data view の導出や raw load/store より前にこの helper を通す。これにより、Copy-only 期間の `Vec` は「各 API が len/cap を読む」状態ではなく、「raw memory operation の前提となる `OwnedBuffer<T>` 全体の相関を検査する」状態になる。
 
@@ -51,6 +51,8 @@
 2026-05-20 追記 2: typed raw data view observer である `data_mem_ptr<T>(&Vec<T>)` も invariant boundary に含める。raw load/store caller が guard を持つだけでは不十分で、`RegionToken<T>` から non-owning raw view を導出する public API 自体が `OwnedBuffer<T>` invariant を確認する必要がある。invalid owner aggregate からは actual storage view を返さず、0 address typed view に落とす。
 
 2026-05-20 追記 3: `Vec` invariant の結果は bool ではなく `VecCopyInvariant::Valid | Invalid(VecCopyInvariantInvalid)` として扱う。`len` / `initialized_len` / `cap` / `VecStorage` の相関が壊れた理由を enum payload に残し、raw boundary caller は `match` で `Valid` と `Invalid` を分岐する。これにより、future invariant case を追加した時に source policy と compiler の網羅性検査が効き、静的検査プログラム自体の誤りを見つけやすくする。raw access は引き続き `.T: Copy` の過渡境界に限定し、non-Copy payload の move/drop state は `InitializedCell` / Resource IR 接続後に扱う。
+
+2026-05-20 追記 4: `VecStorage::Owned(region)` の invariant は tag と `cap > 0` だけでは不十分である。raw offset は `idx * size_of<T>` で計算されるため、`cap` metadata と backing `RegionToken` の byte extent が一致していることも同じ proof に含める。`vec_buffer_current_copy_invariant<T>` は `size_of<T>` と allocator payload 上限で `cap * size_of<T>` を checked に計算し、`region_size(region)` と一致しない場合は `OwnedStorageExtentMismatch` として拒否する。これは `RegionToken` を信用するのではなく、source object の capacity と owner extent の相関を typed invariant として証明する境界である。
 
 ## 2026-04-30 再レビュー結果
 
