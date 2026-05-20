@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-13
+updated: 2026-05-20
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md"
 ---
 
@@ -455,3 +455,9 @@ raw `i32` owner seed は raw owner を消費する関数、または aggregate �
 - `cargo test -p nepl-core --test resource_ir region_token_forged -- --nocapture`: 6 passed
 - `node nodesrc/test_resource_checker_responsibility.js`: passed
 - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+
+## 2026-05-20 Agent 1 region_new 入力境界追記
+
+`ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9` で、過渡期に残っていた `region_new<T>(MemPtr<T>, i32)` の API 形状も廃止した。現在の `region_new<T>` は allocator / realloc から返った raw owner identity と size を束ねる internal boundary であり、`MemPtr<T>` は入力にしない。
+
+この修正により、2026-05-13 の compiler core 側完了判定で述べた「`MemPtr` / `RegionToken` provenance と free obligation の欠落」はさらに明確になった。`MemPtr<T>` は non-owning pointer view としてだけ扱い、free obligation owner は `RegionToken.raw` と Resource IR owner/extent proof に集約する。borrowed `region_ptr` / `region_ptr_at` / `str_addr` 由来 raw view は `region_new` の入口で owner に昇格できない。

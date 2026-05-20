@@ -104,7 +104,8 @@ assertMatch(pointerView, /pub\s+fn\s+mem_ptr_add\b/, "mem/pointer/view must own 
 assertMatch(pointerRegion, /pub\s+fn\s+region_ptr_at\b/, "mem/pointer/region must own checked region projection");
 assertMatch(pointerRegion, /pub\s+struct\s+RegionReallocError<\.T>:[\s\S]*region\s+<RegionToken<\.T>>/, "mem/pointer/region must own RegionToken realloc error payload");
 assertMatch(pointerRegion, /pub\s+fn\s+realloc_region_bytes_keep\s+<\.T>\s+<\(RegionToken<\.T>,i32\)->Result<RegionToken<\.T>,\s*RegionReallocError<\.T>>>/, "mem/pointer/region must own owner-preserving RegionToken realloc helper");
-assertMatch(pointerRegion, /\balloc_region_bytes[\s\S]*allocator::alloc_raw\s+bytes[\s\S]*region_new\s+mem_ptr_wrap<\.T>\s+raw\s+bytes/, "RegionToken allocation must validate raw allocator success inside the owner boundary");
+assertMatch(pointerRegion, /\balloc_region_bytes[\s\S]*allocator::alloc_raw\s+bytes[\s\S]*region_new<\.T>\s+raw\s+bytes/, "RegionToken allocation must validate raw allocator success inside the owner boundary");
+assertNoMatch(pointerRegion, /\bregion_new\s+mem_ptr_wrap\b/, "RegionToken allocation must not upgrade non-owning MemPtr views into owner tokens");
 assertMatch(pointerRegion, /\brealloc_region_bytes_keep[\s\S]*not\s+alloc_payload_fits\s+new_size[\s\S]*let\s+old_size\s+<i32>\s+get\s+region\s+"size"[\s\S]*let\s+old_raw\s+<i32>\s+get\s+region\s+"raw"[\s\S]*allocator::realloc_raw\s+old_raw\s+old_size\s+new_size[\s\S]*RegionReallocError<\.T>\s+region/, "RegionToken realloc must validate size and consume the owner raw field directly");
 assertNoMatch(pointerRegion, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, "RegionToken owner API must not route allocation through MemPtr owner wrappers");
 assertMatch(pointerRegion, /\balign_of<\.U>/, "region_ptr_at must prove target type alignment");

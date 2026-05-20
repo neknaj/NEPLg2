@@ -839,3 +839,9 @@ source policy は `ByteBuilderStorage` enum、`storage` field、`ByteBuilderStor
 修正後、`std/stdio/raw` に残る通常公開 wrapper は raw `i32` ABI 引数を受ける `stdio_fd_read_raw` / `stdio_fd_write_raw` だけである。`MemPtr` から raw address への変換、iovec / nread / nwritten scratch の初期化、fd_write の result 正規化は `std/stdio/read/buffer.nepl` と `std/stdio/write/fd.nepl` の private helper へ移した。これにより stdio の public surface は `str` / `ByteBuf` / `ByteBuilder` / 1 byte の typed wrapper に限定され、`MemPtr = non-owning pointer` と readable/writable extent の対応を caller convention に戻さない。
 
 source policy と compile-fail doctest は、`std/stdio/raw` の `MemPtr` wrapper 復活、`stdio_fd_write_from_result` の public 化、`stdio_fd_read_into_result` の direct import 可能化を拒否する。この親 issue は引き続き open とし、残件は compiler-issued owner token、non-Copy collection drop traversal、collection free の Drop 呼び出しへ絞る。
+
+## 2026-05-20 Agent 1 region_new raw owner boundary 追記
+
+`ISS-20260520T074855359Z-REGION-NEW-ACCEPTS-NON-OWNING-MEMPTR-10E3BBC9` を解決し、`region_new<T>` が `MemPtr<T>` を owner-token construction input として受け取る過渡形を廃止した。`alloc_region_bytes` は `allocator::alloc_raw` が返す raw owner identity を直接 `region_new<T>(raw, bytes)` へ渡し、`realloc_region_bytes_keep` も `realloc_raw` の結果 `next_raw` をそのまま新しい `RegionToken<T>` に束ねる。
+
+この親 issue の Stage 6 方針では、raw-memory-backed stdlib implementation が raw operation を使うこと自体は許容するが、public API や non-owning pointer view に free obligation を混ぜないことが必須である。今回の修正で `MemPtr<T>` は `region_ptr` / `region_ptr_at` の projection view に限定され、owner identity は `RegionToken.raw` と Resource IR の owner/extent proof へ寄せられた。残件は引き続き compiler-issued owner token、`OwnedBuffer<T>`、non-Copy collection drop traversal、collection free の Drop 呼び出しである。

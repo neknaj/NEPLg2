@@ -610,7 +610,8 @@ fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
     let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 0
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let token <RegionToken<LocalToken>> region_new<LocalToken> q size_of<LocalToken>
+    let raw <i32> mem_ptr_addr q
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     let r <Result<(),str>> dealloc_region<LocalToken> token
     0
 ```
@@ -768,7 +769,8 @@ fn main <()*>i32> ():
     let off <i32> choose_offset true
     let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let token <RegionToken<LocalToken>> region_new<LocalToken> q size_of<LocalToken>
+    let raw <i32> mem_ptr_addr q
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     let r <Result<(),str>> dealloc_region<LocalToken> token
     0
 ```
@@ -1029,7 +1031,8 @@ fn token_id <(i32)->i32> (x):
 fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     let r <Result<(),str>> dealloc_region<LocalToken> token
     0
 ```
@@ -1056,7 +1059,8 @@ fn token_id <(i32)->i32> (x):
 
 fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let r <Result<(),str>> dealloc_region<LocalToken> token
     0
@@ -1119,7 +1123,8 @@ fn token_id <(i32)->i32> (x):
 
 fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     match region_ptr_at<LocalToken,LocalToken> &token 0:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -1155,12 +1160,14 @@ fn choose_offset <(bool)->i32> (flag):
 
 fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     let off <i32> choose_offset true
     match region_ptr_at<LocalToken,LocalToken> &token off:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let forged <RegionToken<LocalToken>> region_new<LocalToken> q size_of<LocalToken>
+            let forged_raw <i32> mem_ptr_addr q
+            let forged <RegionToken<LocalToken>> region_new<LocalToken> forged_raw size_of<LocalToken>
             let r <Result<(),str>> dealloc_region<LocalToken> forged
             0
         Result::Err _e:
@@ -1696,7 +1703,8 @@ fn token_id <(i32)->i32> (x):
 
 fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let raw <i32> mem_ptr_addr p
+    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let r <Result<RegionToken<LocalToken>, RegionReallocError<LocalToken>>> realloc_region_bytes_keep<LocalToken> token 32
     0

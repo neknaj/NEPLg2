@@ -83,12 +83,12 @@ pub(super) fn push_core_mem_wrapper_semantics(
             true
         }
         Some(MemoryHelperPrimitive::RegionNew) => {
-            let Some(ptr) = arg_places.first() else {
+            let Some(raw) = arg_places.first() else {
                 return false;
             };
             let target = region_token_raw_field_place(env.types, output, env.types.i32());
             ops.push(ResourceOp::RawAddressAlias {
-                source: mem_ptr_raw_field_place(env.types, ptr, env.types.i32()),
+                source: raw.clone(),
                 target,
                 kind: RawAddressAliasKind::InternalHelper,
                 span,

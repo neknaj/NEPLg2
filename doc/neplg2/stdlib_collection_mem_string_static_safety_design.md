@@ -82,7 +82,7 @@
 問題:
 
 - `MemPtr<T>` は stdlib コメント上は Copy な non-owning pointer であり、ByteBuf / ByteBuilder / StringBuilder / Vec の public owner field からは外れた。残る問題は、`RegionToken<T>` 自体が forge 可能な owner token である点である。
-- `RegionToken<T>` は `region_new` で stdlib code から再構成できるため、compiler-issued capability ではない。
+- `RegionToken<T>` は `region_new` で stdlib code から allocator-issued raw owner identity を束ね直せるため、compiler-issued capability ではない。
 - `dealloc_region<T>` は storage-only free と initialized payload destruction を API 上で分けない。non-Copy payload collection では、`OwnedBuffer<T>` / initialized cell state / drop traversal が入るまで `.T: Copy` 境界を維持する。
 - raw `i32` API と safe-ish typed API が同じ名前空間にあり、self-host 側が discipline を誤って広げやすい。
 
@@ -123,7 +123,7 @@
 
 残る問題:
 
-- `RegionToken<T>` はまだ stdlib code から `region_new` で構築できるため、compiler-issued capability ではない。
+- `RegionToken<T>` はまだ stdlib code から `region_new` で allocator-issued raw owner identity を束ねて構築できるため、compiler-issued capability ではない。
 - empty / allocated と capacity / initialized prefix の一部は `ByteBuf` / `ByteBuilder` の struct discipline に残る。
 
 ### `alloc/collections`
@@ -316,7 +316,7 @@ Resource IR / typecheck / match check は次を必須にする。
 2026-05-16 追記:
 
 - `RegionToken<T>` は `ptr: MemPtr<T>` を持たず、`raw: i32, size: i32` の owner token layout に移行した。`MemPtr<T>` は `region_ptr<T>(&RegionToken<T>)` / `region_ptr_at<T,U>` の checked non-owning projection としてだけ使う。
-- `region_new<T>` は internal boundary で `MemPtr<T>` から raw owner identity を取り出して token を構築する。通常 source は `RegionToken` constructor、raw field projection、`region_token_raw_ref` のような raw identity accessor を直接使えず、compiler owner aggregate boundary と source capability が検査する。
+- `region_new<T>` は internal boundary で allocator / realloc helper が返した raw owner identity と size を束ねて token を構築する。`MemPtr<T>` は non-owning view なので `region_new` の入力にはしない。通常 source は `RegionToken` constructor、raw field projection、`region_token_raw_ref` のような raw identity accessor を直接使えず、compiler owner aggregate boundary と source capability が検査する。
 - Resource IR owner summary は direct raw memory op だけでなく、callee summary が消費する raw owner alias も seed する。これにより `dealloc_region<T>` が `RegionToken.raw` から一時 `MemPtr.raw` を作り `dealloc_ptr<T>` へ渡す場合も、caller では `RegionToken<T>` owner が消費されたことが証明される。
 - `nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist は 0 件になった。今後 stdlib の struct field に `MemPtr` / `Option<MemPtr>` を owner-like field として戻すことは禁止する。
 - ただし `RegionToken<T>` はまだ compiler-issued `OwnedRegion<T>` ではない。Stage B/D/F の最終目標は、`RegionToken` を過渡 owner token として閉じ、`OwnedBuffer<T>` / `StorageState<T>` / initialized prefix / compiler-issued free obligation owner へ進めることである。

@@ -1,7 +1,7 @@
 use crate::span::Span;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{OwnerState, OwnerStorageExtent, Place};
+use super::model::{OwnerStorageExtent, Place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::instantiate_owner_extent_summary;
 use super::owner_state::OwnerTable;
@@ -47,12 +47,7 @@ impl ResourceOwnerCheckEngine<'_> {
         ) {
             true
         } else {
-            self.push_unavailable(
-                requirement.operation,
-                place,
-                owners.state(place).unwrap_or(OwnerState::NoFreeObligation),
-                span,
-            );
+            self.push_extent_unavailable(owners, raw_aliases, place, requirement.operation, span);
             false
         }
     }
