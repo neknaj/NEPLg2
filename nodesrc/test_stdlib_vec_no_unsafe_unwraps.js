@@ -390,6 +390,21 @@ assert.match(vecTransformFilterCode, /fn\s+filter[\s\S]*vec_buffer_current_copy_
 assert.match(vecTransformFilterCode, /fn\s+partition[\s\S]*vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*store<\.T>/, 'Vec.partition must reject malformed input invariant before output raw writes');
 assert.match(vecTransformPrefixCode, /fn\s+take_while[\s\S]*vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*vec_copy_range_to_raw/, 'Vec.take_while must reject malformed input invariant before raw range copy');
 assert.match(vecTransformPrefixCode, /fn\s+drop_while[\s\S]*vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*vec_copy_range_to_raw/, 'Vec.drop_while must reject malformed input invariant before raw range copy');
+for (const [name, section, neutral] of [
+    ['count', countSection, /then\s+0/],
+    ['fold', foldSection, /then\s+acc/],
+    ['reduce', reduceSection, /then\s+none<\.T>/],
+    ['find', findSection, /then\s+none<\.T>/],
+    ['any', anySection, /then\s+false/],
+    ['all', allSection, /then\s+false/],
+]) {
+    assert.match(section, /vec_buffer_current_copy_invariant<\.T>\s+v_buffer/, `Vec.${name} must prove OwnedBuffer invariant before using len as a scan bound`);
+    assert.match(section, neutral, `Vec.${name} must return a neutral non-success result for malformed OwnedBuffer metadata`);
+    assert(
+        section.search(/vec_buffer_current_copy_invariant<\.T>\s+v_buffer/) < section.search(/let\s+src_len\s+<i32>/),
+        `Vec.${name} must not read len as a scan bound before proving the Vec invariant`,
+    );
+}
 for (const [name, code] of [
     ['sort_quick', codeByPath.get('stdlib/alloc/collections/vec/sort/quick.nepl')],
     ['sort_quick_ret', codeByPath.get('stdlib/alloc/collections/vec/sort/quick.nepl')],
