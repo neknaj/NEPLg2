@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { readTySource } = require("./selfhost_ty_sources");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -46,14 +47,13 @@ function enumVariants(src, enumName) {
     return variants;
 }
 
-function assertEnumEqUsesMatches(rel, enumName, eqName) {
-    const src = read(rel);
+function assertEnumEqUsesMatchesSource(src, label, enumName, eqName) {
     assert.doesNotMatch(
         src,
         new RegExp(`(?:pub\\s+)?fn\\s+${eqName.replace(/_eq$/, "_tag")}\\b`),
-        `${rel} must not expose a numeric tag helper for ${enumName}`,
+        `${label} must not expose a numeric tag helper for ${enumName}`,
     );
-    assert.doesNotMatch(src, /\bselfhost_[A-Za-z0-9_]+_kind_tag\b/, `${rel} must not use kind tag helpers`);
+    assert.doesNotMatch(src, /\bselfhost_[A-Za-z0-9_]+_kind_tag\b/, `${label} must not use kind tag helpers`);
 
     const block = functionBlock(src, eqName);
     assert.match(block, /\bmatch\s+a:/, `${eqName} must dispatch on the left enum value`);
@@ -70,7 +70,11 @@ function assertEnumEqUsesMatches(rel, enumName, eqName) {
     }
 }
 
-assertEnumEqUsesMatches("stdlib/neplg2/core/ty/ty.nepl", "SelfhostTypeKind", "selfhost_type_kind_eq");
+function assertEnumEqUsesMatches(rel, enumName, eqName) {
+    assertEnumEqUsesMatchesSource(read(rel), rel, enumName, eqName);
+}
+
+assertEnumEqUsesMatchesSource(readTySource(repoRoot), "stdlib/neplg2/core/ty/ty", "SelfhostTypeKind", "selfhost_type_kind_eq");
 assertEnumEqUsesMatches("stdlib/neplg2/core/hir/hir/expr.nepl", "SelfhostHirExprKind", "selfhost_hir_expr_kind_eq");
 assertEnumEqUsesMatches("stdlib/neplg2/core/builtins/prelude.nepl", "SelfhostBuiltinKind", "selfhost_builtin_kind_eq");
 assertEnumEqUsesMatches("stdlib/neplg2/core/resolve/name_resolver.nepl", "SelfhostDefKind", "selfhost_def_kind_eq");
