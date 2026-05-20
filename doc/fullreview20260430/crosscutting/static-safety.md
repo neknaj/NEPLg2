@@ -48,11 +48,14 @@ selfhost 側では直近の refactor で、HIR と name binding の未割当 sen
 
 ### collections の drop obligation
 
-collections の `free` 系 API が要素の `Drop` を呼ぶ責務を型と静的検査で保証できていない。`Vec` などは分割が進み、facade と storage/access/mutation/query などの責務分離は改善しているが、所有要素を持つ collection の破棄順序、panic 時の部分初期化、再確保時の move/drop を Resource IR にどう見せるかは未完了である。
+2026-05-20 現状追記: 旧 issue `ISS-20260425T000000Z-RV-STDLIB-004-91534828` は、現行 public surface を Copy-only に閉じ、横断 source policy で constructor / update / observer / cleanup / owner recovery / storage view を監視する closure audit により fixed になった。unsupported non-Copy payload を collection に入れて storage-only `free` へ到達する入口は閉じている。
 
-関連 open issue:
+ただし、所有要素を持つ collection の破棄順序、panic 時の部分初期化、再確保時の move/drop を Resource IR にどう見せるかは final non-Copy support として未完了である。これは `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` で扱う。
 
-- `ISS-20260425T000000Z-RV-STDLIB-004-91534828`
+関連 issue:
+
+- `ISS-20260425T000000Z-RV-STDLIB-004-91534828`: fixed
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543`: open
 
 ### selfhost lexer の数値状態
 
@@ -79,7 +82,7 @@ Rust compiler 側の Resource IR は安全性の中核として進んでいる�
 | drop elaboration bridge | 実装中 | bridge gate と drop insertion が pipeline に入っている |
 | diagnostic code model | 実装済み寄り、selfhost 同期は未完了 | enum registry はあるが open issue が残る |
 | stdlib `core/mem` 安全境界 | 未完了 P1 | raw API と compiler-owned provenance の接続が未完了 |
-| collections drop obligation | 未完了 P1 | collection free が要素 Drop を保証しない |
+| collections drop obligation | 旧 bug fixed / final support 未完了 P1 | Copy-only guard は成立。non-Copy payload lifecycle は後続 issue |
 | stdlib string/Vec 分割 | 進行済み、継続レビュー必要 | facade と submodule 分割は進んだ |
 | selfhost HIR payload model | 改善済み | payload enum と `Option` 化が入った |
 | selfhost lexer state | 解決済み、回帰監視 | `SelfhostLexerRawMode` enum と `match` 化、source policy 追加済み |

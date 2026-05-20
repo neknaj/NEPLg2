@@ -24,7 +24,9 @@ DisjointSet/Fenwick/SegmentTree/BitSet/AdjacencyMatrix/BloomFilter は Copy payl
 
 ## 問題とリスク
 
-P1 open issue の通り、collection free/drop contract は未完である。`Vec<T>` や `HashMap<K,V>` に owning/non-Copy payload を入れたとき、container free が要素 Drop をどう呼ぶか、remove/pop が owner をどう返すか、storage-only dealloc と element cleanup をどう分けるかが未確定である。
+2026-05-20 現状追記: 旧 P1 bug issue `ISS-20260425T000000Z-RV-STDLIB-004-91534828` は、Copy-only public surface と横断 source policy の closure audit により fixed になった。現時点で unsupported non-Copy payload を collection に入れて storage-only `free` へ到達する入口は閉じている。一方で、selfhost AST/HIR/diagnostic payload のための final non-Copy collection support は `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` で継続する。
+
+現行 API は Copy-only 境界で旧 bug を閉じているが、collection free/drop contract の最終形は未完である。`Vec<T>` や `HashMap<K,V>` に owning/non-Copy payload を入れたとき、container free が要素 Drop をどう呼ぶか、remove/pop が owner をどう返すか、storage-only dealloc と element cleanup をどう分けるかは、後続 issue の compiler-backed owner model として実装する。
 
 多くの collection が `.T: Copy` を要求して問題を回避している。これは現時点では正直な制約だが、selfhost AST/HIR/diagnostic では non-Copy payload が必要になるため、長期的な解決にはならない。
 
@@ -36,8 +38,8 @@ List には by-value observer が残る。現実には owner を閉じる termin
 
 | 領域 | 状態 | 判定 |
 |---|---|---|
-| `Vec` | module split + storage enum。 | 良い。element drop contractは未完。 |
-| `HashMap` / `HashSet` | bucket state enum + storage分割。 | 良い。non-Copy value/dropは未完。 |
+| `Vec` | module split + storage enum + Copy-only guard。 | 良い。旧 bug は閉じたが final non-Copy element drop contract は未完。 |
+| `HashMap` / `HashSet` | bucket state enum + storage分割 + Copy-only guard。 | 良い。non-Copy value/dropは後続 issue。 |
 | `BTreeMap` / `BTreeSet` | sorted-array implementation。 | 小規模/安定順用。compiler大規模表には不向き。 |
 | `List` | Vec-backed storage。 | raw node廃止は良い。observer/drop contractは残る。 |
 | Stack/Queue/Deque/RingBuffer/BinaryHeap | typed slot storage。 | Copy payload中心なら有用。 |
@@ -47,5 +49,6 @@ List には by-value observer が残る。現実には owner を閉じる termin
 
 - collection API を `Copy read`、`borrowed read`、`owned remove/pop`、`container drop`、`storage-only dealloc` に分ける。
 - `Drop<T>` bound と ResourceIR drop obligation を前提に、non-Copy payload の container free を設計する。
+- final non-Copy support は `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の作業として扱い、旧 `RV-STDLIB-004` に戻して曖昧な親 issue にしない。
 - selfhost compiler の table は BTree sorted-array ではなく HashMap/HashSet と最終 sort の組み合わせを基本にする。
 - source policy は raw header/raw pointer sentinel 再導入だけでなく、by-value observer の再拡大も監視する。

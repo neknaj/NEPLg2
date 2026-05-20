@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 collection drop legacy issue closure audit
+
+- `ISS-20260425T000000Z-RV-STDLIB-004-91534828` を closure audit で `fixed` / `resolved: true` にした。`plan.md` は変更していない。
+- 現行 `stdlib/alloc/collections/**` の public surface は、constructor、update、observer、cleanup、owner-returning error accessor、pop-result accessor、borrowed storage view が Copy-only または owner-preserving result/error 境界へ揃っていることを確認した。
+- 旧レビュー時点の「non-Copy payload を collection に入れ、`free` が要素 Drop を呼ばず storage-only dealloc へ進む」入口は閉じている。
+- これは final non-Copy collection support の完成ではないため、後続 P1 architecture issue `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` を追加し、compiler-issued owner token、InitializedCell / Resource IR state、move-out / replace / drop traversal を generic proof boundary へ接続する作業として分離した。
+- 関連 doc の現状記述を、旧 bug fixed / final support open の対応関係へ更新した。
+- 検証:
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js`: pass
+  - `git diff --check`: pass
+
 # 2026-05-20 Agent 1 collection observer doctest call form cleanup
 
 - `ISS-20260520T142914786Z-COLLECTION-OBSERVER-DOCTESTS-STILL-U-19B433D2` を修正した。`plan.md` は変更していない。

@@ -356,7 +356,8 @@ Resource IR / typecheck / match check は次を必須にする。
 2026-05-20 追記:
 
 - raw-memory-backed API の staged effect migration parent は、[ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84](../../issues/items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md) として closure audit 済みである。raw memory primitive は compiler の internal effect / Resource IR gate / source capability proof に接続され、public raw `MemPtr` surface は source policy で監視されている。
-- これは non-Copy collection の完成を意味しない。collection element Drop traversal と `free` contract は [ISS-20260425T000000Z-RV-STDLIB-004-91534828](../../issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md) の open issue として残し、self-host 実装は safe subset を使う。
+- collection free が non-Copy payload を受け入れて要素 Drop を呼ばない旧バグは、[ISS-20260425T000000Z-RV-STDLIB-004-91534828](../../issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md) の closure audit で fixed とした。現行 public surface は Copy-only 境界と source policy で guarded である。
+- これは non-Copy collection の完成を意味しない。compiler-issued owner token、moved slot、drop traversal、`InitializedCell` / Resource IR 接続による final support は [ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543](../../issues/items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md) で扱い、self-host 実装はそれまで safe subset を使う。
 
 ### Stage B: `core/mem` の internal/public 分離
 
@@ -419,7 +420,9 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` | `MemPtr` / `RegionToken` の owner/provenance 分離。 |
 | `ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048` | compiler owner token の線形性を Copy capability impl で崩せる経路を typecheck boundary で拒否。 |
 | `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` | initialized payload と storage-only dealloc の分離。 |
-| `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | raw-memory-backed stdlib API の段階移行親 issue。2026-05-20 に closure audit 済み。残る collection Drop traversal は `ISS-20260425T000000Z-RV-STDLIB-004-91534828` で扱う。 |
+| `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | raw-memory-backed stdlib API の段階移行親 issue。2026-05-20 に closure audit 済み。 |
+| `ISS-20260425T000000Z-RV-STDLIB-004-91534828` | 旧 collection free/drop bug。2026-05-20 に Copy-only public surface と policy coverage の closure audit で fixed。 |
+| `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` | non-Copy payload collection の final support。compiler-issued owner token、initialized/moved/drop state、Resource IR proof boundary へ接続する後続 issue。 |
 | `ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF` | `VecDataLen` raw storage view carrier の削除。 |
 | `ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F` | `StringBuilder` 固有 raw owner field を `ByteBuilder` owner boundary へ集約。 |
 | `ISS-20260514T071955576Z-BYTEBUF-STORES-OWNED-BYTES-AS-OPTION-FA165159` | `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` owner field を `RegionToken` owner boundary へ集約。 |
