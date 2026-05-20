@@ -14,7 +14,7 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 #import "./get" as vec_get
 #import "core/field" as *
 
@@ -59,10 +59,10 @@
 //: ```
 pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
-        then none<.T>
-        else:
+    match vec_buffer_current_copy_invariant<.T> v_buffer:
+        VecCopyInvariant::Invalid _reason:
+            none<.T>
+        VecCopyInvariant::Valid:
             let src_len <i32> *field::get_ref v_buffer "len"
             let mut out <Option<.T>> none<.T>
             let mut active <bool> true
@@ -119,10 +119,10 @@ pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //: ```
 pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
-        then false
-        else:
+    match vec_buffer_current_copy_invariant<.T> v_buffer:
+        VecCopyInvariant::Invalid _reason:
+            false
+        VecCopyInvariant::Valid:
             let src_len <i32> *field::get_ref v_buffer "len"
             let mut out <bool> false
             let mut i <i32> 0
@@ -172,10 +172,10 @@ pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //: ```
 pub fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
-        then false
-        else:
+    match vec_buffer_current_copy_invariant<.T> v_buffer:
+        VecCopyInvariant::Invalid _reason:
+            false
+        VecCopyInvariant::Valid:
             let src_len <i32> *field::get_ref v_buffer "len"
             let mut out <bool> true
             let mut i <i32> 0

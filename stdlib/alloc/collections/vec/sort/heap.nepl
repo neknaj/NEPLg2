@@ -12,7 +12,7 @@
 #import "core/math" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
-#import "alloc/collections/vec/invariant" as vec_invariant
+#import "alloc/collections/vec/invariant" as *
 #import "alloc/collections/vec/sort/common" as *
 #import "core/field" as *
 
@@ -91,10 +91,10 @@ fn sort_heap_sift_down_data <.T: Ord&Copy> <(MemPtr<.T>,i32,i32)*>()> (data_ptr,
 //: [計算量/けいさんりょう]:
 //: - O(n log n)、追加領域 O(1)
 pub fn sort_heap <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> v
-        then ()
-        else:
+    match vec_current_copy_invariant<.T> v:
+        VecCopyInvariant::Invalid _reason:
+            ()
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> v
             let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
             if:
@@ -135,10 +135,10 @@ pub fn sort_heap <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - `sort_heap` と同じです。
 pub fn sort_heap_ret <.T: Ord&Copy> <(Vec<.T>)*>Vec<.T>> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> &v
-        then ()
-        else:
+    match vec_current_copy_invariant<.T> &v:
+        VecCopyInvariant::Invalid _reason:
+            ()
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> &v
             let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
             if:

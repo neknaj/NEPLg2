@@ -43535,3 +43535,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-invariant-2.json -j 1 --assert-io`: 2/2 passed
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-root-data-view-invariant.json -j 1 --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 Vec invariant enum proof 化
+
+- `ISS-20260520T105718879Z-VEC-RAW-ACCESS-INVARIANT-IS-COLLAPSE-31A4E4CA` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Vec` raw access invariant が `bool` に潰れており、`len` / `initialized_len` / `cap` / `VecStorage` のどの相関が壊れたのかを caller や policy が型として追えなかったことだった。
+- `VecCopyInvariantInvalid` と `VecCopyInvariant` を追加し、`vec_buffer_current_copy_invariant<T>` / `vec_current_copy_invariant<T>` の返り値を `Valid | Invalid(reason)` にした。未使用の bool projection helper は残さず削除した。
+- `data_mem_ptr`、`get`、`replace`、`push`、`pop`、`drop_last`、aggregate / predicate query、transform family、quick / heap / merge / simple sort family は `VecCopyInvariant` の `match` を通ってから raw view / raw load/store / range copy / sort scratch allocation に進む。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は、invariant helper が bool を返さないこと、invalid reason enum を持つこと、主要 raw boundary caller が `VecCopyInvariant::Invalid` / `Valid` を match していることを監視する。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/invariant.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-data.json -j 1 --assert-io`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/push.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-mutation.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/get.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-query.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/aggregate.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-aggregate.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/predicate.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-predicate.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/map.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-map.json -j 1 --assert-io`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-filter.json -j 1 --assert-io`: 7/7 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/prefix.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-prefix.json -j 1 --assert-io`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-sort.json -j 1 --assert-io`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-invariant-enum-root.json -j 1 --assert-io`: 3/3 passed

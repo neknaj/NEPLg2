@@ -14,7 +14,7 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 #import "./get" as vec_get
 #import "core/field" as *
 
@@ -53,10 +53,10 @@
 //: ```
 pub fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
-        then 0
-        else:
+    match vec_buffer_current_copy_invariant<.T> v_buffer:
+        VecCopyInvariant::Invalid _reason:
+            0
+        VecCopyInvariant::Valid:
             let src_len <i32> *field::get_ref v_buffer "len"
             let mut out <i32> 0
             let mut i <i32> 0
@@ -110,10 +110,10 @@ pub fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
 //: ```
 pub fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
-        then acc
-        else:
+    match vec_buffer_current_copy_invariant<.T> v_buffer:
+        VecCopyInvariant::Invalid _reason:
+            acc
+        VecCopyInvariant::Valid:
             let src_len <i32> *field::get_ref v_buffer "len"
             let mut out <.U> acc
             let mut i <i32> 0
@@ -170,10 +170,10 @@ pub fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
 //: ```
 pub fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
-        then none<.T>
-        else:
+    match vec_buffer_current_copy_invariant<.T> v_buffer:
+        VecCopyInvariant::Invalid _reason:
+            none<.T>
+        VecCopyInvariant::Valid:
             let src_len <i32> *field::get_ref v_buffer "len"
             if:
                 eq src_len 0

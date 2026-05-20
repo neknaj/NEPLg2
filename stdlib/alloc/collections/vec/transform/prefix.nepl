@@ -22,7 +22,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../query/get" as vec_get
 #import "../access/data" as vec_data
-#import "../invariant" as vec_invariant
+#import "../invariant" as *
 #import "core/field" as *
 
 //: vec_take_while_len: borrowed Vec から prefix 境界を[求/もと]める[内部/ないぶ] helper
@@ -104,11 +104,10 @@ fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src,
 pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
-        then:
+    match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
+        VecCopyInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
-        else:
+        VecCopyInvariant::Valid:
             let keep_len <i32> vec_take_while_len<.T> &v src_len p
             match vec_storage::with_capacity<.T> keep_len:
                 Result::Err e:
@@ -169,11 +168,10 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransfor
 pub fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let src_len <i32> *field::get_ref v_buffer_ref "len"
-    if:
-        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer_ref
-        then:
+    match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
+        VecCopyInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
-        else:
+        VecCopyInvariant::Valid:
             let drop_len <i32> vec_take_while_len<.T> &v src_len p
             let keep_len <i32> sub src_len drop_len
             match vec_storage::with_capacity<.T> keep_len:

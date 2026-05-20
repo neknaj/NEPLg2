@@ -16,7 +16,7 @@
 #import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
-#import "alloc/collections/vec/invariant" as vec_invariant
+#import "alloc/collections/vec/invariant" as *
 #import "core/field" as field
 #import "core/field" as *
 
@@ -195,10 +195,10 @@ pub fn vec_sort_merge_error_vec <.T: Copy> <(VecSortMergeError<.T>)->Vec<.T>> (e
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
 pub fn sort_merge <.T: Ord&Copy> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> v
-        then Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
-        else:
+    match vec_current_copy_invariant<.T> v:
+        VecCopyInvariant::Invalid _reason:
+            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> v
             let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
             if:
@@ -230,10 +230,10 @@ pub fn sort_merge <.T: Ord&Copy> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
 //: [計算量/けいさんりょう]:
 //: - `sort_merge` と同じです。
 pub fn sort_merge_ret <.T: Ord&Copy> <(Vec<.T>)*>Result<Vec<.T>, VecSortMergeError<.T>>> (v):
-    if:
-        not vec_invariant::vec_current_copy_invariant<.T> &v
-        then Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
-        else:
+    match vec_current_copy_invariant<.T> &v:
+        VecCopyInvariant::Invalid _reason:
+            Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
+        VecCopyInvariant::Valid:
             let n <i32> len<.T> &v
             let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
             if:
