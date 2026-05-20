@@ -18,6 +18,12 @@
 - reviewer subagent の監査により、`ResourceOp::CollectionSlotLifecycle` は intra-function checker へ接続されたが、callee 内の slot lifecycle effect を caller の `CollectionSlotStateTable` へ伝播する summary path が未実装であることを確認した。
 - これは今回の Resource IR/control-flow integration commit の blocker ではないが、stdlib collection API から non-Copy payload lifecycle を実際に発火させる前に必須の P1 残件である。
 
+# 2026-05-21 Agent 1 collection slot lowering producer 残件 issue 化
+
+- `ISS-20260520T200531197Z-COLLECTION-SLOT-LIFECYCLE-HAS-NO-PRO-298A1B25` を追加した。`plan.md` は変更していない。
+- reviewer subagent の監査により、現在の `ResourceOp::CollectionSlotLifecycle` は手書き Resource IR test では検査されるが、実際の collection API semantics から production lowering で発行される経路がまだ無いことを確認した。
+- この残件は source policy や stdlib 関数名 allowlist で補うべきではなく、source-level semantics または compiler-owned annotation から typed lifecycle event を生成する設計で対応する。
+
 # 2026-05-21 Worker selfhost mono invalid key intern boundary
 
 - `plan.md` は変更していない。

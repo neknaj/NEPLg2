@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T20:04:24.641Z",
+  "generated_at": "2026-05-20T20:06:30.617Z",
   "counts": {
-    "total": 1144,
-    "open": 4,
+    "total": 1145,
+    "open": 5,
     "resolved": 1140,
     "by_area": {
       "core": {
-        "total": 541,
-        "open": 1,
+        "total": 542,
+        "open": 2,
         "resolved": 540
       },
       "stdlib": {
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T200325099Z-COLLECTION-SLOT-LIFECYCLE-EFFECTS-DO-6E6407FC.md"
+    },
+    {
+      "id": "ISS-20260520T200531197Z-COLLECTION-SLOT-LIFECYCLE-HAS-NO-PRO-298A1B25",
+      "title": "Collection slot lifecycle has no production lowering producer",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/resource/lower*.rs, nepl-core/src/resource/model.rs, stdlib/alloc/collections/**, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T200531197Z-COLLECTION-SLOT-LIFECYCLE-HAS-NO-PRO-298A1B25.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
