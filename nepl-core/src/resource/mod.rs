@@ -13,8 +13,10 @@ mod borrow_state;
 mod borrow_summary;
 mod borrow_usage;
 mod cell_state;
+mod cell_state_raw_copy;
 mod cell_state_raw_range;
 mod cell_state_raw_range_append;
+mod cell_state_raw_range_copy;
 mod cell_state_raw_range_count;
 mod cell_state_raw_range_cover;
 #[cfg(test)]
@@ -24,6 +26,8 @@ mod cell_state_raw_range_model;
 mod cell_state_raw_range_offset;
 mod cell_state_raw_range_value;
 mod cell_state_raw_range_value_alias;
+#[cfg(test)]
+mod cell_state_tests;
 mod compiler_memory_place;
 mod condition_fact;
 mod coverage;
@@ -95,6 +99,9 @@ mod host_memory_contract;
 mod host_memory_contract_tests;
 mod host_size_contract;
 mod i32_call_facts;
+mod i32_call_facts_scale;
+#[cfg(test)]
+mod i32_call_facts_scale_tests;
 #[cfg(test)]
 mod i32_call_facts_tests;
 mod i32_extent_proof;
@@ -150,6 +157,7 @@ mod initialized_host_dependent;
 mod initialized_raw_fill;
 mod initialized_raw_memory;
 mod initialized_raw_memory_access;
+mod initialized_raw_memory_bulk;
 mod initialized_raw_view;
 mod initialized_rekey;
 mod initialized_scalar_flow;

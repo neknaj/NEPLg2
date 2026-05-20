@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T17:41:49.919Z",
+  "generated_at": "2026-05-20T18:04:02.957Z",
   "counts": {
-    "total": 1136,
+    "total": 1137,
     "open": 4,
-    "resolved": 1132,
+    "resolved": 1133,
     "by_area": {
+      "core": {
+        "total": 536,
+        "open": 1,
+        "resolved": 535
+      },
       "stdlib": {
         "total": 312,
         "open": 2,
@@ -16,20 +21,10 @@
         "open": 1,
         "resolved": 107
       },
-      "tools": {
-        "total": 4,
-        "open": 1,
-        "resolved": 3
-      },
       "cli": {
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 535,
-        "open": 0,
-        "resolved": 535
       },
       "CORE": {
         "total": 5,
@@ -116,6 +111,11 @@
         "open": 0,
         "resolved": 1
       },
+      "tools": {
+        "total": 4,
+        "open": 0,
+        "resolved": 4
+      },
       "tutorials": {
         "total": 3,
         "open": 0,
@@ -134,6 +134,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260520T180237730Z-INITIALIZED-RAW-RANGE-COUNT-ALIASES--A1FBF011",
+      "title": "Initialized raw range count aliases are not preserved through loaded count values",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/cell_state_raw_range_value_alias.rs, nepl-core/src/resource/cell_state_raw_range_cover_tests.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260520T180237730Z-INITIALIZED-RAW-RANGE-COUNT-ALIASES--A1FBF011.md"
+    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",
@@ -178,21 +193,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260520T165159064Z-RAW-CELL-LIFECYCLE-SOURCE-POLICY-ONL-848A217D",
-      "title": "Raw cell lifecycle source policy only checks surface strings",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-20",
-      "updated": "2026-05-20",
-      "target": "nodesrc/test_resource_raw_cell_lifecycle_policy.js, nepl-core/tests/resource_ir.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260520T165159064Z-RAW-CELL-LIFECYCLE-SOURCE-POLICY-ONL-848A217D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -17023,6 +17023,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1.md"
+    },
+    {
+      "id": "ISS-20260520T165159064Z-RAW-CELL-LIFECYCLE-SOURCE-POLICY-ONL-848A217D",
+      "title": "Raw cell lifecycle source policy only checks surface strings",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-20",
+      "updated": "2026-05-21",
+      "target": "nodesrc/test_resource_raw_cell_lifecycle_policy.js, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260520T165159064Z-RAW-CELL-LIFECYCLE-SOURCE-POLICY-ONL-848A217D.md"
     },
     {
       "id": "ISS-20260430T020255446Z-GETTING-STARTED-DOCTESTS-RELY-ON-EXI-8902362D",

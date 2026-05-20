@@ -1,15 +1,12 @@
 use alloc::vec::Vec;
 
 use crate::layout::aggregate_fields_with_offsets;
-use crate::layout::storage_size_bytes;
 use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state_raw_range::{
     merge_initialized_raw_byte_ranges, rekey_initialized_raw_byte_ranges, InitializedRawByteRange,
 };
 use super::cell_state_raw_range_merge::merge_initialized_raw_byte_ranges_with_raw_aliases;
-use super::cell_state_raw_range_offset::NormalizedRawOffset;
-use super::i32_extent_proof::scalar_place_covers_count;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{CellState, CellStateEntry, Place, PlaceProjection, ResourceOffset};
 use super::place_utils::{
@@ -25,7 +22,6 @@ pub(super) struct CellTable {
     external_raw_storage_roots: Vec<Place>,
     pub(super) initialized_raw_byte_ranges: Vec<InitializedRawByteRange>,
 }
-
 impl CellTable {
     pub(super) fn into_entries(self) -> Vec<CellStateEntry> {
         self.cells
@@ -239,41 +235,6 @@ impl CellTable {
                     return None;
                 };
                 if !types.is_copy(ty) {
-                    return None;
-                }
-                Some(CellStateEntry {
-                    place: place_with_suffix(destination, &suffix, entry.place.ty),
-                    state: entry.state.clone(),
-                })
-            })
-            .collect()
-    }
-
-    pub(super) fn copy_initialized_copy_raw_cells_covered_by_count(
-        &self,
-        source: &Place,
-        destination: &Place,
-        count: &Place,
-        raw_aliases: &RawCellAddressAliases,
-        types: &TypeCtx,
-    ) -> Vec<CellStateEntry> {
-        self.cells
-            .iter()
-            .filter_map(|entry| {
-                let suffix = raw_cell_suffix_after_address(&entry.place, source)?;
-                let CellState::Initialized(ty) = entry.state else {
-                    return None;
-                };
-                if !types.is_copy(ty) {
-                    return None;
-                }
-                if !raw_cell_suffix_is_covered_by_byte_count(
-                    &suffix,
-                    entry.place.ty,
-                    count,
-                    raw_aliases,
-                    types,
-                ) {
                     return None;
                 }
                 Some(CellStateEntry {
@@ -509,47 +470,6 @@ pub(super) fn raw_cell_suffix_after_address(
     }
 }
 
-fn raw_cell_suffix_is_covered_by_byte_count(
-    suffix: &[PlaceProjection],
-    cell_ty: TypeId,
-    count: &Place,
-    raw_aliases: &RawCellAddressAliases,
-    types: &TypeCtx,
-) -> bool {
-    let Some(offset) = raw_cell_suffix_known_byte_offset(suffix) else {
-        return false;
-    };
-    let Some(size) = storage_size_bytes(types, cell_ty).checked_add(offset) else {
-        return false;
-    };
-    let Ok(size) = i32::try_from(size) else {
-        return false;
-    };
-    let required = Place::i32_constant(size, count.ty);
-    scalar_place_covers_count(raw_aliases, count, &required)
-}
-
-fn raw_cell_suffix_known_byte_offset(suffix: &[PlaceProjection]) -> Option<usize> {
-    let deref_index = suffix
-        .iter()
-        .position(|projection| matches!(projection, PlaceProjection::Deref))?;
-    let address_offset = match NormalizedRawOffset::from_suffix(&suffix[..deref_index])? {
-        NormalizedRawOffset::Known(offset) => offset,
-        NormalizedRawOffset::Symbolic { .. } | NormalizedRawOffset::ScaledSymbolic { .. } => {
-            return None;
-        }
-    };
-    suffix[deref_index + 1..]
-        .iter()
-        .try_fold(address_offset, |offset, projection| match projection {
-            PlaceProjection::Field { offset_bytes, .. }
-            | PlaceProjection::TupleField { offset_bytes, .. } => offset.checked_add(*offset_bytes),
-            PlaceProjection::Deref
-            | PlaceProjection::StorageOffset(_)
-            | PlaceProjection::EnumPayload { .. } => None,
-        })
-}
-
 pub(super) fn raw_address_suffix_after_address(
     address: &Place,
     prefix: &Place,
@@ -782,121 +702,5 @@ fn merge_cell_states(left: CellState, right: CellState) -> CellState {
         (CellState::Moved, CellState::Moved) => CellState::Moved,
         (CellState::Dropped, CellState::Dropped) => CellState::Dropped,
         _ => CellState::MaybeMoved,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::cell_state_raw_range::InitializedRawRangeUnit;
-    use super::super::model::{ResourceId, ResourceOffset};
-    use super::super::place_utils::raw_memory_unknown_offset_cell_place;
-    use super::*;
-    use alloc::boxed::Box;
-    use alloc::string::String;
-    use alloc::vec;
-    use crate::types::TypeKind;
-
-    fn symbolic_cell(base: &Place, id: usize, ty: TypeId) -> Place {
-        let offset = Place::temporary(ResourceId(id), ty);
-        raw_memory_cell_place(
-            &base.clone().with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
-                    place: Box::new(offset),
-                }),
-                ty,
-            ),
-            ty,
-        )
-    }
-
-    fn non_copy_owned_type(types: &mut TypeCtx) -> TypeId {
-        types.register_named(
-            String::from("Owned"),
-            TypeKind::Struct {
-                name: String::from("Owned"),
-                type_params: vec![],
-                fields: vec![],
-                field_names: vec![],
-            },
-        )
-    }
-
-    #[test]
-    fn copy_store_preserves_unknown_offset_initialized_copy_fact() {
-        let mut types = TypeCtx::new();
-        types.set_copy_trait_enabled(true);
-        types.register_copy_impl_target(types.i32());
-        let i32_ty = types.i32();
-        let base = Place::local(String::from("pref"), i32_ty);
-        let mut cells = CellTable::default();
-
-        cells.mark_initialized(&raw_memory_unknown_offset_cell_place(&base, i32_ty));
-        let stored = symbolic_cell(&base, 0, i32_ty);
-        let stored_address = raw_cell_address_prefix(&stored).expect("raw cell address");
-        cells.clear_raw_cells_overwritten_by_store(&stored_address, i32_ty, &types);
-        cells.mark_initialized(&stored);
-
-        let loaded = symbolic_cell(&base, 1, i32_ty);
-        assert_eq!(
-            cells.availability_state_with_types(&types, &loaded),
-            CellState::Initialized(i32_ty)
-        );
-    }
-
-    #[test]
-    fn raw_move_clears_overlapping_initialized_raw_byte_range() {
-        let mut types = TypeCtx::new();
-        types.set_copy_trait_enabled(true);
-        types.register_copy_impl_target(types.i32());
-        types.register_copy_impl_target(types.u8());
-        let owned_ty = non_copy_owned_type(&mut types);
-        let i32_ty = types.i32();
-        let base = Place::local(String::from("buf"), i32_ty);
-        let count = Place::temporary(ResourceId(0), i32_ty);
-        let mut cells = CellTable::default();
-
-        cells.mark_initialized_raw_byte_range(
-            &base,
-            &count,
-            InitializedRawRangeUnit::Bytes,
-            types.u8(),
-        );
-        assert_eq!(cells.initialized_raw_byte_ranges().len(), 1);
-
-        cells.mark_raw_cell_moved(&base, owned_ty);
-
-        assert!(cells.initialized_raw_byte_ranges().is_empty());
-        assert_eq!(
-            cells.availability_state_with_types(&types, &raw_memory_cell_place(&base, owned_ty)),
-            CellState::Moved
-        );
-    }
-
-    #[test]
-    fn raw_move_clears_overlapping_initialized_raw_cell_entry() {
-        let mut types = TypeCtx::new();
-        types.set_copy_trait_enabled(true);
-        types.register_copy_impl_target(types.i32());
-        let owned_ty = non_copy_owned_type(&mut types);
-        let i32_ty = types.i32();
-        let base = Place::local(String::from("buf"), i32_ty);
-        let aggregate_cell = raw_memory_cell_place(&base, owned_ty);
-        let moved_address = base.clone().with_projection(
-            PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
-            i32_ty,
-        );
-        let moved_cell = raw_memory_cell_place(&moved_address, owned_ty);
-        let mut cells = CellTable::default();
-
-        cells.mark_initialized(&aggregate_cell);
-        cells.mark_raw_cell_moved(&moved_address, owned_ty);
-
-        assert!(cells.entries().iter().all(|entry| {
-            entry.place != aggregate_cell || !matches!(entry.state, CellState::Initialized(_))
-        }));
-        assert_eq!(
-            cells.availability_state_with_types(&types, &moved_cell),
-            CellState::Moved
-        );
     }
 }
