@@ -1,0 +1,155 @@
+#indent 4
+
+//: # lexer/error
+//: error token を lexer diagnostic へ[変換/へんかん]します。
+
+#import "core/field" as field
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/syntax/lexer/diagnostic" as *
+
+//: lex_error_for_token: error token を diagnostic へ[変換/へんかん]する
+pub fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
+    let span <SelfhostSourceSpan> field::get token "span"
+    match field::get token "kind":
+        TokenKind::Indent:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Dedent:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Newline:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Eof:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Colon:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Semicolon:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Pipe:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::LParen:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::RParen:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Comma:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::LAngle:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::RAngle:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Arrow:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::PathSep:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::At:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Dot:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Ampersand:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Star:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Minus:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Equals:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Ident:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::IntLiteral:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::FloatLiteral:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::BoolLiteral:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::CharLiteral:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::StringLiteral:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::UnitLiteral:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwFn:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwLet:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwMut:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwNoShadow:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwSet:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwIf:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwWhile:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwCond:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwThen:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwElse:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwDo:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwStruct:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwEnum:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwMatch:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwTrait:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwImpl:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwFor:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwPub:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwBlock:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwTuple:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::KwMlstr:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirEntry:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirTarget:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirImport:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirUse:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirIfTarget:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirIfProfile:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirCapability:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirWasm:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirLlvmIr:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirIndentWidth:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirInclude:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirExtern:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirIntrinsic:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirPrelude:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirNoPrelude:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::WasmText:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::LlvmIrText:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::MlstrLine:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DocComment:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::UnterminatedChar:
+            lex_diag_new SelfhostLexerDiagnosticCode::CharInvalid span "unterminated char literal"
+        TokenKind::UnterminatedString:
+            lex_diag_new SelfhostLexerDiagnosticCode::StringUnterminated span "unterminated string literal"
+        TokenKind::Unknown:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"

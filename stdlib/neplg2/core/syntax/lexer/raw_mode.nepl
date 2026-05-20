@@ -1,0 +1,62 @@
+#indent 4
+
+//: # lexer/raw_mode
+//: raw backend block の typed lexer state を[定義/ていぎ]します。
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/syntax/lexer/indent" as *
+#import "neplg2/core/syntax/lexer/token_build" as *
+
+pub enum SelfhostLexerRawMode:
+    None
+    Wasm
+    LlvmIr
+
+impl Clone for SelfhostLexerRawMode:
+    fn clone <(&SelfhostLexerRawMode)->SelfhostLexerRawMode> (self):
+        *self
+
+impl Copy for SelfhostLexerRawMode:
+    fn copy_mark <(SelfhostLexerRawMode)->SelfhostLexerRawMode> (self):
+        self
+
+//: SelfhostLexerDirectiveKind: `#` directive の分類
+//:
+//: [目的/もくてき]:
+
+//: lex_token_pending_raw_mode: raw block を開始する directive なら mode を[返/かえ]す
+pub fn lex_token_pending_raw_mode <(SelfhostToken)->SelfhostLexerRawMode> (token):
+    match field::get token "kind":
+        TokenKind::DirWasm:
+            SelfhostLexerRawMode::Wasm
+        TokenKind::DirLlvmIr:
+            SelfhostLexerRawMode::LlvmIr
+        _:
+            SelfhostLexerRawMode::None
+
+//: lex_raw_mode_is_active: raw block mode が active か[返/かえ]す
+pub fn lex_raw_mode_is_active <(SelfhostLexerRawMode)->bool> (raw_mode):
+    match raw_mode:
+        SelfhostLexerRawMode::None:
+            false
+        SelfhostLexerRawMode::Wasm:
+            true
+        SelfhostLexerRawMode::LlvmIr:
+            true
+
+//: lex_raw_kind: raw block mode から token kind を[返/かえ]す
+pub fn lex_raw_kind <(SelfhostLexerRawMode)->TokenKind> (raw_mode):
+    match raw_mode:
+        SelfhostLexerRawMode::None:
+            TokenKind::Unknown
+        SelfhostLexerRawMode::Wasm:
+            TokenKind::WasmText
+        SelfhostLexerRawMode::LlvmIr:
+            TokenKind::LlvmIrText
+
+//: lex_raw_token: raw block の 1 行を text token にする
+pub fn lex_raw_token <(str,i32,i32,i32,SelfhostLexerRawMode)->SelfhostToken> (source, n, file_id, idx, raw_mode):
+    let content_start <i32> lex_line_content_start source n idx
+    lex_token_slice lex_raw_kind raw_mode source file_id content_start lex_line_end source n idx

@@ -64,7 +64,7 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 
 | file | lines | 対応方針 |
 |---|---:|---|
-| `core/syntax/lexer.nepl` | 1,329 | `syntax/lexer/` 配下に state、indent、literal、directive、raw mode、tokenize を分ける。 |
+| `core/syntax/lexer.nepl` | 1,329 | 2026-05-20 に `syntax/lexer/` 配下へ分割済み。root は facade のみ。 |
 | `core/hir/hir.nepl` | 1,036 | `hir/` 配下に id、expr、function、module、arena、range、lower を分ける。 |
 | `core/syntax/token.nepl` | 864 | `syntax/token/` 配下に kind、token value、display/name、directive classification を分ける。 |
 | `core/ty/ty.nepl` | 769 | `ty/` 配下に id、kind、record、arena、eq、function type を分ける。 |
@@ -449,6 +449,25 @@ source policy は implementation detail の文字列検索だけにしない。�
 ### P2: 既存巨大 self-host file の分割 issue を順に処理する
 
 `lexer.nepl`、`hir.nepl`、`token.nepl`、`ty.nepl`、`module_parser.nepl` は今後の実装追加前に分割候補として扱う。全分割を一度に行わず、次に触る責務から final path へ移す。
+
+2026-05-20 に [ISS-20260520T033313620Z-SELF-HOST-LEXER-REMAINS-A-FLAT-IMPLE-4314DA2B](../../issues/items/ISS-20260520T033313620Z-SELF-HOST-LEXER-REMAINS-A-FLAT-IMPLE-4314DA2B.md) で `core/syntax/lexer.nepl` を分割した。現行の配置は次の通りである。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/syntax/lexer.nepl` | 27 | implementation-free facade。 |
+| `core/syntax/lexer/diagnostic.nepl` | 22 | lexer diagnostic value。 |
+| `core/syntax/lexer/byte.nepl` | 117 | byte offset scanner と identifier/doc-comment trivia helper。 |
+| `core/syntax/lexer/literal.nepl` | 112 | numeric / string / char literal scanner。 |
+| `core/syntax/lexer/token_build.nepl` | 10 | source span から token を作る helper。 |
+| `core/syntax/lexer/indent.nepl` | 176 | offside line / indent stack / `#indent` helper。 |
+| `core/syntax/lexer/directive.nepl` | 164 | directive enum、directive classifier、doc/mlstr token。 |
+| `core/syntax/lexer/keyword.nepl` | 181 | keyword classifier と identifier token conversion。 |
+| `core/syntax/lexer/raw_mode.nepl` | 52 | raw backend mode enum と raw text token helper。 |
+| `core/syntax/lexer/next.nepl` | 169 | 指定 offset から 1 token を読む処理。 |
+| `core/syntax/lexer/error.nepl` | 152 | error token から typed lexer diagnostic への変換。 |
+| `core/syntax/lexer/tokenize.nepl` | 234 | token stream construction と offside loop。 |
+
+`nodesrc/test_selfhost_lexer_split_contract.js` はこの配置を source policy として固定し、facade への実装再導入、split file の再肥大化、submodule から facade への曖昧 import を拒否する。
 
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 

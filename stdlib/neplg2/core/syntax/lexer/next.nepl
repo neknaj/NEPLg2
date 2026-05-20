@@ -1,0 +1,172 @@
+#indent 4
+
+//: # lexer/next
+//: 指定 offset から 1 token を[読/よ]む処理を[定義/ていぎ]します。
+
+#import "core/math" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/syntax/lexer/byte" as *
+#import "neplg2/core/syntax/lexer/directive" as *
+#import "neplg2/core/syntax/lexer/indent" as *
+#import "neplg2/core/syntax/lexer/keyword" as *
+#import "neplg2/core/syntax/lexer/literal" as *
+#import "neplg2/core/syntax/lexer/token_build" as *
+
+//: lex_next: 指定 offset 以降の 1 token を[返/かえ]す
+pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
+    let start <i32> lex_skip_trivia source n idx
+    if:
+        ge start n
+        then:
+            selfhost_token_new TokenKind::Eof source_span_empty file_id start
+        else:
+            let ch <i32> lex_byte_or_end source start
+            match ch:
+                '\n':
+                    lex_structural_token TokenKind::Newline file_id start
+                '#':
+                    if:
+                        lt add start 2 n
+                        then:
+                            let next <i32> lex_byte_or_end source add start 1
+                            if:
+                                and eq next '#' eq lex_byte_or_end source add start 2 ':'
+                                then:
+                                    lex_mlstr_token source n file_id start
+                                else:
+                                    lex_directive_token source n file_id start
+                        else:
+                            lex_directive_token source n file_id start
+                '(':
+                    lex_token_slice TokenKind::LParen source file_id start add start 1
+                ')':
+                    lex_token_slice TokenKind::RParen source file_id start add start 1
+                ',':
+                    lex_token_slice TokenKind::Comma source file_id start add start 1
+                '.':
+                    lex_token_slice TokenKind::Dot source file_id start add start 1
+                ':':
+                    if:
+                        lt add start 1 n
+                        then:
+                            let next <i32> lex_byte_or_end source add start 1
+                            if:
+                                eq next ':'
+                                then:
+                                    lex_token_slice TokenKind::PathSep source file_id start add start 2
+                                else:
+                                    lex_token_slice TokenKind::Colon source file_id start add start 1
+                        else:
+                            lex_token_slice TokenKind::Colon source file_id start add start 1
+                ';':
+                    lex_token_slice TokenKind::Semicolon source file_id start add start 1
+                '|':
+                    if:
+                        lt add start 1 n
+                        then:
+                            let next <i32> lex_byte_or_end source add start 1
+                            if:
+                                eq next '>'
+                                then:
+                                    lex_token_slice TokenKind::Pipe source file_id start add start 2
+                                else:
+                                    lex_token_slice TokenKind::Unknown source file_id start add start 1
+                        else:
+                            lex_token_slice TokenKind::Unknown source file_id start add start 1
+                '@':
+                    lex_token_slice TokenKind::At source file_id start add start 1
+                '&':
+                    lex_token_slice TokenKind::Ampersand source file_id start add start 1
+                '=':
+                    lex_token_slice TokenKind::Equals source file_id start add start 1
+                '<':
+                    lex_token_slice TokenKind::LAngle source file_id start add start 1
+                '>':
+                    lex_token_slice TokenKind::RAngle source file_id start add start 1
+                '*':
+                    let arrow_end <i32> lex_skip_horizontal source n add start 1
+                    if:
+                        lt arrow_end n
+                        then:
+                            if:
+                                eq lex_byte_or_end source arrow_end '>'
+                                then:
+                                    lex_token_slice TokenKind::Arrow source file_id start add arrow_end 1
+                                else:
+                                    lex_token_slice TokenKind::Star source file_id start add start 1
+                        else:
+                            lex_token_slice TokenKind::Star source file_id start add start 1
+                '-':
+                    let arrow_end <i32> lex_skip_horizontal source n add start 1
+                    if:
+                        lt arrow_end n
+                        then:
+                            if:
+                                eq lex_byte_or_end source arrow_end '>'
+                                then:
+                                    lex_token_slice TokenKind::Arrow source file_id start add arrow_end 1
+                                else:
+                                    lex_token_slice TokenKind::Minus source file_id start add start 1
+                        else:
+                            lex_token_slice TokenKind::Minus source file_id start add start 1
+                '/':
+                    if:
+                        lex_is_doc_comment_at source n start
+                        then:
+                            lex_doc_comment_token source n file_id start
+                        else:
+                            lex_token_slice TokenKind::Unknown source file_id start add start 1
+                '"':
+                    let close <i32> lex_string_end source n add start 1
+                    if:
+                        lt close 0
+                        then:
+                            lex_token_slice TokenKind::UnterminatedString source file_id start n
+                        else:
+                            lex_token_slice TokenKind::StringLiteral source file_id start add close 1
+                '\'':
+                    let close <i32> lex_char_end source n add start 1
+                    if:
+                        lt close 0
+                        then:
+                            lex_token_slice TokenKind::UnterminatedChar source file_id start n
+                        else:
+                            lex_token_slice TokenKind::CharLiteral source file_id start add close 1
+                _:
+                    if:
+                        lex_is_ident_start ch
+                        then:
+                            let end <i32> lex_ident_end source n add start 1
+                            lex_ident_or_keyword_token source file_id start end
+                        else:
+                            if:
+                                lex_is_digit ch
+                                then:
+                                    if:
+                                        and eq ch '0' lt add start 1 n
+                                        then:
+                                            let next <i32> lex_byte_or_end source add start 1
+                                            if:
+                                                or eq next 'x' eq next 'X'
+                                                then:
+                                                    let end <i32> lex_hex_int_end source n add start 2
+                                                    lex_token_slice TokenKind::IntLiteral source file_id start end
+                                                else:
+                                                    let end <i32> lex_number_end_loop source n add start 1 false
+                                                    if:
+                                                        lex_range_has_dot source start end
+                                                        then:
+                                                            lex_token_slice TokenKind::FloatLiteral source file_id start end
+                                                        else:
+                                                            lex_token_slice TokenKind::IntLiteral source file_id start end
+                                        else:
+                                            let end <i32> lex_number_end_loop source n add start 1 false
+                                            if:
+                                                lex_range_has_dot source start end
+                                                then:
+                                                    lex_token_slice TokenKind::FloatLiteral source file_id start end
+                                                else:
+                                                    lex_token_slice TokenKind::IntLiteral source file_id start end
+                                else:
+                                    lex_token_slice TokenKind::Unknown source file_id start add start 1
