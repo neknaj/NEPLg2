@@ -360,3 +360,21 @@ trait application の type argument conflict は共通 resolver に移ったが�
 - `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
 - `node nodesrc/test_abstraction_static_verification_policy.js`: pass
+
+## 2026-05-20 Stage E overload materialization phase guard
+
+Stage E の探索量 guard は `OverloadCandidateStats::pre_materialized_rejections()` が rejection reason の手書き合計を返していた。この構造では、将来 `OverloadCandidateRejection` に新しい variant を追加したときに、その variant が instantiate 前に落ちるのか後に落ちるのかを guard 側へ入れ忘れやすい。型注釈で expected result pruning を行う目的は「十分な注釈がある経路では探索を広げない」ことなので、rejection reason 自身が materialization phase を持つ必要がある。
+
+実装:
+
+- `OverloadCandidateMaterializationPhase::{BeforeInstantiation, AfterInstantiation}` を追加した。
+- `OverloadCandidateRejection::materialization_phase()` を追加し、全 rejection reason を exhaustive match で pre/post instantiation に分類する。
+- `OverloadCandidateStats::record_rejection()` が reason の typed phase から `rejected_before_materialization` / `rejected_after_materialization` を更新するようにした。
+- `pre_materialized_rejections()` は手書き reason 合計ではなく `rejected_before_materialization` を返す。
+- source policy は materialization phase enum、phase 分類 match、phase counter 更新、既存 materialization guard を監視する。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass

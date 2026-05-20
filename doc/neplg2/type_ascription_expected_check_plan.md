@@ -201,6 +201,7 @@ enum TypeExpectationSource {
 実装状況:
 
 - 2026-05-20: `OverloadCandidateStats` が considered / materialized / accepted / rejection reason count を保持し、`debug_assert!` で `materialized + pre_materialized_rejections <= considered` を検査する。source policy は rejection reason enum、exhaustive match、materialization guard、materialization count の位置を監視する。
+- 2026-05-20: rejection reason が instantiate 前に落ちるものか instantiate 後に落ちるものかを `OverloadCandidateMaterializationPhase::{BeforeInstantiation, AfterInstantiation}` で分類するようにした。`pre_materialized_rejections()` は手書きの reason 合計ではなく、`record_rejection` が typed phase から更新した counter を返すため、新しい rejection reason を追加したときも match 網羅性で phase 分類を強制できる。
 
 完了条件:
 
