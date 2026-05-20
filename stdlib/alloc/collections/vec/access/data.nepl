@@ -6,11 +6,13 @@
 
 #indent 4
 
+#import "core/math" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
+#import "../invariant" as vec_invariant
 
 //: ## data_mem_ptr
 //: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
@@ -19,8 +21,10 @@
 //: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付きポインタとして[安全/あんぜん]に[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - `Vec` の `buffer` field を[借用/しゃくよう]し、`OwnedBuffer.storage` が `Owned(region)` のときだけ `region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
+//: - `Vec` の `buffer` field を[借用/しゃくよう]し、current Copy-only invariant が[成/な]り[立/た]つことを[確認/かくにん]します。
+//: - `OwnedBuffer.storage` が `Owned(region)` のときだけ `region_ptr` 由来の non-owning `MemPtr` view を[返/かえ]します。
 //: - `VecStorage::Empty` は allocation を[持/も]たないため、0 address の typed view を[返/かえ]します。
+//: - invariant が[壊/こわ]れている `Vec` からは raw storage view を[導出/どうしゅつ]せず、0 address の typed view を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
@@ -64,8 +68,12 @@
 pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
-    match v_storage:
-        VecStorage::Empty:
-            mem_ptr_wrap 0
-        VecStorage::Owned region:
-            region_ptr region
+    if:
+        not vec_invariant::vec_buffer_current_copy_invariant<.T> v_buffer
+        then mem_ptr_wrap 0
+        else:
+            match v_storage:
+                VecStorage::Empty:
+                    mem_ptr_wrap 0
+                VecStorage::Owned region:
+                    region_ptr region
