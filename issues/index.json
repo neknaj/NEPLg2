@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T05:12:58.160Z",
+  "generated_at": "2026-05-20T05:21:51.805Z",
   "counts": {
-    "total": 1105,
-    "open": 4,
+    "total": 1106,
+    "open": 5,
     "resolved": 1101,
     "by_area": {
+      "core": {
+        "total": 529,
+        "open": 1,
+        "resolved": 528
+      },
       "stdlib": {
         "total": 298,
         "open": 3,
@@ -20,11 +25,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 528,
-        "open": 0,
-        "resolved": 528
       },
       "CORE": {
         "total": 5,
@@ -129,6 +129,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9",
+      "title": "Type ascription does not consistently enter expected-check mode",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nepl-core/src/typecheck/prefix_check.rs, nepl-core/src/typecheck/overload_selection.rs, nepl-core/src/typecheck/trait_call_apply.rs, nepl-core/src/typecheck",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
