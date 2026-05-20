@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T09:00:51.448Z",
+  "generated_at": "2026-05-20T09:12:15.035Z",
   "counts": {
-    "total": 1110,
+    "total": 1111,
     "open": 4,
-    "resolved": 1106,
+    "resolved": 1107,
     "by_area": {
       "stdlib": {
         "total": 298,
@@ -102,9 +102,9 @@
         "resolved": 65
       },
       "test": {
-        "total": 11,
+        "total": 12,
         "open": 0,
-        "resolved": 11
+        "resolved": 12
       },
       "tests": {
         "total": 1,
@@ -14098,6 +14098,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T053837519Z-UTF-8-VALIDATION-DOC-COMMENT-DOCTEST-5BD9215D.md"
+    },
+    {
+      "id": "ISS-20260520T091103104Z-SELFHOST-CHECKER-REPORT-CONTRACT-IS--9A95998A",
+      "title": "selfhost checker report contract is stale after declaration-header doctest",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "nodesrc/test_selfhost_checker_report_contract.js, tests/stdlib/neplg2_checker.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T091103104Z-SELFHOST-CHECKER-REPORT-CONTRACT-IS--9A95998A.md"
     },
     {
       "id": "ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A",
