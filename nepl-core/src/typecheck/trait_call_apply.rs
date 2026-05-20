@@ -11,6 +11,7 @@ use crate::types::TypeId;
 use super::diagnostics::{effect_error, type_error};
 use super::syntax_helpers::split_qualified_name;
 use super::traits::{TraitApplication, TraitId};
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
 pub(super) enum TraitMethodApplyResult {
@@ -51,7 +52,7 @@ impl<'a> BlockChecker<'a> {
         user_params: &[TypeId],
         type_args: &[TypeId],
         result: TypeId,
-        expected_ret: Option<TypeId>,
+        expected_ret: Option<TypeExpectation>,
     ) -> TraitMethodResolution {
         self.resolve_trait_method_call(
             callee_name,
@@ -73,7 +74,7 @@ impl<'a> BlockChecker<'a> {
         effect: Option<Effect>,
         args: &[StackEntry],
         type_args: &[TypeId],
-        expected_ret: Option<TypeId>,
+        expected_ret: Option<TypeExpectation>,
         require_self_type: bool,
     ) -> TraitMethodResolution {
         let Some((trait_name, method_name)) = split_qualified_name(name) else {
@@ -88,7 +89,12 @@ impl<'a> BlockChecker<'a> {
 
         let application = TraitApplication {
             trait_id: TraitId::from_name(trait_name),
-            args: self.infer_trait_application_args(trait_info, sig, args, expected_ret),
+            args: self.infer_trait_application_args(
+                trait_info,
+                sig,
+                args,
+                expected_ret.map(|expectation| expectation.target()),
+            ),
         };
         let mut inferred_self_ty = None;
         if let (Some(self_hint), Some(first_param), Some(arg)) = (
@@ -105,8 +111,8 @@ impl<'a> BlockChecker<'a> {
         }
         if inferred_self_ty.is_none() {
             if let Some(self_hint) = type_args.first().copied() {
-                if let Some(expected) = expected_ret {
-                    let _ = self.ctx.unify(result, expected);
+                if let Some(expectation) = expected_ret {
+                    let _ = self.ctx.unify(result, expectation.target());
                 }
                 let resolved_hint = self.ctx.resolve_id(self_hint);
                 inferred_self_ty = self
@@ -166,7 +172,7 @@ impl<'a> BlockChecker<'a> {
         effect: Effect,
         args: &[StackEntry],
         type_args: &[TypeId],
-        expected_ret: Option<TypeId>,
+        expected_ret: Option<TypeExpectation>,
         span: Span,
     ) -> TraitMethodApplyResult {
         let call = match self.resolve_trait_method_call(
@@ -209,7 +215,23 @@ impl<'a> BlockChecker<'a> {
                 return TraitMethodApplyResult::Handled(None);
             }
         };
-        let resolved_result = self.ctx.resolve_id(result);
+        let mut resolved_result = self.ctx.resolve_id(result);
+        if let Some(expectation) = expected_ret {
+            if self
+                .ctx
+                .unify(resolved_result, expectation.target())
+                .is_ok()
+            {
+                resolved_result = self.ctx.resolve_id(expectation.target());
+            } else {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::AnnotationMismatch,
+                    "call result does not match expected type",
+                    expectation.diagnostic_span(span),
+                ));
+                return TraitMethodApplyResult::Handled(None);
+            }
+        }
         TraitMethodApplyResult::Handled(Some(StackEntry {
             ty: resolved_result,
             expr: HirExpr {

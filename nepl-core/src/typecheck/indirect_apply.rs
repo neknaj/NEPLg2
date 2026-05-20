@@ -7,6 +7,7 @@ use crate::types::{TypeId, TypeKind};
 
 use super::diagnostics::type_error;
 use super::env::BindingKind;
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
 pub(super) fn apply_indirect_function_call(
@@ -14,7 +15,7 @@ pub(super) fn apply_indirect_function_call(
     func: StackEntry,
     args: Vec<StackEntry>,
     result: TypeId,
-    expected_ret: Option<TypeId>,
+    expected_ret: Option<TypeExpectation>,
 ) -> Option<StackEntry> {
     let allow_indirect = match &func.expr.kind {
         HirExprKind::FnValue(name) => {
@@ -77,9 +78,20 @@ pub(super) fn apply_indirect_function_call(
 
     let resolved_params: Vec<TypeId> = args.iter().map(|a| checker.ctx.resolve_id(a.ty)).collect();
     let mut resolved_result = checker.ctx.resolve_id(result);
-    if let Some(expected) = expected_ret {
-        if checker.ctx.unify(resolved_result, expected).is_ok() {
-            resolved_result = checker.ctx.resolve_id(expected);
+    if let Some(expectation) = expected_ret {
+        if checker
+            .ctx
+            .unify(resolved_result, expectation.target())
+            .is_ok()
+        {
+            resolved_result = checker.ctx.resolve_id(expectation.target());
+        } else {
+            checker.diagnostics.push(type_error(
+                TypeDiagnosticCode::AnnotationMismatch,
+                "call result does not match expected type",
+                expectation.diagnostic_span(func.expr.span),
+            ));
+            return None;
         }
     }
     Some(StackEntry {

@@ -8,15 +8,25 @@ const typeExpectationPath = path.join(repoRoot, 'nepl-core/src/typecheck/type_ex
 const prefixCheckPath = path.join(repoRoot, 'nepl-core/src/typecheck/prefix_check.rs');
 const callReductionPath = path.join(repoRoot, 'nepl-core/src/typecheck/call_reduction.rs');
 const callResolutionPath = path.join(repoRoot, 'nepl-core/src/typecheck/call_resolution.rs');
+const functionApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/function_apply.rs');
+const overloadSelectionPath = path.join(repoRoot, 'nepl-core/src/typecheck/overload_selection.rs');
+const selectedCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/selected_call_apply.rs');
+const indirectApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/indirect_apply.rs');
+const traitCallApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/trait_call_apply.rs');
 
 const typeExpectation = fs.readFileSync(typeExpectationPath, 'utf8');
 const prefixCheck = fs.readFileSync(prefixCheckPath, 'utf8');
 const callReduction = fs.readFileSync(callReductionPath, 'utf8');
 const callResolution = fs.readFileSync(callResolutionPath, 'utf8');
+const functionApply = fs.readFileSync(functionApplyPath, 'utf8');
+const overloadSelection = fs.readFileSync(overloadSelectionPath, 'utf8');
+const selectedCallApply = fs.readFileSync(selectedCallApplyPath, 'utf8');
+const indirectApply = fs.readFileSync(indirectApplyPath, 'utf8');
+const traitCallApply = fs.readFileSync(traitCallApplyPath, 'utf8');
 
 assert.match(typeExpectation, /enum\s+TypeExpectationSource\s*{[\s\S]*ExplicitAscription[\s\S]*BlockResult[\s\S]*OuterConsumerArgument[\s\S]*}/);
 assert.match(typeExpectation, /struct\s+TypeExpectation\s*{[\s\S]*target:\s*TypeId[\s\S]*base_depth:\s*usize[\s\S]*span:\s*Span[\s\S]*source:\s*TypeExpectationSource[\s\S]*}/);
-assert.match(typeExpectation, /fn\s+call_result_target_after_args\s*\(/);
+assert.match(typeExpectation, /fn\s+call_result_expectation_after_args\s*\(/);
 assert.match(typeExpectation, /TypeExpectationSource::ExplicitAscription\s*=>\s*self\.span/);
 
 for (const [name, source] of [
@@ -30,6 +40,25 @@ for (const [name, source] of [
     );
 }
 
+for (const [name, source] of [
+    ['function_apply.rs', functionApply],
+    ['overload_selection.rs', overloadSelection],
+    ['selected_call_apply.rs', selectedCallApply],
+    ['indirect_apply.rs', indirectApply],
+    ['trait_call_apply.rs', traitCallApply],
+]) {
+    assert.doesNotMatch(
+        source,
+        /expected_ret:\s*Option<\s*TypeId\s*>/,
+        `${name} must keep call expected return evidence as TypeExpectation`,
+    );
+    assert.match(
+        source,
+        /expected_ret:\s*Option<\s*TypeExpectation\s*>/,
+        `${name} must accept typed call expectations`,
+    );
+}
+
 assert.doesNotMatch(
     prefixCheck,
     /pending_ascription\s*=\s*Some\s*\(\s*\(\s*ty\s*,\s*stack\.len\(\)\s*\)\s*\)/,
@@ -38,5 +67,6 @@ assert.doesNotMatch(
 assert.match(prefixCheck, /TypeExpectation::explicit_ascription/);
 assert.match(prefixCheck, /TypeExpectation::block_result/);
 assert.match(callResolution, /TypeExpectation::outer_consumer_argument/);
+assert.match(callReduction, /call_result_expectation_after_args/);
 
 console.log('type expectation model source policy passed');
