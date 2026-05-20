@@ -20,6 +20,7 @@ use super::diagnostics::{effect_error, resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
 use super::traits::TraitId;
+use super::type_expectation::TypeExpectation;
 use super::type_expr::type_from_expr;
 use super::{
     AssignKind, BlockChecker, CoreIntrinsicKind, CoreIntrinsicResultKind, FieldAccessorKind,
@@ -156,26 +157,28 @@ impl<'a> BlockChecker<'a> {
         let mut last_expr: Option<HirExpr> = None;
         let mut pipe_pending: Option<Vec<StackEntry>> = None;
         let mut seen_pipe = false;
-        // (target_type, stack_depth_when_annotation_appeared)
-        let mut pending_ascription: Option<(TypeId, usize)> =
-            expected_last_ty.map(|t| (t, base_depth));
+        // Expected type to apply once the annotated expression has produced
+        // exactly one stack value above the depth where the expectation started.
+        let mut pending_ascription: Option<TypeExpectation> =
+            expected_last_ty.map(|t| TypeExpectation::block_result(t, base_depth));
 
         // Try to apply a pending ascription when the next expression is complete.
         fn try_apply_pending_ascription(
             this: &mut BlockChecker,
             stack: &mut Vec<StackEntry>,
-            pending: &mut Option<(TypeId, usize)>,
+            pending: &mut Option<TypeExpectation>,
         ) {
-            let Some((target_ty, base_len)) = *pending else {
+            let Some(expectation) = *pending else {
                 return;
             };
-            // The next expression is complete exactly when the stack returns to base_len + 1
-            if stack.len() == base_len + 1 {
+            // The next expression is complete exactly when one value remains
+            // above the expectation's base depth.
+            if expectation.applies_at_stack_len(stack.len()) {
                 let top = stack.last().unwrap();
                 // Do not apply to functions
                 if !matches!(this.ctx.get(top.ty), TypeKind::Function { .. }) {
-                    let sp = top.expr.span;
-                    this.apply_ascription(stack.as_mut_slice(), target_ty, sp);
+                    let sp = expectation.diagnostic_span(top.expr.span);
+                    this.apply_ascription(stack.as_mut_slice(), expectation.target(), sp);
                     *pending = None;
                 }
             }
@@ -184,11 +187,12 @@ impl<'a> BlockChecker<'a> {
         // pipe 直前でも、現在の引数式だけに付いた型注釈は次の pipe へ持ち越さない。
         fn is_local_pending_ascription(
             stack: &[StackEntry],
-            pending: Option<(TypeId, usize)>,
+            pending: Option<TypeExpectation>,
             base_depth: usize,
         ) -> bool {
             pending
-                .map(|(_, base)| {
+                .map(|expectation| {
+                    let base = expectation.base_depth();
                     base > base_depth
                         && stack
                             .get(base.saturating_sub(1))
@@ -311,9 +315,9 @@ impl<'a> BlockChecker<'a> {
                                     })
                                     .unwrap_or(false);
                                 let expected_function_from_ascription = pending_ascription
-                                    .and_then(|(target_ty, base_len)| {
-                                        if stack.len() == base_len {
-                                            let resolved = self.ctx.resolve(target_ty);
+                                    .and_then(|expectation| {
+                                        if stack.len() == expectation.base_depth() {
+                                            let resolved = self.ctx.resolve(expectation.target());
                                             match self.ctx.get(resolved) {
                                                 TypeKind::Function { .. } => Some(true),
                                                 _ => Some(false),
@@ -672,10 +676,10 @@ impl<'a> BlockChecker<'a> {
                                         last_expr = Some(stack.last().unwrap().expr.clone());
                                     } else {
                                         let expected_callable_arity = pending_ascription
-                                            .and_then(|(target_ty, base_len)| {
-                                                if stack.len() == base_len {
+                                            .and_then(|expectation| {
+                                                if stack.len() == expectation.base_depth() {
                                                     let resolved_target =
-                                                        self.ctx.resolve(target_ty);
+                                                        self.ctx.resolve(expectation.target());
                                                     match self.ctx.get(resolved_target) {
                                                         TypeKind::Function { params, .. } => Some(
                                                             if params.len() == 1
@@ -1426,10 +1430,11 @@ impl<'a> BlockChecker<'a> {
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
-                PrefixItem::TypeAnnotation(ty_expr, _span) => {
+                PrefixItem::TypeAnnotation(ty_expr, span) => {
                     let ty = type_from_expr(self.ctx, self.labels, ty_expr);
                     // record target type and current stack depth; do NOT treat as an expression
-                    pending_ascription = Some((ty, stack.len()));
+                    pending_ascription =
+                        Some(TypeExpectation::explicit_ascription(ty, stack.len(), *span));
                 }
                 PrefixItem::Match(mexpr, _sp) => {
                     if let Some((hexpr, ty)) = self.check_match_expr(mexpr) {
@@ -1554,7 +1559,7 @@ impl<'a> BlockChecker<'a> {
                             let Some(lowered_val) = self.reduce_pipe_pending_segment_with_target(
                                 pending,
                                 top,
-                                pending_ascription.map(|(target, _)| target),
+                                pending_ascription.map(|expectation| expectation.target()),
                             ) else {
                                 self.diagnostics.push(type_error(
                                     TypeDiagnosticCode::PipeInvalid,
@@ -1638,7 +1643,8 @@ impl<'a> BlockChecker<'a> {
                     })
                     .unwrap_or(false);
             if !delay_overloaded_nullary && !defer_unresolved_overload {
-                let mut pending_base = pending_ascription.map(|(_, base)| base);
+                let mut pending_base =
+                    pending_ascription.map(|expectation| expectation.base_depth());
                 let mut pipe_guard = false;
                 let reduction_expected = if next_is_pipe && seen_pipe {
                     pending_ascription.filter(|pending| {
@@ -1688,7 +1694,7 @@ impl<'a> BlockChecker<'a> {
             Some(PrefixItem::Symbol(Symbol::Let { .. }))
         );
         if leading_let {
-            let mut pending_base = pending_ascription.map(|(_, base)| base);
+            let mut pending_base = pending_ascription.map(|expectation| expectation.base_depth());
             let mut open_calls: Vec<usize> = Vec::new();
             if let Some(base_len) = pending_base {
                 self.reduce_calls_guarded(stack, &mut open_calls, base_len, pending_ascription);
@@ -1696,7 +1702,7 @@ impl<'a> BlockChecker<'a> {
                 self.reduce_calls(stack, &mut open_calls, pending_ascription);
             }
             try_apply_pending_ascription(self, stack, &mut pending_ascription);
-            pending_base = pending_ascription.map(|(_, base)| base);
+            pending_base = pending_ascription.map(|expectation| expectation.base_depth());
             if let Some(base_len) = pending_base {
                 self.reduce_calls_guarded(stack, &mut open_calls, base_len, pending_ascription);
             } else {

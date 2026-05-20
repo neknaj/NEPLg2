@@ -1,3 +1,21 @@
+# 2026-05-20 Agent 1 TypeExpectation model 導入
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage B として、`pending_ascription` と call reduction expected tuple を typed `TypeExpectation` model へ移した。`plan.md` は変更していない。
+- `nepl-core/src/typecheck/type_expectation.rs` を追加し、`TypeExpectationSource::ExplicitAscription` / `BlockResult` / `OuterConsumerArgument` を enum で表すようにした。
+- `prefix_check.rs` は `<T>` を `TypeExpectation::explicit_ascription` として保持し、block result expectation は `TypeExpectation::block_result` として保持する。`call_reduction.rs` は `call_result_target_after_args` を使い、裸 tuple の base depth 解釈を閉じ込めた。
+- `call_resolution.rs` の pipe pending segment は outer consumer input を `TypeExpectation::outer_consumer_argument` として call reduction に渡す。
+- 明示注釈由来の mismatch は注釈 span を診断 primary span として使い、block result / outer consumer 由来の mismatch は式側 span を使う。
+- この commit は typed state 導入が目的であり、overload / generics / trait の探索削減は次 stage で行う。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_enum_none_typed_by_ascription -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_ascription_mismatch_is_error -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+  - `node nodesrc/issues.js check`: pass
+- 補足: `cargo test -p nepl-core --test overload -- --nocapture` は 5/8 passed, 3 failed。失敗は既存 stdlib shadow warning を overload test helper が diagnostic 非空で panic する内容だった。
+
 # 2026-05-20 Agent 1 git commit version comparison tooling
 
 - `ISS-20260520T053104419Z-NEED-COMMIT-LEVEL-VERSION-COMPARISON-30FA1700` を追加し、fixed / resolved にした。`plan.md` は変更していない。

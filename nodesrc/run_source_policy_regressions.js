@@ -90,6 +90,7 @@ const checks = [
     "nodesrc/test_stdlib_core_mem_boundary.js",
     "nodesrc/test_typekind_doc_free_policy.js",
     "nodesrc/test_static_check_boundary_responsibility.js",
+    "nodesrc/test_type_expectation_model_policy.js",
     "nodesrc/test_abstraction_static_verification_policy.js",
     "nodesrc/test_resource_checker_responsibility.js",
     "nodesrc/test_parser_backend_responsibility_policy.js",
