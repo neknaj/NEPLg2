@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T12:01:00.263Z",
+  "generated_at": "2026-05-20T12:26:27.034Z",
   "counts": {
-    "total": 1119,
+    "total": 1120,
     "open": 3,
-    "resolved": 1116,
+    "resolved": 1117,
     "by_area": {
       "stdlib": {
-        "total": 305,
+        "total": 306,
         "open": 2,
-        "resolved": 303
+        "resolved": 304
       },
       "selfhost": {
         "total": 104,
@@ -16693,6 +16693,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T104604371Z-ADJACENCYMATRIX-CREATE-DOCTEST-STILL-9ACAECC9.md"
+    },
+    {
+      "id": "ISS-20260520T120931046Z-VEC-TRANSFORM-FILTER-MODULE-STILL-MI-DE8F9BAC",
+      "title": "Vec transform filter module still mixes filter and partition responsibilities",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-20",
+      "updated": "2026-05-20",
+      "target": "stdlib/alloc/collections/vec/transform/filter.nepl, stdlib/alloc/collections/vec/transform/filter/select.nepl, stdlib/alloc/collections/vec/transform/filter/partition.nepl, stdlib/alloc/collections/vec/transform/filter/partition/build.nepl, stdlib/alloc/collections/vec/transform/filter/partition/view.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260520T120931046Z-VEC-TRANSFORM-FILTER-MODULE-STILL-MI-DE8F9BAC.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",

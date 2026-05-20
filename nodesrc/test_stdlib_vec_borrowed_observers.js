@@ -29,6 +29,10 @@ const vecRelPaths = [
     "stdlib/alloc/collections/vec/transform.nepl",
     "stdlib/alloc/collections/vec/transform/map.nepl",
     "stdlib/alloc/collections/vec/transform/filter.nepl",
+    "stdlib/alloc/collections/vec/transform/filter/select.nepl",
+    "stdlib/alloc/collections/vec/transform/filter/partition.nepl",
+    "stdlib/alloc/collections/vec/transform/filter/partition/build.nepl",
+    "stdlib/alloc/collections/vec/transform/filter/partition/view.nepl",
     "stdlib/alloc/collections/vec/transform/prefix.nepl",
 ];
 const vecSources = Object.fromEntries(vecRelPaths.map((relPath) => [relPath, fs.readFileSync(path.join(repoRoot, relPath), "utf8")]));

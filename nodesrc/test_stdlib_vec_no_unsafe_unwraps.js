@@ -21,6 +21,10 @@ const relPaths = [
     'stdlib/alloc/collections/vec/transform.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
     'stdlib/alloc/collections/vec/transform/filter.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/select.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/partition.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/partition/build.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/partition/view.nepl',
     'stdlib/alloc/collections/vec/transform/prefix.nepl',
     'stdlib/alloc/collections/vec/query.nepl',
     'stdlib/alloc/collections/vec/query/get.nepl',
@@ -106,7 +110,13 @@ const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/da
 const vecAccessCode = [vecAccessRootCode, vecAccessHeaderCode, vecAccessDataCode].join('\n');
 const vecTransformRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
 const vecTransformMapCode = codeByPath.get('stdlib/alloc/collections/vec/transform/map.nepl');
-const vecTransformFilterCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter.nepl');
+const vecTransformFilterRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter.nepl');
+const vecTransformFilterSelectCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter/select.nepl');
+const vecTransformFilterPartitionRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter/partition.nepl');
+const vecTransformFilterPartitionBuildCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter/partition/build.nepl');
+const vecTransformFilterPartitionViewCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter/partition/view.nepl');
+const vecTransformFilterPartitionCode = [vecTransformFilterPartitionRootCode, vecTransformFilterPartitionBuildCode, vecTransformFilterPartitionViewCode].join('\n');
+const vecTransformFilterCode = [vecTransformFilterRootCode, vecTransformFilterSelectCode, vecTransformFilterPartitionCode].join('\n');
 const vecTransformPrefixCode = codeByPath.get('stdlib/alloc/collections/vec/transform/prefix.nepl');
 const vecTransformCode = [vecTransformRootCode, vecTransformMapCode, vecTransformFilterCode, vecTransformPrefixCode].join('\n');
 const vecQueryRootCode = codeByPath.get('stdlib/alloc/collections/vec/query.nepl');
@@ -270,9 +280,21 @@ for (const name of ['map', 'filter', 'prefix']) {
 }
 assert.doesNotMatch(vecTransformRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/transform.nepl must be a pure facade without implementation bodies');
 assert.match(vecTransformMapCode, /\bfn\s+map\b/, 'vec/transform/map.nepl must own map');
-for (const name of ['filter', 'partition']) {
-    assert.match(vecTransformFilterCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform/filter.nepl must own ${name}`);
+assert.match(vecTransformFilterRootCode, /pub\s+#import\s+"\.\/filter\/select"\s+as\s+@merge/, 'vec/transform/filter.nepl must merge re-export filter/select.nepl');
+assert.match(vecTransformFilterRootCode, /pub\s+#import\s+"\.\/filter\/partition"\s+as\s+@merge/, 'vec/transform/filter.nepl must merge re-export filter/partition.nepl');
+assert.doesNotMatch(vecTransformFilterRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/transform/filter.nepl must be a pure facade without implementation bodies');
+assert.match(vecTransformFilterSelectCode, /\bfn\s+filter\b/, 'vec/transform/filter/select.nepl must own filter');
+assert.doesNotMatch(vecTransformFilterSelectCode, /\bfn\s+partition\b|\bvec_partition_/, 'vec/transform/filter/select.nepl must not own partition APIs');
+assert.match(vecTransformFilterPartitionRootCode, /pub\s+#import\s+"\.\/partition\/build"\s+as\s+@merge/, 'vec/transform/filter/partition.nepl must merge re-export partition/build.nepl');
+assert.match(vecTransformFilterPartitionRootCode, /pub\s+#import\s+"\.\/partition\/view"\s+as\s+@merge/, 'vec/transform/filter/partition.nepl must merge re-export partition/view.nepl');
+assert.doesNotMatch(vecTransformFilterPartitionRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/transform/filter/partition.nepl must be a pure facade without implementation bodies');
+assert.match(vecTransformFilterPartitionBuildCode, /\bfn\s+partition\b/, 'vec/transform/filter/partition/build.nepl must own partition');
+assert.doesNotMatch(vecTransformFilterPartitionBuildCode, /\bvec_partition_(?:matched|rest|free)/, 'vec/transform/filter/partition/build.nepl must not own VecPartition observer/free APIs');
+for (const name of ['vec_partition_matched_len', 'vec_partition_rest_len', 'vec_partition_matched_get', 'vec_partition_rest_get', 'vec_partition_free']) {
+    assert.match(vecTransformFilterPartitionViewCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform/filter/partition/view.nepl must own ${name}`);
 }
+assert.doesNotMatch(vecTransformFilterPartitionViewCode, /\bfn\s+partition\b/, 'vec/transform/filter/partition/view.nepl must not own partition construction');
+assert.doesNotMatch(vecTransformFilterPartitionCode, /\bfn\s+filter\b/, 'vec/transform/filter/partition family must not own filter');
 for (const name of ['take_while', 'drop_while']) {
     assert.match(vecTransformPrefixCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform/prefix.nepl must own ${name}`);
 }
@@ -317,6 +339,9 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/query/aggregate.nepl',
     'stdlib/alloc/collections/vec/query/predicate.nepl',
     'stdlib/alloc/collections/vec/transform.nepl',
+    'stdlib/alloc/collections/vec/transform/filter.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/partition.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/partition/view.nepl',
     'stdlib/alloc/collections/vec/types.nepl',
     'stdlib/alloc/collections/vec/sort.nepl',
     'stdlib/alloc/collections/vec/sort/common.nepl',
@@ -333,7 +358,8 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/storage/alloc.nepl',
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
-    'stdlib/alloc/collections/vec/transform/filter.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/select.nepl',
+    'stdlib/alloc/collections/vec/transform/filter/partition/build.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
     'stdlib/alloc/collections/vec/transform/prefix.nepl',
     'stdlib/alloc/collections/vec/sort/quick.nepl',

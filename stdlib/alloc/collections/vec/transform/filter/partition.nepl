@@ -1,0 +1,14 @@
+//: # vec/transform/filter/partition
+//: `Vec.partition` API facade
+//:
+//: ### [目的/もくてき]
+//: - `partition` 本体と `VecPartition` observer / cleanup を re-export します。
+//: - raw storage write を持つ構築処理と、raw memory を直接触らない観測・解放 API を分けます。
+//:
+//: ### [注意/ちゅうい]
+//: - この file は facade です。実装本体と raw memory operation は submodule に置きます。
+
+#indent 4
+
+pub #import "./partition/build" as @merge
+pub #import "./partition/view" as @merge
