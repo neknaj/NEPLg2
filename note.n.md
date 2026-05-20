@@ -1,3 +1,17 @@
+# 2026-05-20 Agent 1 overload declared-shape pruning
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C として、`select_overload_candidate` の checkpoint / instantiate 前に declared function shape を分類するようにした。`plan.md` は変更していない。
+- 関数でない候補、明示 type args 数不一致、capture 数不整合、arity 不一致は fresh type variable を作る前に除外される。
+- これは stdlib 名 allowlist ではなく、候補自身の型シグネチャに基づく pruning である。
+- `nodesrc/test_type_expectation_model_policy.js` に、declared shape を見てから checkpoint / instantiate する順序を監視する source policy を追加した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_make_none_from_context -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics generics_make_some_wrapper -- --nocapture`: 1 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+
 # 2026-05-20 Agent 1 TypeExpectation call expected result 伝播
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage C/D bridge として、call reduction から先の `expected_ret: Option<TypeId>` 境界を `Option<TypeExpectation>` に移した。`plan.md` は変更していない。

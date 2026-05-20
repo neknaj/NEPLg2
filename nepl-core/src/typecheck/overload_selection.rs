@@ -73,35 +73,57 @@ impl<'a> BlockChecker<'a> {
                 BindingKind::Func { captures, .. } => captures.len(),
                 _ => 0,
             };
-            let checkpoint = self.ctx.checkpoint();
-            let inst_ty = if !explicit_type_args.is_empty() {
-                let func_data = if let TypeKind::Function {
+            let func_data = match self.ctx.get(binding.ty) {
+                TypeKind::Function {
                     type_params,
                     params,
                     result,
                     effect,
-                } = self.ctx.get(binding.ty)
-                {
-                    Some((type_params, params, result, effect))
-                } else {
-                    None
-                };
-                let Some((type_params, params, result, effect)) = func_data else {
+                } => (type_params, params, result, effect),
+                _ => {
                     if crate::log::is_verbose() {
                         overload_selection_log!(
-                            "overload debug: skip '{}' candidate {} reason=not_function_after_type_args",
+                            "overload debug: skip '{}' candidate {} reason=not_function",
                             name,
                             function_signature_string(self.ctx, binding.ty)
                         );
                     }
-                    self.ctx.rollback(checkpoint);
-                    continue;
-                };
-                if type_params.len() != explicit_type_args.len() {
-                    mismatch_count = true;
-                    self.ctx.rollback(checkpoint);
                     continue;
                 }
+            };
+            let (type_params, params, result, effect) = func_data;
+            if !explicit_type_args.is_empty() && type_params.len() != explicit_type_args.len() {
+                mismatch_count = true;
+                continue;
+            }
+            if params.len() < capture_len {
+                if crate::log::is_verbose() {
+                    overload_selection_log!(
+                        "overload debug: skip '{}' candidate {} reason=capture_len params={} capture={}",
+                        name,
+                        function_signature_string(self.ctx, binding.ty),
+                        params.len(),
+                        capture_len
+                    );
+                }
+                continue;
+            }
+            let declared_user_param_count = params.len() - capture_len;
+            if declared_user_param_count != args.len() {
+                if crate::log::is_verbose() {
+                    overload_selection_log!(
+                        "overload debug: skip '{}' candidate {} reason=arity user_params={} args={}",
+                        name,
+                        function_signature_string(self.ctx, binding.ty),
+                        declared_user_param_count,
+                        args.len()
+                    );
+                }
+                continue;
+            }
+
+            let checkpoint = self.ctx.checkpoint();
+            let inst_ty = if !explicit_type_args.is_empty() {
                 let mut mapping = BTreeMap::new();
                 for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
                     insert_substitution_mapping(self.ctx, &mut mapping, *p, *a);
@@ -138,33 +160,7 @@ impl<'a> BlockChecker<'a> {
                     continue;
                 }
             };
-            if c_params.len() < capture_len {
-                if crate::log::is_verbose() {
-                    overload_selection_log!(
-                        "overload debug: skip '{}' candidate {} reason=capture_len params={} capture={}",
-                        name,
-                        function_signature_string(self.ctx, binding.ty),
-                        c_params.len(),
-                        capture_len
-                    );
-                }
-                self.ctx.rollback(checkpoint);
-                continue;
-            }
             let user_params = &c_params[capture_len..];
-            if user_params.len() != args.len() {
-                if crate::log::is_verbose() {
-                    overload_selection_log!(
-                        "overload debug: skip '{}' candidate {} reason=arity user_params={} args={}",
-                        name,
-                        function_signature_string(self.ctx, binding.ty),
-                        user_params.len(),
-                        args.len()
-                    );
-                }
-                self.ctx.rollback(checkpoint);
-                continue;
-            }
             let mut ok = true;
             for (arg, pty) in args.iter().zip(user_params.iter()) {
                 if !self.char_literal_matches_context(arg, *pty)
