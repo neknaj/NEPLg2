@@ -263,6 +263,7 @@ impl<'a> BlockChecker<'a> {
                 TraitMethodResolution::NotTraitMethod
                 | TraitMethodResolution::MissingSelfType
                 | TraitMethodResolution::UnsatisfiedBound { .. }
+                | TraitMethodResolution::ConstraintConflict { .. }
                 | TraitMethodResolution::PureCallsImpure => {
                     if !resolved_args.is_empty()
                         && resolved_args

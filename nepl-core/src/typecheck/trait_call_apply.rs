@@ -11,6 +11,7 @@ use crate::types::TypeId;
 use super::diagnostics::{effect_error, type_error};
 use super::syntax_helpers::split_qualified_name;
 use super::traits::{TraitApplication, TraitId};
+use super::type_argument_inference::TypeArgumentConflict;
 use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
@@ -24,6 +25,7 @@ pub(super) enum TraitMethodResolution {
     Resolved(TraitMethodCall),
     MissingSelfType,
     UnsatisfiedBound { application: TraitApplication },
+    ConstraintConflict { conflict: TypeArgumentConflict },
     PureCallsImpure,
 }
 
@@ -87,9 +89,15 @@ impl<'a> BlockChecker<'a> {
             return TraitMethodResolution::NotTraitMethod;
         };
 
+        let application_args =
+            self.resolve_trait_application_args(trait_info, sig, args, expected_ret);
+        if let Some(conflict) = application_args.conflicts.first().copied() {
+            return TraitMethodResolution::ConstraintConflict { conflict };
+        }
+
         let application = TraitApplication {
             trait_id: TraitId::from_name(trait_name),
-            args: self.infer_trait_application_args(trait_info, sig, args, expected_ret),
+            args: application_args.resolved_args,
         };
         let mut inferred_self_ty = None;
         if let (Some(self_hint), Some(first_param), Some(arg)) = (
@@ -197,6 +205,14 @@ impl<'a> BlockChecker<'a> {
                         "type does not satisfy trait bound '{}'",
                         application.display_name(self.ctx)
                     ),
+                    span,
+                ));
+                return TraitMethodApplyResult::Handled(None);
+            }
+            TraitMethodResolution::ConstraintConflict { conflict } => {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::TraitConstraintConflict,
+                    conflict.diagnostic_message(self.ctx),
                     span,
                 ));
                 return TraitMethodApplyResult::Handled(None);

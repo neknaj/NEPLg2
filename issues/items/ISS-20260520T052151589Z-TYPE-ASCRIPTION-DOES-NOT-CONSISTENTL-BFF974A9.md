@@ -281,7 +281,7 @@ generic call constraint object を selected call に入れただけでは不十�
 実装:
 
 - `TypeDiagnosticCode::GenericConstraintConflict` を追加し、constraint が閉じた後に type parameter へ複数の異なる型が要求されたことを typed diagnostic として表す。
-- `GenericTypeArgumentInference::{NoEvidence, Unique, Conflict}` と `GenericTypeArgumentResolution { resolved_args, conflicts }` を追加し、no evidence と conflict を `Option<TypeId>` の `None` にまとめないようにした。
+- `TypeArgumentInference::{NoEvidence, Unique, Conflict}` と `TypeArgumentResolution { resolved_args, conflicts }` を追加し、no evidence と conflict を `Option<TypeId>` の `None` にまとめないようにした。
 - selected call は conflict payload を `GenericConstraintConflict` として報告する。
 - overload selection も expected result と argument evidence を `GenericCallConstraint` に集約し、候補棄却理由 `OverloadCandidateRejection::GenericConstraintConflict` として保持する。
 - overload selection では expected result constraint を先に適用してから argument constraint を検査するため、期待型が char literal や generic parameter の context として働く。
@@ -296,6 +296,39 @@ generic call constraint object を selected call に入れただけでは不十�
 検証:
 
 - `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+- `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
+- `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test overload test_overload_cast_like -- --nocapture`: 1 passed
+- `cargo test -p nepl-core diagnostic_codes_have_unique_serialized_names -- --nocapture`: pass
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
+- `node nodesrc/issues.js check`: pass
+
+## 2026-05-20 Stage D shared type argument inference and trait conflict payload
+
+generic function call と trait application がそれぞれ別に type argument 推論の merge を持つと、静的検査の設計が分散し、no evidence と conflict を再び混同しやすい。前 commit で generic call 側に導入した conflict payload を trait 側へ個別コピーせず、共通の type argument inference model へ切り出した。
+
+実装:
+
+- `type_argument_inference.rs` を追加し、`TypeArgumentConstraint`、`TypeArgumentInference::{NoEvidence, Unique, Conflict}`、`TypeArgumentResolution`、`TypeArgumentConflict` を共通化した。
+- `generic_call_constraints.rs` は call source enum を保持したまま、type argument の解決を共通 resolver に委譲する。
+- `trait_check.rs` は `merge_inferred_instantiation` を使わず、`TypeParamInferenceConstraint` から共通 `TypeArgumentConstraint` を作って resolver に渡す。
+- `TraitMethodResolution::ConstraintConflict` と `TypeDiagnosticCode::TraitConstraintConflict` を追加し、trait application の argument evidence と expected result evidence が矛盾した場合に typed diagnostic を出す。
+- `prefix_check.rs` の trait method value 推論も `resolve_trait_application_args` を使い、conflict payload が出た場合は同じ診断へ流す。
+- `trait_application_type_param_conflict_has_type_code` を追加し、`Mapper<T>::map(Self,T)->T` に `T=i32` と期待結果 `T=bool` が同時に要求された場合を固定した。
+
+残作業:
+
+- trait application が conflict ではなく複数候補を残す ambiguity payload は、次の Stage D 作業として整理する。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test neplg2 trait_application_type_param_conflict_has_type_code -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test neplg2 trait_method_call_with_impl_compiles -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test neplg2 trait_bound_satisfied_in_generic -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test neplg2 impl_type_params_in_trait_args_allowed_for_concrete_target -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test neplg2 trait_bound_missing_impl_is_error -- --nocapture`: 1 passed
 - `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
 - `cargo test -p nepl-core --test typeannot -- --nocapture`: 12 passed
 - `cargo test -p nepl-core --test overload test_explicit_type_annotation_prefix -- --nocapture`: 1 passed

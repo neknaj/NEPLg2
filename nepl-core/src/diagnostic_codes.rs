@@ -111,6 +111,7 @@ pub enum TypeDiagnosticCode {
     TraitMethodNotFound,
     ArgumentArityMismatch,
     TraitBoundUnsatisfied,
+    TraitConstraintConflict,
     DerefInvalid,
     AssignmentArityMismatch,
     CallReductionLimitExceeded,
@@ -382,6 +383,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::TraitMethodNotFound),
     DiagnosticCode::Type(TypeDiagnosticCode::ArgumentArityMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::TraitBoundUnsatisfied),
+    DiagnosticCode::Type(TypeDiagnosticCode::TraitConstraintConflict),
     DiagnosticCode::Type(TypeDiagnosticCode::DerefInvalid),
     DiagnosticCode::Type(TypeDiagnosticCode::AssignmentArityMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::CallReductionLimitExceeded),
@@ -768,6 +770,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::TraitMethodNotFound => "type.trait_method.not_found",
             TypeDiagnosticCode::ArgumentArityMismatch => "type.argument.arity_mismatch",
             TypeDiagnosticCode::TraitBoundUnsatisfied => "type.trait_bound.unsatisfied",
+            TypeDiagnosticCode::TraitConstraintConflict => "type.trait.constraint_conflict",
             TypeDiagnosticCode::DerefInvalid => "type.deref.invalid",
             TypeDiagnosticCode::AssignmentArityMismatch => "type.assignment.arity_mismatch",
             TypeDiagnosticCode::CallReductionLimitExceeded => "type.call_reduction.limit_exceeded",
@@ -900,6 +903,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::TraitMethodNotFound => "unknown method for trait",
             TypeDiagnosticCode::ArgumentArityMismatch => "argument count mismatch",
             TypeDiagnosticCode::TraitBoundUnsatisfied => "type does not satisfy trait bound",
+            TypeDiagnosticCode::TraitConstraintConflict => {
+                "trait application constraints are inconsistent"
+            }
             TypeDiagnosticCode::DerefInvalid => "cannot dereference non-reference type",
             TypeDiagnosticCode::AssignmentArityMismatch => "assignment expects one argument",
             TypeDiagnosticCode::CallReductionLimitExceeded => {
