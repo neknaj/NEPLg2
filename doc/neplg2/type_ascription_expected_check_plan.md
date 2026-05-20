@@ -185,7 +185,8 @@ enum TypeExpectationSource {
 - 2026-05-20: selected generic function call も `GenericCallConstraintSource` / `GenericCallConstraint` で argument 由来制約と expected result 由来制約を typed object として保持するようにした。期待戻り値制約は引数制約より先に適用するため、`id<T>(T)->T` のような関数で `<u8>` の期待型が `T` を拘束し、その後の char literal 引数検査にも context が伝わる。
 - 2026-05-20: generic function call の implicit type argument 解決で、制約が閉じた後の矛盾を `TypeArgumentInference::{NoEvidence, Unique, Conflict}` と `TypeArgumentConflict` payload として保持するようにした。selected call だけでは候補選択前に `same<T>(T,T)` のような矛盾が `OverloadNoMatch` に潰れるため、overload selection も同じ `GenericCallConstraint` を使って expected result と argument evidence を集約し、候補棄却理由として `GenericConstraintConflict` を残す。
 - 2026-05-20: generic function と trait application が個別に `Option<TypeId>` merge を持たないよう、type argument inference を `type_argument_inference.rs` の `TypeArgumentInference::{NoEvidence, Unique, Conflict}` / `TypeArgumentResolution` へ共通化した。trait application も expected result と argument evidence の矛盾を `TraitConstraintConflict` として報告する。
-- 未完了: trait application 側で conflict ではなく複数候補が残る ambiguity payload の整理。
+- 2026-05-20: trait method の self type 推論も `TraitSelfTypeInference::{NoEvidence, Unique, Ambiguous}` と `TraitSelfTypeAmbiguity` payload へ移し、複数の type parameter bound が同じ trait application に一致する場合を `TraitSelfTypeAmbiguous` として報告する。prefix 側の trait method value 構築と unbound trait method call の両方で同じ typed payload を使い、ambiguity を fresh `Self` や `TraitBoundUnsatisfied` に潰さない。
+- Stage D は、generic / trait expected-check の typed evidence、constraint conflict、self type ambiguity の主要経路を実装済み。以後は Stage E の performance guard と、追加 regression で発覚した個別の不足を別 issue として扱う。
 
 ### Stage E: performance guard
 

@@ -112,6 +112,7 @@ pub enum TypeDiagnosticCode {
     ArgumentArityMismatch,
     TraitBoundUnsatisfied,
     TraitConstraintConflict,
+    TraitSelfTypeAmbiguous,
     DerefInvalid,
     AssignmentArityMismatch,
     CallReductionLimitExceeded,
@@ -384,6 +385,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::ArgumentArityMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::TraitBoundUnsatisfied),
     DiagnosticCode::Type(TypeDiagnosticCode::TraitConstraintConflict),
+    DiagnosticCode::Type(TypeDiagnosticCode::TraitSelfTypeAmbiguous),
     DiagnosticCode::Type(TypeDiagnosticCode::DerefInvalid),
     DiagnosticCode::Type(TypeDiagnosticCode::AssignmentArityMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::CallReductionLimitExceeded),
@@ -771,6 +773,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::ArgumentArityMismatch => "type.argument.arity_mismatch",
             TypeDiagnosticCode::TraitBoundUnsatisfied => "type.trait_bound.unsatisfied",
             TypeDiagnosticCode::TraitConstraintConflict => "type.trait.constraint_conflict",
+            TypeDiagnosticCode::TraitSelfTypeAmbiguous => "type.trait.self_type_ambiguous",
             TypeDiagnosticCode::DerefInvalid => "type.deref.invalid",
             TypeDiagnosticCode::AssignmentArityMismatch => "type.assignment.arity_mismatch",
             TypeDiagnosticCode::CallReductionLimitExceeded => "type.call_reduction.limit_exceeded",
@@ -906,6 +909,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::TraitConstraintConflict => {
                 "trait application constraints are inconsistent"
             }
+            TypeDiagnosticCode::TraitSelfTypeAmbiguous => "trait method self type is ambiguous",
             TypeDiagnosticCode::DerefInvalid => "cannot dereference non-reference type",
             TypeDiagnosticCode::AssignmentArityMismatch => "assignment expects one argument",
             TypeDiagnosticCode::CallReductionLimitExceeded => {

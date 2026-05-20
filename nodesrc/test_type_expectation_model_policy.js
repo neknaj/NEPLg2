@@ -164,6 +164,21 @@ assert.match(
     /resolve_type_arguments_from_constraints\([\s\S]*trait_info\.type_params\.clone\(\)/,
     'trait application inference must use the shared type-argument constraint resolver',
 );
+assert.match(
+    traitCheck,
+    /enum\s+TraitSelfTypeInference\s*{[\s\S]*NoEvidence[\s\S]*Unique\(TypeId\)[\s\S]*Ambiguous\(TraitSelfTypeAmbiguity\)[\s\S]*}/,
+    'trait self type inference must distinguish no-evidence, unique, and ambiguous states',
+);
+assert.match(
+    traitCheck,
+    /struct\s+TraitSelfTypeAmbiguity\s*{[\s\S]*trait_id:\s*TraitId[\s\S]*trait_args:\s*Vec<TypeId>[\s\S]*candidates:\s*Vec<TypeId>[\s\S]*}/,
+    'trait self type ambiguity must carry typed trait application and candidate payloads',
+);
+assert.doesNotMatch(
+    traitCheck,
+    /infer_unique_type_param_for_trait_ref\([\s\S]*\)\s*->\s*Option<\s*TypeId\s*>/,
+    'trait self type inference must not collapse ambiguity and no-evidence into Option<TypeId>',
+);
 assert.doesNotMatch(
     traitCheck,
     /merge_inferred_instantiation/,
@@ -178,6 +193,16 @@ assert.match(
     traitCallApply,
     /TraitMethodResolution::ConstraintConflict\s*{[\s\S]*TypeDiagnosticCode::TraitConstraintConflict[\s\S]*conflict\.diagnostic_message\(self\.ctx\)/,
     'trait method resolution must report type-argument constraint conflicts from typed payloads',
+);
+assert.match(
+    traitCallApply,
+    /TraitMethodResolution::SelfTypeAmbiguous\s*{[\s\S]*TypeDiagnosticCode::TraitSelfTypeAmbiguous[\s\S]*ambiguity\.diagnostic_message\(self\)/,
+    'trait method resolution must report self type ambiguity from typed payloads',
+);
+assert.match(
+    prefixCheck,
+    /TraitSelfTypeInference::Ambiguous\(ambiguity\)[\s\S]*TypeDiagnosticCode::TraitSelfTypeAmbiguous[\s\S]*ambiguity\.diagnostic_message\(self\)/,
+    'trait method value construction must reject ambiguous self type inference explicitly',
 );
 assert.match(
     genericCallConstraints,

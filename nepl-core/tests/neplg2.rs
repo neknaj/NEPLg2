@@ -2540,6 +2540,25 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn trait_self_type_ambiguity_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait Factory:
+    fn make <(Self)->i32> (_self):
+        0
+
+fn choose <.A: Factory,.B: Factory> <()->i32> ():
+    Factory::make
+
+fn main <()->i32> ():
+    choose
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitSelfTypeAmbiguous);
+}
+
+#[test]
 fn impl_generic_target_diagnostic_uses_type_expr_span() {
     let src = r#"
 #entry main

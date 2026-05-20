@@ -319,7 +319,7 @@ generic function call と trait application がそれぞれ別に type argument 
 
 残作業:
 
-- trait application が conflict ではなく複数候補を残す ambiguity payload は、次の Stage D 作業として整理する。
+- trait application が conflict ではなく複数候補を残す ambiguity payload は、後続の Stage D 作業で対応済み。
 
 検証:
 
@@ -336,3 +336,27 @@ generic function call と trait application がそれぞれ別に type argument 
 - `cargo test -p nepl-core diagnostic_codes_have_unique_serialized_names -- --nocapture`: pass
 - `node nodesrc/test_type_expectation_model_policy.js`: pass
 - `node nodesrc/issues.js check`: pass
+
+## 2026-05-20 Stage D trait self type ambiguity payload
+
+trait application の type argument conflict は共通 resolver に移ったが、trait method の self type 推論はまだ「候補なし」と「候補が複数あり一意に選べない」を `Option<TypeId>` の `None` に畳み込める構造だった。このままだと、`Factory::make` のような unbound trait method value を generic context 内で使ったとき、`.A: Factory` と `.B: Factory` の両方が候補になる状況を fresh `Self` や後段の `TraitBoundUnsatisfied` に潰してしまう。
+
+実装:
+
+- `TraitSelfTypeInference::{NoEvidence, Unique, Ambiguous}` と `TraitSelfTypeAmbiguity` を追加し、trait application identity と候補 self type を typed payload として保持する。
+- `infer_unique_type_param_for_trait_ref -> Option<TypeId>` を廃止し、`resolve_self_type_param_for_trait_ref` が no evidence / unique / ambiguous を enum で返すようにした。
+- `TraitMethodResolution::SelfTypeAmbiguous` と `TypeDiagnosticCode::TraitSelfTypeAmbiguous` を追加し、prefix trait method value 構築と unbound trait method call の両方で ambiguity payload から診断を生成する。
+- `selected_call_apply.rs` も `TraitMethodResolution` の新 variant を明示的に match し、trait method resolution state を optional fallback に戻さない。
+- source policy は trait self type inference enum / ambiguity payload / 旧 optional helper 禁止 / prefix と call apply の typed diagnostic を監視する。
+- `trait_self_type_ambiguity_has_type_code` を追加し、同一 trait bound を持つ複数 type parameter のもとで `Factory::make` の self type が一意に決まらないケースを固定した。
+
+検証:
+
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test neplg2 trait_self_type_ambiguity_has_type_code -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test neplg2 trait_application_type_param_conflict_has_type_code -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test neplg2 trait_method_call_with_impl_compiles -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test neplg2 trait_bound_satisfied_in_generic -- --nocapture`: 1 passed
+- `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+- `node nodesrc/test_type_expectation_model_policy.js`: pass
+- `node nodesrc/test_abstraction_static_verification_policy.js`: pass

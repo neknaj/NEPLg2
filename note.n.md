@@ -1,3 +1,19 @@
+# 2026-05-20 Agent 1 trait self type ambiguity payload
+
+- `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、trait method self type 推論の ambiguity を typed payload にした。`plan.md` は変更していない。
+- `TraitSelfTypeInference::{NoEvidence, Unique, Ambiguous}` と `TraitSelfTypeAmbiguity` を追加し、候補なしと複数候補を `Option<TypeId>` の `None` に潰さないようにした。
+- `TraitMethodResolution::SelfTypeAmbiguous` と `TypeDiagnosticCode::TraitSelfTypeAmbiguous` を追加し、prefix trait method value と unbound trait method call の両方で同じ diagnostic payload を使う。
+- `trait_self_type_ambiguity_has_type_code` を追加し、`.A: Factory` と `.B: Factory` の両方が `Factory::make` の self type 候補になるケースを固定した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_self_type_ambiguity_has_type_code -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 trait_application_type_param_conflict_has_type_code -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 trait_method_call_with_impl_compiles -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test neplg2 trait_bound_satisfied_in_generic -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
+  - `node nodesrc/test_type_expectation_model_policy.js`: pass
+  - `node nodesrc/test_abstraction_static_verification_policy.js`: pass
+
 # 2026-05-20 Agent 1 shared type argument inference and trait conflict payload
 
 - `ISS-20260520T052151589Z-TYPE-ASCRIPTION-DOES-NOT-CONSISTENTL-BFF974A9` の Stage D として、generic function と trait application の type argument inference を共通 model に切り出した。`plan.md` は変更していない。
