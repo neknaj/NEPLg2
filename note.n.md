@@ -12,6 +12,12 @@
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
 
+# 2026-05-21 Agent 1 collection slot call summary 残件 issue 化
+
+- `ISS-20260520T200325099Z-COLLECTION-SLOT-LIFECYCLE-EFFECTS-DO-6E6407FC` を追加した。`plan.md` は変更していない。
+- reviewer subagent の監査により、`ResourceOp::CollectionSlotLifecycle` は intra-function checker へ接続されたが、callee 内の slot lifecycle effect を caller の `CollectionSlotStateTable` へ伝播する summary path が未実装であることを確認した。
+- これは今回の Resource IR/control-flow integration commit の blocker ではないが、stdlib collection API から non-Copy payload lifecycle を実際に発火させる前に必須の P1 残件である。
+
 # 2026-05-21 Worker selfhost mono invalid key intern boundary
 
 - `plan.md` は変更していない。

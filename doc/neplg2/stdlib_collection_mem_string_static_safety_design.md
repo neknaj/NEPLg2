@@ -373,6 +373,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - initialized checker は `CollectionSlotStateTable` を関数状態に含め、branch / loop / match の各 path を `CollectionSlotStateTable::merge_paths` で合流する。片側だけ initialized な slot や片側だけ storage release 済みの状態は `MaybeInitialized` / `MaybeReleased` として残り、合流後の reinit / move / drop / storage dealloc を typed refutation で拒否する。
 - `ResourceCheckDiagnostic::CollectionSlotRefuted` と `ResourceCollectionSlotDiagnosticCode` を追加し、slot lifecycle の失敗理由を enum のまま保持する。diagnostic id は serialization 用の dotted string であり、checker 内の authority にはしない。
 - 今回の接続で Resource IR 上の手書き operation は検査対象になったが、stdlib collection lowering が実際の `Vec<T>` / `OwnedBuffer<T>` operation から `ResourceOp::CollectionSlotLifecycle` を発行する段階は未完である。次段階では source policy や module allowlist に逃がさず、collection API の source semantics から generic slot lifecycle event を生成する。
+- callee 内の slot lifecycle effect を caller へ伝播する call summary も未完である。これは [ISS-20260520T200325099Z-COLLECTION-SLOT-LIFECYCLE-EFFECTS-DO-6E6407FC](../../issues/items/ISS-20260520T200325099Z-COLLECTION-SLOT-LIFECYCLE-EFFECTS-DO-6E6407FC.md) で扱う。
 - 関連 issue: [ISS-20260520T192939566Z-RESOURCE-IR-DOES-NOT-CARRY-COLLECTIO-5585A1D7](../../issues/items/ISS-20260520T192939566Z-RESOURCE-IR-DOES-NOT-CARRY-COLLECTIO-5585A1D7.md)。
 
 ### Stage B: `core/mem` の internal/public 分離
