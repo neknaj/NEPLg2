@@ -66,7 +66,7 @@ self-host compiler は `core/` と `cli/` の二層分割だけでは不十分�
 |---|---:|---|
 | `core/syntax/lexer.nepl` | 1,329 | 2026-05-20 に `syntax/lexer/` 配下へ分割済み。root は facade のみ。 |
 | `core/hir/hir.nepl` | 278 | 2026-05-20 に `hir/` 配下へ分割済み。root は facade と doctest のみ。 |
-| `core/syntax/token.nepl` | 864 | `syntax/token/` 配下に kind、token value、display/name、directive classification を分ける。 |
+| `core/syntax/token.nepl` | 38 | 2026-05-20 に `syntax/token/` 配下へ分割済み。root は facade と doctest のみ。 |
 | `core/ty/ty.nepl` | 769 | `ty/` 配下に id、kind、record、arena、eq、function type を分ける。 |
 | `core/syntax/parser/module_parser.nepl` | 603 | `syntax/parser/` 配下に module loop、directive parser、raw block parser、item start classifier を分ける。 |
 | `core/infra/diag.nepl` | 361 | `infra/diag/` 配下に code、value、collection、query を分ける。 |
@@ -483,6 +483,22 @@ source policy は implementation detail の文字列検索だけにしない。�
 | `core/hir/hir/stage0.nepl` | 27 | HIR smoke entry。 |
 
 `nodesrc/test_selfhost_hir_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から facade への曖昧 import を拒否する。既存の HIR range / payload / typed absence / report contract source policy は `nodesrc/selfhost_hir_sources.js` を通して facade と split files をまとめて読む。
+
+2026-05-20 に [ISS-20260520T041611797Z-SELF-HOST-TOKEN-MODEL-REMAINS-A-FLAT-3513A7ED](../../issues/items/ISS-20260520T041611797Z-SELF-HOST-TOKEN-MODEL-REMAINS-A-FLAT-3513A7ED.md) で `core/syntax/token.nepl` を分割した。現行の配置は次の通りである。
+
+| file | lines | 役割 |
+|---|---:|---|
+| `core/syntax/token.nepl` | 38 | doctest を保持する implementation-free facade。 |
+| `core/syntax/token/kind.nepl` | 87 | `TokenKind` enum と Copy 実装。 |
+| `core/syntax/token/value.nepl` | 42 | `SelfhostToken` value、constructor、lexeme slice、span end accessor。 |
+| `core/syntax/token/name.nepl` | 146 | Rust lexer JSON / parity 用の stable kind name。 |
+| `core/syntax/token/predicate/eof.nepl` | 148 | EOF predicate の exhaustive `TokenKind` match。 |
+| `core/syntax/token/predicate/error.nepl` | 148 | lexical error predicate の exhaustive `TokenKind` match。 |
+| `core/syntax/token/predicate/newline.nepl` | 148 | newline predicate の exhaustive `TokenKind` match。 |
+| `core/syntax/token/predicate/expr_start.nepl` | 148 | prefix expression start predicate の exhaustive `TokenKind` match。 |
+| `core/syntax/token/stage0.nepl` | 10 | token smoke entry。 |
+
+`nodesrc/test_selfhost_token_split_contract.js` は facade への実装再導入、split file の 450 行超過、submodule から facade への曖昧 import を拒否する。parser の `TokenKind` exhaustive match policy は `token/kind.nepl` を正として参照し、string helper boundary policy は `nodesrc/selfhost_token_sources.js` を通して split 後の token source をまとめて読む。
 
 ### P3: abstraction / generics / trait 設計を `abstraction/` と `ty/` に分ける
 

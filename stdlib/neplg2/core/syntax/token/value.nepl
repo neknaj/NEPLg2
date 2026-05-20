@@ -1,0 +1,42 @@
+#indent 4
+#import "alloc/string/slice" as string_slice
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "./kind" as *
+
+//: SelfhostToken: kind / span を[持/も]つ token
+//:
+//: [注意/ちゅうい]:
+//: - token は `Vec<SelfhostToken>` に[格納/かくのう]される Copy 値です。owned `str` を field に[持/も]たせず、lexeme は source text と span から必要な境界でだけ[切/き]り[出/だ]します。
+pub struct SelfhostToken:
+    kind <TokenKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostToken:
+    fn clone <(&SelfhostToken)->SelfhostToken> (self):
+        *self
+
+impl Copy for SelfhostToken:
+    fn copy_mark <(SelfhostToken)->SelfhostToken> (self):
+        self
+
+//: selfhost_token_new: token を[構築/こうちく]する
+pub fn selfhost_token_new <(TokenKind,SelfhostSourceSpan)->SelfhostToken> (kind, span):
+    SelfhostToken kind span
+
+//: selfhost_token_lexeme: source text と token span から lexeme を[切/き]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostToken` 自体を Copy-only に保ち、owned `str` を token buffer に[保存/ほぞん]しないための境界 helper です。
+//:
+//: [注意/ちゅうい]:
+//: - 返された `str` は呼び出し側の assertion / parser / resolver などの消費境界へ渡してください。
+pub fn selfhost_token_lexeme <(str,SelfhostToken)->str> (source, token):
+    let span <SelfhostSourceSpan> field::get token "span"
+    string_slice::str_slice source field::get span "start" field::get span "end"
+
+//: selfhost_token_end: token span の end offset を[返/かえ]す
+pub fn selfhost_token_end <(SelfhostToken)->i32> (token):
+    let span <SelfhostSourceSpan> field::get token "span"
+    field::get span "end"
