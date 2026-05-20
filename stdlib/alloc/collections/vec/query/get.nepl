@@ -17,7 +17,7 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../access/data" as vec_data
+#import "../access/data" as *
 #import "../invariant" as *
 #import "core/field" as *
 
@@ -78,5 +78,10 @@ pub fn get <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
                                 VecStorage::Empty:
                                     none<.T>
                                 VecStorage::Owned _region:
-                                    let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> v
-                                    some<.T> load<.T> add mem_ptr_addr v_data mul idx size_of<.T>
+                                    match data_mem_view<.T> v:
+                                        VecDataView::Empty:
+                                            none<.T>
+                                        VecDataView::Invalid _reason:
+                                            none<.T>
+                                        VecDataView::Data v_data:
+                                            some<.T> load<.T> add mem_ptr_addr v_data mul idx size_of<.T>

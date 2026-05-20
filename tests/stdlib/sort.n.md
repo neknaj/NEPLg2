@@ -567,7 +567,7 @@ diag_codes: resolve.identifier.undefined
 
 fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
-    sort_i32 data_mem_ptr<i32> &v0 0;
+    sort_i32 0 0;
     free<i32> v0;
     0
 ```

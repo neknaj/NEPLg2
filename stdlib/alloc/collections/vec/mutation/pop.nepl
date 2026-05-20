@@ -14,7 +14,7 @@
 #import "core/field" as field
 #import "../types" as *
 #import "../storage" as vec_storage
-#import "../access/data" as vec_data
+#import "../access/data" as *
 #import "../invariant" as *
 #import "core/field" as *
 
@@ -75,7 +75,7 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
     let v_invariant <VecCopyInvariant> vec_buffer_current_copy_invariant<.T> v_buffer_ref
-    let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> &v
+    let v_data_view <VecDataView<.T>> data_mem_view<.T> &v
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
     match v_invariant:
@@ -91,9 +91,15 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
                         VecStorage::Empty:
                             VecPop<.T> vec_storage::vec_empty<.T> none<.T>
                         VecStorage::Owned v_region:
-                            let next_len <i32> sub v_len 1
-                            let item <.T> load<.T> add mem_ptr_addr v_data mul next_len size_of<.T>
-                            VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
+                            match v_data_view:
+                                VecDataView::Empty:
+                                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned v_region))) none<.T>
+                                VecDataView::Invalid _reason:
+                                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned v_region))) none<.T>
+                                VecDataView::Data v_data:
+                                    let next_len <i32> sub v_len 1
+                                    let item <.T> load<.T> add mem_ptr_addr v_data mul next_len size_of<.T>
+                                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
 
 //: ## drop_last
 //: [末尾/まつび][要素/ようそ]を[捨/す]て、次の `Vec` owner だけを[返/かえ]す

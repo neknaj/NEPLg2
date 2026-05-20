@@ -12,7 +12,7 @@
 #import "core/math" as *
 #import "core/field" as field
 #import "../types" as *
-#import "../access/data" as vec_data
+#import "../access/data" as *
 #import "../invariant" as *
 #import "core/field" as *
 
@@ -67,5 +67,10 @@ pub fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
                                 VecStorage::Empty:
                                     ()
                                 VecStorage::Owned _region:
-                                    let v_data <MemPtr<.T>> vec_data::data_mem_ptr<.T> v
-                                    store<.T> add mem_ptr_addr v_data mul idx size_of<.T> item
+                                    match data_mem_view<.T> v:
+                                        VecDataView::Empty:
+                                            ()
+                                        VecDataView::Invalid _reason:
+                                            ()
+                                        VecDataView::Data v_data:
+                                            store<.T> add mem_ptr_addr v_data mul idx size_of<.T> item

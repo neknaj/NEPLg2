@@ -93,13 +93,18 @@ pub fn sort_quick <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
             ()
         VecCopyInvariant::Valid:
             let n <i32> len<.T> v
-            let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
             if:
                 le n 1
                 then ()
                 else:
-                    sort_quick_range_data<.T> data_ptr 0 sub n 1;
-                    ()
+                    match data_mem_view<.T> v:
+                        VecDataView::Empty:
+                            ()
+                        VecDataView::Invalid _reason:
+                            ()
+                        VecDataView::Data data_ptr:
+                            sort_quick_range_data<.T> data_ptr 0 sub n 1;
+                            ()
 //: sort_quick_ret: quick sort 後の Vec を返す
 //:
 //: [目的/もくてき]:
@@ -119,13 +124,18 @@ pub fn sort_quick_ret <.T: Ord&Copy> <(Vec<.T>)*>Vec<.T>> (v):
             ()
         VecCopyInvariant::Valid:
             let n <i32> len<.T> &v
-            let data_ptr <MemPtr<.T>> data_mem_ptr<.T> &v
             if:
                 le n 1
                 then ()
                 else:
-                    sort_quick_range_data<.T> data_ptr 0 sub n 1;
-                    ()
+                    match data_mem_view<.T> &v:
+                        VecDataView::Empty:
+                            ()
+                        VecDataView::Invalid _reason:
+                            ()
+                        VecDataView::Data data_ptr:
+                            sort_quick_range_data<.T> data_ptr 0 sub n 1;
+                            ()
     v
 
 //: sort: default sort として quick sort を実行する

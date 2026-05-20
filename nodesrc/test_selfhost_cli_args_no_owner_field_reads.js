@@ -27,7 +27,7 @@ assert.doesNotMatch(
 
 assert.doesNotMatch(
     code,
-    /\b(?:mem_ptr_addr|data_mem_ptr|load<str>|size_of<str>)\b/,
+    /\b(?:mem_ptr_addr|data_mem_(?:ptr|view)|load<str>|size_of<str>)\b/,
     'self-host CLI args parser must not read Vec<str> through raw storage',
 );
 

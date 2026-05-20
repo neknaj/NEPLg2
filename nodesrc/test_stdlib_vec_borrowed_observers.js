@@ -76,7 +76,7 @@ for (const [name, resultTy] of [
 }
 
 for (const [name, resultTy] of [
-    ["data_mem_ptr", "MemPtr<\\.T>"],
+    ["data_mem_view", "VecDataView<\\.T>"],
 ]) {
     assert.match(
         vecCode,

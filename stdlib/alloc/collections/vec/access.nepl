@@ -7,7 +7,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `access/header` は `len` / `cap` / `is_empty` を[所有/しょゆう]します。
-//: - `access/data` は typed storage view の `data_mem_ptr` を[所有/しょゆう]します。
+//: - `access/data` は typed storage view の `data_mem_view` を[所有/しょゆう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `as @merge` により `#import "alloc/collections/vec/access" as a` の qualified API も[維持/いじ]します。

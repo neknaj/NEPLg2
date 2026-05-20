@@ -34,29 +34,34 @@ pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
             ()
         VecCopyInvariant::Valid:
             let n <i32> len<.T> v
-            let data <MemPtr<.T>> data_mem_ptr<.T> v
             if:
                 le n 1
                 then ()
                 else:
-                    let mut end <i32> sub n 1;
-                    while lt 0 end:
-                        do:
-                            let mut i <i32> 0;
-                            while lt i end:
+                    match data_mem_view<.T> v:
+                        VecDataView::Empty:
+                            ()
+                        VecDataView::Invalid _reason:
+                            ()
+                        VecDataView::Data data:
+                            let mut end <i32> sub n 1;
+                            while lt 0 end:
                                 do:
-                                    let next_i <i32> add i 1
-                                    let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                    let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
-                                    if:
-                                        sort_lt<.T> b a
-                                        then:
-                                            store<.T> add mem_ptr_addr data mul i size_of<.T> b;
-                                            store<.T> add mem_ptr_addr data mul next_i size_of<.T> a
-                                        else ()
-                                    set i add i 1;
-                            set end sub end 1;
-                    ()
+                                    let mut i <i32> 0;
+                                    while lt i end:
+                                        do:
+                                            let next_i <i32> add i 1
+                                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                            let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                            if:
+                                                sort_lt<.T> b a
+                                                then:
+                                                    store<.T> add mem_ptr_addr data mul i size_of<.T> b;
+                                                    store<.T> add mem_ptr_addr data mul next_i size_of<.T> a
+                                                else ()
+                                            set i add i 1;
+                                    set end sub end 1;
+                            ()
 
 //: sort_cocktail: cocktail shaker sort で in-place 整列する
 //:
@@ -78,58 +83,63 @@ pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
             ()
         VecCopyInvariant::Valid:
             let n <i32> len<.T> v
-            let data <MemPtr<.T>> data_mem_ptr<.T> v
             if:
                 le n 1
                 then ()
                 else:
-                    let mut start <i32> 0;
-                    let mut end <i32> sub n 1;
-                    let mut swapped <i32> 1;
+                    match data_mem_view<.T> v:
+                        VecDataView::Empty:
+                            ()
+                        VecDataView::Invalid _reason:
+                            ()
+                        VecDataView::Data data:
+                            let mut start <i32> 0;
+                            let mut end <i32> sub n 1;
+                            let mut swapped <i32> 1;
 
-                    while and eq swapped 1 lt start end:
-                        do:
-                            set swapped 0;
-
-                            let mut i <i32> start;
-                            while lt i end:
+                            while and eq swapped 1 lt start end:
                                 do:
-                                    let next_i <i32> add i 1
-                                    let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                    let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
-                                    if:
-                                        sort_lt<.T> b a
-                                        then:
-                                            store<.T> add mem_ptr_addr data mul i size_of<.T> b;
-                                            store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
-                                            set swapped 1;
-                                            ()
-                                        else ()
-                                    set i add i 1;
-
-                            set end sub end 1;
-
-                            if:
-                                eq swapped 0
-                                then set start end
-                                else:
                                     set swapped 0;
 
-                            let mut j <i32> end;
-                            while lt start j:
-                                do:
-                                    let prev_j <i32> sub j 1
-                                    let a <.T> load<.T> add mem_ptr_addr data mul prev_j size_of<.T>;
-                                    let b <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
-                                    if:
-                                        sort_lt<.T> b a
-                                        then:
-                                            store<.T> add mem_ptr_addr data mul prev_j size_of<.T> b;
-                                            store<.T> add mem_ptr_addr data mul j size_of<.T> a;
-                                            set swapped 1;
-                                            ()
-                                        else ()
-                                    set j sub j 1;
+                                    let mut i <i32> start;
+                                    while lt i end:
+                                        do:
+                                            let next_i <i32> add i 1
+                                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                            let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                            if:
+                                                sort_lt<.T> b a
+                                                then:
+                                                    store<.T> add mem_ptr_addr data mul i size_of<.T> b;
+                                                    store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
+                                                    set swapped 1;
+                                                    ()
+                                                else ()
+                                            set i add i 1;
 
-                            set start add start 1;
-                    ()
+                                    set end sub end 1;
+
+                                    if:
+                                        eq swapped 0
+                                        then set start end
+                                        else:
+                                            set swapped 0;
+
+                                    let mut j <i32> end;
+                                    while lt start j:
+                                        do:
+                                            let prev_j <i32> sub j 1
+                                            let a <.T> load<.T> add mem_ptr_addr data mul prev_j size_of<.T>;
+                                            let b <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
+                                            if:
+                                                sort_lt<.T> b a
+                                                then:
+                                                    store<.T> add mem_ptr_addr data mul prev_j size_of<.T> b;
+                                                    store<.T> add mem_ptr_addr data mul j size_of<.T> a;
+                                                    set swapped 1;
+                                                    ()
+                                                else ()
+                                            set j sub j 1;
+
+                                    set start add start 1;
+                            ()

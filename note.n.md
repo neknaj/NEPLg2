@@ -1,3 +1,28 @@
+# 2026-05-20 Agent 1 Vec data view enum 化
+
+- `ISS-20260520T113031972Z-VEC-DATA-VIEW-COLLAPSES-INVALID-INVA-D6378EBA` を修正した。`plan.md` は変更していない。
+- 根本原因は、`data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` が valid empty storage と invalid `OwnedBuffer<T>` invariant を同じ null `MemPtr` sentinel に潰し、`VecCopyInvariantInvalid` の typed refutation を caller の `match` から隠していたこと。
+- `data_mem_ptr` は互換 alias を残さず削除し、`data_mem_view<T>(&Vec<T>) -> VecDataView<T>` へ置き換えた。
+- `VecDataView<T>` は `Empty | Data(MemPtr<T>) | Invalid(VecCopyInvariantInvalid)` の enum とし、raw load/store/sort/transform/get/replace/pop は `Data` branch の中だけで raw storage view を使う。
+- これにより、empty storage、actual backing data view、malformed owner aggregate を値 sentinel ではなく enum branch として分岐し、静的検査の網羅性と source policy で回帰を検出できる。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: pass
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: pass
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-access.json -j 1 --assert-io`: 2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query/get.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-get.json -j 1 --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/pop.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-pop.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/map.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-map.json -j 1 --assert-io`: 1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/filter.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-filter.json -j 1 --assert-io`: 7 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/transform/prefix.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-prefix.json -j 1 --assert-io`: 2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-sort.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree --dist web/dist -o tmp/agent1-vec-data-view-memory-safety.json -j 1 --assert-io`: 63 passed
+  - `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree --dist web/dist -o tmp/agent1-vec-data-view-sort-fixture.json -j 1 --assert-io`: 20 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-root.json -j 1 --assert-io`: 3 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+
 # 2026-05-20 Agent 1 Vec invariant backing extent proof
 
 - `ISS-20260520T111714158Z-VEC-INVARIANT-DOES-NOT-PROVE-BACKING-46A3C801` を修正した。`plan.md` は変更していない。

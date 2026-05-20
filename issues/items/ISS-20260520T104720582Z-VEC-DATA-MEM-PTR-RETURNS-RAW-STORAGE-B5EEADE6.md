@@ -58,3 +58,9 @@ focused verification:
 - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
 - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl --no-tree --dist web/dist -o tmp/agent1-vec-data-view-invariant-2.json -j 1 --assert-io`: 2/2 passed
 - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree --dist web/dist -o tmp/agent1-vec-root-data-view-invariant.json -j 1 --assert-io`: 3/3 passed
+
+## 2026-05-20 Agent 1 follow-up
+
+この issue の修正で入れた null `MemPtr` sentinel は、後続の `ISS-20260520T113031972Z-VEC-DATA-VIEW-COLLAPSES-INVALID-INVA-D6378EBA` で破棄した。
+
+現在の設計では `data_mem_ptr<T>(&Vec<T>) -> MemPtr<T>` を残さず、`data_mem_view<T>(&Vec<T>) -> VecDataView<T>` が `Empty | Data(MemPtr<T>) | Invalid(VecCopyInvariantInvalid)` を返す。invalid owner aggregate を empty storage と同じ pointer value に潰さず、typed refutation evidence を caller の `match` に残す。
