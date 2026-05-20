@@ -108,6 +108,69 @@ impl OverloadCandidateStats {
     }
 }
 
+#[derive(Clone, Copy)]
+enum OverloadCandidateNarrowingStage {
+    InitialCandidates,
+    PreferPureFunction,
+    SignatureDedup,
+    PreferOrdinaryFunction,
+    PreferConcreteSignature,
+    PreferFewerTypeParameters,
+    PreferInstantiatedSpecificity,
+    PreferDeclaredSpecificity,
+}
+
+impl OverloadCandidateNarrowingStage {
+    fn diagnostic_label(self) -> &'static str {
+        match self {
+            OverloadCandidateNarrowingStage::InitialCandidates => "initial candidate filtering",
+            OverloadCandidateNarrowingStage::PreferPureFunction => "pure function preference",
+            OverloadCandidateNarrowingStage::SignatureDedup => "signature deduplication",
+            OverloadCandidateNarrowingStage::PreferOrdinaryFunction => {
+                "ordinary function preference"
+            }
+            OverloadCandidateNarrowingStage::PreferConcreteSignature => {
+                "concrete signature preference"
+            }
+            OverloadCandidateNarrowingStage::PreferFewerTypeParameters => {
+                "type parameter count preference"
+            }
+            OverloadCandidateNarrowingStage::PreferInstantiatedSpecificity => {
+                "instantiated specificity preference"
+            }
+            OverloadCandidateNarrowingStage::PreferDeclaredSpecificity => {
+                "declared specificity preference"
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct OverloadAmbiguityReason {
+    after_stage: OverloadCandidateNarrowingStage,
+    remaining_candidates: usize,
+}
+
+impl OverloadAmbiguityReason {
+    fn after_stage(
+        after_stage: OverloadCandidateNarrowingStage,
+        remaining_candidates: usize,
+    ) -> Self {
+        Self {
+            after_stage,
+            remaining_candidates,
+        }
+    }
+
+    fn diagnostic_message(self) -> String {
+        format!(
+            "ambiguous overload after {} ({} candidates remain)",
+            self.after_stage.diagnostic_label(),
+            self.remaining_candidates
+        )
+    }
+}
+
 impl<'a> BlockChecker<'a> {
     pub(super) fn select_overload_candidate(
         &mut self,
@@ -338,6 +401,7 @@ impl<'a> BlockChecker<'a> {
         // In a pure context, if both pure and impure candidates match,
         // prefer pure ones to avoid false pure-call diagnostics from name collisions
         // between different modules' overloads of the same function.
+        let mut last_narrowing_stage = OverloadCandidateNarrowingStage::InitialCandidates;
         if candidates.len() > 1 && matches!(self.current_effect, Effect::Pure) {
             let pure_only: Vec<OverloadCandidate<'_>> = candidates
                 .iter()
@@ -355,6 +419,7 @@ impl<'a> BlockChecker<'a> {
             if !pure_only.is_empty() {
                 candidates = pure_only;
             }
+            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferPureFunction;
         }
 
         if candidates.is_empty() {
@@ -401,6 +466,7 @@ impl<'a> BlockChecker<'a> {
                 }
             }
             candidates = dedup;
+            last_narrowing_stage = OverloadCandidateNarrowingStage::SignatureDedup;
         }
         if candidates.len() > 1 {
             let ordinary: Vec<OverloadCandidate<'_>> = candidates
@@ -411,6 +477,7 @@ impl<'a> BlockChecker<'a> {
             if !ordinary.is_empty() {
                 candidates = ordinary;
             }
+            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferOrdinaryFunction;
         }
         if candidates.len() > 1 {
             let concrete: Vec<OverloadCandidate<'_>> = candidates
@@ -421,6 +488,7 @@ impl<'a> BlockChecker<'a> {
             if !concrete.is_empty() {
                 candidates = concrete;
             }
+            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferConcreteSignature;
         }
         if candidates.len() > 1 {
             let min_type_params = candidates
@@ -433,6 +501,7 @@ impl<'a> BlockChecker<'a> {
                 .filter(|b| b.type_param_count == min_type_params)
                 .collect();
             candidates = narrowed;
+            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferFewerTypeParameters;
         }
         if candidates.len() > 1 {
             if crate::log::is_verbose() {
@@ -455,6 +524,7 @@ impl<'a> BlockChecker<'a> {
                 .filter(|b| b.instantiated_specificity == max_specificity)
                 .collect();
             candidates = narrowed;
+            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferInstantiatedSpecificity;
         }
         if candidates.len() > 1 {
             let max_declared_specificity = candidates
@@ -467,11 +537,14 @@ impl<'a> BlockChecker<'a> {
                 .filter(|b| b.declared_specificity == max_declared_specificity)
                 .collect();
             candidates = narrowed;
+            last_narrowing_stage = OverloadCandidateNarrowingStage::PreferDeclaredSpecificity;
         }
         if candidates.len() > 1 {
+            let ambiguity =
+                OverloadAmbiguityReason::after_stage(last_narrowing_stage, candidates.len());
             self.diagnostics.push(type_error(
                 TypeDiagnosticCode::OverloadAmbiguous,
-                "ambiguous overload",
+                ambiguity.diagnostic_message(),
                 span,
             ));
             return None;
