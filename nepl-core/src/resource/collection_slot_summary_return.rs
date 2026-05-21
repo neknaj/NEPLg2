@@ -1,5 +1,5 @@
 use super::collection_slot_state_table::CollectionSlotStateTable;
-use super::collection_slot_summary_model::CollectionSlotLifecycleReturnSlot;
+use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnSlot;
 use super::initialized::ResourceCheckEngine;
 use super::model::Place;
 use super::place_utils::place_with_suffix;

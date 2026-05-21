@@ -4,11 +4,12 @@ use super::function_alias::FunctionAliasTable;
 use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_call_args::discard_call_arg_loaded_value_origins;
+use super::initialized_call_effect::direct_call_invalidates_result;
 use super::initialized_scalar_flow::apply_direct_call_i32_scalar_summary;
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{EffectOp, Place, ResourceCallTarget};
-use super::place_utils::call_uses_checked_mem_ptr_wrapper;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
@@ -26,10 +27,7 @@ impl ResourceCheckEngine<'_> {
         effect: &EffectOp,
         span: crate::span::Span,
     ) {
-        if matches!(effect, EffectOp::InternalAlloc { .. })
-            || (matches!(effect, EffectOp::UnsafeMemory { .. })
-                && !call_uses_checked_mem_ptr_wrapper(self.types, args))
-        {
+        if direct_call_invalidates_result(self.types, effect, args) {
             pending_reallocs.clear_result(output);
             variant_initializations.clear_result(output);
             return;
@@ -37,9 +35,7 @@ impl ResourceCheckEngine<'_> {
         if !self.consume_args(cells, args, ResourceCheckOperation::CallArgument, span) {
             return;
         }
-        for arg in args {
-            cells.discard_raw_cell_loaded_value_origin(arg);
-        }
+        discard_call_arg_loaded_value_origins(cells, args);
         let external_inputs_available =
             self.ensure_external_io_initialized_inputs(cells, raw_aliases, effect, args, span);
         if !external_inputs_available {
@@ -110,9 +106,7 @@ impl ResourceCheckEngine<'_> {
         if !(callee_available && args_available) {
             return;
         }
-        for arg in args {
-            cells.discard_raw_cell_loaded_value_origin(arg);
-        }
+        discard_call_arg_loaded_value_origins(cells, args);
         cells.mark_initialized(output);
         if !self.apply_indirect_call_return_raw_alias(
             raw_aliases,

@@ -36,10 +36,8 @@ impl ResourceCheckEngine<'_> {
             .aliases_for(&address)
             .iter()
             .any(|alias| cells.raw_cell_is_untracked_external(alias));
-        let loaded_from_zero_initialized_runtime =
-            raw_memory_load_reads_zero_initialized_runtime_cell(cells, raw_aliases, &address);
-        let loaded_from_untracked_source =
-            loaded_from_untracked_external || loaded_from_zero_initialized_runtime;
+        let loaded_from_untracked_source = loaded_from_untracked_external
+            || raw_memory_load_reads_zero_initialized_runtime_cell(cells, raw_aliases, &address);
         let cell_available = loaded_from_untracked_source
             || cells.raw_cell_initialized_by_byte_range(&address, cell_ty, raw_aliases, self.types)
             || self.ensure_available(
@@ -145,7 +143,6 @@ impl ResourceCheckEngine<'_> {
         matches!(self.types.get_ref(self.types.resolve_id(ty)), TypeKind::I32)
     }
 }
-
 pub(super) fn raw_memory_load_reads_zero_initialized_runtime_cell(
     cells: &CellTable,
     raw_aliases: &RawCellAddressAliases,

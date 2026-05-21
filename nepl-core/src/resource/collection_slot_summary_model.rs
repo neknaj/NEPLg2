@@ -8,6 +8,9 @@ use crate::types::TypeId;
 use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
+use super::collection_slot_summary_return_model::{
+    CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
+};
 use super::model::PlaceProjection;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 
@@ -71,18 +74,4 @@ pub(super) struct CollectionSlotLifecycleSummaryPlace {
     pub(super) parameter_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct CollectionSlotLifecycleReturnSlot {
-    pub(super) suffix: Vec<PlaceProjection>,
-    pub(super) ty: TypeId,
-    pub(super) state: super::collection_slot_lifecycle::CollectionSlotState,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct CollectionSlotLifecycleReturnTransfer {
-    pub(super) source: CollectionSlotLifecycleSummaryPlace,
-    pub(super) target_suffix: Vec<PlaceProjection>,
-    pub(super) target_ty: TypeId,
 }

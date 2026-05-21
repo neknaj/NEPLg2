@@ -44047,3 +44047,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core resource_ir_collection_slot_drop --test resource_ir -- --test-threads=1`: passed
   - `cargo test -p nepl-core resource_ir_collection_slot_replace_drop_old --test resource_ir -- --test-threads=1`: passed
   - `cargo test -p nepl-core resource_ir_collection_slot_call_summary_accepts_callee_certified_drop_proof --test resource_ir -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot proof responsibility split
+
+- `ISS-20260521T034734844Z-COLLECTION-SLOT-SUMMARY-APPLY-EXCEED-59D2D0A7` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot non-Copy payload proof の追加で、summary apply/build、initialized collection slot proof application、raw loaded-value flow がそれぞれ複数責務を抱え、`nodesrc/test_resource_checker_responsibility.js` の監視を通らなくなっていたことだった。
+- `collection_slot_summary_apply.rs` から summary op replay と target projection を分離し、summary build 側も build state / op collection / callee summary translation / event proof / return model / return fact collection に分割した。
+- `initialized_collection_slot.rs` は entry wrapper に限定し、apply 本体、summary alias proof conversion、storage relocate、proof rejection、tests を専用 module へ分割した。
+- `raw_cell_value_flow.rs` は fact engine に限定し、CellTable API wrapper と tests を分離した。call argument で raw-loaded value origin が ownership boundary を越える処理も `initialized_call_args.rs` に切り出した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core raw_cell_value_flow -- --test-threads=1`: passed
+  - `cargo test -p nepl-core initialized_collection_slot -- --test-threads=1`: passed
+  - `cargo test -p nepl-core collection_slot -- --test-threads=1`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `cargo fmt --check`: passed
+  - `git diff --check`: passed

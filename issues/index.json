@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T03:37:27.262Z",
+  "generated_at": "2026-05-21T04:08:49.837Z",
   "counts": {
-    "total": 1156,
+    "total": 1157,
     "open": 3,
-    "resolved": 1153,
+    "resolved": 1154,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 553,
+        "total": 554,
         "open": 0,
-        "resolved": 553
+        "resolved": 554
       },
       "CORE": {
         "total": 5,
@@ -8458,6 +8458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T031943441Z-COLLECTION-SLOT-DROP-LIFECYCLE-NEEDS-DCBDB1EC.md"
+    },
+    {
+      "id": "ISS-20260521T034734844Z-COLLECTION-SLOT-SUMMARY-APPLY-EXCEED-59D2D0A7",
+      "title": "Collection slot proof modules exceed responsibility split limits",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_*.rs, nepl-core/src/resource/initialized_collection_slot*.rs, nepl-core/src/resource/raw_cell_value_flow*.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T034734844Z-COLLECTION-SLOT-SUMMARY-APPLY-EXCEED-59D2D0A7.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
