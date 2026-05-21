@@ -27483,6 +27483,282 @@ fn resource_ir_collection_slot_return_summary_skips_never_match_arm_path_effects
 }
 
 #[test]
+fn resource_ir_collection_slot_return_value_producer_skips_never_branch_value() {
+    let (mut types, owned_ty) = types_with_copy_owned();
+    let storage_ty = register_non_copy_collection_storage(&mut types);
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let never_ty = types.never();
+    let span = Span::dummy();
+    let param_storage = Place::local("storage".to_string(), storage_ty);
+    let never_param_storage = Place {
+        root: PlaceRoot::Local("storage".to_string()),
+        projections: Vec::new(),
+        ty: never_ty,
+    };
+    let fresh_storage = Place::temporary(ResourceId(820), storage_ty);
+    let condition = Place::temporary(ResourceId(821), i32_ty);
+    let branch_output = Place::temporary(ResourceId(822), storage_ty);
+    let caller_storage = Place::local("caller_storage".to_string(), storage_ty);
+    let caller_slot = caller_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let returned_storage = Place::temporary(ResourceId(823), storage_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "return_branch_storage".to_string(),
+                origin_name: "return_branch_storage".to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "storage".to_string(),
+                    ty: storage_ty,
+                    mutable: false,
+                    place: param_storage,
+                }],
+                result: storage_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::LiteralI32(1),
+                            output: condition.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::Branch {
+                            output: branch_output.clone(),
+                            condition,
+                            condition_fact: None,
+                            then_ops: Vec::new(),
+                            then_value: never_param_storage,
+                            else_ops: vec![ResourceOp::Expr {
+                                kind: ResourceExprKind::Literal,
+                                output: fresh_storage.clone(),
+                                ty: storage_ty,
+                                span,
+                            }],
+                            else_value: fresh_storage,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(branch_output),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: caller_storage.clone(),
+                            ty: storage_ty,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: caller_slot,
+                            event: CollectionSlotLifecycleEvent::InitializeEmpty {
+                                value_ty: owned_ty,
+                            },
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: returned_storage.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "return_branch_storage".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![caller_storage],
+                            effect: EffectOp::Pure,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: returned_storage,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "never branch value must not be traced as a returned storage owner: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_return_value_producer_skips_never_match_value() {
+    let (mut types, owned_ty) = types_with_copy_owned();
+    let storage_ty = register_non_copy_collection_storage(&mut types);
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let never_ty = types.never();
+    let span = Span::dummy();
+    let param_storage = Place::local("storage".to_string(), storage_ty);
+    let never_param_storage = Place {
+        root: PlaceRoot::Local("storage".to_string()),
+        projections: Vec::new(),
+        ty: never_ty,
+    };
+    let fresh_storage = Place::temporary(ResourceId(824), storage_ty);
+    let scrutinee = Place::temporary(ResourceId(825), i32_ty);
+    let match_output = Place::temporary(ResourceId(826), storage_ty);
+    let caller_storage = Place::local("caller_storage".to_string(), storage_ty);
+    let caller_slot = caller_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let returned_storage = Place::temporary(ResourceId(827), storage_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "return_match_storage".to_string(),
+                origin_name: "return_match_storage".to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "storage".to_string(),
+                    ty: storage_ty,
+                    mutable: false,
+                    place: param_storage,
+                }],
+                result: storage_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::LiteralI32(1),
+                            output: scrutinee.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::Match {
+                            output: match_output.clone(),
+                            scrutinee,
+                            scrutinee_is_borrow_target: false,
+                            arms: vec![
+                                ResourceMatchArm {
+                                    pattern: ResourceMatchPattern::IntLiteral(0),
+                                    bind_local: None,
+                                    bind_source_name: None,
+                                    bind_mode: None,
+                                    ops: Vec::new(),
+                                    value: never_param_storage,
+                                    span,
+                                },
+                                ResourceMatchArm {
+                                    pattern: ResourceMatchPattern::Wildcard,
+                                    bind_local: None,
+                                    bind_source_name: None,
+                                    bind_mode: None,
+                                    ops: vec![ResourceOp::Expr {
+                                        kind: ResourceExprKind::Literal,
+                                        output: fresh_storage.clone(),
+                                        ty: storage_ty,
+                                        span,
+                                    }],
+                                    value: fresh_storage,
+                                    span,
+                                },
+                            ],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(match_output),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: caller_storage.clone(),
+                            ty: storage_ty,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: caller_slot,
+                            event: CollectionSlotLifecycleEvent::InitializeEmpty {
+                                value_ty: owned_ty,
+                            },
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: returned_storage.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "return_match_storage".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![caller_storage],
+                            effect: EffectOp::Pure,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: returned_storage,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "never match value must not be traced as a returned storage owner: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_return_path_state_only_replay_does_not_duplicate_diagnostics() {
     let (mut types, owned_ty) = types_with_copy_owned();
     let storage_ty = register_non_copy_collection_storage(&mut types);

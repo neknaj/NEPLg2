@@ -7,6 +7,7 @@ use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTr
 use super::collection_slot_summary_return_path_call::{
     collect_return_paths_from_call_summary, collect_return_paths_from_indirect_call_summary,
 };
+use super::collection_slot_summary_return_path_control::return_value_is_never;
 use super::collection_slot_summary_return_path_model::{push_return_path, ReturnPathBuildState};
 use super::collection_slot_summary_return_path_slots::collect_return_slots_for_value;
 use super::collection_slot_summary_return_path_state::return_path_states_after_ops;
@@ -116,26 +117,30 @@ fn collect_return_paths_from_value_producer(
                 ..
             } if output == value => {
                 for branch_start in return_path_states_after_ops(engine, params, start, prior_ops) {
-                    collect_return_paths_from_value_to_suffix(
-                        out,
-                        engine,
-                        params,
-                        branch_start.clone(),
-                        then_ops,
-                        then_value,
-                        target_suffix,
-                        value.ty,
-                    );
-                    collect_return_paths_from_value_to_suffix(
-                        out,
-                        engine,
-                        params,
-                        branch_start,
-                        else_ops,
-                        else_value,
-                        target_suffix,
-                        value.ty,
-                    );
+                    if !return_value_is_never(engine, then_value) {
+                        collect_return_paths_from_value_to_suffix(
+                            out,
+                            engine,
+                            params,
+                            branch_start.clone(),
+                            then_ops,
+                            then_value,
+                            target_suffix,
+                            value.ty,
+                        );
+                    }
+                    if !return_value_is_never(engine, else_value) {
+                        collect_return_paths_from_value_to_suffix(
+                            out,
+                            engine,
+                            params,
+                            branch_start,
+                            else_ops,
+                            else_value,
+                            target_suffix,
+                            value.ty,
+                        );
+                    }
                 }
                 return;
             }
@@ -147,6 +152,9 @@ fn collect_return_paths_from_value_producer(
             } if output == value => {
                 for match_start in return_path_states_after_ops(engine, params, start, prior_ops) {
                     for arm in arms {
+                        if return_value_is_never(engine, &arm.value) {
+                            continue;
+                        }
                         let Some(arm_state) =
                             super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state(
                                 engine,

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T10:46:08.485Z",
+  "generated_at": "2026-05-21T10:53:40.172Z",
   "counts": {
-    "total": 1179,
+    "total": 1180,
     "open": 3,
-    "resolved": 1176,
+    "resolved": 1177,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 573,
+        "total": 574,
         "open": 0,
-        "resolved": 573
+        "resolved": 574
       },
       "CORE": {
         "total": 5,
@@ -8788,6 +8788,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T103746552Z-COLLECTION-SLOT-LIFECYCLE-PROOF-CHEC-E31C8D02.md"
+    },
+    {
+      "id": "ISS-20260521T104926514Z-COLLECTION-SLOT-RETURN-VALUE-PRODUCE-51DC87E9",
+      "title": "Collection slot return value producer tracing must ignore never arms",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_path_value.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T104926514Z-COLLECTION-SLOT-RETURN-VALUE-PRODUCE-51DC87E9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
