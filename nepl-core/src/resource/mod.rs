@@ -54,6 +54,7 @@ mod collection_slot_summary_build_ops;
 mod collection_slot_summary_build_state;
 mod collection_slot_summary_event_apply_proof;
 mod collection_slot_summary_event_proof;
+mod collection_slot_summary_match_state;
 mod collection_slot_summary_model;
 mod collection_slot_summary_replay;
 mod collection_slot_summary_return;

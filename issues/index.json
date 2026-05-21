@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T09:04:55.246Z",
+  "generated_at": "2026-05-21T09:20:30.834Z",
   "counts": {
-    "total": 1175,
+    "total": 1176,
     "open": 3,
-    "resolved": 1172,
+    "resolved": 1173,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 570,
+        "total": 571,
         "open": 0,
-        "resolved": 570
+        "resolved": 571
       },
       "CORE": {
         "total": 5,
@@ -8743,6 +8743,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T082640712Z-COLLECTION-SLOT-INDIRECT-CALL-SUMMAR-6AB52846.md"
+    },
+    {
+      "id": "ISS-20260521T091611468Z-COLLECTION-SLOT-LIFECYCLE-SUMMARY-CO-1DED6918",
+      "title": "Collection slot lifecycle summary collection ignores match-bound enum payload state",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_build_ops.rs, nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T091611468Z-COLLECTION-SLOT-LIFECYCLE-SUMMARY-CO-1DED6918.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

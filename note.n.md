@@ -1,3 +1,14 @@
+# 2026-05-21 Agent 1 match-bound collection slot summary lifecycle
+
+- `ISS-20260521T091611468Z-COLLECTION-SLOT-LIFECYCLE-SUMMARY-CO-1DED6918` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot return-transfer 収集では owned enum payload match bind の entry state を構築していた一方、lifecycle summary event 収集では `ResourceOp::Match` の arm `ops` を pre-match state のまま再帰していたことだった。
+- `collection_slot_summary_match_state.rs` を追加し、match arm entry-state 構築を共通 helper へ切り出した。summary event 収集と return-transfer 収集は同じ helper を使い、raw alias、cell origin、collection slot state、function alias、pending realloc、variant state を bind local へ伝播してから arm を処理する。
+- `Result` / `Option` / stdlib helper 名の allowlist は追加していない。`ResourceOp::Match`、`ResourceMatchArm`、parameter-relative `Place` suffix から generic に summary proof を導出する。
+- regression として、callee が enum parameter を match し、owned payload bind local に `CollectionSlotLifecycle::StorageDealloc` を発行する場合に、caller の `Result::Err(storage)` payload live slot が `LiveSlotDuringStorageDealloc` として検出されることを固定した。
+- 親 issue と Stage 6 docs に、match-bound lifecycle summary event が caller replay へ届くようになったことを追記した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_collects_match_bound_lifecycle_event -- --test-threads=1`: pass
+
 # 2026-05-21 Agent 1 source-level droppable collection slot drop proof
 
 - `ISS-20260521T054050076Z-SOURCE-LEVEL-DROPPABLE-COLLECTION-SL-7041CED9` を追加して fixed にした。`plan.md` は変更していない。

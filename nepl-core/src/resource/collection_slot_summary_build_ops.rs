@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use super::collection_slot_summary_build_event::collect_summary_event_op;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
+use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
 };
@@ -144,12 +145,19 @@ fn collect_summary_ops_from_op(
                 });
             }
         }
-        ResourceOp::Match { arms, .. } => {
+        ResourceOp::Match {
+            scrutinee, arms, ..
+        } => {
             let mut paths = Vec::new();
             for arm in arms {
+                let Some(arm_state) =
+                    collection_slot_summary_match_arm_entry_state(engine, state, scrutinee, arm)
+                else {
+                    continue;
+                };
                 paths.push(collect_nested_summary_ops(
                     engine,
-                    state,
+                    &arm_state,
                     params,
                     collection_slot_summaries,
                     &arm.ops,
