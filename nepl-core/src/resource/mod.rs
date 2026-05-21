@@ -49,8 +49,10 @@ mod collection_slot_state_transfer;
 mod collection_slot_state_transfer_tests;
 mod collection_slot_summary_apply;
 mod collection_slot_summary_build;
+mod collection_slot_summary_build_event;
 mod collection_slot_summary_build_ops;
 mod collection_slot_summary_build_state;
+mod collection_slot_summary_event_apply_proof;
 mod collection_slot_summary_event_proof;
 mod collection_slot_summary_model;
 mod collection_slot_summary_replay;
@@ -179,6 +181,7 @@ mod initialized_availability;
 mod initialized_call;
 mod initialized_call_args;
 mod initialized_call_effect;
+#[cfg(test)]
 mod initialized_collection_slot;
 mod initialized_collection_slot_alias;
 mod initialized_collection_slot_apply;
@@ -365,7 +368,11 @@ mod owner_variant_value_condition;
 mod place_utils;
 mod raw_cell_lifecycle;
 mod raw_cell_value_flow;
+mod raw_cell_value_flow_alias;
+#[cfg(test)]
+mod raw_cell_value_flow_alias_tests;
 mod raw_cell_value_flow_cell;
+mod raw_cell_value_flow_proof;
 #[cfg(test)]
 mod raw_cell_value_flow_tests;
 #[cfg(test)]

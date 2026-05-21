@@ -20,6 +20,7 @@ impl ResourceCheckEngine<'_> {
         self.apply_collection_slot_lifecycle_with_proofs(
             cells,
             collection_slots,
+            None,
             target,
             event,
             CollectionSlotOwnerTransferProof::LocalRawValueFlow,

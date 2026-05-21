@@ -1,3 +1,22 @@
+# 2026-05-21 Agent 1 source-level non-Copy collection slot value-flow proof
+
+- `ISS-20260521T050436552Z-SOURCE-LEVEL-NON-COPY-COLLECTION-SLO-D0BB9BAF` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、手書き Resource IR では raw store/load と collection slot lifecycle が同じ `Place` を直接共有していた一方、source-level lowering では `region_ptr` / `mem_ptr_addr` の raw address alias と `collection_slot_*` の owner-cell target が explicit zero offset (`[+0]`) を挟んで別 `Place` として raw value-flow proof に渡っていたことだった。
+- `RawCellValueFlowFacts` は raw address alias と zero-offset 正規化を含む alias-aware candidate で fact を照合するようにした。`[+0]` は同じ raw cell として扱うが、`[+4]` のような非ゼロ offset は同じ proof として扱わない unit test を追加した。
+- collection slot owner-transfer/drop proof は alias-aware raw value-flow lookup を使うようにした。これにより stdlib module 名や関数名の allowlist ではなく、同じ raw cell に対する typed `StoreValue` / `MoveOutLoadedCell` / `DropLoadedCell` fact が存在するかで証明する。
+- proof helper と alias matching は専用 module に分割し、`nodesrc/test_resource_checker_responsibility.js` の監視対象へ追加した。collection slot proof module が再び肥大化しないようにしている。
+- source-level compiler-owned stdlib fixture で、non-Copy `LocalOwner` を `raw store -> InitializeEmpty`、`raw load -> MoveOut` へ接続できることを Resource IR regression として固定した。
+- 親 issue と Stage 6 docs に、production source path の raw value-flow proof が generic collection slot proof boundary に接続されたこと、non-zero offset は誤って同一 proof にしないことを追記した。
+- focused verification:
+  - `cargo test -p nepl-core --lib resource::raw_cell_value_flow_tests::raw_value_flow_alias_matching_treats_zero_offset_as_same_cell_only -- --exact --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_non_copy -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+
 # 2026-05-21 Agent 1 collection slot certified summary value-flow proof
 
 - `ISS-20260521T025115696Z-COLLECTION-SLOT-SUMMARIES-NEED-CERTI-92379E7C` を追加して fixed にした。`plan.md` は変更していない。

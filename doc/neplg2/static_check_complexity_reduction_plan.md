@@ -1073,6 +1073,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260521T025115696Z-COLLECTION-SLOT-SUMMARIES-NEED-CERTI-92379E7C` は 2026-05-21 に修正した。`CollectionSlotLifecycleSummaryOp::Event` に `CollectionSlotLifecycleSummaryEventProof` を追加し、callee 内で raw value-flow fact から証明済みの non-Copy owner-transfer だけを `OwnerTransferValueFlow` として summary に載せる。caller replay はこの certified proof を obligation と照合し、caller 側に同じ raw fact を再要求しない。一方、proof がない non-Copy lifecycle event は summary として信用しないため、stdlib helper 名の allowlist や shallow owner transfer へ戻らない。これにより direct call を跨ぐ non-Copy slot initialize / move-out は generic Resource IR proof に接続された。compiler-owned slot-drop lowering はまだ Stage 6 残件である。
 
+`ISS-20260521T050436552Z-SOURCE-LEVEL-NON-COPY-COLLECTION-SLO-D0BB9BAF` は 2026-05-21 に修正した。source-level compiler-owned stdlib lowering では、`region_ptr` / `mem_ptr_addr` で作られた raw store/load fact と、`collection_slot_*` intrinsic の owner-cell target が同じ storage cell を指していても、raw address alias と explicit zero offset (`[+0]`) を跨いで value-flow proof が照合されていなかった。修正後は `RawCellValueFlowFacts` が alias-aware raw-cell candidates と zero-offset 正規化を使い、同じ raw cell に対する typed fact を collection slot owner-transfer/drop proof が消費できる。これは stdlib function allowlist ではなく Resource IR の generic proof であり、non-zero offset は同一 proof として扱わない。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

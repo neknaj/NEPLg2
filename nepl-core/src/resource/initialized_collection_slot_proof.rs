@@ -12,6 +12,7 @@ use super::collection_slot_owner_transfer_proof::{
 };
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 
 impl ResourceCheckEngine<'_> {
@@ -19,6 +20,7 @@ impl ResourceCheckEngine<'_> {
         &self,
         cells: &mut CellTable,
         collection_slots: &CollectionSlotStateTable,
+        raw_aliases: Option<&RawCellAddressAliases>,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
         proof: CollectionSlotDropProof,
@@ -27,7 +29,14 @@ impl ResourceCheckEngine<'_> {
             return Ok(());
         };
         apply_event_precondition(collection_slots, target, event)?;
-        if consume_collection_slot_drop_proof(cells, target, obligation, proof, self.types) {
+        if consume_collection_slot_drop_proof(
+            cells,
+            raw_aliases,
+            target,
+            obligation,
+            proof,
+            self.types,
+        ) {
             Ok(())
         } else {
             let (operation, slot_ty) = obligation.primary_refutation();
@@ -45,6 +54,7 @@ impl ResourceCheckEngine<'_> {
         &self,
         cells: &mut CellTable,
         collection_slots: &CollectionSlotStateTable,
+        raw_aliases: Option<&RawCellAddressAliases>,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
         proof: CollectionSlotOwnerTransferProof,
@@ -54,7 +64,12 @@ impl ResourceCheckEngine<'_> {
         };
         apply_event_precondition(collection_slots, target, event)?;
         if consume_collection_slot_owner_transfer_proof(
-            cells, target, obligation, proof, self.types,
+            cells,
+            raw_aliases,
+            target,
+            obligation,
+            proof,
+            self.types,
         ) {
             Ok(())
         } else {
@@ -75,8 +90,7 @@ fn apply_event_precondition(
     target: &Place,
     event: CollectionSlotLifecycleEvent,
 ) -> Result<(), CollectionSlotTableRefutation> {
-    let state = collection_slots.state(target);
-    apply_collection_slot_lifecycle_event(state, event)
+    apply_collection_slot_lifecycle_event(collection_slots.state(target), event)
         .map(|_| ())
         .map_err(|reason| CollectionSlotTableRefutation {
             slot: target.clone(),

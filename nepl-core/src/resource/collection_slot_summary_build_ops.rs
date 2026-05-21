@@ -3,8 +3,8 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use super::collection_slot_summary_build_event::collect_summary_event_op;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
-use super::collection_slot_summary_event_proof::summary_event_proof;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
 };
@@ -54,17 +54,7 @@ fn collect_summary_ops_from_op(
 ) {
     match op {
         ResourceOp::CollectionSlotLifecycle { target, event, .. } => {
-            let target = state.raw_aliases.canonicalize_owner_cell_address(target);
-            if let (Some(target), Some(proof)) = (
-                summary_place_for_params(params, &target),
-                summary_event_proof(engine.types, &state.cells, &target, *event),
-            ) {
-                out.push(CollectionSlotLifecycleSummaryOp::Event {
-                    target,
-                    event: *event,
-                    proof,
-                });
-            }
+            collect_summary_event_op(out, engine, state, params, target, *event);
         }
         ResourceOp::CollectionStorageRelocate {
             old_storage,

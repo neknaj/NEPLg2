@@ -2,8 +2,12 @@ use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state::CellTable;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::raw_cell_value_flow::RawCellValueFlowKind;
+use super::raw_cell_value_flow_proof::{
+    consume_raw_cell_value_flow, raw_cell_value_flow_available,
+};
 use super::type_pattern::type_pattern_matches;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,6 +19,7 @@ pub(super) enum CollectionSlotOwnerTransferProof {
 
 pub(super) fn consume_collection_slot_owner_transfer_proof(
     cells: &mut CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
     target: &Place,
     obligation: CollectionSlotOwnerTransferObligation,
     proof: CollectionSlotOwnerTransferProof,
@@ -22,7 +27,7 @@ pub(super) fn consume_collection_slot_owner_transfer_proof(
 ) -> bool {
     match proof {
         CollectionSlotOwnerTransferProof::LocalRawValueFlow => {
-            consume_local_raw_value_flow_proof(cells, target, obligation, types)
+            consume_local_raw_value_flow_proof(cells, raw_aliases, target, obligation, types)
         }
         CollectionSlotOwnerTransferProof::SummaryStateOnly => false,
         CollectionSlotOwnerTransferProof::SummaryCertified(certified) => {
@@ -33,6 +38,7 @@ pub(super) fn consume_collection_slot_owner_transfer_proof(
 
 pub(super) fn collection_slot_owner_transfer_proof_available(
     cells: &CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
     target: &Place,
     obligation: CollectionSlotOwnerTransferObligation,
     types: &TypeCtx,
@@ -41,7 +47,9 @@ pub(super) fn collection_slot_owner_transfer_proof_available(
         CollectionSlotOwnerTransferObligation::StoreValue {
             operation: _,
             value_ty,
-        } => cells.raw_cell_value_flow_available(
+        } => raw_cell_value_flow_available(
+            cells,
+            raw_aliases,
             target,
             value_ty,
             RawCellValueFlowKind::StoreValue,
@@ -50,7 +58,9 @@ pub(super) fn collection_slot_owner_transfer_proof_available(
         CollectionSlotOwnerTransferObligation::MoveOutValue {
             operation: _,
             value_ty,
-        } => cells.raw_cell_value_flow_available(
+        } => raw_cell_value_flow_available(
+            cells,
+            raw_aliases,
             target,
             value_ty,
             RawCellValueFlowKind::MoveOutLoadedCell,
@@ -61,12 +71,16 @@ pub(super) fn collection_slot_owner_transfer_proof_available(
             old_ty,
             new_ty,
         } => {
-            cells.raw_cell_value_flow_available(
+            raw_cell_value_flow_available(
+                cells,
+                raw_aliases,
                 target,
                 old_ty,
                 RawCellValueFlowKind::MoveOutLoadedCell,
                 types,
-            ) && cells.raw_cell_value_flow_available(
+            ) && raw_cell_value_flow_available(
+                cells,
+                raw_aliases,
                 target,
                 new_ty,
                 RawCellValueFlowKind::StoreValue,
@@ -78,18 +92,27 @@ pub(super) fn collection_slot_owner_transfer_proof_available(
 
 fn consume_local_raw_value_flow_proof(
     cells: &mut CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
     target: &Place,
     obligation: CollectionSlotOwnerTransferObligation,
     types: &TypeCtx,
 ) -> bool {
-    if !collection_slot_owner_transfer_proof_available(cells, target, obligation, types) {
+    if !collection_slot_owner_transfer_proof_available(
+        cells,
+        raw_aliases,
+        target,
+        obligation,
+        types,
+    ) {
         return false;
     }
     match obligation {
         CollectionSlotOwnerTransferObligation::StoreValue {
             operation: _,
             value_ty,
-        } => cells.consume_raw_cell_value_flow(
+        } => consume_raw_cell_value_flow(
+            cells,
+            raw_aliases,
             target,
             value_ty,
             RawCellValueFlowKind::StoreValue,
@@ -98,7 +121,9 @@ fn consume_local_raw_value_flow_proof(
         CollectionSlotOwnerTransferObligation::MoveOutValue {
             operation: _,
             value_ty,
-        } => cells.consume_raw_cell_value_flow(
+        } => consume_raw_cell_value_flow(
+            cells,
+            raw_aliases,
             target,
             value_ty,
             RawCellValueFlowKind::MoveOutLoadedCell,
@@ -109,12 +134,16 @@ fn consume_local_raw_value_flow_proof(
             old_ty,
             new_ty,
         } => {
-            cells.consume_raw_cell_value_flow(
+            consume_raw_cell_value_flow(
+                cells,
+                raw_aliases,
                 target,
                 old_ty,
                 RawCellValueFlowKind::MoveOutLoadedCell,
                 types,
-            ) && cells.consume_raw_cell_value_flow(
+            ) && consume_raw_cell_value_flow(
+                cells,
+                raw_aliases,
                 target,
                 new_ty,
                 RawCellValueFlowKind::StoreValue,

@@ -3,8 +3,13 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state::{raw_cell_suffix_after_address, CellTable};
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::place_utils::{place_suffix_after_prefix, place_with_suffix, raw_memory_cell_place};
+use super::raw_cell_value_flow_alias::{
+    raw_cell_alias_candidates, raw_cell_places_equivalent, value_flow_entry_matches,
+    value_flow_entry_matches_any_cell,
+};
 use super::type_pattern::type_pattern_matches;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,9 +21,9 @@ pub(super) enum RawCellValueFlowKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellValueFlowEntry {
-    cell: Place,
-    ty: TypeId,
-    kind: RawCellValueFlowKind,
+    pub(super) cell: Place,
+    pub(super) ty: TypeId,
+    pub(super) kind: RawCellValueFlowKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,15 +97,17 @@ impl RawCellValueFlowFacts {
         match kind {
             RawCellValueFlowKind::StoreValue => {
                 self.entries.retain(|entry| {
-                    !(entry.cell == *cell && entry.kind == RawCellValueFlowKind::StoreValue)
+                    !(raw_cell_places_equivalent(&entry.cell, cell)
+                        && entry.kind == RawCellValueFlowKind::StoreValue)
                 });
             }
             RawCellValueFlowKind::MoveOutLoadedCell => {
-                self.entries.retain(|entry| entry.cell != *cell);
+                self.entries
+                    .retain(|entry| !raw_cell_places_equivalent(&entry.cell, cell));
             }
             RawCellValueFlowKind::DropLoadedCell => {
                 self.entries.retain(|entry| {
-                    !(entry.cell == *cell
+                    !(raw_cell_places_equivalent(&entry.cell, cell)
                         && matches!(
                             entry.kind,
                             RawCellValueFlowKind::MoveOutLoadedCell
@@ -128,6 +135,20 @@ impl RawCellValueFlowFacts {
             .any(|entry| value_flow_entry_matches(entry, cell, ty, kind, types))
     }
 
+    pub(super) fn contains_matching_with_aliases(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        cell: &Place,
+        ty: TypeId,
+        kind: RawCellValueFlowKind,
+        types: &TypeCtx,
+    ) -> bool {
+        let candidates = raw_cell_alias_candidates(cell, raw_aliases);
+        self.entries
+            .iter()
+            .any(|entry| value_flow_entry_matches_any_cell(entry, &candidates, ty, kind, types))
+    }
+
     pub(super) fn consume_matching(
         &mut self,
         cell: &Place,
@@ -140,6 +161,24 @@ impl RawCellValueFlowFacts {
             .iter()
             .position(|entry| value_flow_entry_matches(entry, cell, ty, kind, types))
         else {
+            return false;
+        };
+        self.entries.remove(index);
+        true
+    }
+
+    pub(super) fn consume_matching_with_aliases(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        cell: &Place,
+        ty: TypeId,
+        kind: RawCellValueFlowKind,
+        types: &TypeCtx,
+    ) -> bool {
+        let candidates = raw_cell_alias_candidates(cell, raw_aliases);
+        let Some(index) = self.entries.iter().position(|entry| {
+            value_flow_entry_matches_any_cell(entry, &candidates, ty, kind, types)
+        }) else {
             return false;
         };
         self.entries.remove(index);
@@ -195,18 +234,6 @@ impl RawCellValueFlowFacts {
             loaded_values,
         }
     }
-}
-
-fn value_flow_entry_matches(
-    entry: &RawCellValueFlowEntry,
-    cell: &Place,
-    ty: TypeId,
-    kind: RawCellValueFlowKind,
-    types: &TypeCtx,
-) -> bool {
-    entry.cell == *cell
-        && entry.kind == kind
-        && (type_pattern_matches(types, entry.ty, ty) || type_pattern_matches(types, ty, entry.ty))
 }
 
 fn loaded_value_origin_dropped_by(origin_value: &Place, dropped: &Place, types: &TypeCtx) -> bool {

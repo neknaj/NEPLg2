@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T04:56:44.249Z",
+  "generated_at": "2026-05-21T05:37:09.189Z",
   "counts": {
-    "total": 1160,
+    "total": 1161,
     "open": 3,
-    "resolved": 1157,
+    "resolved": 1158,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 555,
+        "total": 556,
         "open": 0,
-        "resolved": 555
+        "resolved": 556
       },
       "CORE": {
         "total": 5,
@@ -8518,6 +8518,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T043250404Z-LLVM-MEM-BULK-COPY-TEST-STILL-ASSUME-5DD1C6C3.md"
+    },
+    {
+      "id": "ISS-20260521T050436552Z-SOURCE-LEVEL-NON-COPY-COLLECTION-SLO-D0BB9BAF",
+      "title": "Source-level non-Copy collection slot lifecycle lacks raw value-flow regression",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/raw_cell_value_flow*.rs, nepl-core/src/resource/collection_slot_*proof*.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T050436552Z-SOURCE-LEVEL-NON-COPY-COLLECTION-SLO-D0BB9BAF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

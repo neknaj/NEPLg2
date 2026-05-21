@@ -10,6 +10,7 @@ use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::report::ResourceCheckDiagnostic;
 
@@ -18,6 +19,7 @@ impl ResourceCheckEngine<'_> {
         &mut self,
         cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: Option<&RawCellAddressAliases>,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
         owner_transfer_proof: CollectionSlotOwnerTransferProof,
@@ -36,6 +38,7 @@ impl ResourceCheckEngine<'_> {
                 .reject_unproven_collection_slot_drop(
                     cells,
                     collection_slots,
+                    raw_aliases,
                     target,
                     event,
                     drop_proof,
@@ -44,6 +47,7 @@ impl ResourceCheckEngine<'_> {
                     self.reject_unproven_collection_slot_owner_transfer(
                         cells,
                         collection_slots,
+                        raw_aliases,
                         target,
                         event,
                         owner_transfer_proof,

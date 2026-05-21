@@ -1,6 +1,7 @@
 use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state::CellTable;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::raw_cell_value_flow::RawCellValueFlowKind;
 
@@ -25,6 +26,18 @@ impl CellTable {
             .contains_matching(cell, ty, kind, types)
     }
 
+    pub(super) fn raw_cell_value_flow_available_with_aliases(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        cell: &Place,
+        ty: TypeId,
+        kind: RawCellValueFlowKind,
+        types: &TypeCtx,
+    ) -> bool {
+        self.raw_cell_value_flows
+            .contains_matching_with_aliases(raw_aliases, cell, ty, kind, types)
+    }
+
     pub(super) fn consume_raw_cell_value_flow(
         &mut self,
         cell: &Place,
@@ -34,6 +47,18 @@ impl CellTable {
     ) -> bool {
         self.raw_cell_value_flows
             .consume_matching(cell, ty, kind, types)
+    }
+
+    pub(super) fn consume_raw_cell_value_flow_with_aliases(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        cell: &Place,
+        ty: TypeId,
+        kind: RawCellValueFlowKind,
+        types: &TypeCtx,
+    ) -> bool {
+        self.raw_cell_value_flows
+            .consume_matching_with_aliases(raw_aliases, cell, ty, kind, types)
     }
 
     pub(super) fn record_raw_cell_loaded_value_origin(

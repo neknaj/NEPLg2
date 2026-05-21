@@ -5,8 +5,12 @@ use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotReplacement,
 };
 use super::drop_requirement::resource_type_needs_drop_code;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::raw_cell_value_flow::RawCellValueFlowKind;
+use super::raw_cell_value_flow_proof::{
+    consume_raw_cell_value_flow, raw_cell_value_flow_available,
+};
 use super::type_pattern::type_pattern_matches;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,6 +72,7 @@ pub(super) fn collection_slot_drop_obligation(
 
 pub(super) fn collection_slot_drop_proof_available(
     cells: &CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
     target: &Place,
     obligation: CollectionSlotDropObligation,
     types: &TypeCtx,
@@ -76,7 +81,9 @@ pub(super) fn collection_slot_drop_proof_available(
         CollectionSlotDropObligation::DropLoadedValue {
             operation: _,
             value_ty,
-        } => cells.raw_cell_value_flow_available(
+        } => raw_cell_value_flow_available(
+            cells,
+            raw_aliases,
             target,
             value_ty,
             RawCellValueFlowKind::DropLoadedCell,
@@ -87,6 +94,7 @@ pub(super) fn collection_slot_drop_proof_available(
 
 pub(super) fn consume_collection_slot_drop_proof(
     cells: &mut CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
     target: &Place,
     obligation: CollectionSlotDropObligation,
     proof: CollectionSlotDropProof,
@@ -94,7 +102,7 @@ pub(super) fn consume_collection_slot_drop_proof(
 ) -> bool {
     match proof {
         CollectionSlotDropProof::LocalLoadedValueDrop => {
-            consume_local_loaded_value_drop_proof(cells, target, obligation, types)
+            consume_local_loaded_value_drop_proof(cells, raw_aliases, target, obligation, types)
         }
         CollectionSlotDropProof::SummaryStateOnly => false,
         CollectionSlotDropProof::SummaryCertified(certified) => {
@@ -105,18 +113,21 @@ pub(super) fn consume_collection_slot_drop_proof(
 
 fn consume_local_loaded_value_drop_proof(
     cells: &mut CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
     target: &Place,
     obligation: CollectionSlotDropObligation,
     types: &TypeCtx,
 ) -> bool {
-    if !collection_slot_drop_proof_available(cells, target, obligation, types) {
+    if !collection_slot_drop_proof_available(cells, raw_aliases, target, obligation, types) {
         return false;
     }
     match obligation {
         CollectionSlotDropObligation::DropLoadedValue {
             operation: _,
             value_ty,
-        } => cells.consume_raw_cell_value_flow(
+        } => consume_raw_cell_value_flow(
+            cells,
+            raw_aliases,
             target,
             value_ty,
             RawCellValueFlowKind::DropLoadedCell,
