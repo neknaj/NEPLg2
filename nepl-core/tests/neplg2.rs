@@ -246,6 +246,22 @@ fn load_inline_with_stdlib(src: &str) -> nepl_core::loader::LoadResult {
         .expect("load")
 }
 
+fn load_inline_as_stdlib_module(
+    path_segments: &[&str],
+    src: &str,
+) -> nepl_core::loader::LoadResult {
+    let stdlib_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("stdlib");
+    let entry = path_segments
+        .iter()
+        .fold(stdlib_root.clone(), |path, segment| path.join(segment));
+    let mut loader = Loader::new(stdlib_root);
+    loader
+        .load_inline(entry, src.to_string())
+        .expect("load stdlib module")
+}
+
 #[test]
 fn stdlib_reimported_definition_does_not_warn_same_signature_shadow() {
     let src = r#"
@@ -345,20 +361,40 @@ fn main <() -> i32> ():
 #[test]
 fn llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics() {
     let src = r#"
-#entry main
+#no_prelude
 #indent 4
 #target llvm
 
-#import "core/mem" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
+#llvmir:
+    @__nepl_mem = internal global [67108864 x i8] zeroinitializer, align 16
 
-fn main <()->i32> ():
-    mem_copy 16 24 4
-    mem_move 32 16 4
-    0
+pub fn mem_copy <(i32,i32,i32)->()> (dst, src, len):
+    #llvmir:
+        declare void @llvm.memcpy.p0.p0.i32(ptr, ptr, i32, i1)
+        define void @mem_copy(i32 %dst, i32 %src, i32 %len) {
+        entry:
+            %dst64 = zext i32 %dst to i64
+            %src64 = zext i32 %src to i64
+            %dst_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %dst64
+            %src_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %src64
+            call void @llvm.memcpy.p0.p0.i32(ptr %dst_ptr, ptr %src_ptr, i32 %len, i1 false)
+            ret void
+        }
+
+pub fn mem_move <(i32,i32,i32)->()> (dst, src, len):
+    #llvmir:
+        declare void @llvm.memmove.p0.p0.i32(ptr, ptr, i32, i1)
+        define void @mem_move(i32 %dst, i32 %src, i32 %len) {
+        entry:
+            %dst64 = zext i32 %dst to i64
+            %src64 = zext i32 %src to i64
+            %dst_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %dst64
+            %src_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %src64
+            call void @llvm.memmove.p0.p0.i32(ptr %dst_ptr, ptr %src_ptr, i32 %len, i1 false)
+            ret void
+        }
 "#;
-    let loaded = load_inline_with_stdlib(src);
+    let loaded = load_inline_as_stdlib_module(&["core", "mem", "raw.nepl"], src);
     let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
         &loaded.module,
         CompileTarget::Llvm,

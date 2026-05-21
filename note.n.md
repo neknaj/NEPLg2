@@ -44094,3 +44094,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo test -p nepl-core collection_slot_lifecycle_boundary -- --test-threads=1`: passed
   - `cargo test -p nepl-core --test effects collection_slot_lifecycle_intrinsic -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 LLVM mem bulk copy boundary fixture
+
+- `ISS-20260521T043250404Z-LLVM-MEM-BULK-COPY-TEST-STILL-ASSUME-5DD1C6C3` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、LLVM memcpy/memmove lowering の positive test が ordinary user source から `core/mem/raw` の raw helper を呼ぶ古い fixture のままで、Stage 6 の raw memory boundary が正しく拒否する `effect.pure.calls_impure` / `resource.raw.memory_outside_boundary` を codegen regression と混同していたことだった。
+- test harness に configured stdlib root 配下の entry path で inline source を load する helper を追加し、compiler-owned `core/mem/raw.nepl` boundary provenance を持つ最小 source から `mem_copy` / `mem_move` の LLVM IR lowering を確認するようにした。
+- raw memory boundary は緩めていない。positive test は compiler-owned raw boundary source に限定し、ordinary user source から raw helper を呼ぶ経路を許可しない設計を維持した。
+- actual `stdlib/core/mem/raw.nepl` を直接 fixture として load すると existing import graph の circular import に当たるため、この regression では LLVM intrinsic lowering と raw boundary source provenance のみに責務を限定した。
+- focused verification:
+  - `cargo test -p nepl-core --test neplg2 llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics -- --test-threads=1 --exact`: passed
+  - `cargo test -p nepl-core intrinsic -- --test-threads=1`: passed
