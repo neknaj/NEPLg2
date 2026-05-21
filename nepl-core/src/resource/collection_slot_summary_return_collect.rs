@@ -4,25 +4,47 @@ use alloc::vec::Vec;
 
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_state_merge::merge_collection_slot_states;
-use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryPlace;
+use super::collection_slot_summary_model::{
+    CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleSummaryPlace,
+};
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
-use super::model::{Place, ResourceLocal, ResourceOp};
+use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
+use super::function_alias::FunctionAliasTable;
+use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
+use super::model::{Place, ResourceCallTarget, ResourceLocal, ResourceOp};
 use super::place_utils::{construct_aggregate_field_place, place_suffix_after_prefix};
 
 pub(super) fn collect_return_transfers_from_ops(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    function_aliases: &FunctionAliasTable,
     ops: &[ResourceOp],
     value: &Place,
 ) {
-    collect_return_transfers_from_value_to_suffix(out, params, ops, value, &[], value.ty);
+    collect_return_transfers_from_value_to_suffix(
+        out,
+        engine,
+        params,
+        raw_aliases,
+        function_aliases,
+        ops,
+        value,
+        &[],
+        value.ty,
+    );
 }
 
 fn collect_return_transfers_from_value_to_suffix(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    function_aliases: &FunctionAliasTable,
     ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[super::model::PlaceProjection],
@@ -45,12 +67,25 @@ fn collect_return_transfers_from_value_to_suffix(
             },
         );
     }
-    collect_return_transfers_from_value_producer(out, params, ops, value, target_suffix, target_ty);
+    collect_return_transfers_from_value_producer(
+        out,
+        engine,
+        params,
+        raw_aliases,
+        function_aliases,
+        ops,
+        value,
+        target_suffix,
+        target_ty,
+    );
 }
 
 fn collect_return_transfers_from_value_producer(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    function_aliases: &FunctionAliasTable,
     ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[super::model::PlaceProjection],
@@ -74,7 +109,10 @@ fn collect_return_transfers_from_value_producer(
                     nested_target_suffix.extend(field_suffix);
                     collect_return_transfers_from_value_to_suffix(
                         out,
+                        engine,
                         params,
+                        raw_aliases,
+                        function_aliases,
                         prior_ops,
                         input,
                         &nested_target_suffix,
@@ -93,7 +131,10 @@ fn collect_return_transfers_from_value_producer(
             } if output == value => {
                 collect_return_transfers_from_value_to_suffix(
                     out,
+                    engine,
                     params,
+                    raw_aliases,
+                    function_aliases,
                     then_ops,
                     then_value,
                     target_suffix,
@@ -101,7 +142,10 @@ fn collect_return_transfers_from_value_producer(
                 );
                 collect_return_transfers_from_value_to_suffix(
                     out,
+                    engine,
                     params,
+                    raw_aliases,
+                    function_aliases,
                     else_ops,
                     else_value,
                     target_suffix,
@@ -113,7 +157,10 @@ fn collect_return_transfers_from_value_producer(
                 for arm in arms {
                     collect_return_transfers_from_value_to_suffix(
                         out,
+                        engine,
                         params,
+                        raw_aliases,
+                        function_aliases,
                         &arm.ops,
                         &arm.value,
                         target_suffix,
@@ -129,7 +176,10 @@ fn collect_return_transfers_from_value_producer(
             } if place == value => {
                 collect_return_transfers_from_value_to_suffix(
                     out,
+                    engine,
                     params,
+                    raw_aliases,
+                    function_aliases,
                     prior_ops,
                     initializer,
                     target_suffix,
@@ -142,7 +192,10 @@ fn collect_return_transfers_from_value_producer(
             {
                 collect_return_transfers_from_value_to_suffix(
                     out,
+                    engine,
                     params,
+                    raw_aliases,
+                    function_aliases,
                     prior_ops,
                     source,
                     target_suffix,
@@ -157,7 +210,10 @@ fn collect_return_transfers_from_value_producer(
             } if target == value => {
                 collect_return_transfers_from_value_to_suffix(
                     out,
+                    engine,
                     params,
+                    raw_aliases,
+                    function_aliases,
                     prior_ops,
                     assigned,
                     target_suffix,
@@ -165,15 +221,126 @@ fn collect_return_transfers_from_value_producer(
                 );
                 return;
             }
-            ResourceOp::Call { output, .. }
-            | ResourceOp::IndirectCall { output, .. }
-            | ResourceOp::Expr { output, .. }
-                if output == value =>
-            {
+            ResourceOp::Call {
+                output,
+                target,
+                args,
+                ..
+            } if output == value => {
+                collect_return_transfers_from_call_summary(
+                    out,
+                    engine,
+                    params,
+                    raw_aliases,
+                    args,
+                    target,
+                    target_suffix,
+                );
+                return;
+            }
+            ResourceOp::IndirectCall {
+                output,
+                callee,
+                args,
+                ..
+            } if output == value => {
+                collect_return_transfers_from_indirect_call_summary(
+                    out,
+                    engine,
+                    params,
+                    raw_aliases,
+                    function_aliases,
+                    callee,
+                    args,
+                    target_suffix,
+                );
+                return;
+            }
+            ResourceOp::Expr { output, .. } if output == value => {
                 return;
             }
             _ => {}
         }
+    }
+}
+
+fn collect_return_transfers_from_call_summary(
+    out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    engine: &ResourceCheckEngine<'_>,
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    target: &ResourceCallTarget,
+    target_suffix: &[super::model::PlaceProjection],
+) {
+    let ResourceCallTarget::User { name, .. } = target else {
+        return;
+    };
+    if let Some(summary) = engine.collection_slot_summaries.get(name) {
+        collect_return_transfers_from_summary(
+            out,
+            engine,
+            params,
+            raw_aliases,
+            args,
+            summary,
+            target_suffix,
+        );
+    }
+}
+
+fn collect_return_transfers_from_indirect_call_summary(
+    out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    engine: &ResourceCheckEngine<'_>,
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    function_aliases: &FunctionAliasTable,
+    callee: &Place,
+    args: &[Place],
+    target_suffix: &[super::model::PlaceProjection],
+) {
+    for function in function_aliases.functions(callee) {
+        if let Some(summary) = engine.collection_slot_summaries.get(function) {
+            collect_return_transfers_from_summary(
+                out,
+                engine,
+                params,
+                raw_aliases,
+                args,
+                summary,
+                target_suffix,
+            );
+        }
+    }
+}
+
+fn collect_return_transfers_from_summary(
+    out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    engine: &ResourceCheckEngine<'_>,
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    summary: &CollectionSlotLifecycleFunctionSummary,
+    target_suffix: &[super::model::PlaceProjection],
+) {
+    for transfer in &summary.return_transfers {
+        let Some(source) = instantiate_summary_target(engine, args, &transfer.source) else {
+            continue;
+        };
+        let source = raw_aliases.canonicalize_owner_cell_address(&source);
+        let Some(source) = summary_place_for_params(params, &source) else {
+            continue;
+        };
+        let mut composed_target_suffix = target_suffix.to_vec();
+        composed_target_suffix.extend_from_slice(&transfer.target_suffix);
+        push_return_transfer(
+            out,
+            CollectionSlotLifecycleReturnTransfer {
+                source,
+                target_suffix: composed_target_suffix,
+                target_ty: transfer.target_ty,
+            },
+        );
     }
 }
 

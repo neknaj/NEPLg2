@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T07:08:09.244Z",
+  "generated_at": "2026-05-21T07:23:05.895Z",
   "counts": {
-    "total": 1166,
+    "total": 1167,
     "open": 3,
-    "resolved": 1163,
+    "resolved": 1164,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 561,
+        "total": 562,
         "open": 0,
-        "resolved": 561
+        "resolved": 562
       },
       "CORE": {
         "total": 5,
@@ -8608,6 +8608,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T065624831Z-COLLECTION-SLOT-STATE-RETURN-SUMMARY-4591B626.md"
+    },
+    {
+      "id": "ISS-20260521T071641871Z-COLLECTION-SLOT-RETURN-SUMMARY-MISSE-6D5CDC78",
+      "title": "Collection slot return summary misses nested callee return transfers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T071641871Z-COLLECTION-SLOT-RETURN-SUMMARY-MISSE-6D5CDC78.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

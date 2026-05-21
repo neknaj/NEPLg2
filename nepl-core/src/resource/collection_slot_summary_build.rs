@@ -114,7 +114,10 @@ fn function_collection_slot_lifecycle_summary(
             &mut return_transfers,
             &mut return_slots,
             &state.collection_slots,
+            &engine,
             &function.params,
+            &state.raw_aliases,
+            &state.function_aliases,
             &block.ops,
             &block.terminator,
         );

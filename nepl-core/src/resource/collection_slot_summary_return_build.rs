@@ -8,6 +8,9 @@ use super::collection_slot_summary_return_collect::{
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
+use super::function_alias::FunctionAliasTable;
+use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{ResourceLocal, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
 
@@ -15,7 +18,10 @@ pub(super) fn collect_return_facts_from_terminator(
     out_transfers: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     out: &mut Vec<CollectionSlotLifecycleReturnSlot>,
     collection_slots: &CollectionSlotStateTable,
+    engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    function_aliases: &FunctionAliasTable,
     ops: &[super::model::ResourceOp],
     terminator: &ResourceTerminator,
 ) {
@@ -25,7 +31,15 @@ pub(super) fn collect_return_facts_from_terminator(
     else {
         return;
     };
-    collect_return_transfers_from_ops(out_transfers, params, ops, value);
+    collect_return_transfers_from_ops(
+        out_transfers,
+        engine,
+        params,
+        raw_aliases,
+        function_aliases,
+        ops,
+        value,
+    );
     for entry in collection_slots.entries_covered_by_storage(value) {
         let Some(suffix) = place_suffix_after_prefix(&entry.slot, value) else {
             continue;
