@@ -20,6 +20,7 @@ struct CertifiedRawStorageRelocation {
 pub(super) struct PendingRawReallocs {
     entries: Vec<PendingRawRealloc>,
     certified_relocations: Vec<CertifiedRawStorageRelocation>,
+    certified_releases: Vec<Place>,
 }
 
 impl PendingRawReallocs {
@@ -115,6 +116,28 @@ impl PendingRawReallocs {
         true
     }
 
+    pub(super) fn certify_release(&mut self, storage: &Place) {
+        self.push_unique_certified_release(storage);
+    }
+
+    pub(super) fn certified_storage_release_available(&self, storage: &Place) -> bool {
+        self.certified_releases
+            .iter()
+            .any(|released| released == storage)
+    }
+
+    pub(super) fn consume_certified_storage_release(&mut self, storage: &Place) -> bool {
+        let Some(index) = self
+            .certified_releases
+            .iter()
+            .position(|released| released == storage)
+        else {
+            return false;
+        };
+        self.certified_releases.remove(index);
+        true
+    }
+
     pub(super) fn merge_paths(paths: &[PendingRawReallocs]) -> Self {
         let mut out = PendingRawReallocs::default();
         for path in paths {
@@ -123,6 +146,7 @@ impl PendingRawReallocs {
             }
         }
         out.certified_relocations = merge_certified_relocations(paths);
+        out.certified_releases = merge_certified_releases(paths);
         out
     }
 
@@ -156,6 +180,17 @@ impl PendingRawReallocs {
         }
         self.certified_relocations.push(entry);
     }
+
+    fn push_unique_certified_release(&mut self, storage: &Place) {
+        if self
+            .certified_releases
+            .iter()
+            .any(|existing| existing == storage)
+        {
+            return;
+        }
+        self.certified_releases.push(storage.clone());
+    }
 }
 
 fn merge_certified_relocations(paths: &[PendingRawReallocs]) -> Vec<CertifiedRawStorageRelocation> {
@@ -168,6 +203,21 @@ fn merge_certified_relocations(paths: &[PendingRawReallocs]) -> Vec<CertifiedRaw
         .filter(|entry| {
             rest.iter()
                 .all(|path| path.certified_relocations.contains(entry))
+        })
+        .cloned()
+        .collect()
+}
+
+fn merge_certified_releases(paths: &[PendingRawReallocs]) -> Vec<Place> {
+    let Some((first, rest)) = paths.split_first() else {
+        return Vec::new();
+    };
+    first
+        .certified_releases
+        .iter()
+        .filter(|storage| {
+            rest.iter()
+                .all(|path| path.certified_releases.contains(storage))
         })
         .cloned()
         .collect()

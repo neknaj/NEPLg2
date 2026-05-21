@@ -44360,3 +44360,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_relocate -- --test-threads=1`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot -- --test-threads=1`: timed out after 244s; broad collection-slot filter は今回も長時間化したため、commit gate は direct relocate と summary replay の focused tests に限定。
+
+## 2026-05-21 Agent 1 collection storage dealloc raw release proof
+
+- `ISS-20260521T112740338Z-COLLECTION-STORAGE-DEALLOC-LACKS-RAW-B31FE6FE` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotLifecycleEvent::StorageDealloc` が live slot の有無だけを見て collection slot state を released にでき、backing raw storage が実際に `RawMemoryOp::Dealloc` で release されたことを proof として要求していなかったこと。
+- `PendingRawReallocs` に certified raw storage release proof を追加し、raw dealloc success path だけが canonical raw address / owner-cell canonical address の release fact を発行するようにした。
+- `CollectionSlotStorageReleaseProof` を追加し、`StorageDealloc` は state precondition を満たした後に raw release proof を atomic に消費できる場合だけ storage release state へ commit する。proof がない場合は `StorageDeallocRequiresRawReleaseProof` typed diagnostic になる。
+- call summary は certified raw release proof を持つ `StorageDealloc` だけを replay する。stdlib function 名や collection module 名の allowlist は追加していない。
+- subagent review で collection-wide drop traversal proof の不足を確認し、`ISS-20260521T114146610Z-COLLECTION-SLOT-DROP-TRAVERSAL-NEEDS-60837C0B` として open issue に分離した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_relocate -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_return_summary -- --test-threads=1`: passed
+  - `cargo test -p nepl-core collection_slot_state_table --lib -- --test-threads=1`: passed
+  - `cargo test -p nepl-core initialized_collection_slot --lib -- --test-threads=1`: passed

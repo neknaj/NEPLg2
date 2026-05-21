@@ -531,6 +531,7 @@ impl ResourceCheckEngine<'_> {
                     cells,
                     collection_slots,
                     raw_aliases,
+                    pending_reallocs,
                     target,
                     *event,
                     *span,

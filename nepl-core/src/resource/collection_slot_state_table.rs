@@ -86,6 +86,26 @@ impl CollectionSlotStateTable {
         &mut self,
         storage: &Place,
     ) -> Result<(), CollectionSlotTableRefutation> {
+        self.storage_release_precondition(storage)?;
+        if self
+            .released_storage
+            .iter()
+            .any(|released| place_covers_slot(storage, released))
+        {
+            return Ok(());
+        }
+        self.slots
+            .retain(|entry| !place_covers_slot(&entry.slot, storage));
+        self.maybe_released_storage
+            .retain(|released| !place_covers_slot(released, storage));
+        push_unique_place(&mut self.released_storage, storage);
+        Ok(())
+    }
+
+    pub fn storage_release_precondition(
+        &self,
+        storage: &Place,
+    ) -> Result<(), CollectionSlotTableRefutation> {
         if !should_track(storage) {
             return Err(CollectionSlotTableRefutation {
                 slot: storage.clone(),
@@ -153,11 +173,6 @@ impl CollectionSlotStateTable {
                 | CollectionSlotState::Released => {}
             }
         }
-        self.slots
-            .retain(|entry| !place_covers_slot(&entry.slot, storage));
-        self.maybe_released_storage
-            .retain(|released| !place_covers_slot(released, storage));
-        push_unique_place(&mut self.released_storage, storage);
         Ok(())
     }
 

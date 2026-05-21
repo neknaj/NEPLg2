@@ -1,8 +1,10 @@
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
+use super::collection_slot_storage_release_proof::CollectionSlotStorageReleaseProof;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryDropProof, CollectionSlotLifecycleSummaryEventProof,
     CollectionSlotLifecycleSummaryOwnerTransferProof,
+    CollectionSlotLifecycleSummaryStorageReleaseProof,
 };
 
 pub(super) fn summary_owner_transfer_proof(
@@ -27,6 +29,19 @@ pub(super) fn summary_drop_proof(
         }
         CollectionSlotLifecycleSummaryDropProof::LoadedValueDrop(obligation) => {
             CollectionSlotDropProof::SummaryCertified(obligation)
+        }
+    }
+}
+
+pub(super) fn summary_storage_release_proof(
+    proof: CollectionSlotLifecycleSummaryEventProof,
+) -> CollectionSlotStorageReleaseProof {
+    match proof.storage_release {
+        CollectionSlotLifecycleSummaryStorageReleaseProof::StateOnly => {
+            CollectionSlotStorageReleaseProof::SummaryStateOnly
+        }
+        CollectionSlotLifecycleSummaryStorageReleaseProof::RawStorageRelease => {
+            CollectionSlotStorageReleaseProof::SummaryCertified
         }
     }
 }

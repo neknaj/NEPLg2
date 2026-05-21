@@ -47,6 +47,7 @@ mod collection_slot_state_table_tests;
 mod collection_slot_state_transfer;
 #[cfg(test)]
 mod collection_slot_state_transfer_tests;
+mod collection_slot_storage_release_proof;
 mod collection_slot_summary_apply;
 mod collection_slot_summary_apply_return_path;
 mod collection_slot_summary_build;

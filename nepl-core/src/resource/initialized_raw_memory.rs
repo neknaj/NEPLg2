@@ -69,11 +69,14 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
                 if address_available && cells_released {
+                    let owner_address = raw_aliases.canonicalize_owner_cell_address(&address);
                     cells.apply_raw_cell_lifecycle_event(
                         RawCellLifecycleEvent::ReleaseStorage { address: &address },
                         raw_aliases,
                         self.types,
                     );
+                    pending_reallocs.certify_release(&address);
+                    pending_reallocs.certify_release(&owner_address);
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                 }

@@ -23,6 +23,7 @@ pub(super) fn collect_summary_event_op(
         engine.types,
         &state.cells,
         &state.raw_aliases,
+        &state.pending_reallocs,
         &target,
         event,
     ) else {

@@ -207,6 +207,7 @@ pub enum ResourceCollectionSlotDiagnosticCode {
     OwnerTransferRequiresValueProof,
     DropRequiresElaboration,
     StorageRelocateRequiresRawMoveProof,
+    StorageDeallocRequiresRawReleaseProof,
     LiveSlotDuringStorageDealloc,
     MaybeLiveSlotDuringStorageDealloc,
 }
@@ -474,6 +475,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::StorageRelocateRequiresRawMoveProof,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::StorageDeallocRequiresRawReleaseProof,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc,
@@ -1208,6 +1212,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             ResourceCollectionSlotDiagnosticCode::StorageRelocateRequiresRawMoveProof => {
                 "resource.collection_slot.storage_relocate_requires_raw_move_proof"
             }
+            ResourceCollectionSlotDiagnosticCode::StorageDeallocRequiresRawReleaseProof => {
+                "resource.collection_slot.storage_dealloc_requires_raw_release_proof"
+            }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "resource.collection_slot.live_during_storage_dealloc"
             }
@@ -1239,6 +1246,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             }
             ResourceCollectionSlotDiagnosticCode::StorageRelocateRequiresRawMoveProof => {
                 "collection storage relocation requires raw storage move proof"
+            }
+            ResourceCollectionSlotDiagnosticCode::StorageDeallocRequiresRawReleaseProof => {
+                "collection storage deallocation requires raw storage release proof"
             }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "cannot deallocate storage while a collection slot is still live"

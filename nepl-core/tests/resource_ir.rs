@@ -25395,6 +25395,12 @@ fn resource_ir_collection_slot_call_summary_moves_slot_before_storage_dealloc() 
                 effect: EffectOp::Pure,
                 span,
             },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(701), unit_ty),
+                args: vec![storage.clone()],
+                span,
+            },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
                 event: CollectionSlotLifecycleEvent::StorageDealloc,
@@ -26185,6 +26191,12 @@ fn resource_ir_collection_slot_call_summary_collects_match_bound_lifecycle_event
                                 bind_source_name: Some("storage".to_string()),
                                 bind_mode: Some(ResourceMatchBindMode::Owned),
                                 ops: vec![
+                                    ResourceOp::RawMemory {
+                                        operation: RawMemoryOp::Dealloc,
+                                        output: Place::temporary(ResourceId(756), unit_ty),
+                                        args: vec![callee_err_storage.clone()],
+                                        span,
+                                    },
                                     ResourceOp::CollectionSlotLifecycle {
                                         target: callee_err_storage,
                                         event: CollectionSlotLifecycleEvent::StorageDealloc,
@@ -26766,6 +26778,12 @@ fn resource_ir_collection_slot_call_summary_returns_released_storage_marker() {
                             ty: owned_ty,
                             span,
                         },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: Place::temporary(ResourceId(705), unit_ty),
+                            args: vec![helper_storage.clone()],
+                            span,
+                        },
                         ResourceOp::CollectionSlotLifecycle {
                             target: helper_storage.clone(),
                             event: CollectionSlotLifecycleEvent::StorageDealloc,
@@ -27023,6 +27041,12 @@ fn resource_ir_collection_slot_return_summary_does_not_cross_join_indirect_calle
                             effect: EffectOp::Pure,
                             span,
                         },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: Place::temporary(ResourceId(787), unit_ty),
+                            args: vec![returned_storage.clone()],
+                            span,
+                        },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
                             event: CollectionSlotLifecycleEvent::StorageDealloc,
@@ -27229,6 +27253,12 @@ fn resource_ir_collection_slot_return_summary_skips_never_branch_path_effects() 
                             },
                             args: vec![caller_storage],
                             effect: EffectOp::Pure,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: Place::temporary(ResourceId(797), unit_ty),
+                            args: vec![returned_storage.clone()],
                             span,
                         },
                         ResourceOp::CollectionSlotLifecycle {
@@ -27455,6 +27485,12 @@ fn resource_ir_collection_slot_return_summary_skips_never_match_arm_path_effects
                             },
                             args: vec![caller_storage],
                             effect: EffectOp::Pure,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: Place::temporary(ResourceId(807), unit_ty),
+                            args: vec![returned_storage.clone()],
                             span,
                         },
                         ResourceOp::CollectionSlotLifecycle {
@@ -27949,6 +27985,12 @@ fn resource_ir_collection_slot_call_summary_replaces_stale_output_slot_state() {
                             effect: EffectOp::Pure,
                             span,
                         },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: Place::temporary(ResourceId(709), unit_ty),
+                            args: vec![returned_storage.clone()],
+                            span,
+                        },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
                             event: CollectionSlotLifecycleEvent::StorageDealloc,
@@ -28071,11 +28113,6 @@ fn resource_ir_collection_storage_relocate_transfers_after_realloc_success_proof
                     ResourceOp::CollectionStorageRelocate {
                         old_storage: old_storage.clone(),
                         new_storage: new_storage.clone(),
-                        span,
-                    },
-                    ResourceOp::CollectionSlotLifecycle {
-                        target: old_storage,
-                        event: CollectionSlotLifecycleEvent::StorageDealloc,
                         span,
                     },
                     ResourceOp::CollectionSlotLifecycle {
@@ -28258,8 +28295,8 @@ fn resource_ir_collection_storage_relocate_call_summary_does_not_replay_without_
                 span,
             },
             ResourceOp::CollectionSlotLifecycle {
-                target: new_storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                target: new_slot,
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
                 span,
             },
         ],
@@ -28276,14 +28313,208 @@ fn resource_ir_collection_storage_relocate_call_summary_does_not_replay_without_
             span,
         }]
     );
-    assert!(report
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .is_some_and(|function| function
-            .final_collection_slots
-            .iter()
-            .all(|entry| entry.slot != new_slot)));
+    assert!(
+        !report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } if function == "main"
+        )),
+        "uncertified relocate summary must not replay old slot state into main: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_collection_storage_dealloc_requires_raw_release_proof() {
+    let (types, owned_ty) = types_with_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![ResourceOp::CollectionSlotLifecycle {
+            target: storage.clone(),
+            event: CollectionSlotLifecycleEvent::StorageDealloc,
+            span,
+        }],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: storage,
+            reason: CollectionSlotLifecycleRefutation::StorageDeallocRequiresRawReleaseProof {
+                operation: CollectionSlotLifecycleOp::StorageDealloc,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
+fn resource_ir_collection_storage_dealloc_accepts_raw_dealloc_release_proof() {
+    let (types, owned_ty) = types_with_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(730), unit_ty),
+                args: vec![storage.clone()],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "raw dealloc must certify the matching collection storage release: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_collection_storage_dealloc_consumes_raw_release_proof_once() {
+    let (types, owned_ty) = types_with_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(731), unit_ty),
+                args: vec![storage.clone()],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage.clone(),
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage.clone(),
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: storage,
+            reason: CollectionSlotLifecycleRefutation::StorageDeallocRequiresRawReleaseProof {
+                operation: CollectionSlotLifecycleOp::StorageDealloc,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
+fn resource_ir_collection_storage_dealloc_call_summary_does_not_replay_without_proof() {
+    let (types, owned_ty) = types_with_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), owned_ty);
+    let slot = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let resource = collection_slot_summary_resource(
+        unit_ty,
+        owned_ty,
+        span,
+        "release_without_raw_dealloc",
+        vec![ResourceOp::CollectionSlotLifecycle {
+            target: Place::local("slot_storage".to_string(), owned_ty),
+            event: CollectionSlotLifecycleEvent::StorageDealloc,
+            span,
+        }],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(732), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "release_without_raw_dealloc".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![storage],
+                effect: EffectOp::Pure,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot,
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                target,
+                reason:
+                    CollectionSlotLifecycleRefutation::StorageDeallocRequiresRawReleaseProof {
+                        operation: CollectionSlotLifecycleOp::StorageDealloc,
+                    },
+                ..
+            } if function == "release_without_raw_dealloc"
+                && *target == Place::local("slot_storage".to_string(), owned_ty)
+        )),
+        "callee-local storage dealloc without raw release proof must be rejected: {:#?}",
+        report.diagnostics
+    );
+    assert!(
+        !report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } if function == "main"
+        )),
+        "uncertified storage release must not be replayed into caller summary: {:#?}",
+        report.diagnostics
+    );
 }
 
 #[test]

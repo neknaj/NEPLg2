@@ -17,6 +17,7 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
     CollectionSlotLifecycleSummaryDropProof, CollectionSlotLifecycleSummaryEventProof,
     CollectionSlotLifecycleSummaryOwnerTransferProof,
+    CollectionSlotLifecycleSummaryStorageReleaseProof,
 };
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -353,6 +354,7 @@ fn summary_certified_drop_proof_allows_caller_replay_without_local_drop_fact() {
     let proof = CollectionSlotLifecycleSummaryEventProof {
         owner_transfer: CollectionSlotLifecycleSummaryOwnerTransferProof::StateOnly,
         slot_drop: CollectionSlotLifecycleSummaryDropProof::LoadedValueDrop(obligation),
+        storage_release: CollectionSlotLifecycleSummaryStorageReleaseProof::StateOnly,
     };
 
     with_engine(&types, |engine| {

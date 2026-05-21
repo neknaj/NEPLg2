@@ -5,6 +5,7 @@ use super::collection_slot_drop_proof::CollectionSlotDropProof;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
 use super::collection_slot_state_table::CollectionSlotStateTable;
+use super::collection_slot_storage_release_proof::CollectionSlotStorageReleaseProof;
 use super::initialized::ResourceCheckEngine;
 use super::model::Place;
 
@@ -21,10 +22,12 @@ impl ResourceCheckEngine<'_> {
             cells,
             collection_slots,
             None,
+            None,
             target,
             event,
             CollectionSlotOwnerTransferProof::LocalRawValueFlow,
             CollectionSlotDropProof::LocalLoadedValueDrop,
+            CollectionSlotStorageReleaseProof::LocalRawStorageRelease,
             span,
         );
     }

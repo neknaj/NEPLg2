@@ -57,6 +57,7 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
 pub(super) struct CollectionSlotLifecycleSummaryEventProof {
     pub(super) owner_transfer: CollectionSlotLifecycleSummaryOwnerTransferProof,
     pub(super) slot_drop: CollectionSlotLifecycleSummaryDropProof,
+    pub(super) storage_release: CollectionSlotLifecycleSummaryStorageReleaseProof,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +70,12 @@ pub(super) enum CollectionSlotLifecycleSummaryOwnerTransferProof {
 pub(super) enum CollectionSlotLifecycleSummaryDropProof {
     StateOnly,
     LoadedValueDrop(CollectionSlotDropObligation),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecycleSummaryStorageReleaseProof {
+    StateOnly,
+    RawStorageRelease,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
