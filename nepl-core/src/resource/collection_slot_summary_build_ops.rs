@@ -35,24 +35,23 @@ pub(super) fn collect_summary_ops_from_ops(
 ) {
     for op in ops {
         collect_summary_ops_from_op(out, engine, state, params, collection_slot_summaries, op);
-        if let ResourceOp::Loop {
+        let mut pending_range_certificates = if let ResourceOp::Loop {
             condition_ops,
             condition_fact,
             body_ops,
             ..
         } = op
         {
-            let mut certificates = loop_drop_traversal_range_certificates(
+            loop_drop_traversal_range_certificates(
                 engine,
                 state,
                 condition_ops,
                 condition_fact.as_ref(),
                 body_ops,
-            );
-            state
-                .drop_traversal_range_certificates
-                .append(&mut certificates);
-        }
+            )
+        } else {
+            Vec::new()
+        };
         engine.check_ops(
             &mut state.cells,
             &mut state.collection_slots,
@@ -66,6 +65,10 @@ pub(super) fn collect_summary_ops_from_ops(
                 steps: Vec::new(),
             },
         );
+        state.retain_drop_traversal_range_certificates_after_op(engine.types, op);
+        state
+            .drop_traversal_range_certificates
+            .append(&mut pending_range_certificates);
         engine.auto_drop_points.clear();
     }
 }

@@ -6,12 +6,13 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
+use super::collection_slot_summary_build_range_lifetime::drop_traversal_range_certificate_survives_op;
 use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary_seed::seed_summary_input_place;
 use super::initialized_variant::PendingVariantRawCellInitializations;
-use super::model::ResourceFunction;
+use super::model::{ResourceFunction, ResourceOp};
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 
@@ -55,6 +56,17 @@ impl CollectionSlotSummaryBuildState {
             variant_initializations: PendingVariantRawCellInitializations::default(),
             drop_traversal_range_certificates: Vec::new(),
         }
+    }
+
+    pub(super) fn retain_drop_traversal_range_certificates_after_op(
+        &mut self,
+        types: &TypeCtx,
+        op: &ResourceOp,
+    ) {
+        let raw_aliases = self.raw_aliases.clone();
+        self.drop_traversal_range_certificates.retain(|candidate| {
+            drop_traversal_range_certificate_survives_op(types, &raw_aliases, candidate, op)
+        });
     }
 }
 

@@ -44564,6 +44564,7 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --check -p nepl-core`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed with CRLF normalization warnings only
   - `git diff --check`: passed
 
 ## 2026-05-21 Agent 1 symbolic collection slot initialized-count range proof
@@ -44609,3 +44610,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed with CRLF normalization warnings only
+
+## 2026-05-22 Agent 1 drop traversal certificate lifetime
+
+- `ISS-20260521T191505124Z-DROP-TRAVERSAL-FULL-RANGE-CERTIFICAT-9BDAB140` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、loop induction から得た `ForallInitializedRange` certificate が `CollectionSlotSummaryBuildState.drop_traversal_range_certificates` に蓄積されたまま、loop と後続 `CollectionSlotDropTraversal` の間に入る Resource IR state 変更で失効しなかったこと。
+- `collection_slot_summary_build_range_lifetime` を追加し、`DropTraversalRangeCertificateEffect::{Preserves, Invalidates}` と `ResourceOp` の exhaustive match で certificate の寿命を分類するようにした。
+- summary build は各 operation の本体検査後に既存 certificate を失効判定し、その後で同じ loop から生成した certificate を post-loop state に結び付けて登録する。無関係な scalar temporary は維持し、storage/count assignment、storage 配下の lifecycle event、storage に触れる raw memory / call / relocate / traversal は失効させる。
+- 回帰テストは既存の loop induction producer test から分離し、`collection_slot_summary_build_range_lifetime_tests` として storage/count/slot state の post-loop 変更と無関係 temporary の保持を固定した。責務監視も新規 module を対象に追加し、上限緩和ではなく分割で対応した。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_build -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_forall_replay -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

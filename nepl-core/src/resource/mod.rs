@@ -79,6 +79,9 @@ mod collection_slot_summary_build_ops_tests;
 mod collection_slot_summary_build_range_certificate;
 #[cfg(test)]
 mod collection_slot_summary_build_range_certificate_tests;
+mod collection_slot_summary_build_range_lifetime;
+#[cfg(test)]
+mod collection_slot_summary_build_range_lifetime_tests;
 mod collection_slot_summary_build_range_step;
 mod collection_slot_summary_build_range_witness;
 mod collection_slot_summary_build_state;
