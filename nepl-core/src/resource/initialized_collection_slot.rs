@@ -4,9 +4,13 @@ use alloc::string::ToString;
 
 use crate::span::Span;
 
+use super::cell_state::CellTable;
 use super::collection_slot_lifecycle::{
     apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
     CollectionSlotLifecycleRefutation, CollectionSlotReplacement,
+};
+use super::collection_slot_owner_transfer::{
+    collection_slot_owner_transfer_obligation, consume_collection_slot_owner_transfer_proof,
 };
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::drop_requirement::resource_type_needs_drop_code;
@@ -18,6 +22,7 @@ use super::report::ResourceCheckDiagnostic;
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_collection_slot_lifecycle(
         &mut self,
+        cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
@@ -35,6 +40,7 @@ impl ResourceCheckEngine<'_> {
                 .reject_unelaborated_collection_slot_drop(collection_slots, target, event)
                 .and_then(|()| {
                     self.reject_unproven_collection_slot_owner_transfer(
+                        cells,
                         collection_slots,
                         target,
                         event,
@@ -55,6 +61,7 @@ impl ResourceCheckEngine<'_> {
 
     pub(super) fn apply_collection_slot_lifecycle_with_aliases(
         &mut self,
+        cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         target: &Place,
@@ -62,7 +69,7 @@ impl ResourceCheckEngine<'_> {
         span: Span,
     ) {
         let target = raw_aliases.canonicalize_owner_cell_address(target);
-        self.apply_collection_slot_lifecycle(collection_slots, &target, event, span);
+        self.apply_collection_slot_lifecycle(cells, collection_slots, &target, event, span);
     }
 
     pub(super) fn apply_collection_storage_relocate(
@@ -127,13 +134,12 @@ impl ResourceCheckEngine<'_> {
 
     fn reject_unproven_collection_slot_owner_transfer(
         &self,
+        cells: &mut CellTable,
         collection_slots: &CollectionSlotStateTable,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
     ) -> Result<(), CollectionSlotTableRefutation> {
-        let Some((operation, slot_ty)) =
-            collection_slot_owner_transfer_obligation(self.types, event)
-        else {
+        let Some(obligation) = collection_slot_owner_transfer_obligation(self.types, event) else {
             return Ok(());
         };
         let state = collection_slots.state(target);
@@ -143,59 +149,18 @@ impl ResourceCheckEngine<'_> {
                 reason,
             }
         })?;
-        Err(CollectionSlotTableRefutation {
-            slot: target.clone(),
-            reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
-                operation,
-                slot_ty,
-            },
-        })
-    }
-}
-
-fn collection_slot_owner_transfer_obligation(
-    types: &crate::types::TypeCtx,
-    event: CollectionSlotLifecycleEvent,
-) -> Option<(CollectionSlotLifecycleOp, crate::types::TypeId)> {
-    match event {
-        CollectionSlotLifecycleEvent::InitializeEmpty { value_ty } => {
-            non_copy_slot_obligation(types, CollectionSlotLifecycleOp::InitializeEmpty, value_ty)
+        if consume_collection_slot_owner_transfer_proof(cells, target, obligation, self.types) {
+            Ok(())
+        } else {
+            let (operation, slot_ty) = obligation.primary_refutation();
+            Err(CollectionSlotTableRefutation {
+                slot: target.clone(),
+                reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                    operation,
+                    slot_ty,
+                },
+            })
         }
-        CollectionSlotLifecycleEvent::MoveOut { expected_ty } => {
-            non_copy_slot_obligation(types, CollectionSlotLifecycleOp::MoveOut, expected_ty)
-        }
-        CollectionSlotLifecycleEvent::ReplaceInitialized {
-            old_ty,
-            new_ty,
-            old_owner: CollectionSlotReplacement::ReturnOldOwner,
-        } => non_copy_slot_obligation(types, CollectionSlotLifecycleOp::ReplaceInitialized, old_ty)
-            .or_else(|| {
-                non_copy_slot_obligation(
-                    types,
-                    CollectionSlotLifecycleOp::ReplaceInitialized,
-                    new_ty,
-                )
-            }),
-        CollectionSlotLifecycleEvent::ReplaceInitialized {
-            old_ty: _,
-            new_ty,
-            old_owner: CollectionSlotReplacement::DropOldOwner,
-        } => non_copy_slot_obligation(types, CollectionSlotLifecycleOp::ReplaceInitialized, new_ty),
-        CollectionSlotLifecycleEvent::BorrowRead { .. }
-        | CollectionSlotLifecycleEvent::DropInitialized { .. }
-        | CollectionSlotLifecycleEvent::StorageDealloc => None,
-    }
-}
-
-fn non_copy_slot_obligation(
-    types: &crate::types::TypeCtx,
-    operation: CollectionSlotLifecycleOp,
-    slot_ty: crate::types::TypeId,
-) -> Option<(CollectionSlotLifecycleOp, crate::types::TypeId)> {
-    if types.is_copy(slot_ty) {
-        None
-    } else {
-        Some((operation, slot_ty))
     }
 }
 
@@ -251,10 +216,12 @@ mod tests {
         let (types, owned_ty) = types_with_non_copy_owned();
         let span = Span::dummy();
         let slot = slot_place(owned_ty);
+        let mut cells = CellTable::default();
         let mut collection_slots = CollectionSlotStateTable::new();
 
         with_engine(&types, |engine| {
             engine.apply_collection_slot_lifecycle(
+                &mut cells,
                 &mut collection_slots,
                 &slot,
                 CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
@@ -285,11 +252,13 @@ mod tests {
         let (types, owned_ty) = types_with_non_copy_owned();
         let span = Span::dummy();
         let slot = slot_place(owned_ty);
+        let mut cells = CellTable::default();
         let mut collection_slots = CollectionSlotStateTable::new();
         collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
 
         with_engine(&types, |engine| {
             engine.apply_collection_slot_lifecycle(
+                &mut cells,
                 &mut collection_slots,
                 &slot,
                 CollectionSlotLifecycleEvent::MoveOut {
@@ -323,11 +292,13 @@ mod tests {
         let replacement_ty = types.i32();
         let span = Span::dummy();
         let slot = slot_place(owned_ty);
+        let mut cells = CellTable::default();
         let mut collection_slots = CollectionSlotStateTable::new();
         collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
 
         with_engine(&types, |engine| {
             engine.apply_collection_slot_lifecycle(
+                &mut cells,
                 &mut collection_slots,
                 &slot,
                 CollectionSlotLifecycleEvent::ReplaceInitialized {
@@ -362,11 +333,13 @@ mod tests {
         let (types, owned_ty) = types_with_droppable_owned();
         let span = Span::dummy();
         let slot = slot_place(owned_ty);
+        let mut cells = CellTable::default();
         let mut collection_slots = CollectionSlotStateTable::new();
         collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
 
         with_engine(&types, |engine| {
             engine.apply_collection_slot_lifecycle(
+                &mut cells,
                 &mut collection_slots,
                 &slot,
                 CollectionSlotLifecycleEvent::DropInitialized {
@@ -400,11 +373,13 @@ mod tests {
         let replacement_ty = types.i32();
         let span = Span::dummy();
         let slot = slot_place(owned_ty);
+        let mut cells = CellTable::default();
         let mut collection_slots = CollectionSlotStateTable::new();
         collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
 
         with_engine(&types, |engine| {
             engine.apply_collection_slot_lifecycle(
+                &mut cells,
                 &mut collection_slots,
                 &slot,
                 CollectionSlotLifecycleEvent::ReplaceInitialized {

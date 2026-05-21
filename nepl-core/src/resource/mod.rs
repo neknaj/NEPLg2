@@ -33,6 +33,7 @@ mod cell_state_tests;
 mod collection_slot_lifecycle;
 #[cfg(test)]
 mod collection_slot_lifecycle_tests;
+mod collection_slot_owner_transfer;
 mod collection_slot_state_merge;
 mod collection_slot_state_relocate;
 #[cfg(test)]
@@ -345,6 +346,7 @@ mod owner_variant_utils;
 mod owner_variant_value_condition;
 mod place_utils;
 mod raw_cell_lifecycle;
+mod raw_cell_value_flow;
 #[cfg(test)]
 mod raw_pointer_owner_carrier_tests;
 mod raw_pointer_type;

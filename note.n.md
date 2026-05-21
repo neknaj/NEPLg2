@@ -1,3 +1,22 @@
+# 2026-05-21 Agent 1 collection slot local raw value-flow proof
+
+- `ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、non-Copy collection slot owner-transfer が `CollectionSlotLifecycleEvent` 単体では payload の raw store / raw load と接続できず、直前の安全側 gate ではすべて拒否するしかなかったことだった。
+- `RawCellValueFlowFacts` を追加し、raw memory checker が non-Copy `StoreValue` / `MoveOutLoadedCell` を typed fact として `CellTable` に記録するようにした。fact は `CellTable::merge_paths` で全 path 共通のものだけを残し、片側 branch だけの store/load 証明が合流後に使われないようにしている。
+- collection slot owner-transfer obligation は `CollectionSlotOwnerTransferObligation` enum へ分離した。`InitializeEmpty` は store proof、`MoveOut` は load proof、`ReplaceReturnOld` は old load / new store の必要十分な組み合わせ、`ReplaceDropOld` は new store proof を要求する。
+- stale store proof は同じ raw cell の load で消える。これにより `store -> load -> initialize` のような古い store fact による誤証明を防ぎつつ、`load old -> store new -> replace_return_old` は 2 種類の fact を要求できる。
+- collection slot summary replay の branch / loop / indirect call は、`CollectionSlotStateTable` と同じ単位で `CellTable` も path clone / merge するようにした。summary replay 中に片方の path でだけ得た raw value-flow fact が別 path の proof に漏れないようにしている。
+- 親 issue `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` と Stage 6 docs に、同一関数内の local raw value-flow proof が入ったこと、callee summary certified proof と compiler-owned slot-drop lowering が残件であることを追記した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core resource_ir_collection_slot --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core raw_value_flow --lib -- --test-threads=1`: pass
+  - `cargo test -p nepl-core stale_store --lib -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-05-21 Agent 1 collection slot owner transfer value-flow proof gate
 
 - `ISS-20260521T010410090Z-COLLECTION-SLOT-OWNER-TRANSFER-LIFEC-3C1056B2` を fixed にした。`plan.md` は変更していない。

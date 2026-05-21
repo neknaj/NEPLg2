@@ -6,6 +6,7 @@ use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::place_utils::raw_memory_cell_place;
+use super::raw_cell_value_flow::RawCellValueFlowKind;
 
 #[derive(Clone, Copy)]
 pub(super) struct CopyRawElementType {
@@ -77,6 +78,11 @@ impl CellTable {
             RawCellLifecycleEvent::MoveOutLoadedCell { address, cell_ty } => {
                 if !types.is_copy(cell_ty) {
                     self.mark_raw_cell_moved(address, cell_ty);
+                    self.record_raw_cell_value_flow(
+                        address,
+                        cell_ty,
+                        RawCellValueFlowKind::MoveOutLoadedCell,
+                    );
                 }
             }
             RawCellLifecycleEvent::StoreValue {
@@ -95,6 +101,13 @@ impl CellTable {
                     &cell,
                     raw_aliases,
                 );
+                if !types.is_copy(stored_ty) {
+                    self.record_raw_cell_value_flow(
+                        address,
+                        stored_ty,
+                        RawCellValueFlowKind::StoreValue,
+                    );
+                }
             }
             RawCellLifecycleEvent::DiscardCellsUnderAddress { address } => {
                 self.clear_raw_cells_under(address);
@@ -108,6 +121,7 @@ impl CellTable {
                 let relocated = self.copy_initialized_copy_raw_cells(source, result, types);
                 let relocated_ranges = self.copy_initialized_raw_byte_ranges_under(source, result);
                 self.clear_raw_cells_under(source);
+                self.clear_raw_cells_under(result);
                 self.release_owned_raw_storage_under(source);
                 self.mark_initialized(result);
                 if source_owned {

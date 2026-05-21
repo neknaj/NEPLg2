@@ -16,18 +16,19 @@ use nepl_core::resource::{
     lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
     resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
     BorrowKind, BorrowState, CellState, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
-    CollectionSlotLifecycleRefutation, CollectionSlotState, EffectOp, ExternalIoOp, NondetOp,
-    OwnerState, Place, PlaceProjection, PlaceRoot, RawAddressAliasKind, RawAddressViewKind,
-    RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
-    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
-    ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError, ResourceDropPoint,
-    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
-    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
-    ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceI32RelationOp, ResourceId,
-    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator, StorageOrigin, UnknownEffectReason,
+    CollectionSlotLifecycleRefutation, CollectionSlotReplacement, CollectionSlotState, EffectOp,
+    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawAddressAliasKind,
+    RawAddressViewKind, RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock,
+    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
+    ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
+    ResourceConditionFact, ResourceCoverageDiagnostic, ResourceCoverageKind,
+    ResourceCoveragePlaceOperation, ResourceDropElaborationHirBridgeError,
+    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
+    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
+    ResourceFunctionCheck, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule,
+    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
+    ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
 use nepl_core::source_map::CompilerMemoryType;
 use nepl_core::span::{FileId, Span};
@@ -23365,6 +23366,334 @@ fn resource_ir_collection_slot_non_copy_initialize_requires_value_flow_proof() {
         .final_collection_slots
         .iter()
         .any(|entry| entry.slot == slot));
+}
+
+#[test]
+fn resource_ir_collection_slot_non_copy_initialize_accepts_raw_store_value_flow_proof() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let address = Place::local("slot_address".to_string(), types.i32());
+    let value = Place::local("payload".to_string(), owned_ty);
+    let slot = address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: address.clone(),
+                ty: types.i32(),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(710), unit_ty),
+                args: vec![address.clone(), value],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "raw StoreValue should prove non-Copy slot initialization without stdlib allowlists: {:#?}",
+        report.diagnostics
+    );
+    assert!(report.functions[0].final_collection_slots.iter().any(
+        |entry| entry.slot == slot && entry.state == CollectionSlotState::Initialized(owned_ty)
+    ));
+}
+
+#[test]
+fn resource_ir_collection_slot_non_copy_move_out_accepts_raw_load_value_flow_proof() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let address = Place::local("slot_address".to_string(), types.i32());
+    let value = Place::local("payload".to_string(), owned_ty);
+    let loaded = Place::temporary(ResourceId(721), owned_ty);
+    let slot = address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: address.clone(),
+                ty: types.i32(),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(720), unit_ty),
+                args: vec![address.clone(), value],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![address.clone()],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "raw Load should prove non-Copy slot move-out after slot state was established: {:#?}",
+        report.diagnostics
+    );
+    assert!(report.functions[0]
+        .final_collection_slots
+        .iter()
+        .any(|entry| entry.slot == slot && entry.state == CollectionSlotState::Moved(owned_ty)));
+}
+
+#[test]
+fn resource_ir_collection_slot_non_copy_move_out_still_requires_raw_load_value_flow_proof() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let address = Place::local("slot_address".to_string(), types.i32());
+    let value = Place::local("payload".to_string(), owned_ty);
+    let slot = address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: address.clone(),
+                ty: types.i32(),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(730), unit_ty),
+                args: vec![address, value],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot,
+            reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                operation: CollectionSlotLifecycleOp::MoveOut,
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_non_copy_replace_return_old_accepts_raw_load_and_store_proofs() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let address = Place::local("slot_address".to_string(), types.i32());
+    let initial = Place::local("initial_payload".to_string(), owned_ty);
+    let replacement = Place::local("replacement_payload".to_string(), owned_ty);
+    let old_output = Place::temporary(ResourceId(741), owned_ty);
+    let slot = address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: address.clone(),
+                ty: types.i32(),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: initial.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(740), unit_ty),
+                args: vec![address.clone(), initial],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: old_output,
+                args: vec![address.clone()],
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: replacement.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(742), unit_ty),
+                args: vec![address, replacement],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::ReplaceInitialized {
+                    old_ty: owned_ty,
+                    new_ty: owned_ty,
+                    old_owner: CollectionSlotReplacement::ReturnOldOwner,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "replace-return-old must require and accept both old raw load and new raw store proofs: {:#?}",
+        report.diagnostics
+    );
+    assert!(report.functions[0].final_collection_slots.iter().any(
+        |entry| entry.slot == slot && entry.state == CollectionSlotState::Initialized(owned_ty)
+    ));
+}
+
+#[test]
+fn resource_ir_collection_slot_non_copy_replace_return_old_rejects_missing_old_load_proof() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let address = Place::local("slot_address".to_string(), types.i32());
+    let initial = Place::local("initial_payload".to_string(), owned_ty);
+    let slot = address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: address.clone(),
+                ty: types.i32(),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: initial.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(750), unit_ty),
+                args: vec![address.clone(), initial],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::ReplaceInitialized {
+                    old_ty: owned_ty,
+                    new_ty: types.i32(),
+                    old_owner: CollectionSlotReplacement::ReturnOldOwner,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot,
+            reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
 }
 
 #[test]

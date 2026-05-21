@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T01:46:30.965Z",
+  "generated_at": "2026-05-21T02:39:57.360Z",
   "counts": {
-    "total": 1153,
+    "total": 1154,
     "open": 3,
-    "resolved": 1150,
+    "resolved": 1151,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 550,
+        "total": 551,
         "open": 0,
-        "resolved": 550
+        "resolved": 551
       },
       "CORE": {
         "total": 5,
@@ -8413,6 +8413,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T010410090Z-COLLECTION-SLOT-OWNER-TRANSFER-LIFEC-3C1056B2.md"
+    },
+    {
+      "id": "ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A",
+      "title": "Collection slot owner transfer needs local raw value-flow proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

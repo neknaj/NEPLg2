@@ -502,6 +502,7 @@ impl ResourceCheckEngine<'_> {
                 span,
             } => {
                 self.apply_collection_slot_lifecycle_with_aliases(
+                    cells,
                     collection_slots,
                     raw_aliases,
                     target,

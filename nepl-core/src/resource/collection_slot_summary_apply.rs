@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleReturnTransfer,
@@ -16,6 +17,7 @@ use super::place_utils::projected_place_with_concrete_type;
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_call_collection_slot_lifecycle_summary(
         &mut self,
+        cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         output: &Place,
@@ -32,6 +34,7 @@ impl ResourceCheckEngine<'_> {
             return;
         };
         self.apply_collection_slot_lifecycle_function_summary(
+            cells,
             collection_slots,
             raw_aliases,
             output,
@@ -43,6 +46,7 @@ impl ResourceCheckEngine<'_> {
 
     pub(super) fn apply_indirect_call_collection_slot_lifecycle_summary(
         &mut self,
+        cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         function_aliases: &FunctionAliasTable,
@@ -56,12 +60,15 @@ impl ResourceCheckEngine<'_> {
             collection_slots.clear_storage_prefix(output);
             return;
         }
-        let mut paths = Vec::new();
+        let mut slot_paths = Vec::new();
+        let mut cell_paths = Vec::new();
         for function in functions {
-            let mut path = collection_slots.clone();
+            let mut path_slots = collection_slots.clone();
+            let mut path_cells = cells.clone();
             if let Some(summary) = self.collection_slot_summaries.get(function) {
                 self.apply_collection_slot_lifecycle_function_summary(
-                    &mut path,
+                    &mut path_cells,
+                    &mut path_slots,
                     raw_aliases,
                     output,
                     args,
@@ -69,15 +76,18 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
             } else {
-                path.clear_storage_prefix(output);
+                path_slots.clear_storage_prefix(output);
             }
-            paths.push(path);
+            slot_paths.push(path_slots);
+            cell_paths.push(path_cells);
         }
-        *collection_slots = CollectionSlotStateTable::merge_paths(&paths);
+        *collection_slots = CollectionSlotStateTable::merge_paths(&slot_paths);
+        *cells = CellTable::merge_paths(&cell_paths);
     }
 
     fn apply_collection_slot_lifecycle_function_summary(
         &mut self,
+        cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         output: &Place,
@@ -86,6 +96,7 @@ impl ResourceCheckEngine<'_> {
         span: crate::span::Span,
     ) {
         self.apply_collection_slot_lifecycle_summary_ops(
+            cells,
             collection_slots,
             raw_aliases,
             args,
@@ -106,6 +117,7 @@ impl ResourceCheckEngine<'_> {
 
     fn apply_collection_slot_lifecycle_summary_ops(
         &mut self,
+        cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         args: &[Place],
@@ -117,6 +129,7 @@ impl ResourceCheckEngine<'_> {
                 CollectionSlotLifecycleSummaryOp::Event { target, event } => {
                     if let Some(target) = instantiate_summary_target(self, args, target) {
                         self.apply_collection_slot_lifecycle_with_aliases(
+                            cells,
                             collection_slots,
                             raw_aliases,
                             &target,
@@ -149,26 +162,33 @@ impl ResourceCheckEngine<'_> {
                     if paths.is_empty() {
                         continue;
                     }
-                    let mut merged_paths = Vec::new();
+                    let mut merged_slot_paths = Vec::new();
+                    let mut merged_cell_paths = Vec::new();
                     for path_ops in paths {
-                        let mut path = collection_slots.clone();
+                        let mut path_slots = collection_slots.clone();
+                        let mut path_cells = cells.clone();
                         self.apply_collection_slot_lifecycle_summary_ops(
-                            &mut path,
+                            &mut path_cells,
+                            &mut path_slots,
                             raw_aliases,
                             args,
                             path_ops,
                             span,
                         );
-                        merged_paths.push(path);
+                        merged_slot_paths.push(path_slots);
+                        merged_cell_paths.push(path_cells);
                     }
-                    *collection_slots = CollectionSlotStateTable::merge_paths(&merged_paths);
+                    *collection_slots = CollectionSlotStateTable::merge_paths(&merged_slot_paths);
+                    *cells = CellTable::merge_paths(&merged_cell_paths);
                 }
                 CollectionSlotLifecycleSummaryOp::Loop {
                     condition_ops,
                     body_ops,
                 } => {
                     let mut condition_path = collection_slots.clone();
+                    let mut condition_cells = cells.clone();
                     self.apply_collection_slot_lifecycle_summary_ops(
+                        &mut condition_cells,
                         &mut condition_path,
                         raw_aliases,
                         args,
@@ -176,8 +196,11 @@ impl ResourceCheckEngine<'_> {
                         span,
                     );
                     let exit_path = condition_path.clone();
+                    let exit_cells = condition_cells.clone();
                     let mut body_path = condition_path;
+                    let mut body_cells = condition_cells;
                     self.apply_collection_slot_lifecycle_summary_ops(
+                        &mut body_cells,
                         &mut body_path,
                         raw_aliases,
                         args,
@@ -186,6 +209,7 @@ impl ResourceCheckEngine<'_> {
                     );
                     *collection_slots =
                         CollectionSlotStateTable::merge_paths(&[exit_path, body_path]);
+                    *cells = CellTable::merge_paths(&[exit_cells, body_cells]);
                 }
             }
         }

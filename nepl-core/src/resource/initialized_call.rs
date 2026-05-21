@@ -75,6 +75,7 @@ impl ResourceCheckEngine<'_> {
             record_direct_call_i32_facts(raw_aliases, target, output, args);
         }
         self.apply_call_collection_slot_lifecycle_summary(
+            cells,
             collection_slots,
             raw_aliases,
             output,
@@ -132,6 +133,7 @@ impl ResourceCheckEngine<'_> {
             variant_initializations.clear_result(output);
         }
         self.apply_indirect_call_collection_slot_lifecycle_summary(
+            cells,
             collection_slots,
             raw_aliases,
             function_aliases,

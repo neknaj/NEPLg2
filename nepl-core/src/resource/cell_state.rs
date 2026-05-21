@@ -13,6 +13,7 @@ use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, projection_result_type, push_unique_place,
     raw_memory_cell_place, should_track,
 };
+use super::raw_cell_value_flow::RawCellValueFlowFacts;
 use super::type_pattern::type_pattern_matches;
 
 #[derive(Debug, Clone, Default)]
@@ -20,6 +21,7 @@ pub(super) struct CellTable {
     cells: Vec<CellStateEntry>,
     owned_raw_storage_roots: Vec<Place>,
     external_raw_storage_roots: Vec<Place>,
+    pub(super) raw_cell_value_flows: RawCellValueFlowFacts,
     pub(super) initialized_raw_byte_ranges: Vec<InitializedRawByteRange>,
 }
 impl CellTable {
@@ -164,6 +166,7 @@ impl CellTable {
     pub(super) fn clear_raw_cells_under(&mut self, address: &Place) {
         self.cells
             .retain(|entry| raw_cell_suffix_after_address(&entry.place, address).is_none());
+        self.raw_cell_value_flows.clear_under_address(address);
         self.clear_initialized_raw_byte_ranges_under(address);
     }
 
@@ -203,6 +206,8 @@ impl CellTable {
         self.extend_entries(relocated);
         rekey_raw_storage_roots(&mut self.owned_raw_storage_roots, source, target);
         rekey_raw_storage_roots(&mut self.external_raw_storage_roots, source, target);
+        self.raw_cell_value_flows
+            .rekey_under_address(source, target);
         rekey_initialized_raw_byte_ranges(&mut self.initialized_raw_byte_ranges, source, target);
     }
 
@@ -260,6 +265,7 @@ impl CellTable {
             }
         }
         out.initialized_raw_byte_ranges = merge_initialized_raw_byte_ranges(paths);
+        out.raw_cell_value_flows = RawCellValueFlowFacts::merge_paths(paths);
         for place in places {
             let mut states = paths.iter().map(|path| path.availability_state(&place));
             if let Some(mut merged) = states.next() {

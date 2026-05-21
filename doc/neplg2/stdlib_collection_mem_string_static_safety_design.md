@@ -370,6 +370,7 @@ Resource IR / typecheck / match check は次を必須にする。
 - raw-memory-backed API の staged effect migration parent は、[ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84](../../issues/items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md) として closure audit 済みである。raw memory primitive は compiler の internal effect / Resource IR gate / source capability proof に接続され、public raw `MemPtr` surface は source policy で監視されている。
 - collection free が non-Copy payload を受け入れて要素 Drop を呼ばない旧バグは、[ISS-20260425T000000Z-RV-STDLIB-004-91534828](../../issues/items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md) の closure audit で fixed とした。現行 public surface は Copy-only 境界と source policy で guarded である。
 - これは non-Copy collection の完成を意味しない。compiler-issued owner token、moved slot、drop traversal、`InitializedCell` / Resource IR 接続による final support は [ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543](../../issues/items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md) で扱い、self-host 実装はそれまで safe subset を使う。
+- 2026-05-21 に [ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A](../../issues/items/ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A.md) で、同一関数内の non-Copy slot owner-transfer は raw `StoreValue` / `MoveOutLoadedCell` fact を消費する generic proof として通せるようになった。summary replay の branch / loop / indirect call でも `CellTable` を path merge するため、片方の summary path だけの raw value-flow fact は後続 proof に使えない。これは positive support の最初の段階であり、callee summary certified proof と drop traversal はまだ parent issue の残件である。
 
 2026-05-21 追記:
 
@@ -449,6 +450,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | raw-memory-backed stdlib API の段階移行親 issue。2026-05-20 に closure audit 済み。 |
 | `ISS-20260425T000000Z-RV-STDLIB-004-91534828` | 旧 collection free/drop bug。2026-05-20 に Copy-only public surface と policy coverage の closure audit で fixed。 |
 | `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` | non-Copy payload collection の final support。compiler-issued owner token、initialized/moved/drop state、Resource IR proof boundary へ接続する後続 issue。 |
+| `ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A` | raw `StoreValue` / `MoveOutLoadedCell` から local non-Copy slot owner-transfer proof を作り、collection slot lifecycle が消費できるようにした issue。 |
 | `ISS-20260520T214013832Z-COLLECTION-SLOT-LIFECYCLE-STATE-DOES-FA4DE5B2` | collection storage relocation で slot lifecycle state を old storage prefix から new storage prefix へ rekey する Resource IR operation。 |
 | `ISS-20260514T055830236Z-VECDATALEN-CARRIES-RAW-VEC-STORAGE-V-B662D7DF` | `VecDataLen` raw storage view carrier の削除。 |
 | `ISS-20260514T063755030Z-STRINGBUILDER-DUPLICATES-BYTEBUILDER-F90DFA2F` | `StringBuilder` 固有 raw owner field を `ByteBuilder` owner boundary へ集約。 |
