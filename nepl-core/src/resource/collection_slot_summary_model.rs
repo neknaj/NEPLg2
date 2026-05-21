@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
+use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
 use super::model::PlaceProjection;
@@ -48,9 +49,21 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CollectionSlotLifecycleSummaryEventProof {
+pub(super) struct CollectionSlotLifecycleSummaryEventProof {
+    pub(super) owner_transfer: CollectionSlotLifecycleSummaryOwnerTransferProof,
+    pub(super) slot_drop: CollectionSlotLifecycleSummaryDropProof,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecycleSummaryOwnerTransferProof {
     StateOnly,
-    OwnerTransferValueFlow(CollectionSlotOwnerTransferObligation),
+    ValueFlow(CollectionSlotOwnerTransferObligation),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecycleSummaryDropProof {
+    StateOnly,
+    LoadedValueDrop(CollectionSlotDropObligation),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

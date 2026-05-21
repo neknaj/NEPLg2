@@ -30,6 +30,7 @@ mod cell_state_raw_range_value_alias;
 mod cell_state_raw_range_value_alias_tests;
 #[cfg(test)]
 mod cell_state_tests;
+mod collection_slot_drop_proof;
 mod collection_slot_lifecycle;
 #[cfg(test)]
 mod collection_slot_lifecycle_tests;

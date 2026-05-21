@@ -38,6 +38,7 @@ fn auto_drop_assignment_overwrite_with_record(
     if matches!(requirement, ResourceDropRequirement::StateOnly) {
         return None;
     }
+    cells.record_raw_cell_loaded_value_drop(target, types);
     cells.set_state(target, CellState::Dropped);
     raw_aliases.clear(target);
     function_aliases.clear_alias(target);

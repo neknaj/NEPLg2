@@ -44031,3 +44031,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: passed
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
+
+## 2026-05-21 Agent 1 collection slot loaded-value drop proof
+
+- `ISS-20260521T031943441Z-COLLECTION-SLOT-DROP-LIFECYCLE-NEEDS-DCBDB1EC` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、droppable `DropInitialized` / `ReplaceDropOld` を安全側に拒否する guard はあったが、slot から raw load された payload owner が実際に `ResourceOp::Drop` / auto-drop に到達したことを Resource IR fact として保持していなかったことだった。raw load は materialize proof であり destructor execution proof ではないため、`MoveOutLoadedCell` の使い回しでは不十分だった。
+- `RawCellValueFlowFacts` に raw-loaded value origin と `DropLoadedCell` proof を追加した。value origin は通常の owner transfer、aggregate construct、branch/match output transfer に追従し、call argument や raw store のように別 ownership boundary へ移る場合は local drop proof として残さない。
+- `CollectionSlotDropObligation` / `CollectionSlotDropProof` を追加し、droppable `DropInitialized` / `ReplaceDropOld` が `DropLoadedCell` proof を消費するようにした。`ReplaceDropOld` は old payload drop proof と new payload store proof の両方を要求する。
+- `CollectionSlotLifecycleSummaryEventProof` は owner-transfer proof と slot-drop proof を別フィールドで持つ構造に変更し、callee 内で証明済みの loaded-value drop proof だけを caller summary replay へ伝える。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core raw_cell_value_flow -- --test-threads=1`: passed
+  - `cargo test -p nepl-core initialized_collection_slot -- --test-threads=1`: passed
+  - `cargo test -p nepl-core collection_slot -- --test-threads=1`: passed
+  - `cargo test -p nepl-core resource_ir_collection_slot_drop --test resource_ir -- --test-threads=1`: passed
+  - `cargo test -p nepl-core resource_ir_collection_slot_replace_drop_old --test resource_ir -- --test-threads=1`: passed
+  - `cargo test -p nepl-core resource_ir_collection_slot_call_summary_accepts_callee_certified_drop_proof --test resource_ir -- --test-threads=1`: passed

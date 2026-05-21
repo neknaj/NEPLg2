@@ -260,6 +260,7 @@ impl ResourceCheckEngine<'_> {
                             place,
                             raw_aliases,
                         );
+                        cells.transfer_raw_cell_loaded_value_origin(initializer, place);
                         self.transfer_slot_state_if_moved(
                             collection_slots,
                             initializer,
@@ -305,6 +306,7 @@ impl ResourceCheckEngine<'_> {
                         output,
                         raw_aliases,
                     );
+                    cells.transfer_raw_cell_loaded_value_origin(source, output);
                     self.transfer_slot_state_if_moved(collection_slots, source, output, *span);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
@@ -341,6 +343,7 @@ impl ResourceCheckEngine<'_> {
                         target,
                         raw_aliases,
                     );
+                    cells.transfer_raw_cell_loaded_value_origin(value, target);
                     self.transfer_slot_state_if_moved(collection_slots, value, target, *span);
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
@@ -388,6 +391,7 @@ impl ResourceCheckEngine<'_> {
                         output,
                         raw_aliases,
                     );
+                    cells.transfer_raw_cell_loaded_value_origin(source, output);
                     self.transfer_slot_state(collection_slots, source, output, *span);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
@@ -397,6 +401,7 @@ impl ResourceCheckEngine<'_> {
             }
             ResourceOp::Drop { place, span } => {
                 if self.ensure_available(cells, place, ResourceCheckOperation::Drop, *span) {
+                    cells.record_raw_cell_loaded_value_drop(place, self.types);
                     cells.set_state(place, CellState::Dropped);
                     raw_aliases.clear(place);
                     pending_reallocs.clear_result(place);
@@ -543,6 +548,7 @@ impl ResourceCheckEngine<'_> {
                             &field,
                             raw_aliases,
                         );
+                        cells.transfer_raw_cell_loaded_value_origin(input, &field);
                         self.transfer_slot_state_if_moved(collection_slots, input, &field, *span);
                     }
                     construct_function_alias_fields(function_aliases, output, kind, inputs);

@@ -40,6 +40,7 @@ pub(super) fn auto_drop_scope_locals_with_record(
         if matches!(requirement, ResourceDropRequirement::StateOnly) {
             continue;
         }
+        cells.record_raw_cell_loaded_value_drop(local, types);
         cells.set_state(local, CellState::Dropped);
         raw_aliases.clear(local);
         function_aliases.clear_alias(local);

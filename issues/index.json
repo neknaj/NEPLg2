@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T03:04:30.839Z",
+  "generated_at": "2026-05-21T03:37:27.262Z",
   "counts": {
-    "total": 1155,
+    "total": 1156,
     "open": 3,
-    "resolved": 1152,
+    "resolved": 1153,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 552,
+        "total": 553,
         "open": 0,
-        "resolved": 552
+        "resolved": 553
       },
       "CORE": {
         "total": 5,
@@ -8443,6 +8443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T025115696Z-COLLECTION-SLOT-SUMMARIES-NEED-CERTI-92379E7C.md"
+    },
+    {
+      "id": "ISS-20260521T031943441Z-COLLECTION-SLOT-DROP-LIFECYCLE-NEEDS-DCBDB1EC",
+      "title": "Collection slot drop lifecycle needs loaded-value drop proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T031943441Z-COLLECTION-SLOT-DROP-LIFECYCLE-NEEDS-DCBDB1EC.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

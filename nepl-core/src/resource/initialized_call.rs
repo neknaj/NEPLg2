@@ -37,6 +37,9 @@ impl ResourceCheckEngine<'_> {
         if !self.consume_args(cells, args, ResourceCheckOperation::CallArgument, span) {
             return;
         }
+        for arg in args {
+            cells.discard_raw_cell_loaded_value_origin(arg);
+        }
         let external_inputs_available =
             self.ensure_external_io_initialized_inputs(cells, raw_aliases, effect, args, span);
         if !external_inputs_available {
@@ -106,6 +109,9 @@ impl ResourceCheckEngine<'_> {
             self.consume_args(cells, args, ResourceCheckOperation::CallArgument, span);
         if !(callee_available && args_available) {
             return;
+        }
+        for arg in args {
+            cells.discard_raw_cell_loaded_value_origin(arg);
         }
         cells.mark_initialized(output);
         if !self.apply_indirect_call_return_raw_alias(

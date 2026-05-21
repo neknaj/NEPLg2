@@ -1,5 +1,4 @@
 use crate::types::TypeId;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CollectionSlotState {
     Uninitialized,

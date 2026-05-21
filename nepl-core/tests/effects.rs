@@ -598,6 +598,22 @@ fn collection_slot_lifecycle_intrinsic_accepts_matching_stdlib_anchor() {
 
 #import "core/mem/types" as *
 
+trait Copy:
+    #capability clone
+    #capability copy
+    fn clone <(Self)->Self> (x):
+        x
+
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+impl Copy for i32:
+    fn clone <(i32)->i32> (x):
+        x
+
+    fn copy_mark <(i32)->i32> (x):
+        x
+
 fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
     #intrinsic "collection_slot_initialize_empty" <i32> (ptr, offset)
 "#;

@@ -5,17 +5,22 @@ use alloc::string::ToString;
 use crate::span::Span;
 
 use super::cell_state::CellTable;
+use super::collection_slot_drop_proof::{
+    collection_slot_drop_obligation, consume_collection_slot_drop_proof, CollectionSlotDropProof,
+};
 use super::collection_slot_lifecycle::{
-    apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
-    CollectionSlotLifecycleRefutation, CollectionSlotReplacement,
+    apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent,
+    CollectionSlotLifecycleRefutation,
 };
 use super::collection_slot_owner_transfer::collection_slot_owner_transfer_obligation;
 use super::collection_slot_owner_transfer_proof::{
     consume_collection_slot_owner_transfer_proof, CollectionSlotOwnerTransferProof,
 };
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
-use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryEventProof;
-use super::drop_requirement::resource_type_needs_drop_code;
+use super::collection_slot_summary_model::{
+    CollectionSlotLifecycleSummaryDropProof, CollectionSlotLifecycleSummaryEventProof,
+    CollectionSlotLifecycleSummaryOwnerTransferProof,
+};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
@@ -36,6 +41,7 @@ impl ResourceCheckEngine<'_> {
             target,
             event,
             CollectionSlotOwnerTransferProof::LocalRawValueFlow,
+            CollectionSlotDropProof::LocalLoadedValueDrop,
             span,
         );
     }
@@ -47,6 +53,7 @@ impl ResourceCheckEngine<'_> {
         target: &Place,
         event: CollectionSlotLifecycleEvent,
         owner_transfer_proof: CollectionSlotOwnerTransferProof,
+        drop_proof: CollectionSlotDropProof,
         span: Span,
     ) {
         let result = match event {
@@ -58,7 +65,13 @@ impl ResourceCheckEngine<'_> {
             | CollectionSlotLifecycleEvent::MoveOut { .. }
             | CollectionSlotLifecycleEvent::ReplaceInitialized { .. }
             | CollectionSlotLifecycleEvent::DropInitialized { .. } => self
-                .reject_unelaborated_collection_slot_drop(collection_slots, target, event)
+                .reject_unproven_collection_slot_drop(
+                    cells,
+                    collection_slots,
+                    target,
+                    event,
+                    drop_proof,
+                )
                 .and_then(|()| {
                     self.reject_unproven_collection_slot_owner_transfer(
                         cells,
@@ -105,12 +118,20 @@ impl ResourceCheckEngine<'_> {
         span: Span,
     ) {
         let target = raw_aliases.canonicalize_owner_cell_address(target);
-        let owner_transfer_proof = match proof {
-            CollectionSlotLifecycleSummaryEventProof::StateOnly => {
+        let owner_transfer_proof = match proof.owner_transfer {
+            CollectionSlotLifecycleSummaryOwnerTransferProof::StateOnly => {
                 CollectionSlotOwnerTransferProof::SummaryStateOnly
             }
-            CollectionSlotLifecycleSummaryEventProof::OwnerTransferValueFlow(obligation) => {
+            CollectionSlotLifecycleSummaryOwnerTransferProof::ValueFlow(obligation) => {
                 CollectionSlotOwnerTransferProof::SummaryCertified(obligation)
+            }
+        };
+        let drop_proof = match proof.slot_drop {
+            CollectionSlotLifecycleSummaryDropProof::StateOnly => {
+                CollectionSlotDropProof::SummaryStateOnly
+            }
+            CollectionSlotLifecycleSummaryDropProof::LoadedValueDrop(obligation) => {
+                CollectionSlotDropProof::SummaryCertified(obligation)
             }
         };
         self.apply_collection_slot_lifecycle_with_owner_transfer_proof(
@@ -119,6 +140,7 @@ impl ResourceCheckEngine<'_> {
             &target,
             event,
             owner_transfer_proof,
+            drop_proof,
             span,
         );
     }
@@ -154,13 +176,15 @@ impl ResourceCheckEngine<'_> {
         self.apply_collection_storage_relocate(collection_slots, &old_storage, &new_storage, span);
     }
 
-    fn reject_unelaborated_collection_slot_drop(
+    fn reject_unproven_collection_slot_drop(
         &self,
+        cells: &mut CellTable,
         collection_slots: &CollectionSlotStateTable,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
+        proof: CollectionSlotDropProof,
     ) -> Result<(), CollectionSlotTableRefutation> {
-        let Some((operation, slot_ty)) = collection_slot_drop_obligation(event) else {
+        let Some(obligation) = collection_slot_drop_obligation(self.types, event) else {
             return Ok(());
         };
         let state = collection_slots.state(target);
@@ -170,7 +194,10 @@ impl ResourceCheckEngine<'_> {
                 reason,
             }
         })?;
-        if resource_type_needs_drop_code(self.types, slot_ty) {
+        if consume_collection_slot_drop_proof(cells, target, obligation, proof, self.types) {
+            Ok(())
+        } else {
+            let (operation, slot_ty) = obligation.primary_refutation();
             Err(CollectionSlotTableRefutation {
                 slot: target.clone(),
                 reason: CollectionSlotLifecycleRefutation::DropRequiresElaboration {
@@ -178,8 +205,6 @@ impl ResourceCheckEngine<'_> {
                     slot_ty,
                 },
             })
-        } else {
-            Ok(())
         }
     }
 
@@ -218,30 +243,6 @@ impl ResourceCheckEngine<'_> {
     }
 }
 
-fn collection_slot_drop_obligation(
-    event: CollectionSlotLifecycleEvent,
-) -> Option<(CollectionSlotLifecycleOp, crate::types::TypeId)> {
-    match event {
-        CollectionSlotLifecycleEvent::DropInitialized { expected_ty } => {
-            Some((CollectionSlotLifecycleOp::DropInitialized, expected_ty))
-        }
-        CollectionSlotLifecycleEvent::ReplaceInitialized {
-            old_ty,
-            new_ty: _,
-            old_owner: CollectionSlotReplacement::DropOldOwner,
-        } => Some((CollectionSlotLifecycleOp::ReplaceInitialized, old_ty)),
-        CollectionSlotLifecycleEvent::ReplaceInitialized {
-            old_ty: _,
-            new_ty: _,
-            old_owner: CollectionSlotReplacement::ReturnOldOwner,
-        }
-        | CollectionSlotLifecycleEvent::InitializeEmpty { .. }
-        | CollectionSlotLifecycleEvent::BorrowRead { .. }
-        | CollectionSlotLifecycleEvent::MoveOut { .. }
-        | CollectionSlotLifecycleEvent::StorageDealloc => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,7 +250,9 @@ mod tests {
 
     use crate::types::{TypeCtx, TypeId, TypeKind};
 
-    use super::super::collection_slot_lifecycle::CollectionSlotState;
+    use super::super::collection_slot_lifecycle::{
+        CollectionSlotLifecycleOp, CollectionSlotReplacement, CollectionSlotState,
+    };
     use super::super::collection_slot_summary_model::{
         CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
     };
@@ -263,6 +266,8 @@ mod tests {
         RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
     };
     use super::super::model::{PlaceProjection, ResourceOffset};
+    use super::super::place_utils::raw_memory_cell_place;
+    use super::super::raw_cell_value_flow::RawCellValueFlowKind;
     use super::super::report::ResourceCheckDeferred;
 
     #[test]
@@ -422,6 +427,81 @@ mod tests {
     }
 
     #[test]
+    fn droppable_drop_initialized_accepts_loaded_value_drop_proof() {
+        let (types, owned_ty) = types_with_droppable_owned();
+        let span = Span::dummy();
+        let address = slot_address_place(owned_ty);
+        let slot = raw_memory_cell_place(&address, owned_ty);
+        let mut cells = CellTable::default();
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+        cells.record_raw_cell_value_flow(&address, owned_ty, RawCellValueFlowKind::DropLoadedCell);
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut cells,
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::DropInitialized {
+                    expected_ty: owned_ty,
+                },
+                span,
+            );
+
+            assert_eq!(engine.diagnostics, vec![]);
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Dropped(owned_ty)
+            );
+        });
+    }
+
+    #[test]
+    fn droppable_drop_initialized_rejects_loaded_value_without_drop() {
+        let (types, owned_ty) = types_with_droppable_owned();
+        let span = Span::dummy();
+        let address = slot_address_place(owned_ty);
+        let slot = raw_memory_cell_place(&address, owned_ty);
+        let mut cells = CellTable::default();
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+        cells.record_raw_cell_value_flow(
+            &address,
+            owned_ty,
+            RawCellValueFlowKind::MoveOutLoadedCell,
+        );
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut cells,
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::DropInitialized {
+                    expected_ty: owned_ty,
+                },
+                span,
+            );
+
+            assert_eq!(
+                engine.diagnostics,
+                vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: "main".to_string(),
+                    target: slot.clone(),
+                    reason: CollectionSlotLifecycleRefutation::DropRequiresElaboration {
+                        operation: CollectionSlotLifecycleOp::DropInitialized,
+                        slot_ty: owned_ty,
+                    },
+                    span,
+                }]
+            );
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Initialized(owned_ty)
+            );
+        });
+    }
+
+    #[test]
     fn droppable_replace_drop_old_requires_elaboration_for_proven_slot_state() {
         let (types, owned_ty) = types_with_droppable_owned();
         let replacement_ty = types.i32();
@@ -459,6 +539,81 @@ mod tests {
             assert_eq!(
                 collection_slots.state(&slot),
                 CollectionSlotState::Initialized(owned_ty)
+            );
+        });
+    }
+
+    #[test]
+    fn droppable_replace_drop_old_accepts_drop_and_store_proofs() {
+        let (types, owned_ty) = types_with_droppable_owned();
+        let span = Span::dummy();
+        let address = slot_address_place(owned_ty);
+        let slot = raw_memory_cell_place(&address, owned_ty);
+        let mut cells = CellTable::default();
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+        cells.record_raw_cell_value_flow(&address, owned_ty, RawCellValueFlowKind::DropLoadedCell);
+        cells.record_raw_cell_value_flow(&address, owned_ty, RawCellValueFlowKind::StoreValue);
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut cells,
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::ReplaceInitialized {
+                    old_ty: owned_ty,
+                    new_ty: owned_ty,
+                    old_owner: CollectionSlotReplacement::DropOldOwner,
+                },
+                span,
+            );
+
+            assert_eq!(engine.diagnostics, vec![]);
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Initialized(owned_ty)
+            );
+        });
+    }
+
+    #[test]
+    fn summary_certified_drop_proof_allows_caller_replay_without_local_drop_fact() {
+        let (types, owned_ty) = types_with_droppable_owned();
+        let span = Span::dummy();
+        let slot = slot_place(owned_ty);
+        let mut cells = CellTable::default();
+        let raw_aliases = RawCellAddressAliases::default();
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+        let obligation = collection_slot_drop_obligation(
+            &types,
+            CollectionSlotLifecycleEvent::DropInitialized {
+                expected_ty: owned_ty,
+            },
+        )
+        .expect("droppable slot drop should require proof");
+        let proof = CollectionSlotLifecycleSummaryEventProof {
+            owner_transfer: CollectionSlotLifecycleSummaryOwnerTransferProof::StateOnly,
+            slot_drop: CollectionSlotLifecycleSummaryDropProof::LoadedValueDrop(obligation),
+        };
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle_summary_event_with_aliases(
+                &mut cells,
+                &mut collection_slots,
+                &raw_aliases,
+                &slot,
+                CollectionSlotLifecycleEvent::DropInitialized {
+                    expected_ty: owned_ty,
+                },
+                proof,
+                span,
+            );
+
+            assert_eq!(engine.diagnostics, vec![]);
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Dropped(owned_ty)
             );
         });
     }
@@ -511,10 +666,14 @@ mod tests {
         (types, owned_ty)
     }
 
-    fn slot_place(owned_ty: TypeId) -> Place {
+    fn slot_address_place(owned_ty: TypeId) -> Place {
         Place::local("buffer".to_string(), owned_ty).with_projection(
             PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
             owned_ty,
         )
+    }
+
+    fn slot_place(owned_ty: TypeId) -> Place {
+        raw_memory_cell_place(&slot_address_place(owned_ty), owned_ty)
     }
 }

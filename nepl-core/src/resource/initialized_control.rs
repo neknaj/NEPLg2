@@ -47,6 +47,7 @@ impl ResourceCheckEngine<'_> {
             ResourceCheckOperation::BranchCondition,
             span,
         );
+        cells.discard_raw_cell_loaded_value_origin(condition);
         let mut then_cells = cells.clone();
         let mut else_cells = cells.clone();
         let mut then_collection_slots = collection_slots.clone();
@@ -122,6 +123,7 @@ impl ResourceCheckEngine<'_> {
                     output,
                     &then_aliases,
                 );
+                then_cells.transfer_raw_cell_loaded_value_origin(then_value, output);
                 transfer_slots(self, &mut then_collection_slots, then_value, output, span);
                 then_function_aliases.copy_alias(then_value, output);
                 then_pending_reallocs.copy_result(then_value, output);
@@ -154,6 +156,7 @@ impl ResourceCheckEngine<'_> {
                     output,
                     &else_aliases,
                 );
+                else_cells.transfer_raw_cell_loaded_value_origin(else_value, output);
                 transfer_slots(self, &mut else_collection_slots, else_value, output, span);
                 else_function_aliases.copy_alias(else_value, output);
                 else_pending_reallocs.copy_result(else_value, output);
@@ -229,6 +232,7 @@ impl ResourceCheckEngine<'_> {
             ResourceCheckOperation::LoopCondition,
             span,
         );
+        condition_cells.discard_raw_cell_loaded_value_origin(condition);
 
         let mut exit_cells = condition_cells.clone();
         let exit_collection_slots = condition_collection_slots.clone();
@@ -340,6 +344,7 @@ impl ResourceCheckEngine<'_> {
                         &source,
                         bind_local,
                     );
+                    arm_cells.transfer_raw_cell_loaded_value_origin(&source, bind_local);
                     transfer_slots(self, &mut arm_collection_slots, &source, bind_local, span);
                     arm_function_aliases.copy_alias(&source, bind_local);
                     arm_pending_reallocs.copy_result(&source, bind_local);
@@ -390,6 +395,7 @@ impl ResourceCheckEngine<'_> {
                         output,
                         &arm_aliases,
                     );
+                    arm_cells.transfer_raw_cell_loaded_value_origin(arm_value, output);
                     transfer_slots(self, &mut arm_collection_slots, arm_value, output, arm.span);
                     arm_function_aliases.copy_alias(arm_value, output);
                     arm_pending_reallocs.copy_result(arm_value, output);
