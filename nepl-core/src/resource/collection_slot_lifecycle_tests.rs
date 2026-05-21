@@ -99,24 +99,6 @@ fn replace_initialized_requires_matching_old_type() {
 }
 
 #[test]
-fn generic_expected_type_matches_initialized_payload_type() {
-    let mut types = TypeCtx::new();
-    let owned = types.i32();
-    let generic = types.fresh_var(Some("T".into()));
-
-    assert_eq!(
-        apply_collection_slot_lifecycle_event(
-            &types,
-            CollectionSlotState::Initialized(owned),
-            CollectionSlotLifecycleEvent::BorrowRead {
-                expected_ty: generic,
-            },
-        ),
-        Ok(CollectionSlotState::Initialized(owned))
-    );
-}
-
-#[test]
 fn drop_marks_slot_dropped_and_rejects_double_drop() {
     let (types, owned, _) = test_types();
     let dropped = apply_collection_slot_lifecycle_event(
@@ -137,27 +119,6 @@ fn drop_marks_slot_dropped_and_rejects_double_drop() {
             operation: CollectionSlotLifecycleOp::DropInitialized,
             state: CollectionSlotState::Dropped(owned),
         })
-    );
-}
-
-#[test]
-fn storage_dealloc_rejects_live_slot_and_releases_vacant_slot() {
-    let (types, owned, _) = test_types();
-    assert_eq!(
-        apply_collection_slot_lifecycle_event(
-            &types,
-            CollectionSlotState::Initialized(owned),
-            CollectionSlotLifecycleEvent::StorageDealloc,
-        ),
-        Err(CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc { slot_ty: owned })
-    );
-    assert_eq!(
-        apply_collection_slot_lifecycle_event(
-            &types,
-            CollectionSlotState::Dropped(owned),
-            CollectionSlotLifecycleEvent::StorageDealloc,
-        ),
-        Ok(CollectionSlotState::Released)
     );
 }
 

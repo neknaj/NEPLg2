@@ -13,9 +13,8 @@ use super::collection_slot_lifecycle::{
     CollectionSlotState,
 };
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
-use super::collection_slot_state_table::{
-    place_covers_slot, CollectionSlotStateTable, CollectionSlotTableRefutation,
-};
+use super::collection_slot_state_identity::place_covers_slot;
+use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;

@@ -1,0 +1,117 @@
+use super::collection_slot_lifecycle::{
+    CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation, CollectionSlotState,
+};
+use super::collection_slot_state_identity::place_covers_slot;
+use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
+use super::model::Place;
+use super::place_utils::{push_unique_place, should_track};
+
+impl CollectionSlotStateTable {
+    pub fn release_storage(
+        &mut self,
+        storage: &Place,
+    ) -> Result<(), CollectionSlotTableRefutation> {
+        self.storage_release_precondition(storage)?;
+        if self
+            .released_storage
+            .iter()
+            .any(|released| place_covers_slot(storage, released))
+        {
+            return Ok(());
+        }
+        self.slots
+            .retain(|entry| !place_covers_slot(&entry.slot, storage));
+        self.maybe_released_storage
+            .retain(|released| !place_covers_slot(released, storage));
+        push_unique_place(&mut self.released_storage, storage);
+        Ok(())
+    }
+
+    pub fn storage_release_precondition(
+        &self,
+        storage: &Place,
+    ) -> Result<(), CollectionSlotTableRefutation> {
+        if !should_track(storage) {
+            return Err(unavailable_storage_dealloc(
+                storage,
+                CollectionSlotState::Uninitialized,
+            ));
+        }
+        if self
+            .released_storage
+            .iter()
+            .any(|released| place_covers_slot(storage, released))
+        {
+            return Ok(());
+        }
+        if self
+            .maybe_released_storage
+            .iter()
+            .any(|released| place_covers_slot(storage, released))
+        {
+            return Err(unavailable_storage_dealloc(
+                storage,
+                CollectionSlotState::MaybeReleased,
+            ));
+        }
+        for entry in self
+            .slots
+            .iter()
+            .filter(|entry| place_covers_slot(&entry.slot, storage))
+        {
+            storage_release_slot_precondition(entry.state).map_err(|reason| {
+                CollectionSlotTableRefutation {
+                    slot: entry.slot.clone(),
+                    reason,
+                }
+            })?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn storage_release_covers_slot(&self, slot: &Place) -> bool {
+        self.released_storage
+            .iter()
+            .any(|storage| place_covers_slot(slot, storage))
+    }
+
+    pub(super) fn storage_maybe_release_covers_slot(&self, slot: &Place) -> bool {
+        self.maybe_released_storage
+            .iter()
+            .any(|storage| place_covers_slot(slot, storage))
+    }
+}
+
+fn storage_release_slot_precondition(
+    state: CollectionSlotState,
+) -> Result<(), CollectionSlotLifecycleRefutation> {
+    match state {
+        CollectionSlotState::Initialized(slot_ty) => {
+            Err(CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc { slot_ty })
+        }
+        CollectionSlotState::MaybeInitialized(slot_ty) => {
+            Err(CollectionSlotLifecycleRefutation::MaybeLiveSlotDuringStorageDealloc { slot_ty })
+        }
+        CollectionSlotState::MaybeReleased => Err(CollectionSlotLifecycleRefutation::Unavailable {
+            operation: CollectionSlotLifecycleOp::StorageDealloc,
+            state: CollectionSlotState::MaybeReleased,
+        }),
+        CollectionSlotState::Uninitialized
+        | CollectionSlotState::Moved(_)
+        | CollectionSlotState::Dropped(_)
+        | CollectionSlotState::Released => Ok(()),
+    }
+}
+
+fn unavailable_storage_dealloc(
+    storage: &Place,
+    state: CollectionSlotState,
+) -> CollectionSlotTableRefutation {
+    CollectionSlotTableRefutation {
+        slot: storage.clone(),
+        reason: CollectionSlotLifecycleRefutation::Unavailable {
+            operation: CollectionSlotLifecycleOp::StorageDealloc,
+            state,
+        },
+    }
+}

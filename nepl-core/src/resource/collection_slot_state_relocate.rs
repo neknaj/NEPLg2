@@ -3,9 +3,9 @@ use alloc::vec::Vec;
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
+use super::collection_slot_state_identity::place_covers_slot;
 use super::collection_slot_state_table::{
-    place_covers_slot, CollectionSlotStateEntry, CollectionSlotStateTable,
-    CollectionSlotTableRefutation,
+    CollectionSlotStateEntry, CollectionSlotStateTable, CollectionSlotTableRefutation,
 };
 use super::model::Place;
 use super::place_utils::{push_unique_place, replace_place_prefix, should_track};

@@ -33,11 +33,23 @@ mod cell_state_tests;
 mod collection_slot_drop_proof;
 mod collection_slot_drop_traversal;
 mod collection_slot_lifecycle;
+mod collection_slot_lifecycle_model;
+#[cfg(test)]
+mod collection_slot_lifecycle_storage_tests;
 #[cfg(test)]
 mod collection_slot_lifecycle_tests;
+mod collection_slot_lifecycle_transition;
+#[cfg(test)]
+mod collection_slot_lifecycle_type_tests;
 mod collection_slot_owner_transfer;
 mod collection_slot_owner_transfer_proof;
+mod collection_slot_state_identity;
 mod collection_slot_state_merge;
+#[cfg(test)]
+mod collection_slot_state_merge_tests;
+mod collection_slot_state_release;
+#[cfg(test)]
+mod collection_slot_state_release_tests;
 mod collection_slot_state_relocate;
 #[cfg(test)]
 mod collection_slot_state_relocate_tests;

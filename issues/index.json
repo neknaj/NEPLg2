@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T14:12:43.281Z",
+  "generated_at": "2026-05-21T14:32:24.321Z",
   "counts": {
-    "total": 1188,
+    "total": 1189,
     "open": 3,
-    "resolved": 1185,
+    "resolved": 1186,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -117,9 +117,9 @@
         "resolved": 1
       },
       "tools": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "tutorials": {
         "total": 3,
@@ -15198,6 +15198,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T092635167Z-RESOURCE-RESPONSIBILITY-POLICY-DOES--420EC501.md"
+    },
+    {
+      "id": "ISS-20260521T141951855Z-COLLECTION-SLOT-LIFECYCLE-MODULE-EXC-964028BB",
+      "title": "Collection slot lifecycle module exceeds resource checker responsibility limit",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_lifecycle.rs, nepl-core/src/resource/collection_slot_lifecycle_*.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T141951855Z-COLLECTION-SLOT-LIFECYCLE-MODULE-EXC-964028BB.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",

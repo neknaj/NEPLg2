@@ -44447,3 +44447,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `cargo test -p nepl-core --test resource_ir collection_slot -- --test-threads=1`: timed out after 184s; broad collection-slot filter は既知の長時間化があるため focused tests に限定。
+
+## 2026-05-21 Agent 1 collection slot responsibility split
+
+- `ISS-20260521T141951855Z-COLLECTION-SLOT-LIFECYCLE-MODULE-EXC-964028BB` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot lifecycle / state table 周辺が proof 拡張のたびに同じ module へ戻り、`nodesrc/test_resource_checker_responsibility.js` の module size policy が検出する状態になっていたこと。
+- `collection_slot_lifecycle` を re-export boundary に縮小し、model / transition / type tests / storage tests を分けた。state table 周辺も slot identity、storage release、merge tests、release tests を独立 module に分割した。
+- responsibility policy は緩めていない。新規 file を監視対象に追加し、分割後の責務ごとに小さい上限を設定した。
+- focused verification:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo test -p nepl-core --lib collection_slot -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

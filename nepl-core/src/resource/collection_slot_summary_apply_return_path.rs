@@ -4,7 +4,8 @@ use alloc::vec::Vec;
 
 use super::cell_state::CellTable;
 use super::collection_slot_lifecycle::CollectionSlotState;
-use super::collection_slot_state_table::{place_covers_slot, CollectionSlotStateTable};
+use super::collection_slot_state_identity::place_covers_slot;
+use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
 use super::collection_slot_summary_target::instantiate_summary_target;
