@@ -70,6 +70,32 @@ fn typecheck_resource_source_with_target(
     (checked.module.expect("typechecked module"), checked.types)
 }
 
+fn typecheck_resource_stdlib_source(
+    source: &str,
+    relative_path: &str,
+    target: CompileTarget,
+) -> (HirModule, TypeCtx) {
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline(stdlib_root().join(relative_path), source.to_string())
+        .expect("load stdlib source with canonical stdlib");
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        target,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !matches!(diagnostic.severity, Severity::Error)),
+        "typecheck diagnostics: {:#?}",
+        checked.diagnostics
+    );
+    (checked.module.expect("typechecked module"), checked.types)
+}
+
 fn compile_resource_source_with_target(
     source: &str,
     target: CompileTarget,
@@ -23183,6 +23209,104 @@ fn resource_ir_collection_slot_rejects_double_move() {
             },
             span,
         }]
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_intrinsic_rejects_double_move() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem/types" as *
+
+struct LocalToken:
+    token_id <i32>
+
+fn helper <(&RegionToken<LocalToken>)->i32> (storage):
+    #intrinsic "collection_slot_initialize_empty" <LocalToken> (storage, 0)
+    #intrinsic "collection_slot_move_out" <LocalToken> (storage, 0)
+    #intrinsic "collection_slot_move_out" <LocalToken> (storage, 0)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/slot_boundary.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalToken").expect("LocalToken type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::Unavailable {
+                        operation: CollectionSlotLifecycleOp::MoveOut,
+                        state: CollectionSlotState::Moved(found_ty),
+                    },
+                ..
+            } if function.starts_with("helper__") && *found_ty == owned_ty
+        )),
+        "source-level collection slot intrinsic must lower to the same typed double-move refutation as manual Resource IR: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_summary_rejects_double_move_across_calls() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem/types" as *
+
+struct LocalToken:
+    token_id <i32>
+
+fn move_slot <(&RegionToken<LocalToken>)->i32> (storage):
+    #intrinsic "collection_slot_move_out" <LocalToken> (storage, 0)
+    0
+
+fn caller <(&RegionToken<LocalToken>)->i32> (storage):
+    #intrinsic "collection_slot_initialize_empty" <LocalToken> (storage, 0)
+    move_slot storage
+    move_slot storage
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/slot_summary.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalToken").expect("LocalToken type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::Unavailable {
+                        operation: CollectionSlotLifecycleOp::MoveOut,
+                        state: CollectionSlotState::Moved(found_ty),
+                    },
+                ..
+            } if function.starts_with("caller__") && *found_ty == owned_ty
+        )),
+        "collection slot lifecycle summaries must use the caller's canonical raw-address aliases when replaying callee slot effects: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
     );
 }
 

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-20T23:57:26.768Z",
+  "generated_at": "2026-05-21T00:19:04.480Z",
   "counts": {
-    "total": 1149,
+    "total": 1150,
     "open": 3,
-    "resolved": 1146,
+    "resolved": 1147,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 546,
+        "total": 547,
         "open": 0,
-        "resolved": 546
+        "resolved": 547
       },
       "CORE": {
         "total": 5,
@@ -8353,6 +8353,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T235639756Z-COLLECTION-SLOT-EFFECTS-FIXTURES-USE-7246C053.md"
+    },
+    {
+      "id": "ISS-20260521T000647693Z-COLLECTION-SLOT-LIFECYCLE-LACKS-STDL-4001F199",
+      "title": "Collection slot lifecycle lacks stdlib source integration regression",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/initialized_collection_slot.rs, nepl-core/src/resource/collection_slot_summary_build.rs, nepl-core/src/resource/collection_slot_summary_apply.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T000647693Z-COLLECTION-SLOT-LIFECYCLE-LACKS-STDL-4001F199.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

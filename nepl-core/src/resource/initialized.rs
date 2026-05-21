@@ -501,15 +501,22 @@ impl ResourceCheckEngine<'_> {
                 event,
                 span,
             } => {
-                self.apply_collection_slot_lifecycle(collection_slots, target, *event, *span);
+                self.apply_collection_slot_lifecycle_with_aliases(
+                    collection_slots,
+                    raw_aliases,
+                    target,
+                    *event,
+                    *span,
+                );
             }
             ResourceOp::CollectionStorageRelocate {
                 old_storage,
                 new_storage,
                 span,
             } => {
-                self.apply_collection_storage_relocate(
+                self.apply_collection_storage_relocate_with_aliases(
                     collection_slots,
+                    raw_aliases,
                     old_storage,
                     new_storage,
                     *span,

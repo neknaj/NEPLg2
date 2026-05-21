@@ -76,6 +76,7 @@ impl ResourceCheckEngine<'_> {
         }
         self.apply_call_collection_slot_lifecycle_summary(
             collection_slots,
+            raw_aliases,
             output,
             target,
             args,
@@ -132,6 +133,7 @@ impl ResourceCheckEngine<'_> {
         }
         self.apply_indirect_call_collection_slot_lifecycle_summary(
             collection_slots,
+            raw_aliases,
             function_aliases,
             output,
             callee,

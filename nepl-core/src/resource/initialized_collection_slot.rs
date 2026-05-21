@@ -7,6 +7,7 @@ use crate::span::Span;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::report::ResourceCheckDiagnostic;
 
@@ -41,6 +42,18 @@ impl ResourceCheckEngine<'_> {
         }
     }
 
+    pub(super) fn apply_collection_slot_lifecycle_with_aliases(
+        &mut self,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        target: &Place,
+        event: CollectionSlotLifecycleEvent,
+        span: Span,
+    ) {
+        let target = raw_aliases.canonicalize(target);
+        self.apply_collection_slot_lifecycle(collection_slots, &target, event, span);
+    }
+
     pub(super) fn apply_collection_storage_relocate(
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
@@ -57,5 +70,18 @@ impl ResourceCheckEngine<'_> {
                     span,
                 });
         }
+    }
+
+    pub(super) fn apply_collection_storage_relocate_with_aliases(
+        &mut self,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        old_storage: &Place,
+        new_storage: &Place,
+        span: Span,
+    ) {
+        let old_storage = raw_aliases.canonicalize(old_storage);
+        let new_storage = raw_aliases.canonicalize(new_storage);
+        self.apply_collection_storage_relocate(collection_slots, &old_storage, &new_storage, span);
     }
 }

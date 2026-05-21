@@ -212,7 +212,8 @@ fn collect_summary_ops_from_op(
 ) {
     match op {
         ResourceOp::CollectionSlotLifecycle { target, event, .. } => {
-            if let Some(target) = summary_place_for_params(params, target) {
+            let target = state.raw_aliases.canonicalize(target);
+            if let Some(target) = summary_place_for_params(params, &target) {
                 out.push(CollectionSlotLifecycleSummaryOp::Event {
                     target,
                     event: *event,
@@ -224,9 +225,11 @@ fn collect_summary_ops_from_op(
             new_storage,
             ..
         } => {
+            let old_storage = state.raw_aliases.canonicalize(old_storage);
+            let new_storage = state.raw_aliases.canonicalize(new_storage);
             if let (Some(old_storage), Some(new_storage)) = (
-                summary_place_for_params(params, old_storage),
-                summary_place_for_params(params, new_storage),
+                summary_place_for_params(params, &old_storage),
+                summary_place_for_params(params, &new_storage),
             ) {
                 out.push(CollectionSlotLifecycleSummaryOp::Relocate {
                     old_storage,
@@ -241,6 +244,7 @@ fn collect_summary_ops_from_op(
                 target,
                 args,
                 params,
+                &state.raw_aliases,
                 collection_slot_summaries,
             );
         }
@@ -358,6 +362,7 @@ fn collect_direct_call_summary_ops(
     target: &ResourceCallTarget,
     args: &[Place],
     params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
     collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
 ) {
     let ResourceCallTarget::User { name, .. } = target else {
@@ -366,7 +371,7 @@ fn collect_direct_call_summary_ops(
     let Some(summary) = collection_slot_summaries.get(name) else {
         return;
     };
-    translate_summary_ops_through_args(out, engine, args, params, &summary.ops);
+    translate_summary_ops_through_args(out, engine, args, params, raw_aliases, &summary.ops);
 }
 
 fn collect_indirect_call_summary_ops(
@@ -382,7 +387,14 @@ fn collect_indirect_call_summary_ops(
     for function in state.function_aliases.functions(callee) {
         let mut path = Vec::new();
         if let Some(summary) = collection_slot_summaries.get(function) {
-            translate_summary_ops_through_args(&mut path, engine, args, params, &summary.ops);
+            translate_summary_ops_through_args(
+                &mut path,
+                engine,
+                args,
+                params,
+                &state.raw_aliases,
+                &summary.ops,
+            );
         }
         paths.push(path);
     }
@@ -394,6 +406,7 @@ fn translate_summary_ops_through_args(
     engine: &ResourceCheckEngine<'_>,
     args: &[Place],
     params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
     ops: &[CollectionSlotLifecycleSummaryOp],
 ) {
     for op in ops {
@@ -402,6 +415,7 @@ fn translate_summary_ops_through_args(
                 let Some(actual) = instantiate_summary_target(engine, args, target) else {
                     continue;
                 };
+                let actual = raw_aliases.canonicalize(&actual);
                 if let Some(target) = summary_place_for_params(params, &actual) {
                     out.push(CollectionSlotLifecycleSummaryOp::Event {
                         target,
@@ -419,6 +433,8 @@ fn translate_summary_ops_through_args(
                 let Some(actual_new) = instantiate_summary_target(engine, args, new_storage) else {
                     continue;
                 };
+                let actual_old = raw_aliases.canonicalize(&actual_old);
+                let actual_new = raw_aliases.canonicalize(&actual_new);
                 if let (Some(old_storage), Some(new_storage)) = (
                     summary_place_for_params(params, &actual_old),
                     summary_place_for_params(params, &actual_new),
@@ -433,7 +449,14 @@ fn translate_summary_ops_through_args(
                 let mut translated_paths = Vec::new();
                 for path in paths {
                     let mut translated = Vec::new();
-                    translate_summary_ops_through_args(&mut translated, engine, args, params, path);
+                    translate_summary_ops_through_args(
+                        &mut translated,
+                        engine,
+                        args,
+                        params,
+                        raw_aliases,
+                        path,
+                    );
                     translated_paths.push(translated);
                 }
                 push_merge_summary(out, translated_paths);
@@ -448,6 +471,7 @@ fn translate_summary_ops_through_args(
                     engine,
                     args,
                     params,
+                    raw_aliases,
                     condition_ops,
                 );
                 let mut translated_body = Vec::new();
@@ -456,6 +480,7 @@ fn translate_summary_ops_through_args(
                     engine,
                     args,
                     params,
+                    raw_aliases,
                     body_ops,
                 );
                 if !translated_condition.is_empty() || !translated_body.is_empty() {

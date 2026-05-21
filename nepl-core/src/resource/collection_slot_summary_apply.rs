@@ -9,6 +9,7 @@ use super::collection_slot_summary_model::{
 };
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceCallTarget};
 use super::place_utils::projected_place_with_concrete_type;
 
@@ -16,6 +17,7 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn apply_call_collection_slot_lifecycle_summary(
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
         output: &Place,
         target: &ResourceCallTarget,
         args: &[Place],
@@ -31,6 +33,7 @@ impl ResourceCheckEngine<'_> {
         };
         self.apply_collection_slot_lifecycle_function_summary(
             collection_slots,
+            raw_aliases,
             output,
             args,
             summary,
@@ -41,6 +44,7 @@ impl ResourceCheckEngine<'_> {
     pub(super) fn apply_indirect_call_collection_slot_lifecycle_summary(
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
         function_aliases: &FunctionAliasTable,
         output: &Place,
         callee: &Place,
@@ -57,7 +61,12 @@ impl ResourceCheckEngine<'_> {
             let mut path = collection_slots.clone();
             if let Some(summary) = self.collection_slot_summaries.get(function) {
                 self.apply_collection_slot_lifecycle_function_summary(
-                    &mut path, output, args, summary, span,
+                    &mut path,
+                    raw_aliases,
+                    output,
+                    args,
+                    summary,
+                    span,
                 );
             } else {
                 path.clear_storage_prefix(output);
@@ -70,6 +79,7 @@ impl ResourceCheckEngine<'_> {
     fn apply_collection_slot_lifecycle_function_summary(
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
         output: &Place,
         args: &[Place],
         summary: &CollectionSlotLifecycleFunctionSummary,
@@ -77,6 +87,7 @@ impl ResourceCheckEngine<'_> {
     ) {
         self.apply_collection_slot_lifecycle_summary_ops(
             collection_slots,
+            raw_aliases,
             args,
             &summary.ops,
             span,
@@ -87,6 +98,7 @@ impl ResourceCheckEngine<'_> {
     fn apply_collection_slot_lifecycle_summary_ops(
         &mut self,
         collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
         args: &[Place],
         ops: &[CollectionSlotLifecycleSummaryOp],
         span: crate::span::Span,
@@ -95,8 +107,9 @@ impl ResourceCheckEngine<'_> {
             match op {
                 CollectionSlotLifecycleSummaryOp::Event { target, event } => {
                     if let Some(target) = instantiate_summary_target(self, args, target) {
-                        self.apply_collection_slot_lifecycle(
+                        self.apply_collection_slot_lifecycle_with_aliases(
                             collection_slots,
+                            raw_aliases,
                             &target,
                             *event,
                             span,
@@ -115,8 +128,9 @@ impl ResourceCheckEngine<'_> {
                     else {
                         continue;
                     };
-                    self.apply_collection_storage_relocate(
+                    self.apply_collection_storage_relocate_with_aliases(
                         collection_slots,
+                        raw_aliases,
                         &old_storage,
                         &new_storage,
                         span,
@@ -130,7 +144,11 @@ impl ResourceCheckEngine<'_> {
                     for path_ops in paths {
                         let mut path = collection_slots.clone();
                         self.apply_collection_slot_lifecycle_summary_ops(
-                            &mut path, args, path_ops, span,
+                            &mut path,
+                            raw_aliases,
+                            args,
+                            path_ops,
+                            span,
                         );
                         merged_paths.push(path);
                     }
@@ -143,6 +161,7 @@ impl ResourceCheckEngine<'_> {
                     let mut condition_path = collection_slots.clone();
                     self.apply_collection_slot_lifecycle_summary_ops(
                         &mut condition_path,
+                        raw_aliases,
                         args,
                         condition_ops,
                         span,
@@ -151,6 +170,7 @@ impl ResourceCheckEngine<'_> {
                     let mut body_path = condition_path;
                     self.apply_collection_slot_lifecycle_summary_ops(
                         &mut body_path,
+                        raw_aliases,
                         args,
                         body_ops,
                         span,

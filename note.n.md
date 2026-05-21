@@ -43935,3 +43935,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core resource_ir_collection_slot -- --test-threads=1`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `git diff --check`: passed
+
+## 2026-05-21 Agent 1 collection slot source alias canonicalization
+
+- `ISS-20260521T000647693Z-COLLECTION-SLOT-LIFECYCLE-LACKS-STDL-4001F199` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、stdlib source から collection slot lifecycle intrinsic を下げると、同じ `&RegionToken<T>` の複数 read が `tmp1` / `tmp4` / `tmp7` のような別 temporary root になり、Resource IR の raw-address alias table では同一 storage として把握できていても、collection slot state table へ渡る前に canonical place へ統合されていなかったことだった。
+- 直接の `ResourceOp::CollectionSlotLifecycle` / `CollectionStorageRelocate` は `RawCellAddressAliases::canonicalize` を通してから `CollectionSlotStateTable` に適用するようにした。
+- collection slot function summary も、summary 生成時と caller replay 時の両方で raw-address alias 正規化を行うようにした。これにより、callee 内の temporary 経由 slot 操作が parameter-relative summary として保持され、caller 側の canonical storage state に適用される。
+- stdlib source path で canonical `core/mem/types` を import する回帰テストを追加した。直接 intrinsic の二重 move と、callee summary 経由の二重 move の両方を typed refutation として確認する。
+- focused verification:
+  - `cargo test -p nepl-core resource_ir_collection_slot_source_ --test resource_ir -- --test-threads=1`: passed
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
