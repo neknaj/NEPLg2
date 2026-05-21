@@ -1,3 +1,21 @@
+# 2026-05-21 Agent 1 collection slot lifecycle proof atomicity
+
+- `ISS-20260521T103746552Z-COLLECTION-SLOT-LIFECYCLE-PROOF-CHEC-E31C8D02` を追加して fixed にした。`plan.md` は確認済みで変更していない。
+- 根本原因は、collection slot lifecycle event の drop proof と owner-transfer proof を別々に消費し、`ReplaceInitialized(DropOldOwner)` のような複合 obligation で片方の証明だけが消費された後に event 全体が rejected になり得たことだった。
+- `CollectionSlotDropProof` / `CollectionSlotOwnerTransferProof` に消費しない satisfaction check を追加し、`CollectionSlotLifecycleProofPlan` で slot-state precondition と全 obligation を先に検査するようにした。
+- proof plan の消費は `CellTable` clone 上で行い、すべて成功した場合だけ original table へ commit する transaction にした。`MoveOutAndStoreValue` の old load / new store proof 消費も同じ atomic commit にした。
+- これにより rejected lifecycle event が slot state を進めないだけでなく、proof state も部分変異させない。diagnostic recovery が proof 消費順に依存しなくなり、静的検査の正確性が上がった。
+- regression として、missing replacement store proof で `ReplaceInitialized(DropOldOwner)` が拒否された後でも、old payload の actual drop proof を後続 `DropInitialized` が利用でき、false `DropRequiresElaboration` が出ないことを固定した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_failed_replace_drop_old_does_not_consume_drop_proof -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_replace_drop_old_accepts_drop_and_store_proofs -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_non_copy_replace_return_old_accepts_raw_load_and_store_proofs -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_accepts_callee_certified_drop_proof -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_accepts_callee_certified_non_copy_replace_return_old -- --test-threads=1`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot -- --test-threads=1`: 244s で timeout。広範囲 filter は時間超過のため、関係する個別 regression に絞って確認した。
+
 # 2026-05-21 Agent 1 collection slot return summary path correlation
 
 - `ISS-20260521T094024431Z-COLLECTION-SLOT-RETURN-SUMMARY-LOSES-5E121C4F` を追加して fixed にした。`plan.md` は確認したが変更していない。

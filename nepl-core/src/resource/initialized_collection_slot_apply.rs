@@ -44,21 +44,22 @@ impl ResourceCheckEngine<'_> {
             | CollectionSlotLifecycleEvent::MoveOut { .. }
             | CollectionSlotLifecycleEvent::ReplaceInitialized { .. }
             | CollectionSlotLifecycleEvent::DropInitialized { .. } => self
-                .reject_unproven_collection_slot_drop(
+                .collection_slot_lifecycle_proof_plan(
                     cells,
                     collection_slots,
                     raw_aliases,
                     target,
                     event,
                     drop_proof,
+                    owner_transfer_proof,
                 )
-                .and_then(|()| {
-                    self.reject_unproven_collection_slot_owner_transfer(
+                .and_then(|plan| {
+                    self.consume_collection_slot_lifecycle_proof_plan(
                         cells,
-                        collection_slots,
                         raw_aliases,
                         target,
-                        event,
+                        plan,
+                        drop_proof,
                         owner_transfer_proof,
                     )
                 })

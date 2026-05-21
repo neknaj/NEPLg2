@@ -24703,6 +24703,93 @@ fn resource_ir_collection_slot_replace_drop_old_accepts_drop_and_store_proofs() 
 }
 
 #[test]
+fn resource_ir_collection_slot_failed_replace_drop_old_does_not_consume_drop_proof() {
+    let (types, owned_ty) = types_with_droppable_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let address = Place::local("slot_address".to_string(), types.i32());
+    let initial = Place::local("initial_payload".to_string(), owned_ty);
+    let loaded = Place::temporary(ResourceId(758), owned_ty);
+    let slot = address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: address.clone(),
+                ty: types.i32(),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: initial.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(759), unit_ty),
+                args: vec![address.clone(), initial],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded.clone(),
+                args: vec![address],
+                span,
+            },
+            ResourceOp::Drop {
+                place: loaded,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::ReplaceInitialized {
+                    old_ty: owned_ty,
+                    new_ty: owned_ty,
+                    old_owner: CollectionSlotReplacement::DropOldOwner,
+                },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::DropInitialized {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot.clone(),
+            reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+    assert!(report.functions[0]
+        .final_collection_slots
+        .iter()
+        .any(|entry| entry.slot == slot && entry.state == CollectionSlotState::Dropped(owned_ty)));
+}
+
+#[test]
 fn resource_ir_collection_slot_call_summary_accepts_callee_certified_non_copy_owner_transfer() {
     let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();

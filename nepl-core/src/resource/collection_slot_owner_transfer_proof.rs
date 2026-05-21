@@ -36,6 +36,31 @@ pub(super) fn consume_collection_slot_owner_transfer_proof(
     }
 }
 
+pub(super) fn collection_slot_owner_transfer_proof_satisfied(
+    cells: &CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
+    target: &Place,
+    obligation: CollectionSlotOwnerTransferObligation,
+    proof: CollectionSlotOwnerTransferProof,
+    types: &TypeCtx,
+) -> bool {
+    match proof {
+        CollectionSlotOwnerTransferProof::LocalRawValueFlow => {
+            collection_slot_owner_transfer_proof_available(
+                cells,
+                raw_aliases,
+                target,
+                obligation,
+                types,
+            )
+        }
+        CollectionSlotOwnerTransferProof::SummaryStateOnly => false,
+        CollectionSlotOwnerTransferProof::SummaryCertified(certified) => {
+            owner_transfer_obligation_matches(types, certified, obligation)
+        }
+    }
+}
+
 pub(super) fn collection_slot_owner_transfer_proof_available(
     cells: &CellTable,
     raw_aliases: Option<&RawCellAddressAliases>,
@@ -134,21 +159,27 @@ fn consume_local_raw_value_flow_proof(
             old_ty,
             new_ty,
         } => {
-            consume_raw_cell_value_flow(
-                cells,
+            let mut committed = cells.clone();
+            if consume_raw_cell_value_flow(
+                &mut committed,
                 raw_aliases,
                 target,
                 old_ty,
                 RawCellValueFlowKind::MoveOutLoadedCell,
                 types,
             ) && consume_raw_cell_value_flow(
-                cells,
+                &mut committed,
                 raw_aliases,
                 target,
                 new_ty,
                 RawCellValueFlowKind::StoreValue,
                 types,
-            )
+            ) {
+                *cells = committed;
+                true
+            } else {
+                false
+            }
         }
     }
 }
