@@ -15,8 +15,12 @@ use super::function_alias::{function_aliases_for_match_arm, FunctionAliasTable};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary_engine::summary_check_engine;
-use super::model::{Place, ResourceBlockId, ResourceCallTarget, ResourceLocal, ResourceOp};
-use super::place_utils::{construct_aggregate_field_place, place_suffix_after_prefix};
+use super::model::{
+    Place, ResourceBlockId, ResourceCallTarget, ResourceLocal, ResourceMatchArm, ResourceOp,
+};
+use super::place_utils::{
+    construct_aggregate_field_place, match_bind_payload_place, place_suffix_after_prefix,
+};
 
 pub(super) fn collect_return_transfers_from_ops(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
@@ -154,13 +158,8 @@ fn collect_return_transfers_from_value_producer(
                 let match_state =
                     collection_slot_summary_state_after_ops(engine, state_at_start, prior_ops);
                 for arm in arms {
-                    let arm_function_aliases = function_aliases_for_match_arm(
-                        &match_state.function_aliases,
-                        scrutinee,
-                        arm,
-                    );
-                    let mut arm_state = match_state.clone();
-                    arm_state.function_aliases = arm_function_aliases;
+                    let arm_state =
+                        collection_slot_summary_match_arm_entry_state(&match_state, scrutinee, arm);
                     collect_return_transfers_from_value_to_suffix(
                         out,
                         engine,
@@ -372,6 +371,30 @@ fn collection_slot_summary_state_after_ops(
     );
     engine.auto_drop_points.clear();
     state
+}
+
+fn collection_slot_summary_match_arm_entry_state(
+    match_state: &CollectionSlotSummaryBuildState,
+    scrutinee: &Place,
+    arm: &ResourceMatchArm,
+) -> CollectionSlotSummaryBuildState {
+    let mut arm_state = match_state.clone();
+    arm_state.function_aliases =
+        function_aliases_for_match_arm(&match_state.function_aliases, scrutinee, arm);
+    if let Some(bind_local) = &arm.bind_local {
+        arm_state.cells.mark_initialized(bind_local);
+        if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
+            arm_state
+                .raw_aliases
+                .copy_explicit_raw_address_alias(&source, bind_local);
+            let _ = arm_state
+                .collection_slots
+                .transfer_storage_prefix(&source, bind_local);
+        } else {
+            arm_state.raw_aliases.clear(bind_local);
+        }
+    }
+    arm_state
 }
 
 pub(super) fn collect_return_storage_markers(

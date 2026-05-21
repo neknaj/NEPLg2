@@ -25884,6 +25884,160 @@ fn resource_ir_collection_slot_call_summary_uses_callsite_raw_alias_for_nested_r
 }
 
 #[test]
+fn resource_ir_collection_slot_call_summary_transfers_match_bound_returned_payload() {
+    let (mut types, owned_ty) = types_with_copy_owned();
+    let storage_ty = register_non_copy_collection_storage(&mut types);
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let result_ty = register_storage_result(&mut types, i32_ty, storage_ty);
+    let span = Span::dummy();
+    let callee_result_param = Place::local("result".to_string(), result_ty);
+    let callee_match_output = Place::temporary(ResourceId(735), storage_ty);
+    let callee_err_storage = Place::local("storage".to_string(), storage_ty);
+    let callee_ok_payload = Place::local("ok_value".to_string(), i32_ty);
+    let callee_fallback_storage = Place::temporary(ResourceId(736), storage_ty);
+    let caller_storage = Place::local("caller_storage".to_string(), storage_ty);
+    let caller_slot = caller_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let caller_result = Place::temporary(ResourceId(737), result_ty);
+    let returned_storage = Place::temporary(ResourceId(738), storage_ty);
+    let returned_slot = returned_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "extract_err_storage".to_string(),
+                origin_name: "extract_err_storage".to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "result".to_string(),
+                    ty: result_ty,
+                    mutable: false,
+                    place: callee_result_param.clone(),
+                }],
+                result: storage_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::Match {
+                        output: callee_match_output.clone(),
+                        scrutinee: callee_result_param,
+                        scrutinee_is_borrow_target: false,
+                        arms: vec![
+                            ResourceMatchArm {
+                                pattern: ResourceMatchPattern::Variant("Err".to_string()),
+                                bind_local: Some(callee_err_storage.clone()),
+                                bind_source_name: Some("storage".to_string()),
+                                bind_mode: Some(ResourceMatchBindMode::Owned),
+                                ops: vec![],
+                                value: callee_err_storage,
+                                span,
+                            },
+                            ResourceMatchArm {
+                                pattern: ResourceMatchPattern::Variant("Ok".to_string()),
+                                bind_local: Some(callee_ok_payload),
+                                bind_source_name: Some("ok_value".to_string()),
+                                bind_mode: Some(ResourceMatchBindMode::Owned),
+                                ops: vec![ResourceOp::Expr {
+                                    kind: ResourceExprKind::Literal,
+                                    output: callee_fallback_storage.clone(),
+                                    ty: storage_ty,
+                                    span,
+                                }],
+                                value: callee_fallback_storage,
+                                span,
+                            },
+                        ],
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(callee_match_output),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: caller_storage.clone(),
+                            ty: storage_ty,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: caller_slot,
+                            event: CollectionSlotLifecycleEvent::InitializeEmpty {
+                                value_ty: owned_ty,
+                            },
+                            span,
+                        },
+                        ResourceOp::Construct {
+                            output: caller_result.clone(),
+                            kind: AggregateKind::Enum {
+                                name: "StorageResult".to_string(),
+                                variant: "Err".to_string(),
+                            },
+                            inputs: vec![caller_storage],
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: returned_storage.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "extract_err_storage".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![caller_result],
+                            effect: EffectOp::Pure,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: returned_storage,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: returned_slot,
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_enum_payload() {
     let (mut types, owned_ty) = types_with_copy_owned();
     let storage_ty = register_non_copy_collection_storage(&mut types);

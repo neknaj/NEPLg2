@@ -44229,3 +44229,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - direct / indirect call summary composition は callsite `raw_aliases` と `function_aliases` を使う。raw alias の別実装や stdlib/helper-name allowlist は追加していない。
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_uses_callsite_raw_alias_for_nested_return_transfer -- --nocapture`: passed
+
+## 2026-05-21 Agent 1 collection slot match bind return transfer
+
+- `ISS-20260521T080236863Z-COLLECTION-SLOT-RETURN-TRANSFER-IGNO-1F875A73` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot return-transfer 収集が `ResourceOp::Match` arm の bind local を per-arm state に反映せず、scrutinee payload から抽出された owner storage の raw owner alias と slot state を失っていたことだった。
+- match arm entry state を構築する helper を追加し、bind local を initialized にした上で `match_bind_payload_place` から得た payload source の raw owner alias と collection slot state を bind local へ伝播するようにした。
+- function alias payload も同じ arm entry state に統合し、value / function / slot relation を Resource IR の generic state transition として扱う。`Result`、variant 名、stdlib function 名の allowlist は追加していない。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_transfers_match_bound_returned_payload -- --nocapture`: passed

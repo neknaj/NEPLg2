@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T07:58:39.514Z",
+  "generated_at": "2026-05-21T08:07:33.390Z",
   "counts": {
-    "total": 1171,
+    "total": 1172,
     "open": 3,
-    "resolved": 1168,
+    "resolved": 1169,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 566,
+        "total": 567,
         "open": 0,
-        "resolved": 566
+        "resolved": 567
       },
       "CORE": {
         "total": 5,
@@ -8683,6 +8683,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T075313201Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-7DDCFFFD.md"
+    },
+    {
+      "id": "ISS-20260521T080236863Z-COLLECTION-SLOT-RETURN-TRANSFER-IGNO-1F875A73",
+      "title": "Collection slot return transfer ignores match bind payload state",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T080236863Z-COLLECTION-SLOT-RETURN-TRANSFER-IGNO-1F875A73.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
