@@ -23712,13 +23712,13 @@ impl Drop for LocalOwner:
     fn drop <(&LocalOwner)*>()> (_self):
         ()
 
-fn drop_slot <(&RegionToken<LocalOwner>,LocalOwner)->i32> (storage, payload):
+fn drop_slot <(&RegionToken<LocalOwner>,LocalOwner)*>i32> (storage, payload):
     let data <MemPtr<LocalOwner>> region_ptr storage
     let addr <i32> mem_ptr_addr data
     store<LocalOwner> addr payload
     #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
-    let mut loaded <LocalOwner> load<LocalOwner> addr
-    set loaded LocalOwner 0
+    let loaded <LocalOwner> load<LocalOwner> addr
+    Drop::drop &loaded
     #intrinsic "collection_slot_drop_initialized" <LocalOwner> (storage, 0)
     0
 "#;
@@ -23734,8 +23734,25 @@ fn drop_slot <(&RegionToken<LocalOwner>,LocalOwner)->i32> (storage, payload):
 
     assert!(
         report.diagnostics.is_empty(),
-        "source-level DropInitialized must consume actual loaded-value drop proof without stdlib allowlists: {:#?}\nresource:\n{}",
+        "source-level DropInitialized must consume actual Drop trait call proof without stdlib allowlists: {:#?}\nresource:\n{}",
         report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "drop_slot"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::Drop {
+                            place,
+                            ..
+                        } if matches!(&place.root, PlaceRoot::Local(local) if local == "loaded")
+                            && place.ty == owned_ty
+                    )
+                })
+        }),
+        "source-level Drop trait call must remain a runtime call and also emit a typed ResourceOp::Drop proof for loaded:\n{}",
         resource.dump_text()
     );
     assert!(
@@ -23753,6 +23770,71 @@ fn drop_slot <(&RegionToken<LocalOwner>,LocalOwner)->i32> (storage, payload):
                 })
         }),
         "source lowering must emit typed DropInitialized lifecycle event for the droppable owner payload:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn main <()*>i32> ():
+    let g <LocalOwner> LocalOwner 1
+    Drop::drop &g
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    assert!(
+        mono.unresolved_trait_calls.is_empty(),
+        "Drop trait call must resolve before Resource lowering in the normal pipeline: {:#?}",
+        mono.unresolved_trait_calls
+    );
+    let resource = lower_hir_module(&mono.module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "monomorphized Drop impl call must remain a runtime call while proving ResourceOp::Drop: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "main"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::Call {
+                            target: ResourceCallTarget::User { .. },
+                            ..
+                        }
+                    )
+                })
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::Drop {
+                            place,
+                            ..
+                        } if matches!(&place.root, PlaceRoot::Local(local) if local == "g")
+                    )
+                })
+        }),
+        "normal monomorphized pipeline must lower explicit Drop::drop into both call execution and drop proof:\n{}",
         resource.dump_text()
     );
 }

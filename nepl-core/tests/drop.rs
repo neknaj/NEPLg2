@@ -359,6 +359,32 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn explicit_drop_trait_call_runs_once_and_suppresses_auto_drop() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 13;
+        ()
+
+fn main <()*>i32> ():
+    let g <Guard> Guard 0;
+    Drop::drop &g;
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![13]);
+}
+
+#[test]
 fn moved_function_parameter_is_not_dropped_twice() {
     let source = r#"
 #target wasm

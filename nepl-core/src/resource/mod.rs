@@ -137,6 +137,7 @@ mod coverage_operation;
 mod coverage_resource;
 mod coverage_resource_collection_slot;
 mod coverage_resource_place;
+mod drop_call_identity;
 mod drop_elaboration;
 mod drop_elaboration_bindings;
 mod drop_elaboration_hir_bridge;

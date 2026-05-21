@@ -15,6 +15,7 @@ use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::address_projection::storage_offset_base_and_offset;
+use super::drop_call_identity::DropCallIdentityIndex;
 use super::lower_aggregate::{
     lower_compiler_field_load_source, lower_get_field_intrinsic_source,
     lower_get_field_ref_intrinsic_source, lower_reference_address_projection_source,
@@ -65,6 +66,7 @@ pub fn lower_hir_module(module: &HirModule, types: &TypeCtx) -> ResourceModule {
 }
 
 pub(super) struct LoweringEnvironment<'a> {
+    drop_calls: DropCallIdentityIndex,
     function_effects: BTreeMap<String, Effect>,
     function_effect_ops: BTreeMap<String, EffectOp>,
     functions: BTreeMap<String, &'a HirFunction>,
@@ -74,6 +76,7 @@ pub(super) struct LoweringEnvironment<'a> {
 
 impl<'a> LoweringEnvironment<'a> {
     fn new(module: &'a HirModule, types: &'a TypeCtx) -> Self {
+        let drop_calls = DropCallIdentityIndex::new(module);
         let mut function_effects = BTreeMap::new();
         let mut function_effect_ops = BTreeMap::new();
         let mut functions = BTreeMap::new();
@@ -99,6 +102,7 @@ impl<'a> LoweringEnvironment<'a> {
             }
         }
         Self {
+            drop_calls,
             function_effects,
             function_effect_ops,
             functions,
@@ -1017,6 +1021,12 @@ fn push_direct_call_skeleton(
         effect: effect.clone(),
         span: expr.span,
     });
+    if let Some(place) = source_drop_call_place(callee, args, ctx, env) {
+        ops.push(ResourceOp::Drop {
+            place,
+            span: expr.span,
+        });
+    }
     let lowered_core_mem_wrapper =
         push_core_mem_wrapper_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
     if !lowered_core_mem_wrapper {
@@ -1060,6 +1070,44 @@ fn push_direct_call_skeleton(
         span: expr.span,
     });
     output
+}
+
+fn source_drop_call_place(
+    callee: &FuncRef,
+    args: &[HirExpr],
+    ctx: &LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    let place = first_addr_of_arg_place(args, ctx)?;
+    if !env.drop_calls.call_is_explicit_drop(callee) {
+        return None;
+    }
+    if let FuncRef::Trait { self_ty, .. } = callee {
+        if !env.types.same_type(place.ty, *self_ty) {
+            return None;
+        }
+        return Some(place);
+    }
+    let first = args.first()?;
+    let ref_ty = env
+        .types
+        .resolve_named_type_id(env.types.resolve_id(first.ty));
+    match env.types.get_ref(ref_ty) {
+        TypeKind::Reference(inner, _) if env.types.same_type(place.ty, *inner) => Some(place),
+        _ => None,
+    }
+}
+
+fn first_addr_of_arg_place(args: &[HirExpr], ctx: &LoweringContext) -> Option<Place> {
+    let first = args.first()?;
+    let HirExprKind::AddrOf(inner) = &first.kind else {
+        return None;
+    };
+    let place = place_from_expr_skeleton(inner, ctx);
+    if matches!(&place.root, super::model::PlaceRoot::Unknown) {
+        return None;
+    }
+    Some(place)
 }
 
 fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {

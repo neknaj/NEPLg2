@@ -4,16 +4,20 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::hir::{HirFunction, HirModule};
+use crate::hir::{FuncRef, HirFunction, HirModule};
+
+use super::drop_call_identity::DropCallIdentityIndex;
 
 pub(super) struct HirCoverageContext<'a> {
     module: Option<&'a HirModule>,
     callable_names: BTreeSet<String>,
+    drop_calls: DropCallIdentityIndex,
     local_scopes: Vec<BTreeSet<String>>,
 }
 
 impl<'a> HirCoverageContext<'a> {
     pub(super) fn new(function: &HirFunction, module: &'a HirModule) -> Self {
+        let drop_calls = DropCallIdentityIndex::new(module);
         let mut callable_names = BTreeSet::new();
         for function in &module.functions {
             callable_names.insert(function.name.clone());
@@ -31,6 +35,7 @@ impl<'a> HirCoverageContext<'a> {
         Self {
             module: Some(module),
             callable_names,
+            drop_calls,
             local_scopes: alloc::vec![root_scope],
         }
     }
@@ -39,6 +44,7 @@ impl<'a> HirCoverageContext<'a> {
         Self {
             module: None,
             callable_names: BTreeSet::new(),
+            drop_calls: DropCallIdentityIndex::default(),
             local_scopes: alloc::vec![BTreeSet::new()],
         }
     }
@@ -66,6 +72,10 @@ impl<'a> HirCoverageContext<'a> {
             .functions
             .iter()
             .find(|function| function.name == name)
+    }
+
+    pub(super) fn call_is_explicit_drop(&self, callee: &FuncRef) -> bool {
+        self.drop_calls.call_is_explicit_drop(callee)
     }
 
     fn local_defined(&self, name: &str) -> bool {

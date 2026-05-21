@@ -143,7 +143,7 @@ impl Drop for LocalOwner:
     fn drop <(&LocalOwner)*>()> (_self):
         ()
 
-fn cleanup_all <(&RegionToken<LocalOwner>,i32)->i32> (storage, initialized_len):
+fn cleanup_all <(&RegionToken<LocalOwner>,i32)*>i32> (storage, initialized_len):
     let data <MemPtr<LocalOwner>> region_ptr storage
     let mut i <i32> {start_index}
     while lt i initialized_len:
@@ -151,13 +151,13 @@ fn cleanup_all <(&RegionToken<LocalOwner>,i32)->i32> (storage, initialized_len):
             let byte_off <i32> mul i size_of<LocalOwner>
             let slot <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data byte_off
             let raw <i32> mem_ptr_addr slot
-            let mut loaded <LocalOwner> load<LocalOwner> raw
-            set loaded LocalOwner 0
+            let loaded <LocalOwner> load<LocalOwner> raw
+            Drop::drop &loaded
             set i {increment_expr}
     #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage, initialized_len)
     0
 
-fn caller <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->i32> (storage, first, second):
+fn caller <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)*>i32> (storage, first, second):
     let data <MemPtr<LocalOwner>> region_ptr storage
     let raw0 <i32> mem_ptr_addr data
     let slot1 <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data size_of<LocalOwner>

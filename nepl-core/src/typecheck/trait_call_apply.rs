@@ -6,12 +6,12 @@ use crate::ast::Effect;
 use crate::diagnostic_codes::{EffectDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::{FuncRef, HirExpr, HirExprKind, HirTraitApplication, HirTraitMethodId};
 use crate::span::Span;
-use crate::types::TypeId;
+use crate::types::{TypeId, TypeKind};
 
 use super::diagnostics::{effect_error, type_error};
 use super::syntax_helpers::split_qualified_name;
 use super::trait_check::{TraitSelfTypeAmbiguity, TraitSelfTypeInference};
-use super::traits::{TraitApplication, TraitId};
+use super::traits::{infer_type_param_from_instantiated_pair, TraitApplication, TraitId};
 use super::type_argument_inference::TypeArgumentConflict;
 use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
@@ -101,19 +101,9 @@ impl<'a> BlockChecker<'a> {
             trait_id: TraitId::from_name(trait_name),
             args: application_args.resolved_args,
         };
-        let mut inferred_self_ty = None;
-        if let (Some(self_hint), Some(first_param), Some(arg)) = (
-            type_args.first().copied(),
-            params.first().copied(),
-            args.first(),
-        ) {
-            if self.ctx.same_type(first_param, self_hint) {
-                let candidate = self.ctx.resolve_id(arg.ty);
-                if self.type_satisfies_trait_application(candidate, &application) {
-                    inferred_self_ty = Some(candidate);
-                }
-            }
-        }
+        let self_inference_target = type_args.first().copied().unwrap_or(trait_info.self_ty);
+        let mut inferred_self_ty =
+            self.infer_trait_method_self_ty_from_args(self_inference_target, params, args);
         if inferred_self_ty.is_none() {
             if let Some(self_hint) = type_args.first().copied() {
                 if let Some(expectation) = expected_ret {
@@ -123,7 +113,13 @@ impl<'a> BlockChecker<'a> {
                 inferred_self_ty = match self
                     .resolve_self_type_param_for_trait_ref(&application.trait_id, &application.args)
                 {
-                    TraitSelfTypeInference::NoEvidence => Some(resolved_hint),
+                    TraitSelfTypeInference::NoEvidence => {
+                        if self.is_unbound_type_var(resolved_hint) {
+                            None
+                        } else {
+                            Some(resolved_hint)
+                        }
+                    }
                     TraitSelfTypeInference::Unique(self_ty) => Some(self_ty),
                     TraitSelfTypeInference::Ambiguous(ambiguity) => {
                         return TraitMethodResolution::SelfTypeAmbiguous { ambiguity };
@@ -162,6 +158,45 @@ impl<'a> BlockChecker<'a> {
             method: HirTraitMethodId::from_name(method_name.to_string()),
             self_ty,
         })
+    }
+
+    fn infer_trait_method_self_ty_from_args(
+        &self,
+        self_target: TypeId,
+        params: &[TypeId],
+        args: &[StackEntry],
+    ) -> Option<TypeId> {
+        let resolved_target = self.ctx.resolve_id(self_target);
+        let target_label = match self.ctx.get(resolved_target) {
+            TypeKind::Var(var) => var.label,
+            _ => None,
+        };
+        let mut inferred = None;
+        for (param, arg) in params.iter().zip(args.iter()) {
+            let Some(candidate) = infer_type_param_from_instantiated_pair(
+                self.ctx,
+                *param,
+                arg.ty,
+                resolved_target,
+                target_label.as_deref(),
+            ) else {
+                continue;
+            };
+            let candidate = self.ctx.resolve_id(candidate);
+            inferred = match inferred {
+                None => Some(candidate),
+                Some(current) if self.ctx.same_type(current, candidate) => Some(current),
+                Some(_) => return None,
+            };
+        }
+        inferred
+    }
+
+    fn is_unbound_type_var(&self, ty: TypeId) -> bool {
+        matches!(
+            self.ctx.get(self.ctx.resolve_id(ty)),
+            TypeKind::Var(var) if var.binding.is_none()
+        )
     }
 
     pub(super) fn apply_unbound_trait_method_call(

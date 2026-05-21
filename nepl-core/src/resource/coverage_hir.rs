@@ -100,6 +100,13 @@ impl HirCoverageContext<'_> {
                         );
                 }
                 counts.direct_calls += 1;
+                if self.call_is_explicit_drop(callee)
+                    && args
+                        .first()
+                        .is_some_and(|arg| matches!(arg.kind, HirExprKind::AddrOf(_)))
+                {
+                    counts.drops += 1;
+                }
                 if raw_memory_op_from_callee(callee)
                     .filter(|operation| should_count_raw_memory_call(operation, args, types))
                     .is_some()

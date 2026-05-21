@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T21:50:22.718Z",
+  "generated_at": "2026-05-21T22:15:03.770Z",
   "counts": {
     "total": 1202,
-    "open": 4,
-    "resolved": 1198,
+    "open": 3,
+    "resolved": 1199,
     "by_area": {
-      "core": {
-        "total": 587,
-        "open": 1,
-        "resolved": 586
-      },
       "stdlib": {
         "total": 312,
         "open": 2,
@@ -30,6 +25,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "core": {
+        "total": 587,
+        "open": 0,
+        "resolved": 587
       },
       "CORE": {
         "total": 5,
@@ -139,21 +139,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE",
-      "title": "Source-level Drop calls do not produce generic Resource drop proof",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-21",
-      "updated": "2026-05-22",
-      "target": "nepl-core/src/typecheck/**, nepl-core/src/resource/lower*.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/alloc/collections/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE.md"
-    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",
@@ -9123,6 +9108,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T214431160Z-GENERIC-DROP-BOUND-TYPE-VARIABLES-AR-F3533E34.md"
+    },
+    {
+      "id": "ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE",
+      "title": "Source-level Drop calls do not produce generic Resource drop proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/typecheck/trait_call_apply.rs, nepl-core/src/resource/drop_call_identity.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage_hir*.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/drop.rs, nepl-core/tests/collection_slot_full_range.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

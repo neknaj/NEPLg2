@@ -2,13 +2,13 @@
 id: ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE
 title: "Source-level Drop calls do not produce generic Resource drop proof"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-21
 updated: 2026-05-22
-target: "nepl-core/src/typecheck/**, nepl-core/src/resource/lower*.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/alloc/collections/**"
+target: "nepl-core/src/typecheck/trait_call_apply.rs, nepl-core/src/resource/drop_call_identity.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage_hir*.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/drop.rs, nepl-core/tests/collection_slot_full_range.rs"
 ---
 
 # ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE: Source-level Drop calls do not produce generic Resource drop proof
@@ -62,3 +62,23 @@ destructor 実行を保持したまま `ResourceOp::Drop` evidence を発行す�
 - raw load だけで drop しない場合は拒否される。
 - double drop / drop 後 read / borrowed 中 drop は拒否される。
 - destructor codegen が 1 回だけ実行され、Resource proof と runtime destructor が分離しない。
+
+## 解決内容
+
+2026-05-22 に Agent 1 が source-level `Drop::drop &place` を Resource IR の汎用 drop proof として扱う経路を実装した。
+
+- trait method self type 推論を `&Self` などの構造から復元するようにし、`Drop::drop &loaded` が明示型引数なしで正しく `Self = LocalOwner` と解決されるようにした。
+- `#capability drop` を持つ trait method と、その monomorphize 後の Drop impl function を `DropCallIdentityIndex` で一元的に識別するようにした。
+- Resource lowering は destructor `Call` を保持したまま、その後に `ResourceOp::Drop` を追加する。これにより runtime destructor 実行と static loaded-value drop proof が分離しない。
+- HIR/Resource coverage も同じ Drop call identity を参照するため、本番 pipeline の monomorphize 後でも coverage gate が正しく Drop proof を認識する。
+- `collection_slot_full_range` の loop proof fixture を assignment overwrite trick から `Drop::drop &loaded` に置き換えた。
+
+## 回帰テスト
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized_accepts_actual_loaded_value_drop -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized_rejects_raw_load_without_drop -- --nocapture`
+- `cargo test -p nepl-core --test collection_slot_full_range -- --nocapture`
+- `cargo test -p nepl-core --test drop explicit_drop_trait_call_runs_once_and_suppresses_auto_drop -- --nocapture`
+- `cargo check -p nepl-core`
+- `cargo fmt --check -p nepl-core`

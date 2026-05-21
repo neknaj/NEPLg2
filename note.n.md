@@ -44655,3 +44655,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --check -p nepl-core`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-22 Agent 1 source-level Drop call resource proof
+
+- `ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、source の `Drop::drop &value` が verified trait call / monomorphized impl call として残り、destructor 実行は行われる一方で Resource IR の `ResourceOp::Drop` proof に接続されていなかったこと。
+- `trait_call_apply` は `&Self` などの構造化引数から trait method self type を推論し、`Drop::drop &loaded` を明示型引数なしで `Self = LocalOwner` に解決できるようにした。
+- `DropCallIdentityIndex` を追加し、`#capability drop` trait method と monomorphize 後の Drop impl function を source-derived identity として一元管理した。stdlib 関数名 allowlist や module-specific proof は追加していない。
+- Resource lowering は Drop call の runtime `Call` を保持したまま、同じ verified call から `ResourceOp::Drop` を追加する。coverage も同じ identity を参照し、monomorphize 後の本番 pipeline でも coverage gate が drop proof を誤検出しない。
+- collection slot の source-level fixture は assignment overwrite trick から `Drop::drop &loaded` に置き換えた。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized_accepts_actual_loaded_value_drop -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized_rejects_raw_load_without_drop -- --nocapture`: passed
+  - `cargo test -p nepl-core --test collection_slot_full_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop explicit_drop_trait_call_runs_once_and_suppresses_auto_drop -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
