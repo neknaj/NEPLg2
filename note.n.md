@@ -44173,3 +44173,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_borrow_read -- --test-threads=1`: passed
   - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot enum return transfer
+
+- `ISS-20260521T065624831Z-COLLECTION-SLOT-STATE-RETURN-SUMMARY-4591B626` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot return summary が parameter をそのまま返す場合だけ transfer を記録しており、`Result::Err(storage)` のように owner を enum payload へ包んで返す fallible owner-preserving API では caller 側の match bind 後に slot state を失う可能性があったこと。
+- `collect_return_transfers_from_ops` を追加し、return value の source `ResourceOp` から enum / struct / tuple construct、branch / match value、local forwarding を辿って parameter-relative source と return payload suffix を構成するようにした。
+- `Result` や stdlib module 名の allowlist は追加していない。`AggregateKind` / `ResourceOp` の enum と match に基づく generic Resource IR proof boundary として実装した。
+- `resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_enum_payload` を追加し、callee の `Err(storage)` payload を caller が match bind した後の storage dealloc が live slot を検出することを固定した。

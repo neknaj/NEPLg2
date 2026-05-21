@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use super::collection_slot_lifecycle::CollectionSlotState::{MaybeReleased, Released};
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_return_collect::{
-    collect_return_storage_markers, collect_return_transfers_from_params, push_return_slot,
+    collect_return_storage_markers, collect_return_transfers_from_ops, push_return_slot,
 };
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
@@ -16,6 +16,7 @@ pub(super) fn collect_return_facts_from_terminator(
     out: &mut Vec<CollectionSlotLifecycleReturnSlot>,
     collection_slots: &CollectionSlotStateTable,
     params: &[ResourceLocal],
+    ops: &[super::model::ResourceOp],
     terminator: &ResourceTerminator,
 ) {
     let ResourceTerminator::Return {
@@ -24,7 +25,7 @@ pub(super) fn collect_return_facts_from_terminator(
     else {
         return;
     };
-    collect_return_transfers_from_params(out_transfers, params, value);
+    collect_return_transfers_from_ops(out_transfers, params, ops, value);
     for entry in collection_slots.entries_covered_by_storage(value) {
         let Some(suffix) = place_suffix_after_prefix(&entry.slot, value) else {
             continue;

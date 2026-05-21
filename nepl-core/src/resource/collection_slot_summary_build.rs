@@ -115,6 +115,7 @@ fn function_collection_slot_lifecycle_summary(
             &mut return_slots,
             &state.collection_slots,
             &function.params,
+            &block.ops,
             &block.terminator,
         );
     }

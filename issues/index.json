@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T06:47:11.798Z",
+  "generated_at": "2026-05-21T07:08:09.244Z",
   "counts": {
-    "total": 1165,
+    "total": 1166,
     "open": 3,
-    "resolved": 1162,
+    "resolved": 1163,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 560,
+        "total": 561,
         "open": 0,
-        "resolved": 560
+        "resolved": 561
       },
       "CORE": {
         "total": 5,
@@ -8593,6 +8593,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T064245727Z-COLLECTION-SLOT-BORROWREAD-LACKS-SOU-1999DF36.md"
+    },
+    {
+      "id": "ISS-20260521T065624831Z-COLLECTION-SLOT-STATE-RETURN-SUMMARY-4591B626",
+      "title": "Collection slot state return summary misses enum payload owner transfers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T065624831Z-COLLECTION-SLOT-STATE-RETURN-SUMMARY-4591B626.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
