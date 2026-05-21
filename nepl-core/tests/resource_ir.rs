@@ -25702,8 +25702,19 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
 #[test]
 fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_nested_returned_enum_payload(
 ) {
+    assert_collection_slot_nested_returned_enum_payload_transfer(false);
+}
+
+#[test]
+fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_indirect_nested_returned_enum_payload(
+) {
+    assert_collection_slot_nested_returned_enum_payload_transfer(true);
+}
+
+fn assert_collection_slot_nested_returned_enum_payload_transfer(use_indirect_call: bool) {
     let (mut types, owned_ty) = types_with_copy_owned();
     let storage_ty = register_non_copy_collection_storage(&mut types);
+    let function_ty = types.function(vec![], vec![storage_ty], storage_ty, Effect::Pure);
     let unit_ty = types.unit();
     let i32_ty = types.i32();
     let result_ty = register_storage_result(&mut types, i32_ty, storage_ty);
@@ -25712,6 +25723,7 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_nested
     let wrapper_param_storage = Place::local("storage".to_string(), storage_ty);
     let forwarded_storage = Place::temporary(ResourceId(717), storage_ty);
     let helper_result = Place::temporary(ResourceId(718), result_ty);
+    let callee_fn = Place::temporary(ResourceId(723), function_ty);
     let caller_storage = Place::local("caller_storage".to_string(), storage_ty);
     let caller_slot = caller_storage.clone().with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
@@ -25727,6 +25739,44 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_nested
     let err_arm_value = Place::temporary(ResourceId(721), unit_ty);
     let ok_payload = Place::local("ok_value".to_string(), i32_ty);
     let ok_arm_value = Place::temporary(ResourceId(722), unit_ty);
+    let mut wrapper_ops = Vec::new();
+    if use_indirect_call {
+        wrapper_ops.push(ResourceOp::FunctionValue {
+            output: callee_fn.clone(),
+            name: "identity_storage".to_string(),
+            effect: EffectOp::Pure,
+            span,
+        });
+        wrapper_ops.push(ResourceOp::IndirectCall {
+            output: forwarded_storage.clone(),
+            callee: callee_fn,
+            params: vec![storage_ty],
+            result: storage_ty,
+            args: vec![wrapper_param_storage.clone()],
+            effect: EffectOp::Pure,
+            span,
+        });
+    } else {
+        wrapper_ops.push(ResourceOp::Call {
+            output: forwarded_storage.clone(),
+            target: ResourceCallTarget::User {
+                name: "identity_storage".to_string(),
+                type_args: vec![],
+            },
+            args: vec![wrapper_param_storage.clone()],
+            effect: EffectOp::Pure,
+            span,
+        });
+    }
+    wrapper_ops.push(ResourceOp::Construct {
+        output: helper_result.clone(),
+        kind: AggregateKind::Enum {
+            name: "StorageResult".to_string(),
+            variant: "Err".to_string(),
+        },
+        inputs: vec![forwarded_storage],
+        span,
+    });
     let resource = ResourceModule {
         functions: vec![
             ResourceFunction {
@@ -25768,27 +25818,7 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_nested
                 entry_block: ResourceBlockId(0),
                 blocks: vec![ResourceBlock {
                     id: ResourceBlockId(0),
-                    ops: vec![
-                        ResourceOp::Call {
-                            output: forwarded_storage.clone(),
-                            target: ResourceCallTarget::User {
-                                name: "identity_storage".to_string(),
-                                type_args: vec![],
-                            },
-                            args: vec![wrapper_param_storage],
-                            effect: EffectOp::Pure,
-                            span,
-                        },
-                        ResourceOp::Construct {
-                            output: helper_result.clone(),
-                            kind: AggregateKind::Enum {
-                                name: "StorageResult".to_string(),
-                                variant: "Err".to_string(),
-                            },
-                            inputs: vec![forwarded_storage],
-                            span,
-                        },
-                    ],
+                    ops: wrapper_ops,
                     terminator: ResourceTerminator::Return {
                         value: Some(helper_result),
                         span,
@@ -25897,7 +25927,8 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_nested
             },
             span,
         }],
-        "wrapper return summary must compose callee return transfer through Result::Err payload; final slots: {:#?}",
+        "wrapper return summary must compose callee return transfer through Result::Err payload; indirect={}; final slots: {:#?}",
+        use_indirect_call,
         report.functions[0].final_collection_slots
     );
 }

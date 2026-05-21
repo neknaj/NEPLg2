@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T07:23:05.895Z",
+  "generated_at": "2026-05-21T07:29:14.526Z",
   "counts": {
-    "total": 1167,
+    "total": 1168,
     "open": 3,
-    "resolved": 1164,
+    "resolved": 1165,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 562,
+        "total": 563,
         "open": 0,
-        "resolved": 562
+        "resolved": 563
       },
       "CORE": {
         "total": 5,
@@ -8623,6 +8623,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T071641871Z-COLLECTION-SLOT-RETURN-SUMMARY-MISSE-6D5CDC78.md"
+    },
+    {
+      "id": "ISS-20260521T072639351Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-40EDCECA",
+      "title": "Collection slot nested return transfer needs function-alias indirect regression",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T072639351Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-40EDCECA.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

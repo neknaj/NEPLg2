@@ -44191,3 +44191,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - direct call と function-alias indirect call は同じ generic summary composition を使い、stdlib module 名、`Result` 名、特定 helper 名の allowlist は追加していない。
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_transfers_caller_slot_through_nested_returned_enum_payload -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot indirect nested return transfer regression
+
+- `ISS-20260521T072639351Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-40EDCECA` を作成して fixed にした。`plan.md` は変更していない。
+- 直前の実装は direct call と function-alias indirect call の両方を処理するが、回帰テストは direct call 経由だけだったため、indirect path の保証が弱かった。
+- nested return transfer fixture を helper 化し、`ResourceOp::FunctionValue` で `identity_storage` を保持して `ResourceOp::IndirectCall` する wrapper でも、`StorageResult::Err` payload 経由で caller match bind 後の live slot state が検出されることを固定した。
+- これにより `FunctionAliasTable` から callee summary を取得する path が壊れた場合も、collection slot call summary regression で検出できる。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_transfers_caller_slot_through_indirect_nested_returned_enum_payload -- --test-threads=1`: passed
