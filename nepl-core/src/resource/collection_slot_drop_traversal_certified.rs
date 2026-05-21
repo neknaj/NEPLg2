@@ -5,11 +5,11 @@ use crate::types::TypeId;
 
 use super::cell_state::CellTable;
 use super::collection_slot_drop_proof::{CollectionSlotDropObligation, CollectionSlotDropProof};
-use super::collection_slot_drop_traversal_range::collection_slot_known_offset_is_inside_initialized_count;
+use super::collection_slot_drop_traversal_range::collection_slot_offset_is_inside_initialized_count;
 use super::collection_slot_lifecycle::{
-    CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
+    CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
-use super::collection_slot_state_identity::place_covers_slot;
+use super::collection_slot_state_identity::{place_covers_slot, slot_requires_range_proof};
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -79,7 +79,8 @@ impl ResourceCheckEngine<'_> {
                     },
                 });
             }
-            if !collection_slot_known_offset_is_inside_initialized_count(
+            let symbolic_range_slot = slot_requires_range_proof(&slot, storage);
+            if !collection_slot_offset_is_inside_initialized_count(
                 self.types,
                 raw_aliases,
                 &slot,
@@ -103,6 +104,9 @@ impl ResourceCheckEngine<'_> {
                 expected_ty,
                 drop_proof,
             )?;
+            if symbolic_range_slot {
+                committed_slots.set_slot_state(&slot, CollectionSlotState::Uninitialized);
+            }
         }
         *cells = committed_cells;
         *collection_slots = committed_slots;

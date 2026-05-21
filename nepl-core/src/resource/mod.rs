@@ -33,8 +33,10 @@ mod cell_state_tests;
 mod collection_slot_drop_proof;
 mod collection_slot_drop_traversal;
 mod collection_slot_drop_traversal_certified;
+mod collection_slot_drop_traversal_known_range;
 mod collection_slot_drop_traversal_range;
 mod collection_slot_drop_traversal_summary;
+mod collection_slot_drop_traversal_symbolic_range;
 mod collection_slot_lifecycle;
 mod collection_slot_lifecycle_model;
 #[cfg(test)]

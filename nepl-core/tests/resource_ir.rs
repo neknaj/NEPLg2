@@ -25128,6 +25128,94 @@ fn resource_ir_collection_slot_drop_traversal_rejects_symbolic_slot_without_rang
 }
 
 #[test]
+fn resource_ir_collection_slot_drop_traversal_accepts_symbolic_slot_with_range_proof() {
+    let (mut types, owned_ty) = types_with_sized_droppable_owned();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let unit_ty = types.unit();
+    types.register_copy_impl_target(bool_ty);
+    let span = Span::dummy();
+    let (resource, _slot) = symbolic_collection_slot_drop_traversal_resource(
+        i32_ty, bool_ty, unit_ty, owned_ty, true, true, true, span,
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "symbolic drop traversal must use typed nonnegative and initialized_count bounds as a range proof: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_drop_traversal_rejects_symbolic_slot_without_nonnegative_proof() {
+    let (mut types, owned_ty) = types_with_sized_droppable_owned();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let unit_ty = types.unit();
+    types.register_copy_impl_target(bool_ty);
+    let span = Span::dummy();
+    let (resource, slot) = symbolic_collection_slot_drop_traversal_resource(
+        i32_ty, bool_ty, unit_ty, owned_ty, false, true, false, span,
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                target,
+                reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                    operation: CollectionSlotLifecycleOp::DropTraversal,
+                    slot_ty: Some(actual),
+                },
+                ..
+            } if function == "main" && *target == slot && *actual == owned_ty
+        )),
+        "symbolic drop traversal must reject a missing nonnegative proof: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_drop_traversal_rejects_symbolic_slot_without_upper_bound_proof() {
+    let (mut types, owned_ty) = types_with_sized_droppable_owned();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let unit_ty = types.unit();
+    types.register_copy_impl_target(bool_ty);
+    let span = Span::dummy();
+    let (resource, slot) = symbolic_collection_slot_drop_traversal_resource(
+        i32_ty, bool_ty, unit_ty, owned_ty, true, false, false, span,
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                target,
+                reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                    operation: CollectionSlotLifecycleOp::DropTraversal,
+                    slot_ty: Some(actual),
+                },
+                ..
+            } if function == "main" && *target == slot && *actual == owned_ty
+        )),
+        "symbolic drop traversal must reject a missing initialized_count upper bound: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_storage_dealloc_rejects_moved_symbolic_slot_without_range_proof() {
     let (types, owned_ty) = types_with_copy_owned();
     let i32_ty = types.i32();
@@ -30017,6 +30105,159 @@ fn types_with_droppable_owned() -> (TypeCtx, TypeId) {
     let (mut types, owned_ty) = types_with_non_copy_owned();
     types.register_drop_impl_target(owned_ty);
     (types, owned_ty)
+}
+
+fn types_with_sized_droppable_owned() -> (TypeCtx, TypeId) {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let i32_ty = types.i32();
+    let owned_ty = types.register_named(
+        "SizedOwned".to_string(),
+        TypeKind::Struct {
+            name: "SizedOwned".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["value".to_string()],
+        },
+    );
+    types.register_drop_impl_target(owned_ty);
+    (types, owned_ty)
+}
+
+fn symbolic_collection_slot_drop_traversal_resource(
+    i32_ty: TypeId,
+    bool_ty: TypeId,
+    unit_ty: TypeId,
+    owned_ty: TypeId,
+    include_nonnegative: bool,
+    include_upper_bound: bool,
+    include_storage_release: bool,
+    span: Span,
+) -> (ResourceModule, Place) {
+    let storage = Place::local("buffer".to_string(), i32_ty);
+    let index = Place::local("i".to_string(), i32_ty);
+    let initialized_count = Place::i32_constant(2, i32_ty);
+    let condition = Place::temporary(ResourceId(801), bool_ty);
+    let branch_output = Place::temporary(ResourceId(802), unit_ty);
+    let then_value = Place::temporary(ResourceId(803), unit_ty);
+    let else_value = Place::temporary(ResourceId(804), unit_ty);
+    let slot_address = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
+            place: Box::new(index.clone()),
+            scale: 4,
+        }),
+        i32_ty,
+    );
+    let slot = slot_address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let initial = Place::temporary(ResourceId(805), owned_ty);
+    let loaded = Place::temporary(ResourceId(806), owned_ty);
+    let mut range_facts = Vec::new();
+    if include_nonnegative {
+        range_facts.push(ResourceConditionFact::NonNegative {
+            place: index.clone(),
+        });
+    }
+    if include_upper_bound {
+        range_facts.push(ResourceConditionFact::I32Relation {
+            left: index,
+            op: ResourceI32RelationOp::Lt,
+            right: initialized_count.clone(),
+        });
+    }
+    let mut then_ops = vec![
+        ResourceOp::Expr {
+            kind: ResourceExprKind::Literal,
+            output: initial.clone(),
+            ty: owned_ty,
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Store,
+            output: Place::temporary(ResourceId(807), unit_ty),
+            args: vec![slot_address.clone(), initial],
+            span,
+        },
+        ResourceOp::CollectionSlotLifecycle {
+            target: slot.clone(),
+            event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+            span,
+        },
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Load,
+            output: loaded.clone(),
+            args: vec![slot_address],
+            span,
+        },
+        ResourceOp::Drop {
+            place: loaded,
+            span,
+        },
+        ResourceOp::CollectionSlotDropTraversal {
+            storage: storage.clone(),
+            initialized_count: initialized_count.clone(),
+            expected_ty: owned_ty,
+            span,
+        },
+    ];
+    if include_storage_release {
+        then_ops.push(ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: Place::temporary(ResourceId(808), unit_ty),
+            args: vec![storage.clone()],
+            span,
+        });
+        then_ops.push(ResourceOp::CollectionSlotLifecycle {
+            target: storage.clone(),
+            event: CollectionSlotLifecycleEvent::StorageDealloc,
+            span,
+        });
+    }
+    then_ops.push(ResourceOp::Expr {
+        kind: ResourceExprKind::Literal,
+        output: then_value.clone(),
+        ty: unit_ty,
+        span,
+    });
+    (
+        manual_resource_module(
+            unit_ty,
+            span,
+            vec![
+                ResourceOp::Expr {
+                    kind: ResourceExprKind::Literal,
+                    output: storage,
+                    ty: i32_ty,
+                    span,
+                },
+                ResourceOp::Expr {
+                    kind: ResourceExprKind::Literal,
+                    output: condition.clone(),
+                    ty: bool_ty,
+                    span,
+                },
+                ResourceOp::Branch {
+                    output: branch_output,
+                    condition,
+                    condition_fact: Some(ResourceConditionFact::All(range_facts)),
+                    then_ops,
+                    then_value,
+                    else_ops: vec![ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: else_value.clone(),
+                        ty: unit_ty,
+                        span,
+                    }],
+                    else_value,
+                    span,
+                },
+            ],
+        ),
+        slot,
+    )
 }
 
 fn register_non_copy_collection_storage(types: &mut TypeCtx) -> TypeId {

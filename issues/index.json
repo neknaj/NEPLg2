@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T15:49:17.063Z",
+  "generated_at": "2026-05-21T16:19:58.724Z",
   "counts": {
-    "total": 1192,
+    "total": 1193,
     "open": 3,
-    "resolved": 1189,
+    "resolved": 1190,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 579,
+        "total": 580,
         "open": 0,
-        "resolved": 579
+        "resolved": 580
       },
       "CORE": {
         "total": 5,
@@ -8973,6 +8973,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T151802959Z-COLLECTION-SLOT-DROP-TRAVERSAL-LACKS-B557D89A.md"
+    },
+    {
+      "id": "ISS-20260521T155723411Z-SYMBOLIC-COLLECTION-SLOT-DROP-TRAVER-A919B9B0",
+      "title": "Symbolic collection slot drop traversal lacks generic initialized count range proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_drop_traversal_range.rs, nepl-core/src/resource/collection_slot_drop_traversal_known_range.rs, nepl-core/src/resource/collection_slot_drop_traversal_symbolic_range.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T155723411Z-SYMBOLIC-COLLECTION-SLOT-DROP-TRAVER-A919B9B0.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

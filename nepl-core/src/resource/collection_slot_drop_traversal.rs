@@ -8,7 +8,7 @@ use crate::types::TypeId;
 
 use super::cell_state::{raw_cell_address_prefix, CellTable};
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
-use super::collection_slot_drop_traversal_range::collection_slot_known_offset_is_inside_initialized_count;
+use super::collection_slot_drop_traversal_range::collection_slot_offset_is_inside_initialized_count;
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
     CollectionSlotState,
@@ -90,16 +90,8 @@ impl ResourceCheckEngine<'_> {
         for (slot, state) in slots {
             match state {
                 CollectionSlotState::Initialized(slot_ty) => {
-                    if slot_requires_range_proof(&slot, storage) {
-                        return Err(CollectionSlotTableRefutation {
-                            slot,
-                            reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
-                                operation: CollectionSlotLifecycleOp::DropTraversal,
-                                slot_ty: Some(slot_ty),
-                            },
-                        });
-                    }
-                    if !collection_slot_known_offset_is_inside_initialized_count(
+                    let symbolic_range_slot = slot_requires_range_proof(&slot, storage);
+                    if !collection_slot_offset_is_inside_initialized_count(
                         self.types,
                         raw_aliases,
                         &slot,
@@ -123,6 +115,9 @@ impl ResourceCheckEngine<'_> {
                         expected_ty,
                         drop_proof,
                     )?;
+                    if symbolic_range_slot {
+                        committed_slots.set_slot_state(&slot, CollectionSlotState::Uninitialized);
+                    }
                 }
                 CollectionSlotState::MaybeInitialized(slot_ty) => {
                     return Err(CollectionSlotTableRefutation {

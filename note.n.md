@@ -44506,3 +44506,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-21 Agent 1 symbolic collection slot initialized-count range proof
+
+- `ISS-20260521T155723411Z-SYMBOLIC-COLLECTION-SLOT-DROP-TRAVER-A919B9B0` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotDropTraversal` が `initialized_count` を持つようになった後も、symbolic / scaled-symbolic slot を typed scalar fact に接続する proof helper がなく、十分な `NonNegative` と `index < initialized_count` があっても安全側で拒否していたこと。
+- `CollectionSlotDropTraversal` の range proof を dispatcher / known offset / symbolic offset に分割し、symbolic offset は `known == 0`、`scale == element_stride`、`index` が `NonNegative`、`index < initialized_count` のすべてを満たす場合だけ通すようにした。
+- typed range proof と actual loaded-value drop proof を満たした symbolic slot は traversal 後に `Uninitialized` として消し、後続の storage release が証明済み drop 済み symbolic entry を再度 `RangeProofRequired` として拒否しないようにした。
+- full dynamic initialized range の forall coverage はまだ parent issue の残件であり、個別 stdlib module proof ではなく Resource IR の generic range certificate / loop coverage proof として継続する。
+- focused verification:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_drop_traversal -- --test-threads=1`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
