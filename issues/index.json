@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T22:42:15.949Z",
+  "generated_at": "2026-05-21T22:55:04.525Z",
   "counts": {
     "total": 1205,
-    "open": 4,
-    "resolved": 1201,
+    "open": 3,
+    "resolved": 1202,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -15,11 +15,6 @@
         "total": 110,
         "open": 1,
         "resolved": 109
-      },
-      "tools": {
-        "total": 7,
-        "open": 1,
-        "resolved": 6
       },
       "cli": {
         "total": 19,
@@ -121,6 +116,11 @@
         "open": 0,
         "resolved": 1
       },
+      "tools": {
+        "total": 7,
+        "open": 0,
+        "resolved": 7
+      },
       "tutorials": {
         "total": 3,
         "open": 0,
@@ -183,21 +183,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C",
-      "title": "Resource responsibility monitor misses drop_call_identity module",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-21",
-      "updated": "2026-05-21",
-      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/drop_call_identity.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -18063,6 +18048,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260520T165159064Z-RAW-CELL-LIFECYCLE-SOURCE-POLICY-ONL-848A217D.md"
+    },
+    {
+      "id": "ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C",
+      "title": "Resource responsibility monitor misses drop_call_identity module",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-22",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/drop_call_identity.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C.md"
     },
     {
       "id": "ISS-20260430T020255446Z-GETTING-STARTED-DOCTESTS-RELY-ON-EXI-8902362D",

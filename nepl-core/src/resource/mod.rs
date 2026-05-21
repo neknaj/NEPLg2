@@ -82,6 +82,8 @@ mod collection_slot_summary_build_ops_tests;
 mod collection_slot_summary_build_range_bound;
 mod collection_slot_summary_build_range_certificate;
 #[cfg(test)]
+mod collection_slot_summary_build_range_certificate_test_support;
+#[cfg(test)]
 mod collection_slot_summary_build_range_certificate_tests;
 mod collection_slot_summary_build_range_lifetime;
 #[cfg(test)]
@@ -89,6 +91,9 @@ mod collection_slot_summary_build_range_lifetime_test_support;
 #[cfg(test)]
 mod collection_slot_summary_build_range_lifetime_tests;
 mod collection_slot_summary_build_range_preserve;
+mod collection_slot_summary_build_range_preserve_op;
+#[cfg(test)]
+mod collection_slot_summary_build_range_preserve_tests;
 mod collection_slot_summary_build_range_step;
 mod collection_slot_summary_build_range_witness;
 mod collection_slot_summary_build_state;
@@ -317,6 +322,7 @@ mod lower_collection_slot_relocate_tests;
 #[cfg(test)]
 mod lower_collection_slot_tests;
 mod lower_condition;
+mod lower_drop_call;
 mod lower_layout_intrinsic;
 mod lower_match;
 mod lower_raw_address;

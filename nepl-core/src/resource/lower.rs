@@ -26,6 +26,7 @@ use super::lower_call::{
 };
 use super::lower_collection_slot::push_collection_slot_lifecycle_intrinsic;
 use super::lower_condition::resource_condition_fact;
+use super::lower_drop_call::push_source_drop_call_resource_proof;
 use super::lower_layout_intrinsic::{
     layout_intrinsic_i32_value, layout_intrinsic_i32_value_from_callee, size_of_type_arg,
 };
@@ -159,6 +160,10 @@ impl<'a> LoweringEnvironment<'a> {
 
     pub(super) fn function(&self, name: &str) -> Option<&'a HirFunction> {
         self.functions.get(name).copied()
+    }
+
+    pub(super) fn call_is_explicit_drop(&self, callee: &FuncRef) -> bool {
+        self.drop_calls.call_is_explicit_drop(callee)
     }
 }
 
@@ -1021,12 +1026,7 @@ fn push_direct_call_skeleton(
         effect: effect.clone(),
         span: expr.span,
     });
-    if let Some(place) = source_drop_call_place(callee, args, ctx, env) {
-        ops.push(ResourceOp::Drop {
-            place,
-            span: expr.span,
-        });
-    }
+    push_source_drop_call_resource_proof(callee, args, ops, ctx, env, expr.span);
     let lowered_core_mem_wrapper =
         push_core_mem_wrapper_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
     if !lowered_core_mem_wrapper {
@@ -1070,44 +1070,6 @@ fn push_direct_call_skeleton(
         span: expr.span,
     });
     output
-}
-
-fn source_drop_call_place(
-    callee: &FuncRef,
-    args: &[HirExpr],
-    ctx: &LoweringContext,
-    env: &LoweringEnvironment,
-) -> Option<Place> {
-    let place = first_addr_of_arg_place(args, ctx)?;
-    if !env.drop_calls.call_is_explicit_drop(callee) {
-        return None;
-    }
-    if let FuncRef::Trait { self_ty, .. } = callee {
-        if !env.types.same_type(place.ty, *self_ty) {
-            return None;
-        }
-        return Some(place);
-    }
-    let first = args.first()?;
-    let ref_ty = env
-        .types
-        .resolve_named_type_id(env.types.resolve_id(first.ty));
-    match env.types.get_ref(ref_ty) {
-        TypeKind::Reference(inner, _) if env.types.same_type(place.ty, *inner) => Some(place),
-        _ => None,
-    }
-}
-
-fn first_addr_of_arg_place(args: &[HirExpr], ctx: &LoweringContext) -> Option<Place> {
-    let first = args.first()?;
-    let HirExprKind::AddrOf(inner) = &first.kind else {
-        return None;
-    };
-    let place = place_from_expr_skeleton(inner, ctx);
-    if matches!(&place.root, super::model::PlaceRoot::Unknown) {
-        return None;
-    }
-    Some(place)
 }
 
 fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {

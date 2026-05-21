@@ -44236,6 +44236,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - optional broader monitor:
   - `node nodesrc/test_resource_checker_responsibility.js`: failed because pre-existing `drop_call_identity.rs` is not monitored; created `ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C` for the next tooling fix.
 
+## 2026-05-22 Agent 1 resource responsibility monitor coverage
+
+- `ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`drop_call_identity.rs` が Resource IR drop proof の identity bridge として追加された一方で、`nodesrc/test_resource_checker_responsibility.js` の mandatory module / line-limit 監視へ登録されていなかったこと。
+- 監視を通すために上限だけを緩めることはせず、今回増えた `collection_slot_summary_build_range_preserve` の単体テストを専用 test module へ分離し、loop induction certificate fixture も `collection_slot_summary_build_range_certificate_test_support` に切り出した。
+- `lower.rs` の責務上限超過は Drop call proof lowering を `lower_drop_call.rs` へ分割して解消した。Drop trait call から `ResourceOp::Drop` proof を出す設計は維持し、runtime call と proof op の接続は変更していない。
+- focused verification:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo test -p nepl-core --lib body_preserve -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+
 ## 2026-05-22 Agent 1 drop traversal Move-output preservation
 
 - `ISS-20260521T222108027Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-A3B78241` を作成して fixed にした。`plan.md` は変更していない。

@@ -2,12 +2,12 @@
 id: ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C
 title: "Resource responsibility monitor misses drop_call_identity module"
 area: tools
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: test
 created: 2026-05-21
-updated: 2026-05-21
+updated: 2026-05-22
 target: "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/drop_call_identity.rs"
 ---
 
@@ -38,6 +38,19 @@ Resource checker responsibility monitoring can fail on current main and no longe
 
 Add drop_call_identity.rs to the appropriate responsibility monitor set and verify the monitor still enforces module size and ownership boundaries without relaxing limits.
 
+## 対応
+
+- `drop_call_identity.rs` を resource responsibility monitor の必須 module / mod declaration / line-limit 管理に追加した。
+- 監視を通すために上限を緩めるのではなく、直近の `ForallInitializedRange` preservation テストを test support module と preserve-specific test module に分割した。
+- `lower.rs` の上限超過も同じ監視で検出されたため、Drop call proof lowering を `lower_drop_call.rs` へ切り出し、`lower.rs` の flat 化を進めない構造に戻した。
+
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js and node nodesrc/issues.js check --dir issues.
+
+- `node nodesrc/test_resource_checker_responsibility.js`
+- `cargo test -p nepl-core --lib body_preserve -- --nocapture`
+- `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof -- --nocapture`
+- `cargo check -p nepl-core`
+- `cargo fmt --check -p nepl-core`
