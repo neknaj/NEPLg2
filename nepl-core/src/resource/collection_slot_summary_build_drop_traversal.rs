@@ -34,22 +34,23 @@ pub(super) fn collect_summary_drop_traversal_op(
     ) else {
         return;
     };
-    let has_range_witness = certified_slots
+    let has_range_checked_symbolic_slot = certified_slots
         .iter()
         .any(|slot| slot_requires_range_proof(slot, &storage_place));
-    let coverage = if has_range_witness {
-        CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange
-    } else {
-        let mut summary_slots = Vec::new();
-        for slot in certified_slots {
-            let slot = state.raw_aliases.canonicalize_owner_cell_address(&slot);
-            let Some(slot) = summary_place_for_params(params, &slot) else {
-                return;
-            };
-            summary_slots.push(slot);
-        }
-        CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(summary_slots)
-    };
+    if has_range_checked_symbolic_slot {
+        // A per-slot range proof does not prove that the callee traversed every initialized slot.
+        return;
+    }
+    let mut summary_slots = Vec::new();
+    for slot in certified_slots {
+        let slot = state.raw_aliases.canonicalize_owner_cell_address(&slot);
+        let Some(slot) = summary_place_for_params(params, &slot) else {
+            return;
+        };
+        summary_slots.push(slot);
+    }
+    let coverage =
+        CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(summary_slots);
     if let (Some(storage), Some(initialized_count)) = (
         summary_place_for_params(params, &storage_place),
         summary_place_for_params(params, &initialized_count_place),

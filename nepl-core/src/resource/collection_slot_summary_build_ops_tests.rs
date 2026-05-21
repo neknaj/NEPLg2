@@ -16,8 +16,7 @@ use super::collection_slot_summary_build_nested::apply_summary_condition_fact;
 use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleFunctionSummaryIndex,
-    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
 };
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -104,7 +103,7 @@ fn collection_slot_summary_branch_condition_fact_records_else_negation() {
 }
 
 #[test]
-fn collection_slot_summary_branch_condition_fact_certifies_symbolic_drop_traversal() {
+fn collection_slot_summary_branch_condition_fact_does_not_certify_forall_drop_traversal() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
     types.register_copy_impl_target(types.unit());
@@ -251,20 +250,27 @@ fn collection_slot_summary_branch_condition_fact_certifies_symbolic_drop_travers
     );
 
     assert!(
-        out.iter().any(|op| matches!(
-            op,
-            CollectionSlotLifecycleSummaryOp::Merge { paths }
-                if paths.iter().any(|path| path.iter().any(|nested| matches!(
-                    nested,
-                    CollectionSlotLifecycleSummaryOp::DropTraversal {
-                        coverage:
-                            CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange,
-                        ..
-                    }
-                )))
-        )),
-        "branch condition facts must build a generic forall range summary instead of a callee-local symbolic slot list: {out:#?}"
+        !out.iter().any(|op| summary_contains_drop_traversal(op)),
+        "a branch-local symbolic slot range proof is not a full initialized-range traversal certificate: {out:#?}"
     );
+}
+
+fn summary_contains_drop_traversal(op: &CollectionSlotLifecycleSummaryOp) -> bool {
+    match op {
+        CollectionSlotLifecycleSummaryOp::DropTraversal { .. } => true,
+        CollectionSlotLifecycleSummaryOp::Merge { paths } => paths
+            .iter()
+            .any(|path| path.iter().any(summary_contains_drop_traversal)),
+        CollectionSlotLifecycleSummaryOp::Loop {
+            condition_ops,
+            body_ops,
+        } => condition_ops
+            .iter()
+            .chain(body_ops)
+            .any(summary_contains_drop_traversal),
+        CollectionSlotLifecycleSummaryOp::Event { .. }
+        | CollectionSlotLifecycleSummaryOp::Relocate { .. } => false,
+    }
 }
 
 fn summary_test_function(

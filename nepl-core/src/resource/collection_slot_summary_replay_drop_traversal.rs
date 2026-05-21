@@ -56,16 +56,5 @@ pub(super) fn apply_drop_traversal_summary_op(
                 span,
             );
         }
-        CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange => {
-            engine.apply_certified_collection_slot_drop_traversal_forall_with_aliases(
-                cells,
-                collection_slots,
-                raw_aliases,
-                &storage,
-                &initialized_count,
-                expected_ty,
-                span,
-            );
-        }
     }
 }

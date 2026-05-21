@@ -41,9 +41,6 @@ pub(super) fn translate_drop_traversal_summary_op(
             };
             CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(certified_slots)
         }
-        CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange => {
-            CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange
-        }
     };
     out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
         storage,

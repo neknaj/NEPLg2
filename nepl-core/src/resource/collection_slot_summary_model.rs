@@ -92,7 +92,6 @@ pub(super) enum CollectionSlotLifecycleSummaryRelocateProof {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum CollectionSlotLifecycleSummaryDropTraversalCoverage {
     CertifiedSlots(Vec<CollectionSlotLifecycleSummaryPlace>),
-    ForallInitializedRange,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

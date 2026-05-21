@@ -1,3 +1,18 @@
+# 2026-05-21 Agent 1 drop traversal forall summary soundness follow-up
+
+- `ISS-20260521T174248092Z-DROP-TRAVERSAL-SUMMARY-UPGRADES-PER--574B05E7` を追加して fixed にした。`plan.md` は変更していない。
+- 監査で、前回追加した `ForallInitializedRange` coverage の生成条件が強すぎず、逆に弱すぎることを確認した。`0 <= i < initialized_count` は「その symbolic slot が範囲内」という per-slot proof であり、「callee が initialized range 全域を走査した」という forall proof ではない。
+- `collect_summary_drop_traversal_op` は、range proof が必要な symbolic slot を含む traversal summary を生成しないようにした。finite slot は引き続き `CertifiedSlots` として replay できる。
+- 未使用の full-range replay variant と専用 test module は dead code として残さず削除した。今後 source loop / iterator / traversal coverage を表す typed full-range certificate を導入する場合に、証明 payload 付きの variant として追加する。
+- 回帰として、branch-local symbolic slot proof が `DropTraversal` summary に昇格しないことを固定した。
+- 検証:
+  - `cargo test -p nepl-core --lib collection_slot_summary_build_ops -- --test-threads=1`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-05-21 Agent 1 drop traversal forall summary coverage
 
 - `ISS-20260521T171652639Z-RESOURCE-IR-DROP-TRAVERSAL-SUMMARIES-E5AE01EF` を fixed にした。`plan.md` は変更していない。

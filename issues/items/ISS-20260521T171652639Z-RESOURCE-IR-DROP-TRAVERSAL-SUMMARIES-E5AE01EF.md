@@ -2,8 +2,8 @@
 id: ISS-20260521T171652639Z-RESOURCE-IR-DROP-TRAVERSAL-SUMMARIES-E5AE01EF
 title: "Resource IR drop traversal summaries need typed forall initialized-range certificates"
 area: core
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: architecture
 created: 2026-05-21
@@ -39,17 +39,17 @@ Self-host collections with dynamic initialized ranges would either keep rejectin
 
 Introduce a typed forall initialized-range summary proof, derive it from source Resource IR drop traversal range facts, and replay it by validating all caller initialized slots under the storage against initialized_count before applying summary-certified loaded-value drops.
 
-## 修正内容
+## 進捗
 
 - `CollectionSlotLifecycleSummaryOp::DropTraversal` の `certified_slots + proof` を `CollectionSlotLifecycleSummaryDropTraversalCoverage` enum に置き換えた。
-- `CertifiedSlots(Vec<...>)` は従来どおり finite slot certificate として replay し、`ForallInitializedRange` は caller 側の storage prefix 配下にある initialized slot 全体を `initialized_count` と element stride で検証してから summary-certified loaded-value drop を適用する。
-- summary build は source-derived symbolic/range slot witness を持つ traversal だけを `ForallInitializedRange` にし、marker-only helper は引き続き summary を生成しない。
+- `CertifiedSlots(Vec<...>)` は従来どおり finite slot certificate として replay する。
+- follow-up の [ISS-20260521T174248092Z-DROP-TRAVERSAL-SUMMARY-UPGRADES-PER--574B05E7](./ISS-20260521T174248092Z-DROP-TRAVERSAL-SUMMARY-UPGRADES-PER--574B05E7.md) で、per-slot symbolic/range witness から full initialized-range summary を生成する経路は閉じた。
+- dead code の typed replay mode は残さず削除した。full initialized-range summary は、source traversal coverage の typed certificate を導入する本 issue の残件として扱う。
+- marker-only helper は引き続き summary を生成しない。
 - replay は enum の match で分岐し、文字列や bool sentinel による証明モード管理を追加していない。
 
 ## 検証
 
-- `collection_slot_summary_forall_drop_tests::forall_drop_summary_replay_drops_every_caller_slot_inside_count`
-- `collection_slot_summary_forall_drop_tests::forall_drop_summary_replay_rejects_caller_slot_outside_count`
-- `collection_slot_summary_build_ops_tests::collection_slot_summary_branch_condition_fact_certifies_symbolic_drop_traversal`
+- `collection_slot_summary_build_ops_tests::collection_slot_summary_branch_condition_fact_does_not_certify_forall_drop_traversal`
 - `resource_ir_collection_slot_drop_traversal_summary_rejects_marker_only_cleanup`
 - `resource_ir_collection_slot_drop_traversal_accepts_symbolic_slot_with_range_proof`

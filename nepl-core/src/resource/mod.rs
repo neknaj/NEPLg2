@@ -33,7 +33,6 @@ mod cell_state_tests;
 mod collection_slot_drop_proof;
 mod collection_slot_drop_traversal;
 mod collection_slot_drop_traversal_certified;
-mod collection_slot_drop_traversal_forall;
 mod collection_slot_drop_traversal_known_range;
 mod collection_slot_drop_traversal_range;
 mod collection_slot_drop_traversal_summary;
@@ -80,8 +79,6 @@ mod collection_slot_summary_build_ops_tests;
 mod collection_slot_summary_build_state;
 mod collection_slot_summary_event_apply_proof;
 mod collection_slot_summary_event_proof;
-#[cfg(test)]
-mod collection_slot_summary_forall_drop_tests;
 mod collection_slot_summary_match_state;
 mod collection_slot_summary_model;
 mod collection_slot_summary_projection;
