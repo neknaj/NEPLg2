@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T08:13:34.853Z",
+  "generated_at": "2026-05-21T08:22:06.303Z",
   "counts": {
-    "total": 1173,
+    "total": 1174,
     "open": 3,
-    "resolved": 1170,
+    "resolved": 1171,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 568,
+        "total": 569,
         "open": 0,
-        "resolved": 568
+        "resolved": 569
       },
       "CORE": {
         "total": 5,
@@ -8713,6 +8713,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T081047776Z-COLLECTION-SLOT-RETURN-TRANSFER-PROD-1D005BEE.md"
+    },
+    {
+      "id": "ISS-20260521T081809182Z-COLLECTION-SLOT-RETURN-TRANSFER-MATC-F51ED8E2",
+      "title": "Collection slot return-transfer match entry state is incomplete",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T081809182Z-COLLECTION-SLOT-RETURN-TRANSFER-MATC-F51ED8E2.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

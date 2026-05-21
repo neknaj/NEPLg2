@@ -2,8 +2,8 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use super::model::{AggregateKind, Place, ResourceMatchArm};
-use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
+use super::model::{AggregateKind, Place};
+use super::place_utils::construct_aggregate_field_place;
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct FunctionAliasTable {
@@ -89,22 +89,6 @@ pub(super) fn construct_function_alias_fields(
         let field = construct_aggregate_field_place(output, kind, index, input);
         function_aliases.copy_alias(input, &field);
     }
-}
-
-pub(super) fn function_aliases_for_match_arm(
-    initial: &FunctionAliasTable,
-    scrutinee: &Place,
-    arm: &ResourceMatchArm,
-) -> FunctionAliasTable {
-    let mut function_aliases = initial.clone();
-    if let Some(bind_local) = &arm.bind_local {
-        if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-            function_aliases.copy_alias(&source, bind_local);
-        } else {
-            function_aliases.clear_alias(bind_local);
-        }
-    }
-    function_aliases
 }
 
 fn dedupe_functions(functions: Vec<String>) -> Vec<String> {

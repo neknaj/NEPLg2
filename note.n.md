@@ -44248,3 +44248,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo check -p nepl-core`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot match entry state alignment
+
+- `ISS-20260521T081809182Z-COLLECTION-SLOT-RETURN-TRANSFER-MATC-F51ED8E2` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、return-transfer 収集の match arm entry state が本体 Resource IR match semantics より狭く、unreachable arm 判定、raw cell loaded value origin、pending realloc、pending variant initialization、variant refinement を反映していなかったことだった。
+- match arm entry state を `Option<CollectionSlotSummaryBuildState>` にし、unreachable arm は収集対象から外すようにした。
+- owned payload bind では `summary_check_engine` による raw address alias / cell rekey、loaded value origin、collection slot transfer、function alias、pending realloc、pending variant initialization を同じ arm state に反映する。
+- 旧 `function_aliases_for_match_arm` helper は責務が不十分で未使用になったため削除した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
