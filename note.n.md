@@ -44163,3 +44163,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_collection_slot_lifecycle -- --test-threads=1`: passed
   - `cargo test -p nepl-core coverage -- --test-threads=1`: passed
   - `cargo check -p nepl-core`: passed
+
+## 2026-05-21 Agent 1 source-level collection slot BorrowRead regression
+
+- `ISS-20260521T064245727Z-COLLECTION-SLOT-BORROWREAD-LACKS-SOU-1999DF36` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`BorrowRead` の state transition は手書き test で固定されていた一方、compiler-owned stdlib source lowering 経由での initialized state preservation と moved-slot rejection が未固定だったこと。
+- `resource_ir_collection_slot_source_borrow_read_preserves_initialized_slot` で、`raw store -> InitializeEmpty -> BorrowRead -> raw load -> MoveOut` が generic proof boundary で通ることを確認した。
+- `resource_ir_collection_slot_source_borrow_read_rejects_moved_slot` で、`MoveOut` 後の `BorrowRead` が `CollectionSlotLifecycleOp::BorrowRead` / `CollectionSlotState::Moved` の typed refutation になることを確認した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_borrow_read -- --test-threads=1`: passed
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: passed

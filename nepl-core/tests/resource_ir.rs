@@ -23484,6 +23484,120 @@ fn store_then_move <(&RegionToken<LocalOwner>,LocalOwner)->LocalOwner> (storage,
 }
 
 #[test]
+fn resource_ir_collection_slot_source_borrow_read_preserves_initialized_slot() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn borrow_then_move <(&RegionToken<LocalOwner>,LocalOwner)->LocalOwner> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    #intrinsic "collection_slot_borrow_read" <LocalOwner> (storage, 0)
+    let loaded <LocalOwner> load<LocalOwner> addr
+    #intrinsic "collection_slot_move_out" <LocalOwner> (storage, 0)
+    loaded
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/borrow_slot_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "source-level BorrowRead must preserve initialized non-Copy slot state and allow later proven move-out: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "borrow_then_move"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event:
+                                CollectionSlotLifecycleEvent::BorrowRead { expected_ty },
+                            ..
+                        } if *expected_ty == owned_ty
+                    )
+                })
+        }),
+        "source lowering must emit typed BorrowRead lifecycle event for the non-Copy owner payload:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_borrow_read_rejects_moved_slot() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn borrow_after_move <(&RegionToken<LocalOwner>,LocalOwner)->LocalOwner> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let loaded <LocalOwner> load<LocalOwner> addr
+    #intrinsic "collection_slot_move_out" <LocalOwner> (storage, 0)
+    #intrinsic "collection_slot_borrow_read" <LocalOwner> (storage, 0)
+    loaded
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/borrow_slot_reject_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::Unavailable {
+                        operation: CollectionSlotLifecycleOp::BorrowRead,
+                        state: CollectionSlotState::Moved(found_ty),
+                    },
+                ..
+            } if function.starts_with("borrow_after_move__") && *found_ty == owned_ty
+        )),
+        "BorrowRead after a proven source-level move-out must be rejected as moved: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_source_drop_initialized_accepts_actual_loaded_value_drop() {
     let source = r#"
 #indent 4

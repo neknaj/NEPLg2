@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T06:34:33.561Z",
+  "generated_at": "2026-05-21T06:47:11.798Z",
   "counts": {
-    "total": 1164,
+    "total": 1165,
     "open": 3,
-    "resolved": 1161,
+    "resolved": 1162,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 559,
+        "total": 560,
         "open": 0,
-        "resolved": 559
+        "resolved": 560
       },
       "CORE": {
         "total": 5,
@@ -8578,6 +8578,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T062752580Z-COLLECTION-SLOT-LIFECYCLE-LOWERING-I-653BBF1A.md"
+    },
+    {
+      "id": "ISS-20260521T064245727Z-COLLECTION-SLOT-BORROWREAD-LACKS-SOU-1999DF36",
+      "title": "Collection slot BorrowRead lacks source-level lifecycle regression",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T064245727Z-COLLECTION-SLOT-BORROWREAD-LACKS-SOU-1999DF36.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
