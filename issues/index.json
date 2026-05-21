@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T08:22:06.303Z",
+  "generated_at": "2026-05-21T08:27:38.744Z",
   "counts": {
-    "total": 1174,
-    "open": 3,
+    "total": 1175,
+    "open": 4,
     "resolved": 1171,
     "by_area": {
+      "core": {
+        "total": 570,
+        "open": 1,
+        "resolved": 569
+      },
       "stdlib": {
         "total": 312,
         "open": 2,
@@ -20,11 +25,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 569,
-        "open": 0,
-        "resolved": 569
       },
       "CORE": {
         "total": 5,
@@ -134,6 +134,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260521T082640712Z-COLLECTION-SLOT-INDIRECT-CALL-SUMMAR-6AB52846",
+      "title": "Collection slot indirect call summaries lose path-correlated state",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/{initialized_control.rs,collection_slot_summary_apply.rs,collection_slot_summary_translate.rs,function_alias.rs}",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T082640712Z-COLLECTION-SLOT-INDIRECT-CALL-SUMMAR-6AB52846.md"
+    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",

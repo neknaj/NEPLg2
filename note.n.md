@@ -44259,3 +44259,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo check -p nepl-core`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot path correlation issue
+
+- `ISS-20260521T082640712Z-COLLECTION-SLOT-INDIRECT-CALL-SUMMAR-6AB52846` を作成した。`plan.md` は変更していない。
+- subagent review とローカル確認により、branch / match join 後の indirect call summary replay が `FunctionAliasTable`、raw alias、cell、collection slot、pending realloc、variant initialization を独立に merge し、実行不能な callee/state cross product を作り得ることを確認した。
+- 直接の故障モードは false positive だが、memory-safety proof summary の根本設計としては path-correlated `ResourceCheckState` / `ResourcePathState` を導入し、indirect call summary replay を feasible path ごとに行う必要がある。
+- この issue は open のまま残し、次の静的検査大規模修正の大きな設計単位として扱う。
