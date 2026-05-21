@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T08:07:33.390Z",
+  "generated_at": "2026-05-21T08:13:34.853Z",
   "counts": {
-    "total": 1172,
+    "total": 1173,
     "open": 3,
-    "resolved": 1169,
+    "resolved": 1170,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 567,
+        "total": 568,
         "open": 0,
-        "resolved": 567
+        "resolved": 568
       },
       "CORE": {
         "total": 5,
@@ -8698,6 +8698,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T080236863Z-COLLECTION-SLOT-RETURN-TRANSFER-IGNO-1F875A73.md"
+    },
+    {
+      "id": "ISS-20260521T081047776Z-COLLECTION-SLOT-RETURN-TRANSFER-PROD-1D005BEE",
+      "title": "Collection slot return-transfer producer analysis is not exhaustive",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T081047776Z-COLLECTION-SLOT-RETURN-TRANSFER-PROD-1D005BEE.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

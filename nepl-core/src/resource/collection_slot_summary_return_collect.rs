@@ -264,7 +264,49 @@ fn collect_return_transfers_from_value_producer(
             ResourceOp::Expr { output, .. } if output == value => {
                 return;
             }
-            _ => {}
+            ResourceOp::Borrow { output, .. }
+            | ResourceOp::FunctionValue { output, .. }
+            | ResourceOp::RawMemory { output, .. }
+                if output == value =>
+            {
+                return;
+            }
+            ResourceOp::RawAddressAlias { target, .. }
+            | ResourceOp::RawAddressView { target, .. }
+            | ResourceOp::StorageOrigin { target, .. }
+                if target == value =>
+            {
+                return;
+            }
+            ResourceOp::DeclareLocal {
+                place,
+                initializer: None,
+                ..
+            } if place == value => {
+                return;
+            }
+            ResourceOp::Expr { .. }
+            | ResourceOp::DeclareLocal { .. }
+            | ResourceOp::Read { .. }
+            | ResourceOp::Assign { .. }
+            | ResourceOp::Borrow { .. }
+            | ResourceOp::Move { .. }
+            | ResourceOp::Drop { .. }
+            | ResourceOp::EndScope { .. }
+            | ResourceOp::CallEffect { .. }
+            | ResourceOp::FunctionValue { .. }
+            | ResourceOp::Call { .. }
+            | ResourceOp::IndirectCall { .. }
+            | ResourceOp::RawMemory { .. }
+            | ResourceOp::RawAddressAlias { .. }
+            | ResourceOp::RawAddressView { .. }
+            | ResourceOp::StorageOrigin { .. }
+            | ResourceOp::CollectionSlotLifecycle { .. }
+            | ResourceOp::CollectionStorageRelocate { .. }
+            | ResourceOp::Construct { .. }
+            | ResourceOp::Branch { .. }
+            | ResourceOp::Loop { .. }
+            | ResourceOp::Match { .. } => {}
         }
     }
 }

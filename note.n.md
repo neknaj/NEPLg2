@@ -44238,3 +44238,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - function alias payload も同じ arm entry state に統合し、value / function / slot relation を Resource IR の generic state transition として扱う。`Result`、variant 名、stdlib function 名の allowlist は追加していない。
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_transfers_match_bound_returned_payload -- --nocapture`: passed
+
+## 2026-05-21 Agent 1 collection slot return producer exhaustiveness
+
+- `ISS-20260521T081047776Z-COLLECTION-SLOT-RETURN-TRANSFER-PROD-1D005BEE` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot return-transfer の producer 逆追跡が `ResourceOp` の wildcard arm で終わっており、新しい value-producing op が増えても静的検査実装側の更新漏れを Rust の網羅性検査で検出できないことだった。
+- wildcard arm を削除し、`ResourceOp` の全 variant を明示的に列挙した。対象 place を定義するが structural return-transfer source ではない op はそこで探索を止め、非 producer / 対象外 producer は明示 arm で無視する。
+- これにより将来の `ResourceOp` 追加時に `cargo check` が return-transfer producer 解析の更新漏れを検出できる。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
