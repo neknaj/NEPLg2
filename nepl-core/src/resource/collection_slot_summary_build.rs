@@ -102,6 +102,7 @@ fn function_collection_slot_lifecycle_summary(
     let mut return_transfers = Vec::new();
     let mut return_slots = Vec::new();
     for block in &function.blocks {
+        let block_entry_function_aliases = state.function_aliases.clone();
         collect_summary_ops_from_ops(
             &mut ops,
             &mut engine,
@@ -117,7 +118,7 @@ fn function_collection_slot_lifecycle_summary(
             &engine,
             &function.params,
             &state.raw_aliases,
-            &state.function_aliases,
+            &block_entry_function_aliases,
             &block.ops,
             &block.terminator,
         );

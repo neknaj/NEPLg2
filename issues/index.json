@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T07:29:14.526Z",
+  "generated_at": "2026-05-21T07:42:40.287Z",
   "counts": {
-    "total": 1168,
-    "open": 3,
-    "resolved": 1165,
+    "total": 1170,
+    "open": 4,
+    "resolved": 1166,
     "by_area": {
+      "core": {
+        "total": 565,
+        "open": 1,
+        "resolved": 564
+      },
       "stdlib": {
         "total": 312,
         "open": 2,
@@ -20,11 +25,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 563,
-        "open": 0,
-        "resolved": 563
       },
       "CORE": {
         "total": 5,
@@ -134,6 +134,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260521T074121324Z-COLLECTION-SLOT-DIRECT-RETURN-TRANSF-C8D61A31",
+      "title": "Collection slot direct return transfer ignores raw owner aliases",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T074121324Z-COLLECTION-SLOT-DIRECT-RETURN-TRANSF-C8D61A31.md"
+    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",
@@ -8638,6 +8653,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T072639351Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-40EDCECA.md"
+    },
+    {
+      "id": "ISS-20260521T073615983Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-0A85EC1F",
+      "title": "Collection slot nested return transfer uses final indirect callee aliases",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T073615983Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-0A85EC1F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

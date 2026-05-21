@@ -11,7 +11,9 @@ use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
 use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
-use super::function_alias::FunctionAliasTable;
+use super::function_alias::{
+    function_aliases_after_ops, function_aliases_for_match_arm, FunctionAliasTable,
+};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceCallTarget, ResourceLocal, ResourceOp};
@@ -22,7 +24,7 @@ pub(super) fn collect_return_transfers_from_ops(
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
     raw_aliases: &RawCellAddressAliases,
-    function_aliases: &FunctionAliasTable,
+    function_aliases_at_start: &FunctionAliasTable,
     ops: &[ResourceOp],
     value: &Place,
 ) {
@@ -31,7 +33,7 @@ pub(super) fn collect_return_transfers_from_ops(
         engine,
         params,
         raw_aliases,
-        function_aliases,
+        function_aliases_at_start,
         ops,
         value,
         &[],
@@ -44,7 +46,7 @@ fn collect_return_transfers_from_value_to_suffix(
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
     raw_aliases: &RawCellAddressAliases,
-    function_aliases: &FunctionAliasTable,
+    function_aliases_at_start: &FunctionAliasTable,
     ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[super::model::PlaceProjection],
@@ -72,7 +74,7 @@ fn collect_return_transfers_from_value_to_suffix(
         engine,
         params,
         raw_aliases,
-        function_aliases,
+        function_aliases_at_start,
         ops,
         value,
         target_suffix,
@@ -85,7 +87,7 @@ fn collect_return_transfers_from_value_producer(
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
     raw_aliases: &RawCellAddressAliases,
-    function_aliases: &FunctionAliasTable,
+    function_aliases_at_start: &FunctionAliasTable,
     ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[super::model::PlaceProjection],
@@ -112,7 +114,7 @@ fn collect_return_transfers_from_value_producer(
                         engine,
                         params,
                         raw_aliases,
-                        function_aliases,
+                        function_aliases_at_start,
                         prior_ops,
                         input,
                         &nested_target_suffix,
@@ -129,12 +131,14 @@ fn collect_return_transfers_from_value_producer(
                 else_value,
                 ..
             } if output == value => {
+                let branch_function_aliases =
+                    function_aliases_after_ops(function_aliases_at_start, prior_ops);
                 collect_return_transfers_from_value_to_suffix(
                     out,
                     engine,
                     params,
                     raw_aliases,
-                    function_aliases,
+                    &branch_function_aliases,
                     then_ops,
                     then_value,
                     target_suffix,
@@ -145,7 +149,7 @@ fn collect_return_transfers_from_value_producer(
                     engine,
                     params,
                     raw_aliases,
-                    function_aliases,
+                    &branch_function_aliases,
                     else_ops,
                     else_value,
                     target_suffix,
@@ -153,14 +157,23 @@ fn collect_return_transfers_from_value_producer(
                 );
                 return;
             }
-            ResourceOp::Match { output, arms, .. } if output == value => {
+            ResourceOp::Match {
+                output,
+                scrutinee,
+                arms,
+                ..
+            } if output == value => {
+                let match_function_aliases =
+                    function_aliases_after_ops(function_aliases_at_start, prior_ops);
                 for arm in arms {
+                    let arm_function_aliases =
+                        function_aliases_for_match_arm(&match_function_aliases, scrutinee, arm);
                     collect_return_transfers_from_value_to_suffix(
                         out,
                         engine,
                         params,
                         raw_aliases,
-                        function_aliases,
+                        &arm_function_aliases,
                         &arm.ops,
                         &arm.value,
                         target_suffix,
@@ -179,7 +192,7 @@ fn collect_return_transfers_from_value_producer(
                     engine,
                     params,
                     raw_aliases,
-                    function_aliases,
+                    function_aliases_at_start,
                     prior_ops,
                     initializer,
                     target_suffix,
@@ -195,7 +208,7 @@ fn collect_return_transfers_from_value_producer(
                     engine,
                     params,
                     raw_aliases,
-                    function_aliases,
+                    function_aliases_at_start,
                     prior_ops,
                     source,
                     target_suffix,
@@ -213,7 +226,7 @@ fn collect_return_transfers_from_value_producer(
                     engine,
                     params,
                     raw_aliases,
-                    function_aliases,
+                    function_aliases_at_start,
                     prior_ops,
                     assigned,
                     target_suffix,
@@ -244,12 +257,14 @@ fn collect_return_transfers_from_value_producer(
                 args,
                 ..
             } if output == value => {
+                let callsite_function_aliases =
+                    function_aliases_after_ops(function_aliases_at_start, prior_ops);
                 collect_return_transfers_from_indirect_call_summary(
                     out,
                     engine,
                     params,
                     raw_aliases,
-                    function_aliases,
+                    &callsite_function_aliases,
                     callee,
                     args,
                     target_suffix,

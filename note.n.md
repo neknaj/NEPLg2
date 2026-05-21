@@ -44200,3 +44200,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - これにより `FunctionAliasTable` から callee summary を取得する path が壊れた場合も、collection slot call summary regression で検出できる。
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_transfers_caller_slot_through_indirect_nested_returned_enum_payload -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot indirect callsite alias
+
+- `ISS-20260521T073615983Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-0A85EC1F` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot return-transfer 収集が `IndirectCall` producer の callee を block 終端の `FunctionAliasTable` で解決していたことだった。indirect call 後に同じ function value place を別関数へ上書きすると、呼び出し時点ではなく上書き後の alias で callee summary を探し、nested return transfer を失っていた。
+- `FunctionAliasTable` に ResourceOp 列を enum `match` で再生する helper を追加し、return-transfer 収集では block entry state から producer 直前の `prior_ops` を再生して callsite alias を復元するようにした。
+- branch / match 内の nested producer も、分岐入口や match arm bind の alias state から同じ replay を使う。stdlib module 名、`Result` 名、特定関数名の allowlist は追加していない。
+- 並行レビューで direct return-transfer の raw owner alias canonicalization 不足疑いが見つかったため、`ISS-20260521T074121324Z-COLLECTION-SLOT-DIRECT-RETURN-TRANSF-C8D61A31` として別 issue に分離した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_uses_callsite_indirect_alias_for_nested_transfer -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed

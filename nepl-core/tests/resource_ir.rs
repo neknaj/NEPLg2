@@ -25702,16 +25702,24 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
 #[test]
 fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_nested_returned_enum_payload(
 ) {
-    assert_collection_slot_nested_returned_enum_payload_transfer(false);
+    assert_collection_slot_nested_returned_enum_payload_transfer(false, false);
 }
 
 #[test]
 fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_indirect_nested_returned_enum_payload(
 ) {
-    assert_collection_slot_nested_returned_enum_payload_transfer(true);
+    assert_collection_slot_nested_returned_enum_payload_transfer(true, false);
 }
 
-fn assert_collection_slot_nested_returned_enum_payload_transfer(use_indirect_call: bool) {
+#[test]
+fn resource_ir_collection_slot_call_summary_uses_callsite_indirect_alias_for_nested_transfer() {
+    assert_collection_slot_nested_returned_enum_payload_transfer(true, true);
+}
+
+fn assert_collection_slot_nested_returned_enum_payload_transfer(
+    use_indirect_call: bool,
+    overwrite_indirect_callee_after_call: bool,
+) {
     let (mut types, owned_ty) = types_with_copy_owned();
     let storage_ty = register_non_copy_collection_storage(&mut types);
     let function_ty = types.function(vec![], vec![storage_ty], storage_ty, Effect::Pure);
@@ -25749,13 +25757,21 @@ fn assert_collection_slot_nested_returned_enum_payload_transfer(use_indirect_cal
         });
         wrapper_ops.push(ResourceOp::IndirectCall {
             output: forwarded_storage.clone(),
-            callee: callee_fn,
+            callee: callee_fn.clone(),
             params: vec![storage_ty],
             result: storage_ty,
             args: vec![wrapper_param_storage.clone()],
             effect: EffectOp::Pure,
             span,
         });
+        if overwrite_indirect_callee_after_call {
+            wrapper_ops.push(ResourceOp::FunctionValue {
+                output: callee_fn,
+                name: "fresh_storage".to_string(),
+                effect: EffectOp::Pure,
+                span,
+            });
+        }
     } else {
         wrapper_ops.push(ResourceOp::Call {
             output: forwarded_storage.clone(),
@@ -25797,6 +25813,35 @@ fn assert_collection_slot_nested_returned_enum_payload_transfer(use_indirect_cal
                     ops: vec![],
                     terminator: ResourceTerminator::Return {
                         value: Some(identity_param_storage),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "fresh_storage".to_string(),
+                origin_name: "fresh_storage".to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "storage".to_string(),
+                    ty: storage_ty,
+                    mutable: false,
+                    place: Place::local("storage".to_string(), storage_ty),
+                }],
+                result: storage_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: Place::temporary(ResourceId(724), storage_ty),
+                        ty: storage_ty,
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(Place::temporary(ResourceId(724), storage_ty)),
                         span,
                     },
                     span,
