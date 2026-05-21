@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::cell_state::CellTable;
-use super::collection_slot_drop_traversal::collection_slot_drop_traversal_slots;
+use super::collection_slot_drop_traversal_slots::collection_slot_drop_traversal_slots;
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::initialized::ResourceCheckEngine;
@@ -24,7 +24,7 @@ impl ResourceCheckEngine<'_> {
     ) -> Option<Vec<Place>> {
         let storage = raw_aliases.canonicalize_owner_cell_address(storage);
         let initialized_count = raw_aliases.canonicalize_scalar(initialized_count);
-        let slots = collection_slot_drop_traversal_slots(collection_slots, &storage);
+        let slots = collection_slot_drop_traversal_slots(collection_slots, raw_aliases, &storage);
         let certified_slots: Vec<_> = slots
             .iter()
             .filter_map(|(slot, state)| match state {

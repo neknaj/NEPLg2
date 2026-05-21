@@ -8,39 +8,41 @@ use crate::types::TypeId;
 
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
-use super::drop_point_path::ResourceDropPointPath;
+use super::collection_slot_summary_return_state::collection_slot_summary_state_after_ops;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{
-    Place, PlaceProjection, RawMemoryOp, ResourceBlockId, ResourceOffset, ResourceOp,
-};
+use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
+use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOffset, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
 
 pub(super) fn loop_body_candidate_slots(
+    engine: &ResourceCheckEngine<'_>,
+    state: &CollectionSlotSummaryBuildState,
     ops: &[ResourceOp],
     index: &Place,
-    raw_aliases: &RawCellAddressAliases,
 ) -> Vec<(Place, TypeId, usize)> {
+    let mut raw_aliases = state.raw_aliases.clone();
+    let mut function_aliases = state.function_aliases.clone();
     let mut out = Vec::new();
     for op in ops {
-        let ResourceOp::RawMemory {
+        if let ResourceOp::RawMemory {
             operation: RawMemoryOp::Load,
             output,
             args,
             ..
         } = op
-        else {
-            continue;
-        };
-        let Some(address) = args.first() else {
-            continue;
-        };
-        let address = raw_aliases.canonicalize_owner_cell_address(address);
-        let Some((storage, element_stride)) = storage_scaled_by_index(&address, index, raw_aliases)
-        else {
-            continue;
-        };
-        push_candidate_slot(&mut out, storage, output.ty, element_stride);
+        {
+            if let Some(address) = args.first() {
+                for address in raw_aliases.raw_address_aliases_for_value(address) {
+                    if let Some((storage, element_stride)) =
+                        storage_scaled_by_index(&address, index, &raw_aliases)
+                    {
+                        push_candidate_slot(&mut out, storage, output.ty, element_stride);
+                    }
+                }
+            }
+        }
+        propagate_candidate_alias_facts(engine, &mut raw_aliases, &mut function_aliases, op);
     }
     out
 }
@@ -75,7 +77,7 @@ pub(super) fn loop_body_drops_symbolic_slot(
     probe
         .collection_slots
         .set_slot_state(&slot, CollectionSlotState::Initialized(expected_ty));
-    let mut probe = state_after_ops(engine, probe, body_prefix);
+    let mut probe = collection_slot_summary_state_after_ops(engine, &probe, body_prefix);
     engine
         .collection_slot_drop_traversal_result(
             &mut probe.cells,
@@ -86,39 +88,6 @@ pub(super) fn loop_body_drops_symbolic_slot(
             expected_ty,
         )
         .is_ok()
-}
-
-pub(super) fn state_after_ops(
-    engine: &ResourceCheckEngine<'_>,
-    mut state: CollectionSlotSummaryBuildState,
-    ops: &[ResourceOp],
-) -> CollectionSlotSummaryBuildState {
-    let mut probe = ResourceCheckEngine {
-        function: engine.function,
-        types: engine.types,
-        raw_alias_summaries: engine.raw_alias_summaries,
-        i32_scalar_summaries: engine.i32_scalar_summaries,
-        raw_init_summaries: engine.raw_init_summaries,
-        collection_slot_summaries: engine.collection_slot_summaries,
-        diagnostics: Vec::new(),
-        auto_drop_points: Vec::new(),
-        deferred: Default::default(),
-        path_alternatives: Default::default(),
-    };
-    probe.check_ops(
-        &mut state.cells,
-        &mut state.collection_slots,
-        &mut state.raw_aliases,
-        &mut state.function_aliases,
-        &mut state.pending_reallocs,
-        &mut state.variant_initializations,
-        ops,
-        ResourceDropPointPath {
-            block: ResourceBlockId(usize::MAX),
-            steps: Vec::new(),
-        },
-    );
-    state
 }
 
 fn storage_scaled_by_index(
@@ -134,8 +103,28 @@ fn storage_scaled_by_index(
             let index = raw_aliases.canonicalize_scalar(index);
             (offset_place == index).then_some((storage, scale))
         }
+        PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }) => {
+            let Some(scale) = symbolic_offset_scale_for_index(&place, index, raw_aliases) else {
+                return None;
+            };
+            Some((storage, scale))
+        }
         _ => None,
     }
+}
+
+fn symbolic_offset_scale_for_index(
+    offset: &Place,
+    index: &Place,
+    raw_aliases: &RawCellAddressAliases,
+) -> Option<usize> {
+    let offset = raw_aliases.canonicalize_scalar(offset);
+    let index = raw_aliases.canonicalize_scalar(index);
+    if offset == index {
+        return Some(1);
+    }
+    let (source, scale) = raw_aliases.i32_scaled_source(&offset)?;
+    (source == index).then_some(scale)
 }
 
 fn push_candidate_slot(
@@ -149,4 +138,20 @@ fn push_candidate_slot(
     }) {
         out.push((storage, expected_ty, element_stride));
     }
+}
+
+fn propagate_candidate_alias_facts(
+    engine: &ResourceCheckEngine<'_>,
+    raw_aliases: &mut RawCellAddressAliases,
+    function_aliases: &mut super::function_alias::FunctionAliasTable,
+    op: &ResourceOp,
+) {
+    propagate_i32_scalar_ops(
+        raw_aliases,
+        function_aliases,
+        core::slice::from_ref(op),
+        engine.i32_scalar_summaries,
+        engine.raw_alias_summaries,
+        engine.types,
+    );
 }

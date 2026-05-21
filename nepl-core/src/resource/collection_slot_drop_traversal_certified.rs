@@ -11,7 +11,10 @@ use super::collection_slot_drop_traversal_summary_proof::summary_certified_drop_
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
-use super::collection_slot_state_identity::{place_covers_slot, slot_requires_range_proof};
+use super::collection_slot_state_alias::{
+    place_covers_slot_with_aliases, storage_alias_covering_slot,
+};
+use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
 use super::initialized::ResourceCheckEngine;
@@ -101,7 +104,9 @@ impl ResourceCheckEngine<'_> {
         let drop_proof = summary_certified_drop_traversal_proof(expected_ty);
         for slot in certified_slots {
             let slot = raw_aliases.canonicalize_owner_cell_address(slot);
-            if !place_covers_slot(&slot, storage) {
+            let storage_alias = storage_alias_covering_slot(&slot, storage, raw_aliases)
+                .unwrap_or_else(|| storage.clone());
+            if !place_covers_slot_with_aliases(&slot, storage, raw_aliases) {
                 return Err(CollectionSlotTableRefutation {
                     slot: slot.clone(),
                     reason: CollectionSlotLifecycleRefutation::Unavailable {
@@ -110,12 +115,12 @@ impl ResourceCheckEngine<'_> {
                     },
                 });
             }
-            let symbolic_range_slot = slot_requires_range_proof(&slot, storage);
+            let symbolic_range_slot = slot_requires_range_proof(&slot, &storage_alias);
             if !collection_slot_offset_is_inside_initialized_count(
                 self.types,
                 raw_aliases,
                 &slot,
-                storage,
+                &storage_alias,
                 initialized_count,
                 expected_ty,
             ) {

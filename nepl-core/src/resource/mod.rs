@@ -35,6 +35,7 @@ mod collection_slot_drop_traversal;
 mod collection_slot_drop_traversal_certified;
 mod collection_slot_drop_traversal_known_range;
 mod collection_slot_drop_traversal_range;
+mod collection_slot_drop_traversal_slots;
 mod collection_slot_drop_traversal_summary;
 mod collection_slot_drop_traversal_summary_proof;
 mod collection_slot_drop_traversal_symbolic_range;
@@ -49,11 +50,13 @@ mod collection_slot_lifecycle_transition;
 mod collection_slot_lifecycle_type_tests;
 mod collection_slot_owner_transfer;
 mod collection_slot_owner_transfer_proof;
+mod collection_slot_state_alias;
 mod collection_slot_state_identity;
 mod collection_slot_state_merge;
 #[cfg(test)]
 mod collection_slot_state_merge_tests;
 mod collection_slot_state_release;
+mod collection_slot_state_release_alias;
 #[cfg(test)]
 mod collection_slot_state_release_tests;
 mod collection_slot_state_relocate;
@@ -76,12 +79,16 @@ mod collection_slot_summary_build_nested;
 mod collection_slot_summary_build_ops;
 #[cfg(test)]
 mod collection_slot_summary_build_ops_tests;
+mod collection_slot_summary_build_range_bound;
 mod collection_slot_summary_build_range_certificate;
 #[cfg(test)]
 mod collection_slot_summary_build_range_certificate_tests;
 mod collection_slot_summary_build_range_lifetime;
 #[cfg(test)]
+mod collection_slot_summary_build_range_lifetime_test_support;
+#[cfg(test)]
 mod collection_slot_summary_build_range_lifetime_tests;
+mod collection_slot_summary_build_range_preserve;
 mod collection_slot_summary_build_range_step;
 mod collection_slot_summary_build_range_witness;
 mod collection_slot_summary_build_state;
@@ -422,8 +429,14 @@ mod owner_variant_utils;
 mod owner_variant_value_condition;
 mod place_utils;
 mod raw_cell_lifecycle;
+mod raw_cell_lifecycle_alias;
+#[cfg(test)]
+mod raw_cell_lifecycle_alias_tests;
 mod raw_cell_value_flow;
 mod raw_cell_value_flow_alias;
+mod raw_cell_value_flow_alias_candidates;
+#[cfg(test)]
+mod raw_cell_value_flow_alias_scaled_tests;
 #[cfg(test)]
 mod raw_cell_value_flow_alias_tests;
 mod raw_cell_value_flow_cell;

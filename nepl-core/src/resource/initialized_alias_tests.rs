@@ -1,6 +1,6 @@
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_test_support::local;
-use super::model::{Place, ResourceI32RelationOp, ResourceId};
+use super::model::{Place, PlaceProjection, ResourceI32RelationOp, ResourceId, ResourceOffset};
 
 use ResourceI32RelationOp::Lt;
 
@@ -63,4 +63,34 @@ fn i32_relation_merge_keeps_only_path_common_proofs() {
 
     let merged = RawCellAddressAliases::merge_paths(&[left.clone(), left]);
     assert_eq!(merged.i32_relation_truth(&i, Lt, &len), Some(true));
+}
+
+#[test]
+fn owner_cell_canonicalization_prefers_storage_offset_identity() {
+    let base = local("data").with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        local("data").ty,
+    );
+    let offset_slot = base.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
+        base.ty,
+    );
+    let mem_ptr_local = local("slot1").with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        local("slot1").ty,
+    );
+    let mut aliases = RawCellAddressAliases::default();
+
+    aliases.copy_explicit_raw_address_alias(&offset_slot, &mem_ptr_local);
+
+    assert_eq!(
+        aliases.canonicalize_owner_cell_address(&mem_ptr_local),
+        offset_slot
+    );
 }

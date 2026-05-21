@@ -2,7 +2,7 @@ use crate::types::TypeCtx;
 
 use super::collection_slot_summary_build_state::CollectionSlotDropTraversalRangeCertificateCandidate;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, RawMemoryOp, ResourceMatchArm, ResourceOp};
+use super::model::{Place, RawMemoryOp, ResourceExprKind, ResourceMatchArm, ResourceOp};
 use super::place_utils::place_suffix_after_prefix;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +43,15 @@ fn op_invalidates(
     op: &ResourceOp,
 ) -> bool {
     match op {
+        ResourceOp::Expr {
+            kind:
+                ResourceExprKind::LocalRead
+                | ResourceExprKind::Call
+                | ResourceExprKind::Intrinsic
+                | ResourceExprKind::Loop,
+            ..
+        }
+        | ResourceOp::Read { .. } => false,
         ResourceOp::Expr { output, .. }
         | ResourceOp::Borrow { output, .. }
         | ResourceOp::FunctionValue { output, .. }
@@ -58,10 +67,6 @@ fn op_invalidates(
                 || initializer.as_ref().is_some_and(|initializer| {
                     consumes_candidate_anchor(types, raw_aliases, candidate, initializer)
                 })
-        }
-        ResourceOp::Read { source, output, .. } => {
-            writes_candidate_anchor(raw_aliases, candidate, output)
-                || consumes_candidate_anchor(types, raw_aliases, candidate, source)
         }
         ResourceOp::Assign { target, value, .. } => {
             writes_candidate_anchor(raw_aliases, candidate, target)

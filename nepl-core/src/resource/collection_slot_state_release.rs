@@ -91,7 +91,9 @@ impl CollectionSlotStateTable {
     }
 }
 
-fn collection_slot_state_type(state: CollectionSlotState) -> Option<crate::types::TypeId> {
+pub(super) fn collection_slot_state_type(
+    state: CollectionSlotState,
+) -> Option<crate::types::TypeId> {
     match state {
         CollectionSlotState::Initialized(slot_ty)
         | CollectionSlotState::Moved(slot_ty)
@@ -103,7 +105,7 @@ fn collection_slot_state_type(state: CollectionSlotState) -> Option<crate::types
     }
 }
 
-fn storage_release_slot_precondition(
+pub(super) fn storage_release_slot_precondition(
     state: CollectionSlotState,
 ) -> Result<(), CollectionSlotLifecycleRefutation> {
     match state {
@@ -124,7 +126,7 @@ fn storage_release_slot_precondition(
     }
 }
 
-fn unavailable_storage_dealloc(
+pub(super) fn unavailable_storage_dealloc(
     storage: &Place,
     state: CollectionSlotState,
 ) -> CollectionSlotTableRefutation {

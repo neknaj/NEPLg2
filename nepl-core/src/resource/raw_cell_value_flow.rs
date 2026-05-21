@@ -7,9 +7,10 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::place_utils::{place_suffix_after_prefix, place_with_suffix, raw_memory_cell_place};
 use super::raw_cell_value_flow_alias::{
-    raw_cell_alias_candidates, raw_cell_place_with_canonical_symbolic_offsets,
-    raw_cell_places_equivalent, value_flow_entry_matches, value_flow_entry_matches_any_cell,
+    raw_cell_place_with_canonical_symbolic_offsets, raw_cell_places_equivalent,
+    value_flow_entry_matches, value_flow_entry_matches_any_cell,
 };
+use super::raw_cell_value_flow_alias_candidates::raw_cell_alias_candidates;
 use super::type_pattern::type_pattern_matches;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

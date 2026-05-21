@@ -6,7 +6,7 @@ use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_event_proof::summary_event_proof_with_aliases;
 use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
-use super::collection_slot_summary_target::summary_place_for_params;
+use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, ResourceLocal};
 
@@ -29,7 +29,8 @@ pub(super) fn collect_summary_event_op(
     ) else {
         return;
     };
-    let Some(target) = summary_place_for_params(params, &target) else {
+    let Some(target) = summary_place_for_params_with_aliases(params, &state.raw_aliases, &target)
+    else {
         return;
     };
     out.push(CollectionSlotLifecycleSummaryOp::Event {

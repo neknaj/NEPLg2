@@ -17,7 +17,7 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
     CollectionSlotLifecycleSummaryRelocateProof,
 };
-use super::collection_slot_summary_target::summary_place_for_params;
+use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::collection_slot_summary_translate::{
     collect_direct_call_summary_ops, collect_indirect_call_summary_ops,
 };
@@ -103,8 +103,16 @@ pub(super) fn collect_summary_ops_from_op(
                 return;
             }
             if let (Some(old_storage), Some(new_storage)) = (
-                summary_place_for_params(params, &old_storage_place),
-                summary_place_for_params(params, &new_storage_place),
+                summary_place_for_params_with_aliases(
+                    params,
+                    &state.raw_aliases,
+                    &old_storage_place,
+                ),
+                summary_place_for_params_with_aliases(
+                    params,
+                    &state.raw_aliases,
+                    &new_storage_place,
+                ),
             ) {
                 out.push(CollectionSlotLifecycleSummaryOp::Relocate {
                     old_storage,

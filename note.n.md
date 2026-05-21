@@ -44505,6 +44505,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-22 Agent 1 source-level full-range drop traversal regression
+
+- `ISS-20260521T194132706Z-SOURCE-LEVEL-FULL-RANGE-DROP-TRAVERS-3FA2B481` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、full-range drop traversal の certificate producer / replay が synthetic ResourceOp では通っていても、NEPL source lowering で生成される symbolic byte offset、raw-address alias、owner-cell canonicalization、caller-side storage release までの接続が不足していたこと。
+- Source-level regression を追加し、`i = 0; while i < initialized_count; i = i + 1` の raw load / actual drop loop だけが `ForallInitializedRange` compatible cleanup として caller storage release まで通ることを固定した。非ゼロ開始と step two は full-range proof として拒否する。
+- loop body candidate extraction は source-derived scalar fact を body prefix 内で伝播し、`ResourceOffset::Symbolic` / `ScaledSymbolic` を storage + index + element stride に戻して certificate candidate を作る。
+- summary-certified traversal は raw cell aliases を moved state に反映し、collection slot table と storage release も raw-address alias を基準に storage coverage を検査する。stdlib module allowlist や helper 名特別扱いは追加していない。
+- focused verification:
+  - `cargo test -p nepl-core --test collection_slot_full_range -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib raw_value_flow_alias_matching_normalizes_scaled_symbolic_offsets -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib owner_cell_canonicalization_prefers_storage_offset_identity -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib raw_move_marks_alias_cells_moved -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed with CRLF normalization warnings only
   - `cargo test -p nepl-core --test resource_ir collection_slot -- --test-threads=1`: timed out after 184s; broad collection-slot filter は既知の長時間化があるため focused tests に限定。
 
 ## 2026-05-21 Agent 1 collection slot responsibility split

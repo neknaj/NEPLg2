@@ -1,7 +1,6 @@
 extern crate alloc;
 
 use alloc::string::ToString;
-use alloc::vec::Vec;
 
 use crate::span::Span;
 use crate::types::TypeId;
@@ -9,12 +8,14 @@ use crate::types::TypeId;
 use super::cell_state::{raw_cell_address_prefix, CellTable};
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
 use super::collection_slot_drop_traversal_range::collection_slot_offset_is_inside_initialized_count;
+use super::collection_slot_drop_traversal_slots::collection_slot_drop_traversal_slots;
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
     CollectionSlotState,
 };
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
-use super::collection_slot_state_identity::{place_covers_slot, slot_requires_range_proof};
+use super::collection_slot_state_alias::storage_alias_covering_slot;
+use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -104,18 +105,20 @@ impl ResourceCheckEngine<'_> {
         expected_ty: TypeId,
         drop_proof: CollectionSlotDropProof,
     ) -> Result<(), CollectionSlotTableRefutation> {
-        let slots = collection_slot_drop_traversal_slots(collection_slots, storage);
+        let slots = collection_slot_drop_traversal_slots(collection_slots, raw_aliases, storage);
         let mut committed_cells = cells.clone();
         let mut committed_slots = collection_slots.clone();
         for (slot, state) in slots {
             match state {
                 CollectionSlotState::Initialized(slot_ty) => {
-                    let symbolic_range_slot = slot_requires_range_proof(&slot, storage);
+                    let storage_alias = storage_alias_covering_slot(&slot, storage, raw_aliases)
+                        .unwrap_or_else(|| storage.clone());
+                    let symbolic_range_slot = slot_requires_range_proof(&slot, &storage_alias);
                     if !collection_slot_offset_is_inside_initialized_count(
                         self.types,
                         raw_aliases,
                         &slot,
-                        storage,
+                        &storage_alias,
                         initialized_count,
                         expected_ty,
                     ) {
@@ -191,26 +194,10 @@ impl ResourceCheckEngine<'_> {
             && !self.types.is_copy(expected_ty)
         {
             if let Some(address) = raw_cell_address_prefix(slot) {
-                cells.mark_raw_cell_moved(&address, expected_ty);
+                cells.mark_raw_cell_moved_with_aliases(raw_aliases, &address, expected_ty);
             }
         }
         collection_slots.apply_slot_event(self.types, slot, event)?;
         Ok(())
     }
-}
-
-pub(super) fn collection_slot_drop_traversal_slots(
-    collection_slots: &CollectionSlotStateTable,
-    storage: &Place,
-) -> Vec<(Place, CollectionSlotState)> {
-    collection_slots
-        .entries()
-        .iter()
-        .filter_map(|entry| {
-            if !place_covers_slot(&entry.slot, storage) {
-                return None;
-            }
-            Some((entry.slot.clone(), entry.state))
-        })
-        .collect()
 }

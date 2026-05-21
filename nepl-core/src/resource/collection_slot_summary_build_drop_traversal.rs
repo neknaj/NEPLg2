@@ -9,7 +9,7 @@ use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
 };
-use super::collection_slot_summary_target::summary_place_for_params;
+use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, ResourceLocal};
 
@@ -28,8 +28,12 @@ pub(super) fn collect_summary_drop_traversal_op(
         find_range_certificate(state, &storage_place, &initialized_count_place, expected_ty)
     {
         if let (Some(storage), Some(initialized_count)) = (
-            summary_place_for_params(params, &storage_place),
-            summary_place_for_params(params, &initialized_count_place),
+            summary_place_for_params_with_aliases(params, &state.raw_aliases, &storage_place),
+            summary_place_for_params_with_aliases(
+                params,
+                &state.raw_aliases,
+                &initialized_count_place,
+            ),
         ) {
             out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
                 storage,
@@ -63,14 +67,15 @@ pub(super) fn collect_summary_drop_traversal_op(
     let mut summary_slots = Vec::new();
     for slot in certified_slots {
         let slot = state.raw_aliases.canonicalize_owner_cell_address(&slot);
-        let Some(slot) = summary_place_for_params(params, &slot) else {
+        let Some(slot) = summary_place_for_params_with_aliases(params, &state.raw_aliases, &slot)
+        else {
             return;
         };
         summary_slots.push(slot);
     }
     if let (Some(storage), Some(initialized_count)) = (
-        summary_place_for_params(params, &storage_place),
-        summary_place_for_params(params, &initialized_count_place),
+        summary_place_for_params_with_aliases(params, &state.raw_aliases, &storage_place),
+        summary_place_for_params_with_aliases(params, &state.raw_aliases, &initialized_count_place),
     ) {
         out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
             storage,

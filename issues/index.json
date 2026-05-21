@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T19:29:57.907Z",
+  "generated_at": "2026-05-21T21:28:21.733Z",
   "counts": {
-    "total": 1199,
+    "total": 1200,
     "open": 3,
-    "resolved": 1196,
+    "resolved": 1197,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -20,6 +20,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "compiler-core": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       },
       "core": {
         "total": 585,
@@ -45,11 +50,6 @@
         "total": 4,
         "open": 0,
         "resolved": 4
-      },
-      "compiler-core": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
       },
       "compiler": {
         "total": 15,
@@ -213,6 +213,21 @@
       "legacy_id": "RV-CLI-014",
       "source": "doc/review20260425/cli.md#rv-cli-014",
       "file": "items/ISS-20260425T000000Z-RV-CLI-014-1F306B6D.md"
+    },
+    {
+      "id": "ISS-20260521T194132706Z-SOURCE-LEVEL-FULL-RANGE-DROP-TRAVERS-3FA2B481",
+      "title": "Source-level full-range drop traversal proof needs end-to-end regression",
+      "area": "compiler-core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-22",
+      "target": "nepl-core/tests, nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T194132706Z-SOURCE-LEVEL-FULL-RANGE-DROP-TRAVERS-3FA2B481.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-003-CE8DD508",

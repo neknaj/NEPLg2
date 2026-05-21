@@ -58,7 +58,13 @@ fn canonical_place_projection_rank(place: &Place) -> u8 {
 }
 
 fn owner_cell_projection_rank(place: &Place) -> u8 {
-    if place.projections.iter().any(|projection| {
+    if place
+        .projections
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::StorageOffset(_)))
+    {
+        0
+    } else if place.projections.iter().any(|projection| {
         matches!(
             projection,
             PlaceProjection::Field { .. }
@@ -66,16 +72,15 @@ fn owner_cell_projection_rank(place: &Place) -> u8 {
                 | PlaceProjection::EnumPayload { .. }
         )
     }) {
-        0
-    } else if place.projections.iter().any(|projection| {
-        matches!(
-            projection,
-            PlaceProjection::StorageOffset(_) | PlaceProjection::Deref
-        )
-    }) {
         1
-    } else {
+    } else if place
+        .projections
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::Deref))
+    {
         2
+    } else {
+        3
     }
 }
 

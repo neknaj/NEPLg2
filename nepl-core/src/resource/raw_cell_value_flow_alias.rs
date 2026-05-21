@@ -1,35 +1,13 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId};
 
-use super::cell_state::{raw_cell_address_prefix, raw_cell_suffix_after_address};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, PlaceProjection, PlaceRoot, ResourceOffset};
-use super::place_utils::place_with_suffix;
 use super::raw_cell_value_flow::{RawCellValueFlowEntry, RawCellValueFlowKind};
 use super::type_pattern::type_pattern_matches;
-
-pub(super) fn raw_cell_alias_candidates(
-    cell: &Place,
-    raw_aliases: &RawCellAddressAliases,
-) -> Vec<Place> {
-    let mut out = Vec::new();
-    push_unique_equivalent_place(&mut out, cell);
-    let Some(address) = raw_cell_address_prefix(cell) else {
-        return out;
-    };
-    let Some(suffix) = raw_cell_suffix_after_address(cell, &address) else {
-        return out;
-    };
-    for address in raw_address_alias_candidates(&address, raw_aliases) {
-        let candidate = place_with_suffix(&address, &suffix, cell.ty);
-        push_unique_equivalent_place(&mut out, &candidate);
-    }
-    out
-}
 
 pub(super) fn raw_cell_places_equivalent(left: &Place, right: &Place) -> bool {
     let left = place_without_zero_storage_offsets(left);
@@ -51,9 +29,31 @@ pub(super) fn place_with_canonical_symbolic_offsets(
     let mut out = place.clone();
     for projection in &mut out.projections {
         match projection {
-            PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place })
-            | PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic { place, .. }) => {
-                *place = Box::new(canonical_symbolic_offset_place(place, raw_aliases));
+            PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }) => {
+                if let Some((source, scale)) =
+                    canonical_scaled_symbolic_offset_place(place, raw_aliases)
+                {
+                    *projection = PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
+                        place: Box::new(source),
+                        scale,
+                    });
+                } else {
+                    *place = Box::new(canonical_symbolic_offset_place(place, raw_aliases));
+                }
+            }
+            PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic { place, scale }) => {
+                if let Some((source, source_scale)) =
+                    canonical_scaled_symbolic_offset_place(place, raw_aliases)
+                {
+                    if let Some(combined_scale) = scale.checked_mul(source_scale) {
+                        *place = Box::new(source);
+                        *scale = combined_scale;
+                    } else {
+                        *place = Box::new(canonical_symbolic_offset_place(place, raw_aliases));
+                    }
+                } else {
+                    *place = Box::new(canonical_symbolic_offset_place(place, raw_aliases));
+                }
             }
             PlaceProjection::StorageOffset(ResourceOffset::Known(_) | ResourceOffset::Unknown)
             | PlaceProjection::Field { .. }
@@ -92,24 +92,7 @@ pub(super) fn value_flow_entry_matches_any_cell(
             .any(|cell| raw_cell_places_equivalent_with_aliases(&entry.cell, cell, raw_aliases))
 }
 
-fn raw_address_alias_candidates(
-    address: &Place,
-    raw_aliases: &RawCellAddressAliases,
-) -> Vec<Place> {
-    let mut out = Vec::new();
-    let normalized = place_without_zero_storage_offsets(address);
-    for seed in [address.clone(), normalized] {
-        push_unique_equivalent_place(&mut out, &seed);
-        for alias in raw_aliases.raw_address_aliases_for_value(&seed) {
-            push_unique_equivalent_place(&mut out, &alias);
-            let normalized_alias = place_without_zero_storage_offsets(&alias);
-            push_unique_equivalent_place(&mut out, &normalized_alias);
-        }
-    }
-    out
-}
-
-fn place_without_zero_storage_offsets(place: &Place) -> Place {
+pub(super) fn place_without_zero_storage_offsets(place: &Place) -> Place {
     let mut out = place.clone();
     out.projections.retain(|projection| {
         !matches!(
@@ -142,6 +125,14 @@ fn canonical_symbolic_offset_place(place: &Place, raw_aliases: &RawCellAddressAl
         .unwrap_or_else(|| place.clone())
 }
 
+fn canonical_scaled_symbolic_offset_place(
+    place: &Place,
+    raw_aliases: &RawCellAddressAliases,
+) -> Option<(Place, usize)> {
+    let (source, scale) = raw_aliases.i32_scaled_source(place)?;
+    Some((canonical_symbolic_offset_place(&source, raw_aliases), scale))
+}
+
 fn symbolic_offset_place_rank(place: &Place) -> (u8, usize) {
     let root_rank = match &place.root {
         PlaceRoot::Local(_) | PlaceRoot::I32Constant(_) => 0,
@@ -151,13 +142,4 @@ fn symbolic_offset_place_rank(place: &Place) -> (u8, usize) {
         PlaceRoot::Unknown => 4,
     };
     (root_rank, place.projections.len())
-}
-
-fn push_unique_equivalent_place(out: &mut Vec<Place>, place: &Place) {
-    if out
-        .iter()
-        .all(|existing| !raw_cell_places_equivalent(existing, place))
-    {
-        out.push(place.clone());
-    }
 }

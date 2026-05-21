@@ -1,8 +1,7 @@
 extern crate alloc;
 
-use alloc::string::ToString;
-
 use crate::span::Span;
+use alloc::string::ToString;
 
 use super::cell_state::CellTable;
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
@@ -43,8 +42,11 @@ impl ResourceCheckEngine<'_> {
             .unwrap_or_else(|| target.clone());
         let target = &canonical_target;
         let result = match event {
-            CollectionSlotLifecycleEvent::StorageDealloc => collection_slots
-                .storage_release_precondition(target)
+            CollectionSlotLifecycleEvent::StorageDealloc => raw_aliases
+                .map(|raw_aliases| {
+                    collection_slots.storage_release_precondition_with_aliases(target, raw_aliases)
+                })
+                .unwrap_or_else(|| collection_slots.storage_release_precondition(target))
                 .and_then(|()| {
                     if consume_collection_slot_storage_release_proof(
                         pending_raw_storage,
@@ -56,7 +58,14 @@ impl ResourceCheckEngine<'_> {
                         Err(storage_release_refutation(target))
                     }
                 })
-                .and_then(|()| collection_slots.release_storage(target).map(|()| ())),
+                .and_then(|()| {
+                    raw_aliases
+                        .map(|raw_aliases| {
+                            collection_slots.release_storage_with_aliases(target, raw_aliases)
+                        })
+                        .unwrap_or_else(|| collection_slots.release_storage(target))
+                        .map(|()| ())
+                }),
             CollectionSlotLifecycleEvent::InitializeEmpty { .. }
             | CollectionSlotLifecycleEvent::BorrowRead { .. }
             | CollectionSlotLifecycleEvent::MoveOut { .. }
