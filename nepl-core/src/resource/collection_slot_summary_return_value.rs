@@ -7,6 +7,7 @@ use super::collection_slot_summary_return_call::{
     collect_return_transfers_from_call_summary, collect_return_transfers_from_indirect_call_summary,
 };
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
+use super::collection_slot_summary_return_path_control::return_value_is_never;
 use super::collection_slot_summary_return_state::collection_slot_summary_state_after_ops;
 use super::collection_slot_summary_return_unique::push_return_transfer;
 use super::initialized::ResourceCheckEngine;
@@ -102,26 +103,30 @@ fn collect_return_transfers_from_value_producer(
             } if output == value => {
                 let branch_state =
                     collection_slot_summary_state_after_ops(engine, state_at_start, prior_ops);
-                collect_return_transfers_from_value_to_suffix(
-                    out,
-                    engine,
-                    params,
-                    &branch_state,
-                    then_ops,
-                    then_value,
-                    target_suffix,
-                    target_ty,
-                );
-                collect_return_transfers_from_value_to_suffix(
-                    out,
-                    engine,
-                    params,
-                    &branch_state,
-                    else_ops,
-                    else_value,
-                    target_suffix,
-                    target_ty,
-                );
+                if !return_value_is_never(engine, then_value) {
+                    collect_return_transfers_from_value_to_suffix(
+                        out,
+                        engine,
+                        params,
+                        &branch_state,
+                        then_ops,
+                        then_value,
+                        target_suffix,
+                        target_ty,
+                    );
+                }
+                if !return_value_is_never(engine, else_value) {
+                    collect_return_transfers_from_value_to_suffix(
+                        out,
+                        engine,
+                        params,
+                        &branch_state,
+                        else_ops,
+                        else_value,
+                        target_suffix,
+                        target_ty,
+                    );
+                }
                 return;
             }
             ResourceOp::Match {
@@ -133,6 +138,9 @@ fn collect_return_transfers_from_value_producer(
                 let match_state =
                     collection_slot_summary_state_after_ops(engine, state_at_start, prior_ops);
                 for arm in arms {
+                    if return_value_is_never(engine, &arm.value) {
+                        continue;
+                    }
                     let Some(arm_state) =
                         super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state(
                             engine,

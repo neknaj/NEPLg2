@@ -32,7 +32,7 @@ pub(super) fn branch_return_path_states(
     span: Span,
 ) -> Vec<ReturnPathBuildState> {
     let mut paths = Vec::new();
-    if !place_is_never(engine, then_value) {
+    if !return_value_is_never(engine, then_value) {
         let selected_op = ResourceOp::Branch {
             output: output.clone(),
             condition: condition.clone(),
@@ -51,7 +51,7 @@ pub(super) fn branch_return_path_states(
             &selected_op,
         ));
     }
-    if !place_is_never(engine, else_value) {
+    if !return_value_is_never(engine, else_value) {
         let selected_op = ResourceOp::Branch {
             output: output.clone(),
             condition: condition.clone(),
@@ -85,7 +85,7 @@ pub(super) fn match_return_path_states(
 ) -> Vec<ReturnPathBuildState> {
     let mut paths = Vec::new();
     for arm in arms {
-        if place_is_never(engine, &arm.value) {
+        if return_value_is_never(engine, &arm.value) {
             continue;
         }
         let Some(arm_state) =
@@ -176,7 +176,7 @@ fn merged_relative_ops(
     merged
 }
 
-fn place_is_never(engine: &ResourceCheckEngine<'_>, place: &Place) -> bool {
+pub(super) fn return_value_is_never(engine: &ResourceCheckEngine<'_>, place: &Place) -> bool {
     matches!(
         engine.types.get(engine.types.resolve_id(place.ty)),
         TypeKind::Never

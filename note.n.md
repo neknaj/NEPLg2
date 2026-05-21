@@ -1,3 +1,17 @@
+# 2026-05-21 Agent 1 collection slot return value never producer filter
+
+- `ISS-20260521T104926514Z-COLLECTION-SLOT-RETURN-VALUE-PRODUCE-51DC87E9` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、return path state evaluation が Branch / Match の `Never` value を実行不能 path として除外していた一方、return value producer tracing は同じ判定を使わず、parameter と同じ root/projection を持つ `Never` value から return transfer を作り得たことだった。
+- `return_value_is_never` を shared predicate にし、path-sensitive return path collector と legacy flat return-transfer fallback の両方で Branch / Match producer tracing 前に `Never` value を除外した。
+- regression として、`Never` value が parameter と同じ root/projection を持っていても returned storage owner として trace されず、caller の returned storage dealloc が impossible live slot を見ないことを Branch / Match で固定した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_return_value_producer_skips_never_branch_value -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_return_value_producer_skips_never_match_value -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_return_summary_skips_never_branch_path_effects -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_return_summary_skips_never_match_arm_path_effects -- --test-threads=1`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check`: pass
+
 # 2026-05-21 Agent 1 collection slot lifecycle proof atomicity
 
 - `ISS-20260521T103746552Z-COLLECTION-SLOT-LIFECYCLE-PROOF-CHEC-E31C8D02` を追加して fixed にした。`plan.md` は確認済みで変更していない。
