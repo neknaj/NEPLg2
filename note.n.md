@@ -1,3 +1,13 @@
+# 2026-05-21 Agent 1 resource responsibility policy recovery
+
+- `ISS-20260521T092635167Z-RESOURCE-RESPONSIBILITY-POLICY-DOES--420EC501` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、path-correlated Resource IR state を追加した `initialized_path_state.rs` が `nodesrc/test_resource_checker_responsibility.js` の monitored file list / module declaration list / line-limit table に登録されていなかったことだった。さらにその監視漏れを閉じると、`collection_slot_summary_return_collect.rs` が return value producer tracing / call summary composition / state replay / dedupe helper を同じ file に抱えたまま line-limit を超えていることも検出された。
+- `initialized_path_state.rs` を責務分割 policy の監視対象に追加し、Stage 6 static check の path alternatives helper が今後肥大化した場合に検出できるようにした。
+- `collection_slot_summary_return_collect.rs` を、public collection entry、value producer tracing、call summary composition、state replay、return fact dedupe の module に分割した。単に line limit を緩めず、責務単位を分けて policy を復旧した。
+- 既存の cohesive module で現行 main の実装サイズに対して stale になっていた line-limit table も同期した。これにより stale budget で常時失敗する状態ではなく、今後の肥大化を検出する gate として戻した。
+- 検証:
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+
 # 2026-05-21 Agent 1 match-bound collection slot summary lifecycle
 
 - `ISS-20260521T091611468Z-COLLECTION-SLOT-LIFECYCLE-SUMMARY-CO-1DED6918` を追加して fixed にした。`plan.md` は変更していない。

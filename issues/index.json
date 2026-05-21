@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T09:20:30.834Z",
+  "generated_at": "2026-05-21T09:33:24.932Z",
   "counts": {
-    "total": 1176,
+    "total": 1177,
     "open": 3,
-    "resolved": 1173,
+    "resolved": 1174,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -112,9 +112,9 @@
         "resolved": 1
       },
       "tools": {
-        "total": 4,
+        "total": 5,
         "open": 0,
-        "resolved": 4
+        "resolved": 5
       },
       "tutorials": {
         "total": 3,
@@ -15013,6 +15013,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260516T033336255Z-PLAYGROUND-EDITOR-ANALYSIS-FIXTURES--7D947BA4.md"
+    },
+    {
+      "id": "ISS-20260521T092635167Z-RESOURCE-RESPONSIBILITY-POLICY-DOES--420EC501",
+      "title": "Resource responsibility policy is stale for path state and return summary modules",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/initialized_path_state.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T092635167Z-RESOURCE-RESPONSIBILITY-POLICY-DOES--420EC501.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",

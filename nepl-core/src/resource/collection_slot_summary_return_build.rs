@@ -4,11 +4,12 @@ use super::collection_slot_lifecycle::CollectionSlotState::{MaybeReleased, Relea
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_return_collect::{
-    collect_return_storage_markers, collect_return_transfers_from_ops, push_return_slot,
+    collect_return_storage_markers, collect_return_transfers_from_ops,
 };
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
+use super::collection_slot_summary_return_unique::push_return_slot;
 use super::initialized::ResourceCheckEngine;
 use super::model::{ResourceLocal, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
