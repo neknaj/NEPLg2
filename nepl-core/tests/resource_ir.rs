@@ -23697,6 +23697,250 @@ fn resource_ir_collection_slot_non_copy_replace_return_old_rejects_missing_old_l
 }
 
 #[test]
+fn resource_ir_collection_slot_call_summary_accepts_callee_certified_non_copy_owner_transfer() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_address = Place::local("slot_address".to_string(), i32_ty);
+    let helper_slot = helper_address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let payload = Place::local("payload".to_string(), owned_ty);
+    let main_address = Place::local("main_slot_address".to_string(), i32_ty);
+    let resource = raw_address_collection_slot_summary_resource(
+        unit_ty,
+        i32_ty,
+        span,
+        "store_then_move_slot",
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: payload.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(760), unit_ty),
+                args: vec![helper_address.clone(), payload],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: helper_slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: Place::temporary(ResourceId(761), owned_ty),
+                args: vec![helper_address],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: helper_slot,
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+        ],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: main_address.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(762), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "store_then_move_slot".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![main_address],
+                effect: EffectOp::Pure,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "callee-certified raw store/load proofs must be replayed as summary evidence, not re-required from the caller: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_call_summary_accepts_callee_certified_non_copy_replace_return_old() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_address = Place::local("slot_address".to_string(), i32_ty);
+    let helper_slot = helper_address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let initial_payload = Place::local("initial_payload".to_string(), owned_ty);
+    let replacement_payload = Place::local("replacement_payload".to_string(), owned_ty);
+    let main_address = Place::local("main_slot_address".to_string(), i32_ty);
+    let resource = raw_address_collection_slot_summary_resource(
+        unit_ty,
+        i32_ty,
+        span,
+        "replace_slot",
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: initial_payload.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(764), unit_ty),
+                args: vec![helper_address.clone(), initial_payload],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: helper_slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: Place::temporary(ResourceId(765), owned_ty),
+                args: vec![helper_address.clone()],
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: replacement_payload.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(766), unit_ty),
+                args: vec![helper_address, replacement_payload],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: helper_slot,
+                event: CollectionSlotLifecycleEvent::ReplaceInitialized {
+                    old_ty: owned_ty,
+                    new_ty: owned_ty,
+                    old_owner: CollectionSlotReplacement::ReturnOldOwner,
+                },
+                span,
+            },
+        ],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: main_address.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(767), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "replace_slot".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![main_address],
+                effect: EffectOp::Pure,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "callee-certified replace-return-old must carry both old raw load and new raw store proofs through summary replay: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_call_summary_does_not_certify_unproven_non_copy_owner_transfer() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_address = Place::local("slot_address".to_string(), i32_ty);
+    let helper_slot = helper_address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let main_address = Place::local("main_slot_address".to_string(), i32_ty);
+    let resource = raw_address_collection_slot_summary_resource(
+        unit_ty,
+        i32_ty,
+        span,
+        "init_without_store",
+        vec![ResourceOp::CollectionSlotLifecycle {
+            target: helper_slot.clone(),
+            event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+            span,
+        }],
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: main_address.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Call {
+                output: Place::temporary(ResourceId(763), unit_ty),
+                target: ResourceCallTarget::User {
+                    name: "init_without_store".to_string(),
+                    type_args: vec![],
+                },
+                args: vec![main_address],
+                effect: EffectOp::Pure,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                target,
+                reason:
+                    CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                        operation: CollectionSlotLifecycleOp::InitializeEmpty,
+                        slot_ty,
+                    },
+                ..
+            } if function == "init_without_store" && *target == helper_slot && *slot_ty == owned_ty
+        )),
+        "callee-local non-Copy lifecycle without raw value-flow proof must remain rejected: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        !report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } if function == "main"
+        )),
+        "uncertified callee lifecycle must not be replayed into caller as a trusted summary: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_move_transfers_slot_state_to_output() {
     let (mut types, owned_ty) = types_with_copy_owned();
     let storage_ty = register_non_copy_collection_storage(&mut types);
@@ -24814,6 +25058,60 @@ fn collection_slot_summary_resource(
                     name: "slot_storage".to_string(),
                     ty: owned_ty,
                     mutable: true,
+                    place: param_place,
+                }],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: helper_ops,
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: main_ops,
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    }
+}
+
+fn raw_address_collection_slot_summary_resource(
+    unit_ty: TypeId,
+    address_ty: TypeId,
+    span: Span,
+    helper_name: &str,
+    helper_ops: Vec<ResourceOp>,
+    main_ops: Vec<ResourceOp>,
+) -> ResourceModule {
+    let param_place = Place::local("slot_address".to_string(), address_ty);
+    ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: helper_name.to_string(),
+                origin_name: helper_name.to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "slot_address".to_string(),
+                    ty: address_ty,
+                    mutable: false,
                     place: param_place,
                 }],
                 result: unit_ty,

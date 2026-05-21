@@ -1,3 +1,18 @@
+# 2026-05-21 Agent 1 collection slot certified summary value-flow proof
+
+- `ISS-20260521T025115696Z-COLLECTION-SLOT-SUMMARIES-NEED-CERTI-92379E7C` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、前段で local raw value-flow proof を導入した結果、callee 内で raw store/load と lifecycle が証明済みでも、caller の summary replay ではその proof が表現されず、caller 側の `CellTable` に同じ raw fact を再要求してしまうことだった。
+- `CollectionSlotLifecycleSummaryEventProof` を追加し、summary event を `StateOnly` と `OwnerTransferValueFlow(CollectionSlotOwnerTransferObligation)` に分けた。
+- summary build は callee 内の lifecycle event 時点で `CellTable` に raw `StoreValue` / `MoveOutLoadedCell` proof が存在する場合だけ `OwnerTransferValueFlow` を載せる。proof がない non-Copy owner-transfer event は summary として信用しない。
+- summary replay は certified proof を required obligation と照合し、一致する場合だけ caller local fact を再消費せずに state transition を許可する。`ReplaceReturnOld` は old raw load と new raw store の両方が証明された場合だけ通る。direct Resource IR event は引き続き `LocalRawValueFlow` proof を消費する。
+- 親 issue と Stage 6 docs に、direct call summary 経由の non-Copy slot initialize / move-out が generic Resource IR proof へ接続されたこと、compiler-owned slot-drop lowering が残件であることを追記した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core resource_ir_collection_slot --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `git diff --check`: pass
+
 # 2026-05-21 Agent 1 collection slot local raw value-flow proof
 
 - `ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A` を追加して fixed にした。`plan.md` は変更していない。

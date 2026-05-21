@@ -6,10 +6,13 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
+use super::collection_slot_owner_transfer::collection_slot_owner_transfer_obligation;
+use super::collection_slot_owner_transfer_proof::collection_slot_owner_transfer_proof_available;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
-    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
+    CollectionSlotLifecycleSummaryEventProof, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleSummaryPlace,
 };
 use super::collection_slot_summary_return_build::collect_return_facts_from_terminator;
 use super::drop_point_path::ResourceDropPointPath;
@@ -219,10 +222,14 @@ fn collect_summary_ops_from_op(
     match op {
         ResourceOp::CollectionSlotLifecycle { target, event, .. } => {
             let target = state.raw_aliases.canonicalize_owner_cell_address(target);
-            if let Some(target) = summary_place_for_params(params, &target) {
+            if let (Some(target), Some(proof)) = (
+                summary_place_for_params(params, &target),
+                summary_event_proof(engine.types, &state.cells, &target, *event),
+            ) {
                 out.push(CollectionSlotLifecycleSummaryOp::Event {
                     target,
                     event: *event,
+                    proof,
                 });
             }
         }
@@ -421,7 +428,11 @@ fn translate_summary_ops_through_args(
 ) {
     for op in ops {
         match op {
-            CollectionSlotLifecycleSummaryOp::Event { target, event } => {
+            CollectionSlotLifecycleSummaryOp::Event {
+                target,
+                event,
+                proof,
+            } => {
                 let Some(actual) = instantiate_summary_target(engine, args, target) else {
                     continue;
                 };
@@ -430,6 +441,7 @@ fn translate_summary_ops_through_args(
                     out.push(CollectionSlotLifecycleSummaryOp::Event {
                         target,
                         event: *event,
+                        proof: *proof,
                     });
                 }
             }
@@ -501,6 +513,22 @@ fn translate_summary_ops_through_args(
                 }
             }
         }
+    }
+}
+
+fn summary_event_proof(
+    types: &TypeCtx,
+    cells: &CellTable,
+    target: &Place,
+    event: super::collection_slot_lifecycle::CollectionSlotLifecycleEvent,
+) -> Option<CollectionSlotLifecycleSummaryEventProof> {
+    let Some(obligation) = collection_slot_owner_transfer_obligation(types, event) else {
+        return Some(CollectionSlotLifecycleSummaryEventProof::StateOnly);
+    };
+    if collection_slot_owner_transfer_proof_available(cells, target, obligation, types) {
+        Some(CollectionSlotLifecycleSummaryEventProof::OwnerTransferValueFlow(obligation))
+    } else {
+        None
     }
 }
 

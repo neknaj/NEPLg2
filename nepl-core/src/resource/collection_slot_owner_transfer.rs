@@ -1,11 +1,8 @@
 use crate::types::{TypeCtx, TypeId};
 
-use super::cell_state::CellTable;
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotReplacement,
 };
-use super::model::Place;
-use super::raw_cell_value_flow::RawCellValueFlowKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CollectionSlotOwnerTransferObligation {
@@ -70,66 +67,6 @@ pub(super) fn collection_slot_owner_transfer_obligation(
         CollectionSlotLifecycleEvent::BorrowRead { .. }
         | CollectionSlotLifecycleEvent::DropInitialized { .. }
         | CollectionSlotLifecycleEvent::StorageDealloc => None,
-    }
-}
-
-pub(super) fn consume_collection_slot_owner_transfer_proof(
-    cells: &mut CellTable,
-    target: &Place,
-    obligation: CollectionSlotOwnerTransferObligation,
-    types: &TypeCtx,
-) -> bool {
-    match obligation {
-        CollectionSlotOwnerTransferObligation::StoreValue {
-            operation: _,
-            value_ty,
-        } => cells.consume_raw_cell_value_flow(
-            target,
-            value_ty,
-            RawCellValueFlowKind::StoreValue,
-            types,
-        ),
-        CollectionSlotOwnerTransferObligation::MoveOutValue {
-            operation: _,
-            value_ty,
-        } => cells.consume_raw_cell_value_flow(
-            target,
-            value_ty,
-            RawCellValueFlowKind::MoveOutLoadedCell,
-            types,
-        ),
-        CollectionSlotOwnerTransferObligation::MoveOutAndStoreValue {
-            operation: _,
-            old_ty,
-            new_ty,
-        } => {
-            let has_move = cells.raw_cell_value_flow_available(
-                target,
-                old_ty,
-                RawCellValueFlowKind::MoveOutLoadedCell,
-                types,
-            );
-            let has_store = cells.raw_cell_value_flow_available(
-                target,
-                new_ty,
-                RawCellValueFlowKind::StoreValue,
-                types,
-            );
-            if !(has_move && has_store) {
-                return false;
-            }
-            cells.consume_raw_cell_value_flow(
-                target,
-                old_ty,
-                RawCellValueFlowKind::MoveOutLoadedCell,
-                types,
-            ) && cells.consume_raw_cell_value_flow(
-                target,
-                new_ty,
-                RawCellValueFlowKind::StoreValue,
-                types,
-            )
-        }
     }
 }
 

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T02:39:57.360Z",
+  "generated_at": "2026-05-21T03:04:30.839Z",
   "counts": {
-    "total": 1154,
+    "total": 1155,
     "open": 3,
-    "resolved": 1151,
+    "resolved": 1152,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 551,
+        "total": 552,
         "open": 0,
-        "resolved": 551
+        "resolved": 552
       },
       "CORE": {
         "total": 5,
@@ -8428,6 +8428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A.md"
+    },
+    {
+      "id": "ISS-20260521T025115696Z-COLLECTION-SLOT-SUMMARIES-NEED-CERTI-92379E7C",
+      "title": "Collection slot summaries need certified owner-transfer value-flow proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_*.rs, nepl-core/src/resource/initialized_collection_slot.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T025115696Z-COLLECTION-SLOT-SUMMARIES-NEED-CERTI-92379E7C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

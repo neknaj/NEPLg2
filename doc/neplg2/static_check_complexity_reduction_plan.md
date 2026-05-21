@@ -1071,6 +1071,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260521T020307778Z-COLLECTION-SLOT-OWNER-TRANSFER-NEEDS-403A919A` は 2026-05-21 に修正した。raw memory checker が non-Copy `StoreValue` と `MoveOutLoadedCell` を `RawCellValueFlowFacts` として `CellTable` に記録し、collection slot owner-transfer obligation が local fact を消費できる場合だけ `InitializeEmpty` / `MoveOut` / `ReplaceReturnOld` / `ReplaceDropOld` の state transition を許可する。fact は branch / loop / match merge で全 path 共通のものだけを残すため、片側だけの store/load で後続 lifecycle を証明することはできない。collection slot summary replay でも branch / loop / indirect call の候補ごとに `CellTable` を clone / merge し、summary path 片側の fact が別 path に漏れないようにした。これにより positive support は stdlib function allowlist ではなく generic Resource IR の raw cell value-flow proof に進んだ。ただし callee summary を跨ぐ certified proof と compiler-owned slot-drop lowering はまだ Stage 6 残件である。
 
+`ISS-20260521T025115696Z-COLLECTION-SLOT-SUMMARIES-NEED-CERTI-92379E7C` は 2026-05-21 に修正した。`CollectionSlotLifecycleSummaryOp::Event` に `CollectionSlotLifecycleSummaryEventProof` を追加し、callee 内で raw value-flow fact から証明済みの non-Copy owner-transfer だけを `OwnerTransferValueFlow` として summary に載せる。caller replay はこの certified proof を obligation と照合し、caller 側に同じ raw fact を再要求しない。一方、proof がない non-Copy lifecycle event は summary として信用しないため、stdlib helper 名の allowlist や shallow owner transfer へ戻らない。これにより direct call を跨ぐ non-Copy slot initialize / move-out は generic Resource IR proof に接続された。compiler-owned slot-drop lowering はまだ Stage 6 残件である。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

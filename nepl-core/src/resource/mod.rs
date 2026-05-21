@@ -34,6 +34,7 @@ mod collection_slot_lifecycle;
 #[cfg(test)]
 mod collection_slot_lifecycle_tests;
 mod collection_slot_owner_transfer;
+mod collection_slot_owner_transfer_proof;
 mod collection_slot_state_merge;
 mod collection_slot_state_relocate;
 #[cfg(test)]

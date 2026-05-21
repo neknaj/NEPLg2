@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
+use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
 use super::model::PlaceProjection;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 
@@ -31,6 +32,7 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
     Event {
         target: CollectionSlotLifecycleSummaryPlace,
         event: CollectionSlotLifecycleEvent,
+        proof: CollectionSlotLifecycleSummaryEventProof,
     },
     Relocate {
         old_storage: CollectionSlotLifecycleSummaryPlace,
@@ -43,6 +45,12 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
         condition_ops: Vec<CollectionSlotLifecycleSummaryOp>,
         body_ops: Vec<CollectionSlotLifecycleSummaryOp>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecycleSummaryEventProof {
+    StateOnly,
+    OwnerTransferValueFlow(CollectionSlotOwnerTransferObligation),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

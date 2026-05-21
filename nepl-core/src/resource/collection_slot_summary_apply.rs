@@ -126,14 +126,19 @@ impl ResourceCheckEngine<'_> {
     ) {
         for op in ops {
             match op {
-                CollectionSlotLifecycleSummaryOp::Event { target, event } => {
+                CollectionSlotLifecycleSummaryOp::Event {
+                    target,
+                    event,
+                    proof,
+                } => {
                     if let Some(target) = instantiate_summary_target(self, args, target) {
-                        self.apply_collection_slot_lifecycle_with_aliases(
+                        self.apply_collection_slot_lifecycle_summary_event_with_aliases(
                             cells,
                             collection_slots,
                             raw_aliases,
                             &target,
                             *event,
+                            *proof,
                             span,
                         );
                     }

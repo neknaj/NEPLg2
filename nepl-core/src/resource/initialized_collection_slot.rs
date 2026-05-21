@@ -9,10 +9,12 @@ use super::collection_slot_lifecycle::{
     apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
     CollectionSlotLifecycleRefutation, CollectionSlotReplacement,
 };
-use super::collection_slot_owner_transfer::{
-    collection_slot_owner_transfer_obligation, consume_collection_slot_owner_transfer_proof,
+use super::collection_slot_owner_transfer::collection_slot_owner_transfer_obligation;
+use super::collection_slot_owner_transfer_proof::{
+    consume_collection_slot_owner_transfer_proof, CollectionSlotOwnerTransferProof,
 };
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
+use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryEventProof;
 use super::drop_requirement::resource_type_needs_drop_code;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -26,6 +28,25 @@ impl ResourceCheckEngine<'_> {
         collection_slots: &mut CollectionSlotStateTable,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
+        span: Span,
+    ) {
+        self.apply_collection_slot_lifecycle_with_owner_transfer_proof(
+            cells,
+            collection_slots,
+            target,
+            event,
+            CollectionSlotOwnerTransferProof::LocalRawValueFlow,
+            span,
+        );
+    }
+
+    fn apply_collection_slot_lifecycle_with_owner_transfer_proof(
+        &mut self,
+        cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
+        target: &Place,
+        event: CollectionSlotLifecycleEvent,
+        owner_transfer_proof: CollectionSlotOwnerTransferProof,
         span: Span,
     ) {
         let result = match event {
@@ -44,6 +65,7 @@ impl ResourceCheckEngine<'_> {
                         collection_slots,
                         target,
                         event,
+                        owner_transfer_proof,
                     )
                 })
                 .and_then(|()| collection_slots.apply_slot_event(target, event).map(|_| ())),
@@ -70,6 +92,35 @@ impl ResourceCheckEngine<'_> {
     ) {
         let target = raw_aliases.canonicalize_owner_cell_address(target);
         self.apply_collection_slot_lifecycle(cells, collection_slots, &target, event, span);
+    }
+
+    pub(super) fn apply_collection_slot_lifecycle_summary_event_with_aliases(
+        &mut self,
+        cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        target: &Place,
+        event: CollectionSlotLifecycleEvent,
+        proof: CollectionSlotLifecycleSummaryEventProof,
+        span: Span,
+    ) {
+        let target = raw_aliases.canonicalize_owner_cell_address(target);
+        let owner_transfer_proof = match proof {
+            CollectionSlotLifecycleSummaryEventProof::StateOnly => {
+                CollectionSlotOwnerTransferProof::SummaryStateOnly
+            }
+            CollectionSlotLifecycleSummaryEventProof::OwnerTransferValueFlow(obligation) => {
+                CollectionSlotOwnerTransferProof::SummaryCertified(obligation)
+            }
+        };
+        self.apply_collection_slot_lifecycle_with_owner_transfer_proof(
+            cells,
+            collection_slots,
+            &target,
+            event,
+            owner_transfer_proof,
+            span,
+        );
     }
 
     pub(super) fn apply_collection_storage_relocate(
@@ -138,6 +189,7 @@ impl ResourceCheckEngine<'_> {
         collection_slots: &CollectionSlotStateTable,
         target: &Place,
         event: CollectionSlotLifecycleEvent,
+        proof: CollectionSlotOwnerTransferProof,
     ) -> Result<(), CollectionSlotTableRefutation> {
         let Some(obligation) = collection_slot_owner_transfer_obligation(self.types, event) else {
             return Ok(());
@@ -149,7 +201,9 @@ impl ResourceCheckEngine<'_> {
                 reason,
             }
         })?;
-        if consume_collection_slot_owner_transfer_proof(cells, target, obligation, self.types) {
+        if consume_collection_slot_owner_transfer_proof(
+            cells, target, obligation, proof, self.types,
+        ) {
             Ok(())
         } else {
             let (operation, slot_ty) = obligation.primary_refutation();
