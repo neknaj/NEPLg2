@@ -1,3 +1,13 @@
+# 2026-05-21 Agent 1 collection slot drop traversal anchor typecheck
+
+- `ISS-20260521T131208972Z-COLLECTION-SLOT-DROP-TRAVERSAL-DOES--96E42080` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`collection_slot_drop_traversal<T>` が offset を持たない storage-level primitive として扱われ、owner token anchor は要求していたが、`T` と `RegionToken<T>` の element type 一致を typecheck 境界で検査していなかったことだった。
+- `validate_collection_slot_lifecycle_intrinsic` は `DropTraversal` でも owner token element type と intrinsic type args を照合するようにした。`StorageDealloc` は type arg を持たないため従来どおり owner token anchor のみを検査する。
+- 回帰として、`collection_slot_drop_traversal<i32>(RegionToken<i32>)` は通し、`collection_slot_drop_traversal<u8>(RegionToken<i32>)` は `IntrinsicArgTypeMismatch` で拒否する source-level tests を追加した。
+- 検証:
+  - `cargo test -p nepl-core --test effects collection_slot_drop_traversal -- --test-threads=1`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+
 # 2026-05-21 Agent 1 collection slot return value never producer filter
 
 - `ISS-20260521T104926514Z-COLLECTION-SLOT-RETURN-VALUE-PRODUCE-51DC87E9` を追加して fixed にした。`plan.md` は変更していない。

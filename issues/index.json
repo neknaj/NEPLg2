@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T12:33:07.725Z",
+  "generated_at": "2026-05-21T13:14:35.422Z",
   "counts": {
-    "total": 1183,
+    "total": 1184,
     "open": 3,
-    "resolved": 1180,
+    "resolved": 1181,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -47,9 +47,9 @@
         "resolved": 4
       },
       "compiler": {
-        "total": 11,
+        "total": 12,
         "open": 0,
-        "resolved": 11
+        "resolved": 12
       },
       "compiler/resource-ir": {
         "total": 5,
@@ -1168,6 +1168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T114146610Z-COLLECTION-SLOT-DROP-TRAVERSAL-NEEDS-60837C0B.md"
+    },
+    {
+      "id": "ISS-20260521T131208972Z-COLLECTION-SLOT-DROP-TRAVERSAL-DOES--96E42080",
+      "title": "Collection slot drop traversal does not check owner token element type",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/typecheck/prefix_check.rs, nepl-core/tests/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T131208972Z-COLLECTION-SLOT-DROP-TRAVERSAL-DOES--96E42080.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",

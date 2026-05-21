@@ -214,11 +214,11 @@ impl<'a> BlockChecker<'a> {
                     if !primitive.has_slot_offset() && !anchor_kind.is_owner_token() {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::IntrinsicArgTypeMismatch,
-                            "collection slot lifecycle storage dealloc target must be a compiler owner token",
+                            "collection slot storage lifecycle target must be a compiler owner token",
                             anchor.span,
                         ));
                     }
-                    if primitive.has_slot_offset() {
+                    if primitive.has_slot_offset() || primitive.requires_storage_drop_traversal() {
                         self.validate_collection_slot_lifecycle_anchor_value_type(
                             anchor_kind,
                             type_args,

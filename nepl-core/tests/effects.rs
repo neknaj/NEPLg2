@@ -810,6 +810,54 @@ fn helper <(RegionToken<i32>,RegionToken<u8>)->()> (old, new):
 }
 
 #[test]
+fn collection_slot_drop_traversal_accepts_matching_owner_token_type() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(RegionToken<i32>)->()> (storage):
+    #intrinsic "collection_slot_drop_traversal" <i32> (storage)
+"#;
+
+    check_source_with_canonical_mem_types(
+        src,
+        "alloc/collections/vec/slot_boundary.nepl",
+        CompileTarget::Wasm,
+    )
+    .expect("drop traversal with matching owner token element type is allowed");
+}
+
+#[test]
+fn collection_slot_drop_traversal_rejects_mismatched_owner_token_type() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(RegionToken<i32>)->()> (storage):
+    #intrinsic "collection_slot_drop_traversal" <u8> (storage)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
 fn pure_llvm_raw_comment_with_impure_marker_is_allowed() {
     let src = r#"
 #entry main
