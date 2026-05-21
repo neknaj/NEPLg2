@@ -36,6 +36,8 @@ pub struct ResourceCoverageCounts {
     pub indirect_calls: usize,
     pub function_values: usize,
     pub raw_memory_ops: usize,
+    pub collection_slot_lifecycle_ops: usize,
+    pub collection_storage_relocates: usize,
     pub constructs: usize,
     pub declares: usize,
     pub reads: usize,
@@ -171,6 +173,22 @@ fn push_count_diagnostics(
         ResourceCoverageKind::RawMemory,
         hir.raw_memory_ops,
         resource.raw_memory_ops,
+        span,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::CollectionSlotLifecycle,
+        hir.collection_slot_lifecycle_ops,
+        resource.collection_slot_lifecycle_ops,
+        span,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::CollectionStorageRelocate,
+        hir.collection_storage_relocates,
+        resource.collection_storage_relocates,
         span,
         diagnostics,
     );

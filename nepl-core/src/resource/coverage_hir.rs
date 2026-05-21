@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
+use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
 use crate::types::TypeCtx;
 
 use super::coverage::ResourceCoverageCounts;
@@ -216,6 +217,14 @@ impl HirCoverageContext<'_> {
                     .is_some()
                 {
                     counts.raw_memory_ops += 1;
+                }
+                if let Some(primitive) = CollectionSlotLifecyclePrimitive::from_intrinsic_name(name)
+                {
+                    if primitive.requires_storage_pair() {
+                        counts.collection_storage_relocates += 1;
+                    } else {
+                        counts.collection_slot_lifecycle_ops += 1;
+                    }
                 }
                 for arg in args {
                     self.hir_expr_coverage(arg, counts, types, string_literals);

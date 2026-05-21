@@ -44152,3 +44152,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_symbolic -- --test-threads=1`: passed
   - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: passed
   - `cargo test -p nepl-core raw_cell_value_flow -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot lowering coverage gate
+
+- `ISS-20260521T062752580Z-COLLECTION-SLOT-LIFECYCLE-LOWERING-I-653BBF1A` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、Resource lowering coverage が collection slot lifecycle の target place は検査していた一方で、`ResourceOp::CollectionSlotLifecycle` / `ResourceOp::CollectionStorageRelocate` という proof producer 自体を count していなかったことだった。
+- `ResourceCoverageCounts` と `ResourceCoverageKind` に collection slot lifecycle / storage relocate の count を追加した。HIR 側は `CollectionSlotLifecyclePrimitive` enum で intrinsic を分類し、Resource IR 側は対応する `ResourceOp` を直接 count する。
+- `resource_ir_lowering_coverage_guards_collection_slot_lifecycle` を追加し、source-level compiler-owned stdlib lowering から lifecycle op または relocate op を削ると `CountMismatch` になることを固定した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_collection_slot_lifecycle -- --test-threads=1`: passed
+  - `cargo test -p nepl-core coverage -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed

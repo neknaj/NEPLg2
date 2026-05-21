@@ -4,6 +4,8 @@ pub enum ResourceCoverageKind {
     IndirectCall,
     FunctionValue,
     RawMemory,
+    CollectionSlotLifecycle,
+    CollectionStorageRelocate,
     Construct,
     Declare,
     Read,

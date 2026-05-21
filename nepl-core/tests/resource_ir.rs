@@ -723,6 +723,91 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
 }
 
 #[test]
+fn resource_ir_lowering_coverage_guards_collection_slot_lifecycle() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn lifecycle_and_relocate <(&RegionToken<LocalOwner>,&RegionToken<LocalOwner>,i32)->()> (old_storage, new_storage, off):
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (old_storage, off)
+    #intrinsic "collection_slot_storage_relocate" <> (old_storage, new_storage)
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/coverage_slot_lifecycle.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let coverage = compare_hir_resource_lowering_typed(&module, &resource, &types);
+    assert_eq!(coverage.diagnostics, vec![]);
+
+    let mut without_lifecycle = resource.clone();
+    for function in &mut without_lifecycle.functions {
+        for block in &mut function.blocks {
+            block
+                .ops
+                .retain(|op| !matches!(op, ResourceOp::CollectionSlotLifecycle { .. }));
+        }
+    }
+    let lifecycle_coverage =
+        compare_hir_resource_lowering_typed(&module, &without_lifecycle, &types);
+    assert!(
+        lifecycle_coverage
+            .diagnostics
+            .iter()
+            .any(|diagnostic| matches!(
+                diagnostic,
+                ResourceCoverageDiagnostic::CountMismatch {
+                    function,
+                    kind: ResourceCoverageKind::CollectionSlotLifecycle,
+                    hir: 1,
+                    resource: 0,
+                    ..
+                } if function.starts_with("lifecycle_and_relocate__")
+            )),
+        "coverage must report a missing collection slot lifecycle producer: {:#?}",
+        lifecycle_coverage.diagnostics
+    );
+
+    let mut without_relocate = resource;
+    for function in &mut without_relocate.functions {
+        for block in &mut function.blocks {
+            block
+                .ops
+                .retain(|op| !matches!(op, ResourceOp::CollectionStorageRelocate { .. }));
+        }
+    }
+    let relocate_coverage = compare_hir_resource_lowering_typed(&module, &without_relocate, &types);
+    assert!(
+        relocate_coverage
+            .diagnostics
+            .iter()
+            .any(|diagnostic| matches!(
+                diagnostic,
+                ResourceCoverageDiagnostic::CountMismatch {
+                    function,
+                    kind: ResourceCoverageKind::CollectionStorageRelocate,
+                    hir: 1,
+                    resource: 0,
+                    ..
+                } if function.starts_with("lifecycle_and_relocate__")
+            )),
+        "coverage must report a missing collection storage relocate producer: {:#?}",
+        relocate_coverage.diagnostics
+    );
+}
+
+#[test]
 fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
     let ref_ty = TypeId(0);
     let i32_ty = TypeId(1);

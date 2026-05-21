@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T06:17:38.948Z",
+  "generated_at": "2026-05-21T06:34:33.561Z",
   "counts": {
-    "total": 1163,
+    "total": 1164,
     "open": 3,
-    "resolved": 1160,
+    "resolved": 1161,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 558,
+        "total": 559,
         "open": 0,
-        "resolved": 558
+        "resolved": 559
       },
       "CORE": {
         "total": 5,
@@ -8563,6 +8563,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T055400560Z-SOURCE-LEVEL-COLLECTION-SLOT-PROOF-L-B5FB8CDA.md"
+    },
+    {
+      "id": "ISS-20260521T062752580Z-COLLECTION-SLOT-LIFECYCLE-LOWERING-I-653BBF1A",
+      "title": "Collection slot lifecycle lowering is not counted by coverage gate",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/coverage*.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T062752580Z-COLLECTION-SLOT-LIFECYCLE-LOWERING-I-653BBF1A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

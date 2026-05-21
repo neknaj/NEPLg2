@@ -478,6 +478,7 @@ fn resource_ops_coverage(
                 );
             }
             ResourceOp::CollectionSlotLifecycle { target, span, .. } => {
+                counts.collection_slot_lifecycle_ops += 1;
                 resource_alias_place_coverage(
                     function,
                     CoveragePlaceOp::CollectionSlotLifecycleTarget,
@@ -492,6 +493,7 @@ fn resource_ops_coverage(
                 new_storage,
                 span,
             } => {
+                counts.collection_storage_relocates += 1;
                 resource_alias_place_coverage(
                     function,
                     CoveragePlaceOp::CollectionStorageRelocateOld,
