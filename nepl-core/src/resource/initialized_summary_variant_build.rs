@@ -65,6 +65,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
+        path_alternatives: Default::default(),
     };
     let mut cells = CellTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
@@ -175,6 +176,7 @@ fn collect_branch_variant_param_initialized_raw_cells(
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
+        path_alternatives: Default::default(),
     };
     let mut path_cells = cells.clone();
     let mut path_collection_slots = CollectionSlotStateTable::new();

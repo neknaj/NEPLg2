@@ -18,6 +18,7 @@ use super::initialized_alias_flow::{
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummaryIndex,
 };
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
+use super::initialized_path_state::{merge_path_alternatives_into, ResourcePathAlternatives};
 use super::initialized_scalar_flow::{
     compute_i32_scalar_return_summaries, I32ScalarReturnSummaryIndex,
 };
@@ -90,6 +91,7 @@ pub fn check_resource_initialized_moves(
             diagnostics: Vec::new(),
             auto_drop_points: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
+            path_alternatives: ResourcePathAlternatives::default(),
         };
         let (final_cells, final_collection_slots) = engine.check_function(function);
         merge_deferred(&mut deferred, engine.deferred);
@@ -121,6 +123,7 @@ pub(super) struct ResourceCheckEngine<'a> {
     pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
     pub(super) auto_drop_points: Vec<ResourceDropPoint>,
     pub(super) deferred: ResourceCheckDeferred,
+    pub(super) path_alternatives: ResourcePathAlternatives,
 }
 
 impl ResourceCheckEngine<'_> {
@@ -204,20 +207,38 @@ impl ResourceCheckEngine<'_> {
         path: ResourceDropPointPath,
     ) {
         for (index, op) in ops.iter().enumerate() {
-            self.check_op(
-                cells,
-                collection_slots,
-                raw_aliases,
-                function_aliases,
-                pending_reallocs,
-                variant_initializations,
-                op,
-                path.clone().with_step(ResourceDropPointStep::Op { index }),
-            );
+            let incoming_path_alternatives = core::mem::take(&mut self.path_alternatives);
+            let op_path = path.clone().with_step(ResourceDropPointStep::Op { index });
+            match incoming_path_alternatives {
+                ResourcePathAlternatives::None => self.check_op(
+                    cells,
+                    collection_slots,
+                    raw_aliases,
+                    function_aliases,
+                    pending_reallocs,
+                    variant_initializations,
+                    op,
+                    op_path,
+                ),
+                ResourcePathAlternatives::Feasible(alternatives) => {
+                    let advanced =
+                        self.advance_path_alternatives_after_op(&alternatives, op, op_path);
+                    merge_path_alternatives_into(
+                        &advanced,
+                        cells,
+                        collection_slots,
+                        raw_aliases,
+                        function_aliases,
+                        pending_reallocs,
+                        variant_initializations,
+                    );
+                    self.path_alternatives = ResourcePathAlternatives::from_states(advanced);
+                }
+            }
         }
     }
 
-    fn check_op(
+    pub(super) fn check_op(
         &mut self,
         cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,

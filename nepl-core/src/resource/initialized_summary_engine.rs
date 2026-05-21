@@ -18,5 +18,6 @@ pub(super) fn summary_check_engine<'a>(
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
+        path_alternatives: Default::default(),
     }
 }

@@ -397,6 +397,7 @@ fn with_engine(types: &TypeCtx, run: impl FnOnce(&mut ResourceCheckEngine<'_>)) 
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
+        path_alternatives: Default::default(),
     };
     run(&mut engine);
 }

@@ -117,6 +117,7 @@ fn function_raw_cell_initialization_summary(
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
+        path_alternatives: Default::default(),
     };
     let mut cells = CellTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();

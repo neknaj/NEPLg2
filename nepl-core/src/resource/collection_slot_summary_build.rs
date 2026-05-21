@@ -96,6 +96,7 @@ fn function_collection_slot_lifecycle_summary(
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
+        path_alternatives: Default::default(),
     };
     let mut state = CollectionSlotSummaryBuildState::new(types, function);
     let mut ops = Vec::new();

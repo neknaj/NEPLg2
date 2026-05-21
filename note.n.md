@@ -44266,3 +44266,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review とローカル確認により、branch / match join 後の indirect call summary replay が `FunctionAliasTable`、raw alias、cell、collection slot、pending realloc、variant initialization を独立に merge し、実行不能な callee/state cross product を作り得ることを確認した。
 - 直接の故障モードは false positive だが、memory-safety proof summary の根本設計としては path-correlated `ResourceCheckState` / `ResourcePathState` を導入し、indirect call summary replay を feasible path ごとに行う必要がある。
 - この issue は open のまま残し、次の静的検査大規模修正の大きな設計単位として扱う。
+
+## 2026-05-21 Agent 1 collection slot path-correlated ResourceCheckState
+
+- `ISS-20260521T082640712Z-COLLECTION-SLOT-INDIRECT-CALL-SUMMAR-6AB52846` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、branch / match join が `FunctionAliasTable`、raw alias、cell、collection slot、pending realloc、variant initialization を独立に merge し、その後の indirect call summary replay が callee alias と raw/slot state の実行不能な組み合わせを検査していたことだった。
+- `ResourceCheckState` と `ResourcePathAlternatives` enum を追加し、Resource IR checker が feasible path alternatives を保持できるようにした。alternatives がある場合、`check_ops` は merged state を診断元にせず、各 path に op を適用してから merge する。
+- branch / match は nested alternatives を各 arm 内に閉じ込め、branch value / match value の consume、raw alias rekey、collection slot transfer、function alias、pending realloc、variant initialization を path ごとに反映してから merge する。
+- loop 内で発生した alternatives は既存の conservative loop merge に閉じ込め、body 内の path state が loop 後へ漏れないようにした。
+- `resource_ir_collection_slot_indirect_return_summary_preserves_path_correlation` を追加し、一方の branch だけに live slot があり、もう一方の branch だけに identity callee がある場合に、indirect call result の storage dealloc が false positive を出さないことを固定した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_indirect_return_summary_preserves_path_correlation -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_indirect_call_summary_applies_function_alias -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_branch_path_alternatives_do_not_keep_invalid_output_initialized -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_indirect -- --test-threads=1`: passed

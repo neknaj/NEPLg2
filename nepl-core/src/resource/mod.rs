@@ -202,6 +202,7 @@ mod initialized_external_io_iov;
 mod initialized_external_io_payload;
 mod initialized_external_seed;
 mod initialized_host_dependent;
+mod initialized_path_state;
 mod initialized_raw_fill;
 mod initialized_raw_memory;
 mod initialized_raw_memory_access;
