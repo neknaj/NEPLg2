@@ -44474,3 +44474,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-21 Agent 1 symbolic collection slot range proof boundary
+
+- `ISS-20260521T145809160Z-SYMBOLIC-COLLECTION-SLOT-DROP-TRAVER-3D619183` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotDropTraversal` と `StorageDealloc` が `ResourceOffset::Symbolic` / `ScaledSymbolic` / `Unknown` を explicit finite slot と同じように扱い、dynamic `initialized_len` 全体の forall/range proof がないまま cleanup / release proof にできたこと。
+- `slot_requires_range_proof` を追加し、storage prefix 配下の symbolic / unknown offset slot を typed range proof 必須として分類した。
+- `CollectionSlotDropTraversal` は symbolic initialized slot を `RangeProofRequired { operation: DropTraversal }` で拒否し、`StorageDealloc` は symbolic moved / dropped / initialized slot を `RangeProofRequired { operation: StorageDealloc }` で拒否する。正の dynamic range proof は `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の残件として扱う。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_drop_traversal -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

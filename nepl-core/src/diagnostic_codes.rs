@@ -208,6 +208,7 @@ pub enum ResourceCollectionSlotDiagnosticCode {
     DropRequiresElaboration,
     StorageRelocateRequiresRawMoveProof,
     StorageDeallocRequiresRawReleaseProof,
+    RangeProofRequired,
     LiveSlotDuringStorageDealloc,
     MaybeLiveSlotDuringStorageDealloc,
 }
@@ -478,6 +479,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::StorageDeallocRequiresRawReleaseProof,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::RangeProofRequired,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc,
@@ -1215,6 +1219,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             ResourceCollectionSlotDiagnosticCode::StorageDeallocRequiresRawReleaseProof => {
                 "resource.collection_slot.storage_dealloc_requires_raw_release_proof"
             }
+            ResourceCollectionSlotDiagnosticCode::RangeProofRequired => {
+                "resource.collection_slot.range_proof_required"
+            }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "resource.collection_slot.live_during_storage_dealloc"
             }
@@ -1249,6 +1256,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             }
             ResourceCollectionSlotDiagnosticCode::StorageDeallocRequiresRawReleaseProof => {
                 "collection storage deallocation requires raw storage release proof"
+            }
+            ResourceCollectionSlotDiagnosticCode::RangeProofRequired => {
+                "collection slot operation over symbolic storage requires a typed range proof"
             }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "cannot deallocate storage while a collection slot is still live"

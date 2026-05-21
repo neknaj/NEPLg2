@@ -32,6 +32,9 @@ pub(super) fn resource_collection_slot_refutation_diagnostic_code(
         CollectionSlotLifecycleRefutation::StorageDeallocRequiresRawReleaseProof { .. } => {
             ResourceCollectionSlotDiagnosticCode::StorageDeallocRequiresRawReleaseProof
         }
+        CollectionSlotLifecycleRefutation::RangeProofRequired { .. } => {
+            ResourceCollectionSlotDiagnosticCode::RangeProofRequired
+        }
         CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc { .. } => {
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc
         }

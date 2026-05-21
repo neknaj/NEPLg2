@@ -9,10 +9,11 @@ use crate::types::TypeId;
 use super::cell_state::{raw_cell_address_prefix, CellTable};
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
 use super::collection_slot_lifecycle::{
-    CollectionSlotLifecycleEvent, CollectionSlotLifecycleRefutation, CollectionSlotState,
+    CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
+    CollectionSlotState,
 };
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
-use super::collection_slot_state_identity::place_covers_slot;
+use super::collection_slot_state_identity::{place_covers_slot, slot_requires_range_proof};
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -81,7 +82,16 @@ impl ResourceCheckEngine<'_> {
         let drop_proof = CollectionSlotDropProof::LocalLoadedValueDrop;
         for (slot, state) in slots {
             match state {
-                CollectionSlotState::Initialized(_) => {
+                CollectionSlotState::Initialized(slot_ty) => {
+                    if slot_requires_range_proof(&slot, storage) {
+                        return Err(CollectionSlotTableRefutation {
+                            slot,
+                            reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                                operation: CollectionSlotLifecycleOp::DropTraversal,
+                                slot_ty: Some(slot_ty),
+                            },
+                        });
+                    }
                     self.drop_collection_slot_in_traversal(
                         &mut committed_cells,
                         &mut committed_slots,

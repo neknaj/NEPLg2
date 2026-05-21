@@ -1,7 +1,7 @@
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
-use super::collection_slot_state_identity::place_covers_slot;
+use super::collection_slot_state_identity::{place_covers_slot, slot_requires_range_proof};
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::model::Place;
 use super::place_utils::{push_unique_place, should_track};
@@ -59,6 +59,15 @@ impl CollectionSlotStateTable {
             .iter()
             .filter(|entry| place_covers_slot(&entry.slot, storage))
         {
+            if slot_requires_range_proof(&entry.slot, storage) {
+                return Err(CollectionSlotTableRefutation {
+                    slot: entry.slot.clone(),
+                    reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                        operation: CollectionSlotLifecycleOp::StorageDealloc,
+                        slot_ty: collection_slot_state_type(entry.state),
+                    },
+                });
+            }
             storage_release_slot_precondition(entry.state).map_err(|reason| {
                 CollectionSlotTableRefutation {
                     slot: entry.slot.clone(),
@@ -79,6 +88,18 @@ impl CollectionSlotStateTable {
         self.maybe_released_storage
             .iter()
             .any(|storage| place_covers_slot(slot, storage))
+    }
+}
+
+fn collection_slot_state_type(state: CollectionSlotState) -> Option<crate::types::TypeId> {
+    match state {
+        CollectionSlotState::Initialized(slot_ty)
+        | CollectionSlotState::Moved(slot_ty)
+        | CollectionSlotState::Dropped(slot_ty) => Some(slot_ty),
+        CollectionSlotState::MaybeInitialized(slot_ty) => slot_ty,
+        CollectionSlotState::Uninitialized
+        | CollectionSlotState::Released
+        | CollectionSlotState::MaybeReleased => None,
     }
 }
 

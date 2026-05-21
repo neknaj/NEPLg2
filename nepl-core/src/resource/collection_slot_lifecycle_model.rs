@@ -81,6 +81,10 @@ pub enum CollectionSlotLifecycleRefutation {
     StorageDeallocRequiresRawReleaseProof {
         operation: CollectionSlotLifecycleOp,
     },
+    RangeProofRequired {
+        operation: CollectionSlotLifecycleOp,
+        slot_ty: Option<TypeId>,
+    },
     LiveSlotDuringStorageDealloc {
         slot_ty: TypeId,
     },

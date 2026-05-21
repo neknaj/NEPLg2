@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T14:46:41.613Z",
+  "generated_at": "2026-05-21T15:08:51.319Z",
   "counts": {
-    "total": 1190,
+    "total": 1191,
     "open": 3,
-    "resolved": 1187,
+    "resolved": 1188,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 577,
+        "total": 578,
         "open": 0,
-        "resolved": 577
+        "resolved": 578
       },
       "CORE": {
         "total": 5,
@@ -8943,6 +8943,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T133925178Z-COLLECTION-SLOT-OWNER-TOKEN-INTRINSI-79B2D12D.md"
+    },
+    {
+      "id": "ISS-20260521T145809160Z-SYMBOLIC-COLLECTION-SLOT-DROP-TRAVER-3D619183",
+      "title": "Symbolic collection slot drop traversal can certify storage cleanup without range proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_drop_traversal.rs, nepl-core/src/resource/collection_slot_state_release.rs, nepl-core/src/resource/collection_slot_state_identity.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T145809160Z-SYMBOLIC-COLLECTION-SLOT-DROP-TRAVER-3D619183.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

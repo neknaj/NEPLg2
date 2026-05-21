@@ -24961,6 +24961,157 @@ fn resource_ir_collection_slot_drop_traversal_accepts_all_loaded_value_drops() {
 }
 
 #[test]
+fn resource_ir_collection_slot_drop_traversal_rejects_symbolic_slot_without_range_proof() {
+    let (types, owned_ty) = types_with_droppable_owned();
+    let i32_ty = types.i32();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), i32_ty);
+    let index = Place::local("i".to_string(), i32_ty);
+    let slot_address = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
+            place: Box::new(index),
+            scale: 8,
+        }),
+        i32_ty,
+    );
+    let slot = slot_address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let initial = Place::temporary(ResourceId(789), owned_ty);
+    let loaded = Place::temporary(ResourceId(790), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: initial.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(791), unit_ty),
+                args: vec![slot_address.clone(), initial],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded.clone(),
+                args: vec![slot_address],
+                span,
+            },
+            ResourceOp::Drop {
+                place: loaded,
+                span,
+            },
+            ResourceOp::CollectionSlotDropTraversal {
+                storage,
+                expected_ty: owned_ty,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot.clone(),
+            reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                operation: CollectionSlotLifecycleOp::DropTraversal,
+                slot_ty: Some(owned_ty),
+            },
+            span,
+        }]
+    );
+    assert!(report.functions[0].final_collection_slots.iter().any(
+        |entry| entry.slot == slot && entry.state == CollectionSlotState::Initialized(owned_ty)
+    ));
+}
+
+#[test]
+fn resource_ir_collection_storage_dealloc_rejects_moved_symbolic_slot_without_range_proof() {
+    let (types, owned_ty) = types_with_copy_owned();
+    let i32_ty = types.i32();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), i32_ty);
+    let index = Place::local("i".to_string(), i32_ty);
+    let slot = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
+            place: Box::new(index),
+            scale: 8,
+        }),
+        owned_ty,
+    );
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(792), unit_ty),
+                args: vec![storage.clone()],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: storage,
+                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot,
+            reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                operation: CollectionSlotLifecycleOp::StorageDealloc,
+                slot_ty: Some(owned_ty),
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_drop_traversal_summary_rejects_marker_only_cleanup() {
     let (mut types, owned_ty) = types_with_droppable_owned();
     let i32_ty = types.i32();
