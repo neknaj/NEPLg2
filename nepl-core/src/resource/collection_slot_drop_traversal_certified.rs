@@ -1,9 +1,11 @@
 extern crate alloc;
 
+use crate::layout::storage_size_bytes;
 use crate::span::Span;
 use crate::types::TypeId;
 
 use super::cell_state::CellTable;
+use super::collection_slot_drop_proof::CollectionSlotDropProof;
 use super::collection_slot_drop_traversal_range::collection_slot_offset_is_inside_initialized_count;
 use super::collection_slot_drop_traversal_summary_proof::summary_certified_drop_traversal_proof;
 use super::collection_slot_lifecycle::{
@@ -11,6 +13,7 @@ use super::collection_slot_lifecycle::{
 };
 use super::collection_slot_state_identity::{place_covers_slot, slot_requires_range_proof};
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
+use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
@@ -38,6 +41,39 @@ impl ResourceCheckEngine<'_> {
             &initialized_count,
             expected_ty,
             certified_slots,
+        );
+        if let Err(refutation) = result {
+            self.diagnostics
+                .push(ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: self.function.into(),
+                    target: refutation.slot,
+                    reason: refutation.reason,
+                    span,
+                });
+        }
+    }
+
+    pub(super) fn apply_certified_collection_slot_drop_traversal_range_with_aliases(
+        &mut self,
+        cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        storage: &Place,
+        initialized_count: &Place,
+        expected_ty: TypeId,
+        certificate: CollectionSlotInitializedRangeDropTraversalCertificate,
+        span: Span,
+    ) {
+        let storage = raw_aliases.canonicalize_owner_cell_address(storage);
+        let initialized_count = raw_aliases.canonicalize_scalar(initialized_count);
+        let result = self.certified_collection_slot_drop_traversal_range_result(
+            cells,
+            collection_slots,
+            raw_aliases,
+            &storage,
+            &initialized_count,
+            expected_ty,
+            certificate,
         );
         if let Err(refutation) = result {
             self.diagnostics
@@ -106,5 +142,35 @@ impl ResourceCheckEngine<'_> {
         *cells = committed_cells;
         *collection_slots = committed_slots;
         Ok(())
+    }
+
+    fn certified_collection_slot_drop_traversal_range_result(
+        &self,
+        cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        storage: &Place,
+        initialized_count: &Place,
+        expected_ty: TypeId,
+        certificate: CollectionSlotInitializedRangeDropTraversalCertificate,
+    ) -> Result<(), CollectionSlotTableRefutation> {
+        if certificate.element_stride != storage_size_bytes(self.types, expected_ty) {
+            return Err(CollectionSlotTableRefutation {
+                slot: storage.clone(),
+                reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                    operation: CollectionSlotLifecycleOp::DropTraversal,
+                    slot_ty: Some(expected_ty),
+                },
+            });
+        }
+        self.collection_slot_drop_traversal_result_with_drop_proof(
+            cells,
+            collection_slots,
+            raw_aliases,
+            storage,
+            initialized_count,
+            expected_ty,
+            CollectionSlotDropProof::SummaryCertified(certificate.drop_obligation),
+        )
     }
 }

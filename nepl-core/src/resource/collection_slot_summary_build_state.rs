@@ -1,7 +1,12 @@
+extern crate alloc;
+
+use alloc::vec::Vec;
+
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
+use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary_seed::seed_summary_input_place;
@@ -18,6 +23,16 @@ pub(super) struct CollectionSlotSummaryBuildState {
     pub(super) function_aliases: FunctionAliasTable,
     pub(super) pending_reallocs: PendingRawReallocs,
     pub(super) variant_initializations: PendingVariantRawCellInitializations,
+    pub(super) drop_traversal_range_certificates:
+        Vec<CollectionSlotDropTraversalRangeCertificateCandidate>,
+}
+
+#[derive(Clone)]
+pub(super) struct CollectionSlotDropTraversalRangeCertificateCandidate {
+    pub(super) storage: super::model::Place,
+    pub(super) initialized_count: super::model::Place,
+    pub(super) expected_ty: TypeId,
+    pub(super) certificate: CollectionSlotInitializedRangeDropTraversalCertificate,
 }
 
 impl CollectionSlotSummaryBuildState {
@@ -38,6 +53,7 @@ impl CollectionSlotSummaryBuildState {
             function_aliases: FunctionAliasTable::default(),
             pending_reallocs: PendingRawReallocs::default(),
             variant_initializations: PendingVariantRawCellInitializations::default(),
+            drop_traversal_range_certificates: Vec::new(),
         }
     }
 }

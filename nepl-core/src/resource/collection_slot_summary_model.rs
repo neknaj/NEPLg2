@@ -48,7 +48,7 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
         storage: CollectionSlotLifecycleSummaryPlace,
         initialized_count: CollectionSlotLifecycleSummaryPlace,
         expected_ty: TypeId,
-        certified_slots: Vec<CollectionSlotLifecycleSummaryPlace>,
+        coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage,
     },
     Merge {
         paths: Vec<Vec<CollectionSlotLifecycleSummaryOp>>,
@@ -57,6 +57,18 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
         condition_ops: Vec<CollectionSlotLifecycleSummaryOp>,
         body_ops: Vec<CollectionSlotLifecycleSummaryOp>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecycleSummaryDropTraversalCoverage {
+    CertifiedSlots(Vec<CollectionSlotLifecycleSummaryPlace>),
+    ForallInitializedRange(CollectionSlotInitializedRangeDropTraversalCertificate),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct CollectionSlotInitializedRangeDropTraversalCertificate {
+    pub(super) element_stride: usize,
+    pub(super) drop_obligation: CollectionSlotDropObligation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -45,6 +45,7 @@ fn empty_summary_state() -> CollectionSlotSummaryBuildState {
         function_aliases: FunctionAliasTable::default(),
         pending_reallocs: PendingRawReallocs::default(),
         variant_initializations: PendingVariantRawCellInitializations::default(),
+        drop_traversal_range_certificates: Vec::new(),
     }
 }
 

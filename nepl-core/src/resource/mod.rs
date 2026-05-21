@@ -76,6 +76,11 @@ mod collection_slot_summary_build_nested;
 mod collection_slot_summary_build_ops;
 #[cfg(test)]
 mod collection_slot_summary_build_ops_tests;
+mod collection_slot_summary_build_range_certificate;
+#[cfg(test)]
+mod collection_slot_summary_build_range_certificate_tests;
+mod collection_slot_summary_build_range_step;
+mod collection_slot_summary_build_range_witness;
 mod collection_slot_summary_build_state;
 mod collection_slot_summary_event_apply_proof;
 mod collection_slot_summary_event_proof;
@@ -84,6 +89,8 @@ mod collection_slot_summary_model;
 mod collection_slot_summary_projection;
 mod collection_slot_summary_replay;
 mod collection_slot_summary_replay_drop_traversal;
+#[cfg(test)]
+mod collection_slot_summary_replay_range_certificate_tests;
 mod collection_slot_summary_return;
 mod collection_slot_summary_return_build;
 mod collection_slot_summary_return_call;

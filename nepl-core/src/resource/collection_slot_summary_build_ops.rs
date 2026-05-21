@@ -10,6 +10,7 @@ use super::collection_slot_summary_build_nested::{
     collect_nested_summary_ops_from_state, collect_nested_summary_ops_with_condition,
     collect_nested_summary_path, push_merge_summary,
 };
+use super::collection_slot_summary_build_range_certificate::loop_drop_traversal_range_certificates;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::{
@@ -34,6 +35,24 @@ pub(super) fn collect_summary_ops_from_ops(
 ) {
     for op in ops {
         collect_summary_ops_from_op(out, engine, state, params, collection_slot_summaries, op);
+        if let ResourceOp::Loop {
+            condition_ops,
+            condition_fact,
+            body_ops,
+            ..
+        } = op
+        {
+            let mut certificates = loop_drop_traversal_range_certificates(
+                engine,
+                state,
+                condition_ops,
+                condition_fact.as_ref(),
+                body_ops,
+            );
+            state
+                .drop_traversal_range_certificates
+                .append(&mut certificates);
+        }
         engine.check_ops(
             &mut state.cells,
             &mut state.collection_slots,

@@ -44592,3 +44592,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --lib collection_slot_summary_build_ops -- --test-threads=1`: passed
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
+
+## 2026-05-21 Agent 1 drop traversal full-range summary certificate
+
+- `ISS-20260521T171652639Z-RESOURCE-IR-DROP-TRAVERSAL-SUMMARIES-E5AE01EF` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、callee summary の finite slot replay だけでは caller storage prefix 配下の `0..initialized_count` 全域 cleanup を表せず、以前の per-slot symbolic proof 昇格も全域訪問の証明ではなかったこと。
+- `CollectionSlotLifecycleSummaryDropTraversalCoverage::{CertifiedSlots, ForallInitializedRange}` と `CollectionSlotInitializedRangeDropTraversalCertificate` を追加し、full-range summary は loop induction と body witness から作る typed certificate がある場合だけ生成する。
+- certificate producer は `i = 0`、`i < initialized_count`、strict `i += 1`、body prefix の raw load / actual drop、body 全体の storage/count preservation、increment 後の index preservation を確認する。stdlib module allowlist、文字列 mode、bool sentinel は追加していない。
+- caller replay は element stride を expected type の storage size と照合し、既存の generic range traversal checker に `SummaryCertified(DropLoadedValue)` を渡して caller 側 initialized range 全体を検査する。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_build -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_forall_replay -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed with CRLF normalization warnings only

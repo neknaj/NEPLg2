@@ -6,7 +6,9 @@ use crate::types::TypeId;
 
 use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
-use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
+use super::collection_slot_summary_model::{
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
+};
 use super::collection_slot_summary_target::summary_place_for_params;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, ResourceLocal};
@@ -22,6 +24,25 @@ pub(super) fn collect_summary_drop_traversal_op(
 ) {
     let storage_place = state.raw_aliases.canonicalize_owner_cell_address(storage);
     let initialized_count_place = state.raw_aliases.canonicalize_scalar(initialized_count);
+    if let Some(certificate) =
+        find_range_certificate(state, &storage_place, &initialized_count_place, expected_ty)
+    {
+        if let (Some(storage), Some(initialized_count)) = (
+            summary_place_for_params(params, &storage_place),
+            summary_place_for_params(params, &initialized_count_place),
+        ) {
+            out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
+                storage,
+                initialized_count,
+                expected_ty,
+                coverage:
+                    CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                        certificate,
+                    ),
+            });
+        }
+        return;
+    }
     let Some(certified_slots) = engine.collection_slot_drop_traversal_certified_slots(
         &state.cells,
         &state.collection_slots,
@@ -55,7 +76,29 @@ pub(super) fn collect_summary_drop_traversal_op(
             storage,
             initialized_count,
             expected_ty,
-            certified_slots: summary_slots,
+            coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(
+                summary_slots,
+            ),
         });
     }
+}
+
+fn find_range_certificate(
+    state: &CollectionSlotSummaryBuildState,
+    storage: &Place,
+    initialized_count: &Place,
+    expected_ty: TypeId,
+) -> Option<
+    super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate,
+> {
+    state
+        .drop_traversal_range_certificates
+        .iter()
+        .rev()
+        .find(|candidate| {
+            candidate.storage == *storage
+                && candidate.initialized_count == *initialized_count
+                && candidate.expected_ty == expected_ty
+        })
+        .map(|candidate| candidate.certificate)
 }

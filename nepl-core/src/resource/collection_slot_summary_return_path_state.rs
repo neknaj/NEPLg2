@@ -184,5 +184,6 @@ fn summary_state_from_check_state(state: ResourceCheckState) -> CollectionSlotSu
         function_aliases: state.function_aliases,
         pending_reallocs: state.pending_reallocs,
         variant_initializations: state.variant_initializations,
+        drop_traversal_range_certificates: Vec::new(),
     }
 }

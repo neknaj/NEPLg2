@@ -5,7 +5,8 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleSummaryPlace,
 };
 use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
 use super::initialized::ResourceCheckEngine;
@@ -21,7 +22,7 @@ pub(super) fn translate_drop_traversal_summary_op(
     storage: &CollectionSlotLifecycleSummaryPlace,
     initialized_count: &CollectionSlotLifecycleSummaryPlace,
     expected_ty: TypeId,
-    certified_slots: &[CollectionSlotLifecycleSummaryPlace],
+    coverage: &CollectionSlotLifecycleSummaryDropTraversalCoverage,
 ) {
     let Some(storage) = translate_summary_place(engine, args, params, raw_aliases, storage) else {
         return;
@@ -31,8 +32,8 @@ pub(super) fn translate_drop_traversal_summary_op(
     else {
         return;
     };
-    let Some(certified_slots) =
-        translate_summary_places(engine, args, params, raw_aliases, certified_slots)
+    let Some(coverage) =
+        translate_drop_traversal_coverage(engine, args, params, raw_aliases, coverage)
     else {
         return;
     };
@@ -40,8 +41,33 @@ pub(super) fn translate_drop_traversal_summary_op(
         storage,
         initialized_count,
         expected_ty,
-        certified_slots,
+        coverage,
     });
+}
+
+fn translate_drop_traversal_coverage(
+    engine: &ResourceCheckEngine<'_>,
+    args: &[Place],
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    coverage: &CollectionSlotLifecycleSummaryDropTraversalCoverage,
+) -> Option<CollectionSlotLifecycleSummaryDropTraversalCoverage> {
+    match coverage {
+        CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(certified_slots) => {
+            Some(
+                CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(
+                    translate_summary_places(engine, args, params, raw_aliases, certified_slots)?,
+                ),
+            )
+        }
+        CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+            certificate,
+        ) => Some(
+            CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                *certificate,
+            ),
+        ),
+    }
 }
 
 fn translate_summary_places(
