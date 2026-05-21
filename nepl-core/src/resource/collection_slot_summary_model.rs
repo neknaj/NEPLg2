@@ -20,6 +20,7 @@ pub(super) struct CollectionSlotLifecycleFunctionSummary {
     pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
     pub(super) return_transfers: Vec<CollectionSlotLifecycleReturnTransfer>,
     pub(super) return_slots: Vec<CollectionSlotLifecycleReturnSlot>,
+    pub(super) return_paths: Vec<CollectionSlotLifecycleReturnPath>,
 }
 
 pub(super) type CollectionSlotLifecycleFunctionSummaryIndex<'a> =
@@ -74,4 +75,11 @@ pub(super) struct CollectionSlotLifecycleSummaryPlace {
     pub(super) parameter_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct CollectionSlotLifecycleReturnPath {
+    pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
+    pub(super) return_transfers: Vec<CollectionSlotLifecycleReturnTransfer>,
+    pub(super) return_slots: Vec<CollectionSlotLifecycleReturnSlot>,
 }

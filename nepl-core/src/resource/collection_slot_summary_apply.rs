@@ -5,8 +5,6 @@ use alloc::vec::Vec;
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummary;
-use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
-use super::collection_slot_summary_target::instantiate_summary_target;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -93,6 +91,9 @@ impl ResourceCheckEngine<'_> {
         summary: &CollectionSlotLifecycleFunctionSummary,
         span: crate::span::Span,
     ) {
+        let initial_cells = cells.clone();
+        let initial_collection_slots = collection_slots.clone();
+        let initial_raw_aliases = raw_aliases.clone();
         self.apply_collection_slot_lifecycle_summary_ops(
             cells,
             collection_slots,
@@ -102,38 +103,31 @@ impl ResourceCheckEngine<'_> {
             span,
         );
         collection_slots.clear_storage_prefix(output);
-        self.apply_collection_slot_return_transfers(
-            collection_slots,
-            raw_aliases,
-            args,
-            output,
-            &summary.return_transfers,
-            span,
-        );
-        self.apply_collection_slot_return_slots(collection_slots, output, &summary.return_slots);
-    }
-
-    fn apply_collection_slot_return_transfers(
-        &mut self,
-        collection_slots: &mut CollectionSlotStateTable,
-        raw_aliases: &RawCellAddressAliases,
-        args: &[Place],
-        output: &Place,
-        transfers: &[CollectionSlotLifecycleReturnTransfer],
-        span: crate::span::Span,
-    ) {
-        for transfer in transfers {
-            let Some(source) = instantiate_summary_target(self, args, &transfer.source) else {
-                continue;
-            };
-            let source = raw_aliases.canonicalize_owner_cell_address(&source);
-            let target = super::place_utils::place_with_suffix(
+        if summary.return_paths.is_empty() {
+            self.apply_collection_slot_return_transfers(
+                collection_slots,
+                raw_aliases,
+                args,
                 output,
-                &transfer.target_suffix,
-                transfer.target_ty,
+                &summary.return_transfers,
+                span,
             );
-            let target = raw_aliases.canonicalize_owner_cell_address(&target);
-            self.transfer_slot_state(collection_slots, &source, &target, span);
+            self.apply_collection_slot_return_slots(
+                collection_slots,
+                output,
+                &summary.return_slots,
+            );
+        } else {
+            self.apply_collection_slot_return_paths(
+                collection_slots,
+                &initial_cells,
+                &initial_collection_slots,
+                &initial_raw_aliases,
+                output,
+                args,
+                &summary.return_paths,
+                span,
+            );
         }
     }
 }

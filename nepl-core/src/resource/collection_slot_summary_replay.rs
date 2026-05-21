@@ -115,4 +115,25 @@ impl ResourceCheckEngine<'_> {
             }
         }
     }
+
+    pub(super) fn apply_collection_slot_lifecycle_summary_ops_state_only(
+        &mut self,
+        cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        args: &[Place],
+        ops: &[CollectionSlotLifecycleSummaryOp],
+        span: crate::span::Span,
+    ) {
+        let diagnostics_len = self.diagnostics.len();
+        self.apply_collection_slot_lifecycle_summary_ops(
+            cells,
+            collection_slots,
+            raw_aliases,
+            args,
+            ops,
+            span,
+        );
+        self.diagnostics.truncate(diagnostics_len);
+    }
 }

@@ -57,7 +57,7 @@ pub(super) fn collect_indirect_call_summary_ops(
     push_merge_summary(out, paths);
 }
 
-fn translate_summary_ops_through_args(
+pub(super) fn translate_summary_ops_through_args(
     out: &mut Vec<CollectionSlotLifecycleSummaryOp>,
     engine: &ResourceCheckEngine<'_>,
     args: &[Place],
