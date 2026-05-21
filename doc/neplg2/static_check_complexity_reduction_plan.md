@@ -1075,6 +1075,8 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 `ISS-20260521T050436552Z-SOURCE-LEVEL-NON-COPY-COLLECTION-SLO-D0BB9BAF` は 2026-05-21 に修正した。source-level compiler-owned stdlib lowering では、`region_ptr` / `mem_ptr_addr` で作られた raw store/load fact と、`collection_slot_*` intrinsic の owner-cell target が同じ storage cell を指していても、raw address alias と explicit zero offset (`[+0]`) を跨いで value-flow proof が照合されていなかった。修正後は `RawCellValueFlowFacts` が alias-aware raw-cell candidates と zero-offset 正規化を使い、同じ raw cell に対する typed fact を collection slot owner-transfer/drop proof が消費できる。これは stdlib function allowlist ではなく Resource IR の generic proof であり、non-zero offset は同一 proof として扱わない。
 
+`ISS-20260521T054050076Z-SOURCE-LEVEL-DROPPABLE-COLLECTION-SL-7041CED9` は 2026-05-21 に修正した。手書き Resource IR で導入済みだった `DropInitialized` / `ReplaceDropOld` の loaded-value drop proof を、compiler-owned stdlib source lowering 経由でも regression 化した。`raw store -> InitializeEmpty -> raw load -> actual drop -> DropInitialized` と、`raw load old -> actual drop old -> raw store new -> ReplaceDropOld` は generic `DropLoadedCell` / `StoreValue` proof を消費して通る。一方、raw load だけで actual drop がない場合、または replacement new payload の raw store proof がない場合は typed refutation のまま残る。これにより Stage 6 の source-level collection slot proof は initialize / move-out だけでなく droppable cleanup / replacement まで production path に接続された。
+
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件

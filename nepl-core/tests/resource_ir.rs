@@ -23399,6 +23399,285 @@ fn store_then_move <(&RegionToken<LocalOwner>,LocalOwner)->LocalOwner> (storage,
 }
 
 #[test]
+fn resource_ir_collection_slot_source_drop_initialized_accepts_actual_loaded_value_drop() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn drop_slot <(&RegionToken<LocalOwner>,LocalOwner)->i32> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let mut loaded <LocalOwner> load<LocalOwner> addr
+    set loaded LocalOwner 0
+    #intrinsic "collection_slot_drop_initialized" <LocalOwner> (storage, 0)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/drop_slot_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "source-level DropInitialized must consume actual loaded-value drop proof without stdlib allowlists: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "drop_slot"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event:
+                                CollectionSlotLifecycleEvent::DropInitialized { expected_ty },
+                            ..
+                        } if *expected_ty == owned_ty
+                    )
+                })
+        }),
+        "source lowering must emit typed DropInitialized lifecycle event for the droppable owner payload:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_drop_initialized_rejects_raw_load_without_drop() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn drop_slot_without_drop <(&RegionToken<LocalOwner>,LocalOwner)->i32> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let loaded <LocalOwner> load<LocalOwner> addr
+    #intrinsic "collection_slot_drop_initialized" <LocalOwner> (storage, 0)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/drop_slot_source_missing_drop.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::DropRequiresElaboration {
+                        operation: CollectionSlotLifecycleOp::DropInitialized,
+                        slot_ty,
+                    },
+                ..
+            } if function.starts_with("drop_slot_without_drop__") && *slot_ty == owned_ty
+        )),
+        "raw load alone must not prove source-level DropInitialized for a droppable payload: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_replace_drop_old_accepts_drop_and_store_proofs() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn replace_slot <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->i32> (storage, old_payload, new_payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr old_payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let mut loaded <LocalOwner> load<LocalOwner> addr
+    set loaded LocalOwner 0
+    store<LocalOwner> addr new_payload
+    #intrinsic "collection_slot_replace_drop_old" <LocalOwner, LocalOwner> (storage, 0)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/replace_drop_old_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "source-level ReplaceDropOld must consume both old loaded-value drop proof and new raw store proof: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "replace_slot"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event:
+                                CollectionSlotLifecycleEvent::ReplaceInitialized {
+                                    old_ty,
+                                    new_ty,
+                                    old_owner: CollectionSlotReplacement::DropOldOwner,
+                                },
+                            ..
+                        } if *old_ty == owned_ty && *new_ty == owned_ty
+                    )
+                })
+        }),
+        "source lowering must emit typed ReplaceDropOld lifecycle event for the droppable owner payload:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_replace_drop_old_rejects_missing_drop_or_store_proof() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn replace_slot_missing_old_drop <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->i32> (storage, old_payload, new_payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr old_payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let old_value <LocalOwner> load<LocalOwner> addr
+    store<LocalOwner> addr new_payload
+    #intrinsic "collection_slot_replace_drop_old" <LocalOwner, LocalOwner> (storage, 0)
+    0
+
+fn replace_slot_missing_new_store <(&RegionToken<LocalOwner>,LocalOwner)->i32> (storage, old_payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr old_payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let mut loaded <LocalOwner> load<LocalOwner> addr
+    set loaded LocalOwner 0
+    #intrinsic "collection_slot_replace_drop_old" <LocalOwner, LocalOwner> (storage, 0)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/replace_drop_old_source_missing_proof.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::DropRequiresElaboration {
+                        operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+                        slot_ty,
+                    },
+                ..
+            } if function.starts_with("replace_slot_missing_old_drop__") && *slot_ty == owned_ty
+        )),
+        "source-level ReplaceDropOld must reject an old raw-loaded payload that was not actually dropped: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                        operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+                        slot_ty,
+                    },
+                ..
+            } if function.starts_with("replace_slot_missing_new_store__") && *slot_ty == owned_ty
+        )),
+        "source-level ReplaceDropOld must reject missing new raw store proof even when old payload was dropped: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_non_copy_initialize_requires_value_flow_proof() {
     let (types, owned_ty) = types_with_non_copy_owned();
     let span = Span::dummy();

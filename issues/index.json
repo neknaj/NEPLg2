@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T05:37:09.189Z",
+  "generated_at": "2026-05-21T05:49:17.826Z",
   "counts": {
-    "total": 1161,
+    "total": 1162,
     "open": 3,
-    "resolved": 1158,
+    "resolved": 1159,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 556,
+        "total": 557,
         "open": 0,
-        "resolved": 556
+        "resolved": 557
       },
       "CORE": {
         "total": 5,
@@ -8533,6 +8533,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T050436552Z-SOURCE-LEVEL-NON-COPY-COLLECTION-SLO-D0BB9BAF.md"
+    },
+    {
+      "id": "ISS-20260521T054050076Z-SOURCE-LEVEL-DROPPABLE-COLLECTION-SL-7041CED9",
+      "title": "Source-level droppable collection slot lifecycle lacks loaded-value drop regression",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T054050076Z-SOURCE-LEVEL-DROPPABLE-COLLECTION-SL-7041CED9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

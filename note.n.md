@@ -1,3 +1,16 @@
+# 2026-05-21 Agent 1 source-level droppable collection slot drop proof
+
+- `ISS-20260521T054050076Z-SOURCE-LEVEL-DROPPABLE-COLLECTION-SL-7041CED9` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、手書き Resource IR では `DropInitialized` / `ReplaceDropOld` の loaded-value drop proof が固定されていた一方、compiler-owned stdlib source lowering 経由で raw load、actual drop、collection slot lifecycle event が同じ generic proof boundary に接続される regression がまだなかったことだった。
+- source-level regression として、`raw store -> InitializeEmpty -> raw load -> assignment overwrite auto-drop -> DropInitialized` が diagnostics なしで通ることを固定した。
+- `ReplaceDropOld` についても、old payload の raw load と actual drop、新 payload の raw store の両方を source lowering 経由で証明できることを固定した。
+- raw load だけで droppable cleanup を証明する case と、new payload store proof なしで `ReplaceDropOld` を進める case は typed refutation のまま残す regression を追加した。
+- stdlib module 名や関数名の allowlist は追加していない。source capability exact span、`ResourceOp::CollectionSlotLifecycle`、`RawCellValueFlowFacts`、`CollectionSlotDropProof` の generic enum/match boundary で検査する。
+- 親 issue と Stage 6 docs に、production source path の droppable cleanup / replacement proof が generic Resource IR proof に接続されたことを追記した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_replace_drop_old -- --test-threads=1`: passed
+
 # 2026-05-21 Agent 1 source-level non-Copy collection slot value-flow proof
 
 - `ISS-20260521T050436552Z-SOURCE-LEVEL-NON-COPY-COLLECTION-SLO-D0BB9BAF` を追加して fixed にした。`plan.md` は変更していない。
