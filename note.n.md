@@ -44411,3 +44411,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo test -p nepl-core --test resource_ir collection_slot_drop_traversal -- --nocapture`: passed
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
+
+## 2026-05-21 Agent 1 source-level collection cleanup end-to-end proof
+
+- `ISS-20260521T132527293Z-SOURCE-LEVEL-COLLECTION-DROP-TRAVERS-24EF497F` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotDropTraversal` の lowering coverage と手書き Resource IR の traversal/storage release proof はあった一方で、compiler-owned stdlib source から raw store / raw load / actual drop / traversal / raw dealloc / storage dealloc lifecycle が一続きで通る positive regression がなかったこと。
+- `resource_ir_collection_slot_source_drop_traversal_storage_release` を追加し、2 slot の non-Copy payload cleanup が `&RegionToken<T>` anchor と generic Resource IR proof boundary だけで通ることを固定した。
+- `Vec`、collection helper 名、stdlib module 名の allowlist は追加していない。source lowering が `ResourceOp::CollectionSlotDropTraversal`、`RawMemoryOp::Dealloc`、`CollectionSlotLifecycleEvent::StorageDealloc` を typed op として保持していることも確認する。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --test-threads=1`: passed

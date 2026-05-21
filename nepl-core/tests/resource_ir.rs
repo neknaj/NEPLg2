@@ -24125,6 +24125,99 @@ fn replace_slot_at <(&RegionToken<LocalOwner>,i32,LocalOwner,LocalOwner)->i32> (
 }
 
 #[test]
+fn resource_ir_collection_slot_source_drop_traversal_storage_release() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/allocator" as allocator
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn cleanup_region <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->i32> (storage, first, second):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let raw <i32> mem_ptr_addr data
+    let slot1 <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data size_of<LocalOwner>
+    let raw1 <i32> mem_ptr_addr slot1
+    store<LocalOwner> raw first
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    store<LocalOwner> raw1 second
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, size_of<LocalOwner>)
+    let mut loaded0 <LocalOwner> load<LocalOwner> raw
+    set loaded0 LocalOwner 0
+    let mut loaded1 <LocalOwner> load<LocalOwner> raw1
+    set loaded1 LocalOwner 0
+    #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage)
+    let total_size <i32> region_size storage
+    allocator::dealloc_raw raw total_size
+    #intrinsic "collection_slot_storage_dealloc" <> (storage)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/source_drop_traversal_release.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "source-level collection cleanup must prove raw stores, loaded-value drops, drop traversal, raw dealloc, and storage release as one generic proof path: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "cleanup_region"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotDropTraversal {
+                            expected_ty,
+                            ..
+                        } if *expected_ty == owned_ty
+                    )
+                })
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            ..
+                        }
+                    )
+                })
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            ..
+                        }
+                    )
+                })
+        }),
+        "source lowering must keep traversal, raw dealloc, and storage dealloc as typed Resource IR operations:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_source_symbolic_offset_rejects_mismatched_value_flow() {
     let source = r#"
 #indent 4

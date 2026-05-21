@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T13:19:53.148Z",
+  "generated_at": "2026-05-21T13:34:47.435Z",
   "counts": {
-    "total": 1185,
+    "total": 1186,
     "open": 3,
-    "resolved": 1182,
+    "resolved": 1183,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 575,
+        "total": 576,
         "open": 0,
-        "resolved": 575
+        "resolved": 576
       },
       "CORE": {
         "total": 5,
@@ -8878,6 +8878,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T105928164Z-COLLECTION-STORAGE-RELOCATE-LACKS-RA-BE2DCD3E.md"
+    },
+    {
+      "id": "ISS-20260521T132527293Z-SOURCE-LEVEL-COLLECTION-DROP-TRAVERS-24EF497F",
+      "title": "Source-level collection drop traversal lacks end-to-end storage release regression",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T132527293Z-SOURCE-LEVEL-COLLECTION-DROP-TRAVERS-24EF497F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
