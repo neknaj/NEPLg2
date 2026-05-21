@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T10:27:28.378Z",
+  "generated_at": "2026-05-21T10:46:08.485Z",
   "counts": {
-    "total": 1178,
+    "total": 1179,
     "open": 3,
-    "resolved": 1175,
+    "resolved": 1176,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 572,
+        "total": 573,
         "open": 0,
-        "resolved": 572
+        "resolved": 573
       },
       "CORE": {
         "total": 5,
@@ -8773,6 +8773,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T094024431Z-COLLECTION-SLOT-RETURN-SUMMARY-LOSES-5E121C4F.md"
+    },
+    {
+      "id": "ISS-20260521T103746552Z-COLLECTION-SLOT-LIFECYCLE-PROOF-CHEC-E31C8D02",
+      "title": "Collection slot lifecycle proof checks must be atomic",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/initialized_collection_slot_proof.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T103746552Z-COLLECTION-SLOT-LIFECYCLE-PROOF-CHEC-E31C8D02.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

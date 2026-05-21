@@ -111,6 +111,25 @@ pub(super) fn consume_collection_slot_drop_proof(
     }
 }
 
+pub(super) fn collection_slot_drop_proof_satisfied(
+    cells: &CellTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
+    target: &Place,
+    obligation: CollectionSlotDropObligation,
+    proof: CollectionSlotDropProof,
+    types: &TypeCtx,
+) -> bool {
+    match proof {
+        CollectionSlotDropProof::LocalLoadedValueDrop => {
+            collection_slot_drop_proof_available(cells, raw_aliases, target, obligation, types)
+        }
+        CollectionSlotDropProof::SummaryStateOnly => false,
+        CollectionSlotDropProof::SummaryCertified(certified) => {
+            drop_obligation_matches(types, certified, obligation)
+        }
+    }
+}
+
 fn consume_local_loaded_value_drop_proof(
     cells: &mut CellTable,
     raw_aliases: Option<&RawCellAddressAliases>,
