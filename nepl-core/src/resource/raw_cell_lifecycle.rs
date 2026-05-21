@@ -78,7 +78,8 @@ impl CellTable {
             RawCellLifecycleEvent::MoveOutLoadedCell { address, cell_ty } => {
                 if !types.is_copy(cell_ty) {
                     self.mark_raw_cell_moved(address, cell_ty);
-                    self.record_raw_cell_value_flow(
+                    self.record_raw_cell_value_flow_with_aliases(
+                        raw_aliases,
                         address,
                         cell_ty,
                         RawCellValueFlowKind::MoveOutLoadedCell,
@@ -102,7 +103,8 @@ impl CellTable {
                     raw_aliases,
                 );
                 if !types.is_copy(stored_ty) {
-                    self.record_raw_cell_value_flow(
+                    self.record_raw_cell_value_flow_with_aliases(
+                        raw_aliases,
                         address,
                         stored_ty,
                         RawCellValueFlowKind::StoreValue,

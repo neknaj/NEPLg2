@@ -26,6 +26,15 @@ impl ResourceCheckEngine<'_> {
         drop_proof: CollectionSlotDropProof,
         span: Span,
     ) {
+        let canonical_target = raw_aliases
+            .map(|raw_aliases| {
+                super::raw_cell_value_flow_alias::place_with_canonical_symbolic_offsets(
+                    target,
+                    raw_aliases,
+                )
+            })
+            .unwrap_or_else(|| target.clone());
+        let target = &canonical_target;
         let result = match event {
             CollectionSlotLifecycleEvent::StorageDealloc => {
                 collection_slots.release_storage(target).map(|()| ())

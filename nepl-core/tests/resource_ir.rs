@@ -23678,6 +23678,239 @@ fn replace_slot_missing_new_store <(&RegionToken<LocalOwner>,LocalOwner)->i32> (
 }
 
 #[test]
+fn resource_ir_collection_slot_source_symbolic_offset_move_out_accepts_value_flow_proof() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn store_then_move_at <(&RegionToken<LocalOwner>,i32,LocalOwner)->LocalOwner> (storage, off, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let slot <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data off
+    let addr <i32> mem_ptr_addr slot
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, off)
+    let loaded <LocalOwner> load<LocalOwner> addr
+    #intrinsic "collection_slot_move_out" <LocalOwner> (storage, off)
+    loaded
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/symbolic_slot_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "source-level symbolic raw store/load must prove non-Copy collection slot initialize and move-out without stdlib allowlists: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "store_then_move_at"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            target,
+                            event: CollectionSlotLifecycleEvent::MoveOut { expected_ty },
+                            ..
+                        } if *expected_ty == owned_ty
+                            && target.projections.iter().any(|projection| {
+                                matches!(
+                                    projection,
+                                    PlaceProjection::StorageOffset(ResourceOffset::Symbolic { .. })
+                                )
+                            })
+                    )
+                })
+        }),
+        "source lowering must preserve symbolic slot offset on the collection lifecycle target:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_symbolic_offset_drop_and_replace_accept_drop_proofs() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn drop_slot_at <(&RegionToken<LocalOwner>,i32,LocalOwner)->i32> (storage, off, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let slot <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data off
+    let addr <i32> mem_ptr_addr slot
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, off)
+    let mut loaded <LocalOwner> load<LocalOwner> addr
+    set loaded LocalOwner 0
+    #intrinsic "collection_slot_drop_initialized" <LocalOwner> (storage, off)
+    0
+
+fn replace_slot_at <(&RegionToken<LocalOwner>,i32,LocalOwner,LocalOwner)->i32> (storage, off, old_payload, new_payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let slot <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data off
+    let addr <i32> mem_ptr_addr slot
+    store<LocalOwner> addr old_payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, off)
+    let mut loaded <LocalOwner> load<LocalOwner> addr
+    set loaded LocalOwner 0
+    store<LocalOwner> addr new_payload
+    #intrinsic "collection_slot_replace_drop_old" <LocalOwner, LocalOwner> (storage, off)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/symbolic_drop_slot_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "source-level symbolic DropInitialized and ReplaceDropOld must consume actual drop/store proofs without stdlib allowlists: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "drop_slot_at"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            target,
+                            event: CollectionSlotLifecycleEvent::DropInitialized { expected_ty },
+                            ..
+                        } if *expected_ty == owned_ty
+                            && target.projections.iter().any(|projection| {
+                                matches!(
+                                    projection,
+                                    PlaceProjection::StorageOffset(ResourceOffset::Symbolic { .. })
+                                )
+                            })
+                    )
+                })
+        }),
+        "source lowering must preserve symbolic slot offset for DropInitialized:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "replace_slot_at"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            target,
+                            event:
+                                CollectionSlotLifecycleEvent::ReplaceInitialized {
+                                    old_ty,
+                                    new_ty,
+                                    old_owner: CollectionSlotReplacement::DropOldOwner,
+                                },
+                            ..
+                        } if *old_ty == owned_ty
+                            && *new_ty == owned_ty
+                            && target.projections.iter().any(|projection| {
+                                matches!(
+                                    projection,
+                                    PlaceProjection::StorageOffset(ResourceOffset::Symbolic { .. })
+                                )
+                            })
+                    )
+                })
+        }),
+        "source lowering must preserve symbolic slot offset for ReplaceDropOld:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_source_symbolic_offset_rejects_mismatched_value_flow() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn mismatched_offset <(&RegionToken<LocalOwner>,i32,LocalOwner)->i32> (storage, off, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let slot <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data off
+    let addr <i32> mem_ptr_addr slot
+    let other_off <i32> add off size_of<LocalOwner>
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, other_off)
+    0
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/symbolic_slot_source_mismatch.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                        operation: CollectionSlotLifecycleOp::InitializeEmpty,
+                        slot_ty,
+                    },
+                ..
+            } if function.starts_with("mismatched_offset__") && *slot_ty == owned_ty
+        )),
+        "collection slot proof must not treat a different symbolic offset as the same raw cell: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_non_copy_initialize_requires_value_flow_proof() {
     let (types, owned_ty) = types_with_non_copy_owned();
     let span = Span::dummy();

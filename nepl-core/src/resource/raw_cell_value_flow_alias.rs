@@ -1,12 +1,13 @@
 extern crate alloc;
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state::{raw_cell_address_prefix, raw_cell_suffix_after_address};
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, PlaceProjection, ResourceOffset};
+use super::model::{Place, PlaceProjection, PlaceRoot, ResourceOffset};
 use super::place_utils::place_with_suffix;
 use super::raw_cell_value_flow::{RawCellValueFlowEntry, RawCellValueFlowKind};
 use super::type_pattern::type_pattern_matches;
@@ -36,6 +37,34 @@ pub(super) fn raw_cell_places_equivalent(left: &Place, right: &Place) -> bool {
     left.root == right.root && left.projections == right.projections
 }
 
+pub(super) fn raw_cell_place_with_canonical_symbolic_offsets(
+    place: &Place,
+    raw_aliases: &RawCellAddressAliases,
+) -> Place {
+    place_with_canonical_symbolic_offsets(&place_without_zero_storage_offsets(place), raw_aliases)
+}
+
+pub(super) fn place_with_canonical_symbolic_offsets(
+    place: &Place,
+    raw_aliases: &RawCellAddressAliases,
+) -> Place {
+    let mut out = place.clone();
+    for projection in &mut out.projections {
+        match projection {
+            PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place })
+            | PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic { place, .. }) => {
+                *place = Box::new(canonical_symbolic_offset_place(place, raw_aliases));
+            }
+            PlaceProjection::StorageOffset(ResourceOffset::Known(_) | ResourceOffset::Unknown)
+            | PlaceProjection::Field { .. }
+            | PlaceProjection::TupleField { .. }
+            | PlaceProjection::EnumPayload { .. }
+            | PlaceProjection::Deref => {}
+        }
+    }
+    out
+}
+
 pub(super) fn value_flow_entry_matches(
     entry: &RawCellValueFlowEntry,
     cell: &Place,
@@ -50,6 +79,7 @@ pub(super) fn value_flow_entry_matches(
 
 pub(super) fn value_flow_entry_matches_any_cell(
     entry: &RawCellValueFlowEntry,
+    raw_aliases: &RawCellAddressAliases,
     cells: &[Place],
     ty: TypeId,
     kind: RawCellValueFlowKind,
@@ -59,7 +89,7 @@ pub(super) fn value_flow_entry_matches_any_cell(
         && (type_pattern_matches(types, entry.ty, ty) || type_pattern_matches(types, ty, entry.ty))
         && cells
             .iter()
-            .any(|cell| raw_cell_places_equivalent(&entry.cell, cell))
+            .any(|cell| raw_cell_places_equivalent_with_aliases(&entry.cell, cell, raw_aliases))
 }
 
 fn raw_address_alias_candidates(
@@ -88,6 +118,39 @@ fn place_without_zero_storage_offsets(place: &Place) -> Place {
         )
     });
     out
+}
+
+fn raw_cell_places_equivalent_with_aliases(
+    left: &Place,
+    right: &Place,
+    raw_aliases: &RawCellAddressAliases,
+) -> bool {
+    let left = raw_cell_place_with_canonical_symbolic_offsets(left, raw_aliases);
+    let right = raw_cell_place_with_canonical_symbolic_offsets(right, raw_aliases);
+    raw_cell_places_equivalent(&left, &right)
+}
+
+fn canonical_symbolic_offset_place(place: &Place, raw_aliases: &RawCellAddressAliases) -> Place {
+    raw_aliases
+        .scalar_aliases_for(place)
+        .into_iter()
+        .min_by(|left, right| {
+            symbolic_offset_place_rank(left)
+                .cmp(&symbolic_offset_place_rank(right))
+                .then_with(|| left.cmp(right))
+        })
+        .unwrap_or_else(|| place.clone())
+}
+
+fn symbolic_offset_place_rank(place: &Place) -> (u8, usize) {
+    let root_rank = match &place.root {
+        PlaceRoot::Local(_) | PlaceRoot::I32Constant(_) => 0,
+        PlaceRoot::Return => 1,
+        PlaceRoot::Storage(_) => 2,
+        PlaceRoot::Temporary(_) => 3,
+        PlaceRoot::Unknown => 4,
+    };
+    (root_rank, place.projections.len())
 }
 
 fn push_unique_equivalent_place(out: &mut Vec<Place>, place: &Place) {

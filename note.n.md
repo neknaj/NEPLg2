@@ -44137,3 +44137,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core --test neplg2 llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics -- --test-threads=1 --exact`: passed
   - `cargo test -p nepl-core intrinsic -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 symbolic collection slot source proof
+
+- `ISS-20260521T055400560Z-SOURCE-LEVEL-COLLECTION-SLOT-PROOF-L-B5FB8CDA` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、compiler-owned stdlib source から indexed collection slot を下げると、同じ `off` を raw store/load と lifecycle intrinsic で複数回読むため、Resource IR 上では `tmp5` / `tmp15` / `tmp21` のような別 temporary root を持つ symbolic offset になっていたことだった。raw address alias と slot state は storage identity を追えていたが、symbolic offset の scalar origin を比較に使っていなかったため、同じ source local 由来の slot が別 slot と誤判定されていた。
+- `RawCellValueFlowFacts` は store proof と loaded-value origin を記録する時点で symbolic storage offset を scalar origin に正規化するようにした。これにより同じ logical slot の古い proof が temporary 名違いで重複して残る経路を閉じた。
+- alias-aware proof matching と collection slot lifecycle application も同じ canonical symbolic offset を使うようにし、`InitializeEmpty` 後の `MoveOut` / `DropInitialized` / `ReplaceDropOld` が state table 上で同じ slot に到達するようにした。
+- positive regression は indexed `raw store -> InitializeEmpty -> raw load -> MoveOut` と、droppable `DropInitialized` / `ReplaceDropOld` を source-level lowering 経由で固定した。negative regression では `other_off = off + size_of<T>` を同一 proof として扱わず、offset proof を広げすぎないことを確認した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に Stage 6 の更新として反映した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_symbolic -- --test-threads=1`: passed
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: passed
+  - `cargo test -p nepl-core raw_cell_value_flow -- --test-threads=1`: passed

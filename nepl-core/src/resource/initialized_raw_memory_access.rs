@@ -57,7 +57,12 @@ impl ResourceCheckEngine<'_> {
             );
             cells.mark_initialized(output);
             if !self.types.is_copy(cell_ty) {
-                cells.record_raw_cell_loaded_value_origin(&address, cell_ty, output);
+                cells.record_raw_cell_loaded_value_origin_with_aliases(
+                    raw_aliases,
+                    &address,
+                    cell_ty,
+                    output,
+                );
             }
             let loaded_cell = raw_memory_cell_place(&address, cell_ty);
             if raw_aliases.value_is_known_raw_address(&loaded_cell) {

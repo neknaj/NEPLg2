@@ -6,6 +6,7 @@ use super::model::Place;
 use super::raw_cell_value_flow::RawCellValueFlowKind;
 
 impl CellTable {
+    #[cfg(test)]
     pub(super) fn record_raw_cell_value_flow(
         &mut self,
         address: &Place,
@@ -13,6 +14,17 @@ impl CellTable {
         kind: RawCellValueFlowKind,
     ) {
         self.raw_cell_value_flows.record(address, ty, kind);
+    }
+
+    pub(super) fn record_raw_cell_value_flow_with_aliases(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        address: &Place,
+        ty: TypeId,
+        kind: RawCellValueFlowKind,
+    ) {
+        self.raw_cell_value_flows
+            .record_with_aliases(raw_aliases, address, ty, kind);
     }
 
     pub(super) fn raw_cell_value_flow_available(
@@ -61,6 +73,7 @@ impl CellTable {
             .consume_matching_with_aliases(raw_aliases, cell, ty, kind, types)
     }
 
+    #[cfg(test)]
     pub(super) fn record_raw_cell_loaded_value_origin(
         &mut self,
         address: &Place,
@@ -69,6 +82,17 @@ impl CellTable {
     ) {
         self.raw_cell_value_flows
             .record_loaded_value_origin(address, ty, value);
+    }
+
+    pub(super) fn record_raw_cell_loaded_value_origin_with_aliases(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        address: &Place,
+        ty: TypeId,
+        value: &Place,
+    ) {
+        self.raw_cell_value_flows
+            .record_loaded_value_origin_with_aliases(raw_aliases, address, ty, value);
     }
 
     pub(super) fn transfer_raw_cell_loaded_value_origin(&mut self, source: &Place, target: &Place) {

@@ -7,8 +7,8 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::place_utils::{place_suffix_after_prefix, place_with_suffix, raw_memory_cell_place};
 use super::raw_cell_value_flow_alias::{
-    raw_cell_alias_candidates, raw_cell_places_equivalent, value_flow_entry_matches,
-    value_flow_entry_matches_any_cell,
+    raw_cell_alias_candidates, raw_cell_place_with_canonical_symbolic_offsets,
+    raw_cell_places_equivalent, value_flow_entry_matches, value_flow_entry_matches_any_cell,
 };
 use super::type_pattern::type_pattern_matches;
 
@@ -40,11 +40,25 @@ pub(super) struct RawCellValueFlowFacts {
 }
 
 impl RawCellValueFlowFacts {
+    #[cfg(test)]
     pub(super) fn record(&mut self, address: &Place, ty: TypeId, kind: RawCellValueFlowKind) {
         let cell = raw_memory_cell_place(address, ty);
         self.record_cell_flow(&cell, ty, kind);
     }
 
+    pub(super) fn record_with_aliases(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        address: &Place,
+        ty: TypeId,
+        kind: RawCellValueFlowKind,
+    ) {
+        let cell = raw_memory_cell_place(address, ty);
+        let cell = raw_cell_place_with_canonical_symbolic_offsets(&cell, raw_aliases);
+        self.record_cell_flow(&cell, ty, kind);
+    }
+
+    #[cfg(test)]
     pub(super) fn record_loaded_value_origin(
         &mut self,
         address: &Place,
@@ -52,6 +66,23 @@ impl RawCellValueFlowFacts {
         value: &Place,
     ) {
         let cell = raw_memory_cell_place(address, ty);
+        self.loaded_values.retain(|origin| origin.value != *value);
+        self.loaded_values.push(RawCellLoadedValueOrigin {
+            value: value.clone(),
+            cell,
+            ty,
+        });
+    }
+
+    pub(super) fn record_loaded_value_origin_with_aliases(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        address: &Place,
+        ty: TypeId,
+        value: &Place,
+    ) {
+        let cell = raw_memory_cell_place(address, ty);
+        let cell = raw_cell_place_with_canonical_symbolic_offsets(&cell, raw_aliases);
         self.loaded_values.retain(|origin| origin.value != *value);
         self.loaded_values.push(RawCellLoadedValueOrigin {
             value: value.clone(),
@@ -144,9 +175,9 @@ impl RawCellValueFlowFacts {
         types: &TypeCtx,
     ) -> bool {
         let candidates = raw_cell_alias_candidates(cell, raw_aliases);
-        self.entries
-            .iter()
-            .any(|entry| value_flow_entry_matches_any_cell(entry, &candidates, ty, kind, types))
+        self.entries.iter().any(|entry| {
+            value_flow_entry_matches_any_cell(entry, raw_aliases, &candidates, ty, kind, types)
+        })
     }
 
     pub(super) fn consume_matching(
@@ -177,7 +208,7 @@ impl RawCellValueFlowFacts {
     ) -> bool {
         let candidates = raw_cell_alias_candidates(cell, raw_aliases);
         let Some(index) = self.entries.iter().position(|entry| {
-            value_flow_entry_matches_any_cell(entry, &candidates, ty, kind, types)
+            value_flow_entry_matches_any_cell(entry, raw_aliases, &candidates, ty, kind, types)
         }) else {
             return false;
         };
