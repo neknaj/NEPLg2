@@ -69,6 +69,7 @@ impl ResourceCheckEngine<'_> {
                 CollectionSlotLifecycleSummaryOp::DropTraversal {
                     storage,
                     expected_ty,
+                    certified_slots,
                     proof,
                 } => {
                     match proof {
@@ -77,13 +78,22 @@ impl ResourceCheckEngine<'_> {
                     let Some(storage) = instantiate_summary_target(self, args, storage) else {
                         continue;
                     };
-                    self.apply_collection_slot_drop_traversal_with_aliases(
+                    let mut slots = Vec::new();
+                    for slot in certified_slots {
+                        if let Some(slot) = instantiate_summary_target(self, args, slot) {
+                            slots.push(slot);
+                        }
+                    }
+                    if slots.len() != certified_slots.len() {
+                        continue;
+                    }
+                    self.apply_certified_collection_slot_drop_traversal_slots_with_aliases(
                         cells,
                         collection_slots,
                         raw_aliases,
                         &storage,
                         *expected_ty,
-                        super::collection_slot_drop_traversal::CollectionSlotDropTraversalProof::SummaryCertified,
+                        &slots,
                         span,
                     );
                 }

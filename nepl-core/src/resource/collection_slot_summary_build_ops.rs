@@ -92,19 +92,28 @@ pub(super) fn collect_summary_ops_from_op(
             ..
         } => {
             let storage_place = state.raw_aliases.canonicalize_owner_cell_address(storage);
-            if !engine.collection_slot_drop_traversal_available(
+            let Some(certified_slots) = engine.collection_slot_drop_traversal_certified_slots(
                 &state.cells,
                 &state.collection_slots,
                 &state.raw_aliases,
                 &storage_place,
                 *expected_ty,
-            ) {
+            ) else {
                 return;
+            };
+            let mut summary_slots = Vec::new();
+            for slot in certified_slots {
+                let slot = state.raw_aliases.canonicalize_owner_cell_address(&slot);
+                let Some(slot) = summary_place_for_params(params, &slot) else {
+                    return;
+                };
+                summary_slots.push(slot);
             }
             if let Some(storage) = summary_place_for_params(params, &storage_place) {
                 out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
                     storage,
                     expected_ty: *expected_ty,
+                    certified_slots: summary_slots,
                     proof:
                         CollectionSlotLifecycleSummaryDropTraversalProof::CertifiedLoadedValueDrops,
                 });

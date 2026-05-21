@@ -24961,7 +24961,7 @@ fn resource_ir_collection_slot_drop_traversal_accepts_all_loaded_value_drops() {
 }
 
 #[test]
-fn resource_ir_collection_slot_drop_traversal_summary_replays_certified_cleanup() {
+fn resource_ir_collection_slot_drop_traversal_summary_rejects_marker_only_cleanup() {
     let (mut types, owned_ty) = types_with_droppable_owned();
     let i32_ty = types.i32();
     types.register_copy_impl_target(i32_ty);
@@ -25007,7 +25007,7 @@ fn resource_ir_collection_slot_drop_traversal_summary_replays_certified_cleanup(
                 span,
             },
             ResourceOp::CollectionSlotLifecycle {
-                target: slot,
+                target: slot.clone(),
                 event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
                 span,
             },
@@ -25038,8 +25038,19 @@ fn resource_ir_collection_slot_drop_traversal_summary_replays_certified_cleanup(
     let report = check_resource_initialized_moves(&resource, &types);
 
     assert!(
-        report.diagnostics.is_empty(),
-        "certified traversal summary must replay both collection slot cleanup and non-Copy raw-cell move state before storage dealloc: {:#?}\n{}",
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                target,
+                reason:
+                    CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                        slot_ty,
+                    },
+                ..
+            } if function == "main" && *target == slot && *slot_ty == owned_ty
+        )),
+        "marker-only helper summary must not certify caller slot cleanup without source-derived loaded-value drops: {:#?}\n{}",
         report.diagnostics,
         resource.dump_text()
     );

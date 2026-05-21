@@ -44460,3 +44460,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-21 Agent 1 collection slot drop traversal summary proof payload
+
+- `ISS-20260521T143810964Z-COLLECTION-SLOT-DROP-TRAVERSAL-SUMMA-131D4BA0` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、callee summary build の collection slot table が空でも `CollectionSlotDropTraversal` が成功扱いになり、marker-only helper body から caller slot 全体を cleanup 済みにする summary proof を作れていたこと。
+- `CollectionSlotLifecycleSummaryOp::DropTraversal` に source-derived `certified_slots` を持たせ、summary replay は caller storage 全体を再列挙せず、その payload に含まれる slot だけを `SummaryCertified(DropLoadedValue)` で進めるようにした。
+- 空の traversal は summary を生成しない。marker-only helper call 後の storage dealloc は live slot refutation を出す regression で固定した。
+- focused verification:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_drop_traversal_summary -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir collection_slot_drop_traversal -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

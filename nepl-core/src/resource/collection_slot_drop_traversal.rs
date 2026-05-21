@@ -9,8 +9,7 @@ use crate::types::TypeId;
 use super::cell_state::{raw_cell_address_prefix, CellTable};
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
 use super::collection_slot_lifecycle::{
-    CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
-    CollectionSlotState,
+    CollectionSlotLifecycleEvent, CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
 use super::collection_slot_state_identity::place_covers_slot;
@@ -20,12 +19,6 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::report::ResourceCheckDiagnostic;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CollectionSlotDropTraversalProof {
-    LocalLoadedValueDrop,
-    SummaryCertified,
-}
-
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_collection_slot_drop_traversal_with_aliases(
         &mut self,
@@ -34,7 +27,6 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &RawCellAddressAliases,
         storage: &Place,
         expected_ty: TypeId,
-        proof: CollectionSlotDropTraversalProof,
         span: Span,
     ) {
         let storage = raw_aliases.canonicalize_owner_cell_address(storage);
@@ -44,7 +36,6 @@ impl ResourceCheckEngine<'_> {
             raw_aliases,
             &storage,
             expected_ty,
-            proof,
         );
         if let Err(refutation) = result {
             self.diagnostics
@@ -72,56 +63,22 @@ impl ResourceCheckEngine<'_> {
             raw_aliases,
             storage,
             expected_ty,
-            CollectionSlotDropTraversalProof::LocalLoadedValueDrop,
             span,
         );
     }
 
-    pub(super) fn collection_slot_drop_traversal_available(
-        &self,
-        cells: &CellTable,
-        collection_slots: &CollectionSlotStateTable,
-        raw_aliases: &RawCellAddressAliases,
-        storage: &Place,
-        expected_ty: TypeId,
-    ) -> bool {
-        let storage = raw_aliases.canonicalize_owner_cell_address(storage);
-        self.collection_slot_drop_traversal_result(
-            &mut cells.clone(),
-            &mut collection_slots.clone(),
-            raw_aliases,
-            &storage,
-            expected_ty,
-            CollectionSlotDropTraversalProof::LocalLoadedValueDrop,
-        )
-        .is_ok()
-    }
-
-    fn collection_slot_drop_traversal_result(
+    pub(super) fn collection_slot_drop_traversal_result(
         &self,
         cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         storage: &Place,
         expected_ty: TypeId,
-        proof: CollectionSlotDropTraversalProof,
     ) -> Result<(), CollectionSlotTableRefutation> {
         let slots = collection_slot_drop_traversal_slots(collection_slots, storage);
         let mut committed_cells = cells.clone();
         let mut committed_slots = collection_slots.clone();
-        let drop_proof = match proof {
-            CollectionSlotDropTraversalProof::LocalLoadedValueDrop => {
-                CollectionSlotDropProof::LocalLoadedValueDrop
-            }
-            CollectionSlotDropTraversalProof::SummaryCertified => {
-                CollectionSlotDropProof::SummaryCertified(
-                    super::collection_slot_drop_proof::CollectionSlotDropObligation::DropLoadedValue {
-                        operation: CollectionSlotLifecycleOp::DropInitialized,
-                        value_ty: expected_ty,
-                    },
-                )
-            }
-        };
+        let drop_proof = CollectionSlotDropProof::LocalLoadedValueDrop;
         for (slot, state) in slots {
             match state {
                 CollectionSlotState::Initialized(_) => {
@@ -155,7 +112,7 @@ impl ResourceCheckEngine<'_> {
         Ok(())
     }
 
-    fn drop_collection_slot_in_traversal(
+    pub(super) fn drop_collection_slot_in_traversal(
         &self,
         cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
@@ -194,7 +151,7 @@ impl ResourceCheckEngine<'_> {
     }
 }
 
-fn collection_slot_drop_traversal_slots(
+pub(super) fn collection_slot_drop_traversal_slots(
     collection_slots: &CollectionSlotStateTable,
     storage: &Place,
 ) -> Vec<(Place, CollectionSlotState)> {

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T14:32:24.321Z",
+  "generated_at": "2026-05-21T14:46:41.613Z",
   "counts": {
-    "total": 1189,
+    "total": 1190,
     "open": 3,
-    "resolved": 1186,
+    "resolved": 1187,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -52,9 +52,9 @@
         "resolved": 1
       },
       "compiler": {
-        "total": 13,
+        "total": 14,
         "open": 0,
-        "resolved": 13
+        "resolved": 14
       },
       "compiler/resource-ir": {
         "total": 5,
@@ -1218,6 +1218,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T131741789Z-COLLECTION-SLOT-DROP-TRAVERSAL-LOWER-691CB7BE.md"
+    },
+    {
+      "id": "ISS-20260521T143810964Z-COLLECTION-SLOT-DROP-TRAVERSAL-SUMMA-131D4BA0",
+      "title": "Collection slot drop traversal summary certifies marker-only cleanup",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_build_ops.rs, nepl-core/src/resource/collection_slot_summary_replay.rs, nepl-core/src/resource/collection_slot_drop_traversal.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T143810964Z-COLLECTION-SLOT-DROP-TRAVERSAL-SUMMA-131D4BA0.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",

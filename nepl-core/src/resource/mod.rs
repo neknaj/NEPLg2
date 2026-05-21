@@ -32,6 +32,7 @@ mod cell_state_raw_range_value_alias_tests;
 mod cell_state_tests;
 mod collection_slot_drop_proof;
 mod collection_slot_drop_traversal;
+mod collection_slot_drop_traversal_summary;
 mod collection_slot_lifecycle;
 mod collection_slot_lifecycle_model;
 #[cfg(test)]
@@ -89,6 +90,7 @@ mod collection_slot_summary_return_unique;
 mod collection_slot_summary_return_value;
 mod collection_slot_summary_target;
 mod collection_slot_summary_translate;
+mod collection_slot_summary_translate_drop;
 mod compiler_memory_place;
 mod condition_fact;
 mod coverage;

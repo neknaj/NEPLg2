@@ -8,6 +8,7 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
 };
 use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
+use super::collection_slot_summary_translate_drop::translate_drop_traversal_summary_op;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceCallTarget, ResourceLocal};
@@ -111,19 +112,20 @@ pub(super) fn translate_summary_ops_through_args(
             CollectionSlotLifecycleSummaryOp::DropTraversal {
                 storage,
                 expected_ty,
+                certified_slots,
                 proof,
             } => {
-                let Some(actual) = instantiate_summary_target(engine, args, storage) else {
-                    continue;
-                };
-                let actual = raw_aliases.canonicalize_owner_cell_address(&actual);
-                if let Some(storage) = summary_place_for_params(params, &actual) {
-                    out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
-                        storage,
-                        expected_ty: *expected_ty,
-                        proof: *proof,
-                    });
-                }
+                translate_drop_traversal_summary_op(
+                    out,
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    storage,
+                    *expected_ty,
+                    certified_slots,
+                    *proof,
+                );
             }
             CollectionSlotLifecycleSummaryOp::Merge { paths } => {
                 let mut translated_paths = Vec::new();
