@@ -1,3 +1,12 @@
+# 2026-05-22 Agent 1 generic Drop-bound Resource requirement
+
+- `ISS-20260521T214431160Z-GENERIC-DROP-BOUND-TYPE-VARIABLES-AR-F3533E34` を追加して fixed にした。`plan.md` は確認済みで変更していない。
+- 根本原因は、Resource drop requirement derivation が concrete `impl Drop` target だけを見ており、未束縛の `.T: Drop` 型変数を `StateOnly` と扱っていたことだった。
+- `ResourceDropRequirement` は unbound `TypeKind::Var` が `drop_cap` を持つ場合に `WholeValue` を返すようにし、generic collection cleanup が actual drop proof なしで state-only traversal へ進む経路を閉じた。
+- 調査中に、source-level Drop trait call / explicit drop syntax が `ResourceOp::Drop` proof を生成しない設計残件を確認し、`ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE` として分離した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir generic_drop_bound_type_param_requires_whole_value_drop_requirement`: pass
+
 # 2026-05-21 Agent 1 drop traversal summary coverage wrapper cleanup
 
 - `ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C` を追加して fixed にした。`plan.md` は変更していない。

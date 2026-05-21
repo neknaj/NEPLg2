@@ -44,6 +44,9 @@ fn drop_requirement_inner(
     if types.has_drop_impl_target(resolved) {
         return ResourceDropRequirement::WholeValue;
     }
+    if unbound_drop_capability_type_var_needs_drop(types, resolved) {
+        return ResourceDropRequirement::WholeValue;
+    }
     if !visiting.insert(resolved) {
         return ResourceDropRequirement::StateOnly;
     }
@@ -69,6 +72,13 @@ fn drop_requirement_inner(
 
     visiting.remove(&resolved);
     requirement
+}
+
+fn unbound_drop_capability_type_var_needs_drop(types: &TypeCtx, ty: TypeId) -> bool {
+    matches!(
+        types.get_ref(ty),
+        TypeKind::Var(var) if var.binding.is_none() && var.drop_cap
+    )
 }
 
 fn structural_drop_requirement(

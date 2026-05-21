@@ -5118,16 +5118,17 @@ fn resource_ir_check_reports_read_after_drop() {
 }
 
 #[test]
-fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+fn resource_ir_drop_plan_records_state_only_non_copy_local_at_scope_end() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();
+    let func_ty = types.function(Vec::new(), Vec::new(), unit_ty, Effect::Pure);
     let span = Span::dummy();
     let module = HirModule {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
             origin_name: "main".to_string(),
-            func_ty: TypeId(9),
+            func_ty,
             params: vec![],
             result: unit_ty,
             effect: Effect::Pure,
@@ -5210,14 +5211,39 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
     ));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
-    assert_eq!(report.functions[0].auto_drop_points.len(), 1);
-    assert!(report.functions[0].auto_drop_points[0]
-        .auto_drops
-        .iter()
-        .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "x")));
+    assert_eq!(report.functions[0].auto_drop_points.len(), 0);
     assert!(report.functions[0].final_cells.iter().any(|entry| {
         matches!(&entry.place.root, PlaceRoot::Local(name) if name == "x")
-            && entry.state == CellState::Dropped
+            && matches!(entry.state, CellState::Initialized(_))
+    }));
+}
+
+#[test]
+fn generic_drop_bound_type_param_requires_whole_value_drop_requirement() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/traits/drop" as *
+
+fn generic_consume <.T: Drop> <(.T)->()> (value):
+    ()
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let drop_plan = compute_resource_drop_plan(&resource, &types);
+    let generic_drop_plan = drop_plan
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("generic_consume"))
+        .expect("generic function should be present in the Resource drop plan");
+
+    assert!(generic_drop_plan.auto_drops.iter().any(|drop| {
+        matches!(
+            (&drop.place.root, &drop.requirement),
+            (PlaceRoot::Local(name), ResourceDropRequirement::WholeValue) if name == "value"
+        )
     }));
 }
 
