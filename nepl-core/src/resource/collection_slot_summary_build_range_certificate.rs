@@ -39,14 +39,22 @@ pub(super) fn loop_drop_traversal_range_certificates(
     };
     let body_prefix = &body_ops[..step_index];
     let body_tail = &body_ops[step_index + 1..];
-    let preserves_count = body_preserves_place(body_ops, &initialized_count);
-    let preserves_tail_index = body_preserves_place(body_tail, &index);
-    if !preserves_count || !preserves_tail_index {
-        return Vec::new();
-    }
 
     let mut condition_state = collection_slot_summary_state_after_ops(engine, state, condition_ops);
     apply_summary_condition_fact(&mut condition_state, condition_fact, true);
+    let state_after_step =
+        collection_slot_summary_state_after_ops(engine, &condition_state, &body_ops[..=step_index]);
+    let preserves_count = body_preserves_place(
+        engine,
+        &condition_state.raw_aliases,
+        body_ops,
+        &initialized_count,
+    );
+    let preserves_tail_index =
+        body_preserves_place(engine, &state_after_step.raw_aliases, body_tail, &index);
+    if !preserves_count || !preserves_tail_index {
+        return Vec::new();
+    }
 
     let mut out = Vec::new();
     for (storage, expected_ty, element_stride) in
@@ -55,7 +63,7 @@ pub(super) fn loop_drop_traversal_range_certificates(
         let storage = condition_state
             .raw_aliases
             .canonicalize_owner_cell_address(&storage);
-        if !body_preserves_place(body_ops, &storage) {
+        if !body_preserves_place(engine, &condition_state.raw_aliases, body_ops, &storage) {
             continue;
         }
         let drops_symbolic_slot = loop_body_drops_symbolic_slot(

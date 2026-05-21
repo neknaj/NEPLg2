@@ -44218,6 +44218,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
 
+## 2026-05-22 Agent 1 drop traversal certificate preservation alias/consume check
+
+- `ISS-20260521T223133295Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-E9B96873` を作成して fixed にした。`plan.md` は確認済みで、変更していない。
+- 根本原因は、`ForallInitializedRange` certificate の loop-body preservation 判定が Resource IR の逐次 alias state と argument/value consumption semantics を使わず、protected storage / initialized_count anchor を直接書く operation だけを中心に見ていたこと。
+- `body_preserves_place` を `ResourceCheckEngine` / `RawCellAddressAliases` を使う判定に変更し、各 operation 後に raw/scalar alias propagation を反映しながら protected anchor touch を検査するようにした。
+- `Assign` value、`DeclareLocal` initializer、`Construct` inputs、`EndScope` result、`Call` args の non-Copy consumption と opaque pure user call の protected-anchor argument を rejection 条件に含めた。stdlib module allowlist や helper 名の個別許可は追加していない。
+- loop certificate 生成は condition facts 適用後の alias state を preservation 判定へ渡し、step 後 tail index preservation も step までの alias propagation 後の state で検査する。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib body_preserve -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed with CRLF normalization warnings only
+- optional broader monitor:
+  - `node nodesrc/test_resource_checker_responsibility.js`: failed because pre-existing `drop_call_identity.rs` is not monitored; created `ISS-20260521T224131240Z-RESOURCE-RESPONSIBILITY-MONITOR-MISS-B6468B0C` for the next tooling fix.
+
 ## 2026-05-22 Agent 1 drop traversal Move-output preservation
 
 - `ISS-20260521T222108027Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-A3B78241` を作成して fixed にした。`plan.md` は変更していない。

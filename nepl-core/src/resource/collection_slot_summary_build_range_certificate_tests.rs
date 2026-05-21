@@ -17,8 +17,8 @@ use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_scalar_flow::I32ScalarReturnSummaryIndex;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::model::{
-    EffectOp, Place, PlaceProjection, RawMemoryOp, ResourceBlock, ResourceBlockId,
-    ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
+    EffectOp, Place, PlaceProjection, RawAddressAliasKind, RawMemoryOp, ResourceBlock,
+    ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
     ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceOffset, ResourceOp,
     ResourceTerminator,
 };
@@ -65,12 +65,35 @@ fn collection_slot_summary_loop_induction_rejects_move_output_count_mutation() {
     );
 }
 
+#[test]
+fn collection_slot_summary_loop_induction_rejects_user_call_storage_argument() {
+    let out = collect_loop_induction_summary_ops(LoopBodyInterference::UserCallStorageAfterStep);
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "an opaque pure user call that receives storage must not be treated as preserving the full-range certificate without a preservation proof: {out:#?}"
+    );
+}
+
+#[test]
+fn collection_slot_summary_loop_induction_rejects_user_call_storage_alias_argument() {
+    let out =
+        collect_loop_induction_summary_ops(LoopBodyInterference::UserCallStorageAliasAfterStep);
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "an opaque pure user call that receives a storage alias must not bypass the full-range certificate preservation check: {out:#?}"
+    );
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum LoopBodyInterference {
     None,
     AssignStorageAfterStep,
     MoveToStorageAfterStep,
     MoveToInitializedCountAfterStep,
+    UserCallStorageAfterStep,
+    UserCallStorageAliasAfterStep,
 }
 
 fn collect_loop_induction_summary_ops(
@@ -98,6 +121,8 @@ fn collect_loop_induction_summary_ops(
     let next = Place::temporary(ResourceId(934), i32_ty);
     let replacement_storage = Place::temporary(ResourceId(935), i32_ty);
     let replacement_count = Place::temporary(ResourceId(936), i32_ty);
+    let storage_alias = Place::temporary(ResourceId(937), i32_ty);
+    let call_output = Place::temporary(ResourceId(938), unit_ty);
     let function = summary_test_function(
         unit_ty,
         i32_ty,
@@ -179,6 +204,26 @@ fn collect_loop_induction_summary_ops(
                 span,
             });
         }
+        LoopBodyInterference::UserCallStorageAfterStep => {
+            body_ops.push(opaque_pure_user_call_op(
+                call_output.clone(),
+                vec![storage.clone()],
+                span,
+            ));
+        }
+        LoopBodyInterference::UserCallStorageAliasAfterStep => {
+            body_ops.push(ResourceOp::RawAddressAlias {
+                source: storage.clone(),
+                target: storage_alias.clone(),
+                kind: RawAddressAliasKind::Transparent,
+                span,
+            });
+            body_ops.push(opaque_pure_user_call_op(
+                call_output,
+                vec![storage_alias],
+                span,
+            ));
+        }
     }
 
     collect_summary_ops_from_ops(
@@ -243,6 +288,22 @@ fn literal_i32_op(value: i32, output: Place, ty: TypeId, span: Span) -> Resource
         kind: ResourceExprKind::LiteralI32(value),
         output,
         ty,
+        span,
+    }
+}
+
+fn opaque_pure_user_call_op(output: Place, args: Vec<Place>, span: Span) -> ResourceOp {
+    ResourceOp::Call {
+        output,
+        target: ResourceCallTarget::User {
+            name: "opaque_preserve_probe".to_string(),
+            type_args: Vec::new(),
+        },
+        args,
+        effect: EffectOp::UserCall {
+            name: "opaque_preserve_probe".to_string(),
+            effect: Effect::Pure,
+        },
         span,
     }
 }
