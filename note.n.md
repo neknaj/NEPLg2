@@ -1,3 +1,16 @@
+# 2026-05-21 Agent 1 collection slot drop elaboration guard
+
+- `ISS-20260521T002920171Z-COLLECTION-SLOT-DROP-LIFECYCLE-CAN-E-DB699FC2` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotLifecycleEvent::DropInitialized` と `ReplaceInitialized(DropOldOwner)` が slot state を `Dropped` / replacement 後 state に進めるだけで、payload の実際の drop elaboration と接続されていなかったことだった。
+- storage release は `Dropped` state を信用するため、droppable payload でこの state-only transition を許すと、将来 non-Copy collection API が payload destructor を実行せず backing storage を release できる。
+- `CollectionSlotLifecycleRefutation::DropRequiresElaboration` と `resource.collection_slot.drop_requires_elaboration` diagnostic を追加した。
+- initialized checker は `DropInitialized` / `ReplaceInitialized(DropOldOwner)` を drop-producing event として enum / match で分類し、`ResourceDropRequirement::StateOnly` ではない payload では slot state を進めず typed refutation を出す。`ReplaceInitialized(ReturnOldOwner)` は ownership transfer として残し、drop diagnostic を出さない。
+- 親 issue `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` に、今回の修正で state-only cleanup hole を閉じたことと、完全な non-Copy collection support には compiler-owned slot-drop lowering がまだ必要であることを追記した。
+- 検証:
+  - `cargo test -p nepl-core resource_ir_collection_slot_drop_initialized_requires_drop_elaboration_for_droppable_payload --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core resource_ir_collection_slot_replace_ --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: pass
+
 # 2026-05-21 Agent 1 canonical memory effects test fixtures
 
 - `ISS-20260520T235639756Z-COLLECTION-SLOT-EFFECTS-FIXTURES-USE-7246C053` を追加して fixed にした。`plan.md` は変更していない。

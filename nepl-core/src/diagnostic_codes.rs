@@ -204,6 +204,7 @@ pub enum ResourceCollectionSlotDiagnosticCode {
     TypeMismatch,
     LiveSlotOverwrite,
     MaybeLiveSlotOverwrite,
+    DropRequiresElaboration,
     LiveSlotDuringStorageDealloc,
     MaybeLiveSlotDuringStorageDealloc,
 }
@@ -1187,6 +1188,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite => {
                 "resource.collection_slot.maybe_live_overwrite"
             }
+            ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration => {
+                "resource.collection_slot.drop_requires_elaboration"
+            }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "resource.collection_slot.live_during_storage_dealloc"
             }
@@ -1209,6 +1213,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             }
             ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite => {
                 "cannot overwrite a collection slot that may still be live"
+            }
+            ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration => {
+                "collection slot drop requires compiler drop elaboration"
             }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "cannot deallocate storage while a collection slot is still live"

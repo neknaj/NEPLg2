@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T00:19:04.480Z",
+  "generated_at": "2026-05-21T00:35:54.402Z",
   "counts": {
-    "total": 1150,
+    "total": 1151,
     "open": 3,
-    "resolved": 1147,
+    "resolved": 1148,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 547,
+        "total": 548,
         "open": 0,
-        "resolved": 547
+        "resolved": 548
       },
       "CORE": {
         "total": 5,
@@ -8368,6 +8368,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T000647693Z-COLLECTION-SLOT-LIFECYCLE-LACKS-STDL-4001F199.md"
+    },
+    {
+      "id": "ISS-20260521T002920171Z-COLLECTION-SLOT-DROP-LIFECYCLE-CAN-E-DB699FC2",
+      "title": "Collection slot drop lifecycle can erase droppable payload without drop elaboration",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/initialized_collection_slot.rs, nepl-core/src/resource/collection_slot_lifecycle.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-6-self-host-compiler-準備",
+      "file": "items/ISS-20260521T002920171Z-COLLECTION-SLOT-DROP-LIFECYCLE-CAN-E-DB699FC2.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
