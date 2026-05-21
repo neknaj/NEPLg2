@@ -44,6 +44,40 @@ fn collection_slot_summary_loop_induction_rejects_move_output_count_mutation() {
 }
 
 #[test]
+fn collection_slot_summary_loop_induction_rejects_tail_raw_load_storage() {
+    let out = collect_loop_induction_summary_ops(LoopBodyInterference::RawLoadStorageAfterStep);
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "a raw load from protected storage after the induction step must not preserve the full-range certificate: {out:#?}"
+    );
+}
+
+#[test]
+fn collection_slot_summary_loop_induction_rejects_after_witness_raw_load_storage() {
+    let out = collect_loop_induction_summary_ops(
+        LoopBodyInterference::RawLoadStorageAfterWitnessBeforeStep,
+    );
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "a raw load from protected storage after the witness drop must not preserve the full-range certificate before the induction step: {out:#?}"
+    );
+}
+
+#[test]
+fn collection_slot_summary_loop_induction_rejects_after_witness_unsafe_load_call_storage() {
+    let out = collect_loop_induction_summary_ops(
+        LoopBodyInterference::UnsafeLoadCallStorageAfterWitnessBeforeStep,
+    );
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "an unsafe load call from protected storage after the witness drop must not bypass ResourceOp::RawMemory invalidation: {out:#?}"
+    );
+}
+
+#[test]
 fn collection_slot_summary_loop_induction_rejects_user_call_storage_argument() {
     let out = collect_loop_induction_summary_ops(LoopBodyInterference::UserCallStorageAfterStep);
 

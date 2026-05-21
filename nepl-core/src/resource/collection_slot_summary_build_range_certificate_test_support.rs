@@ -30,6 +30,9 @@ pub(super) enum LoopBodyInterference {
     AssignStorageAfterStep,
     MoveToStorageAfterStep,
     MoveToInitializedCountAfterStep,
+    RawLoadStorageAfterWitnessBeforeStep,
+    RawLoadStorageAfterStep,
+    UnsafeLoadCallStorageAfterWitnessBeforeStep,
     UserCallStorageAfterStep,
     UserCallStorageAliasAfterStep,
 }
@@ -61,6 +64,9 @@ pub(super) fn collect_loop_induction_summary_ops(
     let replacement_count = Place::temporary(ResourceId(936), i32_ty);
     let storage_alias = Place::temporary(ResourceId(937), i32_ty);
     let call_output = Place::temporary(ResourceId(938), unit_ty);
+    let tail_loaded = Place::temporary(ResourceId(939), owned_ty);
+    let before_step_loaded = Place::temporary(ResourceId(940), owned_ty);
+    let unsafe_load_output = Place::temporary(ResourceId(941), owned_ty);
     let function = summary_test_function(
         unit_ty,
         i32_ty,
@@ -141,6 +147,42 @@ pub(super) fn collect_loop_induction_summary_ops(
                 output: initialized_count.clone(),
                 span,
             });
+        }
+        LoopBodyInterference::RawLoadStorageAfterWitnessBeforeStep => {
+            body_ops.insert(
+                2,
+                ResourceOp::RawMemory {
+                    operation: RawMemoryOp::Load,
+                    output: before_step_loaded,
+                    args: vec![storage.clone()],
+                    span,
+                },
+            );
+        }
+        LoopBodyInterference::RawLoadStorageAfterStep => {
+            body_ops.push(ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: tail_loaded,
+                args: vec![storage.clone()],
+                span,
+            });
+        }
+        LoopBodyInterference::UnsafeLoadCallStorageAfterWitnessBeforeStep => {
+            body_ops.insert(
+                2,
+                ResourceOp::Call {
+                    output: unsafe_load_output,
+                    target: ResourceCallTarget::User {
+                        name: "raw_load_probe".to_string(),
+                        type_args: Vec::new(),
+                    },
+                    args: vec![storage.clone()],
+                    effect: EffectOp::UnsafeMemory {
+                        operation: RawMemoryOp::Load,
+                    },
+                    span,
+                },
+            );
         }
         LoopBodyInterference::UserCallStorageAfterStep => {
             body_ops.push(opaque_pure_user_call_op(

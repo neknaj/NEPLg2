@@ -1,30 +1,28 @@
 extern crate alloc;
 
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use crate::layout::storage_size_bytes;
-use crate::types::TypeId;
-
-use super::collection_slot_lifecycle::CollectionSlotState;
+use super::collection_slot_summary_build_range_witness_drop::{
+    drop_witness_candidate, prefix_drops_symbolic_slot, LoopBodyCandidateSlot,
+    LoopBodyDropWitnessCandidate,
+};
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
-use super::collection_slot_summary_return_state::collection_slot_summary_state_after_ops;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
 use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOffset, ResourceOp};
-use super::place_utils::raw_memory_cell_place;
 
 pub(super) fn loop_body_candidate_slots(
     engine: &ResourceCheckEngine<'_>,
     state: &CollectionSlotSummaryBuildState,
     ops: &[ResourceOp],
     index: &Place,
-) -> Vec<(Place, TypeId, usize)> {
+    initialized_count: &Place,
+) -> Vec<LoopBodyDropWitnessCandidate> {
     let mut raw_aliases = state.raw_aliases.clone();
     let mut function_aliases = state.function_aliases.clone();
     let mut out = Vec::new();
-    for op in ops {
+    for (op_index, op) in ops.iter().enumerate() {
         if let ResourceOp::RawMemory {
             operation: RawMemoryOp::Load,
             output,
@@ -37,57 +35,28 @@ pub(super) fn loop_body_candidate_slots(
                     if let Some((storage, element_stride)) =
                         storage_scaled_by_index(&address, index, &raw_aliases)
                     {
-                        push_candidate_slot(&mut out, storage, output.ty, element_stride);
+                        push_candidate_slot(
+                            &mut out,
+                            LoopBodyCandidateSlot {
+                                storage,
+                                expected_ty: output.ty,
+                                element_stride,
+                                load_index: op_index,
+                                loaded: output.clone(),
+                            },
+                        );
                     }
                 }
             }
         }
         propagate_candidate_alias_facts(engine, &mut raw_aliases, &mut function_aliases, op);
     }
-    out
-}
-
-pub(super) fn loop_body_drops_symbolic_slot(
-    engine: &ResourceCheckEngine<'_>,
-    state: &CollectionSlotSummaryBuildState,
-    body_prefix: &[ResourceOp],
-    storage: &Place,
-    index: &Place,
-    initialized_count: &Place,
-    expected_ty: TypeId,
-    element_stride: usize,
-) -> bool {
-    if element_stride != storage_size_bytes(engine.types, expected_ty) || element_stride == 0 {
-        return false;
-    }
-    let slot_address = storage.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
-            place: Box::new(index.clone()),
-            scale: element_stride,
-        }),
-        engine.types.i32(),
-    );
-    let slot = slot_address
-        .clone()
-        .with_projection(PlaceProjection::Deref, expected_ty);
-    let mut probe = state.clone();
-    probe
-        .cells
-        .mark_initialized(&raw_memory_cell_place(&slot_address, expected_ty));
-    probe
-        .collection_slots
-        .set_slot_state(&slot, CollectionSlotState::Initialized(expected_ty));
-    let mut probe = collection_slot_summary_state_after_ops(engine, &probe, body_prefix);
-    engine
-        .collection_slot_drop_traversal_result(
-            &mut probe.cells,
-            &mut probe.collection_slots,
-            &probe.raw_aliases,
-            storage,
-            initialized_count,
-            expected_ty,
-        )
-        .is_ok()
+    out.into_iter()
+        .filter_map(|candidate| drop_witness_candidate(engine, ops, candidate))
+        .filter(|candidate| {
+            prefix_drops_symbolic_slot(engine, state, ops, index, initialized_count, candidate)
+        })
+        .collect()
 }
 
 fn storage_scaled_by_index(
@@ -127,16 +96,14 @@ fn symbolic_offset_scale_for_index(
     (source == index).then_some(scale)
 }
 
-fn push_candidate_slot(
-    out: &mut Vec<(Place, TypeId, usize)>,
-    storage: Place,
-    expected_ty: TypeId,
-    element_stride: usize,
-) {
+fn push_candidate_slot(out: &mut Vec<LoopBodyCandidateSlot>, candidate: LoopBodyCandidateSlot) {
     if !out.iter().any(|existing| {
-        existing.0 == storage && existing.1 == expected_ty && existing.2 == element_stride
+        existing.storage == candidate.storage
+            && existing.expected_ty == candidate.expected_ty
+            && existing.element_stride == candidate.element_stride
+            && existing.load_index == candidate.load_index
     }) {
-        out.push((storage, expected_ty, element_stride));
+        out.push(candidate);
     }
 }
 

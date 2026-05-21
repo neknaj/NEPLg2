@@ -220,10 +220,10 @@ fn raw_memory_operation_may_change_candidate_range(
     args: &[Place],
 ) -> bool {
     match operation {
-        RawMemoryOp::Load
-        | RawMemoryOp::LoadU8
-        | RawMemoryOp::MemorySize
-        | RawMemoryOp::MemoryGrow => false,
+        RawMemoryOp::Load => args
+            .iter()
+            .any(|arg| touches_candidate_storage(raw_aliases, candidate, arg)),
+        RawMemoryOp::LoadU8 | RawMemoryOp::MemorySize | RawMemoryOp::MemoryGrow => false,
         RawMemoryOp::Store
         | RawMemoryOp::StoreU8
         | RawMemoryOp::Dealloc

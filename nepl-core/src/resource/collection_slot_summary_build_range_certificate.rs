@@ -6,11 +6,12 @@ use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleOp;
 use super::collection_slot_summary_build_nested::apply_summary_condition_fact;
 use super::collection_slot_summary_build_range_bound::initialized_range_loop_bound;
-use super::collection_slot_summary_build_range_preserve::body_preserves_place;
-use super::collection_slot_summary_build_range_step::loop_body_increment_step;
-use super::collection_slot_summary_build_range_witness::{
-    loop_body_candidate_slots, loop_body_drops_symbolic_slot,
+use super::collection_slot_summary_build_range_preserve::{
+    body_preserves_place, body_preserves_place_after_drop_witness,
 };
+use super::collection_slot_summary_build_range_preserve_witness::body_preserves_place_with_drop_witness;
+use super::collection_slot_summary_build_range_step::loop_body_increment_step;
+use super::collection_slot_summary_build_range_witness::loop_body_candidate_slots;
 use super::collection_slot_summary_build_state::{
     CollectionSlotDropTraversalRangeCertificateCandidate, CollectionSlotSummaryBuildState,
 };
@@ -57,37 +58,43 @@ pub(super) fn loop_drop_traversal_range_certificates(
     }
 
     let mut out = Vec::new();
-    for (storage, expected_ty, element_stride) in
-        loop_body_candidate_slots(engine, &condition_state, body_prefix, &index)
-    {
+    for witness in loop_body_candidate_slots(
+        engine,
+        &condition_state,
+        body_prefix,
+        &index,
+        &initialized_count,
+    ) {
         let storage = condition_state
             .raw_aliases
-            .canonicalize_owner_cell_address(&storage);
-        if !body_preserves_place(engine, &condition_state.raw_aliases, body_ops, &storage) {
+            .canonicalize_owner_cell_address(&witness.storage);
+        if !body_preserves_place_with_drop_witness(
+            engine,
+            &condition_state.raw_aliases,
+            body_ops,
+            &storage,
+            witness.load_index,
+            witness.drop_index,
+        ) {
             continue;
         }
-        let drops_symbolic_slot = loop_body_drops_symbolic_slot(
+        if !body_preserves_place_after_drop_witness(
             engine,
-            &condition_state,
-            body_prefix,
+            &state_after_step.raw_aliases,
+            body_tail,
             &storage,
-            &index,
-            &initialized_count,
-            expected_ty,
-            element_stride,
-        );
-        if !drops_symbolic_slot {
+        ) {
             continue;
         }
         let candidate = CollectionSlotDropTraversalRangeCertificateCandidate {
             storage,
             initialized_count: initialized_count.clone(),
-            expected_ty,
+            expected_ty: witness.expected_ty,
             certificate: CollectionSlotInitializedRangeDropTraversalCertificate {
-                element_stride,
+                element_stride: witness.element_stride,
                 drop_obligation: CollectionSlotDropObligation::DropLoadedValue {
                     operation: CollectionSlotLifecycleOp::DropInitialized,
-                    value_ty: expected_ty,
+                    value_ty: witness.expected_ty,
                 },
             },
         };

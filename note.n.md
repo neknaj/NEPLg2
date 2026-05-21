@@ -44218,6 +44218,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
 
+## 2026-05-22 Agent 1 drop traversal certificate raw-load invalidation
+
+- `ISS-20260521T225837153Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-SUR-83ACCED9` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`ForallInitializedRange` certificate の preservation が actual drop witness の raw load を許す必要から、witness 後の tail / post-loop に現れる protected storage への typed `RawMemoryOp::Load` まで preserve と扱っていたこと。
+- loop-body candidate は storage / type / stride だけでなく witness load index と direct `ResourceOp::Drop` index を持つ source-derived proof として扱うようにした。
+- 通常の `body_preserves_place` は witness 用に維持し、witness 付き body 用に `body_preserves_place_with_drop_witness`、witness 後 tail 用に `body_preserves_place_after_drop_witness` を分離した。選択された witness load 以外の protected storage load と、witness drop 後の protected storage load / unsafe-memory load call を拒否する。
+- certificate lifetime も post-loop の `RawMemoryOp::Load` args が certificate storage に触れる場合に失効するようにした。`LoadU8` / memory size / grow は slot owner state を move しないため preserve のままとした。
+- これは stdlib helper allowlist ではなく、`ResourceOp` / `RawMemoryOp` enum と alias-aware generic proof boundary に基づく修正である。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib body_preserve -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed with CRLF normalization warnings only
+
 ## 2026-05-22 Agent 1 drop traversal certificate preservation alias/consume check
 
 - `ISS-20260521T223133295Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-E9B96873` を作成して fixed にした。`plan.md` は確認済みで、変更していない。

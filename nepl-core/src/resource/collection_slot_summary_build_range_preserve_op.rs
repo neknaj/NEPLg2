@@ -79,6 +79,33 @@ pub(super) fn op_preserves_place(
     }
 }
 
+pub(super) fn op_preserves_place_after_drop_witness(
+    engine: &ResourceCheckEngine<'_>,
+    raw_aliases: &RawCellAddressAliases,
+    op: &ResourceOp,
+    protected: &Place,
+) -> bool {
+    op_preserves_place(engine, raw_aliases, op, protected)
+        && !matches!(
+            op,
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                args,
+                ..
+            }
+            | ResourceOp::Call {
+                effect:
+                    EffectOp::UnsafeMemory {
+                        operation: RawMemoryOp::Load,
+                    },
+                args,
+                ..
+            } if args
+                .iter()
+                .any(|arg| place_touches(raw_aliases, arg, protected))
+        )
+}
+
 fn call_preserves_loop_place(
     engine: &ResourceCheckEngine<'_>,
     raw_aliases: &RawCellAddressAliases,

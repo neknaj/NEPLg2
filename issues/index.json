@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T22:55:04.525Z",
+  "generated_at": "2026-05-21T23:17:25.563Z",
   "counts": {
-    "total": 1205,
+    "total": 1206,
     "open": 3,
-    "resolved": 1202,
+    "resolved": 1203,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 589,
+        "total": 590,
         "open": 0,
-        "resolved": 589
+        "resolved": 590
       },
       "CORE": {
         "total": 5,
@@ -9153,6 +9153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T223133295Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-E9B96873.md"
+    },
+    {
+      "id": "ISS-20260521T225837153Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-SUR-83ACCED9",
+      "title": "Drop traversal range certificate survives raw load from protected storage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/collection_slot_summary_build_range_certificate.rs, nepl-core/src/resource/collection_slot_summary_build_range_lifetime.rs, nepl-core/src/resource/collection_slot_summary_build_range_preserve*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T225837153Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-SUR-83ACCED9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
