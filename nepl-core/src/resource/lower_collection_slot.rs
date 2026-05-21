@@ -63,11 +63,15 @@ fn push_collection_slot_drop_traversal(
     let Some(storage) = storage_lifecycle_place(0, hir_args, arg_places, env) else {
         return;
     };
+    let Some(initialized_count) = arg_places.get(1).cloned() else {
+        return;
+    };
     let Some(expected_ty) = slot_value_type(primitive, type_args) else {
         return;
     };
     ops.push(ResourceOp::CollectionSlotDropTraversal {
         storage,
+        initialized_count,
         expected_ty,
         span,
     });

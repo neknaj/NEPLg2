@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T15:08:51.319Z",
+  "generated_at": "2026-05-21T15:49:17.063Z",
   "counts": {
-    "total": 1191,
+    "total": 1192,
     "open": 3,
-    "resolved": 1188,
+    "resolved": 1189,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 578,
+        "total": 579,
         "open": 0,
-        "resolved": 578
+        "resolved": 579
       },
       "CORE": {
         "total": 5,
@@ -8958,6 +8958,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T145809160Z-SYMBOLIC-COLLECTION-SLOT-DROP-TRAVER-3D619183.md"
+    },
+    {
+      "id": "ISS-20260521T151802959Z-COLLECTION-SLOT-DROP-TRAVERSAL-LACKS-B557D89A",
+      "title": "Collection slot drop traversal lacks typed initialized count operand",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/model.rs, nepl-core/src/resource/lower_collection_slot.rs, nepl-core/src/resource/collection_slot_drop_traversal.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T151802959Z-COLLECTION-SLOT-DROP-TRAVERSAL-LACKS-B557D89A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -360,13 +360,15 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
         }
         ResourceOp::CollectionSlotDropTraversal {
             storage,
+            initialized_count,
             expected_ty,
             span,
         } => {
             let _ = writeln!(
                 out,
-                "collection_slot_drop_traversal storage={} ty={:?} span={}:{}-{}",
+                "collection_slot_drop_traversal storage={} initialized_count={} ty={:?} span={}:{}-{}",
                 dump_place(storage),
+                dump_place(initialized_count),
                 expected_ty,
                 span.file_id.0,
                 span.start,

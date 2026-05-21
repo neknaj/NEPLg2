@@ -205,9 +205,11 @@ fn resource_op_uses_place(op: &ResourceOp, place: &Place) -> bool {
             new_storage,
             ..
         } => place_mentions_token(old_storage, place) || place_mentions_token(new_storage, place),
-        ResourceOp::CollectionSlotDropTraversal { storage, .. } => {
-            place_mentions_token(storage, place)
-        }
+        ResourceOp::CollectionSlotDropTraversal {
+            storage,
+            initialized_count,
+            ..
+        } => place_mentions_token(storage, place) || place_mentions_token(initialized_count, place),
         ResourceOp::RawMemory { output, args, .. } => {
             place_mentions_token(output, place)
                 || args.iter().any(|arg| place_mentions_token(arg, place))

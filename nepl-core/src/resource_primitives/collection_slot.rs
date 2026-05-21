@@ -62,7 +62,8 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::ReplaceReturnOld
             | Self::ReplaceDropOld
             | Self::DropInitialized => 2,
-            Self::DropTraversal | Self::StorageDealloc => 1,
+            Self::StorageDealloc => 1,
+            Self::DropTraversal => 2,
             Self::StorageRelocate => 2,
         }
     }

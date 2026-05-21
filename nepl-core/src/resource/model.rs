@@ -178,6 +178,7 @@ pub enum ResourceOp {
     },
     CollectionSlotDropTraversal {
         storage: Place,
+        initialized_count: Place,
         expected_ty: TypeId,
         span: Span,
     },

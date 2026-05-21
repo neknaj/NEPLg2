@@ -111,6 +111,7 @@ pub(super) fn translate_summary_ops_through_args(
             }
             CollectionSlotLifecycleSummaryOp::DropTraversal {
                 storage,
+                initialized_count,
                 expected_ty,
                 certified_slots,
                 proof,
@@ -122,6 +123,7 @@ pub(super) fn translate_summary_ops_through_args(
                     params,
                     raw_aliases,
                     storage,
+                    initialized_count,
                     *expected_ty,
                     certified_slots,
                     *proof,

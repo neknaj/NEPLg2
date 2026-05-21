@@ -20,11 +20,17 @@ pub(super) fn translate_drop_traversal_summary_op(
     params: &[ResourceLocal],
     raw_aliases: &RawCellAddressAliases,
     storage: &CollectionSlotLifecycleSummaryPlace,
+    initialized_count: &CollectionSlotLifecycleSummaryPlace,
     expected_ty: TypeId,
     certified_slots: &[CollectionSlotLifecycleSummaryPlace],
     proof: CollectionSlotLifecycleSummaryDropTraversalProof,
 ) {
     let Some(storage) = translate_summary_place(engine, args, params, raw_aliases, storage) else {
+        return;
+    };
+    let Some(initialized_count) =
+        translate_summary_place(engine, args, params, raw_aliases, initialized_count)
+    else {
         return;
     };
     let Some(certified_slots) =
@@ -34,6 +40,7 @@ pub(super) fn translate_drop_traversal_summary_op(
     };
     out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
         storage,
+        initialized_count,
         expected_ty,
         certified_slots,
         proof,

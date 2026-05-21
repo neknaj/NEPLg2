@@ -46,6 +46,7 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
     },
     DropTraversal {
         storage: CollectionSlotLifecycleSummaryPlace,
+        initialized_count: CollectionSlotLifecycleSummaryPlace,
         expected_ty: TypeId,
         certified_slots: Vec<CollectionSlotLifecycleSummaryPlace>,
         proof: CollectionSlotLifecycleSummaryDropTraversalProof,

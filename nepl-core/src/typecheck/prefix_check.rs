@@ -279,6 +279,17 @@ impl<'a> BlockChecker<'a> {
                 ));
             }
         }
+        if primitive.requires_storage_drop_traversal() {
+            let initialized_count_ty = args[1].ty;
+            let i32_ty = self.ctx.i32();
+            if let Err(_) = self.ctx.unify(initialized_count_ty, i32_ty) {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                    "collection slot drop traversal initialized count must be i32",
+                    args[1].span,
+                ));
+            }
+        }
     }
 
     fn validate_collection_storage_relocate_anchor_pair(

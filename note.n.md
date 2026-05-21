@@ -44487,3 +44487,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-21 Agent 1 collection slot drop traversal initialized count operand
+
+- `ISS-20260521T151802959Z-COLLECTION-SLOT-DROP-TRAVERSAL-LACKS-B557D89A` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionSlotDropTraversal` が storage と expected type だけを運び、source の `initialized_len` / initialized count を Resource IR と summary に渡せなかったことだった。
+- `collection_slot_drop_traversal<T>` intrinsic を `(storage, initialized_count)` に変更し、typecheck 境界で count が `i32` であることを検査するようにした。
+- `ResourceOp::CollectionSlotDropTraversal`、collection slot summary、summary translate / replay、coverage、dump、borrow usage、temporary scope、effect summary seed walk へ `initialized_count: Place` を通した。
+- known slot は `offset / element_stride < initialized_count` を i32 relation fact で証明できる場合だけ traversal を進める。symbolic / unknown slot は full range proof がまだないため、引き続き `RangeProofRequired` として拒否する。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects collection_slot_drop_traversal -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_collection_slot_drop_traversal -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_drop_traversal -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot -- --test-threads=1`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

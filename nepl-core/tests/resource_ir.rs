@@ -824,7 +824,7 @@ struct LocalOwner:
     value <i32>
 
 fn drop_traversal <(&RegionToken<LocalOwner>)->()> (storage):
-    #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage)
+    #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage, 0)
 "#;
 
     let (module, types) = typecheck_resource_stdlib_source(
@@ -24223,7 +24223,7 @@ fn cleanup_region <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->i32> (stora
     set loaded0 LocalOwner 0
     let mut loaded1 <LocalOwner> load<LocalOwner> raw1
     set loaded1 LocalOwner 0
-    #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage)
+    #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage, 2)
     let total_size <i32> region_size storage
     allocator::dealloc_raw raw total_size
     #intrinsic "collection_slot_storage_dealloc" <> (storage)
@@ -24933,6 +24933,7 @@ fn resource_ir_collection_slot_drop_traversal_accepts_all_loaded_value_drops() {
             },
             ResourceOp::CollectionSlotDropTraversal {
                 storage: storage.clone(),
+                initialized_count: Place::i32_constant(16, i32_ty),
                 expected_ty: owned_ty,
                 span,
             },
@@ -24958,6 +24959,87 @@ fn resource_ir_collection_slot_drop_traversal_accepts_all_loaded_value_drops() {
         report.diagnostics,
         resource.dump_text()
     );
+}
+
+#[test]
+fn resource_ir_collection_slot_drop_traversal_rejects_slot_outside_initialized_count() {
+    let (types, owned_ty) = types_with_droppable_owned();
+    let i32_ty = types.i32();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), i32_ty);
+    let slot_address = storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        i32_ty,
+    );
+    let slot = slot_address
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let initial = Place::temporary(ResourceId(780), owned_ty);
+    let loaded = Place::temporary(ResourceId(781), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: initial.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(782), unit_ty),
+                args: vec![slot_address.clone(), initial],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded.clone(),
+                args: vec![slot_address],
+                span,
+            },
+            ResourceOp::Drop {
+                place: loaded,
+                span,
+            },
+            ResourceOp::CollectionSlotDropTraversal {
+                storage,
+                initialized_count: Place::i32_constant(0, i32_ty),
+                expected_ty: owned_ty,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot.clone(),
+            reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                operation: CollectionSlotLifecycleOp::DropTraversal,
+                slot_ty: Some(owned_ty),
+            },
+            span,
+        }]
+    );
+    assert!(report.functions[0].final_collection_slots.iter().any(
+        |entry| entry.slot == slot && entry.state == CollectionSlotState::Initialized(owned_ty)
+    ));
 }
 
 #[test]
@@ -25019,6 +25101,7 @@ fn resource_ir_collection_slot_drop_traversal_rejects_symbolic_slot_without_rang
             },
             ResourceOp::CollectionSlotDropTraversal {
                 storage,
+                initialized_count: Place::i32_constant(16, i32_ty),
                 expected_ty: owned_ty,
                 span,
             },
@@ -25135,6 +25218,7 @@ fn resource_ir_collection_slot_drop_traversal_summary_rejects_marker_only_cleanu
         "drop_all_slots",
         vec![ResourceOp::CollectionSlotDropTraversal {
             storage: helper_storage,
+            initialized_count: Place::i32_constant(16, i32_ty),
             expected_ty: owned_ty,
             span,
         }],
@@ -25287,6 +25371,7 @@ fn resource_ir_collection_slot_drop_traversal_rejects_missing_slot_drop_atomical
             },
             ResourceOp::CollectionSlotDropTraversal {
                 storage,
+                initialized_count: Place::i32_constant(16, i32_ty),
                 expected_ty: owned_ty,
                 span,
             },
@@ -25369,6 +25454,7 @@ fn resource_ir_collection_slot_drop_traversal_rejects_raw_load_without_drop() {
             },
             ResourceOp::CollectionSlotDropTraversal {
                 storage,
+                initialized_count: Place::i32_constant(16, i32_ty),
                 expected_ty: owned_ty,
                 span,
             },
@@ -25444,6 +25530,7 @@ fn resource_ir_collection_slot_drop_traversal_keeps_partial_branch_maybe_live() 
                     },
                     ResourceOp::CollectionSlotDropTraversal {
                         storage: storage.clone(),
+                        initialized_count: Place::i32_constant(16, i32_ty),
                         expected_ty: owned_ty,
                         span,
                     },

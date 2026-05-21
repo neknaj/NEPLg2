@@ -5,9 +5,9 @@ use alloc::vec::Vec;
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalProof, CollectionSlotLifecycleSummaryOp,
-    CollectionSlotLifecycleSummaryRelocateProof,
+    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
 };
+use super::collection_slot_summary_replay_drop_traversal::apply_drop_traversal_summary_op;
 use super::collection_slot_summary_target::instantiate_summary_target;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -68,32 +68,22 @@ impl ResourceCheckEngine<'_> {
                 }
                 CollectionSlotLifecycleSummaryOp::DropTraversal {
                     storage,
+                    initialized_count,
                     expected_ty,
                     certified_slots,
                     proof,
                 } => {
-                    match proof {
-                        CollectionSlotLifecycleSummaryDropTraversalProof::CertifiedLoadedValueDrops => {}
-                    }
-                    let Some(storage) = instantiate_summary_target(self, args, storage) else {
-                        continue;
-                    };
-                    let mut slots = Vec::new();
-                    for slot in certified_slots {
-                        if let Some(slot) = instantiate_summary_target(self, args, slot) {
-                            slots.push(slot);
-                        }
-                    }
-                    if slots.len() != certified_slots.len() {
-                        continue;
-                    }
-                    self.apply_certified_collection_slot_drop_traversal_slots_with_aliases(
+                    apply_drop_traversal_summary_op(
+                        self,
                         cells,
                         collection_slots,
                         raw_aliases,
-                        &storage,
+                        args,
+                        storage,
+                        initialized_count,
                         *expected_ty,
-                        &slots,
+                        certified_slots,
+                        *proof,
                         span,
                     );
                 }

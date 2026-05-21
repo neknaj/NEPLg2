@@ -41,6 +41,7 @@ pub enum ResourceCoveragePlaceOperation {
     CollectionStorageRelocateOld,
     CollectionStorageRelocateNew,
     CollectionSlotDropTraversalStorage,
+    CollectionSlotDropTraversalInitializedCount,
 }
 
 impl ResourceCoveragePlaceOperation {
@@ -94,6 +95,9 @@ impl ResourceCoveragePlaceOperation {
             }
             ResourceCoveragePlaceOperation::CollectionSlotDropTraversalStorage => {
                 "collection_slot_drop_traversal.storage"
+            }
+            ResourceCoveragePlaceOperation::CollectionSlotDropTraversalInitializedCount => {
+                "collection_slot_drop_traversal.initialized_count"
             }
         }
     }

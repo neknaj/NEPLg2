@@ -8,6 +8,7 @@ use crate::types::TypeId;
 
 use super::cell_state::{raw_cell_address_prefix, CellTable};
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
+use super::collection_slot_drop_traversal_range::collection_slot_known_offset_is_inside_initialized_count;
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
     CollectionSlotState,
@@ -27,15 +28,18 @@ impl ResourceCheckEngine<'_> {
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         storage: &Place,
+        initialized_count: &Place,
         expected_ty: TypeId,
         span: Span,
     ) {
         let storage = raw_aliases.canonicalize_owner_cell_address(storage);
+        let initialized_count = raw_aliases.canonicalize_scalar(initialized_count);
         let result = self.collection_slot_drop_traversal_result(
             cells,
             collection_slots,
             raw_aliases,
             &storage,
+            &initialized_count,
             expected_ty,
         );
         if let Err(refutation) = result {
@@ -55,6 +59,7 @@ impl ResourceCheckEngine<'_> {
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         storage: &Place,
+        initialized_count: &Place,
         expected_ty: TypeId,
         span: Span,
     ) {
@@ -63,6 +68,7 @@ impl ResourceCheckEngine<'_> {
             collection_slots,
             raw_aliases,
             storage,
+            initialized_count,
             expected_ty,
             span,
         );
@@ -74,6 +80,7 @@ impl ResourceCheckEngine<'_> {
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &RawCellAddressAliases,
         storage: &Place,
+        initialized_count: &Place,
         expected_ty: TypeId,
     ) -> Result<(), CollectionSlotTableRefutation> {
         let slots = collection_slot_drop_traversal_slots(collection_slots, storage);
@@ -84,6 +91,22 @@ impl ResourceCheckEngine<'_> {
             match state {
                 CollectionSlotState::Initialized(slot_ty) => {
                     if slot_requires_range_proof(&slot, storage) {
+                        return Err(CollectionSlotTableRefutation {
+                            slot,
+                            reason: CollectionSlotLifecycleRefutation::RangeProofRequired {
+                                operation: CollectionSlotLifecycleOp::DropTraversal,
+                                slot_ty: Some(slot_ty),
+                            },
+                        });
+                    }
+                    if !collection_slot_known_offset_is_inside_initialized_count(
+                        self.types,
+                        raw_aliases,
+                        &slot,
+                        storage,
+                        initialized_count,
+                        expected_ty,
+                    ) {
                         return Err(CollectionSlotTableRefutation {
                             slot,
                             reason: CollectionSlotLifecycleRefutation::RangeProofRequired {

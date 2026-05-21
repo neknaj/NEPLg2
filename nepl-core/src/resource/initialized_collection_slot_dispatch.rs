@@ -47,6 +47,7 @@ pub(super) fn check_initialized_collection_slot_op(
         }
         ResourceOp::CollectionSlotDropTraversal {
             storage,
+            initialized_count,
             expected_ty,
             span,
         } => {
@@ -55,6 +56,7 @@ pub(super) fn check_initialized_collection_slot_op(
                 collection_slots,
                 raw_aliases,
                 storage,
+                initialized_count,
                 *expected_ty,
                 *span,
             );

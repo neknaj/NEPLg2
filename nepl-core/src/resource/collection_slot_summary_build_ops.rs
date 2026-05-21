@@ -3,12 +3,13 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use super::collection_slot_summary_build_drop_traversal::collect_summary_drop_traversal_op;
 use super::collection_slot_summary_build_event::collect_summary_event_op;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryDropTraversalProof,
-    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
+    CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleSummaryRelocateProof,
 };
 use super::collection_slot_summary_target::summary_place_for_params;
 use super::collection_slot_summary_translate::{
@@ -88,36 +89,19 @@ pub(super) fn collect_summary_ops_from_op(
         }
         ResourceOp::CollectionSlotDropTraversal {
             storage,
+            initialized_count,
             expected_ty,
             ..
         } => {
-            let storage_place = state.raw_aliases.canonicalize_owner_cell_address(storage);
-            let Some(certified_slots) = engine.collection_slot_drop_traversal_certified_slots(
-                &state.cells,
-                &state.collection_slots,
-                &state.raw_aliases,
-                &storage_place,
+            collect_summary_drop_traversal_op(
+                out,
+                engine,
+                state,
+                params,
+                storage,
+                initialized_count,
                 *expected_ty,
-            ) else {
-                return;
-            };
-            let mut summary_slots = Vec::new();
-            for slot in certified_slots {
-                let slot = state.raw_aliases.canonicalize_owner_cell_address(&slot);
-                let Some(slot) = summary_place_for_params(params, &slot) else {
-                    return;
-                };
-                summary_slots.push(slot);
-            }
-            if let Some(storage) = summary_place_for_params(params, &storage_place) {
-                out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
-                    storage,
-                    expected_ty: *expected_ty,
-                    certified_slots: summary_slots,
-                    proof:
-                        CollectionSlotLifecycleSummaryDropTraversalProof::CertifiedLoadedValueDrops,
-                });
-            }
+            );
         }
         ResourceOp::Call { target, args, .. } => {
             collect_direct_call_summary_ops(

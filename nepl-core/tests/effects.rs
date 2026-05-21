@@ -913,7 +913,7 @@ fn collection_slot_drop_traversal_accepts_matching_owner_token_type() {
 #import "core/mem/types" as *
 
 fn helper <(&RegionToken<i32>)->()> (storage):
-    #intrinsic "collection_slot_drop_traversal" <i32> (storage)
+    #intrinsic "collection_slot_drop_traversal" <i32> (storage, 0)
 "#;
 
     check_source_with_canonical_mem_types(
@@ -935,7 +935,7 @@ fn collection_slot_drop_traversal_rejects_mismatched_owner_token_type() {
 #import "core/mem/types" as *
 
 fn helper <(&RegionToken<i32>)->()> (storage):
-    #intrinsic "collection_slot_drop_traversal" <u8> (storage)
+    #intrinsic "collection_slot_drop_traversal" <u8> (storage, 0)
 "#;
 
     assert_has_diag(
@@ -961,7 +961,7 @@ fn collection_slot_drop_traversal_rejects_by_value_owner_token_anchor() {
 #import "core/mem/types" as *
 
 fn helper <(RegionToken<i32>)->()> (storage):
-    #intrinsic "collection_slot_drop_traversal" <i32> (storage)
+    #intrinsic "collection_slot_drop_traversal" <i32> (storage, 0)
 "#;
 
     assert_has_diag(
