@@ -71,7 +71,10 @@ mod collection_slot_summary_apply_return_path;
 mod collection_slot_summary_build;
 mod collection_slot_summary_build_drop_traversal;
 mod collection_slot_summary_build_event;
+mod collection_slot_summary_build_nested;
 mod collection_slot_summary_build_ops;
+#[cfg(test)]
+mod collection_slot_summary_build_ops_tests;
 mod collection_slot_summary_build_state;
 mod collection_slot_summary_event_apply_proof;
 mod collection_slot_summary_event_proof;

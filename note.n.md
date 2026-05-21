@@ -1,3 +1,13 @@
+# 2026-05-21 Agent 1 collection slot summary branch range facts
+
+- `ISS-20260521T162422167Z-COLLECTION-SLOT-SUMMARY-BUILD-DROPS--7B32F4E0` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、initialized checker 本体では Branch / Loop の `ResourceConditionFact` を path state に反映していた一方、collection slot summary build は nested summary を pre-branch state から収集し、symbolic `CollectionSlotDropTraversal` の `NonNegative` / `index < initialized_count` fact を summary certification に渡していなかったことだった。
+- Branch summary collection は then / else state に truthy / falsey fact を反映してから nested ops を収集するようにした。Loop summary collection は `condition_ops` 後の state に truthy fact を反映して body summary を収集する。
+- 回帰として、guarded symbolic slot の store / load / actual drop / drop traversal が branch condition facts により certified traversal summary を生成できることを固定した。
+- 監査で、summary suffix 内の `ResourceOffset::Symbolic` / `ScaledSymbolic` に埋め込まれた callee-local `Place` が caller argument へ再帰 instantiate されない別設計問題を確認し、`ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62` として切り出した。
+- 検証:
+  - `cargo test -p nepl-core --lib collection_slot_summary_build_ops -- --test-threads=1`: pass
+
 # 2026-05-21 Agent 1 collection slot drop traversal lowering coverage
 
 - `ISS-20260521T131741789Z-COLLECTION-SLOT-DROP-TRAVERSAL-LOWER-691CB7BE` を追加して fixed にした。`plan.md` は変更していない。

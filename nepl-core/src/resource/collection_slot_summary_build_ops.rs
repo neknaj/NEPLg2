@@ -5,6 +5,11 @@ use alloc::vec::Vec;
 
 use super::collection_slot_summary_build_drop_traversal::collect_summary_drop_traversal_op;
 use super::collection_slot_summary_build_event::collect_summary_event_op;
+use super::collection_slot_summary_build_nested::{
+    apply_summary_condition_fact, collect_nested_summary_ops,
+    collect_nested_summary_ops_from_state, collect_nested_summary_ops_with_condition,
+    collect_nested_summary_path, push_merge_summary,
+};
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::{
@@ -17,7 +22,6 @@ use super::collection_slot_summary_translate::{
 };
 use super::drop_point_path::ResourceDropPointPath;
 use super::initialized::ResourceCheckEngine;
-use super::initialized_summary_engine::summary_check_engine;
 use super::model::{ResourceBlockId, ResourceLocal, ResourceOp};
 
 pub(super) fn collect_summary_ops_from_ops(
@@ -126,39 +130,48 @@ pub(super) fn collect_summary_ops_from_op(
             );
         }
         ResourceOp::Branch {
-            then_ops, else_ops, ..
+            condition_fact,
+            then_ops,
+            else_ops,
+            ..
         } => {
-            let then_path = collect_nested_summary_ops(
+            let then_path = collect_nested_summary_ops_with_condition(
                 engine,
                 state,
                 params,
                 collection_slot_summaries,
+                condition_fact.as_ref(),
+                true,
                 then_ops,
             );
-            let else_path = collect_nested_summary_ops(
+            let else_path = collect_nested_summary_ops_with_condition(
                 engine,
                 state,
                 params,
                 collection_slot_summaries,
+                condition_fact.as_ref(),
+                false,
                 else_ops,
             );
             push_merge_summary(out, vec![then_path, else_path]);
         }
         ResourceOp::Loop {
             condition_ops,
+            condition_fact,
             body_ops,
             ..
         } => {
-            let condition_ops = collect_nested_summary_ops(
+            let (condition_ops, mut condition_state) = collect_nested_summary_path(
                 engine,
                 state,
                 params,
                 collection_slot_summaries,
                 condition_ops,
             );
-            let body_ops = collect_nested_summary_ops(
+            apply_summary_condition_fact(&mut condition_state, condition_fact.as_ref(), true);
+            let body_ops = collect_nested_summary_ops_from_state(
                 engine,
-                state,
+                condition_state,
                 params,
                 collection_slot_summaries,
                 body_ops,
@@ -206,35 +219,4 @@ pub(super) fn collect_summary_ops_from_op(
         | ResourceOp::Construct { .. }
         | ResourceOp::Expr { .. } => {}
     }
-}
-
-fn collect_nested_summary_ops(
-    engine: &ResourceCheckEngine<'_>,
-    state: &CollectionSlotSummaryBuildState,
-    params: &[ResourceLocal],
-    collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
-    ops: &[ResourceOp],
-) -> Vec<CollectionSlotLifecycleSummaryOp> {
-    let mut path_engine = summary_check_engine(engine);
-    let mut path_state = state.clone();
-    let mut out = Vec::new();
-    collect_summary_ops_from_ops(
-        &mut out,
-        &mut path_engine,
-        &mut path_state,
-        params,
-        collection_slot_summaries,
-        ops,
-    );
-    out
-}
-
-pub(super) fn push_merge_summary(
-    out: &mut Vec<CollectionSlotLifecycleSummaryOp>,
-    paths: Vec<Vec<CollectionSlotLifecycleSummaryOp>>,
-) {
-    if paths.is_empty() || paths.iter().all(Vec::is_empty) {
-        return;
-    }
-    out.push(CollectionSlotLifecycleSummaryOp::Merge { paths });
 }
