@@ -23863,6 +23863,109 @@ fn resource_ir_collection_slot_call_summary_returns_live_slot_state() {
 }
 
 #[test]
+fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_parameter() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let param_storage = Place::local("storage".to_string(), owned_ty);
+    let caller_storage = Place::local("caller_storage".to_string(), owned_ty);
+    let caller_slot = caller_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let returned_storage = Place::temporary(ResourceId(710), owned_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "identity_storage".to_string(),
+                origin_name: "identity_storage".to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "storage".to_string(),
+                    ty: owned_ty,
+                    mutable: false,
+                    place: param_storage.clone(),
+                }],
+                result: owned_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(param_storage),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: caller_storage.clone(),
+                            ty: owned_ty,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: caller_slot.clone(),
+                            event: CollectionSlotLifecycleEvent::InitializeEmpty {
+                                value_ty: owned_ty,
+                            },
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: returned_storage.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "identity_storage".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![caller_storage],
+                            effect: EffectOp::Pure,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: returned_storage,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: caller_slot,
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_call_summary_returns_released_storage_marker() {
     let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();

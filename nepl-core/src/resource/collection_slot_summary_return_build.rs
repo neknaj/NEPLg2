@@ -4,13 +4,18 @@ use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_lifecycle::CollectionSlotState::{MaybeReleased, Released};
 use super::collection_slot_state_merge::merge_collection_slot_states;
 use super::collection_slot_state_table::CollectionSlotStateTable;
-use super::collection_slot_summary_model::CollectionSlotLifecycleReturnSlot;
-use super::model::{Place, ResourceTerminator};
+use super::collection_slot_summary_model::{
+    CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
+    CollectionSlotLifecycleSummaryPlace,
+};
+use super::model::{Place, ResourceLocal, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
 
-pub(super) fn collect_return_slots_from_terminator(
+pub(super) fn collect_return_facts_from_terminator(
+    out_transfers: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     out: &mut Vec<CollectionSlotLifecycleReturnSlot>,
     collection_slots: &CollectionSlotStateTable,
+    params: &[ResourceLocal],
     terminator: &ResourceTerminator,
 ) {
     let ResourceTerminator::Return {
@@ -19,6 +24,7 @@ pub(super) fn collect_return_slots_from_terminator(
     else {
         return;
     };
+    collect_return_transfers_from_params(out_transfers, params, value);
     for entry in collection_slots.entries_covered_by_storage(value) {
         let Some(suffix) = place_suffix_after_prefix(&entry.slot, value) else {
             continue;
@@ -37,6 +43,30 @@ pub(super) fn collect_return_slots_from_terminator(
         (collection_slots.maybe_released_storage(), MaybeReleased),
     ] {
         collect_return_storage_markers(out, markers, value, state);
+    }
+}
+
+fn collect_return_transfers_from_params(
+    out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    params: &[ResourceLocal],
+    value: &Place,
+) {
+    for (parameter_index, param) in params.iter().enumerate() {
+        let Some(source_suffix) = place_suffix_after_prefix(value, &param.place) else {
+            continue;
+        };
+        push_return_transfer(
+            out,
+            CollectionSlotLifecycleReturnTransfer {
+                source: CollectionSlotLifecycleSummaryPlace {
+                    parameter_index,
+                    suffix: source_suffix,
+                    ty: value.ty,
+                },
+                target_suffix: Vec::new(),
+                target_ty: value.ty,
+            },
+        );
     }
 }
 
@@ -72,5 +102,14 @@ fn push_return_slot(
         existing.state = merge_collection_slot_states(existing.state, slot.state);
     } else {
         out.push(slot);
+    }
+}
+
+fn push_return_transfer(
+    out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    transfer: CollectionSlotLifecycleReturnTransfer,
+) {
+    if !out.iter().any(|existing| existing == &transfer) {
+        out.push(transfer);
     }
 }

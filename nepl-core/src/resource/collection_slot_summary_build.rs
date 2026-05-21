@@ -11,7 +11,7 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
     CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
 };
-use super::collection_slot_summary_return_build::collect_return_slots_from_terminator;
+use super::collection_slot_summary_return_build::collect_return_facts_from_terminator;
 use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -69,7 +69,9 @@ fn update_collection_slot_lifecycle_summary(
     summaries: &mut Vec<CollectionSlotLifecycleFunctionSummary>,
     summary: CollectionSlotLifecycleFunctionSummary,
 ) -> bool {
-    let has_facts = !summary.ops.is_empty() || !summary.return_slots.is_empty();
+    let has_facts = !summary.ops.is_empty()
+        || !summary.return_transfers.is_empty()
+        || !summary.return_slots.is_empty();
     let position = summaries
         .iter()
         .position(|existing| existing.function == summary.function);
@@ -112,6 +114,7 @@ fn function_collection_slot_lifecycle_summary(
     };
     let mut state = CollectionSlotSummaryBuildState::new(types, function);
     let mut ops = Vec::new();
+    let mut return_transfers = Vec::new();
     let mut return_slots = Vec::new();
     for block in &function.blocks {
         collect_summary_ops_from_ops(
@@ -122,15 +125,18 @@ fn function_collection_slot_lifecycle_summary(
             collection_slot_summaries,
             &block.ops,
         );
-        collect_return_slots_from_terminator(
+        collect_return_facts_from_terminator(
+            &mut return_transfers,
             &mut return_slots,
             &state.collection_slots,
+            &function.params,
             &block.terminator,
         );
     }
     CollectionSlotLifecycleFunctionSummary {
         function: function.name.clone(),
         ops,
+        return_transfers,
         return_slots,
     }
 }

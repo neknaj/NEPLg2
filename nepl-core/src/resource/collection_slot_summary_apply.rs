@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleSummaryOp,
-    CollectionSlotLifecycleSummaryPlace,
+    CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleReturnTransfer,
+    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
 };
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -90,6 +90,15 @@ impl ResourceCheckEngine<'_> {
             raw_aliases,
             args,
             &summary.ops,
+            span,
+        );
+        collection_slots.clear_storage_prefix(output);
+        self.apply_collection_slot_return_transfers(
+            collection_slots,
+            raw_aliases,
+            args,
+            output,
+            &summary.return_transfers,
             span,
         );
         self.apply_collection_slot_return_slots(collection_slots, output, &summary.return_slots);
@@ -179,6 +188,30 @@ impl ResourceCheckEngine<'_> {
                         CollectionSlotStateTable::merge_paths(&[exit_path, body_path]);
                 }
             }
+        }
+    }
+
+    fn apply_collection_slot_return_transfers(
+        &mut self,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        args: &[Place],
+        output: &Place,
+        transfers: &[CollectionSlotLifecycleReturnTransfer],
+        span: crate::span::Span,
+    ) {
+        for transfer in transfers {
+            let Some(source) = instantiate_summary_target(self, args, &transfer.source) else {
+                continue;
+            };
+            let source = raw_aliases.canonicalize(&source);
+            let target = super::place_utils::place_with_suffix(
+                output,
+                &transfer.target_suffix,
+                transfer.target_ty,
+            );
+            let target = raw_aliases.canonicalize(&target);
+            self.transfer_slot_state(collection_slots, &source, &target, span);
         }
     }
 }

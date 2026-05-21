@@ -1,3 +1,21 @@
+# 2026-05-21 Agent 1 collection slot return transfer summary
+
+- `ISS-20260521T004808159Z-COLLECTION-SLOT-SUMMARIES-DO-NOT-TRA-2AA84347` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、callee が owner parameter をそのまま return する identity / owner-preserving helper では callee 内に slot lifecycle event がないため、従来の `CollectionSlotLifecycleFunctionSummary` が空になり、caller actual にある live slot state が call output へ移らなかったことだった。
+- `CollectionSlotLifecycleFunctionSummary` に `return_transfers` を追加し、return value が parameter prefix である関係を Resource IR place から導出して typed summary fact として保持するようにした。
+- call summary application は、callee 内 lifecycle ops を replay した後に call output の stale slot state を消し、raw alias canonicalization を通した actual argument prefix から call output prefix へ slot state を transfer してから explicit return slot facts を設定する。
+- stdlib module 名や関数名の allowlist は追加していない。owner-preserving return の証明は parameter / return place の generic summary fact と `CollectionSlotStateTable::transfer_storage_prefix` で扱う。
+- 親 issue `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` と Stage 6 docs に、owner-preserving helper を跨ぐ caller slot state transfer が入ったことを追記した。
+- subagent 監査で、collection slot の initialize / move-out / replace-return-old が payload value-flow proof をまだ持たない残件を確認したため、次作業候補として `ISS-20260521T010410090Z-COLLECTION-SLOT-OWNER-TRANSFER-LIFEC-3C1056B2` を追加した。
+- 検証:
+  - `cargo test -p nepl-core resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_parameter --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core resource_ir_collection_slot_call_summary_ --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo check -p nepl-core`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-05-21 Agent 1 collection slot drop elaboration guard
 
 - `ISS-20260521T002920171Z-COLLECTION-SLOT-DROP-LIFECYCLE-CAN-E-DB699FC2` を追加して fixed にした。`plan.md` は変更していない。

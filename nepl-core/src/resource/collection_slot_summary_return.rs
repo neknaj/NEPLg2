@@ -11,7 +11,6 @@ impl ResourceCheckEngine<'_> {
         output: &Place,
         slots: &[CollectionSlotLifecycleReturnSlot],
     ) {
-        collection_slots.clear_storage_prefix(output);
         for slot in slots {
             let target = place_with_suffix(output, &slot.suffix, slot.ty);
             collection_slots.set_return_slot_state(&target, slot.state);

@@ -13,6 +13,7 @@ use super::summary_index::{FunctionSummary, SummaryIndex};
 pub(super) struct CollectionSlotLifecycleFunctionSummary {
     pub(super) function: String,
     pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
+    pub(super) return_transfers: Vec<CollectionSlotLifecycleReturnTransfer>,
     pub(super) return_slots: Vec<CollectionSlotLifecycleReturnSlot>,
 }
 
@@ -56,4 +57,11 @@ pub(super) struct CollectionSlotLifecycleReturnSlot {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) state: super::collection_slot_lifecycle::CollectionSlotState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct CollectionSlotLifecycleReturnTransfer {
+    pub(super) source: CollectionSlotLifecycleSummaryPlace,
+    pub(super) target_suffix: Vec<PlaceProjection>,
+    pub(super) target_ty: TypeId,
 }
