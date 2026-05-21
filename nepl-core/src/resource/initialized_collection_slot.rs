@@ -33,6 +33,13 @@ impl ResourceCheckEngine<'_> {
             | CollectionSlotLifecycleEvent::ReplaceInitialized { .. }
             | CollectionSlotLifecycleEvent::DropInitialized { .. } => self
                 .reject_unelaborated_collection_slot_drop(collection_slots, target, event)
+                .and_then(|()| {
+                    self.reject_unproven_collection_slot_owner_transfer(
+                        collection_slots,
+                        target,
+                        event,
+                    )
+                })
                 .and_then(|()| collection_slots.apply_slot_event(target, event).map(|_| ())),
         };
         if let Err(refutation) = result {
@@ -54,7 +61,7 @@ impl ResourceCheckEngine<'_> {
         event: CollectionSlotLifecycleEvent,
         span: Span,
     ) {
-        let target = raw_aliases.canonicalize(target);
+        let target = raw_aliases.canonicalize_owner_cell_address(target);
         self.apply_collection_slot_lifecycle(collection_slots, &target, event, span);
     }
 
@@ -84,8 +91,8 @@ impl ResourceCheckEngine<'_> {
         new_storage: &Place,
         span: Span,
     ) {
-        let old_storage = raw_aliases.canonicalize(old_storage);
-        let new_storage = raw_aliases.canonicalize(new_storage);
+        let old_storage = raw_aliases.canonicalize_owner_cell_address(old_storage);
+        let new_storage = raw_aliases.canonicalize_owner_cell_address(new_storage);
         self.apply_collection_storage_relocate(collection_slots, &old_storage, &new_storage, span);
     }
 
@@ -117,6 +124,79 @@ impl ResourceCheckEngine<'_> {
             Ok(())
         }
     }
+
+    fn reject_unproven_collection_slot_owner_transfer(
+        &self,
+        collection_slots: &CollectionSlotStateTable,
+        target: &Place,
+        event: CollectionSlotLifecycleEvent,
+    ) -> Result<(), CollectionSlotTableRefutation> {
+        let Some((operation, slot_ty)) =
+            collection_slot_owner_transfer_obligation(self.types, event)
+        else {
+            return Ok(());
+        };
+        let state = collection_slots.state(target);
+        apply_collection_slot_lifecycle_event(state, event).map_err(|reason| {
+            CollectionSlotTableRefutation {
+                slot: target.clone(),
+                reason,
+            }
+        })?;
+        Err(CollectionSlotTableRefutation {
+            slot: target.clone(),
+            reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                operation,
+                slot_ty,
+            },
+        })
+    }
+}
+
+fn collection_slot_owner_transfer_obligation(
+    types: &crate::types::TypeCtx,
+    event: CollectionSlotLifecycleEvent,
+) -> Option<(CollectionSlotLifecycleOp, crate::types::TypeId)> {
+    match event {
+        CollectionSlotLifecycleEvent::InitializeEmpty { value_ty } => {
+            non_copy_slot_obligation(types, CollectionSlotLifecycleOp::InitializeEmpty, value_ty)
+        }
+        CollectionSlotLifecycleEvent::MoveOut { expected_ty } => {
+            non_copy_slot_obligation(types, CollectionSlotLifecycleOp::MoveOut, expected_ty)
+        }
+        CollectionSlotLifecycleEvent::ReplaceInitialized {
+            old_ty,
+            new_ty,
+            old_owner: CollectionSlotReplacement::ReturnOldOwner,
+        } => non_copy_slot_obligation(types, CollectionSlotLifecycleOp::ReplaceInitialized, old_ty)
+            .or_else(|| {
+                non_copy_slot_obligation(
+                    types,
+                    CollectionSlotLifecycleOp::ReplaceInitialized,
+                    new_ty,
+                )
+            }),
+        CollectionSlotLifecycleEvent::ReplaceInitialized {
+            old_ty: _,
+            new_ty,
+            old_owner: CollectionSlotReplacement::DropOldOwner,
+        } => non_copy_slot_obligation(types, CollectionSlotLifecycleOp::ReplaceInitialized, new_ty),
+        CollectionSlotLifecycleEvent::BorrowRead { .. }
+        | CollectionSlotLifecycleEvent::DropInitialized { .. }
+        | CollectionSlotLifecycleEvent::StorageDealloc => None,
+    }
+}
+
+fn non_copy_slot_obligation(
+    types: &crate::types::TypeCtx,
+    operation: CollectionSlotLifecycleOp,
+    slot_ty: crate::types::TypeId,
+) -> Option<(CollectionSlotLifecycleOp, crate::types::TypeId)> {
+    if types.is_copy(slot_ty) {
+        None
+    } else {
+        Some((operation, slot_ty))
+    }
 }
 
 fn collection_slot_drop_obligation(
@@ -140,5 +220,272 @@ fn collection_slot_drop_obligation(
         | CollectionSlotLifecycleEvent::BorrowRead { .. }
         | CollectionSlotLifecycleEvent::MoveOut { .. }
         | CollectionSlotLifecycleEvent::StorageDealloc => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{vec, vec::Vec};
+
+    use crate::types::{TypeCtx, TypeId, TypeKind};
+
+    use super::super::collection_slot_lifecycle::CollectionSlotState;
+    use super::super::collection_slot_summary_model::{
+        CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
+    };
+    use super::super::initialized_alias_flow::{
+        RawCellAddressReturnSummary, RawCellAddressReturnSummaryIndex,
+    };
+    use super::super::initialized_scalar_flow::{
+        I32ScalarReturnSummary, I32ScalarReturnSummaryIndex,
+    };
+    use super::super::initialized_summary::{
+        RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
+    };
+    use super::super::model::{PlaceProjection, ResourceOffset};
+    use super::super::report::ResourceCheckDeferred;
+
+    #[test]
+    fn non_copy_initialize_requires_value_flow_proof() {
+        let (types, owned_ty) = types_with_non_copy_owned();
+        let span = Span::dummy();
+        let slot = slot_place(owned_ty);
+        let mut collection_slots = CollectionSlotStateTable::new();
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            );
+
+            assert_eq!(
+                engine.diagnostics,
+                vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: "main".to_string(),
+                    target: slot.clone(),
+                    reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                        operation: CollectionSlotLifecycleOp::InitializeEmpty,
+                        slot_ty: owned_ty,
+                    },
+                    span,
+                }]
+            );
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Uninitialized
+            );
+        });
+    }
+
+    #[test]
+    fn non_copy_move_out_requires_value_flow_proof_for_proven_slot_state() {
+        let (types, owned_ty) = types_with_non_copy_owned();
+        let span = Span::dummy();
+        let slot = slot_place(owned_ty);
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::MoveOut {
+                    expected_ty: owned_ty,
+                },
+                span,
+            );
+
+            assert_eq!(
+                engine.diagnostics,
+                vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: "main".to_string(),
+                    target: slot.clone(),
+                    reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                        operation: CollectionSlotLifecycleOp::MoveOut,
+                        slot_ty: owned_ty,
+                    },
+                    span,
+                }]
+            );
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Initialized(owned_ty)
+            );
+        });
+    }
+
+    #[test]
+    fn non_copy_replace_return_old_requires_value_flow_proof_for_proven_slot_state() {
+        let (types, owned_ty) = types_with_non_copy_owned();
+        let replacement_ty = types.i32();
+        let span = Span::dummy();
+        let slot = slot_place(owned_ty);
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::ReplaceInitialized {
+                    old_ty: owned_ty,
+                    new_ty: replacement_ty,
+                    old_owner: CollectionSlotReplacement::ReturnOldOwner,
+                },
+                span,
+            );
+
+            assert_eq!(
+                engine.diagnostics,
+                vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: "main".to_string(),
+                    target: slot.clone(),
+                    reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                        operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+                        slot_ty: owned_ty,
+                    },
+                    span,
+                }]
+            );
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Initialized(owned_ty)
+            );
+        });
+    }
+
+    #[test]
+    fn droppable_drop_initialized_requires_elaboration_for_proven_slot_state() {
+        let (types, owned_ty) = types_with_droppable_owned();
+        let span = Span::dummy();
+        let slot = slot_place(owned_ty);
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::DropInitialized {
+                    expected_ty: owned_ty,
+                },
+                span,
+            );
+
+            assert_eq!(
+                engine.diagnostics,
+                vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: "main".to_string(),
+                    target: slot.clone(),
+                    reason: CollectionSlotLifecycleRefutation::DropRequiresElaboration {
+                        operation: CollectionSlotLifecycleOp::DropInitialized,
+                        slot_ty: owned_ty,
+                    },
+                    span,
+                }]
+            );
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Initialized(owned_ty)
+            );
+        });
+    }
+
+    #[test]
+    fn droppable_replace_drop_old_requires_elaboration_for_proven_slot_state() {
+        let (types, owned_ty) = types_with_droppable_owned();
+        let replacement_ty = types.i32();
+        let span = Span::dummy();
+        let slot = slot_place(owned_ty);
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(&slot, CollectionSlotState::Initialized(owned_ty));
+
+        with_engine(&types, |engine| {
+            engine.apply_collection_slot_lifecycle(
+                &mut collection_slots,
+                &slot,
+                CollectionSlotLifecycleEvent::ReplaceInitialized {
+                    old_ty: owned_ty,
+                    new_ty: replacement_ty,
+                    old_owner: CollectionSlotReplacement::DropOldOwner,
+                },
+                span,
+            );
+
+            assert_eq!(
+                engine.diagnostics,
+                vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+                    function: "main".to_string(),
+                    target: slot.clone(),
+                    reason: CollectionSlotLifecycleRefutation::DropRequiresElaboration {
+                        operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+                        slot_ty: owned_ty,
+                    },
+                    span,
+                }]
+            );
+            assert_eq!(
+                collection_slots.state(&slot),
+                CollectionSlotState::Initialized(owned_ty)
+            );
+        });
+    }
+
+    fn with_engine(types: &TypeCtx, run: impl FnOnce(&mut ResourceCheckEngine<'_>)) {
+        let raw_alias_summaries: Vec<RawCellAddressReturnSummary> = Vec::new();
+        let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(&raw_alias_summaries);
+        let i32_scalar_summaries: Vec<I32ScalarReturnSummary> = Vec::new();
+        let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(&i32_scalar_summaries);
+        let raw_init_summaries: Vec<RawCellInitializationFunctionSummary> = Vec::new();
+        let raw_init_summary_index =
+            RawCellInitializationFunctionSummaryIndex::new(&raw_init_summaries);
+        let collection_slot_summaries: Vec<CollectionSlotLifecycleFunctionSummary> = Vec::new();
+        let collection_slot_summary_index =
+            CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);
+        let mut engine = ResourceCheckEngine {
+            function: "main",
+            types,
+            raw_alias_summaries: &raw_alias_summary_index,
+            i32_scalar_summaries: &i32_scalar_summary_index,
+            raw_init_summaries: &raw_init_summary_index,
+            collection_slot_summaries: &collection_slot_summary_index,
+            diagnostics: Vec::new(),
+            auto_drop_points: Vec::new(),
+            deferred: ResourceCheckDeferred::default(),
+        };
+        run(&mut engine);
+    }
+
+    fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
+        let mut types = TypeCtx::new();
+        types.set_copy_trait_enabled(true);
+        types.register_copy_impl_target(types.unit());
+        types.register_copy_impl_target(types.i32());
+        let owned_ty = types.register_named(
+            "Owned".to_string(),
+            TypeKind::Struct {
+                name: "Owned".to_string(),
+                type_params: Vec::new(),
+                fields: Vec::new(),
+                field_names: Vec::new(),
+            },
+        );
+        (types, owned_ty)
+    }
+
+    fn types_with_droppable_owned() -> (TypeCtx, TypeId) {
+        let (mut types, owned_ty) = types_with_non_copy_owned();
+        types.register_drop_impl_target(owned_ty);
+        (types, owned_ty)
+    }
+
+    fn slot_place(owned_ty: TypeId) -> Place {
+        Place::local("buffer".to_string(), owned_ty).with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+            owned_ty,
+        )
     }
 }

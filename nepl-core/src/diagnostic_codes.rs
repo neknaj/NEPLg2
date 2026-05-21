@@ -204,6 +204,7 @@ pub enum ResourceCollectionSlotDiagnosticCode {
     TypeMismatch,
     LiveSlotOverwrite,
     MaybeLiveSlotOverwrite,
+    OwnerTransferRequiresValueProof,
     DropRequiresElaboration,
     LiveSlotDuringStorageDealloc,
     MaybeLiveSlotDuringStorageDealloc,
@@ -463,6 +464,12 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::OwnerTransferRequiresValueProof,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc,
@@ -1188,6 +1195,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite => {
                 "resource.collection_slot.maybe_live_overwrite"
             }
+            ResourceCollectionSlotDiagnosticCode::OwnerTransferRequiresValueProof => {
+                "resource.collection_slot.owner_transfer_requires_value_proof"
+            }
             ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration => {
                 "resource.collection_slot.drop_requires_elaboration"
             }
@@ -1213,6 +1223,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             }
             ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite => {
                 "cannot overwrite a collection slot that may still be live"
+            }
+            ResourceCollectionSlotDiagnosticCode::OwnerTransferRequiresValueProof => {
+                "collection slot owner transfer requires payload value-flow proof"
             }
             ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration => {
                 "collection slot drop requires compiler drop elaboration"

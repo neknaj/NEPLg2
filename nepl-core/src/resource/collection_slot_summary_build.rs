@@ -218,7 +218,7 @@ fn collect_summary_ops_from_op(
 ) {
     match op {
         ResourceOp::CollectionSlotLifecycle { target, event, .. } => {
-            let target = state.raw_aliases.canonicalize(target);
+            let target = state.raw_aliases.canonicalize_owner_cell_address(target);
             if let Some(target) = summary_place_for_params(params, &target) {
                 out.push(CollectionSlotLifecycleSummaryOp::Event {
                     target,
@@ -231,8 +231,12 @@ fn collect_summary_ops_from_op(
             new_storage,
             ..
         } => {
-            let old_storage = state.raw_aliases.canonicalize(old_storage);
-            let new_storage = state.raw_aliases.canonicalize(new_storage);
+            let old_storage = state
+                .raw_aliases
+                .canonicalize_owner_cell_address(old_storage);
+            let new_storage = state
+                .raw_aliases
+                .canonicalize_owner_cell_address(new_storage);
             if let (Some(old_storage), Some(new_storage)) = (
                 summary_place_for_params(params, &old_storage),
                 summary_place_for_params(params, &new_storage),
@@ -421,7 +425,7 @@ fn translate_summary_ops_through_args(
                 let Some(actual) = instantiate_summary_target(engine, args, target) else {
                     continue;
                 };
-                let actual = raw_aliases.canonicalize(&actual);
+                let actual = raw_aliases.canonicalize_owner_cell_address(&actual);
                 if let Some(target) = summary_place_for_params(params, &actual) {
                     out.push(CollectionSlotLifecycleSummaryOp::Event {
                         target,
@@ -439,8 +443,8 @@ fn translate_summary_ops_through_args(
                 let Some(actual_new) = instantiate_summary_target(engine, args, new_storage) else {
                     continue;
                 };
-                let actual_old = raw_aliases.canonicalize(&actual_old);
-                let actual_new = raw_aliases.canonicalize(&actual_new);
+                let actual_old = raw_aliases.canonicalize_owner_cell_address(&actual_old);
+                let actual_new = raw_aliases.canonicalize_owner_cell_address(&actual_new);
                 if let (Some(old_storage), Some(new_storage)) = (
                     summary_place_for_params(params, &actual_old),
                     summary_place_for_params(params, &actual_new),

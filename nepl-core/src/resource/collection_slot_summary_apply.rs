@@ -204,13 +204,13 @@ impl ResourceCheckEngine<'_> {
             let Some(source) = instantiate_summary_target(self, args, &transfer.source) else {
                 continue;
             };
-            let source = raw_aliases.canonicalize(&source);
+            let source = raw_aliases.canonicalize_owner_cell_address(&source);
             let target = super::place_utils::place_with_suffix(
                 output,
                 &transfer.target_suffix,
                 transfer.target_ty,
             );
-            let target = raw_aliases.canonicalize(&target);
+            let target = raw_aliases.canonicalize_owner_cell_address(&target);
             self.transfer_slot_state(collection_slots, &source, &target, span);
         }
     }

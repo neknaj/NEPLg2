@@ -1,3 +1,21 @@
+# 2026-05-21 Agent 1 collection slot owner transfer value-flow proof gate
+
+- `ISS-20260521T010410090Z-COLLECTION-SLOT-OWNER-TRANSFER-LIFEC-3C1056B2` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot lifecycle の `InitializeEmpty` / `MoveOut` / `ReplaceReturnOld` / `ReplaceDropOld` が storage anchor・offset・type argument だけで owner state を進め、non-Copy payload の consume / materialize / return place proof を持っていなかったことだった。
+- `CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof` と `resource.collection_slot.owner_transfer_requires_value_proof` diagnostic を追加した。
+- initialized checker は owner-transfer lifecycle event を enum match で分類し、Copy payload は従来どおり state marker として扱う一方、non-Copy payload は value-flow proof が実装されるまで typed refutation として拒否する。これにより state-only annotation で non-Copy owner slot を生成・移動・置換できない。
+- 追加調査で、collection slot place を raw value origin まで含む canonicalization に通すと、value move 後の `StorageDealloc` が古い origin へ戻り、移動先 live slot を見落とし得ることを確認した。collection slot lifecycle / relocate / summary return transfer は `canonicalize_owner_cell_address` を使うようにし、raw address alias と owner slot place の責務を分離した。
+- Resource IR tests は、slot state 伝播そのものを見る case では non-Copy storage owner と Copy payload を分け、non-Copy payload safety gate は専用 regression と `ResourceCheckEngine` unit tests に分離した。
+- 親 issue `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` と Stage 6 docs に、現時点では non-Copy owner-transfer を拒否し、positive support は payload consume / materialize proof と compiler-owned slot-drop lowering に残すことを追記した。
+- 検証:
+  - `cargo test -p nepl-core resource_ir_collection_slot --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core resource_ir_collection_storage --test resource_ir -- --test-threads=1`: pass
+  - `cargo test -p nepl-core collection_slot --lib -- --test-threads=1`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo check -p nepl-core`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-05-21 Agent 1 collection slot return transfer summary
 
 - `ISS-20260521T004808159Z-COLLECTION-SLOT-SUMMARIES-DO-NOT-TRA-2AA84347` を追加して fixed にした。`plan.md` は変更していない。

@@ -20,6 +20,9 @@ pub(super) fn resource_collection_slot_refutation_diagnostic_code(
         CollectionSlotLifecycleRefutation::MaybeLiveSlotOverwrite { .. } => {
             ResourceCollectionSlotDiagnosticCode::MaybeLiveSlotOverwrite
         }
+        CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof { .. } => {
+            ResourceCollectionSlotDiagnosticCode::OwnerTransferRequiresValueProof
+        }
         CollectionSlotLifecycleRefutation::DropRequiresElaboration { .. } => {
             ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration
         }

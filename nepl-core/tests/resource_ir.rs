@@ -16,19 +16,18 @@ use nepl_core::resource::{
     lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
     resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
     BorrowKind, BorrowState, CellState, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
-    CollectionSlotLifecycleRefutation, CollectionSlotReplacement, CollectionSlotState, EffectOp,
-    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawAddressAliasKind,
-    RawAddressViewKind, RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock,
-    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
-    ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
-    ResourceConditionFact, ResourceCoverageDiagnostic, ResourceCoverageKind,
-    ResourceCoveragePlaceOperation, ResourceDropElaborationHirBridgeError,
-    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
-    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceFunctionCheck, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule,
-    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
-    ResourceTerminator, StorageOrigin, UnknownEffectReason,
+    CollectionSlotLifecycleRefutation, CollectionSlotState, EffectOp, ExternalIoOp, NondetOp,
+    OwnerState, Place, PlaceProjection, PlaceRoot, RawAddressAliasKind, RawAddressViewKind,
+    RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
+    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
+    ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError, ResourceDropPoint,
+    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
+    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceI32RelationOp, ResourceId,
+    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
 use nepl_core::source_map::CompilerMemoryType;
 use nepl_core::span::{FileId, Span};
@@ -23164,7 +23163,7 @@ fn main <()->i32> ():
 
 #[test]
 fn resource_ir_collection_slot_rejects_double_move() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let span = Span::dummy();
     let storage = Place::local("buffer".to_string(), owned_ty);
     let slot = storage.clone().with_projection(
@@ -23221,9 +23220,18 @@ fn resource_ir_collection_slot_source_intrinsic_rejects_double_move() {
 #no_prelude
 
 #import "core/mem/types" as *
+#import "core/traits/copy" as *
 
 struct LocalToken:
     token_id <i32>
+
+impl Clone for LocalToken:
+    fn clone <(&LocalToken)->LocalToken> (self):
+        *self
+
+impl Copy for LocalToken:
+    fn copy_mark <(LocalToken)->LocalToken> (self):
+        self
 
 fn helper <(&RegionToken<LocalToken>)->i32> (storage):
     #intrinsic "collection_slot_initialize_empty" <LocalToken> (storage, 0)
@@ -23268,9 +23276,18 @@ fn resource_ir_collection_slot_source_summary_rejects_double_move_across_calls()
 #no_prelude
 
 #import "core/mem/types" as *
+#import "core/traits/copy" as *
 
 struct LocalToken:
     token_id <i32>
+
+impl Clone for LocalToken:
+    fn clone <(&LocalToken)->LocalToken> (self):
+        *self
+
+impl Copy for LocalToken:
+    fn copy_mark <(LocalToken)->LocalToken> (self):
+        self
 
 fn move_slot <(&RegionToken<LocalToken>)->i32> (storage):
     #intrinsic "collection_slot_move_out" <LocalToken> (storage, 0)
@@ -23312,74 +23329,8 @@ fn caller <(&RegionToken<LocalToken>)->i32> (storage):
 }
 
 #[test]
-fn resource_ir_collection_slot_drop_initialized_requires_drop_elaboration_for_droppable_payload() {
-    let (types, owned_ty) = types_with_droppable_owned();
-    let span = Span::dummy();
-    let storage = Place::local("buffer".to_string(), owned_ty);
-    let slot = storage.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
-        owned_ty,
-    );
-    let resource = manual_resource_module(
-        types.unit(),
-        span,
-        vec![
-            ResourceOp::CollectionSlotLifecycle {
-                target: slot.clone(),
-                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
-                span,
-            },
-            ResourceOp::CollectionSlotLifecycle {
-                target: slot.clone(),
-                event: CollectionSlotLifecycleEvent::DropInitialized {
-                    expected_ty: owned_ty,
-                },
-                span,
-            },
-            ResourceOp::CollectionSlotLifecycle {
-                target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
-                span,
-            },
-        ],
-    );
-
-    let report = check_resource_initialized_moves(&resource, &types);
-
-    assert_eq!(
-        report.diagnostics,
-        vec![
-            ResourceCheckDiagnostic::CollectionSlotRefuted {
-                function: "main".to_string(),
-                target: slot.clone(),
-                reason: CollectionSlotLifecycleRefutation::DropRequiresElaboration {
-                    operation: CollectionSlotLifecycleOp::DropInitialized,
-                    slot_ty: owned_ty,
-                },
-                span,
-            },
-            ResourceCheckDiagnostic::CollectionSlotRefuted {
-                function: "main".to_string(),
-                target: slot.clone(),
-                reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
-                    slot_ty: owned_ty,
-                },
-                span,
-            },
-        ]
-    );
-    assert!(report.functions[0]
-        .final_collection_slots
-        .iter()
-        .any(|entry| {
-            entry.slot == slot && entry.state == CollectionSlotState::Initialized(owned_ty)
-        }));
-}
-
-#[test]
-fn resource_ir_collection_slot_replace_drop_old_requires_drop_elaboration_for_old_payload() {
-    let (types, owned_ty) = types_with_droppable_owned();
-    let replacement_ty = types.i32();
+fn resource_ir_collection_slot_non_copy_initialize_requires_value_flow_proof() {
+    let (types, owned_ty) = types_with_non_copy_owned();
     let span = Span::dummy();
     let storage = Place::local("buffer".to_string(), owned_ty);
     let slot = storage.with_projection(
@@ -23389,22 +23340,11 @@ fn resource_ir_collection_slot_replace_drop_old_requires_drop_elaboration_for_ol
     let resource = manual_resource_module(
         types.unit(),
         span,
-        vec![
-            ResourceOp::CollectionSlotLifecycle {
-                target: slot.clone(),
-                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
-                span,
-            },
-            ResourceOp::CollectionSlotLifecycle {
-                target: slot.clone(),
-                event: CollectionSlotLifecycleEvent::ReplaceInitialized {
-                    old_ty: owned_ty,
-                    new_ty: replacement_ty,
-                    old_owner: CollectionSlotReplacement::DropOldOwner,
-                },
-                span,
-            },
-        ],
+        vec![ResourceOp::CollectionSlotLifecycle {
+            target: slot.clone(),
+            event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+            span,
+        }],
     );
 
     let report = check_resource_initialized_moves(&resource, &types);
@@ -23414,70 +23354,27 @@ fn resource_ir_collection_slot_replace_drop_old_requires_drop_elaboration_for_ol
         vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
             function: "main".to_string(),
             target: slot.clone(),
-            reason: CollectionSlotLifecycleRefutation::DropRequiresElaboration {
-                operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+            reason: CollectionSlotLifecycleRefutation::OwnerTransferRequiresValueProof {
+                operation: CollectionSlotLifecycleOp::InitializeEmpty,
                 slot_ty: owned_ty,
             },
             span,
         }]
     );
-    assert!(report.functions[0]
+    assert!(!report.functions[0]
         .final_collection_slots
         .iter()
-        .any(|entry| {
-            entry.slot == slot && entry.state == CollectionSlotState::Initialized(owned_ty)
-        }));
-}
-
-#[test]
-fn resource_ir_collection_slot_replace_return_old_keeps_drop_obligation_with_caller() {
-    let (types, owned_ty) = types_with_droppable_owned();
-    let replacement_ty = types.i32();
-    let span = Span::dummy();
-    let storage = Place::local("buffer".to_string(), owned_ty);
-    let slot = storage.with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
-        owned_ty,
-    );
-    let resource = manual_resource_module(
-        types.unit(),
-        span,
-        vec![
-            ResourceOp::CollectionSlotLifecycle {
-                target: slot.clone(),
-                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
-                span,
-            },
-            ResourceOp::CollectionSlotLifecycle {
-                target: slot.clone(),
-                event: CollectionSlotLifecycleEvent::ReplaceInitialized {
-                    old_ty: owned_ty,
-                    new_ty: replacement_ty,
-                    old_owner: CollectionSlotReplacement::ReturnOldOwner,
-                },
-                span,
-            },
-        ],
-    );
-
-    let report = check_resource_initialized_moves(&resource, &types);
-
-    assert_eq!(report.diagnostics, vec![]);
-    assert!(report.functions[0]
-        .final_collection_slots
-        .iter()
-        .any(|entry| {
-            entry.slot == slot && entry.state == CollectionSlotState::Initialized(replacement_ty)
-        }));
+        .any(|entry| entry.slot == slot));
 }
 
 #[test]
 fn resource_ir_collection_slot_move_transfers_slot_state_to_output() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (mut types, owned_ty) = types_with_copy_owned();
+    let storage_ty = register_non_copy_collection_storage(&mut types);
     let unit_ty = types.unit();
     let span = Span::dummy();
-    let storage = Place::local("buffer".to_string(), owned_ty);
-    let moved_storage = Place::temporary(ResourceId(604), owned_ty);
+    let storage = Place::local("buffer".to_string(), storage_ty);
+    let moved_storage = Place::temporary(ResourceId(604), storage_ty);
     let source_slot = storage.clone().with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
         owned_ty,
@@ -23493,7 +23390,7 @@ fn resource_ir_collection_slot_move_transfers_slot_state_to_output() {
             ResourceOp::Expr {
                 kind: ResourceExprKind::Literal,
                 output: storage.clone(),
-                ty: owned_ty,
+                ty: storage_ty,
                 span,
             },
             ResourceOp::CollectionSlotLifecycle {
@@ -23525,25 +23422,28 @@ fn resource_ir_collection_slot_move_transfers_slot_state_to_output() {
                 slot_ty: owned_ty,
             },
             span,
-        }]
+        }],
+        "move should transfer collection slot state to the moved storage; final slots: {:#?}",
+        report.functions[0].final_collection_slots
     );
 }
 
 #[test]
 fn resource_ir_collection_slot_construct_transfers_slot_state_to_field() {
-    let (mut types, owned_ty) = types_with_non_copy_owned();
+    let (mut types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
+    let storage_ty = register_non_copy_collection_storage(&mut types);
     let wrapper_ty = types.register_named(
         "OwnerWrapper".to_string(),
         TypeKind::Struct {
             name: "OwnerWrapper".to_string(),
             type_params: vec![],
-            fields: vec![owned_ty],
+            fields: vec![storage_ty],
             field_names: vec!["storage".to_string()],
         },
     );
     let span = Span::dummy();
-    let storage = Place::local("buffer".to_string(), owned_ty);
+    let storage = Place::local("buffer".to_string(), storage_ty);
     let wrapper = Place::temporary(ResourceId(605), wrapper_ty);
     let source_slot = storage.clone().with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
@@ -23554,7 +23454,7 @@ fn resource_ir_collection_slot_construct_transfers_slot_state_to_field() {
             index: 0,
             offset_bytes: 0,
         },
-        owned_ty,
+        storage_ty,
     );
     let field_slot = field_storage.clone().with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
@@ -23567,7 +23467,7 @@ fn resource_ir_collection_slot_construct_transfers_slot_state_to_field() {
             ResourceOp::Expr {
                 kind: ResourceExprKind::Literal,
                 output: storage.clone(),
-                ty: owned_ty,
+                ty: storage_ty,
                 span,
             },
             ResourceOp::CollectionSlotLifecycle {
@@ -23603,13 +23503,15 @@ fn resource_ir_collection_slot_construct_transfers_slot_state_to_field() {
                 slot_ty: owned_ty,
             },
             span,
-        }]
+        }],
+        "construct should transfer collection slot state to the aggregate field; final slots: {:#?}",
+        report.functions[0].final_collection_slots
     );
 }
 
 #[test]
 fn resource_ir_collection_slot_merges_branch_liveness_before_storage_dealloc() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let i32_ty = types.i32();
     let unit_ty = types.unit();
     let span = Span::dummy();
@@ -23703,7 +23605,7 @@ fn resource_ir_collection_slot_merges_branch_liveness_before_storage_dealloc() {
 
 #[test]
 fn resource_ir_collection_slot_call_summary_moves_slot_before_storage_dealloc() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let storage = Place::local("buffer".to_string(), owned_ty);
@@ -23762,7 +23664,7 @@ fn resource_ir_collection_slot_call_summary_moves_slot_before_storage_dealloc() 
 
 #[test]
 fn resource_ir_collection_slot_call_summary_returns_live_slot_state() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let returned_storage = Place::temporary(ResourceId(706), owned_ty);
@@ -23864,16 +23766,21 @@ fn resource_ir_collection_slot_call_summary_returns_live_slot_state() {
 
 #[test]
 fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_parameter() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (mut types, owned_ty) = types_with_copy_owned();
+    let storage_ty = register_non_copy_collection_storage(&mut types);
     let unit_ty = types.unit();
     let span = Span::dummy();
-    let param_storage = Place::local("storage".to_string(), owned_ty);
-    let caller_storage = Place::local("caller_storage".to_string(), owned_ty);
+    let param_storage = Place::local("storage".to_string(), storage_ty);
+    let caller_storage = Place::local("caller_storage".to_string(), storage_ty);
     let caller_slot = caller_storage.clone().with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
         owned_ty,
     );
-    let returned_storage = Place::temporary(ResourceId(710), owned_ty);
+    let returned_storage = Place::temporary(ResourceId(710), storage_ty);
+    let returned_slot = returned_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
     let resource = ResourceModule {
         functions: vec![
             ResourceFunction {
@@ -23882,11 +23789,11 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
                 type_params: Vec::new(),
                 params: vec![ResourceLocal {
                     name: "storage".to_string(),
-                    ty: owned_ty,
+                    ty: storage_ty,
                     mutable: false,
                     place: param_storage.clone(),
                 }],
-                result: owned_ty,
+                result: storage_ty,
                 effect: Effect::Pure,
                 entry_block: ResourceBlockId(0),
                 blocks: vec![ResourceBlock {
@@ -23914,7 +23821,7 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
                         ResourceOp::Expr {
                             kind: ResourceExprKind::Literal,
                             output: caller_storage.clone(),
-                            ty: owned_ty,
+                            ty: storage_ty,
                             span,
                         },
                         ResourceOp::CollectionSlotLifecycle {
@@ -23956,7 +23863,7 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
         report.diagnostics,
         vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
             function: "main".to_string(),
-            target: caller_slot,
+            target: returned_slot,
             reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
                 slot_ty: owned_ty,
             },
@@ -24066,7 +23973,7 @@ fn resource_ir_collection_slot_call_summary_returns_released_storage_marker() {
 
 #[test]
 fn resource_ir_collection_slot_call_summary_replaces_stale_output_slot_state() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let returned_storage = Place::temporary(ResourceId(708), owned_ty);
@@ -24162,7 +24069,7 @@ fn resource_ir_collection_slot_call_summary_replaces_stale_output_slot_state() {
 
 #[test]
 fn resource_ir_collection_storage_relocate_transfers_live_slot_to_new_storage() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let old_storage = Place::local("old_buffer".to_string(), owned_ty);
@@ -24224,7 +24131,7 @@ fn resource_ir_collection_storage_relocate_transfers_live_slot_to_new_storage() 
 
 #[test]
 fn resource_ir_collection_storage_relocate_call_summary_transfers_slot() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let old_storage = Place::local("old_buffer".to_string(), owned_ty);
@@ -24299,7 +24206,7 @@ fn resource_ir_collection_storage_relocate_call_summary_transfers_slot() {
 
 #[test]
 fn resource_ir_collection_slot_call_summary_rejects_live_slot_during_storage_dealloc() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let storage = Place::local("buffer".to_string(), owned_ty);
@@ -24359,7 +24266,7 @@ fn resource_ir_collection_slot_call_summary_rejects_live_slot_during_storage_dea
 
 #[test]
 fn resource_ir_collection_slot_call_summary_merges_callee_branch_effects() {
-    let (types, owned_ty) = types_with_non_copy_owned();
+    let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let i32_ty = types.i32();
     let span = Span::dummy();
@@ -24454,7 +24361,7 @@ fn resource_ir_collection_slot_call_summary_merges_callee_branch_effects() {
 
 #[test]
 fn resource_ir_collection_slot_indirect_call_summary_applies_function_alias() {
-    let (mut types, owned_ty) = types_with_non_copy_owned();
+    let (mut types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();
     let function_ty = types.function(vec![], vec![owned_ty], unit_ty, Effect::Pure);
     let span = Span::dummy();
@@ -24534,10 +24441,22 @@ fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     (types, owned_ty)
 }
 
-fn types_with_droppable_owned() -> (TypeCtx, TypeId) {
+fn types_with_copy_owned() -> (TypeCtx, TypeId) {
     let (mut types, owned_ty) = types_with_non_copy_owned();
-    types.register_drop_impl_target(owned_ty);
+    types.register_copy_impl_target(owned_ty);
     (types, owned_ty)
+}
+
+fn register_non_copy_collection_storage(types: &mut TypeCtx) -> TypeId {
+    types.register_named(
+        "CollectionStorage".to_string(),
+        TypeKind::Struct {
+            name: "CollectionStorage".to_string(),
+            type_params: vec![],
+            fields: vec![],
+            field_names: vec![],
+        },
+    )
 }
 
 fn slot_for_param(owned_ty: TypeId) -> Place {

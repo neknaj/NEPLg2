@@ -68,6 +68,10 @@ pub enum CollectionSlotLifecycleRefutation {
     MaybeLiveSlotOverwrite {
         slot_ty: Option<TypeId>,
     },
+    OwnerTransferRequiresValueProof {
+        operation: CollectionSlotLifecycleOp,
+        slot_ty: TypeId,
+    },
     DropRequiresElaboration {
         operation: CollectionSlotLifecycleOp,
         slot_ty: TypeId,
