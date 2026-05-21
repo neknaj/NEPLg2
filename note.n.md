@@ -1,3 +1,16 @@
+# 2026-05-21 Agent 1 collection slot return summary path correlation
+
+- `ISS-20260521T094024431Z-COLLECTION-SLOT-RETURN-SUMMARY-LOSES-5E121C4F` を追加して fixed にした。`plan.md` は確認したが変更していない。
+- 根本原因は、Resource IR 本体 checker が `ResourceCheckState` alternatives で branch / match 後の callee alias と collection slot state の相関を保持していた一方、collection slot return summary は merged `CollectionSlotSummaryBuildState` と flat な `return_transfers` / `return_slots` で return producer を逆追跡していたことだった。
+- そのため branch then 側の `InitializeEmpty` と else 側の `identity_storage` return transfer が caller replay 時に cross join され、実行不能な `MaybeInitialized` return slot から `MaybeLiveSlotDuringStorageDealloc` が発生し得た。
+- `CollectionSlotLifecycleReturnPath` を追加し、summary ops、return transfer、return slot を path ごとの結果として保持するようにした。caller replay は通常の side-effect summary を適用した上で、call output の slot state だけを pre-call state から return path ごとに評価して merge する。
+- subagent review で、`never` branch / match arm と checked state の個数ずれ、return output 計算時の diagnostics 重複が追加リスクとして見つかったため、コミット前に修正した。
+- `collection_slot_summary_return_path_control.rs` を追加し、branch / match の feasible arm ごとに selected ResourceOp を本体 checker と同じ semantics で評価するようにした。`never` arm の summary ops は return path に混ぜない。
+- return output state の計算では `apply_collection_slot_lifecycle_summary_ops_state_only` を使い、callee side-effect diagnostics が通常 replay と output-state replay で二重に出ないようにした。
+- `collection_slot_summary_return_path*` と `collection_slot_summary_apply_return_path.rs` に責務分割し、`nodesrc/test_resource_checker_responsibility.js` の監視対象へ追加した。
+- stdlib module / function allowlist は追加していない。`ResourceOp::Branch` / `ResourceOp::Match` / `ResourceOp::IndirectCall` / `FunctionAliasTable` / `CollectionSlotStateTable` の generic Resource IR proof として扱う。
+- regression として `resource_ir_collection_slot_return_summary_does_not_cross_join_indirect_callee_and_slot_path`、`resource_ir_collection_slot_return_summary_skips_never_branch_path_effects`、`resource_ir_collection_slot_return_summary_skips_never_match_arm_path_effects`、`resource_ir_collection_slot_return_path_state_only_replay_does_not_duplicate_diagnostics` を追加した。
+
 # 2026-05-21 Agent 1 resource responsibility policy recovery
 
 - `ISS-20260521T092635167Z-RESOURCE-RESPONSIBILITY-POLICY-DOES--420EC501` を追加して fixed にした。`plan.md` は変更していない。

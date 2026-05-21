@@ -3,12 +3,14 @@ use alloc::vec::Vec;
 use super::collection_slot_lifecycle::CollectionSlotState::{MaybeReleased, Released};
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
+use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
 use super::collection_slot_summary_return_collect::{
     collect_return_storage_markers, collect_return_transfers_from_ops,
 };
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
+use super::collection_slot_summary_return_path::collect_return_paths_from_ops;
 use super::collection_slot_summary_return_unique::push_return_slot;
 use super::initialized::ResourceCheckEngine;
 use super::model::{ResourceLocal, ResourceTerminator};
@@ -17,6 +19,7 @@ use super::place_utils::place_suffix_after_prefix;
 pub(super) fn collect_return_facts_from_terminator(
     out_transfers: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     out: &mut Vec<CollectionSlotLifecycleReturnSlot>,
+    out_paths: &mut Vec<CollectionSlotLifecycleReturnPath>,
     collection_slots: &CollectionSlotStateTable,
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
@@ -31,6 +34,7 @@ pub(super) fn collect_return_facts_from_terminator(
         return;
     };
     collect_return_transfers_from_ops(out_transfers, engine, params, block_entry_state, ops, value);
+    collect_return_paths_from_ops(out_paths, engine, params, block_entry_state, ops, value);
     for entry in collection_slots.entries_covered_by_storage(value) {
         let Some(suffix) = place_suffix_after_prefix(&entry.slot, value) else {
             continue;

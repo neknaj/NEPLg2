@@ -45,7 +45,7 @@ pub(super) fn collect_summary_ops_from_ops(
     }
 }
 
-fn collect_summary_ops_from_op(
+pub(super) fn collect_summary_ops_from_op(
     out: &mut Vec<CollectionSlotLifecycleSummaryOp>,
     engine: &ResourceCheckEngine<'_>,
     state: &CollectionSlotSummaryBuildState,

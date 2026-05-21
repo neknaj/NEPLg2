@@ -8,6 +8,7 @@ use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
+    CollectionSlotLifecycleReturnPath,
 };
 use super::collection_slot_summary_return_build::collect_return_facts_from_terminator;
 use super::initialized::ResourceCheckEngine;
@@ -102,6 +103,7 @@ fn function_collection_slot_lifecycle_summary(
     let mut ops = Vec::new();
     let mut return_transfers = Vec::new();
     let mut return_slots = Vec::new();
+    let mut return_paths = Vec::<CollectionSlotLifecycleReturnPath>::new();
     for block in &function.blocks {
         let block_entry_state = state.clone();
         collect_summary_ops_from_ops(
@@ -115,6 +117,7 @@ fn function_collection_slot_lifecycle_summary(
         collect_return_facts_from_terminator(
             &mut return_transfers,
             &mut return_slots,
+            &mut return_paths,
             &state.collection_slots,
             &engine,
             &function.params,
@@ -128,5 +131,6 @@ fn function_collection_slot_lifecycle_summary(
         ops,
         return_transfers,
         return_slots,
+        return_paths,
     }
 }
