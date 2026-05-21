@@ -1085,6 +1085,66 @@ mod tests {
     }
 
     #[test]
+    fn collection_slot_lifecycle_boundary_is_internal_not_public_surface() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "slot_boundary.nepl"],
+        ));
+        let internal_src = concat!(
+            "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+        );
+        let public_src = concat!(
+            "pub fn public_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+        );
+        let public_alias_src = concat!(
+            "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+            "pub fn public_slot internal_slot;\n",
+        );
+        let public_wrapper_src = concat!(
+            "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+            "pub fn public_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    internal_slot ptr offset\n",
+        );
+
+        let internal_capabilities = load_source_capabilities(&loader, path.clone(), internal_src);
+        assert!(
+            internal_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "private compiler-owned lowering helpers may carry collection slot lifecycle authority"
+        );
+
+        let public_capabilities = load_source_capabilities(&loader, path.clone(), public_src);
+        assert!(
+            !public_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "public stdlib functions must not expose collection slot lifecycle intrinsic authority"
+        );
+
+        let alias_capabilities = load_source_capabilities(&loader, path.clone(), public_alias_src);
+        assert!(
+            !alias_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "public aliases must not re-export internal collection slot lifecycle lowering helpers"
+        );
+
+        let wrapper_capabilities = load_source_capabilities(&loader, path, public_wrapper_src);
+        assert!(
+            !wrapper_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "public wrappers must not indirectly expose collection slot lifecycle lowering helpers"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_requires_source_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(

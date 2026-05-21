@@ -2,8 +2,8 @@
 id: ISS-20260521T043444492Z-COLLECTION-SLOT-LIFECYCLE-INTRINSIC--58368836
 title: "Collection slot lifecycle intrinsic must not leak through public stdlib wrappers"
 area: compiler
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: security
 created: 2026-05-21
@@ -39,6 +39,17 @@ Non-Copy collection payload support could gain a public escape hatch: user code 
 
 Add a generic source-capability/export-surface check that rejects or reports collection slot lifecycle intrinsic reachability from public stdlib exports unless the function is explicitly modeled as compiler-owned internal lowering. Keep this as an enum/match checked policy, not path-string allowlists.
 
+## 修正内容
+
+- `CollectionSlotLifecycleSourceSurface` enum を追加し、source capability proof event が collection slot lifecycle intrinsic を internal callable / public callable surface のどちらから見ているかを typed payload として持つようにした。
+- source capability walker から function-level call graph を構築し、public function / public `fn` alias root から到達できる collection slot lifecycle intrinsic だけを public callable surface として扱うようにした。
+- `SourceCapabilityProofCollector` が public-reachable lifecycle function を検出し、public callable surface では collection slot lifecycle capability を発行しないようにした。
+- raw builtin evidence、owner aggregate evidence、compiler memory field evidence は従来どおり処理し、collection slot lifecycle capability だけを public surface から遮断した。
+- loader regression で private internal helper は capability を持つ一方、public function、public alias target、public wrapper から到達できる internal helper は capability を持たないことを固定した。
+- typecheck regression で configured stdlib 内でも public function / public alias / public wrapper surface の lifecycle intrinsic が `collection_slot.lifecycle.boundary_restricted` として拒否されることを固定した。
+
 ## 検証
 
-Add regressions for a stdlib public wrapper and re-export around collection_slot_* intrinsics; user source must not receive lifecycle authority through them, while compiler-owned internal lowering remains accepted.
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core collection_slot_lifecycle_boundary -- --test-threads=1`
+- `cargo test -p nepl-core --test effects collection_slot_lifecycle_intrinsic -- --test-threads=1`

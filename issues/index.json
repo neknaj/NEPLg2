@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T04:35:18.194Z",
+  "generated_at": "2026-05-21T04:49:09.404Z",
   "counts": {
     "total": 1160,
-    "open": 5,
-    "resolved": 1155,
+    "open": 4,
+    "resolved": 1156,
     "by_area": {
-      "compiler": {
-        "total": 9,
-        "open": 1,
-        "resolved": 8
-      },
       "core": {
         "total": 555,
         "open": 1,
@@ -50,6 +45,11 @@
         "total": 4,
         "open": 0,
         "resolved": 4
+      },
+      "compiler": {
+        "total": 9,
+        "open": 0,
+        "resolved": 9
       },
       "compiler/resource-ir": {
         "total": 5,
@@ -134,21 +134,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260521T043444492Z-COLLECTION-SLOT-LIFECYCLE-INTRINSIC--58368836",
-      "title": "Collection slot lifecycle intrinsic must not leak through public stdlib wrappers",
-      "area": "compiler",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "security",
-      "created": "2026-05-21",
-      "updated": "2026-05-21",
-      "target": "nepl-core/src/source_capability/**, nepl-core/src/resource_primitives/collection_slot.rs, stdlib/alloc/collections/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260521T043444492Z-COLLECTION-SLOT-LIFECYCLE-INTRINSIC--58368836.md"
-    },
     {
       "id": "ISS-20260521T043250404Z-LLVM-MEM-BULK-COPY-TEST-STILL-ASSUME-5DD1C6C3",
       "title": "LLVM mem bulk copy test still assumes user raw boundary access",
@@ -1153,6 +1138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T041844157Z-COLLECTION-SLOT-LIFECYCLE-CAPABILITY-1DE754DB.md"
+    },
+    {
+      "id": "ISS-20260521T043444492Z-COLLECTION-SLOT-LIFECYCLE-INTRINSIC--58368836",
+      "title": "Collection slot lifecycle intrinsic must not leak through public stdlib wrappers",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/source_capability/**, nepl-core/src/resource_primitives/collection_slot.rs, stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T043444492Z-COLLECTION-SLOT-LIFECYCLE-INTRINSIC--58368836.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",

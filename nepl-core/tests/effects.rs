@@ -627,6 +627,89 @@ fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
 }
 
 #[test]
+fn collection_slot_lifecycle_intrinsic_rejects_public_stdlib_callable_surface() {
+    let src = r#"
+#entry public_slot
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+pub fn public_slot <(MemPtr<i32>,i32)->()> (ptr, offset):
+    #intrinsic "collection_slot_initialize_empty" <i32> (ptr, offset)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_lifecycle_intrinsic_rejects_public_alias_surface() {
+    let src = r#"
+#entry internal_slot
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn internal_slot <(MemPtr<i32>,i32)->()> (ptr, offset):
+    #intrinsic "collection_slot_initialize_empty" <i32> (ptr, offset)
+
+pub fn public_slot internal_slot;
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_lifecycle_intrinsic_rejects_public_wrapper_reachability() {
+    let src = r#"
+#entry public_slot
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn internal_slot <(MemPtr<i32>,i32)->()> (ptr, offset):
+    #intrinsic "collection_slot_initialize_empty" <i32> (ptr, offset)
+
+pub fn public_slot <(MemPtr<i32>,i32)->()> (ptr, offset):
+    internal_slot ptr offset
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
 fn collection_slot_lifecycle_intrinsic_rejects_anchor_type_mismatch() {
     let src = r#"
 #entry helper

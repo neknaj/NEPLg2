@@ -44080,3 +44080,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test effects raw_memory_intrinsic_in_core_mem_source_is_allowed_during_migration -- --test-threads=1 --exact`: passed
   - `cargo test -p nepl-core --test char char_cast_intrinsics_emit_llvm_as_i32_noops -- --test-threads=1 --exact`: passed
   - `cargo check -p nepl-core`: passed
+
+## 2026-05-21 Agent 1 collection slot lifecycle public surface gate
+
+- `ISS-20260521T043444492Z-COLLECTION-SLOT-LIFECYCLE-INTRINSIC--58368836` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot lifecycle source capability が configured stdlib 内の use-site かどうかだけで発行され、intrinsic を含む callable が public surface として露出しているかを typed policy として見ていなかったこと。
+- `CollectionSlotLifecycleSourceSurface` enum を追加し、source capability proof event が internal callable / public callable surface を区別するようにした。
+- source capability walker から function-level call graph を構築し、public function / public `fn` alias root から到達できる lifecycle intrinsic function を public callable surface として扱うようにした。これにより direct `pub fn` だけでなく、public wrapper が private internal helper を呼ぶ indirect leak も拒否できる。
+- `SourceCapabilityProofCollector` は public-reachable lifecycle function では collection slot lifecycle capability だけを発行しない。raw builtin / owner aggregate / compiler memory field evidence は従来通りで、他の source capability へ波及させていない。
+- loader regression で private internal helper は capability を持ち、public function / public alias target / public wrapper から到達できる internal helper は capability を持たないことを固定した。
+- typecheck regression で configured stdlib 内の public function / public alias / public wrapper surface が `collection_slot.lifecycle.boundary_restricted` で拒否されることを固定した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core collection_slot_lifecycle_boundary -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test effects collection_slot_lifecycle_intrinsic -- --test-threads=1`: passed

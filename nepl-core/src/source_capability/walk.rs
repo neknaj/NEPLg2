@@ -1,4 +1,6 @@
-use crate::ast::{Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, StructDef, Symbol};
+use crate::ast::{
+    Block, FnBody, Module, PrefixExpr, PrefixItem, Stmt, StructDef, Symbol, Visibility,
+};
 use crate::hir::HirBody;
 use crate::source_capability::constructor_position::explicit_constructor_symbol;
 use crate::source_capability::field_selector::field_selector_after_call_head;
@@ -11,6 +13,7 @@ pub(super) trait SourceCapabilityObserver {
         &mut self,
         _name: &str,
         _span: Span,
+        _exported: bool,
         _scope: &SourceCapabilityScope,
     ) {
     }
@@ -91,7 +94,12 @@ fn walk_stmt_capability_evidence(
     match stmt {
         Stmt::FnDef(def) => {
             let fn_scope = scope.with_params(&def.params);
-            observer.observe_named_function_start(def.name.name.as_str(), def.name.span, &fn_scope);
+            observer.observe_named_function_start(
+                def.name.name.as_str(),
+                def.name.span,
+                def.vis == Visibility::Pub,
+                &fn_scope,
+            );
             walk_fn_body_capability_evidence(&def.body, def.name.span, &fn_scope, observer);
             observer.observe_named_function_end(def.name.name.as_str(), def.name.span, &fn_scope);
         }
@@ -101,6 +109,7 @@ fn walk_stmt_capability_evidence(
                 observer.observe_named_function_start(
                     method.name.name.as_str(),
                     method.name.span,
+                    method.vis == Visibility::Pub,
                     &method_scope,
                 );
                 walk_fn_body_capability_evidence(

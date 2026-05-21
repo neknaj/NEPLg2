@@ -44,6 +44,7 @@ pub(in crate::source_capability) enum SourceCapabilityProofEvent<'a> {
         args: &'a [PrefixExpr],
         span: Span,
         name_span: Span,
+        collection_slot_surface: CollectionSlotLifecycleSourceSurface,
     },
     RawBody {
         body: HirBody,
@@ -67,6 +68,12 @@ pub(in crate::source_capability) trait SourceCapabilityProofSink {
         operation: RawMemoryOp,
         span: Span,
     );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::source_capability) enum CollectionSlotLifecycleSourceSurface {
+    InternalCallable,
+    PublicCallableSurface,
 }
 
 pub(in crate::source_capability) fn dispatch_source_capability_proof_event(
@@ -102,9 +109,15 @@ pub(in crate::source_capability) fn dispatch_source_capability_proof_event(
             args,
             span,
             name_span,
+            collection_slot_surface,
         } => {
             collect_raw_builtin_evidence(sink, name, span);
-            collect_collection_slot_lifecycle_evidence(sink, name, name_span);
+            match collection_slot_surface {
+                CollectionSlotLifecycleSourceSurface::InternalCallable => {
+                    collect_collection_slot_lifecycle_evidence(sink, name, name_span);
+                }
+                CollectionSlotLifecycleSourceSurface::PublicCallableSurface => {}
+            }
             insert_proof_fact(
                 sink,
                 owner_aggregate_proof_fact(owner_aggregate_intrinsic_evidence(name)),
