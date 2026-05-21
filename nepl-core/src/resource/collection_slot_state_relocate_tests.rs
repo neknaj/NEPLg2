@@ -6,28 +6,32 @@ use super::collection_slot_lifecycle::{
 };
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::model::{Place, PlaceProjection, ResourceOffset};
-use crate::types::TypeId;
+use crate::types::{TypeCtx, TypeId};
 
-const OWNED: TypeId = TypeId(20);
-const OTHER: TypeId = TypeId(21);
-
-fn storage() -> Place {
-    Place::local(String::from("buffer"), OWNED)
+fn test_types() -> (TypeCtx, TypeId, TypeId) {
+    let types = TypeCtx::new();
+    let owned = types.i32();
+    let other = types.u8();
+    (types, owned, other)
 }
 
-fn new_storage() -> Place {
-    Place::local(String::from("next_buffer"), OWNED)
+fn storage(ty: TypeId) -> Place {
+    Place::local(String::from("buffer"), ty)
 }
 
-fn slot(index: usize, ty: TypeId) -> Place {
-    storage().with_projection(
+fn new_storage(ty: TypeId) -> Place {
+    Place::local(String::from("next_buffer"), ty)
+}
+
+fn slot(storage_ty: TypeId, index: usize, ty: TypeId) -> Place {
+    storage(storage_ty).with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(index)),
         ty,
     )
 }
 
-fn new_slot(index: usize, ty: TypeId) -> Place {
-    new_storage().with_projection(
+fn new_slot(storage_ty: TypeId, index: usize, ty: TypeId) -> Place {
+    new_storage(storage_ty).with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(index)),
         ty,
     )
@@ -35,64 +39,70 @@ fn new_slot(index: usize, ty: TypeId) -> Place {
 
 #[test]
 fn storage_relocate_transfers_slot_states_to_new_prefix() {
+    let (types, owned, _) = test_types();
     let mut table = CollectionSlotStateTable::new();
-    let live = slot(0, OWNED);
-    let moved = slot(1, OWNED);
-    let dropped = slot(2, OWNED);
+    let live = slot(owned, 0, owned);
+    let moved = slot(owned, 1, owned);
+    let dropped = slot(owned, 2, owned);
     table
         .apply_slot_event(
+            &types,
             &live,
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
         )
         .expect("live slot should initialize");
     table
         .apply_slot_event(
+            &types,
             &moved,
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
         )
         .expect("moved slot should initialize");
     table
         .apply_slot_event(
+            &types,
             &moved,
-            CollectionSlotLifecycleEvent::MoveOut { expected_ty: OWNED },
+            CollectionSlotLifecycleEvent::MoveOut { expected_ty: owned },
         )
         .expect("moved slot should move");
     table
         .apply_slot_event(
+            &types,
             &dropped,
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
         )
         .expect("dropped slot should initialize");
     table
         .apply_slot_event(
+            &types,
             &dropped,
-            CollectionSlotLifecycleEvent::DropInitialized { expected_ty: OWNED },
+            CollectionSlotLifecycleEvent::DropInitialized { expected_ty: owned },
         )
         .expect("dropped slot should drop");
 
     table
-        .relocate_storage(&storage(), &new_storage())
+        .relocate_storage(&storage(owned), &new_storage(owned))
         .expect("storage relocation should transfer slot states");
 
     assert_eq!(table.state(&live), CollectionSlotState::Released);
     assert_eq!(
-        table.state(&new_slot(0, OWNED)),
-        CollectionSlotState::Initialized(OWNED)
+        table.state(&new_slot(owned, 0, owned)),
+        CollectionSlotState::Initialized(owned)
     );
     assert_eq!(
-        table.state(&new_slot(1, OWNED)),
-        CollectionSlotState::Moved(OWNED)
+        table.state(&new_slot(owned, 1, owned)),
+        CollectionSlotState::Moved(owned)
     );
     assert_eq!(
-        table.state(&new_slot(2, OWNED)),
-        CollectionSlotState::Dropped(OWNED)
+        table.state(&new_slot(owned, 2, owned)),
+        CollectionSlotState::Dropped(owned)
     );
     assert_eq!(
-        table.release_storage(&new_storage()),
+        table.release_storage(&new_storage(owned)),
         Err(CollectionSlotTableRefutation {
-            slot: new_slot(0, OWNED),
+            slot: new_slot(owned, 0, owned),
             reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
-                slot_ty: OWNED,
+                slot_ty: owned,
             },
         })
     );
@@ -100,29 +110,32 @@ fn storage_relocate_transfers_slot_states_to_new_prefix() {
 
 #[test]
 fn storage_relocate_rejects_occupied_target_storage() {
+    let (types, owned, other) = test_types();
     let mut table = CollectionSlotStateTable::new();
-    let old_slot = slot(0, OWNED);
-    let target_slot = new_slot(0, OWNED);
+    let old_slot = slot(owned, 0, owned);
+    let target_slot = new_slot(owned, 0, owned);
     table
         .apply_slot_event(
+            &types,
             &old_slot,
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
         )
         .expect("old slot should initialize");
     table
         .apply_slot_event(
+            &types,
             &target_slot,
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OTHER },
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: other },
         )
         .expect("target slot should initialize");
 
     assert_eq!(
-        table.relocate_storage(&storage(), &new_storage()),
+        table.relocate_storage(&storage(owned), &new_storage(owned)),
         Err(CollectionSlotTableRefutation {
             slot: target_slot,
             reason: CollectionSlotLifecycleRefutation::Unavailable {
                 operation: CollectionSlotLifecycleOp::StorageRelocate,
-                state: CollectionSlotState::Initialized(OTHER),
+                state: CollectionSlotState::Initialized(other),
             },
         })
     );

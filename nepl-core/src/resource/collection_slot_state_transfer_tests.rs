@@ -6,27 +6,31 @@ use super::collection_slot_lifecycle::{
 };
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::model::{Place, PlaceProjection, ResourceOffset};
-use crate::types::TypeId;
+use crate::types::{TypeCtx, TypeId};
 
-const OWNED: TypeId = TypeId(20);
-
-fn source_storage() -> Place {
-    Place::local(String::from("source"), OWNED)
+fn test_types() -> (TypeCtx, TypeId) {
+    let types = TypeCtx::new();
+    let owned = types.i32();
+    (types, owned)
 }
 
-fn target_storage() -> Place {
-    Place::local(String::from("target"), OWNED)
+fn source_storage(ty: TypeId) -> Place {
+    Place::local(String::from("source"), ty)
 }
 
-fn source_slot(index: usize, ty: TypeId) -> Place {
-    source_storage().with_projection(
+fn target_storage(ty: TypeId) -> Place {
+    Place::local(String::from("target"), ty)
+}
+
+fn source_slot(storage_ty: TypeId, index: usize, ty: TypeId) -> Place {
+    source_storage(storage_ty).with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(index)),
         ty,
     )
 }
 
-fn target_slot(index: usize, ty: TypeId) -> Place {
-    target_storage().with_projection(
+fn target_slot(storage_ty: TypeId, index: usize, ty: TypeId) -> Place {
+    target_storage(storage_ty).with_projection(
         PlaceProjection::StorageOffset(ResourceOffset::Known(index)),
         ty,
     )
@@ -34,40 +38,44 @@ fn target_slot(index: usize, ty: TypeId) -> Place {
 
 #[test]
 fn transfer_storage_prefix_moves_release_marker_to_target() {
+    let (types, owned) = test_types();
     let mut table = CollectionSlotStateTable::new();
-    let slot0 = source_slot(0, OWNED);
+    let slot0 = source_slot(owned, 0, owned);
     table
         .apply_slot_event(
+            &types,
             &slot0,
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
         )
         .expect("slot should initialize");
     table
         .apply_slot_event(
+            &types,
             &slot0,
-            CollectionSlotLifecycleEvent::DropInitialized { expected_ty: OWNED },
+            CollectionSlotLifecycleEvent::DropInitialized { expected_ty: owned },
         )
         .expect("slot should be vacant before storage release");
     table
-        .release_storage(&source_storage())
+        .release_storage(&source_storage(owned))
         .expect("released storage marker should be recorded");
 
     table
-        .transfer_storage_prefix(&source_storage(), &target_storage())
+        .transfer_storage_prefix(&source_storage(owned), &target_storage(owned))
         .expect("released marker should transfer with moved storage owner");
 
     assert_eq!(table.state(&slot0), CollectionSlotState::Uninitialized);
     assert_eq!(
-        table.state(&target_slot(0, OWNED)),
+        table.state(&target_slot(owned, 0, owned)),
         CollectionSlotState::Released
     );
     assert_eq!(
         table.apply_slot_event(
-            &target_slot(0, OWNED),
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+            &types,
+            &target_slot(owned, 0, owned),
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
         ),
         Err(CollectionSlotTableRefutation {
-            slot: target_slot(0, OWNED),
+            slot: target_slot(owned, 0, owned),
             reason: CollectionSlotLifecycleRefutation::Unavailable {
                 operation: CollectionSlotLifecycleOp::InitializeEmpty,
                 state: CollectionSlotState::Released,

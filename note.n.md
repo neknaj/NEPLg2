@@ -44431,3 +44431,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test effects collection_slot -- --test-threads=1`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --test-threads=1`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_collection_slot -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot generic lifecycle type proof
+
+- `ISS-20260521T135336921Z-COLLECTION-SLOT-LIFECYCLE-TYPE-CHECK-126AADF5` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot lifecycle の state transition が expected / actual payload 型を exact `TypeId` だけで比較し、さらに slot table lookup が `Place.ty` を slot identity に含めていたことだった。
+- `apply_collection_slot_lifecycle_event` に `TypeCtx` を渡し、`BorrowRead` / `MoveOut` / `ReplaceInitialized` / `DropInitialized` の initialized slot type check を `type_pattern_matches` に接続した。generic helper summary の `.T` と caller 側 concrete payload を同じ generic proof boundary で照合する。
+- `CollectionSlotStateTable` の lookup / update は root + projections を slot identity とし、payload 型は `CollectionSlotState` が保持する値として扱う。`ReplaceInitialized<Old, New>` 後も同じ storage + offset の slot state を後続の new payload target から参照できる。
+- source-level `collection_slot_replace_return_old` の positive regression を追加し、old raw load proof と new raw store proof が stdlib allowlist なしで通ることを固定した。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_replace_return_old_accepts_load_and_store_proofs -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_non_copy_replace_return_old_accepts_raw_load_and_store_proofs -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `cargo test -p nepl-core --test resource_ir collection_slot -- --test-threads=1`: timed out after 184s; broad collection-slot filter は既知の長時間化があるため focused tests に限定。

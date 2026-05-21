@@ -23946,6 +23946,70 @@ fn replace_slot_missing_new_store <(&RegionToken<LocalOwner>,LocalOwner)->i32> (
 }
 
 #[test]
+fn resource_ir_collection_slot_source_replace_return_old_accepts_load_and_store_proofs() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn replace_slot <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->LocalOwner> (storage, old_payload, new_payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr old_payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let loaded <LocalOwner> load<LocalOwner> addr
+    store<LocalOwner> addr new_payload
+    #intrinsic "collection_slot_replace_return_old" <LocalOwner, LocalOwner> (storage, 0)
+    loaded
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/replace_return_old_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "source-level ReplaceReturnOld must consume old raw load proof and new raw store proof without stdlib allowlists: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "replace_slot"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event:
+                                CollectionSlotLifecycleEvent::ReplaceInitialized {
+                                    old_ty,
+                                    new_ty,
+                                    old_owner: CollectionSlotReplacement::ReturnOldOwner,
+                                },
+                            ..
+                        } if *old_ty == owned_ty && *new_ty == owned_ty
+                    )
+                })
+        }),
+        "source lowering must emit typed ReplaceReturnOld lifecycle event for the owner payload:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_source_symbolic_offset_move_out_accepts_value_flow_proof() {
     let source = r#"
 #indent 4

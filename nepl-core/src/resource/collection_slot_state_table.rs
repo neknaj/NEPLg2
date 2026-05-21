@@ -6,6 +6,7 @@ use super::collection_slot_lifecycle::{
 };
 use super::model::Place;
 use super::place_utils::{place_suffix_after_prefix, push_unique_place, should_track};
+use crate::types::TypeCtx;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionSlotStateEntry {
@@ -52,13 +53,14 @@ impl CollectionSlotStateTable {
         }
         self.slots
             .iter()
-            .find(|entry| entry.slot == *slot)
+            .find(|entry| same_collection_slot_identity(&entry.slot, slot))
             .map(|entry| entry.state)
             .unwrap_or(CollectionSlotState::Uninitialized)
     }
 
     pub fn apply_slot_event(
         &mut self,
+        types: &TypeCtx,
         slot: &Place,
         event: CollectionSlotLifecycleEvent,
     ) -> Result<CollectionSlotState, CollectionSlotTableRefutation> {
@@ -72,12 +74,13 @@ impl CollectionSlotStateTable {
             });
         }
         let state = self.state(slot);
-        let next = apply_collection_slot_lifecycle_event(state, event).map_err(|reason| {
-            CollectionSlotTableRefutation {
-                slot: slot.clone(),
-                reason,
-            }
-        })?;
+        let next =
+            apply_collection_slot_lifecycle_event(types, state, event).map_err(|reason| {
+                CollectionSlotTableRefutation {
+                    slot: slot.clone(),
+                    reason,
+                }
+            })?;
         self.set_slot_state(slot, next);
         Ok(next)
     }
@@ -178,10 +181,16 @@ impl CollectionSlotStateTable {
 
     pub(super) fn set_slot_state(&mut self, slot: &Place, state: CollectionSlotState) {
         if matches!(state, CollectionSlotState::Uninitialized) {
-            self.slots.retain(|entry| entry.slot != *slot);
+            self.slots
+                .retain(|entry| !same_collection_slot_identity(&entry.slot, slot));
             return;
         }
-        if let Some(entry) = self.slots.iter_mut().find(|entry| entry.slot == *slot) {
+        if let Some(entry) = self
+            .slots
+            .iter_mut()
+            .find(|entry| same_collection_slot_identity(&entry.slot, slot))
+        {
+            entry.slot = slot.clone();
             entry.state = state;
         } else {
             self.slots.push(CollectionSlotStateEntry {
@@ -225,4 +234,8 @@ fn collection_slot_event_operation(
 
 pub(super) fn place_covers_slot(slot: &Place, storage: &Place) -> bool {
     place_suffix_after_prefix(slot, storage).is_some()
+}
+
+pub(super) fn same_collection_slot_identity(left: &Place, right: &Place) -> bool {
+    left.root == right.root && left.projections == right.projections
 }

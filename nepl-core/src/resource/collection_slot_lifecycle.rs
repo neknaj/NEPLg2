@@ -1,4 +1,6 @@
-use crate::types::TypeId;
+use crate::types::{TypeCtx, TypeId};
+
+use super::type_pattern::type_pattern_matches;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CollectionSlotState {
     Uninitialized,
@@ -89,6 +91,7 @@ pub enum CollectionSlotLifecycleRefutation {
 }
 
 pub fn apply_collection_slot_lifecycle_event(
+    types: &TypeCtx,
     state: CollectionSlotState,
     event: CollectionSlotLifecycleEvent,
 ) -> Result<CollectionSlotState, CollectionSlotLifecycleRefutation> {
@@ -96,14 +99,20 @@ pub fn apply_collection_slot_lifecycle_event(
         CollectionSlotLifecycleEvent::InitializeEmpty { value_ty } => {
             initialize_vacant_slot(state, value_ty)
         }
-        CollectionSlotLifecycleEvent::BorrowRead { expected_ty } => {
-            initialized_slot_type(state, expected_ty, CollectionSlotLifecycleOp::BorrowRead)
-                .map(CollectionSlotState::Initialized)
-        }
-        CollectionSlotLifecycleEvent::MoveOut { expected_ty } => {
-            initialized_slot_type(state, expected_ty, CollectionSlotLifecycleOp::MoveOut)
-                .map(CollectionSlotState::Moved)
-        }
+        CollectionSlotLifecycleEvent::BorrowRead { expected_ty } => initialized_slot_type(
+            types,
+            state,
+            expected_ty,
+            CollectionSlotLifecycleOp::BorrowRead,
+        )
+        .map(CollectionSlotState::Initialized),
+        CollectionSlotLifecycleEvent::MoveOut { expected_ty } => initialized_slot_type(
+            types,
+            state,
+            expected_ty,
+            CollectionSlotLifecycleOp::MoveOut,
+        )
+        .map(CollectionSlotState::Moved),
         CollectionSlotLifecycleEvent::ReplaceInitialized {
             old_ty,
             new_ty,
@@ -113,10 +122,16 @@ pub fn apply_collection_slot_lifecycle_event(
                 CollectionSlotReplacement::ReturnOldOwner
                 | CollectionSlotReplacement::DropOldOwner => {}
             }
-            initialized_slot_type(state, old_ty, CollectionSlotLifecycleOp::ReplaceInitialized)
-                .map(|_| CollectionSlotState::Initialized(new_ty))
+            initialized_slot_type(
+                types,
+                state,
+                old_ty,
+                CollectionSlotLifecycleOp::ReplaceInitialized,
+            )
+            .map(|_| CollectionSlotState::Initialized(new_ty))
         }
         CollectionSlotLifecycleEvent::DropInitialized { expected_ty } => initialized_slot_type(
+            types,
             state,
             expected_ty,
             CollectionSlotLifecycleOp::DropInitialized,
@@ -169,12 +184,17 @@ fn initialize_vacant_slot(
 }
 
 fn initialized_slot_type(
+    types: &TypeCtx,
     state: CollectionSlotState,
     expected_ty: TypeId,
     operation: CollectionSlotLifecycleOp,
 ) -> Result<TypeId, CollectionSlotLifecycleRefutation> {
     match state {
-        CollectionSlotState::Initialized(actual) if actual == expected_ty => Ok(actual),
+        CollectionSlotState::Initialized(actual)
+            if collection_slot_payload_types_match(types, actual, expected_ty) =>
+        {
+            Ok(actual)
+        }
         CollectionSlotState::Initialized(actual) => {
             Err(CollectionSlotLifecycleRefutation::TypeMismatch {
                 operation,
@@ -191,4 +211,10 @@ fn initialized_slot_type(
             Err(CollectionSlotLifecycleRefutation::Unavailable { operation, state })
         }
     }
+}
+
+fn collection_slot_payload_types_match(types: &TypeCtx, actual: TypeId, expected: TypeId) -> bool {
+    actual == expected
+        || type_pattern_matches(types, actual, expected)
+        || type_pattern_matches(types, expected, actual)
 }

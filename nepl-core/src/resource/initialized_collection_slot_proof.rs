@@ -18,6 +18,7 @@ use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlo
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
+use crate::types::TypeCtx;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleProofPlan {
@@ -36,7 +37,7 @@ impl ResourceCheckEngine<'_> {
         drop_proof: CollectionSlotDropProof,
         owner_transfer_proof: CollectionSlotOwnerTransferProof,
     ) -> Result<CollectionSlotLifecycleProofPlan, CollectionSlotTableRefutation> {
-        apply_event_precondition(collection_slots, target, event)?;
+        apply_event_precondition(self.types, collection_slots, target, event)?;
 
         let drop = collection_slot_drop_obligation(self.types, event);
         if let Some(obligation) = drop {
@@ -112,11 +113,12 @@ impl ResourceCheckEngine<'_> {
 }
 
 fn apply_event_precondition(
+    types: &TypeCtx,
     collection_slots: &CollectionSlotStateTable,
     target: &Place,
     event: CollectionSlotLifecycleEvent,
 ) -> Result<(), CollectionSlotTableRefutation> {
-    apply_collection_slot_lifecycle_event(collection_slots.state(target), event)
+    apply_collection_slot_lifecycle_event(types, collection_slots.state(target), event)
         .map(|_| ())
         .map_err(|reason| CollectionSlotTableRefutation {
             slot: target.clone(),

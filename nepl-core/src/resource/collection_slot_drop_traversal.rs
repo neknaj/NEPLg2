@@ -190,7 +190,7 @@ impl ResourceCheckEngine<'_> {
                 cells.mark_raw_cell_moved(&address, expected_ty);
             }
         }
-        collection_slots.apply_slot_event(slot, event)?;
+        collection_slots.apply_slot_event(self.types, slot, event)?;
         Ok(())
     }
 }

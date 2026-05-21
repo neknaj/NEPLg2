@@ -162,18 +162,23 @@ mod tests {
     };
     use crate::resource::collection_slot_state_table::CollectionSlotTableRefutation;
     use crate::resource::model::{Place, PlaceProjection, ResourceOffset};
+    use crate::types::TypeCtx;
 
     use super::*;
 
-    const OWNED: TypeId = TypeId(30);
-    const OTHER: TypeId = TypeId(31);
-
-    fn storage() -> Place {
-        Place::local(String::from("buffer"), OWNED)
+    fn test_types() -> (TypeCtx, TypeId, TypeId) {
+        let types = TypeCtx::new();
+        let owned = types.i32();
+        let other = types.u8();
+        (types, owned, other)
     }
 
-    fn slot(index: usize, ty: TypeId) -> Place {
-        storage().with_projection(
+    fn storage(ty: TypeId) -> Place {
+        Place::local(String::from("buffer"), ty)
+    }
+
+    fn slot(storage_ty: TypeId, index: usize, ty: TypeId) -> Place {
+        storage(storage_ty).with_projection(
             PlaceProjection::StorageOffset(ResourceOffset::Known(index)),
             ty,
         )
@@ -181,19 +186,22 @@ mod tests {
 
     #[test]
     fn merge_marks_partially_moved_slot_as_maybe_initialized() {
-        let slot0 = slot(0, OWNED);
+        let (types, owned, other) = test_types();
+        let slot0 = slot(owned, 0, owned);
         let mut left = CollectionSlotStateTable::new();
         left.apply_slot_event(
+            &types,
             &slot0,
-            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
         )
         .expect("slot should initialize");
 
         let mut right = left.clone();
         right
             .apply_slot_event(
+                &types,
                 &slot0,
-                CollectionSlotLifecycleEvent::MoveOut { expected_ty: OWNED },
+                CollectionSlotLifecycleEvent::MoveOut { expected_ty: owned },
             )
             .expect("slot should move on one path");
 
@@ -201,39 +209,41 @@ mod tests {
 
         assert_eq!(
             merged.state(&slot0),
-            CollectionSlotState::MaybeInitialized(Some(OWNED))
+            CollectionSlotState::MaybeInitialized(Some(owned))
         );
         assert_eq!(
             merged.apply_slot_event(
+                &types,
                 &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OTHER },
+                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: other },
             ),
             Err(CollectionSlotTableRefutation {
                 slot: slot0.clone(),
                 reason: CollectionSlotLifecycleRefutation::MaybeLiveSlotOverwrite {
-                    slot_ty: Some(OWNED),
+                    slot_ty: Some(owned),
                 },
             })
         );
         assert_eq!(
             merged.apply_slot_event(
+                &types,
                 &slot0,
-                CollectionSlotLifecycleEvent::MoveOut { expected_ty: OWNED },
+                CollectionSlotLifecycleEvent::MoveOut { expected_ty: owned },
             ),
             Err(CollectionSlotTableRefutation {
                 slot: slot0.clone(),
                 reason: CollectionSlotLifecycleRefutation::Unavailable {
                     operation: CollectionSlotLifecycleOp::MoveOut,
-                    state: CollectionSlotState::MaybeInitialized(Some(OWNED)),
+                    state: CollectionSlotState::MaybeInitialized(Some(owned)),
                 },
             })
         );
         assert_eq!(
-            merged.release_storage(&storage()),
+            merged.release_storage(&storage(owned)),
             Err(CollectionSlotTableRefutation {
                 slot: slot0,
                 reason: CollectionSlotLifecycleRefutation::MaybeLiveSlotDuringStorageDealloc {
-                    slot_ty: Some(OWNED),
+                    slot_ty: Some(owned),
                 },
             })
         );
@@ -241,9 +251,10 @@ mod tests {
 
     #[test]
     fn merge_keeps_storage_release_uncertainty() {
-        let slot0 = slot(0, OWNED);
+        let (types, owned, other) = test_types();
+        let slot0 = slot(owned, 0, owned);
         let mut left = CollectionSlotStateTable::new();
-        left.release_storage(&storage())
+        left.release_storage(&storage(owned))
             .expect("one path releases the storage");
         let right = CollectionSlotStateTable::new();
 
@@ -252,8 +263,9 @@ mod tests {
         assert_eq!(merged.state(&slot0), CollectionSlotState::MaybeReleased);
         assert_eq!(
             merged.apply_slot_event(
+                &types,
                 &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OTHER },
+                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: other },
             ),
             Err(CollectionSlotTableRefutation {
                 slot: slot0,
@@ -264,9 +276,9 @@ mod tests {
             })
         );
         assert_eq!(
-            merged.release_storage(&storage()),
+            merged.release_storage(&storage(owned)),
             Err(CollectionSlotTableRefutation {
-                slot: storage(),
+                slot: storage(owned),
                 reason: CollectionSlotLifecycleRefutation::Unavailable {
                     operation: CollectionSlotLifecycleOp::StorageDealloc,
                     state: CollectionSlotState::MaybeReleased,
@@ -277,25 +289,29 @@ mod tests {
 
     #[test]
     fn merge_definitely_vacant_slots_can_be_reinitialized() {
-        let slot0 = slot(0, OWNED);
+        let (types, owned, other) = test_types();
+        let slot0 = slot(owned, 0, owned);
         let mut left = CollectionSlotStateTable::new();
         let mut right = CollectionSlotStateTable::new();
         for path in [&mut left, &mut right] {
             path.apply_slot_event(
+                &types,
                 &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OWNED },
+                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned },
             )
             .expect("slot should initialize");
         }
         left.apply_slot_event(
+            &types,
             &slot0,
-            CollectionSlotLifecycleEvent::MoveOut { expected_ty: OWNED },
+            CollectionSlotLifecycleEvent::MoveOut { expected_ty: owned },
         )
         .expect("left path moves");
         right
             .apply_slot_event(
+                &types,
                 &slot0,
-                CollectionSlotLifecycleEvent::DropInitialized { expected_ty: OWNED },
+                CollectionSlotLifecycleEvent::DropInitialized { expected_ty: owned },
             )
             .expect("right path drops");
 
@@ -304,10 +320,11 @@ mod tests {
         assert_eq!(merged.state(&slot0), CollectionSlotState::Uninitialized);
         assert_eq!(
             merged.apply_slot_event(
+                &types,
                 &slot0,
-                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: OTHER },
+                CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: other },
             ),
-            Ok(CollectionSlotState::Initialized(OTHER))
+            Ok(CollectionSlotState::Initialized(other))
         );
     }
 }

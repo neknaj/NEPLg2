@@ -81,7 +81,11 @@ impl ResourceCheckEngine<'_> {
                         owner_transfer_proof,
                     )
                 })
-                .and_then(|()| collection_slots.apply_slot_event(target, event).map(|_| ())),
+                .and_then(|()| {
+                    collection_slots
+                        .apply_slot_event(self.types, target, event)
+                        .map(|_| ())
+                }),
         };
         if let Err(refutation) = result {
             self.diagnostics
