@@ -1,3 +1,13 @@
+# 2026-05-21 Agent 1 collection slot drop traversal lowering coverage
+
+- `ISS-20260521T131741789Z-COLLECTION-SLOT-DROP-TRAVERSAL-LOWER-691CB7BE` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、manual Resource IR の `CollectionSlotDropTraversal` tests は存在したが、production source lowering coverage は ordinary lifecycle と storage relocate だけを明示しており、drop traversal producer が消えた場合の source-level regression がなかったことだった。
+- configured stdlib source の `#intrinsic "collection_slot_drop_traversal"` から `ResourceOp::CollectionSlotDropTraversal` が生成されることを検査し、その op だけを削除した場合に `ResourceCoverageKind::CollectionSlotLifecycle` の `CountMismatch` が出ることを固定した。
+- これは stdlib helper 名 allowlist ではなく、compiler-owned source intrinsic から generic Resource IR proof producer への接続を監視する回帰である。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_collection_slot_drop_traversal -- --test-threads=1`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+
 # 2026-05-21 Agent 1 collection slot drop traversal anchor typecheck
 
 - `ISS-20260521T131208972Z-COLLECTION-SLOT-DROP-TRAVERSAL-DOES--96E42080` を追加して fixed にした。`plan.md` は変更していない。

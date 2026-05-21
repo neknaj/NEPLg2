@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T13:14:35.422Z",
+  "generated_at": "2026-05-21T13:19:53.148Z",
   "counts": {
-    "total": 1184,
+    "total": 1185,
     "open": 3,
-    "resolved": 1181,
+    "resolved": 1182,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -47,9 +47,9 @@
         "resolved": 4
       },
       "compiler": {
-        "total": 12,
+        "total": 13,
         "open": 0,
-        "resolved": 12
+        "resolved": 13
       },
       "compiler/resource-ir": {
         "total": 5,
@@ -1183,6 +1183,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T131208972Z-COLLECTION-SLOT-DROP-TRAVERSAL-DOES--96E42080.md"
+    },
+    {
+      "id": "ISS-20260521T131741789Z-COLLECTION-SLOT-DROP-TRAVERSAL-LOWER-691CB7BE",
+      "title": "Collection slot drop traversal lowering lacks source coverage regression",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/tests/resource_ir.rs, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T131741789Z-COLLECTION-SLOT-DROP-TRAVERSAL-LOWER-691CB7BE.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",
