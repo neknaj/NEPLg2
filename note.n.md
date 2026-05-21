@@ -44420,3 +44420,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `Vec`、collection helper 名、stdlib module 名の allowlist は追加していない。source lowering が `ResourceOp::CollectionSlotDropTraversal`、`RawMemoryOp::Dealloc`、`CollectionSlotLifecycleEvent::StorageDealloc` を typed op として保持していることも確認する。
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot owner-token anchor borrow boundary
+
+- `ISS-20260521T133925178Z-COLLECTION-SLOT-OWNER-TOKEN-INTRINSI-79B2D12D` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot lifecycle intrinsic の owner-token anchor が proof marker であるにもかかわらず、`RegionToken<T>` を値渡しで受け入れて marker 呼び出し自体が storage owner move になり得たこと。
+- `CollectionSlotLifecycleAnchor::OwnerToken` に `OwnerTokenAnchorAccess::{Borrowed, ByValue}` を追加し、typecheck 境界で by-value owner-token anchor を `IntrinsicArgTypeMismatch` として拒否するようにした。
+- storage dealloc / storage relocate / drop traversal は `&RegionToken<T>` anchor のみ許可し、raw `MemPtr<T>` anchor は slot-offset lifecycle marker 用に維持した。bool flag ではなく enum / match で access kind を扱う。
+- focused verification:
+  - `cargo test -p nepl-core --test effects collection_slot -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_collection_slot -- --test-threads=1`: passed

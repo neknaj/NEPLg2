@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T13:34:47.435Z",
+  "generated_at": "2026-05-21T13:45:30.752Z",
   "counts": {
-    "total": 1186,
+    "total": 1187,
     "open": 3,
-    "resolved": 1183,
+    "resolved": 1184,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 576,
+        "total": 577,
         "open": 0,
-        "resolved": 576
+        "resolved": 577
       },
       "CORE": {
         "total": 5,
@@ -8893,6 +8893,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T132527293Z-SOURCE-LEVEL-COLLECTION-DROP-TRAVERS-24EF497F.md"
+    },
+    {
+      "id": "ISS-20260521T133925178Z-COLLECTION-SLOT-OWNER-TOKEN-INTRINSI-79B2D12D",
+      "title": "Collection slot owner-token intrinsic anchors can move storage owners",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/typecheck/prefix_check.rs, nepl-core/tests/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T133925178Z-COLLECTION-SLOT-OWNER-TOKEN-INTRINSI-79B2D12D.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

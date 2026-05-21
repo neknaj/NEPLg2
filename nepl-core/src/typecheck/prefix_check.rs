@@ -64,14 +64,25 @@ macro_rules! prefix_check_dump {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CollectionSlotLifecycleAnchor {
-    RawPointer { value_ty: TypeId },
-    OwnerToken { value_ty: TypeId },
+    RawPointer {
+        value_ty: TypeId,
+    },
+    OwnerToken {
+        value_ty: TypeId,
+        access: OwnerTokenAnchorAccess,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OwnerTokenAnchorAccess {
+    Borrowed,
+    ByValue,
 }
 
 impl CollectionSlotLifecycleAnchor {
     const fn value_ty(self) -> TypeId {
         match self {
-            Self::RawPointer { value_ty } | Self::OwnerToken { value_ty } => value_ty,
+            Self::RawPointer { value_ty } | Self::OwnerToken { value_ty, .. } => value_ty,
         }
     }
 
@@ -79,6 +90,20 @@ impl CollectionSlotLifecycleAnchor {
         match self {
             Self::OwnerToken { .. } => true,
             Self::RawPointer { .. } => false,
+        }
+    }
+
+    const fn is_borrowed_owner_token(self) -> bool {
+        match self {
+            Self::OwnerToken {
+                access: OwnerTokenAnchorAccess::Borrowed,
+                ..
+            } => true,
+            Self::OwnerToken {
+                access: OwnerTokenAnchorAccess::ByValue,
+                ..
+            }
+            | Self::RawPointer { .. } => false,
         }
     }
 }
@@ -218,6 +243,13 @@ impl<'a> BlockChecker<'a> {
                             anchor.span,
                         ));
                     }
+                    if anchor_kind.is_owner_token() && !anchor_kind.is_borrowed_owner_token() {
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                            "collection slot owner token lifecycle target must be borrowed",
+                            anchor.span,
+                        ));
+                    }
                     if primitive.has_slot_offset() || primitive.requires_storage_drop_traversal() {
                         self.validate_collection_slot_lifecycle_anchor_value_type(
                             anchor_kind,
@@ -261,6 +293,12 @@ impl<'a> BlockChecker<'a> {
                 "collection slot storage relocate old target must be a compiler owner token",
                 args.first().map(|arg| arg.span).unwrap_or(span),
             ));
+        } else if !old_anchor.is_borrowed_owner_token() {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot storage relocate old target must be borrowed",
+                args.first().map(|arg| arg.span).unwrap_or(span),
+            ));
         }
         let Some(new_arg) = args.get(1) else {
             return;
@@ -277,6 +315,12 @@ impl<'a> BlockChecker<'a> {
             self.diagnostics.push(type_error(
                 TypeDiagnosticCode::IntrinsicArgTypeMismatch,
                 "collection slot storage relocate new target must be a compiler owner token",
+                new_arg.span,
+            ));
+        } else if !new_anchor.is_borrowed_owner_token() {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot storage relocate new target must be borrowed",
                 new_arg.span,
             ));
         }
@@ -297,13 +341,32 @@ impl<'a> BlockChecker<'a> {
         &self,
         ty: TypeId,
     ) -> Option<CollectionSlotLifecycleAnchor> {
+        let resolved = self.ctx.resolve_named_type_id(self.ctx.resolve_id(ty));
+        match self.ctx.get_ref(resolved) {
+            TypeKind::Reference(target, _) => self
+                .collection_slot_lifecycle_anchor_from_memory_type(
+                    *target,
+                    OwnerTokenAnchorAccess::Borrowed,
+                ),
+            _ => self.collection_slot_lifecycle_anchor_from_memory_type(
+                ty,
+                OwnerTokenAnchorAccess::ByValue,
+            ),
+        }
+    }
+
+    fn collection_slot_lifecycle_anchor_from_memory_type(
+        &self,
+        ty: TypeId,
+        access: OwnerTokenAnchorAccess,
+    ) -> Option<CollectionSlotLifecycleAnchor> {
         let (memory_type, value_ty) = compiler_memory_value_type(self.ctx, ty)?;
         match memory_type {
             CompilerMemoryType::RawPointer => {
                 Some(CollectionSlotLifecycleAnchor::RawPointer { value_ty })
             }
             CompilerMemoryType::OwnerToken => {
-                Some(CollectionSlotLifecycleAnchor::OwnerToken { value_ty })
+                Some(CollectionSlotLifecycleAnchor::OwnerToken { value_ty, access })
             }
         }
     }

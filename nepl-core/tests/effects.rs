@@ -121,6 +121,17 @@ fn assert_has_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
     }
 }
 
+fn assert_lacks_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
+    if let Err(CoreError::Diagnostics(diags)) = result {
+        assert!(
+            !diags.iter().any(|d| d.code == code),
+            "unexpected diagnostic {:?}, got {:?}",
+            code,
+            diags
+        );
+    }
+}
+
 fn source_file_id_for_suffix(source_map: &SourceMap, suffix: &str) -> FileId {
     source_map
         .iter_paths()
@@ -762,6 +773,58 @@ fn helper <(MemPtr<i32>)->()> (ptr):
 }
 
 #[test]
+fn collection_slot_storage_dealloc_accepts_borrowed_owner_token_anchor() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(&RegionToken<i32>)->()> (ptr):
+    #intrinsic "collection_slot_storage_dealloc" <> (ptr)
+"#;
+
+    assert_lacks_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_storage_dealloc_rejects_by_value_owner_token_anchor() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(RegionToken<i32>)->()> (ptr):
+    #intrinsic "collection_slot_storage_dealloc" <> (ptr)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
 fn collection_slot_storage_relocate_accepts_matching_owner_tokens() {
     let src = r#"
 #entry helper
@@ -771,16 +834,20 @@ fn collection_slot_storage_relocate_accepts_matching_owner_tokens() {
 
 #import "core/mem/types" as *
 
-fn helper <(RegionToken<i32>,RegionToken<i32>)->()> (old, new):
+fn helper <(&RegionToken<i32>,&RegionToken<i32>)->()> (old, new):
     #intrinsic "collection_slot_storage_relocate" <> (old, new)
 "#;
 
-    check_source_with_canonical_mem_types(
-        src,
-        "alloc/collections/vec/slot_boundary.nepl",
-        CompileTarget::Wasm,
-    )
-    .expect("storage relocate with matching owner token element types is allowed");
+    assert_lacks_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
 }
 
 #[test]
@@ -793,7 +860,33 @@ fn collection_slot_storage_relocate_rejects_mismatched_owner_tokens() {
 
 #import "core/mem/types" as *
 
-fn helper <(RegionToken<i32>,RegionToken<u8>)->()> (old, new):
+fn helper <(&RegionToken<i32>,&RegionToken<u8>)->()> (old, new):
+    #intrinsic "collection_slot_storage_relocate" <> (old, new)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_storage_relocate_rejects_by_value_owner_token_anchors() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(RegionToken<i32>,RegionToken<i32>)->()> (old, new):
     #intrinsic "collection_slot_storage_relocate" <> (old, new)
 "#;
 
@@ -819,7 +912,7 @@ fn collection_slot_drop_traversal_accepts_matching_owner_token_type() {
 
 #import "core/mem/types" as *
 
-fn helper <(RegionToken<i32>)->()> (storage):
+fn helper <(&RegionToken<i32>)->()> (storage):
     #intrinsic "collection_slot_drop_traversal" <i32> (storage)
 "#;
 
@@ -841,8 +934,34 @@ fn collection_slot_drop_traversal_rejects_mismatched_owner_token_type() {
 
 #import "core/mem/types" as *
 
-fn helper <(RegionToken<i32>)->()> (storage):
+fn helper <(&RegionToken<i32>)->()> (storage):
     #intrinsic "collection_slot_drop_traversal" <u8> (storage)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_drop_traversal_rejects_by_value_owner_token_anchor() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(RegionToken<i32>)->()> (storage):
+    #intrinsic "collection_slot_drop_traversal" <i32> (storage)
 "#;
 
     assert_has_diag(
