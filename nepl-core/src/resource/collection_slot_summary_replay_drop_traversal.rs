@@ -8,7 +8,7 @@ use crate::types::TypeId;
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalProof, CollectionSlotLifecycleSummaryPlace,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryPlace,
 };
 use super::collection_slot_summary_target::instantiate_summary_target;
 use super::initialized::ResourceCheckEngine;
@@ -24,13 +24,9 @@ pub(super) fn apply_drop_traversal_summary_op(
     storage: &CollectionSlotLifecycleSummaryPlace,
     initialized_count: &CollectionSlotLifecycleSummaryPlace,
     expected_ty: TypeId,
-    certified_slots: &[CollectionSlotLifecycleSummaryPlace],
-    proof: CollectionSlotLifecycleSummaryDropTraversalProof,
+    coverage: &CollectionSlotLifecycleSummaryDropTraversalCoverage,
     span: Span,
 ) {
-    match proof {
-        CollectionSlotLifecycleSummaryDropTraversalProof::CertifiedLoadedValueDrops => {}
-    }
     let Some(storage) = instantiate_summary_target(engine, args, storage) else {
         return;
     };
@@ -38,23 +34,38 @@ pub(super) fn apply_drop_traversal_summary_op(
     else {
         return;
     };
-    let mut slots = Vec::new();
-    for slot in certified_slots {
-        if let Some(slot) = instantiate_summary_target(engine, args, slot) {
-            slots.push(slot);
+    match coverage {
+        CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(certified_slots) => {
+            let mut slots = Vec::new();
+            for slot in certified_slots {
+                if let Some(slot) = instantiate_summary_target(engine, args, slot) {
+                    slots.push(slot);
+                }
+            }
+            if slots.len() != certified_slots.len() {
+                return;
+            }
+            engine.apply_certified_collection_slot_drop_traversal_slots_with_aliases(
+                cells,
+                collection_slots,
+                raw_aliases,
+                &storage,
+                &initialized_count,
+                expected_ty,
+                &slots,
+                span,
+            );
+        }
+        CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange => {
+            engine.apply_certified_collection_slot_drop_traversal_forall_with_aliases(
+                cells,
+                collection_slots,
+                raw_aliases,
+                &storage,
+                &initialized_count,
+                expected_ty,
+                span,
+            );
         }
     }
-    if slots.len() != certified_slots.len() {
-        return;
-    }
-    engine.apply_certified_collection_slot_drop_traversal_slots_with_aliases(
-        cells,
-        collection_slots,
-        raw_aliases,
-        &storage,
-        &initialized_count,
-        expected_ty,
-        &slots,
-        span,
-    );
 }

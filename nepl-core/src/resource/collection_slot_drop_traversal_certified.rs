@@ -4,8 +4,8 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::cell_state::CellTable;
-use super::collection_slot_drop_proof::{CollectionSlotDropObligation, CollectionSlotDropProof};
 use super::collection_slot_drop_traversal_range::collection_slot_offset_is_inside_initialized_count;
+use super::collection_slot_drop_traversal_summary_proof::summary_certified_drop_traversal_proof;
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
@@ -62,12 +62,7 @@ impl ResourceCheckEngine<'_> {
     ) -> Result<(), CollectionSlotTableRefutation> {
         let mut committed_cells = cells.clone();
         let mut committed_slots = collection_slots.clone();
-        let drop_proof = CollectionSlotDropProof::SummaryCertified(
-            CollectionSlotDropObligation::DropLoadedValue {
-                operation: CollectionSlotLifecycleOp::DropInitialized,
-                value_ty: expected_ty,
-            },
-        );
+        let drop_proof = summary_certified_drop_traversal_proof(expected_ty);
         for slot in certified_slots {
             let slot = raw_aliases.canonicalize_owner_cell_address(slot);
             if !place_covers_slot(&slot, storage) {

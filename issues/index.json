@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T17:03:44.429Z",
+  "generated_at": "2026-05-21T17:30:43.403Z",
   "counts": {
-    "total": 1195,
+    "total": 1196,
     "open": 3,
-    "resolved": 1192,
+    "resolved": 1193,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 582,
+        "total": 583,
         "open": 0,
-        "resolved": 582
+        "resolved": 583
       },
       "CORE": {
         "total": 5,
@@ -9018,6 +9018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62.md"
+    },
+    {
+      "id": "ISS-20260521T171652639Z-RESOURCE-IR-DROP-TRAVERSAL-SUMMARIES-E5AE01EF",
+      "title": "Resource IR drop traversal summaries need typed forall initialized-range certificates",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_drop_traversal*.rs, nepl-core/src/resource/collection_slot_summary_*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T171652639Z-RESOURCE-IR-DROP-TRAVERSAL-SUMMARIES-E5AE01EF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

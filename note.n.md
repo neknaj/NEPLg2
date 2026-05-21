@@ -1,3 +1,22 @@
+# 2026-05-21 Agent 1 drop traversal forall summary coverage
+
+- `ISS-20260521T171652639Z-RESOURCE-IR-DROP-TRAVERSAL-SUMMARIES-E5AE01EF` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、callee summary の `DropTraversal` が finite な `certified_slots` list だけを replay しており、caller 側で同じ storage prefix かつ `initialized_count` 内にある別 initialized slot を generic に drop 済みへ進められなかったことだった。
+- `CollectionSlotLifecycleSummaryOp::DropTraversal` の `certified_slots + proof` を `CollectionSlotLifecycleSummaryDropTraversalCoverage` enum に置き換え、`CertifiedSlots` と `ForallInitializedRange` を型で分岐するようにした。
+- summary build は source-derived symbolic/range witness を持つ traversal だけを `ForallInitializedRange` にし、marker-only helper は引き続き summary を生成しない。stdlib module 名や helper 名の allowlist は追加していない。
+- replay は `ForallInitializedRange` の場合、caller storage prefix 配下の全 initialized slot を `initialized_count` / element stride で検査してから summary-certified loaded-value drop を適用する。out-of-range slot があれば transaction は commit せず `RangeProofRequired` を出す。
+- 回帰として、forall replay が count 内の複数 caller slot を drop 済みにすること、count 外の caller slot を拒否して既存 state を維持すること、summary build が symbolic traversal を forall coverage として発行することを固定した。
+- 検証:
+  - `cargo test -p nepl-core --lib collection_slot_summary_forall_drop -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --lib collection_slot_summary_build_ops -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_drop_traversal_summary_rejects_marker_only_cleanup -- --test-threads=1`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_drop_traversal_accepts_symbolic_slot_with_range_proof -- --test-threads=1`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-05-21 Agent 1 collection slot summary branch range facts
 
 - `ISS-20260521T162422167Z-COLLECTION-SLOT-SUMMARY-BUILD-DROPS--7B32F4E0` を fixed にした。`plan.md` は変更していない。

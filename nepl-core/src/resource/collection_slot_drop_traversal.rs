@@ -83,10 +83,30 @@ impl ResourceCheckEngine<'_> {
         initialized_count: &Place,
         expected_ty: TypeId,
     ) -> Result<(), CollectionSlotTableRefutation> {
+        self.collection_slot_drop_traversal_result_with_drop_proof(
+            cells,
+            collection_slots,
+            raw_aliases,
+            storage,
+            initialized_count,
+            expected_ty,
+            CollectionSlotDropProof::LocalLoadedValueDrop,
+        )
+    }
+
+    pub(super) fn collection_slot_drop_traversal_result_with_drop_proof(
+        &self,
+        cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        storage: &Place,
+        initialized_count: &Place,
+        expected_ty: TypeId,
+        drop_proof: CollectionSlotDropProof,
+    ) -> Result<(), CollectionSlotTableRefutation> {
         let slots = collection_slot_drop_traversal_slots(collection_slots, storage);
         let mut committed_cells = cells.clone();
         let mut committed_slots = collection_slots.clone();
-        let drop_proof = CollectionSlotDropProof::LocalLoadedValueDrop;
         for (slot, state) in slots {
             match state {
                 CollectionSlotState::Initialized(slot_ty) => {

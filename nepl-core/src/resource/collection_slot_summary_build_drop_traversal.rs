@@ -4,9 +4,10 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
+use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalProof, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
 };
 use super::collection_slot_summary_target::summary_place_for_params;
 use super::initialized::ResourceCheckEngine;
@@ -33,14 +34,22 @@ pub(super) fn collect_summary_drop_traversal_op(
     ) else {
         return;
     };
-    let mut summary_slots = Vec::new();
-    for slot in certified_slots {
-        let slot = state.raw_aliases.canonicalize_owner_cell_address(&slot);
-        let Some(slot) = summary_place_for_params(params, &slot) else {
-            return;
-        };
-        summary_slots.push(slot);
-    }
+    let has_range_witness = certified_slots
+        .iter()
+        .any(|slot| slot_requires_range_proof(slot, &storage_place));
+    let coverage = if has_range_witness {
+        CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange
+    } else {
+        let mut summary_slots = Vec::new();
+        for slot in certified_slots {
+            let slot = state.raw_aliases.canonicalize_owner_cell_address(&slot);
+            let Some(slot) = summary_place_for_params(params, &slot) else {
+                return;
+            };
+            summary_slots.push(slot);
+        }
+        CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(summary_slots)
+    };
     if let (Some(storage), Some(initialized_count)) = (
         summary_place_for_params(params, &storage_place),
         summary_place_for_params(params, &initialized_count_place),
@@ -49,8 +58,7 @@ pub(super) fn collect_summary_drop_traversal_op(
             storage,
             initialized_count,
             expected_ty,
-            certified_slots: summary_slots,
-            proof: CollectionSlotLifecycleSummaryDropTraversalProof::CertifiedLoadedValueDrops,
+            coverage,
         });
     }
 }

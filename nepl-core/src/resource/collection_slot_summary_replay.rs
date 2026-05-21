@@ -70,8 +70,7 @@ impl ResourceCheckEngine<'_> {
                     storage,
                     initialized_count,
                     expected_ty,
-                    certified_slots,
-                    proof,
+                    coverage,
                 } => {
                     apply_drop_traversal_summary_op(
                         self,
@@ -82,8 +81,7 @@ impl ResourceCheckEngine<'_> {
                         storage,
                         initialized_count,
                         *expected_ty,
-                        certified_slots,
-                        *proof,
+                        coverage,
                         span,
                     );
                 }

@@ -16,7 +16,8 @@ use super::collection_slot_summary_build_nested::apply_summary_condition_fact;
 use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleFunctionSummaryIndex,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
 };
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -183,14 +184,7 @@ fn collection_slot_summary_branch_condition_fact_certifies_symbolic_drop_travers
             span,
         },
     ];
-    let function = summary_test_function(
-        unit_ty,
-        i32_ty,
-        span,
-        storage,
-        index.clone(),
-        initialized_count.clone(),
-    );
+    let function = summary_test_function(unit_ty, i32_ty, span, storage, initialized_count.clone());
     let raw_alias_summaries = [];
     let i32_scalar_summaries = [];
     let raw_init_summaries = [];
@@ -262,10 +256,14 @@ fn collection_slot_summary_branch_condition_fact_certifies_symbolic_drop_travers
             CollectionSlotLifecycleSummaryOp::Merge { paths }
                 if paths.iter().any(|path| path.iter().any(|nested| matches!(
                     nested,
-                    CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
+                    CollectionSlotLifecycleSummaryOp::DropTraversal {
+                        coverage:
+                            CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange,
+                        ..
+                    }
                 )))
         )),
-        "branch condition facts must be available when collecting guarded symbolic drop traversal summaries: {out:#?}"
+        "branch condition facts must build a generic forall range summary instead of a callee-local symbolic slot list: {out:#?}"
     );
 }
 
@@ -274,7 +272,6 @@ fn summary_test_function(
     i32_ty: TypeId,
     span: Span,
     storage: Place,
-    index: Place,
     initialized_count: Place,
 ) -> ResourceFunction {
     ResourceFunction {
@@ -287,12 +284,6 @@ fn summary_test_function(
                 ty: i32_ty,
                 mutable: false,
                 place: storage,
-            },
-            ResourceLocal {
-                name: "i".to_string(),
-                ty: i32_ty,
-                mutable: false,
-                place: index,
             },
             ResourceLocal {
                 name: "initialized_count".to_string(),
