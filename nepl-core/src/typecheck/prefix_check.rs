@@ -165,12 +165,13 @@ impl<'a> BlockChecker<'a> {
         type_args: &[TypeId],
         args: &[HirExpr],
         span: Span,
+        capability_span: Span,
     ) {
-        if !self.collection_slot_lifecycle_boundary_allowed(primitive, span) {
+        if !self.collection_slot_lifecycle_boundary_allowed(primitive, capability_span) {
             self.diagnostics.push(type_error(
                 TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
                 "collection slot lifecycle intrinsic requires compiler-proven source evidence",
-                span,
+                capability_span,
             ));
         }
 
@@ -1629,7 +1630,11 @@ impl<'a> BlockChecker<'a> {
 
                     if let Some(primitive) = collection_slot_lifecycle_intrinsic {
                         self.validate_collection_slot_lifecycle_intrinsic(
-                            primitive, &type_args, &args, *sp,
+                            primitive,
+                            &type_args,
+                            &args,
+                            *sp,
+                            intrin.name_span,
                         );
                     }
 

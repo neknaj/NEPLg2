@@ -53,6 +53,7 @@ pub(super) trait SourceCapabilityObserver {
         _name: &str,
         _args: &[PrefixExpr],
         _span: Span,
+        _name_span: Span,
         _scope: &SourceCapabilityScope,
     ) {
     }
@@ -211,7 +212,13 @@ fn walk_prefix_item_capability_evidence(
 ) {
     match item {
         PrefixItem::Intrinsic(intrinsic, span) => {
-            observer.observe_intrinsic(intrinsic.name.as_str(), &intrinsic.args, *span, scope);
+            observer.observe_intrinsic(
+                intrinsic.name.as_str(),
+                &intrinsic.args,
+                *span,
+                intrinsic.name_span,
+                scope,
+            );
             for expr in &intrinsic.args {
                 walk_expr_capability_evidence(expr, scope, observer);
             }

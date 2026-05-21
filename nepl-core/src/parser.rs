@@ -1631,7 +1631,7 @@ impl Parser {
                 }
                 TokenKind::DirIntrinsic => {
                     let kw_span = self.next().unwrap().span;
-                    let (name, _name_span) = match self.peek_kind() {
+                    let (name, name_span) = match self.peek_kind() {
                         Some(TokenKind::StringLiteral(_)) => {
                             let tok = self.next().unwrap();
                             if let TokenKind::StringLiteral(s) = tok.kind {
@@ -1689,6 +1689,7 @@ impl Parser {
                     items.push(PrefixItem::Intrinsic(
                         IntrinsicExpr {
                             name,
+                            name_span,
                             type_args,
                             args,
                             span: kw_span.join(end_span).unwrap_or(kw_span),

@@ -1029,24 +1029,58 @@ mod tests {
             &loader.stdlib_root,
             &["alloc", "collections", "vec", "slot_boundary.nepl"],
         ));
-
-        let capabilities = load_source_capabilities(
-            &loader,
-            path,
-            concat!(
-                "fn helper <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
-                "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
-            ),
+        let src = concat!(
+            "fn helper <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
         );
+        let capabilities = load_source_capabilities(&loader, path, src);
+        let intrinsic_start = src
+            .find("\"collection_slot_initialize_empty\"")
+            .expect("collection slot lifecycle intrinsic") as u32;
+        let intrinsic_span = Span::new(
+            FileId(0),
+            intrinsic_start,
+            intrinsic_start + "\"collection_slot_initialize_empty\"".len() as u32,
+        );
+        let unrelated_span = Span::new(FileId(0), 0, "fn".len() as u32);
 
         assert!(capabilities.allows_collection_slot_lifecycle_boundary(
             CollectionSlotLifecyclePrimitive::InitializeEmpty
         ));
         assert!(
+            capabilities.allows_collection_slot_lifecycle_boundary_at(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty,
+                intrinsic_span
+            ),
+            "collection slot lifecycle authority must attach to the exact intrinsic use site"
+        );
+        assert!(
+            !capabilities.allows_collection_slot_lifecycle_boundary_at(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty,
+                unrelated_span
+            ),
+            "collection slot lifecycle authority must not become file-wide"
+        );
+        assert!(
             !capabilities.allows_collection_slot_lifecycle_boundary(
                 CollectionSlotLifecyclePrimitive::StorageDealloc
             ),
             "one collection slot lifecycle primitive must not authorize another"
+        );
+
+        let user_capabilities = load_source_capabilities(
+            &loader,
+            canonicalize_path(&path_from_segments(
+                "C:/nepl-test/user",
+                &["slot_boundary.nepl"],
+            )),
+            src,
+        );
+        assert!(
+            !user_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "matching source text outside configured stdlib must not receive collection slot lifecycle authority"
         );
     }
 

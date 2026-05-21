@@ -206,11 +206,17 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
         name: &str,
         args: &[PrefixExpr],
         span: Span,
+        name_span: Span,
         _scope: &SourceCapabilityScope,
     ) {
         dispatch_source_capability_proof_event(
             self,
-            SourceCapabilityProofEvent::Intrinsic { name, args, span },
+            SourceCapabilityProofEvent::Intrinsic {
+                name,
+                args,
+                span,
+                name_span,
+            },
         );
     }
 

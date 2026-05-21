@@ -403,6 +403,7 @@ pub struct MatchExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IntrinsicExpr {
     pub name: String,
+    pub name_span: Span,
     pub type_args: Vec<TypeExpr>,
     pub args: Vec<PrefixExpr>,
     pub span: Span,

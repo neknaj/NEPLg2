@@ -44064,3 +44064,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
   - `cargo fmt --check`: passed
   - `git diff --check`: passed
+
+## 2026-05-21 Agent 1 collection slot lifecycle capability exact span
+
+- `ISS-20260521T041844157Z-COLLECTION-SLOT-LIFECYCLE-CAPABILITY-1DE754DB` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`IntrinsicExpr` が intrinsic name の span を保持しておらず、collection slot lifecycle の source capability が `#intrinsic ... (args)` 全体の span に付いていたことだった。これは file-wide ではないが、将来の source capability refactor で exact use-site gate を広げる余地を残す。
+- parser は intrinsic name string literal の span を `IntrinsicExpr.name_span` に保持し、source capability walker は intrinsic expression span と intrinsic name literal span の両方を proof event へ渡すようにした。
+- collection slot lifecycle evidence だけを name literal span に結び付けた。raw builtin evidence と owner/field 系 evidence は既存の expression span 境界を維持し、raw-memory boundary や compiler memory field gate を巻き込まないようにした。
+- typecheck の collection slot lifecycle gate は `name_span` を参照するように揃え、source proof と typecheck gate の span が同じになるようにした。
+- loader regression で、collection slot lifecycle capability が exact use-site にだけ付き、同じ file の unrelated span や configured stdlib 外の同一 source text には付かないことを固定した。
+- 検証中に `nepl-core/tests/neplg2.rs::llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics` が ordinary user source から raw `mem_copy` / `mem_move` を呼ぶ古い fixture として current `HEAD=89fae3cb` でも失敗することを確認したため、`ISS-20260521T043250404Z-LLVM-MEM-BULK-COPY-TEST-STILL-ASSUME-5DD1C6C3` を open で追加した。
+- subagent review では Resource IR 側の collection slot lifecycle proof は enum / generic proof boundary へ寄っていると確認できた一方、stdlib public wrapper / re-export から lifecycle intrinsic が漏れる export-surface 検査がまだ弱いと指摘されたため、`ISS-20260521T043444492Z-COLLECTION-SLOT-LIFECYCLE-INTRINSIC--58368836` を open で追加した。
+- focused verification:
+  - `cargo test -p nepl-core collection_slot_lifecycle_boundary -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test effects raw_memory_intrinsic_in_core_mem_source_is_allowed_during_migration -- --test-threads=1 --exact`: passed
+  - `cargo test -p nepl-core --test char char_cast_intrinsics_emit_llvm_as_i32_noops -- --test-threads=1 --exact`: passed
+  - `cargo check -p nepl-core`: passed
