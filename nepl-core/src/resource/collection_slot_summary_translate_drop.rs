@@ -5,8 +5,7 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
-    CollectionSlotLifecycleSummaryPlace,
+    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
 };
 use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
 use super::initialized::ResourceCheckEngine;
@@ -22,7 +21,7 @@ pub(super) fn translate_drop_traversal_summary_op(
     storage: &CollectionSlotLifecycleSummaryPlace,
     initialized_count: &CollectionSlotLifecycleSummaryPlace,
     expected_ty: TypeId,
-    coverage: &CollectionSlotLifecycleSummaryDropTraversalCoverage,
+    certified_slots: &[CollectionSlotLifecycleSummaryPlace],
 ) {
     let Some(storage) = translate_summary_place(engine, args, params, raw_aliases, storage) else {
         return;
@@ -32,21 +31,16 @@ pub(super) fn translate_drop_traversal_summary_op(
     else {
         return;
     };
-    let coverage = match coverage {
-        CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(certified_slots) => {
-            let Some(certified_slots) =
-                translate_summary_places(engine, args, params, raw_aliases, certified_slots)
-            else {
-                return;
-            };
-            CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(certified_slots)
-        }
+    let Some(certified_slots) =
+        translate_summary_places(engine, args, params, raw_aliases, certified_slots)
+    else {
+        return;
     };
     out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
         storage,
         initialized_count,
         expected_ty,
-        coverage,
+        certified_slots,
     });
 }
 

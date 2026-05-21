@@ -48,7 +48,7 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
         storage: CollectionSlotLifecycleSummaryPlace,
         initialized_count: CollectionSlotLifecycleSummaryPlace,
         expected_ty: TypeId,
-        coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage,
+        certified_slots: Vec<CollectionSlotLifecycleSummaryPlace>,
     },
     Merge {
         paths: Vec<Vec<CollectionSlotLifecycleSummaryOp>>,
@@ -87,11 +87,6 @@ pub(super) enum CollectionSlotLifecycleSummaryStorageReleaseProof {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CollectionSlotLifecycleSummaryRelocateProof {
     RawStorageRelocation,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum CollectionSlotLifecycleSummaryDropTraversalCoverage {
-    CertifiedSlots(Vec<CollectionSlotLifecycleSummaryPlace>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

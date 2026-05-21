@@ -6,9 +6,7 @@ use crate::types::TypeId;
 
 use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
-use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
-};
+use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
 use super::collection_slot_summary_target::summary_place_for_params;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, ResourceLocal};
@@ -49,8 +47,6 @@ pub(super) fn collect_summary_drop_traversal_op(
         };
         summary_slots.push(slot);
     }
-    let coverage =
-        CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(summary_slots);
     if let (Some(storage), Some(initialized_count)) = (
         summary_place_for_params(params, &storage_place),
         summary_place_for_params(params, &initialized_count_place),
@@ -59,7 +55,7 @@ pub(super) fn collect_summary_drop_traversal_op(
             storage,
             initialized_count,
             expected_ty,
-            coverage,
+            certified_slots: summary_slots,
         });
     }
 }

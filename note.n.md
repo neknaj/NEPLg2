@@ -1,3 +1,18 @@
+# 2026-05-21 Agent 1 drop traversal summary coverage wrapper cleanup
+
+- `ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C` を追加して fixed にした。`plan.md` は変更していない。
+- 根本原因は、unsound な full-range summary variant を削除した後も `CollectionSlotLifecycleSummaryDropTraversalCoverage` が `CertifiedSlots` だけの単一 variant wrapper として残り、実装上は証明できない full-range mode があるように見える構造になっていたことだった。
+- `CollectionSlotLifecycleSummaryOp::DropTraversal` は `certified_slots` を直接持つ形に戻し、summary build / translate / replay から `coverage` wrapper を削除した。
+- full-range cleanup は現状の per-slot range proof では証明できない。`ISS-20260521T171652639Z` に、source loop / iterator coverage、range bound、stride、body 内 exact slot load/drop witness、不変性を typed certificate として導入する必要があることを追記した。
+- Zenn の開発方針に合わせ、文字列・bool sentinel・単一 variant enum で証明 mode を残さず、証明できる payload だけを型に残す整理にした。
+- 検証:
+  - `cargo test -p nepl-core --lib collection_slot_summary_build_ops -- --test-threads=1`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-05-21 Agent 1 drop traversal forall summary soundness follow-up
 
 - `ISS-20260521T174248092Z-DROP-TRAVERSAL-SUMMARY-UPGRADES-PER--574B05E7` を追加して fixed にした。`plan.md` は変更していない。

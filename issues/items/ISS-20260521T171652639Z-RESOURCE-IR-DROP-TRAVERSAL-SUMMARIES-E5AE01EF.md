@@ -25,7 +25,9 @@ CollectionSlotDropTraversal summaries replay only the finite callee certified_sl
 
 - [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md) Stage 6 は、collection slot lifecycle / drop traversal を stdlib module allowlist ではなく Resource IR の generic proof boundary として扱うことを完了条件にしている。
 - [ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543](./ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md) は、non-Copy collection payload cleanup を compiler-issued owner token / InitializedCell / Resource IR state へ載せる親 issue である。
-- 既存の finite `certified_slots` replay は、callee 内で列挙された slot だけを dropped にするため、caller 側に同じ storage prefix かつ `initialized_count` 内の別 initialized slot がある場合に generic traversal cleanup を表現できなかった。
+- [ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C](./ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C.md) で、full-range producer を持たない単一 variant wrapper を削除し、現状の summary は finite `certified_slots` だけを明示する形へ戻した。
+- 既存の finite `certified_slots` replay は、callee 内で列挙された slot だけを dropped にするため、caller 側に同じ storage prefix かつ `initialized_count` 内の別 initialized slot がある場合に generic traversal cleanup を表現できない。
+- 現行 `ResourceOp::Loop` と `ResourceConditionFact` は path-local な condition fact と body/exit merge を表すだけで、`i = 0; i < initialized_count; i += 1` のような loop induction、全域 coverage、body 内 exact slot load/drop witness、storage/count/index の不変性を typed certificate として持たない。したがって per-slot symbolic range proof を full initialized-range proof へ昇格してはいけない。
 
 ## 問題
 
@@ -41,12 +43,11 @@ Introduce a typed forall initialized-range summary proof, derive it from source 
 
 ## 進捗
 
-- `CollectionSlotLifecycleSummaryOp::DropTraversal` の `certified_slots + proof` を `CollectionSlotLifecycleSummaryDropTraversalCoverage` enum に置き換えた。
-- `CertifiedSlots(Vec<...>)` は従来どおり finite slot certificate として replay する。
+- `CollectionSlotLifecycleSummaryOp::DropTraversal` は `certified_slots` field だけを持つ。finite slot certificate は従来どおり replay する。
 - follow-up の [ISS-20260521T174248092Z-DROP-TRAVERSAL-SUMMARY-UPGRADES-PER--574B05E7](./ISS-20260521T174248092Z-DROP-TRAVERSAL-SUMMARY-UPGRADES-PER--574B05E7.md) で、per-slot symbolic/range witness から full initialized-range summary を生成する経路は閉じた。
-- dead code の typed replay mode は残さず削除した。full initialized-range summary は、source traversal coverage の typed certificate を導入する本 issue の残件として扱う。
+- [ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C](./ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C.md) で、dead code の typed replay mode を削除した後に残った単一 variant wrapper も削除した。full initialized-range summary は、source traversal coverage の typed certificate を導入する本 issue の残件として扱う。
 - marker-only helper は引き続き summary を生成しない。
-- replay は enum の match で分岐し、文字列や bool sentinel による証明モード管理を追加していない。
+- replay は文字列や bool sentinel による証明モード管理を追加していない。full-range mode を再導入する場合は、`InitializedRangeDropTraversalCertificate` のような typed struct と summary variant を同じ変更で追加し、producer / replay / negative regression を同時に揃える。
 
 ## 検証
 

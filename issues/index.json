@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T17:53:40.372Z",
+  "generated_at": "2026-05-21T18:11:13.250Z",
   "counts": {
-    "total": 1197,
+    "total": 1198,
     "open": 4,
-    "resolved": 1193,
+    "resolved": 1194,
     "by_area": {
       "core": {
-        "total": 584,
+        "total": 585,
         "open": 1,
-        "resolved": 583
+        "resolved": 584
       },
       "stdlib": {
         "total": 312,
@@ -9048,6 +9048,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T174248092Z-DROP-TRAVERSAL-SUMMARY-UPGRADES-PER--574B05E7.md"
+    },
+    {
+      "id": "ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C",
+      "title": "Drop traversal summary keeps single-variant coverage wrapper after forall rollback",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_model.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T180048059Z-DROP-TRAVERSAL-SUMMARY-KEEPS-SINGLE--5A7D4C1C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

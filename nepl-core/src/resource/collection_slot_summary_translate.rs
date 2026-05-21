@@ -113,7 +113,7 @@ pub(super) fn translate_summary_ops_through_args(
                 storage,
                 initialized_count,
                 expected_ty,
-                coverage,
+                certified_slots,
             } => {
                 translate_drop_traversal_summary_op(
                     out,
@@ -124,7 +124,7 @@ pub(super) fn translate_summary_ops_through_args(
                     storage,
                     initialized_count,
                     *expected_ty,
-                    coverage,
+                    certified_slots,
                 );
             }
             CollectionSlotLifecycleSummaryOp::Merge { paths } => {
