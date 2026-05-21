@@ -44220,3 +44220,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - stdlib module 名、特定関数名、型名の allowlist は追加していない。Resource IR の raw alias proof を generic に利用する。
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_raw_owner_alias -- --nocapture`: passed
+
+## 2026-05-21 Agent 1 collection slot nested callsite raw alias
+
+- `ISS-20260521T075313201Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-7DDCFFFD` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、callee summary の `return_transfers` を wrapper call args へ instantiate した後、wrapper block 終端の raw alias table で owner-cell canonicalization していたことだった。call 後に raw owner alias を別 storage へ rebind すると、呼び出し時点の parameter relation を失っていた。
+- return-transfer 収集は block entry の `CollectionSlotSummaryBuildState` を受け取り、producer 直前の `prior_ops` を既存の `summary_check_engine(...).check_ops(...)` で再生して callsite state を復元するようにした。
+- direct / indirect call summary composition は callsite `raw_aliases` と `function_aliases` を使う。raw alias の別実装や stdlib/helper-name allowlist は追加していない。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_uses_callsite_raw_alias_for_nested_return_transfer -- --nocapture`: passed

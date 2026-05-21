@@ -4,25 +4,25 @@ use alloc::vec::Vec;
 
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_state_merge::merge_collection_slot_states;
+use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummary;
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
 use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
-use super::function_alias::{
-    function_aliases_after_ops, function_aliases_for_match_arm, FunctionAliasTable,
-};
+use super::drop_point_path::ResourceDropPointPath;
+use super::function_alias::{function_aliases_for_match_arm, FunctionAliasTable};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, ResourceCallTarget, ResourceLocal, ResourceOp};
+use super::initialized_summary_engine::summary_check_engine;
+use super::model::{Place, ResourceBlockId, ResourceCallTarget, ResourceLocal, ResourceOp};
 use super::place_utils::{construct_aggregate_field_place, place_suffix_after_prefix};
 
 pub(super) fn collect_return_transfers_from_ops(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
-    raw_aliases: &RawCellAddressAliases,
-    function_aliases_at_start: &FunctionAliasTable,
+    state_at_start: &CollectionSlotSummaryBuildState,
     ops: &[ResourceOp],
     value: &Place,
 ) {
@@ -30,8 +30,7 @@ pub(super) fn collect_return_transfers_from_ops(
         out,
         engine,
         params,
-        raw_aliases,
-        function_aliases_at_start,
+        state_at_start,
         ops,
         value,
         &[],
@@ -43,14 +42,16 @@ fn collect_return_transfers_from_value_to_suffix(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
-    raw_aliases: &RawCellAddressAliases,
-    function_aliases_at_start: &FunctionAliasTable,
+    state_at_start: &CollectionSlotSummaryBuildState,
     ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[super::model::PlaceProjection],
     target_ty: crate::types::TypeId,
 ) {
-    let canonical_value = raw_aliases.canonicalize_owner_cell_address(value);
+    let state_at_value = collection_slot_summary_state_after_ops(engine, state_at_start, ops);
+    let canonical_value = state_at_value
+        .raw_aliases
+        .canonicalize_owner_cell_address(value);
     if let Some(source) = summary_place_for_params(params, &canonical_value) {
         push_return_transfer(
             out,
@@ -65,8 +66,7 @@ fn collect_return_transfers_from_value_to_suffix(
         out,
         engine,
         params,
-        raw_aliases,
-        function_aliases_at_start,
+        state_at_start,
         ops,
         value,
         target_suffix,
@@ -78,8 +78,7 @@ fn collect_return_transfers_from_value_producer(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
-    raw_aliases: &RawCellAddressAliases,
-    function_aliases_at_start: &FunctionAliasTable,
+    state_at_start: &CollectionSlotSummaryBuildState,
     ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[super::model::PlaceProjection],
@@ -105,8 +104,7 @@ fn collect_return_transfers_from_value_producer(
                         out,
                         engine,
                         params,
-                        raw_aliases,
-                        function_aliases_at_start,
+                        state_at_start,
                         prior_ops,
                         input,
                         &nested_target_suffix,
@@ -123,14 +121,13 @@ fn collect_return_transfers_from_value_producer(
                 else_value,
                 ..
             } if output == value => {
-                let branch_function_aliases =
-                    function_aliases_after_ops(function_aliases_at_start, prior_ops);
+                let branch_state =
+                    collection_slot_summary_state_after_ops(engine, state_at_start, prior_ops);
                 collect_return_transfers_from_value_to_suffix(
                     out,
                     engine,
                     params,
-                    raw_aliases,
-                    &branch_function_aliases,
+                    &branch_state,
                     then_ops,
                     then_value,
                     target_suffix,
@@ -140,8 +137,7 @@ fn collect_return_transfers_from_value_producer(
                     out,
                     engine,
                     params,
-                    raw_aliases,
-                    &branch_function_aliases,
+                    &branch_state,
                     else_ops,
                     else_value,
                     target_suffix,
@@ -155,17 +151,21 @@ fn collect_return_transfers_from_value_producer(
                 arms,
                 ..
             } if output == value => {
-                let match_function_aliases =
-                    function_aliases_after_ops(function_aliases_at_start, prior_ops);
+                let match_state =
+                    collection_slot_summary_state_after_ops(engine, state_at_start, prior_ops);
                 for arm in arms {
-                    let arm_function_aliases =
-                        function_aliases_for_match_arm(&match_function_aliases, scrutinee, arm);
+                    let arm_function_aliases = function_aliases_for_match_arm(
+                        &match_state.function_aliases,
+                        scrutinee,
+                        arm,
+                    );
+                    let mut arm_state = match_state.clone();
+                    arm_state.function_aliases = arm_function_aliases;
                     collect_return_transfers_from_value_to_suffix(
                         out,
                         engine,
                         params,
-                        raw_aliases,
-                        &arm_function_aliases,
+                        &arm_state,
                         &arm.ops,
                         &arm.value,
                         target_suffix,
@@ -183,8 +183,7 @@ fn collect_return_transfers_from_value_producer(
                     out,
                     engine,
                     params,
-                    raw_aliases,
-                    function_aliases_at_start,
+                    state_at_start,
                     prior_ops,
                     initializer,
                     target_suffix,
@@ -199,8 +198,7 @@ fn collect_return_transfers_from_value_producer(
                     out,
                     engine,
                     params,
-                    raw_aliases,
-                    function_aliases_at_start,
+                    state_at_start,
                     prior_ops,
                     source,
                     target_suffix,
@@ -217,8 +215,7 @@ fn collect_return_transfers_from_value_producer(
                     out,
                     engine,
                     params,
-                    raw_aliases,
-                    function_aliases_at_start,
+                    state_at_start,
                     prior_ops,
                     assigned,
                     target_suffix,
@@ -232,11 +229,13 @@ fn collect_return_transfers_from_value_producer(
                 args,
                 ..
             } if output == value => {
+                let callsite_state =
+                    collection_slot_summary_state_after_ops(engine, state_at_start, prior_ops);
                 collect_return_transfers_from_call_summary(
                     out,
                     engine,
                     params,
-                    raw_aliases,
+                    &callsite_state.raw_aliases,
                     args,
                     target,
                     target_suffix,
@@ -249,14 +248,14 @@ fn collect_return_transfers_from_value_producer(
                 args,
                 ..
             } if output == value => {
-                let callsite_function_aliases =
-                    function_aliases_after_ops(function_aliases_at_start, prior_ops);
+                let callsite_state =
+                    collection_slot_summary_state_after_ops(engine, state_at_start, prior_ops);
                 collect_return_transfers_from_indirect_call_summary(
                     out,
                     engine,
                     params,
-                    raw_aliases,
-                    &callsite_function_aliases,
+                    &callsite_state.raw_aliases,
+                    &callsite_state.function_aliases,
                     callee,
                     args,
                     target_suffix,
@@ -349,6 +348,30 @@ fn collect_return_transfers_from_summary(
             },
         );
     }
+}
+
+fn collection_slot_summary_state_after_ops(
+    engine: &ResourceCheckEngine<'_>,
+    state_at_start: &CollectionSlotSummaryBuildState,
+    ops: &[ResourceOp],
+) -> CollectionSlotSummaryBuildState {
+    let mut engine = summary_check_engine(engine);
+    let mut state = state_at_start.clone();
+    engine.check_ops(
+        &mut state.cells,
+        &mut state.collection_slots,
+        &mut state.raw_aliases,
+        &mut state.function_aliases,
+        &mut state.pending_reallocs,
+        &mut state.variant_initializations,
+        ops,
+        ResourceDropPointPath {
+            block: ResourceBlockId(usize::MAX),
+            steps: Vec::new(),
+        },
+    );
+    engine.auto_drop_points.clear();
+    state
 }
 
 pub(super) fn collect_return_storage_markers(

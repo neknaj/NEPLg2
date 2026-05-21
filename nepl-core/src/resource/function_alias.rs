@@ -2,7 +2,7 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use super::model::{AggregateKind, Place, ResourceMatchArm, ResourceOp};
+use super::model::{AggregateKind, Place, ResourceMatchArm};
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
 
 #[derive(Debug, Clone, Default)]
@@ -91,15 +91,6 @@ pub(super) fn construct_function_alias_fields(
     }
 }
 
-pub(super) fn function_aliases_after_ops(
-    initial: &FunctionAliasTable,
-    ops: &[ResourceOp],
-) -> FunctionAliasTable {
-    let mut function_aliases = initial.clone();
-    apply_function_alias_ops(&mut function_aliases, ops);
-    function_aliases
-}
-
 pub(super) fn function_aliases_for_match_arm(
     initial: &FunctionAliasTable,
     scrutinee: &Place,
@@ -114,113 +105,6 @@ pub(super) fn function_aliases_for_match_arm(
         }
     }
     function_aliases
-}
-
-fn apply_function_alias_ops(function_aliases: &mut FunctionAliasTable, ops: &[ResourceOp]) {
-    for op in ops {
-        apply_function_alias_op(function_aliases, op);
-    }
-}
-
-fn apply_function_alias_op(function_aliases: &mut FunctionAliasTable, op: &ResourceOp) {
-    match op {
-        ResourceOp::DeclareLocal {
-            place, initializer, ..
-        } => {
-            if let Some(initializer) = initializer {
-                function_aliases.copy_alias(initializer, place);
-            } else {
-                function_aliases.clear_alias(place);
-            }
-        }
-        ResourceOp::Read { source, output, .. } | ResourceOp::Move { source, output, .. } => {
-            function_aliases.copy_alias(source, output);
-        }
-        ResourceOp::Assign { target, value, .. } => {
-            function_aliases.copy_alias(value, target);
-        }
-        ResourceOp::Borrow { output, .. }
-        | ResourceOp::Expr { output, .. }
-        | ResourceOp::Call { output, .. }
-        | ResourceOp::IndirectCall { output, .. }
-        | ResourceOp::RawMemory { output, .. } => {
-            function_aliases.clear_alias(output);
-        }
-        ResourceOp::Drop { place, .. } => {
-            function_aliases.clear_alias(place);
-        }
-        ResourceOp::EndScope { locals, .. } => {
-            for local in locals {
-                function_aliases.clear_alias(local);
-            }
-        }
-        ResourceOp::CallEffect { .. } => {}
-        ResourceOp::FunctionValue { output, name, .. } => {
-            function_aliases.set_alias(output, name.clone());
-        }
-        ResourceOp::RawAddressAlias { target, .. } | ResourceOp::RawAddressView { target, .. } => {
-            function_aliases.clear_alias(target);
-        }
-        ResourceOp::StorageOrigin { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. }
-        | ResourceOp::CollectionStorageRelocate { .. } => {}
-        ResourceOp::Construct {
-            output,
-            kind,
-            inputs,
-            ..
-        } => {
-            function_aliases.clear_alias(output);
-            construct_function_alias_fields(function_aliases, output, kind, inputs);
-        }
-        ResourceOp::Branch {
-            output,
-            then_ops,
-            then_value,
-            else_ops,
-            else_value,
-            ..
-        } => {
-            let mut then_aliases = function_aliases.clone();
-            apply_function_alias_ops(&mut then_aliases, then_ops);
-            then_aliases.copy_alias(then_value, output);
-            let mut else_aliases = function_aliases.clone();
-            apply_function_alias_ops(&mut else_aliases, else_ops);
-            else_aliases.copy_alias(else_value, output);
-            *function_aliases = FunctionAliasTable::merge_paths(&[then_aliases, else_aliases]);
-        }
-        ResourceOp::Loop {
-            condition_ops,
-            body_ops,
-            ..
-        } => {
-            let mut condition_aliases = function_aliases.clone();
-            apply_function_alias_ops(&mut condition_aliases, condition_ops);
-            let mut body_aliases = condition_aliases.clone();
-            apply_function_alias_ops(&mut body_aliases, body_ops);
-            *function_aliases = FunctionAliasTable::merge_paths(&[condition_aliases, body_aliases]);
-        }
-        ResourceOp::Match {
-            output,
-            scrutinee,
-            arms,
-            ..
-        } => {
-            let mut arm_paths = Vec::new();
-            for arm in arms {
-                let mut arm_aliases =
-                    function_aliases_for_match_arm(function_aliases, scrutinee, arm);
-                apply_function_alias_ops(&mut arm_aliases, &arm.ops);
-                arm_aliases.copy_alias(&arm.value, output);
-                arm_paths.push(arm_aliases);
-            }
-            if arm_paths.is_empty() {
-                function_aliases.clear_alias(output);
-            } else {
-                *function_aliases = FunctionAliasTable::merge_paths(&arm_paths);
-            }
-        }
-    }
 }
 
 fn dedupe_functions(functions: Vec<String>) -> Vec<String> {

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T07:49:06.181Z",
+  "generated_at": "2026-05-21T07:58:39.514Z",
   "counts": {
-    "total": 1170,
+    "total": 1171,
     "open": 3,
-    "resolved": 1167,
+    "resolved": 1168,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -22,9 +22,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 565,
+        "total": 566,
         "open": 0,
-        "resolved": 565
+        "resolved": 566
       },
       "CORE": {
         "total": 5,
@@ -8668,6 +8668,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T074121324Z-COLLECTION-SLOT-DIRECT-RETURN-TRANSF-C8D61A31.md"
+    },
+    {
+      "id": "ISS-20260521T075313201Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-7DDCFFFD",
+      "title": "Collection slot nested return transfer uses final raw aliases for call arguments",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_return_collect.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T075313201Z-COLLECTION-SLOT-NESTED-RETURN-TRANSF-7DDCFFFD.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
