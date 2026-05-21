@@ -4,9 +4,7 @@ use alloc::vec::Vec;
 
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_state_merge::merge_collection_slot_states;
-use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleSummaryPlace,
-};
+use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummary;
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
@@ -52,18 +50,12 @@ fn collect_return_transfers_from_value_to_suffix(
     target_suffix: &[super::model::PlaceProjection],
     target_ty: crate::types::TypeId,
 ) {
-    for (parameter_index, param) in params.iter().enumerate() {
-        let Some(source_suffix) = place_suffix_after_prefix(value, &param.place) else {
-            continue;
-        };
+    let canonical_value = raw_aliases.canonicalize_owner_cell_address(value);
+    if let Some(source) = summary_place_for_params(params, &canonical_value) {
         push_return_transfer(
             out,
             CollectionSlotLifecycleReturnTransfer {
-                source: CollectionSlotLifecycleSummaryPlace {
-                    parameter_index,
-                    suffix: source_suffix,
-                    ty: value.ty,
-                },
+                source,
                 target_suffix: target_suffix.to_vec(),
                 target_ty,
             },

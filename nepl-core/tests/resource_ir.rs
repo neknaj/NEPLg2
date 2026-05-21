@@ -25536,6 +25536,129 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
 }
 
 #[test]
+fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_raw_owner_alias()
+{
+    let (mut types, owned_ty) = types_with_copy_owned();
+    let storage_ty = register_non_copy_collection_storage(&mut types);
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let param_storage = Place::local("storage".to_string(), storage_ty);
+    let alias_storage = Place::temporary(ResourceId(725), storage_ty);
+    let caller_storage = Place::local("caller_storage".to_string(), storage_ty);
+    let caller_slot = caller_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let returned_storage = Place::temporary(ResourceId(726), storage_ty);
+    let returned_slot = returned_storage.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+        owned_ty,
+    );
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "return_storage_alias".to_string(),
+                origin_name: "return_storage_alias".to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "storage".to_string(),
+                    ty: storage_ty,
+                    mutable: false,
+                    place: param_storage.clone(),
+                }],
+                result: storage_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: alias_storage.clone(),
+                            ty: storage_ty,
+                            span,
+                        },
+                        ResourceOp::RawAddressAlias {
+                            source: param_storage.clone(),
+                            target: alias_storage.clone(),
+                            kind: RawAddressAliasKind::Transparent,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(alias_storage),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: caller_storage.clone(),
+                            ty: storage_ty,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: caller_slot,
+                            event: CollectionSlotLifecycleEvent::InitializeEmpty {
+                                value_ty: owned_ty,
+                            },
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: returned_storage.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "return_storage_alias".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![caller_storage],
+                            effect: EffectOp::Pure,
+                            span,
+                        },
+                        ResourceOp::CollectionSlotLifecycle {
+                            target: returned_storage,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: returned_slot,
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }]
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_enum_payload() {
     let (mut types, owned_ty) = types_with_copy_owned();
     let storage_ty = register_non_copy_collection_storage(&mut types);

@@ -44211,3 +44211,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_uses_callsite_indirect_alias_for_nested_transfer -- --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot direct raw owner alias return
+
+- `ISS-20260521T074121324Z-COLLECTION-SLOT-DIRECT-RETURN-TRANSF-C8D61A31` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot return-transfer の direct parameter path が syntactic prefix だけを比較し、`RawCellAddressAliases` による owner-cell canonicalization を使っていなかったことだった。nested callee summary composition では canonicalization 済みだったため、direct return と nested return で証明境界が非対称になっていた。
+- direct return-transfer 収集は返却 value を `canonicalize_owner_cell_address` に通してから `summary_place_for_params` へ渡すようにした。これにより parameter storage の raw owner alias を返す helper でも caller actual の live slot state が return value へ transfer される。
+- stdlib module 名、特定関数名、型名の allowlist は追加していない。Resource IR の raw alias proof を generic に利用する。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary_transfers_caller_slot_through_returned_raw_owner_alias -- --nocapture`: passed
