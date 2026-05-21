@@ -44218,6 +44218,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
 
+## 2026-05-22 Agent 1 drop traversal Move-output preservation
+
+- `ISS-20260521T222108027Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-A3B78241` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、full-range drop traversal certificate の loop-body preservation 判定が `ResourceOp::Move` の `source` だけを見ており、`output` が `storage` / `initialized_count` anchor を上書きする場合でも preserve と扱っていたこと。
+- `body_preserves_place` は `Move` の `source` と `output` の両方を typed place-touch 判定へ通すようにした。stdlib module allowlist や bool sentinel は追加していない。
+- 回帰テストとして、loop induction step 後に `Move` output が `storage` / `initialized_count` を上書きする場合は `ForallInitializedRange` summary を生成しないことを固定した。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed with CRLF normalization warnings only
+
 ## 2026-05-21 Agent 1 collection slot loaded-value drop proof
 
 - `ISS-20260521T031943441Z-COLLECTION-SLOT-DROP-LIFECYCLE-NEEDS-DCBDB1EC` を fixed にした。`plan.md` は変更していない。

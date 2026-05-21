@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T22:15:03.770Z",
+  "generated_at": "2026-05-21T22:24:01.768Z",
   "counts": {
-    "total": 1202,
+    "total": 1203,
     "open": 3,
-    "resolved": 1199,
+    "resolved": 1200,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 587,
+        "total": 588,
         "open": 0,
-        "resolved": 587
+        "resolved": 588
       },
       "CORE": {
         "total": 5,
@@ -9123,6 +9123,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE.md"
+    },
+    {
+      "id": "ISS-20260521T222108027Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-A3B78241",
+      "title": "Drop traversal range certificate preserve check ignores Move output",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/collection_slot_summary_build_range_preserve.rs, nepl-core/src/resource/collection_slot_summary_build_range_certificate_tests.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T222108027Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-PRE-A3B78241.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

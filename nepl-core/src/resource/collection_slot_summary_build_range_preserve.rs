@@ -6,9 +6,11 @@ use super::place_utils::place_suffix_after_prefix;
 pub(super) fn body_preserves_place(ops: &[ResourceOp], protected: &Place) -> bool {
     ops.iter().all(|op| match op {
         ResourceOp::Assign { target, .. }
-        | ResourceOp::Move { source: target, .. }
         | ResourceOp::Drop { place: target, .. }
         | ResourceOp::CollectionSlotLifecycle { target, .. } => !place_touches(target, protected),
+        ResourceOp::Move { source, output, .. } => {
+            !place_touches(source, protected) && !place_touches(output, protected)
+        }
         ResourceOp::RawMemory {
             operation, output, ..
         } => matches!(operation, RawMemoryOp::Load) && !place_touches(output, protected),

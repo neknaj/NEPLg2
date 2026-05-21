@@ -26,7 +26,7 @@ use super::report::ResourceCheckDeferred;
 
 #[test]
 fn collection_slot_summary_loop_induction_certifies_forall_drop_traversal() {
-    let out = collect_loop_induction_summary_ops(false);
+    let out = collect_loop_induction_summary_ops(LoopBodyInterference::None);
 
     assert!(
         has_forall_range_summary(&out),
@@ -36,7 +36,7 @@ fn collection_slot_summary_loop_induction_certifies_forall_drop_traversal() {
 
 #[test]
 fn collection_slot_summary_loop_induction_rejects_tail_storage_mutation() {
-    let out = collect_loop_induction_summary_ops(true);
+    let out = collect_loop_induction_summary_ops(LoopBodyInterference::AssignStorageAfterStep);
 
     assert!(
         !has_forall_range_summary(&out),
@@ -44,8 +44,37 @@ fn collection_slot_summary_loop_induction_rejects_tail_storage_mutation() {
     );
 }
 
+#[test]
+fn collection_slot_summary_loop_induction_rejects_move_output_storage_mutation() {
+    let out = collect_loop_induction_summary_ops(LoopBodyInterference::MoveToStorageAfterStep);
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "a Move whose output overwrites storage must invalidate the full-range certificate: {out:#?}"
+    );
+}
+
+#[test]
+fn collection_slot_summary_loop_induction_rejects_move_output_count_mutation() {
+    let out =
+        collect_loop_induction_summary_ops(LoopBodyInterference::MoveToInitializedCountAfterStep);
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "a Move whose output overwrites initialized_count must invalidate the full-range certificate: {out:#?}"
+    );
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LoopBodyInterference {
+    None,
+    AssignStorageAfterStep,
+    MoveToStorageAfterStep,
+    MoveToInitializedCountAfterStep,
+}
+
 fn collect_loop_induction_summary_ops(
-    mutate_storage_after_step: bool,
+    interference: LoopBodyInterference,
 ) -> Vec<CollectionSlotLifecycleSummaryOp> {
     let (types, owned_ty) = types_with_sized_droppable_owned_for_summary();
     let i32_ty = types.i32();
@@ -68,6 +97,7 @@ fn collect_loop_induction_summary_ops(
     let one = Place::temporary(ResourceId(933), i32_ty);
     let next = Place::temporary(ResourceId(934), i32_ty);
     let replacement_storage = Place::temporary(ResourceId(935), i32_ty);
+    let replacement_count = Place::temporary(ResourceId(936), i32_ty);
     let function = summary_test_function(
         unit_ty,
         i32_ty,
@@ -123,13 +153,32 @@ fn collect_loop_induction_summary_ops(
             span,
         },
     ];
-    if mutate_storage_after_step {
-        body_ops.push(literal_i32_op(7, replacement_storage.clone(), i32_ty, span));
-        body_ops.push(ResourceOp::Assign {
-            target: storage.clone(),
-            value: replacement_storage,
-            span,
-        });
+    match interference {
+        LoopBodyInterference::None => {}
+        LoopBodyInterference::AssignStorageAfterStep => {
+            body_ops.push(literal_i32_op(7, replacement_storage.clone(), i32_ty, span));
+            body_ops.push(ResourceOp::Assign {
+                target: storage.clone(),
+                value: replacement_storage,
+                span,
+            });
+        }
+        LoopBodyInterference::MoveToStorageAfterStep => {
+            body_ops.push(literal_i32_op(7, replacement_storage.clone(), i32_ty, span));
+            body_ops.push(ResourceOp::Move {
+                source: replacement_storage,
+                output: storage.clone(),
+                span,
+            });
+        }
+        LoopBodyInterference::MoveToInitializedCountAfterStep => {
+            body_ops.push(literal_i32_op(7, replacement_count.clone(), i32_ty, span));
+            body_ops.push(ResourceOp::Move {
+                source: replacement_count,
+                output: initialized_count.clone(),
+                span,
+            });
+        }
     }
 
     collect_summary_ops_from_ops(
