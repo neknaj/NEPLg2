@@ -29,6 +29,12 @@ pub(super) fn push_collection_slot_lifecycle_intrinsic(
         push_collection_storage_relocate(hir_args, arg_places, ops, env, span);
         return true;
     }
+    if primitive.requires_storage_drop_traversal() {
+        push_collection_slot_drop_traversal(
+            primitive, type_args, hir_args, arg_places, ops, env, span,
+        );
+        return true;
+    }
     let Some(target) =
         collection_slot_lifecycle_target(primitive, type_args, hir_args, arg_places, env)
     else {
@@ -43,6 +49,28 @@ pub(super) fn push_collection_slot_lifecycle_intrinsic(
         span,
     });
     true
+}
+
+fn push_collection_slot_drop_traversal(
+    primitive: CollectionSlotLifecyclePrimitive,
+    type_args: &[TypeId],
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    ops: &mut Vec<ResourceOp>,
+    env: &LoweringEnvironment,
+    span: Span,
+) {
+    let Some(storage) = storage_lifecycle_place(0, hir_args, arg_places, env) else {
+        return;
+    };
+    let Some(expected_ty) = slot_value_type(primitive, type_args) else {
+        return;
+    };
+    ops.push(ResourceOp::CollectionSlotDropTraversal {
+        storage,
+        expected_ty,
+        span,
+    });
 }
 
 fn push_collection_storage_relocate(
@@ -137,7 +165,8 @@ fn collection_slot_lifecycle_event(
         CollectionSlotLifecyclePrimitive::StorageDealloc => {
             Some(CollectionSlotLifecycleEvent::StorageDealloc)
         }
-        CollectionSlotLifecyclePrimitive::StorageRelocate => None,
+        CollectionSlotLifecyclePrimitive::DropTraversal
+        | CollectionSlotLifecyclePrimitive::StorageRelocate => None,
     }
 }
 

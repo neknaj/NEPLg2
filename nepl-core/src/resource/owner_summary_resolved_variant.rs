@@ -105,7 +105,8 @@ pub(super) fn collect_resolved_parameter_variants_from_return(
             | ResourceOp::CallEffect { .. }
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
-            | ResourceOp::CollectionStorageRelocate { .. } => {}
+            | ResourceOp::CollectionStorageRelocate { .. }
+            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
         }
     }
 }

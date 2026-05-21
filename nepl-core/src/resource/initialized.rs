@@ -249,6 +249,16 @@ impl ResourceCheckEngine<'_> {
         op: &ResourceOp,
         path: ResourceDropPointPath,
     ) {
+        if super::initialized_collection_slot_dispatch::check_initialized_collection_slot_op(
+            self,
+            cells,
+            collection_slots,
+            raw_aliases,
+            pending_reallocs,
+            op,
+        ) {
+            return;
+        }
         match op {
             ResourceOp::Expr {
                 kind,
@@ -522,35 +532,9 @@ impl ResourceCheckEngine<'_> {
                 variant_initializations.clear_result(target);
             }
             ResourceOp::StorageOrigin { .. } => {}
-            ResourceOp::CollectionSlotLifecycle {
-                target,
-                event,
-                span,
-            } => {
-                self.apply_collection_slot_lifecycle_with_aliases(
-                    cells,
-                    collection_slots,
-                    raw_aliases,
-                    pending_reallocs,
-                    target,
-                    *event,
-                    *span,
-                );
-            }
-            ResourceOp::CollectionStorageRelocate {
-                old_storage,
-                new_storage,
-                span,
-            } => {
-                self.apply_collection_storage_relocate_with_aliases(
-                    collection_slots,
-                    raw_aliases,
-                    pending_reallocs,
-                    old_storage,
-                    new_storage,
-                    *span,
-                );
-            }
+            ResourceOp::CollectionSlotLifecycle { .. }
+            | ResourceOp::CollectionStorageRelocate { .. }
+            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
             ResourceOp::Construct {
                 output,
                 kind,

@@ -44377,3 +44377,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_return_summary -- --test-threads=1`: passed
   - `cargo test -p nepl-core collection_slot_state_table --lib -- --test-threads=1`: passed
   - `cargo test -p nepl-core initialized_collection_slot --lib -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection slot drop traversal proof
+
+- `ISS-20260521T114146610Z-COLLECTION-SLOT-DROP-TRAVERSAL-NEEDS-60837C0B` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、single-slot `DropInitialized` / `DropLoadedCell` proof は存在していた一方で、collection cleanup が storage 配下の initialized slot 全体を実際に drop したことを表す generic Resource IR proof がなかったことだった。
+- `ResourceOp::CollectionSlotDropTraversal` と summary の `DropTraversal` op を追加し、storage prefix 配下の initialized slot すべてに loaded-value drop proof を要求する traversal 境界を設けた。stdlib function 名や collection module 名の allowlist、cleanup 済み bool は追加していない。
+- traversal は `CellTable` / `CollectionSlotStateTable` の clone 上で全 proof を検査してから commit する。途中の proof 欠落や maybe-live slot では atomic に拒否し、先に検査した slot の proof 消費や state mutation を残さない。
+- summary replay では callee で証明済みの traversal だけを certified proof として replay し、non-Copy raw cell moved state も caller 側で進める。片 branch だけの cleanup は `MaybeInitialized` として残るため、storage dealloc の proof にはならない。
+- `initialized_collection_slot_dispatch.rs` を追加し、collection slot 系 ResourceOp の initialized checker dispatch を本体から分けて `initialized.rs` の責務肥大化を避けた。
+- `nodesrc/test_resource_checker_responsibility.js` に traversal module を登録し、同じ source policy で露見した storage release proof module の監視漏れと Stage 6 collection-slot 関連 module の古い行数上限も現在の分割単位へ再同期した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir collection_slot_drop_traversal -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed

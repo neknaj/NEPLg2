@@ -5,7 +5,8 @@ use alloc::vec::Vec;
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
+    CollectionSlotLifecycleSummaryDropTraversalProof, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleSummaryRelocateProof,
 };
 use super::collection_slot_summary_target::instantiate_summary_target;
 use super::initialized::ResourceCheckEngine;
@@ -62,6 +63,27 @@ impl ResourceCheckEngine<'_> {
                         raw_aliases,
                         &old_storage,
                         &new_storage,
+                        span,
+                    );
+                }
+                CollectionSlotLifecycleSummaryOp::DropTraversal {
+                    storage,
+                    expected_ty,
+                    proof,
+                } => {
+                    match proof {
+                        CollectionSlotLifecycleSummaryDropTraversalProof::CertifiedLoadedValueDrops => {}
+                    }
+                    let Some(storage) = instantiate_summary_target(self, args, storage) else {
+                        continue;
+                    };
+                    self.apply_collection_slot_drop_traversal_with_aliases(
+                        cells,
+                        collection_slots,
+                        raw_aliases,
+                        &storage,
+                        *expected_ty,
+                        super::collection_slot_drop_traversal::CollectionSlotDropTraversalProof::SummaryCertified,
                         span,
                     );
                 }

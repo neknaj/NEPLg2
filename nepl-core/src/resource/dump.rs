@@ -358,6 +358,21 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 span.end
             );
         }
+        ResourceOp::CollectionSlotDropTraversal {
+            storage,
+            expected_ty,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "collection_slot_drop_traversal storage={} ty={:?} span={}:{}-{}",
+                dump_place(storage),
+                expected_ty,
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
         ResourceOp::Construct {
             output,
             kind,

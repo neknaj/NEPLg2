@@ -166,6 +166,9 @@ pub(super) fn collect_parameter_descendant_places(
                 push_parameter_descendant_place(places, parameter, aliases, old_storage);
                 push_parameter_descendant_place(places, parameter, aliases, new_storage);
             }
+            ResourceOp::CollectionSlotDropTraversal { storage, .. } => {
+                push_parameter_descendant_place(places, parameter, aliases, storage);
+            }
             ResourceOp::CallEffect { .. } => {}
         }
     }

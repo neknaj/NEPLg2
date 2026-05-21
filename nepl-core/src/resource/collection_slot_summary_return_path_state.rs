@@ -118,6 +118,7 @@ fn return_path_states_after_op(
         | ResourceOp::StorageOrigin { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
         | ResourceOp::Construct { .. } => {
             let mut summary_ops = Vec::new();
             collect_summary_ops_from_op(

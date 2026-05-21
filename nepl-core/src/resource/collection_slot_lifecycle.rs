@@ -45,6 +45,7 @@ pub enum CollectionSlotLifecycleOp {
     MoveOut,
     ReplaceInitialized,
     DropInitialized,
+    DropTraversal,
     StorageDealloc,
     StorageRelocate,
     ValueTransfer,

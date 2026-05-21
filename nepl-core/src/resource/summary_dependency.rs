@@ -102,6 +102,7 @@ fn collect_op_summary_dependencies(op: &ResourceOp, out: &mut BTreeSet<String>) 
         | ResourceOp::StorageOrigin { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
         | ResourceOp::Construct { .. } => {}
     }
 }

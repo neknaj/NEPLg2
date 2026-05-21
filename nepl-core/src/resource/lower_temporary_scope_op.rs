@@ -39,6 +39,9 @@ pub(super) fn push_copy_state_only_temporary_from_op(
             push_copy_state_only_temporary(types, old_storage, temporaries);
             push_copy_state_only_temporary(types, new_storage, temporaries);
         }
+        ResourceOp::CollectionSlotDropTraversal { storage, .. } => {
+            push_copy_state_only_temporary(types, storage, temporaries);
+        }
         ResourceOp::Branch { output, .. } | ResourceOp::Match { output, .. } => {
             push_copy_state_only_temporary(types, output, temporaries);
         }

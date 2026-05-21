@@ -121,6 +121,7 @@ fn ops_contain_checked_mem_ptr_access(ops: &[ResourceOp], types: &TypeCtx) -> bo
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
+            | ResourceOp::CollectionSlotDropTraversal { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

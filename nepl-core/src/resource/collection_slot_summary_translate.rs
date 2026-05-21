@@ -108,6 +108,23 @@ pub(super) fn translate_summary_ops_through_args(
                     });
                 }
             }
+            CollectionSlotLifecycleSummaryOp::DropTraversal {
+                storage,
+                expected_ty,
+                proof,
+            } => {
+                let Some(actual) = instantiate_summary_target(engine, args, storage) else {
+                    continue;
+                };
+                let actual = raw_aliases.canonicalize_owner_cell_address(&actual);
+                if let Some(storage) = summary_place_for_params(params, &actual) {
+                    out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
+                        storage,
+                        expected_ty: *expected_ty,
+                        proof: *proof,
+                    });
+                }
+            }
             CollectionSlotLifecycleSummaryOp::Merge { paths } => {
                 let mut translated_paths = Vec::new();
                 for path in paths {

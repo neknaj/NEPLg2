@@ -6,6 +6,7 @@ pub enum CollectionSlotLifecyclePrimitive {
     ReplaceReturnOld,
     ReplaceDropOld,
     DropInitialized,
+    DropTraversal,
     StorageDealloc,
     StorageRelocate,
 }
@@ -19,6 +20,7 @@ impl CollectionSlotLifecyclePrimitive {
             "collection_slot_replace_return_old" => Some(Self::ReplaceReturnOld),
             "collection_slot_replace_drop_old" => Some(Self::ReplaceDropOld),
             "collection_slot_drop_initialized" => Some(Self::DropInitialized),
+            "collection_slot_drop_traversal" => Some(Self::DropTraversal),
             "collection_slot_storage_dealloc" => Some(Self::StorageDealloc),
             "collection_slot_storage_relocate" => Some(Self::StorageRelocate),
             _ => None,
@@ -34,6 +36,7 @@ impl CollectionSlotLifecyclePrimitive {
             Self::ReplaceReturnOld => "collection_slot_replace_return_old",
             Self::ReplaceDropOld => "collection_slot_replace_drop_old",
             Self::DropInitialized => "collection_slot_drop_initialized",
+            Self::DropTraversal => "collection_slot_drop_traversal",
             Self::StorageDealloc => "collection_slot_storage_dealloc",
             Self::StorageRelocate => "collection_slot_storage_relocate",
         }
@@ -41,7 +44,11 @@ impl CollectionSlotLifecyclePrimitive {
 
     pub(crate) const fn type_arg_count(self) -> usize {
         match self {
-            Self::InitializeEmpty | Self::BorrowRead | Self::MoveOut | Self::DropInitialized => 1,
+            Self::InitializeEmpty
+            | Self::BorrowRead
+            | Self::MoveOut
+            | Self::DropInitialized
+            | Self::DropTraversal => 1,
             Self::ReplaceReturnOld | Self::ReplaceDropOld => 2,
             Self::StorageDealloc | Self::StorageRelocate => 0,
         }
@@ -55,7 +62,7 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::ReplaceReturnOld
             | Self::ReplaceDropOld
             | Self::DropInitialized => 2,
-            Self::StorageDealloc => 1,
+            Self::DropTraversal | Self::StorageDealloc => 1,
             Self::StorageRelocate => 2,
         }
     }
@@ -68,7 +75,7 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::ReplaceReturnOld
             | Self::ReplaceDropOld
             | Self::DropInitialized => true,
-            Self::StorageDealloc | Self::StorageRelocate => false,
+            Self::DropTraversal | Self::StorageDealloc | Self::StorageRelocate => false,
         }
     }
 
@@ -81,15 +88,32 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::ReplaceReturnOld
             | Self::ReplaceDropOld
             | Self::DropInitialized
+            | Self::DropTraversal
             | Self::StorageDealloc => false,
+        }
+    }
+
+    pub(crate) const fn requires_storage_drop_traversal(self) -> bool {
+        match self {
+            Self::DropTraversal => true,
+            Self::InitializeEmpty
+            | Self::BorrowRead
+            | Self::MoveOut
+            | Self::ReplaceReturnOld
+            | Self::ReplaceDropOld
+            | Self::DropInitialized
+            | Self::StorageDealloc
+            | Self::StorageRelocate => false,
         }
     }
 
     pub(crate) const fn slot_target_type_arg_index(self) -> Option<usize> {
         match self {
-            Self::InitializeEmpty | Self::BorrowRead | Self::MoveOut | Self::DropInitialized => {
-                Some(0)
-            }
+            Self::InitializeEmpty
+            | Self::BorrowRead
+            | Self::MoveOut
+            | Self::DropInitialized
+            | Self::DropTraversal => Some(0),
             Self::ReplaceReturnOld | Self::ReplaceDropOld => Some(0),
             Self::StorageDealloc | Self::StorageRelocate => None,
         }

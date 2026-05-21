@@ -31,6 +31,7 @@ mod cell_state_raw_range_value_alias_tests;
 #[cfg(test)]
 mod cell_state_tests;
 mod collection_slot_drop_proof;
+mod collection_slot_drop_traversal;
 mod collection_slot_lifecycle;
 #[cfg(test)]
 mod collection_slot_lifecycle_tests;
@@ -199,6 +200,7 @@ mod initialized_call_effect;
 mod initialized_collection_slot;
 mod initialized_collection_slot_alias;
 mod initialized_collection_slot_apply;
+mod initialized_collection_slot_dispatch;
 mod initialized_collection_slot_proof;
 mod initialized_collection_slot_relocate;
 #[cfg(test)]

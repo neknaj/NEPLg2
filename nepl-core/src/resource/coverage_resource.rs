@@ -511,6 +511,17 @@ fn resource_ops_coverage(
                     diagnostics,
                 );
             }
+            ResourceOp::CollectionSlotDropTraversal { storage, span, .. } => {
+                counts.collection_slot_lifecycle_ops += 1;
+                resource_alias_place_coverage(
+                    function,
+                    CoveragePlaceOp::CollectionSlotDropTraversalStorage,
+                    storage,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+            }
             ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
         }
     }

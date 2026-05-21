@@ -210,6 +210,7 @@ pub(super) fn op_kind(op: &ResourceOp) -> ResourceDropPointOpKind {
         | ResourceOp::StorageOrigin { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
         | ResourceOp::Construct { .. } => ResourceDropPointOpKind::Leaf,
     }
 }

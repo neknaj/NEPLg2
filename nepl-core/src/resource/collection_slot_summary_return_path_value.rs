@@ -307,6 +307,7 @@ fn collect_return_paths_from_value_producer(
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
+            | ResourceOp::CollectionSlotDropTraversal { .. }
             | ResourceOp::Construct { .. }
             | ResourceOp::Branch { .. }
             | ResourceOp::Loop { .. }

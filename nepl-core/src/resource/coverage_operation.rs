@@ -40,6 +40,7 @@ pub enum ResourceCoveragePlaceOperation {
     CollectionSlotLifecycleTarget,
     CollectionStorageRelocateOld,
     CollectionStorageRelocateNew,
+    CollectionSlotDropTraversalStorage,
 }
 
 impl ResourceCoveragePlaceOperation {
@@ -90,6 +91,9 @@ impl ResourceCoveragePlaceOperation {
             }
             ResourceCoveragePlaceOperation::CollectionStorageRelocateNew => {
                 "collection_storage_relocate.new"
+            }
+            ResourceCoveragePlaceOperation::CollectionSlotDropTraversalStorage => {
+                "collection_slot_drop_traversal.storage"
             }
         }
     }

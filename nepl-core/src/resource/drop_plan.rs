@@ -153,6 +153,7 @@ fn collect_drop_points_from_ops(
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
+            | ResourceOp::CollectionSlotDropTraversal { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

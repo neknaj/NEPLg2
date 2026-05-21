@@ -176,6 +176,11 @@ pub enum ResourceOp {
         new_storage: Place,
         span: Span,
     },
+    CollectionSlotDropTraversal {
+        storage: Place,
+        expected_ty: TypeId,
+        span: Span,
+    },
     Construct {
         output: Place,
         kind: AggregateKind,

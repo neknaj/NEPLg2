@@ -7,8 +7,8 @@ use super::collection_slot_summary_build_event::collect_summary_event_op;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
-    CollectionSlotLifecycleSummaryRelocateProof,
+    CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryDropTraversalProof,
+    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
 };
 use super::collection_slot_summary_target::summary_place_for_params;
 use super::collection_slot_summary_translate::{
@@ -83,6 +83,30 @@ pub(super) fn collect_summary_ops_from_op(
                     old_storage,
                     new_storage,
                     proof: CollectionSlotLifecycleSummaryRelocateProof::RawStorageRelocation,
+                });
+            }
+        }
+        ResourceOp::CollectionSlotDropTraversal {
+            storage,
+            expected_ty,
+            ..
+        } => {
+            let storage_place = state.raw_aliases.canonicalize_owner_cell_address(storage);
+            if !engine.collection_slot_drop_traversal_available(
+                &state.cells,
+                &state.collection_slots,
+                &state.raw_aliases,
+                &storage_place,
+                *expected_ty,
+            ) {
+                return;
+            }
+            if let Some(storage) = summary_place_for_params(params, &storage_place) {
+                out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
+                    storage,
+                    expected_ty: *expected_ty,
+                    proof:
+                        CollectionSlotLifecycleSummaryDropTraversalProof::CertifiedLoadedValueDrops,
                 });
             }
         }
