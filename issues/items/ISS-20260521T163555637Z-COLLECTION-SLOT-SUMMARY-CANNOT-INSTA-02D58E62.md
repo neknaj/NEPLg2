@@ -2,8 +2,8 @@
 id: ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62
 title: "Collection slot summary cannot instantiate symbolic offset operands across calls"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-21
@@ -15,19 +15,24 @@ target: nepl-core/src/resource/collection_slot_summary_target.rs
 
 ## 概要
 
-CollectionSlotLifecycleSummaryPlace stores only a parameter index plus a raw PlaceProjection suffix. When the suffix contains PlaceProjection::StorageOffset(ResourceOffset::Symbolic or ScaledSymbolic), the embedded Place remains a callee-local operand. instantiate_summary_target attaches the suffix to the caller argument but does not recursively instantiate those embedded Places.
+CollectionSlotLifecycleSummaryPlace stored only a parameter index plus a raw PlaceProjection suffix. When the suffix contained PlaceProjection::StorageOffset(ResourceOffset::Symbolic or ScaledSymbolic), the embedded Place remained a callee-local operand. instantiate_summary_target attached the suffix to the caller argument but did not recursively instantiate those embedded Places.
 
 ## 対象
 
 - `nepl-core/src/resource/collection_slot_summary_target.rs`
+- `nepl-core/src/resource/collection_slot_summary_projection.rs`
+- `nepl-core/src/resource/collection_slot_summary_return_*.rs`
 
 ## 根拠
 
-- 未記入
+- `CollectionSlotLifecycleSummaryProjection` / `CollectionSlotLifecycleSummaryOffset` を追加し、summary suffix と return suffix から raw `PlaceProjection` を排除した。
+- `ResourceOffset::Symbolic` / `ScaledSymbolic` の operand は `CollectionSlotLifecycleSummaryPlace` として parameter-relative に要約される。parameter に相対化できない operand は summary 化せず、callee-local place を caller replay へ持ち越さない。
+- return transfer / return slot の suffix も同じ typed suffix を使い、wrapper summary composition では callee suffix を caller argument へ instantiate してから wrapper parameter-relative に再要約する。
+- 回帰テスト `collection_slot_summary_target_*` で、scaled symbolic operand の caller argument 置換、非 parameter operand の拒否、wrapper return suffix translation を固定した。
 
 ## 問題
 
-CollectionSlotLifecycleSummaryPlace stores only a parameter index plus a raw PlaceProjection suffix. When the suffix contains PlaceProjection::StorageOffset(ResourceOffset::Symbolic or ScaledSymbolic), the embedded Place remains a callee-local operand. instantiate_summary_target attaches the suffix to the caller argument but does not recursively instantiate those embedded Places.
+CollectionSlotLifecycleSummaryPlace and collection slot return summaries used to store raw PlaceProjection suffixes. When such a suffix contained `ResourceOffset::Symbolic` or `ScaledSymbolic`, the embedded `Place` could remain callee-local and be replayed against caller state.
 
 ## 影響
 
@@ -35,8 +40,11 @@ Symbolic collection slot traversal proofs cannot be replayed soundly across func
 
 ## 修正方針
 
-Redesign summary place representation so every operand inside ResourceOffset is parameter-relative or explicitly non-serializable. Add shared recursive summarize/instantiate helpers for PlaceProjection and ResourceOffset, then make DropTraversal summaries carry only caller-replayable symbolic operands and typed range evidence.
+Fixed by redesigning collection slot summary suffixes as typed summary projections. Every operand inside `ResourceOffset` is now either parameter-relative or the summary is not emitted. Shared recursive summarize / instantiate / translate helpers are used by normal summary replay, return transfer, return slot, and wrapper composition.
 
 ## 検証
 
-Add regressions where helper(storage, i, len) certifies a symbolic slot traversal under 0 <= i && i < len, a wrapper forwards that summary, caller replay substitutes caller_i into ResourceOffset::ScaledSymbolic, and missing bound/stride mismatch still reports RangeProofRequired.
+- `cargo test -p nepl-core --lib collection_slot_summary_target -- --test-threads=1`
+- `cargo test -p nepl-core --lib collection_slot_summary_build_ops -- --test-threads=1`
+- `cargo check -p nepl-core`
+- `node nodesrc/test_resource_checker_responsibility.js`

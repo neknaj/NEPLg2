@@ -8,10 +8,10 @@ use crate::types::TypeId;
 use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
+use super::collection_slot_summary_projection::CollectionSlotLifecycleSummaryProjection;
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
-use super::model::PlaceProjection;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,7 +98,7 @@ pub(super) enum CollectionSlotLifecycleSummaryDropTraversalProof {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleSummaryPlace {
     pub(super) parameter_index: usize,
-    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) suffix: Vec<CollectionSlotLifecycleSummaryProjection>,
     pub(super) ty: TypeId,
 }
 

@@ -183,7 +183,14 @@ fn collection_slot_summary_branch_condition_fact_certifies_symbolic_drop_travers
             span,
         },
     ];
-    let function = summary_test_function(unit_ty, i32_ty, span, storage, initialized_count.clone());
+    let function = summary_test_function(
+        unit_ty,
+        i32_ty,
+        span,
+        storage,
+        index.clone(),
+        initialized_count.clone(),
+    );
     let raw_alias_summaries = [];
     let i32_scalar_summaries = [];
     let raw_init_summaries = [];
@@ -267,6 +274,7 @@ fn summary_test_function(
     i32_ty: TypeId,
     span: Span,
     storage: Place,
+    index: Place,
     initialized_count: Place,
 ) -> ResourceFunction {
     ResourceFunction {
@@ -279,6 +287,12 @@ fn summary_test_function(
                 ty: i32_ty,
                 mutable: false,
                 place: storage,
+            },
+            ResourceLocal {
+                name: "i".to_string(),
+                ty: i32_ty,
+                mutable: false,
+                place: index,
             },
             ResourceLocal {
                 name: "initialized_count".to_string(),

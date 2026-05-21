@@ -44531,3 +44531,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-21 Agent 1 collection slot summary symbolic offset operand
+
+- `ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot summary が raw `PlaceProjection` suffix を保存し、`ResourceOffset::Symbolic` / `ScaledSymbolic` 内の `Place` が callee-local のまま caller replay へ残り得たこと。
+- `CollectionSlotLifecycleSummaryProjection` / `CollectionSlotLifecycleSummaryOffset` を追加し、summary place、return transfer target、return slot suffix を typed summary suffix に統一した。
+- symbolic offset operand は parameter-relative に再帰 summarize / instantiate される。parameter に相対化できない operand は summary 化せず、wrapper summary composition では callee suffix を caller argument へ instantiate してから wrapper parameter-relative に再要約する。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot_summary_target -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_build_ops -- --test-threads=1`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed

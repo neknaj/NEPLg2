@@ -3,13 +3,14 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummary;
+use super::collection_slot_summary_projection::compose_translated_summary_suffix_for_params;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
 use super::collection_slot_summary_return_unique::push_return_transfer;
 use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, ResourceCallTarget, ResourceLocal};
+use super::model::{Place, PlaceProjection, ResourceCallTarget, ResourceLocal};
 
 pub(super) fn collect_return_transfers_from_call_summary(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
@@ -18,7 +19,7 @@ pub(super) fn collect_return_transfers_from_call_summary(
     raw_aliases: &RawCellAddressAliases,
     args: &[Place],
     target: &ResourceCallTarget,
-    target_suffix: &[super::model::PlaceProjection],
+    target_suffix: &[PlaceProjection],
 ) {
     let ResourceCallTarget::User { name, .. } = target else {
         return;
@@ -44,7 +45,7 @@ pub(super) fn collect_return_transfers_from_indirect_call_summary(
     function_aliases: &FunctionAliasTable,
     callee: &Place,
     args: &[Place],
-    target_suffix: &[super::model::PlaceProjection],
+    target_suffix: &[PlaceProjection],
 ) {
     for function in function_aliases.functions(callee) {
         if let Some(summary) = engine.collection_slot_summaries.get(function) {
@@ -68,7 +69,7 @@ fn collect_return_transfers_from_summary(
     raw_aliases: &RawCellAddressAliases,
     args: &[Place],
     summary: &CollectionSlotLifecycleFunctionSummary,
-    target_suffix: &[super::model::PlaceProjection],
+    target_suffix: &[PlaceProjection],
 ) {
     for transfer in &summary.return_transfers {
         let Some(source) = instantiate_summary_target(engine, args, &transfer.source) else {
@@ -78,8 +79,15 @@ fn collect_return_transfers_from_summary(
         let Some(source) = summary_place_for_params(params, &source) else {
             continue;
         };
-        let mut composed_target_suffix = target_suffix.to_vec();
-        composed_target_suffix.extend_from_slice(&transfer.target_suffix);
+        let Some(composed_target_suffix) = compose_translated_summary_suffix_for_params(
+            engine,
+            args,
+            params,
+            target_suffix,
+            &transfer.target_suffix,
+        ) else {
+            continue;
+        };
         push_return_transfer(
             out,
             CollectionSlotLifecycleReturnTransfer {

@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
+use super::collection_slot_summary_projection::summary_suffix_for_params;
 use super::collection_slot_summary_return_call::{
     collect_return_transfers_from_call_summary, collect_return_transfers_from_indirect_call_summary,
 };
@@ -31,14 +32,16 @@ pub(super) fn collect_return_transfers_from_value_to_suffix(
     if let Some(source) =
         super::collection_slot_summary_target::summary_place_for_params(params, &canonical_value)
     {
-        push_return_transfer(
-            out,
-            CollectionSlotLifecycleReturnTransfer {
-                source,
-                target_suffix: target_suffix.to_vec(),
-                target_ty,
-            },
-        );
+        if let Some(target_suffix) = summary_suffix_for_params(params, target_suffix) {
+            push_return_transfer(
+                out,
+                CollectionSlotLifecycleReturnTransfer {
+                    source,
+                    target_suffix,
+                    target_ty,
+                },
+            );
+        }
     }
     collect_return_transfers_from_value_producer(
         out,

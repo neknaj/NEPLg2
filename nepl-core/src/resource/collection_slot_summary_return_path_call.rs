@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleReturnPath,
 };
+use super::collection_slot_summary_projection::compose_translated_summary_suffix_for_params;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
 use super::collection_slot_summary_return_path_model::{push_return_path, ReturnPathBuildState};
 use super::collection_slot_summary_return_path_slots::translate_return_slots;
@@ -104,7 +105,13 @@ fn collect_return_paths_from_summary(
             &callee_path.return_transfers,
             target_suffix,
         );
-        let return_slots = translate_return_slots(&callee_path.return_slots, target_suffix);
+        let return_slots = translate_return_slots(
+            engine,
+            args,
+            params,
+            &callee_path.return_slots,
+            target_suffix,
+        );
         if translated_ops.is_empty() && return_transfers.is_empty() && return_slots.is_empty() {
             continue;
         }
@@ -149,7 +156,8 @@ fn collect_legacy_return_path_from_summary(
         &summary.return_transfers,
         target_suffix,
     );
-    let return_slots = translate_return_slots(&summary.return_slots, target_suffix);
+    let return_slots =
+        translate_return_slots(engine, args, params, &summary.return_slots, target_suffix);
     if translated_ops.is_empty() && return_transfers.is_empty() && return_slots.is_empty() {
         return;
     }
@@ -185,8 +193,15 @@ fn translate_return_transfers(
         let Some(source) = summary_place_for_params(params, &source) else {
             continue;
         };
-        let mut composed_target_suffix = target_suffix.to_vec();
-        composed_target_suffix.extend_from_slice(&transfer.target_suffix);
+        let Some(composed_target_suffix) = compose_translated_summary_suffix_for_params(
+            engine,
+            args,
+            params,
+            target_suffix,
+            &transfer.target_suffix,
+        ) else {
+            continue;
+        };
         push_return_transfer(
             out,
             CollectionSlotLifecycleReturnTransfer {

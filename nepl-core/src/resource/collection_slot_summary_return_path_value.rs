@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
+use super::collection_slot_summary_projection::summary_suffix_for_params;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
 use super::collection_slot_summary_return_path_call::{
     collect_return_paths_from_call_summary, collect_return_paths_from_indirect_call_summary,
@@ -48,16 +49,18 @@ fn collect_direct_return_path(
         .raw_aliases
         .canonicalize_owner_cell_address(value);
     if let Some(source) = summary_place_for_params(params, &canonical_value) {
-        push_return_transfer(
-            &mut return_transfers,
-            CollectionSlotLifecycleReturnTransfer {
-                source,
-                target_suffix: target_suffix.to_vec(),
-                target_ty,
-            },
-        );
+        if let Some(target_suffix) = summary_suffix_for_params(params, target_suffix) {
+            push_return_transfer(
+                &mut return_transfers,
+                CollectionSlotLifecycleReturnTransfer {
+                    source,
+                    target_suffix,
+                    target_ty,
+                },
+            );
+        }
     }
-    collect_return_slots_for_value(&mut return_slots, &path.state, value, target_suffix);
+    collect_return_slots_for_value(&mut return_slots, params, &path.state, value, target_suffix);
     if !return_transfers.is_empty() || !return_slots.is_empty() {
         push_return_path(
             out,

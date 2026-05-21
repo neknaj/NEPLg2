@@ -4,6 +4,7 @@ use super::collection_slot_lifecycle::CollectionSlotState::{MaybeReleased, Relea
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
+use super::collection_slot_summary_projection::summary_suffix_for_params;
 use super::collection_slot_summary_return_collect::{
     collect_return_storage_markers, collect_return_transfers_from_ops,
 };
@@ -39,6 +40,9 @@ pub(super) fn collect_return_facts_from_terminator(
         let Some(suffix) = place_suffix_after_prefix(&entry.slot, value) else {
             continue;
         };
+        let Some(suffix) = summary_suffix_for_params(params, &suffix) else {
+            continue;
+        };
         push_return_slot(
             out,
             CollectionSlotLifecycleReturnSlot {
@@ -52,6 +56,6 @@ pub(super) fn collect_return_facts_from_terminator(
         (collection_slots.released_storage(), Released),
         (collection_slots.maybe_released_storage(), MaybeReleased),
     ] {
-        collect_return_storage_markers(out, markers, value, state);
+        collect_return_storage_markers(out, params, markers, value, state);
     }
 }

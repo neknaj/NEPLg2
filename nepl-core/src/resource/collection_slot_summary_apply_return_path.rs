@@ -7,6 +7,7 @@ use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_state_identity::place_covers_slot;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
+use super::collection_slot_summary_projection::instantiate_summary_suffix_on_base;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
 use super::collection_slot_summary_target::instantiate_summary_target;
 use super::initialized::ResourceCheckEngine;
@@ -28,11 +29,15 @@ impl ResourceCheckEngine<'_> {
                 continue;
             };
             let source = raw_aliases.canonicalize_owner_cell_address(&source);
-            let target = super::place_utils::place_with_suffix(
+            let Some(target) = instantiate_summary_suffix_on_base(
+                self,
+                args,
                 output,
                 &transfer.target_suffix,
                 transfer.target_ty,
-            );
+            ) else {
+                continue;
+            };
             let target = raw_aliases.canonicalize_owner_cell_address(&target);
             self.transfer_slot_state(collection_slots, &source, &target, span);
         }
@@ -70,7 +75,7 @@ impl ResourceCheckEngine<'_> {
                 &path.return_transfers,
                 span,
             );
-            self.apply_collection_slot_return_slots(&mut slots, output, &path.return_slots);
+            self.apply_collection_slot_return_slots(&mut slots, args, output, &path.return_slots);
             path_slots.push(slots);
         }
         let merged = CollectionSlotStateTable::merge_paths(&path_slots);

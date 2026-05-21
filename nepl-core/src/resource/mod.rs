@@ -80,6 +80,7 @@ mod collection_slot_summary_event_apply_proof;
 mod collection_slot_summary_event_proof;
 mod collection_slot_summary_match_state;
 mod collection_slot_summary_model;
+mod collection_slot_summary_projection;
 mod collection_slot_summary_replay;
 mod collection_slot_summary_replay_drop_traversal;
 mod collection_slot_summary_return;
@@ -98,6 +99,8 @@ mod collection_slot_summary_return_state;
 mod collection_slot_summary_return_unique;
 mod collection_slot_summary_return_value;
 mod collection_slot_summary_target;
+#[cfg(test)]
+mod collection_slot_summary_target_tests;
 mod collection_slot_summary_translate;
 mod collection_slot_summary_translate_drop;
 mod compiler_memory_place;

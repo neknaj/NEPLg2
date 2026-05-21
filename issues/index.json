@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T16:38:12.026Z",
+  "generated_at": "2026-05-21T17:03:44.429Z",
   "counts": {
     "total": 1195,
-    "open": 4,
-    "resolved": 1191,
+    "open": 3,
+    "resolved": 1192,
     "by_area": {
-      "core": {
-        "total": 582,
-        "open": 1,
-        "resolved": 581
-      },
       "stdlib": {
         "total": 312,
         "open": 2,
@@ -25,6 +20,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 582,
+        "open": 0,
+        "resolved": 582
       },
       "CORE": {
         "total": 5,
@@ -139,21 +139,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62",
-      "title": "Collection slot summary cannot instantiate symbolic offset operands across calls",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-21",
-      "updated": "2026-05-21",
-      "target": "nepl-core/src/resource/collection_slot_summary_target.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62.md"
-    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",
@@ -9018,6 +9003,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T162422167Z-COLLECTION-SLOT-SUMMARY-BUILD-DROPS--7B32F4E0.md"
+    },
+    {
+      "id": "ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62",
+      "title": "Collection slot summary cannot instantiate symbolic offset operands across calls",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-21",
+      "updated": "2026-05-21",
+      "target": "nepl-core/src/resource/collection_slot_summary_target.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T163555637Z-COLLECTION-SLOT-SUMMARY-CANNOT-INSTA-02D58E62.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
+use super::collection_slot_summary_projection::summary_suffix_for_params;
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
@@ -35,12 +36,16 @@ pub(super) fn collect_return_transfers_from_ops(
 
 pub(super) fn collect_return_storage_markers(
     out: &mut Vec<CollectionSlotLifecycleReturnSlot>,
+    params: &[ResourceLocal],
     markers: &[Place],
     value: &Place,
     state: CollectionSlotState,
 ) {
     for marker in markers {
         let Some(suffix) = place_suffix_after_prefix(marker, value) else {
+            continue;
+        };
+        let Some(suffix) = summary_suffix_for_params(params, &suffix) else {
             continue;
         };
         push_return_slot(

@@ -114,6 +114,7 @@ impl ResourceCheckEngine<'_> {
             );
             self.apply_collection_slot_return_slots(
                 collection_slots,
+                args,
                 output,
                 &summary.return_slots,
             );
