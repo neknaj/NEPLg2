@@ -206,6 +206,7 @@ pub enum ResourceCollectionSlotDiagnosticCode {
     MaybeLiveSlotOverwrite,
     OwnerTransferRequiresValueProof,
     DropRequiresElaboration,
+    StorageRelocateRequiresRawMoveProof,
     LiveSlotDuringStorageDealloc,
     MaybeLiveSlotDuringStorageDealloc,
 }
@@ -470,6 +471,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
+        ResourceCollectionSlotDiagnosticCode::StorageRelocateRequiresRawMoveProof,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::CollectionSlot(
         ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc,
@@ -1201,6 +1205,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration => {
                 "resource.collection_slot.drop_requires_elaboration"
             }
+            ResourceCollectionSlotDiagnosticCode::StorageRelocateRequiresRawMoveProof => {
+                "resource.collection_slot.storage_relocate_requires_raw_move_proof"
+            }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "resource.collection_slot.live_during_storage_dealloc"
             }
@@ -1229,6 +1236,9 @@ impl ResourceCollectionSlotDiagnosticCode {
             }
             ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration => {
                 "collection slot drop requires compiler drop elaboration"
+            }
+            ResourceCollectionSlotDiagnosticCode::StorageRelocateRequiresRawMoveProof => {
+                "collection storage relocation requires raw storage move proof"
             }
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc => {
                 "cannot deallocate storage while a collection slot is still live"

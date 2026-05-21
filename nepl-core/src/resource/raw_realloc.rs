@@ -10,14 +10,22 @@ pub(super) struct PendingRawRealloc {
     pub(super) new_extent: OwnerStorageExtent,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CertifiedRawStorageRelocation {
+    source: Place,
+    result: Place,
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct PendingRawReallocs {
     entries: Vec<PendingRawRealloc>,
+    certified_relocations: Vec<CertifiedRawStorageRelocation>,
 }
 
 impl PendingRawReallocs {
     pub(super) fn mark(&mut self, source: &Place, result: &Place, new_extent: OwnerStorageExtent) {
         self.remove_origin(result);
+        self.remove_certified_result(result);
         self.entries.push(PendingRawRealloc {
             origin: result.clone(),
             source: source.clone(),
@@ -41,14 +49,27 @@ impl PendingRawReallocs {
                 new_extent: entry.new_extent.clone(),
             })
             .collect::<Vec<_>>();
+        let certified_copies = self
+            .certified_relocations
+            .iter()
+            .filter(|entry| entry.result == *source)
+            .map(|entry| CertifiedRawStorageRelocation {
+                source: entry.source.clone(),
+                result: target.clone(),
+            })
+            .collect::<Vec<_>>();
         self.remove_result(target);
         for entry in copies {
             self.push_unique_entry(entry);
+        }
+        for entry in certified_copies {
+            self.push_unique_certified_relocation(entry);
         }
     }
 
     pub(super) fn clear_result(&mut self, result: &Place) {
         self.remove_result(result);
+        self.remove_certified_result(result);
     }
 
     pub(super) fn take_for_result(&mut self, result: &Place) -> Option<PendingRawRealloc> {
@@ -61,6 +82,39 @@ impl PendingRawReallocs {
         Some(entry)
     }
 
+    pub(super) fn certify_success(&mut self, source: &Place, result: &Place) {
+        self.push_unique_certified_relocation(CertifiedRawStorageRelocation {
+            source: source.clone(),
+            result: result.clone(),
+        });
+    }
+
+    pub(super) fn certified_storage_relocation_available(
+        &self,
+        source: &Place,
+        result: &Place,
+    ) -> bool {
+        self.certified_relocations
+            .iter()
+            .any(|entry| entry.source == *source && entry.result == *result)
+    }
+
+    pub(super) fn consume_certified_storage_relocation(
+        &mut self,
+        source: &Place,
+        result: &Place,
+    ) -> bool {
+        let Some(index) = self
+            .certified_relocations
+            .iter()
+            .position(|entry| entry.source == *source && entry.result == *result)
+        else {
+            return false;
+        };
+        self.certified_relocations.remove(index);
+        true
+    }
+
     pub(super) fn merge_paths(paths: &[PendingRawReallocs]) -> Self {
         let mut out = PendingRawReallocs::default();
         for path in paths {
@@ -68,6 +122,7 @@ impl PendingRawReallocs {
                 out.push_unique_entry(entry.clone());
             }
         }
+        out.certified_relocations = merge_certified_relocations(paths);
         out
     }
 
@@ -79,12 +134,43 @@ impl PendingRawReallocs {
         self.entries.retain(|entry| entry.result != *result);
     }
 
+    fn remove_certified_result(&mut self, result: &Place) {
+        self.certified_relocations
+            .retain(|entry| entry.result != *result);
+    }
+
     fn push_unique_entry(&mut self, entry: PendingRawRealloc) {
         if self.entries.iter().any(|existing| existing == &entry) {
             return;
         }
         self.entries.push(entry);
     }
+
+    fn push_unique_certified_relocation(&mut self, entry: CertifiedRawStorageRelocation) {
+        if self
+            .certified_relocations
+            .iter()
+            .any(|existing| existing == &entry)
+        {
+            return;
+        }
+        self.certified_relocations.push(entry);
+    }
+}
+
+fn merge_certified_relocations(paths: &[PendingRawReallocs]) -> Vec<CertifiedRawStorageRelocation> {
+    let Some((first, rest)) = paths.split_first() else {
+        return Vec::new();
+    };
+    first
+        .certified_relocations
+        .iter()
+        .filter(|entry| {
+            rest.iter()
+                .all(|path| path.certified_relocations.contains(entry))
+        })
+        .cloned()
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

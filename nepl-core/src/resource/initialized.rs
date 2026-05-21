@@ -544,6 +544,7 @@ impl ResourceCheckEngine<'_> {
                 self.apply_collection_storage_relocate_with_aliases(
                     collection_slots,
                     raw_aliases,
+                    pending_reallocs,
                     old_storage,
                     new_storage,
                     *span,

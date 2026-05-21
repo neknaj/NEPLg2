@@ -87,6 +87,7 @@ pub(super) fn translate_summary_ops_through_args(
             CollectionSlotLifecycleSummaryOp::Relocate {
                 old_storage,
                 new_storage,
+                proof,
             } => {
                 let Some(actual_old) = instantiate_summary_target(engine, args, old_storage) else {
                     continue;
@@ -103,6 +104,7 @@ pub(super) fn translate_summary_ops_through_args(
                     out.push(CollectionSlotLifecycleSummaryOp::Relocate {
                         old_storage,
                         new_storage,
+                        proof: *proof,
                     });
                 }
             }

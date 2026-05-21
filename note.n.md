@@ -44348,3 +44348,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_branch_path_alternatives_do_not_keep_invalid_output_initialized -- --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_indirect -- --test-threads=1`: passed
+
+## 2026-05-21 Agent 1 collection storage relocate raw movement proof
+
+- `ISS-20260521T105928164Z-COLLECTION-STORAGE-RELOCATE-LACKS-RA-BE2DCD3E` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`CollectionStorageRelocate` が old storage から new storage への slot state rekey を直接実行し、raw realloc success などの storage movement proof を要求していなかったことだった。
+- `PendingRawReallocs` に certified raw storage relocation proof を追加し、realloc success path だけが old / new pair の proof を発行するようにした。`CollectionStorageRelocate` は owner-cell canonicalization 後の pair に proof がある場合だけ state rekey し、成功時だけ proof を消費する。
+- proof がない direct relocate は `StorageRelocateRequiresRawMoveProof` typed refutation になる。summary は `CollectionSlotLifecycleSummaryRelocateProof::RawStorageRelocation` を持つ certified relocate だけを replay し、proof なし helper summary を caller 側で無条件に適用しない。realloc success proof は relocate 成功時に一回だけ消費する regression も追加した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_relocate -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_call_summary -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot -- --test-threads=1`: timed out after 244s; broad collection-slot filter は今回も長時間化したため、commit gate は direct relocate と summary replay の focused tests に限定。

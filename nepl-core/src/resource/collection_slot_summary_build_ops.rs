@@ -8,6 +8,7 @@ use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleSummaryRelocateProof,
 };
 use super::collection_slot_summary_target::summary_place_for_params;
 use super::collection_slot_summary_translate::{
@@ -62,19 +63,26 @@ pub(super) fn collect_summary_ops_from_op(
             new_storage,
             ..
         } => {
-            let old_storage = state
+            let old_storage_place = state
                 .raw_aliases
                 .canonicalize_owner_cell_address(old_storage);
-            let new_storage = state
+            let new_storage_place = state
                 .raw_aliases
                 .canonicalize_owner_cell_address(new_storage);
+            if !state
+                .pending_reallocs
+                .certified_storage_relocation_available(&old_storage_place, &new_storage_place)
+            {
+                return;
+            }
             if let (Some(old_storage), Some(new_storage)) = (
-                summary_place_for_params(params, &old_storage),
-                summary_place_for_params(params, &new_storage),
+                summary_place_for_params(params, &old_storage_place),
+                summary_place_for_params(params, &new_storage_place),
             ) {
                 out.push(CollectionSlotLifecycleSummaryOp::Relocate {
                     old_storage,
                     new_storage,
+                    proof: CollectionSlotLifecycleSummaryRelocateProof::RawStorageRelocation,
                 });
             }
         }

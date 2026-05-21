@@ -75,6 +75,7 @@ pub enum CollectionSlotLifecycleRefutation {
         operation: CollectionSlotLifecycleOp,
         slot_ty: TypeId,
     },
+    StorageRelocateRequiresRawMoveProof,
     LiveSlotDuringStorageDealloc {
         slot_ty: TypeId,
     },

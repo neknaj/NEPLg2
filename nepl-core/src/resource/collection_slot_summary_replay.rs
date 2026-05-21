@@ -4,7 +4,9 @@ use alloc::vec::Vec;
 
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
-use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
+use super::collection_slot_summary_model::{
+    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
+};
 use super::collection_slot_summary_target::instantiate_summary_target;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -42,7 +44,11 @@ impl ResourceCheckEngine<'_> {
                 CollectionSlotLifecycleSummaryOp::Relocate {
                     old_storage,
                     new_storage,
+                    proof,
                 } => {
+                    match proof {
+                        CollectionSlotLifecycleSummaryRelocateProof::RawStorageRelocation => {}
+                    }
                     let Some(old_storage) = instantiate_summary_target(self, args, old_storage)
                     else {
                         continue;
@@ -51,7 +57,7 @@ impl ResourceCheckEngine<'_> {
                     else {
                         continue;
                     };
-                    self.apply_collection_storage_relocate_with_aliases(
+                    self.apply_certified_collection_storage_relocate_with_aliases(
                         collection_slots,
                         raw_aliases,
                         &old_storage,

@@ -26,6 +26,9 @@ pub(super) fn resource_collection_slot_refutation_diagnostic_code(
         CollectionSlotLifecycleRefutation::DropRequiresElaboration { .. } => {
             ResourceCollectionSlotDiagnosticCode::DropRequiresElaboration
         }
+        CollectionSlotLifecycleRefutation::StorageRelocateRequiresRawMoveProof => {
+            ResourceCollectionSlotDiagnosticCode::StorageRelocateRequiresRawMoveProof
+        }
         CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc { .. } => {
             ResourceCollectionSlotDiagnosticCode::LiveSlotDuringStorageDealloc
         }
