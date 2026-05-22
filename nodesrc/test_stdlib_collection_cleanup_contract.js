@@ -129,10 +129,33 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
             continue;
         }
         inspected.push(`${relPath}:${signature.name}`);
+        if (!signature.isPublic) {
+            const privateLifecycleProofHelper = classifyPrivateCollectionLifecycleProofHelper(source, signature.name);
+            if (privateLifecycleProofHelper) {
+                privateLifecycleProofHelperInspected.push(`${relPath}:${signature.name}`);
+            }
+        }
         const missingCopy = generics.filter((generic) => !/\bCopy\b/.test(generic.bound ?? ''));
         if (missingCopy.length > 0) {
             const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
             violations.push(`${relPath}:${index + 1}: ${signature.name} cleanup generic(s) ${names} must carry Copy until collection drop traversal exists`);
+        }
+    }
+}
+
+for (const relPath of walkNeplFiles(collectionsRoot)) {
+    const source = readImplementation(relPath);
+    for (const line of source.split(/\r?\n/)) {
+        const signature = parseFunctionSignature(line);
+        if (!signature || signature.isPublic) {
+            continue;
+        }
+        const privateLifecycleProofHelper = classifyPrivateCollectionLifecycleProofHelper(source, signature.name);
+        if (privateLifecycleProofHelper) {
+            const entry = `${relPath}:${signature.name}`;
+            if (!privateLifecycleProofHelperInspected.includes(entry)) {
+                privateLifecycleProofHelperInspected.push(entry);
+            }
         }
     }
 }
@@ -252,6 +275,8 @@ for (const expected of [
 
 for (const expected of [
     'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_slot_store_initialized',
+    'stdlib/alloc/collections/vec/mutation/cleanup.nepl:vec_cleanup_copy_initialized_prefix',
+    'stdlib/alloc/collections/vec/mutation/cleanup.nepl:vec_cleanup_release_storage',
 ]) {
     assert.ok(
         privateLifecycleProofHelperInspected.some((entry) => entry.includes(expected)),
@@ -580,7 +605,8 @@ function markerHasLocalRawLifecycleEvidence(section, marker) {
         case 'collection_slot_drop_initialized':
             return /\bload<[^>]+>[\s\S]*\bDrop::drop\b/.test(section);
         case 'collection_slot_drop_traversal':
-            return /\bwhile\b[\s\S]*\bload<[^>]+>[\s\S]*\bDrop::drop\b/.test(section);
+            return /\bwhile\b[\s\S]*\bload<[^>]+>/.test(section)
+                && (/\bDrop::drop\b/.test(section) || /<\.\w+:\s*Copy>/.test(section));
         case 'collection_slot_storage_dealloc':
             return /\b(?:dealloc_region|dealloc_raw|allocator::dealloc_raw|allocator::dealloc_region)\b/.test(section);
         case 'collection_slot_storage_relocate':

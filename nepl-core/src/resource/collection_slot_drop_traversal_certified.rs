@@ -16,7 +16,10 @@ use super::collection_slot_state_alias::{
 };
 use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
-use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
+use super::collection_slot_summary_model::{
+    CollectionSlotInitializedRangeDropTraversalCertificate,
+    CollectionSlotInitializedRangeDropTraversalProof,
+};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
@@ -175,7 +178,14 @@ impl ResourceCheckEngine<'_> {
             storage,
             initialized_count,
             expected_ty,
-            CollectionSlotDropProof::SummaryCertified(certificate.drop_obligation),
+            match certificate.drop_proof {
+                CollectionSlotInitializedRangeDropTraversalProof::StateOnly => {
+                    CollectionSlotDropProof::SummaryStateOnly
+                }
+                CollectionSlotInitializedRangeDropTraversalProof::LoadedValueDrop(obligation) => {
+                    CollectionSlotDropProof::SummaryCertified(obligation)
+                }
+            },
         )
     }
 }

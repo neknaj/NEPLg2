@@ -12,7 +12,10 @@ use super::collection_slot_summary_build_range_lifetime_test_support::{
     collect_loop_induction_summary_ops, has_forall_range_summary, PostLoopCertificateInterference,
 };
 use super::collection_slot_summary_build_state::CollectionSlotDropTraversalRangeCertificateCandidate;
-use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
+use super::collection_slot_summary_model::{
+    CollectionSlotInitializedRangeDropTraversalCertificate,
+    CollectionSlotInitializedRangeDropTraversalProof,
+};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, RawMemoryOp, ResourceExprKind, ResourceId, ResourceOp};
 
@@ -150,10 +153,12 @@ fn range_certificate_test_case() -> (
         expected_ty: owned_ty,
         certificate: CollectionSlotInitializedRangeDropTraversalCertificate {
             element_stride: 4,
-            drop_obligation: CollectionSlotDropObligation::DropLoadedValue {
-                operation: CollectionSlotLifecycleOp::DropInitialized,
-                value_ty: owned_ty,
-            },
+            drop_proof: CollectionSlotInitializedRangeDropTraversalProof::LoadedValueDrop(
+                CollectionSlotDropObligation::DropLoadedValue {
+                    operation: CollectionSlotLifecycleOp::DropInitialized,
+                    value_ty: owned_ty,
+                },
+            ),
         },
     };
     (types, owned_ty, storage, initialized_count, candidate)

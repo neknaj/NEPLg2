@@ -132,6 +132,62 @@ fn public_owner_collection_error_recovery_preserves_live_slot_state() {
 }
 
 #[test]
+fn source_loop_copy_drop_traversal_accepts_load_witness_without_drop_call() {
+    let (module, types) = typecheck_stdlib_source(
+        copy_range_drop_traversal_source(),
+        "alloc/collections/vec/source_copy_range_drop_traversal.nepl",
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "Copy payload cleanup should prove initialized-range traversal from the source loop/load without requiring Drop::drop: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("caller__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "caller must not retain initialized Copy collection slots after cleanup summary replay: {:#?}",
+        report.functions
+    );
+}
+
+#[test]
+fn source_loop_non_copy_load_only_does_not_certify_drop_traversal_range() {
+    let (module, types) = typecheck_stdlib_source(
+        non_copy_load_only_drop_traversal_source(),
+        "alloc/collections/vec/source_non_copy_load_only_drop_traversal.nepl",
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc { slot_ty },
+                ..
+            } if function.starts_with("caller__") && *slot_ty == owned_ty
+        )),
+        "non-Copy payload load-only traversal must not certify cleanup without an actual Drop::drop witness: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn source_loop_drop_traversal_rejects_non_zero_start_as_full_range_proof() {
     let source = full_range_drop_traversal_source("1", "add i 1");
     let (module, types) = typecheck_stdlib_source(
@@ -273,6 +329,100 @@ fn caller <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)*>i32> (storage, firs
     0
 "#
     )
+}
+
+fn copy_range_drop_traversal_source() -> &'static str {
+    r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/allocator" as allocator
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+fn cleanup_all <(&RegionToken<i32>,i32)*>i32> (storage, initialized_len):
+    let data <MemPtr<i32>> region_ptr storage
+    let mut i <i32> 0
+    while lt i initialized_len:
+        do:
+            let byte_off <i32> mul i size_of<i32>
+            let slot <MemPtr<i32>> mem_ptr_add<i32> data byte_off
+            let raw <i32> mem_ptr_addr slot
+            let _loaded <i32> load<i32> raw
+            set i add i 1
+    #intrinsic "collection_slot_drop_traversal" <i32> (storage, initialized_len)
+    0
+
+fn caller <(&RegionToken<i32>)*>i32> (storage):
+    let data <MemPtr<i32>> region_ptr storage
+    let raw0 <i32> mem_ptr_addr data
+    let slot1 <MemPtr<i32>> mem_ptr_add<i32> data size_of<i32>
+    let raw1 <i32> mem_ptr_addr slot1
+    store<i32> raw0 10
+    #intrinsic "collection_slot_initialize_empty" <i32> (storage, 0)
+    store<i32> raw1 20
+    #intrinsic "collection_slot_initialize_empty" <i32> (storage, size_of<i32>)
+    cleanup_all storage 2
+    let total_size <i32> region_size storage
+    allocator::dealloc_raw raw0 total_size
+    #intrinsic "collection_slot_storage_dealloc" <> (storage)
+    0
+"#
+}
+
+fn non_copy_load_only_drop_traversal_source() -> &'static str {
+    r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/allocator" as allocator
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+#import "core/traits/drop" as *
+
+struct LocalOwner:
+    value <i32>
+
+impl Drop for LocalOwner:
+    fn drop <(&LocalOwner)*>()> (_self):
+        ()
+
+fn cleanup_all <(&RegionToken<LocalOwner>,i32)*>i32> (storage, initialized_len):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let mut i <i32> 0
+    while lt i initialized_len:
+        do:
+            let byte_off <i32> mul i size_of<LocalOwner>
+            let slot <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data byte_off
+            let raw <i32> mem_ptr_addr slot
+            let _loaded <LocalOwner> load<LocalOwner> raw
+            set i add i 1
+    #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage, initialized_len)
+    0
+
+fn caller <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)*>i32> (storage, first, second):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let raw0 <i32> mem_ptr_addr data
+    let slot1 <MemPtr<LocalOwner>> mem_ptr_add<LocalOwner> data size_of<LocalOwner>
+    let raw1 <i32> mem_ptr_addr slot1
+    store<LocalOwner> raw0 first
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    store<LocalOwner> raw1 second
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, size_of<LocalOwner>)
+    cleanup_all storage 2
+    let total_size <i32> region_size storage
+    allocator::dealloc_raw raw0 total_size
+    #intrinsic "collection_slot_storage_dealloc" <> (storage)
+    0
+"#
 }
 
 fn public_owner_collection_api_source() -> &'static str {

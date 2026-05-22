@@ -8,6 +8,7 @@ use crate::types::TypeId;
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_return_state::collection_slot_summary_state_after_ops;
+use super::drop_requirement::resource_type_needs_drop_code;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, PlaceProjection, ResourceOffset, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
@@ -39,6 +40,9 @@ pub(super) fn drop_witness_candidate(
         || candidate.element_stride == 0
     {
         return None;
+    }
+    if !resource_type_needs_drop_code(engine.types, candidate.expected_ty) {
+        return Some(drop_witness_at(&candidate, candidate.load_index));
     }
     let mut previous_prefix_drops = prefix_drops_symbolic_slot(
         engine,

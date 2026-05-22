@@ -45045,3 +45045,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-22 Agent 1 Vec clear/free lifecycle proof
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の一部として、Copy-only public contract を維持したまま `Vec.clear` / `Vec.free` を Resource IR lifecycle proof に接続した。`plan.md` は変更していない。
+- 根本原因は、実 `Vec.push` が private helper 経由で slot initialize を Resource IR に出すようになった一方、`clear` / `free` は owner-carrying storage を解放しても initialized prefix cleanup と storage dealloc proof を同じ implementation boundary で閉じていなかったこと。
+- `stdlib/alloc/collections/vec/mutation/cleanup.nepl` に private helper `vec_cleanup_copy_initialized_prefix` と `vec_cleanup_release_storage` を追加し、initialized prefix traversal、raw storage release、`collection_slot_storage_dealloc` marker を direct-import public API へ露出しない形にした。
+- Resource IR full-range certificate は `.T: Copy` など drop-code-free payload では raw load witness から `StateOnly` proof を生成し、non-Copy payload の load-only traversal は actual `Drop::drop` proof なしでは拒否する。Copy cleanup を fake `DropLoadedValue` として扱わないよう、certificate model を `StateOnly` / `LoadedValueDrop` に分けた。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `cargo test -p nepl-core --test collection_slot_full_range source_loop_copy_drop_traversal_accepts_load_witness_without_drop_call -- --test-threads=1 --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test collection_slot_full_range source_loop_non_copy_load_only_does_not_certify_drop_traversal_range -- --test-threads=1 --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test collection_slot_full_range source_loop_drop_traversal_summary_cleans_caller_initialized_range -- --test-threads=1 --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_vec_free_region_token_cleanup -- --test-threads=1 --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_push_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_clear_then_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`: passed

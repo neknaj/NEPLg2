@@ -10,7 +10,7 @@ use super::collection_slot_lifecycle::{CollectionSlotLifecycleOp, CollectionSlot
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
     CollectionSlotInitializedRangeDropTraversalCertificate,
-    CollectionSlotLifecycleFunctionSummaryIndex,
+    CollectionSlotInitializedRangeDropTraversalProof, CollectionSlotLifecycleFunctionSummaryIndex,
 };
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -60,10 +60,12 @@ fn collection_slot_summary_forall_replay_drops_every_initialized_slot_in_range()
         owned_ty,
         CollectionSlotInitializedRangeDropTraversalCertificate {
             element_stride: 4,
-            drop_obligation: CollectionSlotDropObligation::DropLoadedValue {
-                operation: CollectionSlotLifecycleOp::DropInitialized,
-                value_ty: owned_ty,
-            },
+            drop_proof: CollectionSlotInitializedRangeDropTraversalProof::LoadedValueDrop(
+                CollectionSlotDropObligation::DropLoadedValue {
+                    operation: CollectionSlotLifecycleOp::DropInitialized,
+                    value_ty: owned_ty,
+                },
+            ),
         },
         crate::span::Span::dummy(),
     );

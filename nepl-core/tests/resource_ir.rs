@@ -15443,6 +15443,142 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_vec_push_free_closes_stdlib_lifecycle() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 7
+    free<i32> v1
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec.push -> Vec.free must close initialized slot and storage lifecycle proofs: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("main__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "main must not retain initialized Vec collection slots after free: {:#?}",
+        report.functions
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_cleanup_copy_initialized_prefix"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(op, ResourceOp::CollectionSlotDropTraversal { .. })
+                })
+        }),
+        "actual stdlib Vec.free must route initialized-prefix cleanup through the private drop traversal helper:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_cleanup_release_storage"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            ..
+                        }
+                    )
+                })
+        }),
+        "actual stdlib Vec.free must route storage release through the private storage dealloc helper:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_initialized_check_vec_clear_then_free_closes_stdlib_lifecycle() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 7
+    let v2 <Vec<i32>> clear<i32> v1
+    free<i32> v2
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("clear__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec.clear -> Vec.free must close initialized slot and storage lifecycle proofs: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("main__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "main must not retain initialized Vec collection slots after clear/free: {:#?}",
+        report.functions
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_does_not_treat_raw_cell_payload_as_storage_owner() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

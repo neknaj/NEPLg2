@@ -2,17 +2,55 @@
 //: `Vec` の clear/free
 //:
 //: ### [目的/もくてき]
-//: - owner cleanup と length reset をまとめ、storage state に[応/おう]じた[解放/かいほう]を `vec/storage` に[委譲/いじょう]します。
+//: - owner cleanup と length reset をまとめ、initialized prefix と storage dealloc の Resource IR lifecycle proof をこの implementation 境界に[閉/と]じます。
 
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/allocator" as allocator
 #import "core/field" as field
 #import "../types" as *
-#import "../storage/cleanup" as vec_storage
-#import "core/field" as *
 #import "core/math" as *
 #import "core/traits/copy" as *
+
+//: ## vec_cleanup_copy_initialized_prefix
+//: Copy payload の initialized prefix を Resource IR 上で cleanup 済みにする
+//:
+//: ### [目的/もくてき]
+//: - `clear` / `free` が `OwnedBuffer.initialized_len` で[表/あらわ]す prefix 全体を[走査/そうさ]し、各 slot が cleanup 対象範囲に[含/ふく]まれることを compiler の range proof へ渡します。
+//: - `.T: Copy` では destructor 実行が不要なので、raw load による slot witness と `collection_slot_drop_traversal` marker を同じ private helper に[閉/と]じます。
+//:
+//: ### [注意/ちゅうい]
+//: - この helper は public にしません。lifecycle marker authority は collection implementation file 内だけで[扱/あつか]います。
+//: - non-Copy payload では Drop 実行の証明が必要なので、この helper は `.T: Copy` に[限定/げんてい]します。
+fn vec_cleanup_copy_initialized_prefix <.T: Copy> <(&RegionToken<.T>,i32)->()> (storage, initialized_len):
+    let data <MemPtr<.T>> region_ptr storage
+    let mut i <i32> 0
+    while lt i initialized_len:
+        do:
+            let byte_off <i32> mul i size_of<.T>
+            let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+            let raw <i32> mem_ptr_addr slot
+            let _value <.T> load<.T> raw
+            set i add i 1
+    #intrinsic "collection_slot_drop_traversal" <.T> (storage, initialized_len)
+
+//: ## vec_cleanup_release_storage
+//: `RegionToken` storage の raw release と Resource IR storage dealloc proof を同じ private 境界で発行する
+//:
+//: ### [目的/もくてき]
+//: - token の raw owner identity と size field を[取/と]り[出/だ]し、allocator の raw dealloc を実行した直後に `collection_slot_storage_dealloc` marker を発行します。
+//: - storage release proof を direct-import 可能な `vec/storage` 側ではなく、public cleanup API の implementation file に[閉/と]じます。
+//:
+//: ### [注意/ちゅうい]
+//: - caller は事前に initialized prefix cleanup を完了してからこの helper を[呼/よ]びます。
+fn vec_cleanup_release_storage <.T: Copy> <(RegionToken<.T>)->()> (region):
+    let raw <i32> field::get region "raw"
+    let total_size <i32> field::get region "size"
+    allocator::dealloc_raw raw total_size
+    #intrinsic "collection_slot_storage_dealloc" <> (&region)
 
 //: ## clear
 //: [要素/ようそ]をすべて[削除/さくじょ]する
@@ -21,14 +59,14 @@
 //: - `len` を 0 にして、[確保済/かくほず]み[領域/りょういき]を[再利用/さいりよう]できる[空/から]ベクタを[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - `OwnedBuffer` から `storage` owner を[取/と]り[出/だ]し、`cap` はそのままに `len` と `initialized_len` を 0 にした新しい `OwnedBuffer` を[返/かえ]します。
+//: - `OwnedBuffer` から `storage` owner と `initialized_len` を[取/と]り[出/だ]し、owned storage では initialized prefix cleanup proof を発行してから `len` と `initialized_len` を 0 にした新しい `OwnedBuffer` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ]メモリは[解放/かいほう]しません。
-//: - 要素ごとの Drop traversal はまだ[実装/じっそう]されていないため、`.T: Copy` の Vec だけを[対象/たいしょう]にします。
+//: - `.T: Copy` では destructor 実行が不要ですが、Resource IR の initialized slot state を閉じるため prefix 走査 proof は実行します。
 //:
 //: ### [計算量/けいさんりょう]
-//: - O(1)
+//: - O(n)
 //:
 //: ### [使用例/しようれい]
 //:
@@ -50,10 +88,16 @@
 //: ```
 pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
-    Vec<.T> (OwnedBuffer<.T> 0 0 v_cap v_storage)
+    match v_storage:
+        VecStorage::Empty:
+            Vec<.T> (OwnedBuffer<.T> 0 0 v_cap VecStorage<.T>::Empty)
+        VecStorage::Owned region:
+            vec_cleanup_copy_initialized_prefix<.T> &region v_initialized_len
+            Vec<.T> (OwnedBuffer<.T> 0 0 v_cap (VecStorage<.T>::Owned region))
 
 //: ## free
 //: [内部/ないぶ]メモリを[解放/かいほう]する
@@ -62,16 +106,16 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //: - `Vec<.T>` が `VecStorage::Owned` payload として[所有/しょゆう]する storage [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - `OwnedBuffer` から `storage` owner を[取/と]り[出/だ]し、`vec/storage` の cleanup helper へ[移動/いどう]します。
-//: - `VecStorage::Empty` は owner payload を[持/も]たず、`VecStorage::Owned(region)` だけが owner-consuming destructor へ[進/すす]みます。
+//: - `OwnedBuffer` から `storage` owner と `initialized_len` を[取/と]り[出/だ]します。
+//: - `VecStorage::Owned(region)` では initialized prefix cleanup proof を発行してから、raw storage release と `collection_slot_storage_dealloc` proof を同じ private helper で[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
 //: - `cap = 0` の[空/から]ベクタでも[呼/よ]べます。
-//: - 現行実装は storage-only dealloc です。`OwnedBuffer<T>` と initialized prefix traversal が[入/はい]るまで、要素 Drop を[必要/ひつよう]としない `.T: Copy` だけを[受/う]け[付/つ]けます。
+//: - 現行 public API は `.T: Copy` に[限定/げんてい]します。non-Copy payload の Drop 実行証明は別段階で導入します。
 //:
 //: ### [計算量/けいさんりょう]
-//: - O(1)
+//: - O(n)
 //:
 //: ### [使用例/しようれい]
 //:
@@ -87,6 +131,13 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //:     0
 //: ```
 pub fn free <.T: Copy> <(Vec<.T>)->()> (v):
+    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
-    vec_storage::vec_free_storage<.T> v_storage
+    match v_storage:
+        VecStorage::Empty:
+            ()
+        VecStorage::Owned region:
+            vec_cleanup_copy_initialized_prefix<.T> &region v_initialized_len
+            vec_cleanup_release_storage<.T> region

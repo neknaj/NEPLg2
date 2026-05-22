@@ -68,7 +68,13 @@ pub(super) enum CollectionSlotLifecycleSummaryDropTraversalCoverage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct CollectionSlotInitializedRangeDropTraversalCertificate {
     pub(super) element_stride: usize,
-    pub(super) drop_obligation: CollectionSlotDropObligation,
+    pub(super) drop_proof: CollectionSlotInitializedRangeDropTraversalProof,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotInitializedRangeDropTraversalProof {
+    StateOnly,
+    LoadedValueDrop(CollectionSlotDropObligation),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

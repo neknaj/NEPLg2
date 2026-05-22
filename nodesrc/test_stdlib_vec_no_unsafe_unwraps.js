@@ -336,7 +336,6 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/storage.nepl',
     'stdlib/alloc/collections/vec/storage/api.nepl',
     'stdlib/alloc/collections/vec/mutation.nepl',
-    'stdlib/alloc/collections/vec/mutation/cleanup.nepl',
     'stdlib/alloc/collections/vec/query.nepl',
     'stdlib/alloc/collections/vec/query/aggregate.nepl',
     'stdlib/alloc/collections/vec/query/predicate.nepl',
@@ -353,6 +352,7 @@ for (const relPath of [
 }
 for (const relPath of [
     'stdlib/alloc/collections/vec/access/data.nepl',
+    'stdlib/alloc/collections/vec/mutation/cleanup.nepl',
     'stdlib/alloc/collections/vec/mutation/push.nepl',
     'stdlib/alloc/collections/vec/mutation/pop.nepl',
     'stdlib/alloc/collections/vec/mutation/replace.nepl',
@@ -413,10 +413,14 @@ assert.match(popSection, /OwnedBuffer<\.T>\s+next_len\s+next_len\s+v_cap/, 'Vec.
 assert.match(popSection, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, 'Vec.pop must return named VecPop and remain Copy-only until initialized slot move state exists');
 assert.match(vecCode, /fn\s+vec_pop_vec\s+<\.T:\s*Copy>\s+<\(VecPop<\.T>\)->Vec<\.T>>/, 'Vec.pop Vec accessor must remain Copy-only because it discards the popped Option<T> payload');
 assert.match(popSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*struct\s+NonCopyPayload:[\s\S]*pop<NonCopyPayload>/, 'Vec.pop must reject non-Copy payloads until OwnedBuffer initialized cell move-out exists');
+assert.match(vecMutationCleanupCode, /\bfn\s+vec_cleanup_copy_initialized_prefix\s+<\.T:\s*Copy>\s+<\(&RegionToken<\.T>,i32\)->\(\)>[\s\S]*while\s+lt\s+i\s+initialized_len:[\s\S]*load<\.T>\s+raw[\s\S]*#intrinsic\s+"collection_slot_drop_traversal"\s+<\.T>\s+\(storage,\s*initialized_len\)/, 'Vec cleanup must pair Copy initialized-prefix source traversal with collection slot drop-traversal proof in a private helper');
+assert.doesNotMatch(vecMutationCleanupCode, /\bpub\s+fn\s+vec_cleanup_(?:copy_initialized_prefix|release_storage)\b/, 'Vec cleanup lifecycle helpers must not become direct-import public marker boundaries');
+assert.match(vecMutationCleanupCode, /\bfn\s+vec_cleanup_release_storage\s+<\.T:\s*Copy>\s+<\(RegionToken<\.T>\)->\(\)>[\s\S]*field::get\s+region\s+"raw"[\s\S]*field::get\s+region\s+"size"[\s\S]*allocator::dealloc_raw\s+raw\s+total_size[\s\S]*#intrinsic\s+"collection_slot_storage_dealloc"\s+<>\s+\(&region\)/, 'Vec cleanup must pair raw storage release with collection slot storage dealloc proof in the same private helper');
 assert.match(clearSection, /fn\s+clear\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->Vec<\.T>>/, 'Vec.clear must remain Copy-only until initialized element drop traversal exists');
 assert.match(clearSection, /let\s+v_buffer\s+<OwnedBuffer<\.T>>\s+field::get\s+v\s+"buffer"[\s\S]*let\s+v_storage\s+<VecStorage<\.T>>\s+field::get\s+v_buffer\s+"storage"/, 'Vec.clear must explicitly move the owner-carrying storage enum through OwnedBuffer into the returned Vec');
+assert.match(clearSection, /let\s+v_initialized_len\s+<i32>\s+\*field::get_ref\s+v_buffer_ref\s+"initialized_len"[\s\S]*VecStorage::Owned\s+region:[\s\S]*vec_cleanup_copy_initialized_prefix<\.T>\s+&region\s+v_initialized_len[\s\S]*OwnedBuffer<\.T>\s+0\s+0\s+v_cap\s+\(VecStorage<\.T>::Owned\s+region\)/, 'Vec.clear must replay initialized-prefix lifecycle cleanup before resetting len and initialized_len');
 assert.match(freeSection, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->\(\)>/, 'Vec.free must remain Copy-only until initialized element drop traversal exists');
-assert.match(freeSection, /let\s+v_buffer\s+<OwnedBuffer<\.T>>\s+field::get\s+v\s+"buffer"[\s\S]*let\s+v_storage\s+<VecStorage<\.T>>\s+field::get\s+v_buffer\s+"storage"[\s\S]*vec_free_storage<\.T>\s+v_storage/, 'Vec.free must pass the owner-carrying storage enum to cleanup');
+assert.match(freeSection, /let\s+v_initialized_len\s+<i32>\s+\*field::get_ref\s+v_buffer_ref\s+"initialized_len"[\s\S]*let\s+v_storage\s+<VecStorage<\.T>>\s+field::get\s+v_buffer\s+"storage"[\s\S]*VecStorage::Owned\s+region:[\s\S]*vec_cleanup_copy_initialized_prefix<\.T>\s+&region\s+v_initialized_len[\s\S]*vec_cleanup_release_storage<\.T>\s+region/, 'Vec.free must clean initialized slots before releasing the owner-carrying storage enum');
 assert.match(mapSection, /match\s+data_mem_view<\.U>\s+&out0:[\s\S]*VecDataView::Empty:[\s\S]*VecDataView::Invalid\s+_reason:[\s\S]*VecDataView::Data\s+out_data:[\s\S]*let\s+out_buffer\s+<OwnedBuffer<\.U>>\s+field::get\s+out0\s+"buffer"[\s\S]*let\s+out_storage\s+<VecStorage<\.U>>\s+field::get\s+out_buffer\s+"storage"/, 'Vec.map must match the typed output data view before raw writes and before moving the output owner into the returned Vec');
 assert.match(vecCode, /struct\s+VecPushError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>/, 'Vec.push failure payload must carry the consumed Vec owner and a copyable error kind');
 assert.match(vecMutationPushCode, /fn\s+vec_push_error_vec\s+<\.T:\s*Copy>\s+<\(VecPushError<\.T>\)->Vec<\.T>>/, 'Vec.push error owner accessor must remain Copy-only until non-Copy Vec drop traversal exists');

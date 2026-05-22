@@ -2,8 +2,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use super::collection_slot_drop_proof::CollectionSlotDropObligation;
-use super::collection_slot_lifecycle::CollectionSlotLifecycleOp;
+use super::collection_slot_drop_proof::collection_slot_drop_obligation;
+use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_summary_build_nested::apply_summary_condition_fact;
 use super::collection_slot_summary_build_range_bound::initialized_range_loop_bound;
 use super::collection_slot_summary_build_range_preserve::{
@@ -15,7 +15,10 @@ use super::collection_slot_summary_build_range_witness::loop_body_candidate_slot
 use super::collection_slot_summary_build_state::{
     CollectionSlotDropTraversalRangeCertificateCandidate, CollectionSlotSummaryBuildState,
 };
-use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
+use super::collection_slot_summary_model::{
+    CollectionSlotInitializedRangeDropTraversalCertificate,
+    CollectionSlotInitializedRangeDropTraversalProof,
+};
 use super::collection_slot_summary_return_state::collection_slot_summary_state_after_ops;
 use super::initialized::ResourceCheckEngine;
 use super::model::{ResourceConditionFact, ResourceOp};
@@ -92,10 +95,14 @@ pub(super) fn loop_drop_traversal_range_certificates(
             expected_ty: witness.expected_ty,
             certificate: CollectionSlotInitializedRangeDropTraversalCertificate {
                 element_stride: witness.element_stride,
-                drop_obligation: CollectionSlotDropObligation::DropLoadedValue {
-                    operation: CollectionSlotLifecycleOp::DropInitialized,
-                    value_ty: witness.expected_ty,
-                },
+                drop_proof: collection_slot_drop_obligation(
+                    engine.types,
+                    CollectionSlotLifecycleEvent::DropInitialized {
+                        expected_ty: witness.expected_ty,
+                    },
+                )
+                .map(CollectionSlotInitializedRangeDropTraversalProof::LoadedValueDrop)
+                .unwrap_or(CollectionSlotInitializedRangeDropTraversalProof::StateOnly),
             },
         };
         if !out
