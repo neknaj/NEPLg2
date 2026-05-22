@@ -19,6 +19,7 @@ const borrowedPayloadCopyObserverInspected = [];
 const borrowedStorageViewInspected = [];
 const privateLifecycleProofHelperInspected = [];
 const privateStorageReallocHelperInspected = [];
+const ownerPreservingErrorRecoveryInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -31,8 +32,12 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
             const typeSignature = parseTypeSignature(signature?.afterName ?? '');
             if (signature && generics.length > 0 && isOwnerReturningErrorAccessor(signature.name, typeSignature)) {
                 ownerAccessorInspected.push(`${relPath}:${signature.name}`);
+                const ownerPreservingErrorRecovery = classifyOwnerPreservingErrorRecovery(signature.name, typeSignature);
+                if (ownerPreservingErrorRecovery) {
+                    ownerPreservingErrorRecoveryInspected.push(`${relPath}:${signature.name}`);
+                }
                 const missingCopy = generics.filter((generic) => !/\bCopy\b/.test(generic.bound ?? ''));
-                if (missingCopy.length > 0) {
+                if (missingCopy.length > 0 && !ownerPreservingErrorRecovery) {
                     const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                     violations.push(`${relPath}:${index + 1}: ${signature.name} owner-returning error accessor generic(s) ${names} must carry Copy until collection drop traversal exists`);
                 }
@@ -64,6 +69,10 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 privateStorageReallocHelperInspected.push(`${relPath}:${signature.name}`);
             }
             if (ownerSurfaceCopyRequirement && ownerSurfaceCopyRequirement.size > 0) {
+                const ownerPreservingErrorRecovery = classifyOwnerPreservingErrorRecovery(signature.name, typeSignature);
+                if (ownerPreservingErrorRecovery && !ownerPreservingErrorRecoveryInspected.includes(`${relPath}:${signature.name}`)) {
+                    ownerPreservingErrorRecoveryInspected.push(`${relPath}:${signature.name}`);
+                }
                 const privateLifecycleProofHelper = !signature.isPublic
                     ? classifyPrivateCollectionLifecycleProofHelper(source, signature.name)
                     : null;
@@ -79,7 +88,7 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !ownerPreservingErrorRecovery) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
@@ -202,6 +211,11 @@ for (const expected of [
 assert.ok(
     ownerAccessorInspected.length >= 14,
     `collection owner accessor policy must inspect the current generic error owner surface, inspected only ${ownerAccessorInspected.length}`,
+);
+
+assert.ok(
+    ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_error_rejected'),
+    'collection owner accessor policy must allow Vec.push rejected owner recovery only when the accessor returns the Vec and rejected item together',
 );
 
 for (const expected of [
@@ -473,6 +487,31 @@ function isOwnerReturningPopAccessor(name, typeSignature) {
     return !functionType.parameter.trimStart().startsWith('&')
         && /\b[A-Za-z_][A-Za-z0-9_]*Pop</.test(functionType.parameter)
         && /<\./.test(functionType.returnType);
+}
+
+function classifyOwnerPreservingErrorRecovery(name, typeSignature) {
+    if (!typeSignature || !/_error_rejected$/.test(name)) {
+        return null;
+    }
+
+    const functionType = parseUnaryFunctionType(typeSignature);
+    if (!functionType) {
+        return null;
+    }
+
+    const parameter = functionType.parameter.trim();
+    const returnType = functionType.returnType.trim();
+    if (parameter.startsWith('&')) {
+        return null;
+    }
+    if (!/\b[A-Za-z_][A-Za-z0-9_]*Error<\./.test(parameter)) {
+        return null;
+    }
+    if (!/\b[A-Za-z_][A-Za-z0-9_]*Rejected<\./.test(returnType)) {
+        return null;
+    }
+
+    return { kind: 'owner-preserving-error-recovery' };
 }
 
 function classifyFallibleOwnerConsumer(typeSignature) {
@@ -901,6 +940,7 @@ function isOwnerAggregateName(typeName) {
         'OwnedBuffer',
         'VecStorage',
         'VecDataView',
+        'VecPushRejected',
         'VecPartition',
         'Stack',
         'Queue',

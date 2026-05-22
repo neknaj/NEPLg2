@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T09:03:01.282Z",
+  "generated_at": "2026-05-22T09:23:22.164Z",
   "counts": {
-    "total": 1226,
+    "total": 1227,
     "open": 3,
-    "resolved": 1223,
+    "resolved": 1224,
     "by_area": {
       "stdlib": {
-        "total": 314,
+        "total": 315,
         "open": 2,
-        "resolved": 312
+        "resolved": 313
       },
       "selfhost": {
         "total": 110,
@@ -14463,6 +14463,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9.md"
+    },
+    {
+      "id": "ISS-20260522T090905300Z-VEC-PUSH-FAILURE-MUST-RETURN-REJECTE-21E0522B",
+      "title": "Vec push failure must return rejected item owner before non-Copy support",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/types.nepl, stdlib/alloc/collections/vec/mutation/push.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nodesrc/test_stdlib_collection_cleanup_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T090905300Z-VEC-PUSH-FAILURE-MUST-RETURN-REJECTE-21E0522B.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

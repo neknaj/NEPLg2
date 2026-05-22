@@ -2,7 +2,7 @@
 //: `Vec` の型定義
 //:
 //: ### [目的/もくてき]
-//: - `VecStorage`、`OwnedBuffer`、`Vec`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
+//: - `VecStorage`、`OwnedBuffer`、`Vec`、`VecPushRejected`、`VecPushError`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
 //: - storage owner state と backing allocation owner を同じ enum に[保持/ほじ]し、null pointer sentinel や分離 owner field を public owner state に[戻/もど]さないための型境界を[明確/めいかく]にします。
 //:
 //: ### [注意/ちゅうい]
@@ -114,15 +114,26 @@ pub struct OwnedBuffer<.T>:
 pub struct Vec<.T>:
     buffer <OwnedBuffer<.T>>
 
-//: ## VecPushError
-//: `push` の[失敗/しっぱい]時に `Vec` owner を[返/かえ]す error payload
+//: ## VecPushRejected
+//: `push` [失敗/しっぱい]で[挿入/そうにゅう]されなかった owner をまとめて[返/かえ]す payload
 //:
 //: ### [目的/もくてき]
-//: - 現行 `push` は `.T: Copy` に[限定/げんてい]しているため、[失敗/しっぱい]時に caller が[回収/かいしゅう]すべき linear owner は collection の `Vec<.T>` です。
-//: - 将来 non-Copy payload を[扱/あつか]う場合は、`OwnedBuffer<T>` / initialized prefix / item owner の[状態/じょうたい]を[別/べつ]の owner-preserving API として[設計/せっけい]します。
+//: - [容量/ようりょう][計算/けいさん]、[確保/かくほ]、[再確保/さいかくほ]、metadata invariant のいずれかで `push` が[失敗/しっぱい]したとき、消費した `Vec<.T>` owner とまだ storage に入っていない `item` owner を同じ値で[返/かえ]します。
+//: - non-Copy payload では、`Vec` だけを[取/と]り[出/だ]す accessor が `item` owner を[見/み]えないまま[捨/す]てる形になるため、失敗時 owner recovery はこの payload を[単位/たんい]にします。
+//: - `Vec` owner と `item` owner を名前付き field に[分/わ]け、匿名 tuple や index field ではなく field 名で Resource IR に渡します。
+pub struct VecPushRejected<.T>:
+    vec <Vec<.T>>
+    item <.T>
+
+//: ## VecPushError
+//: `push` の[失敗/しっぱい]時に rejected owner payload と error kind を[返/かえ]す error payload
+//:
+//: ### [目的/もくてき]
+//: - `rejected` に、消費した `Vec<.T>` と[挿入/そうにゅう]されなかった `item` の owner を[保持/ほじ]します。
+//: - 現行 `push` は `.T: Copy` に[限定/げんてい]していますが、non-Copy 対応時も失敗時 owner の[行方/ゆくえ]が API 型に[現/あらわ]れるよう、この型を先に owner-preserving surface にします。
 //: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner [回収/かいしゅう]と error [確認/かくにん]を別操作にします。
 pub struct VecPushError<.T>:
-    vec <Vec<.T>>
+    rejected <VecPushRejected<.T>>
     error <StdErrorKind>
 
 //: ## VecTransformError

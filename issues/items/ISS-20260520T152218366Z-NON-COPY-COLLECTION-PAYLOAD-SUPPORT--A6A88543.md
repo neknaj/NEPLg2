@@ -125,6 +125,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 2026-05-22 に [ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C](./ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C.md) を fixed にした。`Vec` wrapper は引き続き public helper 経由で owner-preserving `RegionToken<T>` API だけを使い、storage relocation proof は `core/mem` private boundary で発行される。
 
+2026-05-22 に [ISS-20260522T090905300Z-VEC-PUSH-FAILURE-MUST-RETURN-REJECTE-21E0522B](./ISS-20260522T090905300Z-VEC-PUSH-FAILURE-MUST-RETURN-REJECTE-21E0522B.md) を fixed にした。`VecPushError<T>` は `VecPushRejected<T>` を介して、失敗時に消費した `Vec<T>` と storage に入らなかった `item: T` を同じ owner recovery payload として返す。`push<T: Copy>` の success path はまだ Copy-only のままだが、non-Copy push へ進む前提だった failure owner surface は、stdlib allowlist や marker authority 公開ではなく API 型で表現されるようになった。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。

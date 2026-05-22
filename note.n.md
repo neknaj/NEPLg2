@@ -45164,3 +45164,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test neplg2 overload_selection_ -- --test-threads=1 --nocapture`: passed
   - `cargo test -p nepl-core --test neplg2 trait_bound_missing_impl_is_error -- --test-threads=1 --exact --nocapture`: passed
   - `cargo test -p nepl-core --test neplg2 trait_bound_satisfied_in_generic -- --test-threads=1 --exact --nocapture`: passed
+
+## 2026-05-22 Agent 1 Vec push rejected owner recovery surface
+
+- `ISS-20260522T090905300Z-VEC-PUSH-FAILURE-MUST-RETURN-REJECTE-21E0522B` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`VecPushError<T>` が失敗時に `Vec<T>` owner だけを返し、`push` に渡された `item: T` owner を API 型で返せないこと。`.T: Copy` を外すだけでは、allocation / grow / invariant failure path で non-Copy item の回収方針が型から消える。
+- `VecPushRejected<T>` を追加し、`VecPushError<T>` は `rejected: VecPushRejected<T>` と `error: StdErrorKind` を持つ形へ変更した。`push<T: Copy>` の全 failure path は、消費した `Vec<T>` と rejected `item` を同じ payload として返す。
+- `vec_push_error_rejected<T>` は Copy bound なしで `VecPushRejected<T>` を返す。既存の `vec_push_error_vec<T: Copy>` は item を返さないため Copy payload 用の便宜 accessor として残し、source policy もこの差を監視する。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
