@@ -37,7 +37,7 @@ impl ResourceCheckEngine<'_> {
         drop_proof: CollectionSlotDropProof,
         owner_transfer_proof: CollectionSlotOwnerTransferProof,
     ) -> Result<CollectionSlotLifecycleProofPlan, CollectionSlotTableRefutation> {
-        apply_event_precondition(self.types, collection_slots, target, event)?;
+        apply_event_precondition(self.types, collection_slots, raw_aliases, target, event)?;
 
         let drop = collection_slot_drop_obligation(self.types, event);
         if let Some(obligation) = drop {
@@ -115,10 +115,14 @@ impl ResourceCheckEngine<'_> {
 fn apply_event_precondition(
     types: &TypeCtx,
     collection_slots: &CollectionSlotStateTable,
+    raw_aliases: Option<&RawCellAddressAliases>,
     target: &Place,
     event: CollectionSlotLifecycleEvent,
 ) -> Result<(), CollectionSlotTableRefutation> {
-    apply_collection_slot_lifecycle_event(types, collection_slots.state(target), event)
+    let state = raw_aliases
+        .map(|raw_aliases| collection_slots.state_with_aliases(target, raw_aliases))
+        .unwrap_or_else(|| collection_slots.state(target));
+    apply_collection_slot_lifecycle_event(types, state, event)
         .map(|_| ())
         .map_err(|reason| CollectionSlotTableRefutation {
             slot: target.clone(),

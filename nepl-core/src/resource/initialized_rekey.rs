@@ -80,6 +80,9 @@ impl ResourceCheckEngine<'_> {
         } else {
             raw_aliases.copy_alias_if_tracked(source, target);
         }
+        if target.ty == self.types.i32() && place_has_deref(source) {
+            raw_aliases.copy_scalar_origin_from_raw_view_if_stable(source, target);
+        }
         if prefer_target {
             raw_aliases.prefer_canonical(target);
         }
@@ -111,4 +114,11 @@ fn place_has_storage_offset(place: &Place) -> bool {
         .projections
         .iter()
         .any(|projection| matches!(projection, PlaceProjection::StorageOffset(_)))
+}
+
+fn place_has_deref(place: &Place) -> bool {
+    place
+        .projections
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::Deref))
 }

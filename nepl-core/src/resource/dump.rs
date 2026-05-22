@@ -677,8 +677,31 @@ fn dump_projection(projection: &PlaceProjection) -> String {
             super::model::ResourceOffset::ScaledSymbolic { place, scale } => {
                 format!("[+{}*{}]", dump_place(place), scale)
             }
+            super::model::ResourceOffset::Offset { place, offset } => {
+                format!("[+{}{}]", dump_place(place), signed_offset_suffix(*offset))
+            }
+            super::model::ResourceOffset::ScaledOffset {
+                place,
+                offset,
+                scale,
+            } => {
+                format!(
+                    "[+{}*{}{}]",
+                    dump_place(place),
+                    scale,
+                    signed_offset_suffix(*offset)
+                )
+            }
             super::model::ResourceOffset::Unknown => String::from("[+?]"),
         },
+    }
+}
+
+fn signed_offset_suffix(offset: i64) -> String {
+    if offset >= 0 {
+        format!("+{}", offset)
+    } else {
+        format!("{}", offset)
     }
 }
 

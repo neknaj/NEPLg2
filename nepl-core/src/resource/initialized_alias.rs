@@ -16,9 +16,7 @@ use super::initialized_alias_scalar::I32AliasFacts;
 use super::initialized_alias_scalar_copy::ScalarFactCopies;
 use super::initialized_alias_scale::I32ScaleFacts;
 use super::initialized_alias_type_size::I32TypeSizeFacts;
-use super::initialized_alias_utils::{
-    groups_overlap, place_without_suffix, push_unique_projected_alias,
-};
+use super::initialized_alias_utils::{groups_overlap, push_unique_projected_alias};
 use super::model::Place;
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
@@ -54,6 +52,11 @@ impl RawCellAddressAliases {
         self.union_group(core::slice::from_ref(place));
     }
 
+    pub(super) fn ensure_marked(&mut self, place: &Place) {
+        push_unique_place(&mut self.marked, place);
+        self.union_group(core::slice::from_ref(place));
+    }
+
     /// Copies an existing raw-address alias group and scalar facts without treating ordinary
     /// i32 value copies as raw-address aliases.
     pub(super) fn copy_alias_if_tracked(&mut self, source: &Place, target: &Place) {
@@ -73,10 +76,22 @@ impl RawCellAddressAliases {
         if source == target {
             return;
         }
+        let source_origin = self.canonicalize_scalar(source);
         let fact_copies = self.scalar_fact_copies_for_aliases(source, target);
         self.clear_scalar_metadata(target);
         fact_copies.apply_to(self);
         self.scalar_origins.copy_stable_origin(source, target);
+        self.scalar_origins
+            .record_stable_origin(target, &source_origin);
+    }
+
+    pub(super) fn copy_scalar_origin_from_raw_view_if_stable(
+        &mut self,
+        source: &Place,
+        target: &Place,
+    ) {
+        let origin = self.canonicalize_scalar(&self.raw_view_origins.origin_for(source));
+        self.scalar_origins.record_stable_origin(target, &origin);
     }
 
     fn copy_alias_if_tracked_with_mode(
@@ -88,6 +103,7 @@ impl RawCellAddressAliases {
         if source == target {
             return;
         }
+        let source_origin = self.canonicalize_scalar(source);
         let fact_copies = self.scalar_fact_copies_for_aliases(source, target);
         let groups = self.groups_with_replaced_prefix(source, target);
         if clear_target {
@@ -99,6 +115,8 @@ impl RawCellAddressAliases {
         fact_copies.apply_to(self);
         self.raw_view_origins.copy_stable_origin(source, target);
         self.scalar_origins.copy_stable_origin(source, target);
+        self.scalar_origins
+            .record_stable_origin(target, &source_origin);
     }
 
     fn scalar_fact_copies_for_aliases(&self, source: &Place, target: &Place) -> ScalarFactCopies {
@@ -307,13 +325,11 @@ impl RawCellAddressAliases {
         let mut out = Vec::new();
         for group in &self.groups {
             for group_place in group {
-                let Some(suffix) = place_suffix_after_prefix(group_place, place) else {
+                let Some(suffix) = place_suffix_after_prefix(place, group_place) else {
                     continue;
                 };
                 for alias in group {
-                    if let Some(prefix) = place_without_suffix(alias, &suffix, place.ty) {
-                        push_unique_place(&mut out, &prefix);
-                    }
+                    push_unique_place(&mut out, &place_with_suffix(alias, &suffix, place.ty));
                 }
             }
         }
@@ -511,6 +527,18 @@ impl RawCellAddressAliases {
             push_unique_place(&mut out, &origin);
             for alias in self.aliases_for(&origin) {
                 push_unique_place(&mut out, &alias);
+            }
+            for reverse_origin in self.scalar_origins.places_with_origin(&origin) {
+                push_unique_place(&mut out, &reverse_origin);
+                for reverse_alias in self.aliases_for(&reverse_origin) {
+                    push_unique_place(&mut out, &reverse_alias);
+                }
+            }
+        }
+        for reverse_origin in self.scalar_origins.places_with_origin(place) {
+            push_unique_place(&mut out, &reverse_origin);
+            for reverse_alias in self.aliases_for(&reverse_origin) {
+                push_unique_place(&mut out, &reverse_alias);
             }
         }
         out

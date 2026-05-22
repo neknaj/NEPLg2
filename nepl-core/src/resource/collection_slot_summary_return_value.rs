@@ -11,6 +11,7 @@ use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTr
 use super::collection_slot_summary_return_path_control::return_value_is_never;
 use super::collection_slot_summary_return_state::collection_slot_summary_state_after_ops;
 use super::collection_slot_summary_return_unique::push_return_transfer;
+use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, ResourceOp};
 use super::place_utils::construct_aggregate_field_place;
@@ -30,7 +31,7 @@ pub(super) fn collect_return_transfers_from_value_to_suffix(
         .raw_aliases
         .canonicalize_owner_cell_address(value);
     if let Some(source) =
-        super::collection_slot_summary_target::summary_place_for_params(params, &canonical_value)
+        summary_place_for_params_with_aliases(params, &state_at_value.raw_aliases, &canonical_value)
     {
         if let Some(target_suffix) = summary_suffix_for_params(params, target_suffix) {
             push_return_transfer(
@@ -255,9 +256,7 @@ fn collect_return_transfers_from_value_producer(
                 );
                 return;
             }
-            ResourceOp::Expr { output, .. } if output == value => {
-                return;
-            }
+            ResourceOp::Expr { output, .. } if output == value => {}
             ResourceOp::Borrow { output, .. }
             | ResourceOp::FunctionValue { output, .. }
             | ResourceOp::RawMemory { output, .. }

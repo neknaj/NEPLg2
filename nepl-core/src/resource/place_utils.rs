@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -8,7 +9,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{
     AggregateKind, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceMatchArm,
-    ResourceMatchBindMode, ResourceMatchPattern,
+    ResourceMatchBindMode, ResourceMatchPattern, ResourceOffset,
 };
 use super::variant_name::{
     match_pattern_variant_name, normalize_variant_name, variant_names_match,
@@ -236,8 +237,91 @@ pub(super) fn replace_place_prefix(
         } else {
             place.ty
         };
+        let suffix = suffix
+            .iter()
+            .map(|projection| replace_projection_places(projection, prefix, replacement))
+            .collect::<Vec<_>>();
         place_with_suffix(replacement, &suffix, ty)
     })
+}
+
+pub(super) fn replace_embedded_place_prefixes(
+    place: &Place,
+    prefix: &Place,
+    replacement: &Place,
+) -> Place {
+    let mut out = place.clone();
+    out.projections = out
+        .projections
+        .iter()
+        .map(|projection| replace_projection_places(projection, prefix, replacement))
+        .collect();
+    out
+}
+
+fn replace_projection_places(
+    projection: &PlaceProjection,
+    prefix: &Place,
+    replacement: &Place,
+) -> PlaceProjection {
+    match projection {
+        PlaceProjection::Field {
+            index,
+            offset_bytes,
+        } => PlaceProjection::Field {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        PlaceProjection::TupleField {
+            index,
+            offset_bytes,
+        } => PlaceProjection::TupleField {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        PlaceProjection::EnumPayload { variant } => PlaceProjection::EnumPayload {
+            variant: variant.clone(),
+        },
+        PlaceProjection::Deref => PlaceProjection::Deref,
+        PlaceProjection::StorageOffset(offset) => PlaceProjection::StorageOffset(
+            replace_resource_offset_places(offset, prefix, replacement),
+        ),
+    }
+}
+
+fn replace_resource_offset_places(
+    offset: &ResourceOffset,
+    prefix: &Place,
+    replacement: &Place,
+) -> ResourceOffset {
+    match offset {
+        ResourceOffset::Known(value) => ResourceOffset::Known(*value),
+        ResourceOffset::Symbolic { place } => ResourceOffset::Symbolic {
+            place: Box::new(replace_embedded_place_prefix(place, prefix, replacement)),
+        },
+        ResourceOffset::ScaledSymbolic { place, scale } => ResourceOffset::ScaledSymbolic {
+            place: Box::new(replace_embedded_place_prefix(place, prefix, replacement)),
+            scale: *scale,
+        },
+        ResourceOffset::Offset { place, offset } => ResourceOffset::Offset {
+            place: Box::new(replace_embedded_place_prefix(place, prefix, replacement)),
+            offset: *offset,
+        },
+        ResourceOffset::ScaledOffset {
+            place,
+            offset,
+            scale,
+        } => ResourceOffset::ScaledOffset {
+            place: Box::new(replace_embedded_place_prefix(place, prefix, replacement)),
+            offset: *offset,
+            scale: *scale,
+        },
+        ResourceOffset::Unknown => ResourceOffset::Unknown,
+    }
+}
+
+fn replace_embedded_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> Place {
+    replace_place_prefix(place, prefix, replacement).unwrap_or_else(|| place.clone())
 }
 
 pub(super) fn places_overlap(left: &Place, right: &Place) -> bool {

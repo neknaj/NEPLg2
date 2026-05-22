@@ -59,7 +59,7 @@ pub enum VecStorage<.T>:
 //: - `storage` は `VecStorage<.T>` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
 //:
 //: ### [注意/ちゅうい]
-//: - `new` / `with_capacity` / `clear` / `free` は `.T: Drop` payload でも使えますが、`push` / `pop` / `get` / `replace` / transform / sort は move-out、replace、failure recovery の owner state が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。
+//: - `new` / `with_capacity` / `push` / `drop_last` / `clear` / `free` は `.T: Drop` payload でも使えますが、`pop` / `get` / `replace` / transform / sort は move-out、replace、failure recovery の owner state が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。
 //: - non-Copy payload を[扱/あつか]う最終 API では、`OwnedBuffer` に move-out / replace state と owner-preserving error payload をさらに[接続/せつぞく]します。
 //:
 //: neplg2:test[compile_fail]

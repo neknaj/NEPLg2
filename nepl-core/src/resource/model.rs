@@ -421,8 +421,22 @@ pub enum PlaceProjection {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceOffset {
     Known(usize),
-    Symbolic { place: Box<Place> },
-    ScaledSymbolic { place: Box<Place>, scale: usize },
+    Symbolic {
+        place: Box<Place>,
+    },
+    ScaledSymbolic {
+        place: Box<Place>,
+        scale: usize,
+    },
+    Offset {
+        place: Box<Place>,
+        offset: i64,
+    },
+    ScaledOffset {
+        place: Box<Place>,
+        offset: i64,
+        scale: usize,
+    },
     Unknown,
 }
 

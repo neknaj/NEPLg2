@@ -1,4 +1,5 @@
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_i32::condition_implication;
 use super::initialized_alias_i32_condition_context::{
     i32_condition_contradictors, I32ConditionQueryContext,
 };
@@ -87,6 +88,11 @@ impl RawCellAddressAliases {
             return Some(truth);
         }
         if let Some(truth) =
+            self.i32_offset_condition_truth(place, condition, depth + 1, derive_false, context)
+        {
+            return Some(truth);
+        }
+        if let Some(truth) =
             self.i32_relation_condition_truth(place, condition, depth + 1, derive_false, context)
         {
             return Some(truth);
@@ -112,6 +118,34 @@ impl RawCellAddressAliases {
         self.i32_condition_truth_inner(&source, condition, depth, derive_false, context)
     }
 
+    fn i32_offset_condition_truth(
+        &self,
+        place: &Place,
+        condition: I32ValueCondition,
+        depth: usize,
+        derive_false: bool,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<bool> {
+        for (source, offset) in self.i32_offset_sources(place) {
+            for source_condition in I32_OFFSET_SOURCE_CONDITIONS {
+                if !offset_condition_implication(source_condition, offset, condition) {
+                    continue;
+                }
+                if self.i32_condition_truth_inner(
+                    &source,
+                    source_condition,
+                    depth,
+                    derive_false,
+                    context,
+                ) == Some(true)
+                {
+                    return Some(true);
+                }
+            }
+        }
+        None
+    }
+
     fn i32_implied_condition_truth(
         &self,
         place: &Place,
@@ -125,5 +159,38 @@ impl RawCellAddressAliases {
             }
         }
         None
+    }
+}
+
+const I32_OFFSET_SOURCE_CONDITIONS: [I32ValueCondition; 6] = [
+    I32ValueCondition::EqZero,
+    I32ValueCondition::NeZero,
+    I32ValueCondition::Positive,
+    I32ValueCondition::NonPositive,
+    I32ValueCondition::Negative,
+    I32ValueCondition::NonNegative,
+];
+
+fn offset_condition_implication(
+    source_condition: I32ValueCondition,
+    offset: i64,
+    target_condition: I32ValueCondition,
+) -> bool {
+    if offset == 0 {
+        return condition_implication(source_condition, target_condition) == Some(true);
+    }
+    if let I32ValueCondition::EqZero = source_condition {
+        if let Ok(value) = i32::try_from(offset) {
+            return target_condition.holds(value);
+        }
+    }
+    match (source_condition, offset) {
+        (I32ValueCondition::Positive, -1) => {
+            condition_implication(I32ValueCondition::NonNegative, target_condition) == Some(true)
+        }
+        (I32ValueCondition::Negative, 1) => {
+            condition_implication(I32ValueCondition::NonPositive, target_condition) == Some(true)
+        }
+        _ => false,
     }
 }

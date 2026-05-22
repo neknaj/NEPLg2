@@ -4,9 +4,11 @@ use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
 
+use super::condition_fact::record_condition_fact_value_constraints;
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_flow::expr_kind_preserves_read_scalar_facts;
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_alias_flow_apply::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
@@ -38,7 +40,7 @@ pub(super) fn propagate_i32_scalar_ops(
     }
 }
 
-fn propagate_i32_scalar_op(
+pub(super) fn propagate_i32_scalar_op(
     raw_aliases: &mut RawCellAddressAliases,
     function_aliases: &mut FunctionAliasTable,
     op: &ResourceOp,
@@ -172,6 +174,7 @@ fn propagate_i32_scalar_op(
         }
         ResourceOp::Branch {
             output,
+            condition_fact,
             then_ops,
             then_value,
             else_ops,
@@ -182,6 +185,10 @@ fn propagate_i32_scalar_op(
             let mut else_aliases = raw_aliases.clone();
             let mut then_function_aliases = function_aliases.clone();
             let mut else_function_aliases = function_aliases.clone();
+            if let Some(condition_fact) = condition_fact {
+                record_condition_fact_value_constraints(&mut then_aliases, condition_fact, true);
+                record_condition_fact_value_constraints(&mut else_aliases, condition_fact, false);
+            }
             propagate_i32_scalar_ops(
                 &mut then_aliases,
                 &mut then_function_aliases,
@@ -298,7 +305,13 @@ fn propagate_i32_scalar_op(
             | ResourceExprKind::Let
             | ResourceExprKind::Set
             | ResourceExprKind::Deref
-            | ResourceExprKind::Drop => raw_aliases.clear(output),
+            | ResourceExprKind::Drop => {
+                if expr_kind_preserves_read_scalar_facts(*kind) {
+                    raw_aliases.clear_raw_address_facts(output);
+                } else {
+                    raw_aliases.clear(output);
+                }
+            }
         },
         ResourceOp::Borrow { source, output, .. } => {
             raw_aliases.mark(output);

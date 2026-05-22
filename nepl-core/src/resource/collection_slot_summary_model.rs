@@ -11,6 +11,7 @@ use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
+use super::i32_scalar_return_facts::I32ScalarReturnFacts;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_projection::SummaryPlace;
 
@@ -114,4 +115,5 @@ pub(super) struct CollectionSlotLifecycleReturnPath {
     pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
     pub(super) return_transfers: Vec<CollectionSlotLifecycleReturnTransfer>,
     pub(super) return_slots: Vec<CollectionSlotLifecycleReturnSlot>,
+    pub(super) i32_scalar_facts: I32ScalarReturnFacts,
 }

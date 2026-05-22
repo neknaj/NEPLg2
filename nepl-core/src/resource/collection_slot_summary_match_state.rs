@@ -30,10 +30,11 @@ pub(super) fn collection_slot_summary_match_arm_entry_state(
             arm_state
                 .cells
                 .transfer_raw_cell_loaded_value_origin(&source, bind_local);
-            arm_engine.transfer_slot_state_if_moved(
+            arm_engine.transfer_slot_state_if_moved_with_aliases(
                 &mut arm_state.collection_slots,
                 &source,
                 bind_local,
+                &arm_state.raw_aliases,
                 arm.span,
             );
             arm_state.function_aliases.copy_alias(&source, bind_local);

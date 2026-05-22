@@ -18,16 +18,23 @@ pub(super) struct I32ScaleFacts {
 }
 
 impl I32ScaleFacts {
-    pub(super) fn add_scale(&mut self, source: &Place, target: &Place, scale: usize) {
+    pub(super) fn set_scales_for_target(
+        &mut self,
+        sources: Vec<Place>,
+        target: &Place,
+        scale: usize,
+    ) {
         if scale == 0 {
             return;
         }
         self.facts.retain(|fact| fact.target != *target);
-        self.push_scale_fact(I32ScaleFact {
-            source: source.clone(),
-            target: target.clone(),
-            scale,
-        });
+        for source in sources {
+            self.push_scale_fact(I32ScaleFact {
+                source,
+                target: target.clone(),
+                scale,
+            });
+        }
     }
 
     pub(super) fn scaled_sources_for_aliases(&self, aliases: &[Place]) -> Vec<(Place, usize)> {
@@ -60,6 +67,12 @@ impl I32ScaleFacts {
             }
         }
         out
+    }
+
+    pub(super) fn has_scaled_source_for_aliases(&self, aliases: &[Place]) -> bool {
+        aliases
+            .iter()
+            .any(|alias| self.facts.iter().any(|fact| fact.target == *alias))
     }
 
     pub(super) fn facts_with_replaced_prefix(&self, source: &Place, target: &Place) -> Self {

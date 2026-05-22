@@ -14,12 +14,15 @@ use super::collection_slot_summary_projection::{
     translate_summary_suffix_for_params, CollectionSlotLifecycleSummaryOffset,
     CollectionSlotLifecycleSummaryProjection,
 };
-use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
+use super::collection_slot_summary_target::{
+    instantiate_summary_target, summary_place_for_params, summary_place_for_params_with_aliases,
+};
 use super::initialized::ResourceCheckEngine;
+use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_scalar_flow::I32ScalarReturnSummaryIndex;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
-use super::model::{Place, PlaceProjection, ResourceLocal, ResourceOffset};
+use super::model::{Place, PlaceProjection, ResourceId, ResourceLocal, ResourceOffset};
 use super::report::ResourceCheckDeferred;
 
 fn local(name: &str, ty: crate::types::TypeId) -> Place {
@@ -97,6 +100,34 @@ fn summary_target_rejects_non_parameter_symbolic_operand() {
 }
 
 #[test]
+fn summary_target_rewrites_symbolic_operand_through_scalar_alias() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let callee_storage = local("callee_storage", i32_ty);
+    let callee_byte_offset = local("byte_off", i32_ty);
+    let loaded_byte_offset = Place::temporary(ResourceId(7), i32_ty);
+    let target = callee_storage
+        .clone()
+        .with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
+                place: Box::new(loaded_byte_offset.clone()),
+            }),
+            i32_ty,
+        )
+        .with_projection(PlaceProjection::Deref, i32_ty);
+    let mut raw_aliases = RawCellAddressAliases::default();
+    raw_aliases.copy_scalar_facts_if_tracked(&callee_byte_offset, &loaded_byte_offset);
+    let params = [
+        param("storage", callee_storage),
+        param("byte_off", callee_byte_offset),
+    ];
+
+    let summary = summary_place_for_params_with_aliases(&params, &raw_aliases, &target)
+        .expect("summary target");
+    assert_symbolic_operand_points_to_param(&summary, 1);
+}
+
+#[test]
 fn return_suffix_translation_rewrites_symbolic_operand_through_wrapper_args() {
     let types = TypeCtx::new();
     let i32_ty = types.i32();
@@ -145,6 +176,20 @@ fn return_suffix_translation_rewrites_symbolic_operand_through_wrapper_args() {
         i32_ty,
     );
     assert_eq!(actual, expected);
+}
+
+fn assert_symbolic_operand_points_to_param(
+    summary: &CollectionSlotLifecycleSummaryPlace,
+    expected_parameter_index: usize,
+) {
+    let Some(CollectionSlotLifecycleSummaryProjection::StorageOffset(
+        CollectionSlotLifecycleSummaryOffset::Symbolic { place },
+    )) = summary.suffix.first()
+    else {
+        panic!("summary must keep symbolic offset as typed summary projection: {summary:#?}");
+    };
+    assert_eq!(place.parameter_index, expected_parameter_index);
+    assert!(place.suffix.is_empty());
 }
 
 fn assert_scaled_operand_points_to_param(

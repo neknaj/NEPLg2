@@ -7,7 +7,9 @@ use super::collection_slot_summary_projection;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceLocal};
+use crate::types::TypeCtx;
 
+#[cfg(test)]
 pub(super) fn instantiate_summary_target(
     engine: &ResourceCheckEngine<'_>,
     args: &[Place],
@@ -16,6 +18,21 @@ pub(super) fn instantiate_summary_target(
     collection_slot_summary_projection::instantiate_summary_place(engine, args, target)
 }
 
+pub(super) fn instantiate_summary_target_with_aliases(
+    engine: &ResourceCheckEngine<'_>,
+    args: &[Place],
+    raw_aliases: &RawCellAddressAliases,
+    target: &CollectionSlotLifecycleSummaryPlace,
+) -> Option<Place> {
+    collection_slot_summary_projection::instantiate_summary_place_with_aliases(
+        engine,
+        args,
+        raw_aliases,
+        target,
+    )
+}
+
+#[cfg(test)]
 pub(super) fn summary_place_for_params(
     params: &[ResourceLocal],
     target: &Place,
@@ -28,17 +45,63 @@ pub(super) fn summary_place_for_params_with_aliases(
     raw_aliases: &RawCellAddressAliases,
     target: &Place,
 ) -> Option<CollectionSlotLifecycleSummaryPlace> {
+    summary_place_for_params_with_aliases_and_types(params, None, raw_aliases, target)
+}
+
+pub(super) fn summary_place_for_params_with_aliases_and_types(
+    params: &[ResourceLocal],
+    types: Option<&TypeCtx>,
+    raw_aliases: &RawCellAddressAliases,
+    target: &Place,
+) -> Option<CollectionSlotLifecycleSummaryPlace> {
     let mut candidates = Vec::new();
     push_unique_place(&mut candidates, target);
+    let canonical_target = raw_aliases.canonicalize_owner_cell_address(target);
+    push_unique_place(&mut candidates, &canonical_target);
     for alias in raw_aliases.raw_address_aliases_for_value(target) {
+        push_unique_place(&mut candidates, &alias);
+    }
+    for alias in raw_aliases.raw_address_aliases_for_value(&canonical_target) {
+        push_unique_place(&mut candidates, &alias);
+    }
+    for alias in raw_aliases.prefix_aliases_for(target) {
         push_unique_place(&mut candidates, &alias);
     }
     for alias in raw_aliases.scalar_aliases_for_value(target) {
         push_unique_place(&mut candidates, &alias);
     }
-    candidates
-        .iter()
-        .find_map(|candidate| summary_place_for_params(params, candidate))
+    candidates.iter().find_map(|candidate| {
+        if let Some(types) = types {
+            collection_slot_summary_projection::summary_place_for_params_with_scalar_aliases_and_types(
+                params,
+                types,
+                raw_aliases,
+                candidate,
+            )
+        } else {
+            collection_slot_summary_projection::summary_place_for_params_with_scalar_aliases(
+                params,
+                raw_aliases,
+                candidate,
+            )
+        }
+    })
+}
+
+pub(super) fn translate_summary_target_for_params_with_aliases(
+    engine: &ResourceCheckEngine<'_>,
+    args: &[Place],
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    target: &CollectionSlotLifecycleSummaryPlace,
+) -> Option<CollectionSlotLifecycleSummaryPlace> {
+    collection_slot_summary_projection::translate_summary_place_for_params_with_aliases(
+        engine,
+        args,
+        params,
+        raw_aliases,
+        target,
+    )
 }
 
 fn push_unique_place(out: &mut Vec<Place>, place: &Place) {

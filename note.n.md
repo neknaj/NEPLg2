@@ -1,3 +1,23 @@
+# 2026-05-22 Agent 1 Vec drop_last Drop payload lifecycle
+
+- `ISS-20260522T095020801Z-VEC-DROP-LAST-MUST-CLOSE-REMOVED-SLO-3691EA21` を解決した。`plan.md` は確認済みで、変更していない。
+- `Vec.drop_last` を `Copy` / `Drop` overload に分け、どちらも `VecStorageInvariant` を使う private helper 境界へ委譲する構造にした。`Drop` payload では actual `Drop::drop` と `collection_slot_drop_initialized` を同じ removed tail slot proof boundary に閉じる。
+- Resource IR 側では `MemPtr` を non-owning pointer として扱い、collection slot state の transfer / consumed cleanup は `RegionToken` などの owner obligation carrier に限定した。これにより `region_ptr` / `mem_ptr_add` / `mem_ptr_addr` の pointer 計算で initialized slot state が消えない。
+- return path summary は path ごとの cell / collection slot / raw alias state と i32 scalar return facts を replay する。`initialized_len - 1` の tail index fact が caller 側へ伝播し、symbolic slot offset が initialized range 内であることを Resource IR が証明できる。
+- focused verification:
+  - `cargo fmt`
+  - `cargo test -p nepl-core resource::collection_slot_owner_carrier_tests -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_drop_last_closes_tail_slot -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_copy_drop_last_closes_tail_slot -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized_accepts_actual_loaded_value_drop -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_push_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core resource::initialized_alias_tests::i32_ -- --nocapture`
+  - `cargo test -p nepl-core resource::initialized_alias_i32_condition_tests:: -- --nocapture`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+
 # 2026-05-22 Agent 1 Vec Drop payload push success path
 
 - `ISS-20260522T093518180Z-VEC-PUSH-MUST-ACCEPT-DROP-PAYLOAD-TH-6C6190D3` を解決した。`plan.md` は確認済みで、変更していない。

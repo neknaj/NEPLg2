@@ -8,7 +8,7 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
 };
 use super::collection_slot_summary_replay_drop_traversal::apply_drop_traversal_summary_op;
-use super::collection_slot_summary_target::instantiate_summary_target;
+use super::collection_slot_summary_target::instantiate_summary_target_with_aliases;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
@@ -30,7 +30,9 @@ impl ResourceCheckEngine<'_> {
                     event,
                     proof,
                 } => {
-                    if let Some(target) = instantiate_summary_target(self, args, target) {
+                    if let Some(target) =
+                        instantiate_summary_target_with_aliases(self, args, raw_aliases, target)
+                    {
                         self.apply_collection_slot_lifecycle_summary_event_with_aliases(
                             cells,
                             collection_slots,
@@ -50,12 +52,20 @@ impl ResourceCheckEngine<'_> {
                     match proof {
                         CollectionSlotLifecycleSummaryRelocateProof::RawStorageRelocation => {}
                     }
-                    let Some(old_storage) = instantiate_summary_target(self, args, old_storage)
-                    else {
+                    let Some(old_storage) = instantiate_summary_target_with_aliases(
+                        self,
+                        args,
+                        raw_aliases,
+                        old_storage,
+                    ) else {
                         continue;
                     };
-                    let Some(new_storage) = instantiate_summary_target(self, args, new_storage)
-                    else {
+                    let Some(new_storage) = instantiate_summary_target_with_aliases(
+                        self,
+                        args,
+                        raw_aliases,
+                        new_storage,
+                    ) else {
                         continue;
                     };
                     self.apply_certified_collection_storage_relocate_with_aliases(

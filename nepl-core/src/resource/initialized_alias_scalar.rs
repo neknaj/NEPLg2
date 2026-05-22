@@ -58,6 +58,7 @@ impl I32AliasFacts {
         condition: I32ValueCondition,
     ) -> Option<bool> {
         let mut truth = None;
+        let mut saw_direct_implication = false;
         for alias in aliases {
             for fact in &self.conditions {
                 if fact.place != *alias {
@@ -66,6 +67,7 @@ impl I32AliasFacts {
                 let Some(fact_truth) = condition_implication(fact.condition, condition) else {
                     continue;
                 };
+                saw_direct_implication = true;
                 match truth {
                     Some(existing) if existing != fact_truth => return None,
                     Some(_) => {}
@@ -73,7 +75,10 @@ impl I32AliasFacts {
                 }
             }
         }
-        truth
+        if saw_direct_implication {
+            return truth;
+        }
+        self.combined_condition_truth_for_aliases(aliases, condition)
     }
 
     pub(super) fn facts_with_replaced_prefix(&self, source: &Place, target: &Place) -> Self {
@@ -151,6 +156,39 @@ impl I32AliasFacts {
             return;
         }
         self.conditions.push(fact);
+    }
+
+    fn combined_condition_truth_for_aliases(
+        &self,
+        aliases: &[Place],
+        condition: I32ValueCondition,
+    ) -> Option<bool> {
+        use I32ValueCondition::{EqZero, NeZero, Negative, NonNegative, NonPositive, Positive};
+
+        let derived = if self.aliases_have_condition(aliases, NonNegative)
+            && self.aliases_have_condition(aliases, NonPositive)
+        {
+            EqZero
+        } else if self.aliases_have_condition(aliases, NonNegative)
+            && self.aliases_have_condition(aliases, NeZero)
+        {
+            Positive
+        } else if self.aliases_have_condition(aliases, NonPositive)
+            && self.aliases_have_condition(aliases, NeZero)
+        {
+            Negative
+        } else {
+            return None;
+        };
+        condition_implication(derived, condition)
+    }
+
+    fn aliases_have_condition(&self, aliases: &[Place], condition: I32ValueCondition) -> bool {
+        aliases.iter().any(|alias| {
+            self.conditions
+                .iter()
+                .any(|fact| fact.place == *alias && fact.condition == condition)
+        })
     }
 }
 

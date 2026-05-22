@@ -715,7 +715,11 @@ fn resource_offsets_may_overlap(
         | (super::model::ResourceOffset::Symbolic { .. }, _)
         | (_, super::model::ResourceOffset::Symbolic { .. })
         | (super::model::ResourceOffset::ScaledSymbolic { .. }, _)
-        | (_, super::model::ResourceOffset::ScaledSymbolic { .. }) => true,
+        | (_, super::model::ResourceOffset::ScaledSymbolic { .. })
+        | (super::model::ResourceOffset::Offset { .. }, _)
+        | (_, super::model::ResourceOffset::Offset { .. })
+        | (super::model::ResourceOffset::ScaledOffset { .. }, _)
+        | (_, super::model::ResourceOffset::ScaledOffset { .. }) => true,
     }
 }
 

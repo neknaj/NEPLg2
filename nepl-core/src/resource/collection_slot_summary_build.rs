@@ -57,7 +57,8 @@ fn update_collection_slot_lifecycle_summary(
 ) -> bool {
     let has_facts = !summary.ops.is_empty()
         || !summary.return_transfers.is_empty()
-        || !summary.return_slots.is_empty();
+        || !summary.return_slots.is_empty()
+        || !summary.return_paths.is_empty();
     let position = summaries
         .iter()
         .position(|existing| existing.function == summary.function);
@@ -126,6 +127,7 @@ fn function_collection_slot_lifecycle_summary(
             &block.terminator,
         );
     }
+    return_paths.retain(collection_return_path_has_lifecycle_facts);
     CollectionSlotLifecycleFunctionSummary {
         function: function.name.clone(),
         ops,
@@ -133,4 +135,8 @@ fn function_collection_slot_lifecycle_summary(
         return_slots,
         return_paths,
     }
+}
+
+fn collection_return_path_has_lifecycle_facts(path: &CollectionSlotLifecycleReturnPath) -> bool {
+    !path.ops.is_empty() || !path.return_transfers.is_empty() || !path.return_slots.is_empty()
 }

@@ -72,6 +72,20 @@ impl RawValueOrigins {
         out
     }
 
+    pub(super) fn places_with_origin(&self, origin: &Place) -> Vec<Place> {
+        let mut out = Vec::new();
+        for value_origin in &self.origins {
+            let Some(suffix) = place_suffix_after_prefix(origin, &value_origin.origin) else {
+                continue;
+            };
+            let place = place_with_suffix(&value_origin.place, &suffix, origin.ty);
+            if !out.iter().any(|existing| existing == &place) {
+                out.push(place);
+            }
+        }
+        out
+    }
+
     pub(super) fn clear_prefix(&mut self, place: &Place) {
         self.origins.retain(|origin| {
             place_suffix_after_prefix(&origin.place, place).is_none()

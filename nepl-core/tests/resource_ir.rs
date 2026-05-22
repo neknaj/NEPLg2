@@ -16020,6 +16020,180 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_vec_copy_drop_last_closes_tail_slot() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>
+    let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v0 7
+    let v2 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v1 9
+    let v3 <Vec<i32>> drop_last<i32> v2
+    free<i32> v3
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("push__")
+                    || function.starts_with("vec_push_storage_checked__")
+                    || function.starts_with("vec_push_slot_store_initialized__")
+                    || function.starts_with("drop_last__")
+                    || function.starts_with("vec_drop_last_storage_checked_copy__")
+                    || function.starts_with("vec_drop_last_copy_initialized_slot__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec<i32>.drop_last must close the removed Copy tail slot before free: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_drop_last_copy_initialized_slot"
+                && resource_function_ops_any(function, |op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::DropInitialized { .. },
+                            ..
+                        }
+                    )
+                })
+                && !resource_function_ops_any(function, |op| matches!(op, ResourceOp::Drop { .. }))
+        }),
+        "Copy drop_last helper must emit single-slot DropInitialized state proof without requiring destructor code:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("main__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "main must not retain initialized Copy Vec slots after drop_last/free: {:#?}",
+        report.functions
+    );
+}
+
+#[test]
+fn resource_ir_initialized_check_vec_drop_drop_last_closes_tail_slot() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn main <()*>i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+    let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
+    let v3 <Vec<DropPayload>> drop_last<DropPayload> v2
+    free<DropPayload> v3
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("push__")
+                    || function.starts_with("vec_push_storage_checked__")
+                    || function.starts_with("vec_push_slot_store_initialized__")
+                    || function.starts_with("drop_last__")
+                    || function.starts_with("vec_drop_last_storage_checked_drop__")
+                    || function.starts_with("vec_drop_last_drop_initialized_slot__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec<DropPayload>.drop_last must drop the removed tail slot and preserve free cleanup: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_drop_last_drop_initialized_slot"
+                && resource_function_ops_any(function, |op| matches!(op, ResourceOp::Drop { .. }))
+                && resource_function_ops_any(function, |op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::DropInitialized { .. },
+                            ..
+                        }
+                    )
+                })
+        }),
+        "Drop drop_last helper must pair actual Drop::drop proof with single-slot DropInitialized lifecycle proof:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .all(|function| function.origin_name != "vec_buffer_current_copy_invariant"),
+        "Drop payload drop_last must not route through Copy raw-access invariant:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("main__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "main must not retain initialized Drop payload Vec slots after drop_last/free: {:#?}",
+        report.functions
+    );
+}
+
+#[test]
 fn resource_ir_initialized_check_storage_realloc_helper_accepts_drop_payload_without_copy() {
     let source = r#"
 #entry main

@@ -13,6 +13,7 @@ use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryEventPro
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
+use super::raw_cell_value_flow_alias::canonical_raw_cell_place_with_aliases;
 use super::raw_realloc::PendingRawReallocs;
 
 impl ResourceCheckEngine<'_> {
@@ -26,7 +27,7 @@ impl ResourceCheckEngine<'_> {
         event: CollectionSlotLifecycleEvent,
         span: Span,
     ) {
-        let target = raw_aliases.canonicalize_owner_cell_address(target);
+        let target = canonical_raw_cell_place_with_aliases(target, raw_aliases);
         self.apply_collection_slot_lifecycle_with_proofs(
             cells,
             collection_slots,
@@ -51,7 +52,7 @@ impl ResourceCheckEngine<'_> {
         proof: CollectionSlotLifecycleSummaryEventProof,
         span: Span,
     ) {
-        let target = raw_aliases.canonicalize_owner_cell_address(target);
+        let target = canonical_raw_cell_place_with_aliases(target, raw_aliases);
         self.apply_collection_slot_lifecycle_with_proofs(
             cells,
             collection_slots,

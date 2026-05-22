@@ -41,6 +41,26 @@ impl NormalizedRawOffset {
                     }
                     scaled = Some(((**place).clone(), *scale));
                 }
+                ResourceOffset::Offset { place, offset } => {
+                    if symbolic.is_some() || scaled.is_some() {
+                        return None;
+                    }
+                    let offset = usize::try_from(*offset).ok()?;
+                    known = known.checked_add(offset)?;
+                    symbolic = Some((**place).clone());
+                }
+                ResourceOffset::ScaledOffset {
+                    place,
+                    offset,
+                    scale,
+                } => {
+                    if symbolic.is_some() || scaled.is_some() {
+                        return None;
+                    }
+                    let offset = usize::try_from(*offset).ok()?;
+                    known = known.checked_add(offset)?;
+                    scaled = Some(((**place).clone(), *scale));
+                }
                 ResourceOffset::Unknown => return None,
             }
         }

@@ -18,13 +18,20 @@ pub(super) struct I32OffsetFacts {
 }
 
 impl I32OffsetFacts {
-    pub(super) fn add_offset(&mut self, source: &Place, target: &Place, offset: i64) {
+    pub(super) fn set_offsets_for_target(
+        &mut self,
+        sources: Vec<Place>,
+        target: &Place,
+        offset: i64,
+    ) {
         self.facts.retain(|fact| fact.target != *target);
-        self.push_offset_fact(I32OffsetFact {
-            source: source.clone(),
-            target: target.clone(),
-            offset,
-        });
+        for source in sources {
+            self.push_offset_fact(I32OffsetFact {
+                source,
+                target: target.clone(),
+                offset,
+            });
+        }
     }
 
     pub(super) fn offset_targets_for_source_aliases(&self, aliases: &[Place]) -> Vec<(Place, i64)> {
@@ -41,6 +48,30 @@ impl I32OffsetFacts {
             }
         }
         out
+    }
+
+    pub(super) fn offset_sources_for_target_aliases(&self, aliases: &[Place]) -> Vec<(Place, i64)> {
+        let mut out = Vec::new();
+        for alias in aliases {
+            for fact in &self.facts {
+                if fact.target != *alias {
+                    continue;
+                }
+                let candidate = (fact.source.clone(), fact.offset);
+                if !out.iter().any(|existing| existing == &candidate) {
+                    out.push(candidate);
+                }
+            }
+        }
+        out
+    }
+
+    pub(super) fn has_offset_for_aliases(&self, aliases: &[Place]) -> bool {
+        aliases.iter().any(|alias| {
+            self.facts
+                .iter()
+                .any(|fact| fact.source == *alias || fact.target == *alias)
+        })
     }
 
     pub(super) fn facts_with_replaced_prefix(&self, source: &Place, target: &Place) -> Self {

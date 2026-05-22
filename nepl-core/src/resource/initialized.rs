@@ -5,9 +5,15 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
+use super::collection_slot_lifecycle::{
+    apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotState,
+};
 use super::collection_slot_state_table::{CollectionSlotStateEntry, CollectionSlotStateTable};
 use super::collection_slot_summary_build::compute_collection_slot_lifecycle_function_summaries;
-use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummaryIndex;
+use super::collection_slot_summary_model::{
+    CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
+};
+use super::collection_slot_summary_target::instantiate_summary_target_with_aliases;
 use super::drop_model::ResourceDropPoint;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
@@ -15,7 +21,8 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
-    expr_kind_preserves_raw_alias, RawCellAddressReturnSummaryIndex,
+    expr_kind_preserves_raw_alias, expr_kind_preserves_read_scalar_facts,
+    RawCellAddressReturnSummaryIndex,
 };
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
 use super::initialized_path_state::{merge_path_alternatives_into, ResourcePathAlternatives};
@@ -124,6 +131,23 @@ fn dedup_resource_check_diagnostics(diagnostics: &mut Vec<ResourceCheckDiagnosti
     *diagnostics = unique;
 }
 
+fn collection_slot_event_precondition_state(
+    event: CollectionSlotLifecycleEvent,
+) -> Option<CollectionSlotState> {
+    match event {
+        CollectionSlotLifecycleEvent::InitializeEmpty { .. }
+        | CollectionSlotLifecycleEvent::StorageDealloc => None,
+        CollectionSlotLifecycleEvent::BorrowRead { expected_ty }
+        | CollectionSlotLifecycleEvent::MoveOut { expected_ty }
+        | CollectionSlotLifecycleEvent::DropInitialized { expected_ty } => {
+            Some(CollectionSlotState::Initialized(expected_ty))
+        }
+        CollectionSlotLifecycleEvent::ReplaceInitialized { old_ty, .. } => {
+            Some(CollectionSlotState::Initialized(old_ty))
+        }
+    }
+}
+
 pub(super) struct ResourceCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
@@ -159,6 +183,11 @@ impl ResourceCheckEngine<'_> {
                 seed_str_storage_layout(self.types, &mut cells, &mut raw_aliases, &target);
             }
         }
+        self.seed_collection_slot_summary_preconditions(
+            &mut collection_slots,
+            &raw_aliases,
+            function,
+        );
         for block in &function.blocks {
             self.check_block(
                 &mut cells,
@@ -171,6 +200,123 @@ impl ResourceCheckEngine<'_> {
             );
         }
         (cells.into_entries(), collection_slots.entries().to_vec())
+    }
+
+    fn seed_collection_slot_summary_preconditions(
+        &self,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        function: &ResourceFunction,
+    ) {
+        let Some(summary) = self.collection_slot_summaries.get(&function.name) else {
+            return;
+        };
+        let args = function
+            .params
+            .iter()
+            .map(|param| param.place.clone())
+            .collect::<Vec<_>>();
+        if summary.return_paths.is_empty() {
+            let mut simulated_slots = collection_slots.clone();
+            self.seed_collection_slot_summary_op_preconditions(
+                collection_slots,
+                &mut simulated_slots,
+                raw_aliases,
+                &args,
+                &summary.ops,
+            );
+        } else {
+            for return_path in &summary.return_paths {
+                let mut simulated_slots = collection_slots.clone();
+                self.seed_collection_slot_summary_op_preconditions(
+                    collection_slots,
+                    &mut simulated_slots,
+                    raw_aliases,
+                    &args,
+                    &return_path.ops,
+                );
+            }
+        }
+    }
+
+    fn seed_collection_slot_summary_op_preconditions(
+        &self,
+        collection_slots: &mut CollectionSlotStateTable,
+        simulated_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        args: &[Place],
+        ops: &[CollectionSlotLifecycleSummaryOp],
+    ) {
+        for op in ops {
+            match op {
+                CollectionSlotLifecycleSummaryOp::Event { target, event, .. } => {
+                    let Some(target) =
+                        instantiate_summary_target_with_aliases(self, args, raw_aliases, target)
+                    else {
+                        continue;
+                    };
+                    if let Some(initial_state) = collection_slot_event_precondition_state(*event) {
+                        let state = simulated_slots.state_with_aliases(&target, raw_aliases);
+                        if matches!(state, CollectionSlotState::Uninitialized)
+                            && apply_collection_slot_lifecycle_event(self.types, state, *event)
+                                .is_err()
+                        {
+                            collection_slots.set_slot_state(&target, initial_state);
+                            simulated_slots.set_slot_state(&target, initial_state);
+                        }
+                    }
+                    let _ = simulated_slots.apply_slot_event_with_aliases(
+                        self.types,
+                        &target,
+                        raw_aliases,
+                        *event,
+                    );
+                }
+                CollectionSlotLifecycleSummaryOp::Merge { paths } => {
+                    let mut path_slots = Vec::new();
+                    for path in paths {
+                        let mut branch_slots = simulated_slots.clone();
+                        self.seed_collection_slot_summary_op_preconditions(
+                            collection_slots,
+                            &mut branch_slots,
+                            raw_aliases,
+                            args,
+                            path,
+                        );
+                        path_slots.push(branch_slots);
+                    }
+                    if !path_slots.is_empty() {
+                        *simulated_slots = CollectionSlotStateTable::merge_paths(&path_slots);
+                    }
+                }
+                CollectionSlotLifecycleSummaryOp::Loop {
+                    condition_ops,
+                    body_ops,
+                } => {
+                    let mut condition_slots = simulated_slots.clone();
+                    self.seed_collection_slot_summary_op_preconditions(
+                        collection_slots,
+                        &mut condition_slots,
+                        raw_aliases,
+                        args,
+                        condition_ops,
+                    );
+                    let exit_slots = condition_slots.clone();
+                    let mut body_slots = condition_slots;
+                    self.seed_collection_slot_summary_op_preconditions(
+                        collection_slots,
+                        &mut body_slots,
+                        raw_aliases,
+                        args,
+                        body_ops,
+                    );
+                    *simulated_slots =
+                        CollectionSlotStateTable::merge_paths(&[exit_slots, body_slots]);
+                }
+                CollectionSlotLifecycleSummaryOp::Relocate { .. }
+                | CollectionSlotLifecycleSummaryOp::DropTraversal { .. } => {}
+            }
+        }
     }
 
     fn check_block(
@@ -303,10 +449,11 @@ impl ResourceCheckEngine<'_> {
                             raw_aliases,
                         );
                         cells.transfer_raw_cell_loaded_value_origin(initializer, place);
-                        self.transfer_slot_state_if_moved(
+                        self.transfer_slot_state_if_moved_with_aliases(
                             collection_slots,
                             initializer,
                             place,
+                            raw_aliases,
                             *span,
                         );
                         function_aliases.copy_alias(initializer, place);
@@ -349,7 +496,13 @@ impl ResourceCheckEngine<'_> {
                         raw_aliases,
                     );
                     cells.transfer_raw_cell_loaded_value_origin(source, output);
-                    self.transfer_slot_state_if_moved(collection_slots, source, output, *span);
+                    self.transfer_slot_state_if_moved_with_aliases(
+                        collection_slots,
+                        source,
+                        output,
+                        raw_aliases,
+                        *span,
+                    );
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -386,7 +539,13 @@ impl ResourceCheckEngine<'_> {
                         raw_aliases,
                     );
                     cells.transfer_raw_cell_loaded_value_origin(value, target);
-                    self.transfer_slot_state_if_moved(collection_slots, value, target, *span);
+                    self.transfer_slot_state_if_moved_with_aliases(
+                        collection_slots,
+                        value,
+                        target,
+                        raw_aliases,
+                        *span,
+                    );
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
                     variant_initializations.copy_result(value, target);
@@ -434,7 +593,13 @@ impl ResourceCheckEngine<'_> {
                         raw_aliases,
                     );
                     cells.transfer_raw_cell_loaded_value_origin(source, output);
-                    self.transfer_slot_state(collection_slots, source, output, *span);
+                    self.transfer_slot_state_with_aliases(
+                        collection_slots,
+                        source,
+                        output,
+                        raw_aliases,
+                        *span,
+                    );
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -488,6 +653,7 @@ impl ResourceCheckEngine<'_> {
                 cells,
                 collection_slots,
                 raw_aliases,
+                function_aliases,
                 pending_reallocs,
                 variant_initializations,
                 output,
@@ -568,7 +734,13 @@ impl ResourceCheckEngine<'_> {
                             raw_aliases,
                         );
                         cells.transfer_raw_cell_loaded_value_origin(input, &field);
-                        self.transfer_slot_state_if_moved(collection_slots, input, &field, *span);
+                        self.transfer_slot_state_if_moved_with_aliases(
+                            collection_slots,
+                            input,
+                            &field,
+                            raw_aliases,
+                            *span,
+                        );
                     }
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
                     seed_str_storage_layout(self.types, cells, raw_aliases, output);
@@ -730,7 +902,11 @@ impl ResourceCheckEngine<'_> {
             && !(matches!(kind, ResourceExprKind::Deref)
                 && type_preserves_raw_address_alias(self.types, output.ty))
         {
-            raw_aliases.clear(output);
+            if expr_kind_preserves_read_scalar_facts(kind) {
+                raw_aliases.clear_raw_address_facts(output);
+            } else {
+                raw_aliases.clear(output);
+            }
         }
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
     }

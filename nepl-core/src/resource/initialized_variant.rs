@@ -383,6 +383,7 @@ impl PendingVariantRawCellInitializations {
             let Some(place) = instantiate_summary_suffix_on_base_with_types(
                 types,
                 args,
+                None,
                 arg,
                 &condition.suffix,
                 condition.ty,

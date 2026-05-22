@@ -6,7 +6,9 @@ use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummary
 use super::collection_slot_summary_projection::compose_translated_summary_suffix_for_params;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
 use super::collection_slot_summary_return_unique::push_return_transfer;
-use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
+use super::collection_slot_summary_target::{
+    instantiate_summary_target_with_aliases, summary_place_for_params_with_aliases,
+};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -72,11 +74,14 @@ fn collect_return_transfers_from_summary(
     target_suffix: &[PlaceProjection],
 ) {
     for transfer in &summary.return_transfers {
-        let Some(source) = instantiate_summary_target(engine, args, &transfer.source) else {
+        let Some(source) =
+            instantiate_summary_target_with_aliases(engine, args, raw_aliases, &transfer.source)
+        else {
             continue;
         };
         let source = raw_aliases.canonicalize_owner_cell_address(&source);
-        let Some(source) = summary_place_for_params(params, &source) else {
+        let Some(source) = summary_place_for_params_with_aliases(params, raw_aliases, &source)
+        else {
             continue;
         };
         let Some(composed_target_suffix) = compose_translated_summary_suffix_for_params(

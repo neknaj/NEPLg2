@@ -8,7 +8,10 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
     CollectionSlotLifecycleSummaryPlace,
 };
-use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
+use super::collection_slot_summary_target::{
+    instantiate_summary_target_with_aliases, summary_place_for_params_with_aliases_and_types,
+    translate_summary_target_for_params_with_aliases,
+};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceLocal};
@@ -97,7 +100,17 @@ fn translate_summary_place(
     raw_aliases: &RawCellAddressAliases,
     place: &CollectionSlotLifecycleSummaryPlace,
 ) -> Option<CollectionSlotLifecycleSummaryPlace> {
-    let actual = instantiate_summary_target(engine, args, place)?;
+    if let Some(place) =
+        translate_summary_target_for_params_with_aliases(engine, args, params, raw_aliases, place)
+    {
+        return Some(place);
+    }
+    let actual = instantiate_summary_target_with_aliases(engine, args, raw_aliases, place)?;
     let actual = raw_aliases.canonicalize_owner_cell_address(&actual);
-    summary_place_for_params(params, &actual)
+    summary_place_for_params_with_aliases_and_types(
+        params,
+        Some(engine.types),
+        raw_aliases,
+        &actual,
+    )
 }

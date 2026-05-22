@@ -10,6 +10,7 @@ use super::collection_slot_summary_build_range_lifetime::drop_traversal_range_ce
 use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_external_seed::seed_external_raw_storage_input_place;
 use super::initialized_summary_seed::seed_summary_input_place;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{ResourceFunction, ResourceOp};
@@ -42,9 +43,16 @@ impl CollectionSlotSummaryBuildState {
         let mut raw_aliases = RawCellAddressAliases::default();
         for param in &function.params {
             seed_summary_input_place(types, &mut cells, &mut raw_aliases, &param.place);
+            seed_external_raw_storage_input_place(
+                types,
+                &mut cells,
+                &mut raw_aliases,
+                &param.place,
+            );
             if let Some(target_ty) = reference_target_type(types, param.place.ty) {
                 let target = reference_target_place(&param.place, target_ty);
                 seed_summary_input_place(types, &mut cells, &mut raw_aliases, &target);
+                seed_external_raw_storage_input_place(types, &mut cells, &mut raw_aliases, &target);
             }
         }
         Self {

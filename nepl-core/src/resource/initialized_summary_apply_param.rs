@@ -20,9 +20,14 @@ pub(super) fn apply_param_initialization_summary(
             continue;
         };
         let arg = raw_aliases.canonicalize(arg);
-        let Some(place) =
-            instantiate_summary_suffix_on_base_with_types(types, args, &arg, &cell.suffix, cell.ty)
-        else {
+        let Some(place) = instantiate_summary_suffix_on_base_with_types(
+            types,
+            args,
+            None,
+            &arg,
+            &cell.suffix,
+            cell.ty,
+        ) else {
             continue;
         };
         cells.mark_initialized(&place);
@@ -38,6 +43,7 @@ pub(super) fn apply_param_initialization_summary(
         let Some(address) = instantiate_summary_suffix_on_base_with_types(
             types,
             args,
+            None,
             &address_arg,
             &range.address_suffix,
             range.address_ty,
@@ -65,7 +71,9 @@ fn param_count_source_place(
             ty,
         } => {
             let count_arg = raw_aliases.canonicalize_scalar(args.get(*param_index)?);
-            instantiate_summary_suffix_on_base_with_types(types, args, &count_arg, suffix, *ty)
+            instantiate_summary_suffix_on_base_with_types(
+                types, args, None, &count_arg, suffix, *ty,
+            )
         }
         RawCellInitializationParamCount::KnownI32 { value, ty } => {
             Some(Place::i32_constant(*value, *ty))

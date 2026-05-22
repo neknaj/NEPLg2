@@ -58,6 +58,10 @@ pub(super) fn expr_kind_preserves_raw_alias(kind: ResourceExprKind) -> bool {
     )
 }
 
+pub(super) fn expr_kind_preserves_read_scalar_facts(kind: ResourceExprKind) -> bool {
+    matches!(kind, ResourceExprKind::Deref)
+}
+
 pub(super) fn compute_raw_cell_address_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,

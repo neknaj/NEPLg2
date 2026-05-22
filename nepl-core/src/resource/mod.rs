@@ -48,6 +48,9 @@ mod collection_slot_lifecycle_tests;
 mod collection_slot_lifecycle_transition;
 #[cfg(test)]
 mod collection_slot_lifecycle_type_tests;
+mod collection_slot_owner_carrier;
+#[cfg(test)]
+mod collection_slot_owner_carrier_tests;
 mod collection_slot_owner_transfer;
 mod collection_slot_owner_transfer_proof;
 mod collection_slot_state_alias;
@@ -210,6 +213,7 @@ mod i32_call_facts_scale_tests;
 #[cfg(test)]
 mod i32_call_facts_tests;
 mod i32_extent_proof;
+mod i32_scalar_return_facts;
 mod initialized;
 mod initialized_alias;
 mod initialized_alias_difference;

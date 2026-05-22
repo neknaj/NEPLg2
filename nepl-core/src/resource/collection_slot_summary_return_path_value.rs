@@ -12,8 +12,9 @@ use super::collection_slot_summary_return_path_control::return_value_is_never;
 use super::collection_slot_summary_return_path_model::{push_return_path, ReturnPathBuildState};
 use super::collection_slot_summary_return_path_slots::collect_return_slots_for_value;
 use super::collection_slot_summary_return_path_state::return_path_states_after_ops;
-use super::collection_slot_summary_return_unique::push_return_transfer;
-use super::collection_slot_summary_target::summary_place_for_params;
+use super::collection_slot_summary_return_unique::{push_return_slot, push_return_transfer};
+use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
+use super::i32_scalar_return_facts::collect_i32_scalar_return_facts_for_value_suffix;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, PlaceProjection, ResourceLocal, ResourceOp};
 use super::place_utils::{construct_aggregate_field_place, place_suffix_after_prefix};
@@ -28,14 +29,25 @@ pub(super) fn collect_return_paths_from_value_to_suffix(
     target_suffix: &[PlaceProjection],
     target_ty: crate::types::TypeId,
 ) {
-    for path in return_path_states_after_ops(engine, params, start.clone(), ops) {
-        collect_direct_return_path(out, params, path, value, target_suffix, target_ty);
+    if collect_return_paths_from_value_producer(
+        out,
+        engine,
+        params,
+        start.clone(),
+        ops,
+        value,
+        target_suffix,
+    ) {
+        return;
     }
-    collect_return_paths_from_value_producer(out, engine, params, start, ops, value, target_suffix);
+    for path in return_path_states_after_ops(engine, params, start, ops) {
+        collect_direct_return_path(out, engine, params, path, value, target_suffix, target_ty);
+    }
 }
 
 fn collect_direct_return_path(
     out: &mut Vec<CollectionSlotLifecycleReturnPath>,
+    engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
     path: ReturnPathBuildState,
     value: &Place,
@@ -48,7 +60,9 @@ fn collect_direct_return_path(
         .state
         .raw_aliases
         .canonicalize_owner_cell_address(value);
-    if let Some(source) = summary_place_for_params(params, &canonical_value) {
+    if let Some(source) =
+        summary_place_for_params_with_aliases(params, &path.state.raw_aliases, &canonical_value)
+    {
         if let Some(target_suffix) = summary_suffix_for_params(params, target_suffix) {
             push_return_transfer(
                 &mut return_transfers,
@@ -61,13 +75,21 @@ fn collect_direct_return_path(
         }
     }
     collect_return_slots_for_value(&mut return_slots, params, &path.state, value, target_suffix);
-    if !return_transfers.is_empty() || !return_slots.is_empty() {
+    let i32_scalar_facts = collect_i32_scalar_return_facts_for_value_suffix(
+        params,
+        engine.types,
+        &path.state.raw_aliases,
+        value,
+        target_suffix,
+    );
+    if !return_transfers.is_empty() || !return_slots.is_empty() || !i32_scalar_facts.is_empty() {
         push_return_path(
             out,
             CollectionSlotLifecycleReturnPath {
                 ops: path.ops,
                 return_transfers,
                 return_slots,
+                i32_scalar_facts,
             },
         );
     }
@@ -81,7 +103,7 @@ fn collect_return_paths_from_value_producer(
     ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[PlaceProjection],
-) {
+) -> bool {
     for index in (0..ops.len()).rev() {
         let prior_ops = &ops[..index];
         match &ops[index] {
@@ -91,6 +113,7 @@ fn collect_return_paths_from_value_producer(
                 inputs,
                 ..
             } if output == value => {
+                let mut construct_paths = Vec::new();
                 for (input_index, input) in inputs.iter().enumerate() {
                     let field = construct_aggregate_field_place(output, kind, input_index, input);
                     let Some(field_suffix) = place_suffix_after_prefix(&field, output) else {
@@ -99,7 +122,7 @@ fn collect_return_paths_from_value_producer(
                     let mut nested_target_suffix = target_suffix.to_vec();
                     nested_target_suffix.extend(field_suffix);
                     collect_return_paths_from_value_to_suffix(
-                        out,
+                        &mut construct_paths,
                         engine,
                         params,
                         start.clone(),
@@ -109,7 +132,8 @@ fn collect_return_paths_from_value_producer(
                         input.ty,
                     );
                 }
-                return;
+                push_merged_construct_return_paths(out, construct_paths);
+                return true;
             }
             ResourceOp::Branch {
                 output,
@@ -145,7 +169,7 @@ fn collect_return_paths_from_value_producer(
                         );
                     }
                 }
-                return;
+                return true;
             }
             ResourceOp::Match {
                 output,
@@ -183,7 +207,7 @@ fn collect_return_paths_from_value_producer(
                         );
                     }
                 }
-                return;
+                return true;
             }
             ResourceOp::DeclareLocal {
                 place,
@@ -200,7 +224,7 @@ fn collect_return_paths_from_value_producer(
                     target_suffix,
                     value.ty,
                 );
-                return;
+                return true;
             }
             ResourceOp::Read { source, output, .. } | ResourceOp::Move { source, output, .. }
                 if output == value =>
@@ -215,7 +239,7 @@ fn collect_return_paths_from_value_producer(
                     target_suffix,
                     value.ty,
                 );
-                return;
+                return true;
             }
             ResourceOp::Assign {
                 target,
@@ -232,7 +256,7 @@ fn collect_return_paths_from_value_producer(
                     target_suffix,
                     value.ty,
                 );
-                return;
+                return true;
             }
             ResourceOp::Call {
                 output,
@@ -251,7 +275,7 @@ fn collect_return_paths_from_value_producer(
                         target_suffix,
                     );
                 }
-                return;
+                return true;
             }
             ResourceOp::IndirectCall {
                 output,
@@ -270,28 +294,28 @@ fn collect_return_paths_from_value_producer(
                         target_suffix,
                     );
                 }
-                return;
+                return true;
             }
-            ResourceOp::Expr { output, .. } if output == value => return,
+            ResourceOp::Expr { output, .. } if output == value => {}
             ResourceOp::Borrow { output, .. }
             | ResourceOp::FunctionValue { output, .. }
             | ResourceOp::RawMemory { output, .. }
                 if output == value =>
             {
-                return;
+                return true;
             }
             ResourceOp::RawAddressAlias { target, .. }
             | ResourceOp::RawAddressView { target, .. }
             | ResourceOp::StorageOrigin { target, .. }
                 if target == value =>
             {
-                return;
+                return true;
             }
             ResourceOp::DeclareLocal {
                 place,
                 initializer: None,
                 ..
-            } if place == value => return,
+            } if place == value => return true,
             ResourceOp::Expr { .. }
             | ResourceOp::DeclareLocal { .. }
             | ResourceOp::Read { .. }
@@ -316,5 +340,32 @@ fn collect_return_paths_from_value_producer(
             | ResourceOp::Loop { .. }
             | ResourceOp::Match { .. } => {}
         }
+    }
+    false
+}
+
+fn push_merged_construct_return_paths(
+    out: &mut Vec<CollectionSlotLifecycleReturnPath>,
+    paths: Vec<CollectionSlotLifecycleReturnPath>,
+) {
+    let mut merged_paths = Vec::new();
+    for path in paths {
+        if let Some(existing) = merged_paths
+            .iter_mut()
+            .find(|existing: &&mut CollectionSlotLifecycleReturnPath| existing.ops == path.ops)
+        {
+            for transfer in path.return_transfers {
+                push_return_transfer(&mut existing.return_transfers, transfer);
+            }
+            for slot in path.return_slots {
+                push_return_slot(&mut existing.return_slots, slot);
+            }
+            existing.i32_scalar_facts.extend(path.i32_scalar_facts);
+        } else {
+            push_return_path(&mut merged_paths, path);
+        }
+    }
+    for path in merged_paths {
+        push_return_path(out, path);
     }
 }

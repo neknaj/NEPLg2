@@ -45,7 +45,5 @@ pub(super) fn apply_return_initialization_summary(
 }
 
 pub(super) fn mark_known_raw_address(raw_aliases: &mut RawCellAddressAliases, place: &Place) {
-    if !raw_aliases.contains_exact(place) {
-        raw_aliases.mark(place);
-    }
+    raw_aliases.ensure_marked(place);
 }

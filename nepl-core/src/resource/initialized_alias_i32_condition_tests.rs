@@ -55,3 +55,42 @@ fn i32_relation_condition_cycle_terminates_without_losing_real_proofs() {
         Some(false)
     );
 }
+
+#[test]
+fn i32_condition_combines_non_negative_and_non_zero_as_positive() {
+    let len = local("len");
+    let mut aliases = RawCellAddressAliases::default();
+
+    aliases.add_i32_condition(&len, I32ValueCondition::NonNegative);
+    aliases.add_i32_condition(&len, I32ValueCondition::NeZero);
+
+    assert_eq!(
+        aliases.i32_condition_truth(&len, I32ValueCondition::Positive),
+        Some(true)
+    );
+    assert_eq!(
+        aliases.i32_condition_truth(&len, I32ValueCondition::Negative),
+        Some(false)
+    );
+}
+
+#[test]
+fn i32_offset_condition_derives_decremented_positive_is_non_negative() {
+    let len = local("len");
+    let next_len = local("next_len");
+    let mut aliases = RawCellAddressAliases::default();
+
+    aliases.add_i32_condition(&len, I32ValueCondition::NonNegative);
+    aliases.add_i32_condition(&len, I32ValueCondition::NeZero);
+    aliases.add_i32_offset(&len, &next_len, -1);
+
+    assert_eq!(
+        aliases.i32_condition_truth(&next_len, I32ValueCondition::NonNegative),
+        Some(true)
+    );
+    assert_eq!(
+        aliases.i32_condition_truth(&next_len, I32ValueCondition::Negative),
+        Some(false)
+    );
+    assert_eq!(aliases.i32_relation_truth(&next_len, Lt, &len), Some(true));
+}

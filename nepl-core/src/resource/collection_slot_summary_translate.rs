@@ -7,7 +7,10 @@ use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
 };
-use super::collection_slot_summary_target::{instantiate_summary_target, summary_place_for_params};
+use super::collection_slot_summary_target::{
+    instantiate_summary_target_with_aliases, summary_place_for_params_with_aliases_and_types,
+    translate_summary_target_for_params_with_aliases,
+};
 use super::collection_slot_summary_translate_drop::translate_drop_traversal_summary_op;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -73,11 +76,32 @@ pub(super) fn translate_summary_ops_through_args(
                 event,
                 proof,
             } => {
-                let Some(actual) = instantiate_summary_target(engine, args, target) else {
+                if let Some(target) = translate_summary_target_for_params_with_aliases(
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    target,
+                ) {
+                    out.push(CollectionSlotLifecycleSummaryOp::Event {
+                        target,
+                        event: *event,
+                        proof: *proof,
+                    });
+                    continue;
+                }
+                let Some(actual) =
+                    instantiate_summary_target_with_aliases(engine, args, raw_aliases, target)
+                else {
                     continue;
                 };
                 let actual = raw_aliases.canonicalize_owner_cell_address(&actual);
-                if let Some(target) = summary_place_for_params(params, &actual) {
+                if let Some(target) = summary_place_for_params_with_aliases_and_types(
+                    params,
+                    Some(engine.types),
+                    raw_aliases,
+                    &actual,
+                ) {
                     out.push(CollectionSlotLifecycleSummaryOp::Event {
                         target,
                         event: *event,
@@ -90,17 +114,31 @@ pub(super) fn translate_summary_ops_through_args(
                 new_storage,
                 proof,
             } => {
-                let Some(actual_old) = instantiate_summary_target(engine, args, old_storage) else {
+                let Some(actual_old) =
+                    instantiate_summary_target_with_aliases(engine, args, raw_aliases, old_storage)
+                else {
                     continue;
                 };
-                let Some(actual_new) = instantiate_summary_target(engine, args, new_storage) else {
+                let Some(actual_new) =
+                    instantiate_summary_target_with_aliases(engine, args, raw_aliases, new_storage)
+                else {
                     continue;
                 };
                 let actual_old = raw_aliases.canonicalize_owner_cell_address(&actual_old);
                 let actual_new = raw_aliases.canonicalize_owner_cell_address(&actual_new);
                 if let (Some(old_storage), Some(new_storage)) = (
-                    summary_place_for_params(params, &actual_old),
-                    summary_place_for_params(params, &actual_new),
+                    summary_place_for_params_with_aliases_and_types(
+                        params,
+                        Some(engine.types),
+                        raw_aliases,
+                        &actual_old,
+                    ),
+                    summary_place_for_params_with_aliases_and_types(
+                        params,
+                        Some(engine.types),
+                        raw_aliases,
+                        &actual_new,
+                    ),
                 ) {
                     out.push(CollectionSlotLifecycleSummaryOp::Relocate {
                         old_storage,

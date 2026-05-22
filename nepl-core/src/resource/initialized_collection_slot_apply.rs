@@ -34,7 +34,7 @@ impl ResourceCheckEngine<'_> {
     ) {
         let canonical_target = raw_aliases
             .map(|raw_aliases| {
-                super::raw_cell_value_flow_alias::place_with_canonical_symbolic_offsets(
+                super::raw_cell_value_flow_alias::canonical_raw_cell_place_with_aliases(
                     target,
                     raw_aliases,
                 )
@@ -91,16 +91,34 @@ impl ResourceCheckEngine<'_> {
                     )
                 })
                 .and_then(|()| {
-                    collection_slots
-                        .apply_slot_event(self.types, target, event)
+                    raw_aliases
+                        .map(|raw_aliases| {
+                            collection_slots.apply_slot_event_with_aliases(
+                                self.types,
+                                target,
+                                raw_aliases,
+                                event,
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            collection_slots.apply_slot_event(self.types, target, event)
+                        })
                         .map(|_| ())
                 }),
         };
         if let Err(refutation) = result {
+            let diagnostic_target = raw_aliases
+                .map(|raw_aliases| {
+                    super::raw_cell_value_flow_alias::canonical_raw_cell_place_with_aliases(
+                        &refutation.slot,
+                        raw_aliases,
+                    )
+                })
+                .unwrap_or(refutation.slot);
             self.diagnostics
                 .push(ResourceCheckDiagnostic::CollectionSlotRefuted {
                     function: self.function.to_string(),
-                    target: refutation.slot,
+                    target: diagnostic_target,
                     reason: refutation.reason,
                     span,
                 });

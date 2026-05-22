@@ -176,9 +176,10 @@ impl RawCellValueFlowFacts {
         types: &TypeCtx,
     ) -> bool {
         let candidates = raw_cell_alias_candidates(cell, raw_aliases);
-        self.entries.iter().any(|entry| {
+        let matched = self.entries.iter().any(|entry| {
             value_flow_entry_matches_any_cell(entry, raw_aliases, &candidates, ty, kind, types)
-        })
+        });
+        matched
     }
 
     pub(super) fn consume_matching(

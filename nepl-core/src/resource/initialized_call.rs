@@ -6,12 +6,14 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_call_args::discard_call_arg_loaded_value_origins;
 use super::initialized_call_effect::direct_call_invalidates_result;
+use super::initialized_path_state::{ResourceCheckState, ResourcePathAlternatives};
 use super::initialized_scalar_flow::apply_direct_call_i32_scalar_summary;
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{EffectOp, Place, ResourceCallTarget};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
+use crate::types::{TypeCtx, TypeKind};
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn check_direct_call(
@@ -19,6 +21,7 @@ impl ResourceCheckEngine<'_> {
         cells: &mut CellTable,
         collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
+        function_aliases: &FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
         variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
@@ -73,7 +76,7 @@ impl ResourceCheckEngine<'_> {
         } else {
             record_direct_call_i32_facts(raw_aliases, target, output, args);
         }
-        self.apply_call_collection_slot_lifecycle_summary(
+        let return_path_states = self.apply_call_collection_slot_lifecycle_summary(
             cells,
             collection_slots,
             raw_aliases,
@@ -84,6 +87,30 @@ impl ResourceCheckEngine<'_> {
         );
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
         pending_reallocs.clear_result(output);
+        if let Some(return_path_states) = return_path_states
+            .filter(|_| call_return_paths_can_be_replayed_without_variant_facts(self.types, output))
+        {
+            let alternatives = return_path_states
+                .into_iter()
+                .map(|mut state| {
+                    seed_str_storage_layout(
+                        self.types,
+                        &mut state.cells,
+                        &mut state.raw_aliases,
+                        output,
+                    );
+                    ResourceCheckState::new(
+                        state.cells,
+                        state.collection_slots,
+                        state.raw_aliases,
+                        function_aliases.clone(),
+                        pending_reallocs.clone(),
+                        variant_initializations.clone(),
+                    )
+                })
+                .collect();
+            self.path_alternatives = ResourcePathAlternatives::from_states(alternatives);
+        }
     }
 
     pub(super) fn check_indirect_call(
@@ -144,5 +171,28 @@ impl ResourceCheckEngine<'_> {
         );
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
         pending_reallocs.clear_result(output);
+    }
+}
+
+fn call_return_paths_can_be_replayed_without_variant_facts(
+    types: &TypeCtx,
+    output: &Place,
+) -> bool {
+    !type_is_top_level_enum(types, output.ty)
+}
+
+fn type_is_top_level_enum(types: &TypeCtx, ty: crate::types::TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Enum { .. } => true,
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(types.get_ref(base), TypeKind::Enum { .. })
+        }
+        TypeKind::Var(var) => var
+            .binding
+            .map(|binding| type_is_top_level_enum(types, binding))
+            .unwrap_or(false),
+        _ => false,
     }
 }

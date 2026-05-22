@@ -197,7 +197,7 @@ impl ResourceCheckEngine<'_> {
                 cells.mark_raw_cell_moved_with_aliases(raw_aliases, &address, expected_ty);
             }
         }
-        collection_slots.apply_slot_event(self.types, slot, event)?;
+        collection_slots.apply_slot_event_with_aliases(self.types, slot, raw_aliases, event)?;
         Ok(())
     }
 }
