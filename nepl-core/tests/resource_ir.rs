@@ -15935,6 +15935,116 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_realloc_region_rekeys_noncopy_initialized_slot() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn store_one <.T> <(&RegionToken<.T>,.T)->()> (storage, item):
+    let data <MemPtr<.T>> region_ptr storage
+    let raw <i32> mem_ptr_addr data
+    store<.T> raw item
+    #intrinsic "collection_slot_initialize_empty" <.T> (storage, 0)
+
+fn cleanup_one <.T: Drop> <(&RegionToken<.T>)*>()> (storage):
+    let data <MemPtr<.T>> region_ptr storage
+    let raw <i32> mem_ptr_addr data
+    let loaded <.T> load<.T> raw
+    Drop::drop &loaded
+    #intrinsic "collection_slot_drop_traversal" <.T> (storage, 1)
+
+fn main <()*>i32> ():
+    match alloc_region<DropPayload> 1:
+        Result::Ok region:
+            store_one<DropPayload> &region DropPayload 7
+            let new_size <i32> mul 2 size_of<DropPayload>
+            match realloc_region_bytes_keep<DropPayload> region new_size:
+                Result::Ok grown:
+                    cleanup_one<DropPayload> &grown
+                    match dealloc_region<DropPayload> grown:
+                        Result::Ok _:
+                            0
+                        Result::Err _:
+                            1
+                Result::Err e:
+                    let old <RegionToken<DropPayload>> region_realloc_error_region<DropPayload> e
+                    cleanup_one<DropPayload> &old
+                    match dealloc_region<DropPayload> old:
+                        Result::Ok _:
+                            0
+                        Result::Err _:
+                            1
+        Result::Err _:
+            0
+"#;
+
+    let (module, mut types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/realloc_noncopy_slot_regression.nepl",
+        CompileTarget::Wasm,
+    );
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("store_one__")
+                    || function.starts_with("cleanup_one__")
+                    || function.starts_with("realloc_region_bytes_keep__")
+                    || function.starts_with("realloc_region_bytes_keep_relocating__")
+                    || function.starts_with("region_realloc_error_region__")
+                    || function.starts_with("dealloc_region__")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "public core/mem realloc must rekey initialized non-Copy collection slot state: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "realloc_region_bytes_keep_relocating"
+                && resource_function_ops_any(function, |op| {
+                    matches!(op, ResourceOp::CollectionStorageRelocate { .. })
+                })
+        }),
+        "core/mem private realloc boundary must emit storage relocation proof for initialized non-Copy slots:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "cleanup_one"
+                && resource_function_ops_any(function, |op| {
+                    matches!(op, ResourceOp::CollectionSlotDropTraversal { .. })
+                })
+        }),
+        "non-Copy initialized slot regression must close the relocated slot with actual Drop traversal:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_initialized_check_vec_drop_with_capacity_clear_free_closes_empty_stdlib_lifecycle() {
     let source = r#"
 #entry main

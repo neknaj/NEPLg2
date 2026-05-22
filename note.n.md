@@ -1,3 +1,13 @@
+# 2026-05-22 Agent 1 core/mem realloc non-Copy initialized slot regression
+
+- `ISS-20260522T085403984Z-CORE-MEM-REALLOC-RELOCATION-NEEDS-NO-ECD6789A` を追加して解決した。`plan.md` は変更していない。
+- Hegel review により、直前の core/mem realloc relocation proof は実装方向は妥当だが、回帰テストが Copy payload の stdlib Vec grow と storage-only DropPayload realloc に偏り、non-Copy の initialized collection slot rekey を直接固定していないことを確認した。
+- `nepl-core/tests/resource_ir.rs` に `resource_ir_initialized_check_realloc_region_rekeys_noncopy_initialized_slot` を追加した。fixture は `RegionToken<DropPayload>` に実際の `DropPayload` を raw store し、`collection_slot_initialize_empty` で initialized slot state を作った後、public `realloc_region_bytes_keep<DropPayload>` を経由して grown storage 側で actual `Drop::drop` と `collection_slot_drop_traversal` を行う。
+- typed ResourceOp の検査で、core/mem private realloc boundary が `CollectionStorageRelocate` を持つこと、cleanup 側が `CollectionSlotDropTraversal` を持つことも固定した。
+- 同じ Hegel review で、public marker authority の拒否がまだ regex policy 寄りで typed negative regression としては弱いことも確認したため、`ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE` を追加した。これは次の core/mem boundary hardening として扱う。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_realloc_region_rekeys_noncopy_initialized_slot -- --test-threads=1 --exact --nocapture`: passed
+
 # 2026-05-22 Agent 1 Vec storage-only realloc helper Copy-bound removal
 
 - `ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9` を解決した。`plan.md` は確認済みで、変更していない。
