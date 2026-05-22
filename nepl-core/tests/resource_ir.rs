@@ -12699,6 +12699,22 @@ fn main <()*>()> ():
         diagnostics,
         resource.dump_text()
     );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_push_slot_store_initialized"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::InitializeEmpty { .. },
+                            ..
+                        }
+                    )
+                })
+        }),
+        "actual stdlib Vec.push must lower its private slot-store helper into a typed InitializeEmpty lifecycle proof:\n{}",
+        resource.dump_text()
+    );
 }
 
 #[test]

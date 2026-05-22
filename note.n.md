@@ -1,3 +1,12 @@
+# 2026-05-22 Agent 1 Vec push Resource IR lifecycle regression
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の回帰テスト補強として、実 `alloc/collections/vec` を import した `Vec.push` が `CollectionSlotLifecycleEvent::InitializeEmpty` へ lower されることを Rust 側で検査する。
+- 直前の source policy は `push.nepl` の private helper 境界を文字列監査しているが、今回の追加では typecheck / lowering 後の Resource IR typed enum を直接確認する。これにより、private helper の実接続が壊れても Rust regression で検出できる。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_vec_push_error_owner_does_not_leak_through_result_err -- --test-threads=1 --exact --nocapture`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`（CRLF warning のみ）
+
 # 2026-05-22 Agent 1 Vec push lifecycle helper connection
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の次段階として、public `Vec.push` の Copy-only contract は維持したまま、success path の raw slot store を同一 implementation file 内の private helper へ寄せた。`plan.md` と Zenn の開発方針は確認済みで変更していない。
