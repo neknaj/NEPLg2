@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T00:48:18.895Z",
+  "generated_at": "2026-05-22T01:09:42.348Z",
   "counts": {
-    "total": 1209,
+    "total": 1210,
     "open": 3,
-    "resolved": 1206,
+    "resolved": 1207,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -57,9 +57,9 @@
         "resolved": 15
       },
       "compiler/resource-ir": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "core/resource": {
         "total": 1,
@@ -1323,6 +1323,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T012026321Z-RAW-OPERATION-SOURCE-PROOF-ACCEPTS-M-D53D8575.md"
+    },
+    {
+      "id": "ISS-20260522T010445042Z-RAW-DEALLOC-BYPASSES-COLLECTION-SLOT-CDC0F071",
+      "title": "Raw dealloc bypasses collection slot state proof",
+      "area": "compiler/resource-ir",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/initialized_raw_memory.rs; nepl-core/src/resource/collection_slot_state_release_alias.rs; nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T010445042Z-RAW-DEALLOC-BYPASSES-COLLECTION-SLOT-CDC0F071.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

@@ -95,6 +95,7 @@ pub fn check_resource_initialized_moves(
         };
         let (final_cells, final_collection_slots) = engine.check_function(function);
         merge_deferred(&mut deferred, engine.deferred);
+        dedup_resource_check_diagnostics(&mut engine.diagnostics);
         diagnostics.extend(engine.diagnostics);
         functions.push(ResourceFunctionCheck {
             name: function.name.clone(),
@@ -111,6 +112,16 @@ pub fn check_resource_initialized_moves(
         diagnostics,
         deferred,
     }
+}
+
+fn dedup_resource_check_diagnostics(diagnostics: &mut Vec<ResourceCheckDiagnostic>) {
+    let mut unique = Vec::new();
+    for diagnostic in diagnostics.drain(..) {
+        if !unique.contains(&diagnostic) {
+            unique.push(diagnostic);
+        }
+    }
+    *diagnostics = unique;
 }
 
 pub(super) struct ResourceCheckEngine<'a> {
@@ -510,6 +521,7 @@ impl ResourceCheckEngine<'_> {
                 span,
             } => self.check_raw_memory(
                 cells,
+                collection_slots,
                 raw_aliases,
                 pending_reallocs,
                 operation,

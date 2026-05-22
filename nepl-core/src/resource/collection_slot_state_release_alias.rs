@@ -14,6 +14,17 @@ use super::model::Place;
 use super::place_utils::{push_unique_place, should_track};
 
 impl CollectionSlotStateTable {
+    pub(super) fn release_storage_if_collection_tracked_with_aliases(
+        &mut self,
+        storage: &Place,
+        raw_aliases: &RawCellAddressAliases,
+    ) -> Result<(), CollectionSlotTableRefutation> {
+        if !self.storage_release_has_collection_state_with_aliases(storage, raw_aliases) {
+            return Ok(());
+        }
+        self.release_storage_with_aliases(storage, raw_aliases)
+    }
+
     pub(super) fn release_storage_with_aliases(
         &mut self,
         storage: &Place,
@@ -94,5 +105,26 @@ impl CollectionSlotStateTable {
             })?;
         }
         Ok(())
+    }
+
+    fn storage_release_has_collection_state_with_aliases(
+        &self,
+        storage: &Place,
+        raw_aliases: &RawCellAddressAliases,
+    ) -> bool {
+        let aliases = storage_aliases_for_place(storage, raw_aliases);
+        self.slots
+            .iter()
+            .any(|entry| place_covers_slot_with_aliases(&entry.slot, storage, raw_aliases))
+            || self.released_storage.iter().any(|released| {
+                aliases
+                    .iter()
+                    .any(|storage| place_covers_slot(storage, released))
+            })
+            || self.maybe_released_storage.iter().any(|released| {
+                aliases
+                    .iter()
+                    .any(|storage| place_covers_slot(storage, released))
+            })
     }
 }

@@ -44783,3 +44783,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test drop drop_capability_requires_method_named_drop -- --nocapture`: passed
   - `cargo test -p nepl-core --test drop drop_capability_parses_and_compiles -- --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof -- --nocapture`: passed
+
+## 2026-05-22 Agent 1 raw dealloc collection slot proof
+
+- `ISS-20260522T010445042Z-RAW-DEALLOC-BYPASSES-COLLECTION-SLOT-CDC0F071` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`RawMemoryOp::Dealloc` が raw cell の live non-Copy 検査と raw release proof 発行だけを行い、同じ storage 配下の `CollectionSlotStateTable` を参照していなかったこと。
+- raw cell を `Load` して `Drop` しただけでは collection slot は `Initialized` のまま残るため、raw dealloc が slot 状態表を見ないと non-Copy collection storage を live slot のまま release できてしまう。
+- raw dealloc は alias-aware に collection slot state を探し、関連 state がある場合は既存の generic storage release precondition を必ず通すようにした。stdlib allowlist や module-specific proof は追加していない。
+- slot 側で `DropInitialized` などの Resource IR 証明が済んでいる場合だけ raw dealloc が collection slot state を retired にし、live / maybe-live / range proof required の場合は raw release proof を発行しない。
+- 明示的な `StorageDealloc` と raw dealloc が同一 refutation を検出する経路では、完全同一 Resource 診断を重複表示しないようにした。
+- focused verification:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_raw_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed

@@ -29566,6 +29566,164 @@ fn resource_ir_collection_storage_dealloc_accepts_raw_dealloc_release_proof() {
 }
 
 #[test]
+fn resource_ir_raw_dealloc_rejects_live_collection_slot_after_raw_cell_move() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let i32_ty = types.i32();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), i32_ty);
+    let slot = storage
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let value = Place::temporary(ResourceId(960), owned_ty);
+    let loaded = Place::temporary(ResourceId(961), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(962), unit_ty),
+                args: vec![storage.clone(), value],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded.clone(),
+                args: vec![storage.clone()],
+                span,
+            },
+            ResourceOp::Drop {
+                place: loaded,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(963), unit_ty),
+                args: vec![storage],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: slot.clone(),
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }],
+        "raw dealloc must not bypass the generic collection slot state table after the raw cell was moved: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(report.functions[0].final_collection_slots.iter().any(
+        |entry| entry.slot == slot && entry.state == CollectionSlotState::Initialized(owned_ty)
+    ));
+}
+
+#[test]
+fn resource_ir_raw_dealloc_releases_collection_slots_after_drop_proof() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let i32_ty = types.i32();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("buffer".to_string(), i32_ty);
+    let slot = storage
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let value = Place::temporary(ResourceId(964), owned_ty);
+    let loaded = Place::temporary(ResourceId(965), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: storage.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(966), unit_ty),
+                args: vec![storage.clone(), value],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded.clone(),
+                args: vec![storage.clone()],
+                span,
+            },
+            ResourceOp::Drop {
+                place: loaded,
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: slot.clone(),
+                event: CollectionSlotLifecycleEvent::DropInitialized {
+                    expected_ty: owned_ty,
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(967), unit_ty),
+                args: vec![storage],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "raw dealloc should accept storage release once every tracked collection slot has a compiler-checked drop proof: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        report.functions[0].final_collection_slots.is_empty(),
+        "raw dealloc should retire collection slots under the released storage"
+    );
+}
+
+#[test]
 fn resource_ir_collection_storage_dealloc_consumes_raw_release_proof_once() {
     let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();

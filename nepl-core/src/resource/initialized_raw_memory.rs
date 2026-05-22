@@ -1,17 +1,20 @@
 use crate::span::Span;
+use alloc::string::ToString;
 
 use super::cell_state::CellTable;
+use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerStorageExtent, Place, RawMemoryOp};
 use super::raw_cell_lifecycle::RawCellLifecycleEvent;
 use super::raw_realloc::PendingRawReallocs;
-use super::report::ResourceCheckOperation;
+use super::report::{ResourceCheckDiagnostic, ResourceCheckOperation};
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn check_raw_memory(
         &mut self,
         cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
         raw_aliases: &mut RawCellAddressAliases,
         pending_reallocs: &mut PendingRawReallocs,
         operation: &RawMemoryOp,
@@ -68,7 +71,13 @@ impl ResourceCheckEngine<'_> {
                     ResourceCheckOperation::RawMemoryDeallocCell,
                     span,
                 );
-                if address_available && cells_released {
+                let collection_slots_released = self.release_collection_slots_for_raw_dealloc(
+                    collection_slots,
+                    raw_aliases,
+                    &address,
+                    span,
+                );
+                if address_available && cells_released && collection_slots_released {
                     let owner_address = raw_aliases.canonicalize_owner_cell_address(&address);
                     cells.apply_raw_cell_lifecycle_event(
                         RawCellLifecycleEvent::ReleaseStorage { address: &address },
@@ -147,5 +156,37 @@ impl ResourceCheckEngine<'_> {
                 }
             }
         }
+    }
+
+    fn release_collection_slots_for_raw_dealloc(
+        &mut self,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        storage: &Place,
+        span: Span,
+    ) -> bool {
+        match collection_slots
+            .release_storage_if_collection_tracked_with_aliases(storage, raw_aliases)
+        {
+            Ok(()) => true,
+            Err(refutation) => {
+                self.report_raw_dealloc_collection_slot_refutation(refutation, span);
+                false
+            }
+        }
+    }
+
+    fn report_raw_dealloc_collection_slot_refutation(
+        &mut self,
+        refutation: CollectionSlotTableRefutation,
+        span: Span,
+    ) {
+        self.diagnostics
+            .push(ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function: self.function.to_string(),
+                target: refutation.slot,
+                reason: refutation.reason,
+                span,
+            });
     }
 }
