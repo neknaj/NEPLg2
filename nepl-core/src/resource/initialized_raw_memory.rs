@@ -104,16 +104,22 @@ impl ResourceCheckEngine<'_> {
                     ResourceCheckOperation::RawMemoryReallocAddress,
                     span,
                 );
-                let cells_released = self.ensure_no_live_non_copy_raw_cells(
-                    cells,
-                    &address,
-                    ResourceCheckOperation::RawMemoryReallocCell,
-                    span,
-                );
-                if address_available && cells_released {
+                let collection_managed_non_copy_cells = self
+                    .certified_collection_managed_non_copy_raw_cells_for_realloc(
+                        cells,
+                        collection_slots,
+                        &address,
+                        span,
+                    );
+                if address_available && collection_managed_non_copy_cells.is_some() {
                     cells.mark_initialized(output);
                     raw_aliases.mark(output);
-                    pending_reallocs.mark(&address, output, OwnerStorageExtent::Unknown);
+                    pending_reallocs.mark(
+                        &address,
+                        output,
+                        OwnerStorageExtent::Unknown,
+                        collection_managed_non_copy_cells.unwrap_or_default(),
+                    );
                 }
             }
             RawMemoryOp::FillBytes => {

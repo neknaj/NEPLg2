@@ -29328,6 +29328,230 @@ fn resource_ir_collection_storage_relocate_transfers_after_realloc_success_proof
 }
 
 #[test]
+fn resource_ir_collection_storage_relocate_accepts_live_non_copy_payload_after_realloc() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let old_storage = Place::local("old_buffer".to_string(), i32_ty);
+    let new_storage = Place::local("new_buffer".to_string(), i32_ty);
+    let old_slot = old_storage
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let new_slot = new_storage
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let value = Place::temporary(ResourceId(704), owned_ty);
+    let realloc_out = new_storage.clone();
+    let then_value = Place::temporary(ResourceId(705), unit_ty);
+    let else_value = Place::temporary(ResourceId(706), unit_ty);
+    let branch_output = Place::temporary(ResourceId(707), unit_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: old_storage.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(708), unit_ty),
+                args: vec![old_storage.clone(), value],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: old_slot,
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Realloc,
+                output: realloc_out.clone(),
+                args: vec![old_storage.clone()],
+                span,
+            },
+            ResourceOp::Branch {
+                output: branch_output,
+                condition: realloc_out.clone(),
+                condition_fact: Some(ResourceConditionFact::NeZero {
+                    place: realloc_out.clone(),
+                }),
+                then_ops: vec![
+                    ResourceOp::CollectionStorageRelocate {
+                        old_storage: old_storage.clone(),
+                        new_storage: new_storage.clone(),
+                        span,
+                    },
+                    ResourceOp::CollectionSlotLifecycle {
+                        target: new_slot,
+                        event: CollectionSlotLifecycleEvent::StorageDealloc,
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: then_value.clone(),
+                        ty: unit_ty,
+                        span,
+                    },
+                ],
+                then_value,
+                else_ops: vec![ResourceOp::Expr {
+                    kind: ResourceExprKind::Literal,
+                    output: else_value.clone(),
+                    ty: unit_ty,
+                    span,
+                }],
+                else_value,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![ResourceCheckDiagnostic::CollectionSlotRefuted {
+            function: "main".to_string(),
+            target: new_storage.with_projection(PlaceProjection::Deref, owned_ty),
+            reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                slot_ty: owned_ty,
+            },
+            span,
+        }],
+        "realloc success should produce the raw movement proof before collection storage relocation checks live slot cleanup: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_realloc_rekeys_collection_managed_non_copy_raw_cell() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let old_storage = Place::local("old_buffer".to_string(), i32_ty);
+    let new_storage = Place::local("new_buffer".to_string(), i32_ty);
+    let old_slot = old_storage
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let new_slot = new_storage
+        .clone()
+        .with_projection(PlaceProjection::Deref, owned_ty);
+    let value = Place::temporary(ResourceId(720), owned_ty);
+    let loaded = Place::temporary(ResourceId(721), owned_ty);
+    let then_value = Place::temporary(ResourceId(722), unit_ty);
+    let else_value = Place::temporary(ResourceId(723), unit_ty);
+    let branch_output = Place::temporary(ResourceId(724), unit_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: old_storage.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(725), unit_ty),
+                args: vec![old_storage.clone(), value],
+                span,
+            },
+            ResourceOp::CollectionSlotLifecycle {
+                target: old_slot,
+                event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: owned_ty },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Realloc,
+                output: new_storage.clone(),
+                args: vec![old_storage.clone()],
+                span,
+            },
+            ResourceOp::Branch {
+                output: branch_output,
+                condition: new_storage.clone(),
+                condition_fact: Some(ResourceConditionFact::NeZero {
+                    place: new_storage.clone(),
+                }),
+                then_ops: vec![
+                    ResourceOp::CollectionStorageRelocate {
+                        old_storage: old_storage.clone(),
+                        new_storage: new_storage.clone(),
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded.clone(),
+                        args: vec![new_storage.clone()],
+                        span,
+                    },
+                    ResourceOp::Drop {
+                        place: loaded,
+                        span,
+                    },
+                    ResourceOp::CollectionSlotLifecycle {
+                        target: new_slot,
+                        event: CollectionSlotLifecycleEvent::DropInitialized {
+                            expected_ty: owned_ty,
+                        },
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Dealloc,
+                        output: Place::temporary(ResourceId(726), unit_ty),
+                        args: vec![new_storage],
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: then_value.clone(),
+                        ty: unit_ty,
+                        span,
+                    },
+                ],
+                then_value,
+                else_ops: vec![ResourceOp::Expr {
+                    kind: ResourceExprKind::Literal,
+                    output: else_value.clone(),
+                    ty: unit_ty,
+                    span,
+                }],
+                else_value,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.is_empty(),
+        "realloc success must rekey the compiler-certified non-Copy raw cell so the relocated slot can be loaded and dropped: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_storage_relocate_consumes_realloc_success_proof_once() {
     let (types, owned_ty) = types_with_copy_owned();
     let unit_ty = types.unit();

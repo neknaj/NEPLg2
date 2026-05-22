@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::span::Span;
 
 use super::host_memory_contract::{HostMemoryDirection, HostMemoryLength};
@@ -112,6 +114,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             ptr,
                             output,
                             OwnerStorageExtent::payload_bytes(new_size),
+                            Vec::new(),
                         );
                     }
                 } else if let Some(ptr) = args.first() {
@@ -134,7 +137,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         owners.set_state(output, OwnerState::MaybeFreed { storage: None });
                         raw_aliases.mark(output);
                         raw_views.clear(output);
-                        pending_reallocs.mark(ptr, output, OwnerStorageExtent::Unknown);
+                        pending_reallocs.mark(ptr, output, OwnerStorageExtent::Unknown, Vec::new());
                     }
                 }
             }

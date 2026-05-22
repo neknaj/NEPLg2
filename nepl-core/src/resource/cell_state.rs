@@ -250,6 +250,31 @@ impl CellTable {
             .collect()
     }
 
+    pub(super) fn relocate_collection_managed_non_copy_raw_cells(
+        &self,
+        source: &Place,
+        destination: &Place,
+        certified_cells: &[Place],
+        types: &TypeCtx,
+    ) -> Vec<CellStateEntry> {
+        self.cells
+            .iter()
+            .filter_map(|entry| {
+                if !certified_cells.iter().any(|cell| cell == &entry.place) {
+                    return None;
+                }
+                let suffix = raw_cell_suffix_after_address(&entry.place, source)?;
+                if !raw_cell_state_has_live_non_copy_obligation(entry, types) {
+                    return None;
+                }
+                Some(CellStateEntry {
+                    place: place_with_suffix(destination, &suffix, entry.place.ty),
+                    state: entry.state.clone(),
+                })
+            })
+            .collect()
+    }
+
     pub(super) fn merge_paths(paths: &[CellTable]) -> Self {
         let mut out = CellTable::default();
         let mut places = Vec::new();

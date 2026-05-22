@@ -467,6 +467,8 @@ impl ResourceCheckEngine<'_> {
                     RawCellLifecycleEvent::ReallocSuccessTransfer {
                         source: &pending.source,
                         result: &pending.result,
+                        collection_managed_non_copy_cells: &pending
+                            .collection_managed_non_copy_cells,
                     },
                     raw_aliases,
                     self.types,

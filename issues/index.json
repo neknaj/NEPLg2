@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T01:09:42.348Z",
+  "generated_at": "2026-05-22T01:28:40.141Z",
   "counts": {
-    "total": 1210,
+    "total": 1211,
     "open": 3,
-    "resolved": 1207,
+    "resolved": 1208,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 593,
+        "total": 594,
         "open": 0,
-        "resolved": 593
+        "resolved": 594
       },
       "CORE": {
         "total": 5,
@@ -9228,6 +9228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T004417565Z-DROP-CAPABILITY-ACCEPTS-NON-DROP-FIR-5F29D95E.md"
+    },
+    {
+      "id": "ISS-20260522T012056297Z-RAW-REALLOC-REJECTS-COLLECTION-MANAG-95C9800C",
+      "title": "Raw realloc rejects collection-managed non-Copy payload relocation",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/raw_cell_lifecycle.rs, nepl-core/src/resource/raw_realloc.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-6-stdlib--self-host-準備",
+      "file": "items/ISS-20260522T012056297Z-RAW-REALLOC-REJECTS-COLLECTION-MANAG-95C9800C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

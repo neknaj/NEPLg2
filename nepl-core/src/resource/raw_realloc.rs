@@ -8,6 +8,7 @@ pub(super) struct PendingRawRealloc {
     pub(super) source: Place,
     pub(super) result: Place,
     pub(super) new_extent: OwnerStorageExtent,
+    pub(super) collection_managed_non_copy_cells: Vec<Place>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,7 +25,13 @@ pub(super) struct PendingRawReallocs {
 }
 
 impl PendingRawReallocs {
-    pub(super) fn mark(&mut self, source: &Place, result: &Place, new_extent: OwnerStorageExtent) {
+    pub(super) fn mark(
+        &mut self,
+        source: &Place,
+        result: &Place,
+        new_extent: OwnerStorageExtent,
+        collection_managed_non_copy_cells: Vec<Place>,
+    ) {
         self.remove_origin(result);
         self.remove_certified_result(result);
         self.entries.push(PendingRawRealloc {
@@ -32,6 +39,7 @@ impl PendingRawReallocs {
             source: source.clone(),
             result: result.clone(),
             new_extent,
+            collection_managed_non_copy_cells,
         });
     }
 
@@ -48,6 +56,7 @@ impl PendingRawReallocs {
                 source: entry.source.clone(),
                 result: target.clone(),
                 new_extent: entry.new_extent.clone(),
+                collection_managed_non_copy_cells: entry.collection_managed_non_copy_cells.clone(),
             })
             .collect::<Vec<_>>();
         let certified_copies = self

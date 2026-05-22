@@ -1,3 +1,17 @@
+# 2026-05-22 Agent 1 raw realloc collection-managed non-Copy relocation
+
+- `ISS-20260522T012056297Z-RAW-REALLOC-REJECTS-COLLECTION-MANAG-95C9800C` を追加して fixed にした。`plan.md` は確認済みで変更していない。
+- 根本原因は、`RawMemoryOp::Realloc` が success/failure 分岐で raw storage relocation proof を作る前に live non-Copy raw cell gate を通しており、同じ raw cell が `CollectionSlotStateTable` で initialized slot として追跡されていても `RawMemoryReallocCell` として拒否していたことだった。
+- 修正後は unmanaged non-Copy raw cell は従来通り拒否する一方、collection slot state が exact raw cell を `Initialized` / `MaybeInitialized` として証明している場合だけ pending realloc proof に記録する。
+- realloc success path は Copy raw cell / initialized range に加え、証明済み collection-managed non-Copy raw cell だけを new storage へ rekey する。`CollectionStorageRelocate` は引き続き raw movement proof を別途消費するため、stdlib module 名や Vec 固有 allowlist は追加していない。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_relocate_accepts_live_non_copy_payload_after_realloc -- --test-threads=1 --exact --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_realloc_rekeys_collection_managed_non_copy_raw_cell -- --test-threads=1 --exact --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_relocate -- --test-threads=1 --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_reports_destructive_raw_storage_ops_over_live_cell -- --test-threads=1 --exact --nocapture`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+
 # 2026-05-22 Agent 1 generic Drop-bound Resource requirement
 
 - `ISS-20260521T214431160Z-GENERIC-DROP-BOUND-TYPE-VARIABLES-AR-F3533E34` を追加して fixed にした。`plan.md` は確認済みで変更していない。

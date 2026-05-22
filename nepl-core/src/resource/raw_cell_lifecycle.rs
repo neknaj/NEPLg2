@@ -50,6 +50,7 @@ pub(super) enum RawCellLifecycleEvent<'a> {
     ReallocSuccessTransfer {
         source: &'a Place,
         result: &'a Place,
+        collection_managed_non_copy_cells: &'a [Place],
     },
     BulkCopyInitializedRawState {
         source: &'a Place,
@@ -118,9 +119,20 @@ impl CellTable {
                 self.clear_raw_cells_under(address);
                 self.release_owned_raw_storage_under(address);
             }
-            RawCellLifecycleEvent::ReallocSuccessTransfer { source, result } => {
+            RawCellLifecycleEvent::ReallocSuccessTransfer {
+                source,
+                result,
+                collection_managed_non_copy_cells,
+            } => {
                 let source_owned = self.owns_raw_storage_under(source);
                 let relocated = self.copy_initialized_copy_raw_cells(source, result, types);
+                let relocated_collection_cells = self
+                    .relocate_collection_managed_non_copy_raw_cells(
+                        source,
+                        result,
+                        collection_managed_non_copy_cells,
+                        types,
+                    );
                 let relocated_ranges = self.copy_initialized_raw_byte_ranges_under(source, result);
                 self.clear_raw_cells_under(source);
                 self.clear_raw_cells_under(result);
@@ -130,6 +142,7 @@ impl CellTable {
                     self.mark_owned_raw_storage_root(result);
                 }
                 self.extend_entries(relocated);
+                self.extend_entries(relocated_collection_cells);
                 self.extend_initialized_raw_byte_ranges(relocated_ranges);
             }
             RawCellLifecycleEvent::BulkCopyInitializedRawState {
