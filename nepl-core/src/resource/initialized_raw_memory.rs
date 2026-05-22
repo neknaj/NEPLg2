@@ -113,8 +113,10 @@ impl ResourceCheckEngine<'_> {
                 if address_available && collection_managed_non_copy_cells.is_some() {
                     cells.mark_initialized(output);
                     raw_aliases.mark(output);
+                    let storage_source = raw_aliases.canonicalize_owner_cell_address(&address);
                     pending_reallocs.mark(
                         &address,
+                        &storage_source,
                         output,
                         OwnerStorageExtent::Unknown,
                         collection_managed_non_copy_cells.unwrap_or_default(),

@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T08:14:42.863Z",
+  "generated_at": "2026-05-22T08:47:05.461Z",
   "counts": {
     "total": 1224,
-    "open": 4,
-    "resolved": 1220,
+    "open": 3,
+    "resolved": 1221,
     "by_area": {
-      "core": {
-        "total": 604,
-        "open": 1,
-        "resolved": 603
-      },
       "stdlib": {
         "total": 314,
         "open": 2,
@@ -30,6 +25,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "core": {
+        "total": 604,
+        "open": 0,
+        "resolved": 604
       },
       "CORE": {
         "total": 5,
@@ -139,21 +139,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C",
-      "title": "core/mem realloc must emit storage relocate proof for collection-managed slots",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-22",
-      "updated": "2026-05-22",
-      "target": "stdlib/core/mem/pointer/region.nepl, nepl-core/src/resource/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C.md"
-    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",
@@ -9318,6 +9303,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T061235279Z-OVERLOAD-SELECTION-IGNORES-TRAIT-BOU-4831A61B.md"
+    },
+    {
+      "id": "ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C",
+      "title": "core/mem realloc must emit storage relocate proof for collection-managed slots",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/core/mem/pointer/region.nepl, nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

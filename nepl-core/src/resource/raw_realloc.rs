@@ -1,11 +1,13 @@
 use alloc::vec::Vec;
 
 use super::model::{OwnerStorageExtent, Place, ResourceConditionFact};
+use super::place_utils::{place_suffix_after_prefix, replace_place_prefix};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct PendingRawRealloc {
     pub(super) origin: Place,
     pub(super) source: Place,
+    pub(super) storage_source: Place,
     pub(super) result: Place,
     pub(super) new_extent: OwnerStorageExtent,
     pub(super) collection_managed_non_copy_cells: Vec<Place>,
@@ -28,15 +30,17 @@ impl PendingRawReallocs {
     pub(super) fn mark(
         &mut self,
         source: &Place,
+        storage_source: &Place,
         result: &Place,
         new_extent: OwnerStorageExtent,
         collection_managed_non_copy_cells: Vec<Place>,
     ) {
         self.remove_origin(result);
-        self.remove_certified_result(result);
+        self.remove_result_at_or_below(result);
         self.entries.push(PendingRawRealloc {
             origin: result.clone(),
             source: source.clone(),
+            storage_source: storage_source.clone(),
             result: result.clone(),
             new_extent,
             collection_managed_non_copy_cells,
@@ -50,25 +54,32 @@ impl PendingRawReallocs {
         let copies = self
             .entries
             .iter()
-            .filter(|entry| entry.result == *source)
-            .map(|entry| PendingRawRealloc {
-                origin: entry.origin.clone(),
-                source: entry.source.clone(),
-                result: target.clone(),
-                new_extent: entry.new_extent.clone(),
-                collection_managed_non_copy_cells: entry.collection_managed_non_copy_cells.clone(),
+            .filter_map(|entry| {
+                let result = replace_place_prefix(&entry.result, source, target)?;
+                Some(PendingRawRealloc {
+                    origin: entry.origin.clone(),
+                    source: entry.source.clone(),
+                    storage_source: entry.storage_source.clone(),
+                    result,
+                    new_extent: entry.new_extent.clone(),
+                    collection_managed_non_copy_cells: entry
+                        .collection_managed_non_copy_cells
+                        .clone(),
+                })
             })
             .collect::<Vec<_>>();
         let certified_copies = self
             .certified_relocations
             .iter()
-            .filter(|entry| entry.result == *source)
-            .map(|entry| CertifiedRawStorageRelocation {
-                source: entry.source.clone(),
-                result: target.clone(),
+            .filter_map(|entry| {
+                let result = replace_place_prefix(&entry.result, source, target)?;
+                Some(CertifiedRawStorageRelocation {
+                    source: entry.source.clone(),
+                    result,
+                })
             })
             .collect::<Vec<_>>();
-        self.remove_result(target);
+        self.remove_result_at_or_below(target);
         for entry in copies {
             self.push_unique_entry(entry);
         }
@@ -78,8 +89,7 @@ impl PendingRawReallocs {
     }
 
     pub(super) fn clear_result(&mut self, result: &Place) {
-        self.remove_result(result);
-        self.remove_certified_result(result);
+        self.remove_result_at_or_below(result);
     }
 
     pub(super) fn take_for_result(&mut self, result: &Place) -> Option<PendingRawRealloc> {
@@ -163,13 +173,11 @@ impl PendingRawReallocs {
         self.entries.retain(|entry| entry.origin != *origin);
     }
 
-    fn remove_result(&mut self, result: &Place) {
-        self.entries.retain(|entry| entry.result != *result);
-    }
-
-    fn remove_certified_result(&mut self, result: &Place) {
+    fn remove_result_at_or_below(&mut self, result: &Place) {
+        self.entries
+            .retain(|entry| !place_is_at_or_below(&entry.result, result));
         self.certified_relocations
-            .retain(|entry| entry.result != *result);
+            .retain(|entry| !place_is_at_or_below(&entry.result, result));
     }
 
     fn push_unique_entry(&mut self, entry: PendingRawRealloc) {
@@ -199,6 +207,77 @@ impl PendingRawReallocs {
             return;
         }
         self.certified_releases.push(storage.clone());
+    }
+}
+
+fn place_is_at_or_below(place: &Place, prefix: &Place) -> bool {
+    place_suffix_after_prefix(place, prefix).is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::resource::model::PlaceProjection;
+    use crate::types::TypeId;
+    use alloc::string::ToString;
+
+    fn field0(base: &Place) -> Place {
+        base.clone().with_projection(
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            TypeId(1),
+        )
+    }
+
+    #[test]
+    fn copy_result_preserves_certified_relocation_through_aggregate_field_move() {
+        let old_storage = field0(&Place::local("old_region".to_string(), TypeId(2)));
+        let realloc_result = Place::local("next_raw".to_string(), TypeId(1));
+        let region_tmp = Place::local("region_tmp".to_string(), TypeId(2));
+        let grown = Place::local("grown".to_string(), TypeId(2));
+        let mut pending = PendingRawReallocs::default();
+
+        pending.certify_success(&old_storage, &realloc_result);
+        pending.copy_result(&realloc_result, &field0(&region_tmp));
+        pending.copy_result(&region_tmp, &grown);
+
+        assert!(pending.certified_storage_relocation_available(&old_storage, &field0(&grown)));
+    }
+
+    #[test]
+    fn take_for_result_preserves_distinct_raw_source_and_storage_source() {
+        let raw_source = Place::local("old_raw_read".to_string(), TypeId(1));
+        let storage_source = field0(&Place::local("old_region".to_string(), TypeId(2)));
+        let raw_result = Place::local("realloc_result".to_string(), TypeId(1));
+        let next_raw = Place::local("next_raw".to_string(), TypeId(1));
+        let mut pending = PendingRawReallocs::default();
+
+        pending.mark(
+            &raw_source,
+            &storage_source,
+            &raw_result,
+            OwnerStorageExtent::Unknown,
+            Vec::new(),
+        );
+        pending.copy_result(&raw_result, &next_raw);
+        let copied = pending.take_for_result(&next_raw).unwrap();
+
+        assert_eq!(copied.source, raw_source);
+        assert_eq!(copied.storage_source, storage_source);
+    }
+
+    #[test]
+    fn clear_result_removes_projected_relocation_under_aggregate() {
+        let old_storage = field0(&Place::local("old_region".to_string(), TypeId(2)));
+        let grown = Place::local("grown".to_string(), TypeId(2));
+        let mut pending = PendingRawReallocs::default();
+
+        pending.certify_success(&old_storage, &field0(&grown));
+        pending.clear_result(&grown);
+
+        assert!(!pending.certified_storage_relocation_available(&old_storage, &field0(&grown)));
     }
 }
 

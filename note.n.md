@@ -8,6 +8,22 @@
 - `nepl-core/tests/resource_ir.rs` に `DropPayload` の storage-only realloc helper が Copy raw-access invariant を通らず Resource IR check できる回帰テストを追加した。
 - subagent 監査で、`Vec` wrapper では realloc 成功後に old/new `RegionToken` refs を同時に保持できないため、storage relocate proof を `core/mem` private realloc boundary に置く必要があると確認した。`ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C` として分離した。
 
+## 2026-05-22 Agent 1 core/mem realloc relocation boundary
+
+- `ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`Vec` grow wrapper では `realloc_region_bytes_keep<T>` に old `RegionToken<T>` owner を渡した時点で old owner が move 済みになり、success branch で new owner だけが残るため、`collection_slot_storage_relocate` に必要な old/new owner token refs を同時に提示できないこと。
+- `stdlib/core/mem/pointer/region.nepl` に private `realloc_region_bytes_keep_relocating<T>` を追加し、raw realloc success、new `RegionToken<T>` construction、`collection_slot_storage_relocate` marker emission を同じ memory owner boundary に閉じた。
+- public `realloc_region_bytes_keep<T>` は従来の `Result<RegionToken<T>, RegionReallocError<T>>` API を保つ non-transparent wrapper とし、public lifecycle marker authority は露出しない。
+- Resource IR の `PendingRawReallocs` は raw source と storage source を分離した。raw realloc の owner transfer は raw pointer identity を使い、`collection_slot_storage_relocate` proof は `%region.field0` のような owner storage identity を使う。
+- pending realloc result は aggregate field projection へ prefix replacement で伝播する。これにより `region_new<T>` の `RegionToken<T>.field0` と `%grown.field0` まで raw realloc success proof が届く。
+- source policy と Resource IR regression で、private helper が relocate proof を持ち、public wrapper 自体には marker が出ないことを固定した。
+- focused verification:
+  - `cargo test -p nepl-core resource::raw_realloc::tests -- --test-threads=1`: passed
+  - `node --check nodesrc/test_stdlib_core_mem_boundary.js`: passed
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_storage_realloc_helper_accepts_drop_payload_without_copy -- --test-threads=1 --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_grow_relocates_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`: passed
+
 # 2026-05-22 Agent 1 Vec storage invariant split
 
 - `ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D` を解決した。`plan.md` は確認済みで、変更していない。

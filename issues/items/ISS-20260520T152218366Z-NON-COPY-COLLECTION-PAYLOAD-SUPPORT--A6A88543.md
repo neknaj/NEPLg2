@@ -123,6 +123,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 同日の subagent 監査で、`Vec` wrapper では `realloc_region_bytes_keep<T>` 後に old/new `RegionToken<T>` refs を同時に渡せないことを確認し、[ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C](./ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C.md) を追加した。storage relocate proof は `Vec` module 固有処理ではなく、`core/mem` private realloc boundary で raw realloc success proof と同時に発行する設計へ進める。
 
+2026-05-22 に [ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C](./ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C.md) を fixed にした。`Vec` wrapper は引き続き public helper 経由で owner-preserving `RegionToken<T>` API だけを使い、storage relocation proof は `core/mem` private boundary で発行される。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。

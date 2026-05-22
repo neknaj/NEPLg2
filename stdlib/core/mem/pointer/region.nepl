@@ -292,6 +292,25 @@ pub struct RegionReallocError<.T>:
 pub fn region_realloc_error_region <.T> <(RegionReallocError<.T>)->RegionToken<.T>> (e):
     get e "region"
 
+// raw realloc と storage relocation proof を同じ owner 境界で閉じる内部 helper です。
+fn realloc_region_bytes_keep_relocating <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, RegionReallocError<.T>>> (region, new_size):
+    if:
+        not alloc_payload_fits new_size
+        then:
+            Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
+        else:
+            let old_size <i32> get region "size"
+            let old_raw <i32> get region "raw"
+            let next_raw <i32> allocator::realloc_raw old_raw old_size new_size
+            if:
+                lt 0 next_raw
+                then:
+                    let grown <RegionToken<.T>> region_new<.T> next_raw new_size
+                    #intrinsic "collection_slot_storage_relocate" <> (&region, &grown)
+                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok grown
+                else:
+                    Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
+
 //: realloc_region_bytes_keep: `RegionToken` owner を byte [数/すう]指定で[再確保/さいかくほ]する
 //:
 //: 目的:
@@ -301,6 +320,7 @@ pub fn region_realloc_error_region <.T> <(RegionReallocError<.T>)->RegionToken<.
 //: 実装(アルゴリズム):
 //: - 新 byte 数が allocator payload 上限に[収/おさ]まることを先に[確認/かくにん]します。
 //: - 旧 token から raw owner identity と extent を[借/か]りて raw realloc 境界へ[渡/わた]し、成功時だけ新 token を[作/つく]ります。
+//: - storage relocation proof は core/mem 内部 helper で発行し、public API からは marker authority を[公開/こうかい]しません。
 //:
 //: 注意(重要):
 //: - `MemPtr<T>` は owner ではありません。この関数の API は常に `RegionToken<T>` owner を[受/う]け[取/と]り、成功/失敗のどちらかで owner を[返/かえ]します。
@@ -335,20 +355,8 @@ pub fn region_realloc_error_region <.T> <(RegionReallocError<.T>)->RegionToken<.
 //:             0
 //: ```
 pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, RegionReallocError<.T>>> (region, new_size):
-    if:
-        not alloc_payload_fits new_size
-        then:
-            Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
-        else:
-            let old_size <i32> get region "size"
-            let old_raw <i32> get region "raw"
-            let next_raw <i32> allocator::realloc_raw old_raw old_size new_size
-            if:
-                lt 0 next_raw
-                then:
-                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok region_new<.T> next_raw new_size
-                else:
-                    Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
+    let result <Result<RegionToken<.T>, RegionReallocError<.T>>> realloc_region_bytes_keep_relocating<.T> region new_size
+    result
 
 //: alloc_region: 要素数を指定して RegionToken を確保する
 //:

@@ -15556,6 +15556,75 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_vec_grow_relocates_stdlib_lifecycle() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok with_capacity<i32> 1
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 7
+    let v2 <Vec<i32>> unwrap_ok push<i32> v1 9
+    free<i32> v2
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("push__")
+                    || function.starts_with("vec_realloc_region_or_keep__")
+                    || function.starts_with("realloc_region_bytes_keep__")
+                    || function.starts_with("realloc_region_bytes_keep_relocating__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec grow must preserve collection slot state through public realloc Result API: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "realloc_region_bytes_keep_relocating"
+                && resource_function_ops_any(function, |op| {
+                    matches!(op, ResourceOp::CollectionStorageRelocate { .. })
+                })
+        }),
+        "Vec grow must route storage relocation proof through core/mem private realloc boundary:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("main__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "main must not retain initialized Vec collection slots after grow/free: {:#?}",
+        report.functions
+    );
+}
+
+#[test]
 fn resource_ir_initialized_check_vec_clear_then_free_closes_stdlib_lifecycle() {
     let source = r#"
 #entry main
@@ -15841,6 +15910,26 @@ fn main <()*>i32> ():
             .iter()
             .all(|function| function.origin_name != "vec_buffer_current_copy_invariant"),
         "storage-only realloc must not route through Vec Copy raw-access invariant:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "realloc_region_bytes_keep_relocating"
+                && resource_function_ops_any(function, |op| {
+                    matches!(op, ResourceOp::CollectionStorageRelocate { .. })
+                })
+        }),
+        "core/mem private realloc boundary must emit collection storage relocation proof:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "realloc_region_bytes_keep"
+                && !resource_function_ops_any(function, |op| {
+                    matches!(op, ResourceOp::CollectionStorageRelocate { .. })
+                })
+        }),
+        "public realloc wrapper must preserve owner API without exposing relocation marker:\n{}",
         resource.dump_text()
     );
 }
