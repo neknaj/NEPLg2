@@ -6,7 +6,7 @@ use crate::ast::{Effect, Visibility};
 use crate::builtins::BuiltinKind;
 use crate::resolve::DefId;
 use crate::span::Span;
-use crate::types::{TypeCtx, TypeId};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::signature::{mangle_function_symbol_for_def, same_function_signature};
 use super::{BoundEnv, FieldAccessorKind};
@@ -95,6 +95,7 @@ impl Env {
         &mut self,
         name: &str,
         ty: TypeId,
+        type_param_bounds: &BoundEnv,
         span: Span,
         ctx: &TypeCtx,
     ) {
@@ -103,7 +104,7 @@ impl Env {
                 if b.name != name || b.span.file_id != span.file_id || !b.kind.is_callable() {
                     return true;
                 }
-                !same_function_signature(ctx, b.ty, ty)
+                !same_callable_signature_and_bounds(ctx, b, ty, type_param_bounds)
             });
         }
     }
@@ -370,4 +371,34 @@ impl Env {
         }
         None
     }
+}
+
+pub(super) fn same_callable_signature_and_bounds(
+    ctx: &TypeCtx,
+    binding: &Binding,
+    ty: TypeId,
+    type_param_bounds: &BoundEnv,
+) -> bool {
+    if !same_function_signature(ctx, binding.ty, ty) {
+        return false;
+    }
+
+    let BindingKind::Func {
+        type_param_bounds: binding_bounds,
+        ..
+    } = &binding.kind
+    else {
+        return false;
+    };
+
+    let binding_type_params = match ctx.get(binding.ty) {
+        TypeKind::Function { type_params, .. } => type_params,
+        _ => Vec::new(),
+    };
+    let type_params = match ctx.get(ty) {
+        TypeKind::Function { type_params, .. } => type_params,
+        _ => Vec::new(),
+    };
+
+    binding_bounds.signature_equivalent(ctx, &binding_type_params, type_param_bounds, &type_params)
 }

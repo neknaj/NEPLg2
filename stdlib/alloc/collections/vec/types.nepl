@@ -54,13 +54,13 @@ pub enum VecStorage<.T>:
 //: ### [実装/じっそう]
 //: - `len` は public `Vec` API から[観測/かんそく]できる live element [長/なが]さです。
 //: - `initialized_len` は storage 先頭から[何件/なんけん]が初期化済み cell として drop / move state の対象になるかを[表/あらわ]す prefix [長/なが]です。
-//: - 現行 public API は `.T: Copy` 専用なので `len == initialized_len` を[保/たも]ちます。non-Copy 対応では move-out / drop traversal がこの field を `len` とは別に[更新/こうしん]します。
+//: - `.T: Copy` の mutation API は `len == initialized_len` を[保/たも]ちます。`.T: Drop` の `clear` / `free` は initialized prefix を actual Drop traversal で[閉/と]じてから `initialized_len` を 0 にします。
 //: - `cap` は backing storage の[容量/ようりょう]です。
 //: - `storage` は `VecStorage<.T>` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
 //:
 //: ### [注意/ちゅうい]
-//: - 現段階では initialized prefix / moved slot / drop traversal は Resource IR 上で完全な typed cell API になっていません。そのため public `Vec` mutation は引き続き `.T: Copy` に[限定/げんてい]します。
-//: - non-Copy payload を[扱/あつか]う最終 API では、`OwnedBuffer` に move-out / replace / drop state をさらに[接続/せつぞく]します。
+//: - `new` / `with_capacity` / `clear` / `free` は `.T: Drop` payload でも使えますが、`push` / `pop` / `get` / `replace` / transform / sort は move-out、replace、failure recovery の owner state が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。
+//: - non-Copy payload を[扱/あつか]う最終 API では、`OwnedBuffer` に move-out / replace state と owner-preserving error payload をさらに[接続/せつぞく]します。
 //:
 //: neplg2:test[compile_fail]
 //: diag_codes: type.owner_aggregate.constructor_restricted

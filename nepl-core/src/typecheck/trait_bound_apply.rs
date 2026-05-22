@@ -83,7 +83,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     trait_self_ty: self.ctx.substitute(b.trait_self_ty, type_arg_mapping),
                 };
-                if matches!(
+                if !matches!(
                     self.selected_function_trait_bound_resolution(
                         binding_ty,
                         inst_ty,
@@ -92,7 +92,7 @@ impl<'a> BlockChecker<'a> {
                         tp_type_id,
                         raw_arg,
                     ),
-                    SelectedFunctionTraitBoundResolution::Unsatisfied
+                    SelectedFunctionTraitBoundResolution::Satisfied
                 ) {
                     return false;
                 }
