@@ -231,6 +231,14 @@ assert.ok(
     ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_error_rejected'),
     'collection owner accessor policy must allow Vec.push rejected owner recovery only when the accessor returns the Vec and rejected item together',
 );
+assert.ok(
+    ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/mutation/replace.nepl:vec_replace_error_rejected'),
+    'collection owner accessor policy must allow Vec.replace_drop_old rejected owner recovery only when the accessor returns the Vec and rejected item together',
+);
+assert.ok(
+    ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/mutation/replace.nepl:vec_replace_rejected_with'),
+    'collection owner accessor policy must allow Vec.replace_drop_old rejected payload elimination only when Vec and rejected item are passed to the same callback',
+);
 
 for (const expected of [
     'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_error_vec',
@@ -514,7 +522,13 @@ function isOwnerReturningPopAccessor(name, typeSignature) {
 }
 
 function classifyOwnerPreservingErrorRecovery(name, typeSignature) {
-    if (!typeSignature || !/_error_rejected$/.test(name)) {
+    if (!typeSignature) {
+        return null;
+    }
+    if (/_rejected_with$/.test(name)) {
+        return classifyOwnerPreservingRejectedEliminator(typeSignature);
+    }
+    if (!/_error_rejected$/.test(name)) {
         return null;
     }
 
@@ -536,6 +550,28 @@ function classifyOwnerPreservingErrorRecovery(name, typeSignature) {
     }
 
     return { kind: 'owner-preserving-error-recovery' };
+}
+
+function classifyOwnerPreservingRejectedEliminator(typeSignature) {
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const rejected = functionType.parameters[0].trim();
+    const rejectedMatch = rejected.match(/^[A-Za-z_][A-Za-z0-9_]*Rejected<\.(\w+)>$/);
+    if (!rejectedMatch) {
+        return null;
+    }
+
+    const callback = functionType.parameters[1].replace(/\s+/g, '');
+    const returnType = functionType.returnType.replace(/\s+/g, '');
+    const genericName = rejectedMatch[1];
+    if (callback !== `(Vec<.${genericName}>,.${genericName})*>${returnType}`) {
+        return null;
+    }
+
+    return { kind: 'owner-preserving-rejected-eliminator' };
 }
 
 function classifyFallibleOwnerConsumer(typeSignature) {
@@ -687,6 +723,10 @@ function classifyDropCapableOwnerSurface(source, functionName, typeSignature) {
     if (proofBackedOwnerUpdate) {
         return proofBackedOwnerUpdate;
     }
+    const proofBackedReplaceDropOld = classifyProofBackedReplaceDropOldSurface(source, section, functionType);
+    if (proofBackedReplaceDropOld) {
+        return proofBackedReplaceDropOld;
+    }
     const proofBackedTailDrop = classifyProofBackedTailDropSurface(source, section, functionType);
     if (proofBackedTailDrop) {
         return proofBackedTailDrop;
@@ -733,6 +773,42 @@ function classifyProofBackedOwnerUpdateSurface(source, section, functionType) {
         return null;
     }
     return { kind: 'drop-capable-proof-backed-owner-surface' };
+}
+
+function classifyProofBackedReplaceDropOldSurface(source, section, functionType) {
+    if (functionType.parameters.length !== 3) {
+        return null;
+    }
+
+    const [ownerParam, indexParam, itemParam] = functionType.parameters.map((parameter) => parameter.trim());
+    const returnType = functionType.returnType.trim();
+    const match = ownerParam.match(/^Vec<\.(\w+)>$/);
+    if (!match || indexParam !== 'i32' || itemParam !== `.${match[1]}`) {
+        return null;
+    }
+    if (returnType !== `Result<Vec<.${match[1]}>, VecReplaceError<.${match[1]}>>`) {
+        return null;
+    }
+    if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
+        return null;
+    }
+    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${match[1]}>`).test(section)) {
+        return null;
+    }
+    if (!new RegExp(`\\bVecReplaceRejected<\\.${match[1]}>[\\s\\S]*\\bitem\\b`).test(section)) {
+        return null;
+    }
+
+    const helperNames = [...section.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)<\.\w+>\s+&[A-Za-z_][A-Za-z0-9_]*\s+byte_off\s+item\b/g)]
+        .map((helperMatch) => helperMatch[1]);
+    if (helperNames.length === 0) {
+        return null;
+    }
+    if (!helperNames.every((helperName) => classifyPrivateCollectionLifecycleProofHelper(source, helperName))) {
+        return null;
+    }
+
+    return { kind: 'drop-capable-proof-backed-replace-drop-old-surface' };
 }
 
 function classifyProofBackedTailDropSurface(source, section, functionType) {
@@ -958,7 +1034,8 @@ function markerHasLocalRawLifecycleEvidence(section, marker) {
         case 'collection_slot_replace_return_old':
             return /\bload<[^>]+>[\s\S]*\bstore<[^>]+>/.test(section);
         case 'collection_slot_replace_drop_old':
-            return /\bload<[^>]+>[\s\S]*\bDrop::drop\b[\s\S]*\bstore<[^>]+>/.test(section);
+            return /\bload<[^>]+>[\s\S]*\bstore<[^>]+>/.test(section)
+                && (/\bDrop::drop\b/.test(section) || /<\.\w+:\s*Copy>/.test(section));
         default:
             return false;
     }

@@ -159,7 +159,7 @@ function publicFunctionSection(code, name) {
     return code.slice(startIdx, startIdx + match[0].length + nextMatch.index);
 }
 
-const pushSection = between(vecCode, 'fn push ', 'fn replace ');
+const pushSection = vecMutationPushCode.slice(vecMutationPushCode.indexOf('pub fn push '));
 const privatePushSection = between(vecCode, 'fn vec_push_storage_checked ', 'pub fn push ');
 const withCapacitySection = between(vecCode, 'fn with_capacity ', 'fn filled ');
 const vecStorageViewSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/view.nepl'), 'utf8');
@@ -207,7 +207,7 @@ for (const name of ['types', 'storage', 'access', 'mutation', 'query', 'transfor
 assert.doesNotMatch(vecRootCode, /pub\s+#import\s+"\.\/vec\/raw"\s+as\s+@merge/, 'Vec root must not merge re-export unchecked vec/raw.nepl');
 assert.doesNotMatch(vecRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'Vec root must be a pure facade without implementation bodies');
 assert.doesNotMatch(vecRootCode, /\bas\s+vec_/, 'Vec root must not keep private delegation aliases after becoming a merge facade');
-for (const name of ['VecStorage', 'OwnedBuffer', 'Vec', 'VecPushRejected', 'VecPushError', 'VecTransformError', 'VecPop', 'VecPartition']) {
+for (const name of ['VecStorage', 'OwnedBuffer', 'Vec', 'VecPushRejected', 'VecPushError', 'VecReplaceRejected', 'VecReplaceError', 'VecTransformError', 'VecPop', 'VecPartition']) {
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
 }
@@ -328,7 +328,7 @@ for (const name of ['count', 'fold', 'reduce']) {
 for (const name of ['find', 'any', 'all']) {
     assert.match(vecQueryPredicateCode, new RegExp(`fn\\s+${name}\\b`), `vec/query/predicate.nepl must own ${name}`);
 }
-for (const name of ['push', 'replace', 'pop', 'clear', 'free']) {
+for (const name of ['push', 'replace', 'replace_drop_old', 'pop', 'clear', 'free']) {
     assert.match(vecMutationCode, new RegExp(`fn\\s+${name}\\b`), `vec/mutation.nepl must own ${name}`);
 }
 for (const name of ['push', 'replace', 'pop', 'cleanup']) {
@@ -337,6 +337,7 @@ for (const name of ['push', 'replace', 'pop', 'cleanup']) {
 assert.doesNotMatch(vecMutationRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/mutation.nepl must be a pure facade without implementation bodies');
 assert.match(vecMutationPushCode, /\bfn\s+push\b/, 'vec/mutation/push.nepl must own push');
 assert.match(vecMutationReplaceCode, /\bfn\s+replace\b/, 'vec/mutation/replace.nepl must own replace');
+assert.match(vecMutationReplaceCode, /\bfn\s+replace_drop_old\b/, 'vec/mutation/replace.nepl must own Drop payload replacement');
 assert.match(vecMutationPopCode, /\bfn\s+pop\b/, 'vec/mutation/pop.nepl must own pop');
 for (const name of ['clear', 'free']) {
     assert.match(vecMutationCleanupCode, new RegExp(`fn\\s+${name}\\b`), `vec/mutation/cleanup.nepl must own ${name}`);
@@ -457,6 +458,10 @@ assert.match(mapSection, /match\s+data_mem_view<\.U>\s+&out0:[\s\S]*VecDataView:
 assert.match(vecCode, /struct\s+VecPushRejected<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<\.T>[\s\S]*struct\s+VecPushError<\.T>:[\s\S]*rejected\s+<VecPushRejected<\.T>>[\s\S]*error\s+<StdErrorKind>/, 'Vec.push failure payload must carry the consumed Vec owner, rejected item owner, and a copyable error kind');
 assert.match(vecMutationPushCode, /fn\s+vec_push_error_rejected\s+<\.T>\s+<\(VecPushError<\.T>\)->VecPushRejected<\.T>>[\s\S]*field::get\s+e\s+"rejected"/, 'Vec.push must expose an owner-preserving rejected payload accessor for future non-Copy recovery');
 assert.match(vecMutationPushCode, /fn\s+vec_push_error_vec\s+<\.T:\s*Copy>\s+<\(VecPushError<\.T>\)->Vec<\.T>>[\s\S]*vec_push_error_rejected<\.T>\s+e[\s\S]*field::get\s+rejected\s+"vec"/, 'Vec.push legacy Vec-only error accessor must remain Copy-only because it discards the rejected item owner');
+assert.match(vecCode, /struct\s+VecReplaceRejected<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<\.T>[\s\S]*struct\s+VecReplaceError<\.T>:[\s\S]*rejected\s+<VecReplaceRejected<\.T>>[\s\S]*error\s+<StdErrorKind>/, 'Vec.replace_drop_old failure payload must carry the consumed Vec owner, rejected item owner, and a copyable error kind');
+assert.match(vecMutationReplaceCode, /fn\s+vec_replace_error_rejected\s+<\.T>\s+<\(VecReplaceError<\.T>\)->VecReplaceRejected<\.T>>[\s\S]*field::get\s+e\s+"rejected"/, 'Vec.replace_drop_old must expose an owner-preserving rejected payload accessor');
+assert.match(vecMutationReplaceCode, /fn\s+vec_replace_rejected_with\s+<\.T,\.R>\s+<\(VecReplaceRejected<\.T>,\(Vec<\.T>,\.T\)\*>\.R\)\*>\.R>[\s\S]*let\s+vec\s+<Vec<\.T>>\s+field::get\s+rejected\s+"vec"[\s\S]*let\s+item\s+<\.T>\s+field::get\s+rejected\s+"item"[\s\S]*callback\s+vec\s+item/, 'Vec.replace rejected payload must provide a generic owner-preserving eliminator instead of forcing public field projection');
+assert.match(vecMutationReplaceCode, /fn\s+vec_replace_error_vec\s+<\.T:\s*Copy>\s+<\(VecReplaceError<\.T>\)->Vec<\.T>>[\s\S]*vec_replace_error_rejected<\.T>\s+e[\s\S]*field::get\s+rejected\s+"vec"/, 'Vec.replace legacy Vec-only error accessor must remain Copy-only because it discards the rejected item owner');
 assert.match(vecMutationPushCode, /(?:^|\n)\s*struct\s+VecReallocRegionError<\.T>:[\s\S]*region\s+<RegionToken<\.T>>[\s\S]*error\s+<StdErrorKind>/, 'Vec grow failure payload must stay in the implementation file as a typed private RegionToken owner payload');
 assert.doesNotMatch(vecMutationPushCode, /\bpub\s+(?:struct\s+VecReallocRegionError|fn\s+vec_realloc_region_(?:or_keep|error_kind|error_region))\b/, 'Vec grow RegionToken recovery helpers must not become public collection owner recovery surface');
 assert.doesNotMatch(vecMutationPushCode, /\bfn\s+vec_realloc_region_error_region\b/, 'Vec grow must not expose a standalone owner-moving error-region accessor; recovery stays inside the private grow/push boundary');
@@ -464,7 +469,12 @@ assert.match(vecCode, /struct\s+VecTransformError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\
 assert.match(vecCode, /fn\s+vec_realloc_region_or_keep\s+<\.T>\s+<\(RegionToken<\.T>,i32\)->Result<RegionToken<\.T>,\s*VecReallocRegionError<\.T>>>[\s\S]*le\s+new_cap\s+0[\s\S]*max_alloc_payload_bytes[\s\S]*gt\s+new_cap\s+max_count[\s\S]*match\s+realloc_region_bytes_keep<\.T>\s+region\s+new_bytes:[\s\S]*Result::Ok\s+grown_region:[\s\S]*Result::Ok<RegionToken<\.T>,\s*VecReallocRegionError<\.T>>\s+grown_region[\s\S]*Result::Err\s+e:[\s\S]*VecReallocRegionError<\.T>\s+\(region_realloc_error_region<\.T>\s+e\)\s+StdErrorKind::OutOfMemory/, 'Vec.push grow helper must prove capacity bounds and return the old RegionToken owner through core/mem realloc failure payload without requiring payload Copy');
 assert.doesNotMatch(vecMutationPushCode, /fn\s+vec_realloc_region_or_keep\s+<\.T:\s*Copy>/, 'Vec storage-only grow helper must not require Copy because it never reads payload slots');
 assert.match(vecQueryGetCode, /match\s+vec_current_copy_invariant<\.T>\s+v:[\s\S]*VecCopyInvariant::Invalid\s+_reason:[\s\S]*none<\.T>[\s\S]*VecCopyInvariant::Valid:[\s\S]*load<\.T>/, 'Vec.get must match current Copy-only invariant proof before raw load');
-assert.match(vecMutationReplaceCode, /match\s+vec_current_copy_invariant<\.T>\s+v:[\s\S]*VecCopyInvariant::Invalid\s+_reason:[\s\S]*\(\)[\s\S]*VecCopyInvariant::Valid:[\s\S]*store<\.T>/, 'Vec.replace must match current Copy-only invariant proof before raw store');
+assert.match(vecMutationReplaceCode, /fn\s+vec_replace_copy_initialized_slot\s+<\.T:\s*Copy>\s+<\(&RegionToken<\.T>,i32,\.T\)\*>\(\)>[\s\S]*load<\.T>[\s\S]*store<\.T>[\s\S]*#intrinsic\s+"collection_slot_replace_drop_old"\s+<\.T,\s*\.T>/, 'Vec.replace Copy raw store must stay in a private helper that emits collection slot replacement proof');
+assert.doesNotMatch(vecMutationReplaceCode, /\bpub\s+fn\s+vec_replace_copy_initialized_slot\b|\bpub\s+fn\s+vec_replace_drop_old_initialized_slot\b/, 'Vec.replace lifecycle helpers must not become direct-import public marker boundaries');
+assert.match(vecMutationReplaceCode, /match\s+vec_buffer_current_storage_invariant<\.T>\s+v_buffer:[\s\S]*VecStorageInvariant::Invalid\s+_reason:[\s\S]*\(\)[\s\S]*VecStorageInvariant::Valid:[\s\S]*vec_replace_copy_initialized_slot<\.T>\s+region\s+byte_off\s+item/, 'Vec.replace must prove payload-independent storage invariant and route Copy replacement through the lifecycle helper');
+assert.doesNotMatch(vecMutationReplaceCode.match(/pub\s+fn\s+replace\s+<\.T:\s*Copy>[\s\S]*?(?=\/\/: ## replace_drop_old)/)?.[0] ?? '', /\b(?:load<|store<|mem_ptr_addr|mem_ptr_add|region_ptr)\b|#intrinsic\s+"collection_slot_/, 'Vec.replace public body must not open-code raw pointer operation or lifecycle markers');
+assert.match(vecMutationReplaceCode, /fn\s+vec_replace_drop_old_initialized_slot\s+<\.T:\s*Drop>\s+<\(&RegionToken<\.T>,i32,\.T\)\*>\(\)>[\s\S]*load<\.T>[\s\S]*Drop::drop\s+&old[\s\S]*store<\.T>[\s\S]*#intrinsic\s+"collection_slot_replace_drop_old"\s+<\.T,\s*\.T>/, 'Vec.replace_drop_old helper must pair old Drop proof, new store proof, and replacement lifecycle marker');
+assert.match(vecMutationReplaceCode, /pub\s+fn\s+replace_drop_old\s+<\.T:\s*Drop>\s+<\(Vec<\.T>,i32,\.T\)\*>Result<Vec<\.T>,\s*VecReplaceError<\.T>>>[\s\S]*VecStorageInvariant::Invalid\s+_reason:[\s\S]*VecReplaceError<\.T>\s+\(VecReplaceRejected<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage\)\)\s+item\)\s+StdErrorKind::InvalidOperation[\s\S]*vec_replace_drop_old_initialized_slot<\.T>\s+&v_region\s+byte_off\s+item[\s\S]*Result::Ok<Vec<\.T>,\s*VecReplaceError<\.T>>\s+Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+\(VecStorage<\.T>::Owned\s+v_region\)\)/, 'Vec.replace_drop_old must use owner-preserving failure recovery and private proof-backed slot replacement');
 assert.match(vecTransformMapCode, /match\s+vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref:[\s\S]*VecCopyInvariant::Invalid\s+_reason:[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*VecCopyInvariant::Valid:[\s\S]*store<\.U>/, 'Vec.map must reject malformed input invariant through typed match before constructing a supposedly fully initialized output');
 assert.match(vecTransformFilterCode, /fn\s+filter[\s\S]*match\s+vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref:[\s\S]*VecCopyInvariant::Invalid\s+_reason:[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*VecCopyInvariant::Valid:[\s\S]*store<\.T>/, 'Vec.filter must reject malformed input invariant through typed match before output raw writes');
 assert.match(vecTransformFilterCode, /fn\s+partition[\s\S]*match\s+vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref:[\s\S]*VecCopyInvariant::Invalid\s+_reason:[\s\S]*VecTransformError<\.T>\s+v\s+StdErrorKind::InvalidOperation[\s\S]*VecCopyInvariant::Valid:[\s\S]*store<\.T>/, 'Vec.partition must reject malformed input invariant through typed match before output raw writes');

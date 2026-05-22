@@ -10,11 +10,41 @@
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "core/field" as field
+#import "core/traits/drop" as *
 #import "../types" as *
-#import "../access/data" as *
 #import "../invariant" as *
 #import "core/field" as *
+
+//: ## vec_replace_copy_initialized_slot
+//: Copy payload の initialized slot を[置換/ちかん]し、Resource IR 上の replacement state と[対応/たいおう]させる private helper
+//:
+//: ### [目的/もくてき]
+//: - `replace<T: Copy>` の raw `load` / `store` と `collection_slot_replace_drop_old` marker を同じ source boundary に[閉/と]じます。
+//: - Copy payload では old value の destructor は不要ですが、slot が initialized であり、上書き後も initialized として残ることを Resource IR lifecycle に[渡/わた]します。
+fn vec_replace_copy_initialized_slot <.T: Copy> <(&RegionToken<.T>,i32,.T)*>()> (storage, byte_off, item):
+    let data <MemPtr<.T>> region_ptr storage
+    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+    let raw <i32> mem_ptr_addr slot
+    let _old <.T> load<.T> raw
+    store<.T> raw item
+    #intrinsic "collection_slot_replace_drop_old" <.T, .T> (storage, byte_off)
+
+//: ## vec_replace_drop_old_initialized_slot
+//: Drop payload の initialized slot を old drop + new store として[置換/ちかん]する private helper
+//:
+//: ### [目的/もくてき]
+//: - old payload を raw load し、actual `Drop::drop` proof を作ってから new `item` を store します。
+//: - `collection_slot_replace_drop_old` marker は old drop proof と new store proof の後に[発行/はっこう]し、stdlib 関数名の allowlist ではなく汎用 Resource IR proof boundary で replacement を[証明/しょうめい]します。
+fn vec_replace_drop_old_initialized_slot <.T: Drop> <(&RegionToken<.T>,i32,.T)*>()> (storage, byte_off, item):
+    let data <MemPtr<.T>> region_ptr storage
+    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+    let raw <i32> mem_ptr_addr slot
+    let old <.T> load<.T> raw
+    Drop::drop &old
+    store<.T> raw item
+    #intrinsic "collection_slot_replace_drop_old" <.T, .T> (storage, byte_off)
 
 //: ## replace
 //: [要素/ようそ]を[上書/うわが]きする（[範囲外/はんいがい]は[無視/むし]）
@@ -27,6 +57,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [範囲外/はんいがい]では[失敗/しっぱい]を[返/かえ]さず、[何/なに]も[変更/へんこう]しません。
+//: - 現行の borrowed `replace` は `.T: Copy` 専用です。non-Copy payload では失敗時の `item` owner と成功時の old owner cleanup を API 型で表す必要があるため、owner-consuming `replace_drop_old` を使います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -51,10 +82,10 @@ pub fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
     let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     let v_len <i32> *field::get_ref v_buffer "len"
     let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
-    match vec_current_copy_invariant<.T> v:
-        VecCopyInvariant::Invalid _reason:
+    match vec_buffer_current_storage_invariant<.T> v_buffer:
+        VecStorageInvariant::Invalid _reason:
             ()
-        VecCopyInvariant::Valid:
+        VecStorageInvariant::Valid:
             if:
                 lt idx 0
                 then ()
@@ -66,11 +97,97 @@ pub fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
                             match v_storage:
                                 VecStorage::Empty:
                                     ()
-                                VecStorage::Owned _region:
-                                    match data_mem_view<.T> v:
-                                        VecDataView::Empty:
-                                            ()
-                                        VecDataView::Invalid _reason:
-                                            ()
-                                        VecDataView::Data v_data:
-                                            store<.T> add mem_ptr_addr v_data mul idx size_of<.T> item
+                                VecStorage::Owned region:
+                                    let byte_off <i32> mul idx size_of<.T>
+                                    vec_replace_copy_initialized_slot<.T> region byte_off item
+
+//: ## replace_drop_old
+//: Drop payload の[要素/ようそ]を[置換/ちかん]し、旧[要素/ようそ]を drop する
+//:
+//: ### [目的/もくてき]
+//: - `Vec<.T>` owner と new `item` owner を[消費/しょうひ]し、範囲内なら old slot を drop して new item を store した `Vec<.T>` owner を[返/かえ]します。
+//: - [失敗/しっぱい]時は `VecReplaceError<.T>` に元の `Vec` とまだ挿入されていない `item` を[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T: Drop` 専用です。old value を caller に返す `replace_return_old` は、old owner を返す API 型と accessors を別途設計してから追加します。
+//: - borrowed `replace<T: Copy>` と異なり、範囲外や invariant failure を silently no-op にしません。non-Copy owner の[行方/ゆくえ]を型で追うため、`Result` で[明示/めいじ]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
+//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecReplaceError<DropPayload>> replace_drop_old<DropPayload> v1 0 (DropPayload 2)
+//:     free<DropPayload> v2
+//:     0
+//: ```
+pub fn replace_drop_old <.T: Drop> <(Vec<.T>,i32,.T)*>Result<Vec<.T>, VecReplaceError<.T>>> (v, idx, item):
+    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let v_len <i32> *field::get_ref v_buffer_ref "len"
+    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
+    let v_cap <i32> *field::get_ref v_buffer_ref "cap"
+    let v_invariant <VecStorageInvariant> vec_buffer_current_storage_invariant<.T> v_buffer_ref
+    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
+    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+    match v_invariant:
+        VecStorageInvariant::Invalid _reason:
+            Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
+        VecStorageInvariant::Valid:
+            if:
+                lt idx 0
+                then:
+                    Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
+                else:
+                    if:
+                        le v_len idx
+                        then:
+                            Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
+                        else:
+                            match v_storage:
+                                VecStorage::Empty:
+                                    Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) item) StdErrorKind::InvalidOperation
+                                VecStorage::Owned v_region:
+                                    let byte_off <i32> mul idx size_of<.T>
+                                    vec_replace_drop_old_initialized_slot<.T> &v_region byte_off item
+                                    Result::Ok<Vec<.T>, VecReplaceError<.T>> Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned v_region))
+
+//: ## vec_replace_error_kind
+//: `replace_drop_old` [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
+pub fn vec_replace_error_kind <.T> <(&VecReplaceError<.T>)->StdErrorKind> (e):
+    *field::get_ref e "error"
+
+//: ## vec_replace_error_rejected
+//: `replace_drop_old` [失敗/しっぱい]で[戻/もど]された `Vec` owner と rejected item owner をまとめて[取/と]り[出/だ]す
+pub fn vec_replace_error_rejected <.T> <(VecReplaceError<.T>)->VecReplaceRejected<.T>> (e):
+    field::get e "rejected"
+
+//: ## vec_replace_rejected_with
+//: `replace_drop_old` [失敗/しっぱい] payload の `Vec` owner と rejected item owner を同じ callback に[渡/わた]す
+//:
+//: ### [目的/もくてき]
+//: - `VecReplaceRejected<T>` は owner-backed aggregate なので、利用側が `field::get` で内部 field を直接[分解/ぶんかい]する設計にはしません。
+//: - この eliminator が stdlib 境界内で `vec` と `item` を同時に取り出し、caller が渡した callback へ両 owner を同じ control-flow 上で[渡/わた]します。
+//: - cleanup、retry、診断変換など、non-Copy payload の失敗時 recovery を item owner を[隠/かく]さず[実装/じっそう]できます。
+pub fn vec_replace_rejected_with <.T,.R> <(VecReplaceRejected<.T>,(Vec<.T>,.T)*>.R)*>.R> (rejected, callback):
+    let vec <Vec<.T>> field::get rejected "vec"
+    let item <.T> field::get rejected "item"
+    callback vec item
+
+//: ## vec_replace_error_vec
+//: `replace_drop_old` [失敗/しっぱい]で[戻/もど]された `Vec` owner だけを[取/と]り[出/だ]す Copy payload 用 accessor
+//:
+//: ### [注意/ちゅうい]
+//: - この accessor は `item` owner を返さないため `.T: Copy` 専用です。non-Copy payload では `vec_replace_error_rejected<T>` で両 owner を同時に[回収/かいしゅう]します。
+pub fn vec_replace_error_vec <.T: Copy> <(VecReplaceError<.T>)->Vec<.T>> (e):
+    let rejected <VecReplaceRejected<.T>> vec_replace_error_rejected<.T> e
+    field::get rejected "vec"

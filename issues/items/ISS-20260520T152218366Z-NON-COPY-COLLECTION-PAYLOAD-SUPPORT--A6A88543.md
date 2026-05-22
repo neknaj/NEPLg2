@@ -129,6 +129,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 2026-05-22 に [ISS-20260522T093518180Z-VEC-PUSH-MUST-ACCEPT-DROP-PAYLOAD-TH-6C6190D3](./ISS-20260522T093518180Z-VEC-PUSH-MUST-ACCEPT-DROP-PAYLOAD-TH-6C6190D3.md) を fixed にした。`Vec.push` は `push<T: Copy>` と `push<T: Drop>` の public overload を持ち、どちらも private `vec_push_storage_checked<T>` へ委譲する。implementation helper は `VecStorageInvariant` と private slot initialize proof を使い、Copy raw-access proof や stdlib allowlist に依存しない。`Vec<DropPayload>.new -> push -> free` と `with_capacity -> push -> push(grow) -> free` は Resource IR 上で `InitializeEmpty`、`CollectionStorageRelocate`、actual `Drop::drop`、drop traversal が閉じることを regression として固定した。
 
+2026-05-22 に [ISS-20260522T211933733Z-VEC-REPLACE-MUST-PROVE-SLOT-REPLACEM-3686CB53](./ISS-20260522T211933733Z-VEC-REPLACE-MUST-PROVE-SLOT-REPLACEM-3686CB53.md) を fixed にした。`replace<T: Copy>` は public body から raw pointer operation と lifecycle marker を外し、private `vec_replace_copy_initialized_slot<T>` で raw load witness、store、`ReplaceInitialized` proof を閉じる。Drop payload は owner-consuming `replace_drop_old<T: Drop>` として追加し、old slot の actual `Drop::drop`、new store、replacement marker を private helper にまとめた。失敗時は `VecReplaceRejected<T>` / `VecReplaceError<T>` で `Vec<T>` owner と rejected `item: T` owner を同じ payload として回収し、`vec_replace_rejected_with<T, R>` が callback へ両 owner を同時に渡す。これにより replace も stdlib 固有 allowlist ではなく generic Resource IR proof boundary と owner-preserving API 型へ接続された。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。

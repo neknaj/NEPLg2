@@ -2,7 +2,7 @@
 //: `Vec` の型定義
 //:
 //: ### [目的/もくてき]
-//: - `VecStorage`、`OwnedBuffer`、`Vec`、`VecPushRejected`、`VecPushError`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
+//: - `VecStorage`、`OwnedBuffer`、`Vec`、`VecPushRejected`、`VecPushError`、`VecReplaceRejected`、`VecReplaceError`、`VecTransformError`、`VecPop`、`VecPartition` を root 実装から[分離/ぶんり]します。
 //: - storage owner state と backing allocation owner を同じ enum に[保持/ほじ]し、null pointer sentinel や分離 owner field を public owner state に[戻/もど]さないための型境界を[明確/めいかく]にします。
 //:
 //: ### [注意/ちゅうい]
@@ -134,6 +134,27 @@ pub struct VecPushRejected<.T>:
 //: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner [回収/かいしゅう]と error [確認/かくにん]を別操作にします。
 pub struct VecPushError<.T>:
     rejected <VecPushRejected<.T>>
+    error <StdErrorKind>
+
+//: ## VecReplaceRejected
+//: `replace_drop_old` [失敗/しっぱい]で[置換/ちかん]されなかった owner をまとめて[返/かえ]す payload
+//:
+//: ### [目的/もくてき]
+//: - [範囲外/はんいがい]、metadata invariant failure、storage state mismatch のいずれでも、消費した `Vec<.T>` owner とまだ slot に入っていない `item` owner を同じ値で[返/かえ]します。
+//: - non-Copy payload では `item` owner の[行方/ゆくえ]が API 型から[消/き]えると memory safety を型で追えなくなるため、失敗時 recovery はこの payload を[単位/たんい]にします。
+pub struct VecReplaceRejected<.T>:
+    vec <Vec<.T>>
+    item <.T>
+
+//: ## VecReplaceError
+//: `replace_drop_old` の[失敗/しっぱい]時に owner recovery payload と error kind を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `rejected` に、元の `Vec<.T>` owner と storage へ入らなかった `item` owner を[保持/ほじ]します。
+//: - old slot を drop して new item を store する[成功/せいこう] path と、何も置換しない[失敗/しっぱい] path を型で[分/わ]けます。
+//: - error kind は Copy な `StdErrorKind` とし、owner recovery と診断分類を[分離/ぶんり]します。
+pub struct VecReplaceError<.T>:
+    rejected <VecReplaceRejected<.T>>
     error <StdErrorKind>
 
 //: ## VecTransformError

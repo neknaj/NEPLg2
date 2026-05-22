@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T21:11:05.239Z",
+  "generated_at": "2026-05-22T22:02:57.413Z",
   "counts": {
-    "total": 1230,
+    "total": 1231,
     "open": 3,
-    "resolved": 1227,
+    "resolved": 1228,
     "by_area": {
       "stdlib": {
-        "total": 318,
+        "total": 319,
         "open": 2,
-        "resolved": 316
+        "resolved": 317
       },
       "selfhost": {
         "total": 110,
@@ -14523,6 +14523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T210245685Z-VEC-POP-MUST-MOVE-OUT-REMOVED-SLOT-T-8E07FCEA.md"
+    },
+    {
+      "id": "ISS-20260522T211933733Z-VEC-REPLACE-MUST-PROVE-SLOT-REPLACEM-3686CB53",
+      "title": "Vec replace must prove slot replacement through Resource IR",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/mutation/replace.nepl, stdlib/alloc/collections/vec/types.nepl, nepl-core/tests/resource_ir.rs, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nodesrc/test_stdlib_collection_cleanup_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T211933733Z-VEC-REPLACE-MUST-PROVE-SLOT-REPLACEM-3686CB53.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

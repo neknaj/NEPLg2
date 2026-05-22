@@ -1,3 +1,21 @@
+# 2026-05-22 Agent 1 Vec replace lifecycle proof
+
+- `ISS-20260522T211933733Z-VEC-REPLACE-MUST-PROVE-SLOT-REPLACEM-3686CB53` を fixed にした。`plan.md` は確認済みで、変更していない。
+- 根本原因は、`Vec.replace<T: Copy>` が public body で initialized slot を raw `store` しており、Resource IR の `ReplaceInitialized` proof boundary に接続されていなかったこと。non-Copy payload へ単純に拡張すると、失敗時の rejected item owner と成功時の old slot cleanup obligation が API 型から消える。
+- Copy payload は private `vec_replace_copy_initialized_slot<T>` へ raw load witness、store、`collection_slot_replace_drop_old` marker を閉じた。public `replace<T: Copy>` は `VecStorageInvariant` を確認し、raw pointer operation / marker を直接持たない。
+- Drop payload は owner-consuming `replace_drop_old<T: Drop>` とし、private `vec_replace_drop_old_initialized_slot<T>` で old raw load、actual `Drop::drop`、new store、replacement marker を同じ boundary に置いた。
+- 失敗時 recovery は `VecReplaceRejected<T>` / `VecReplaceError<T>` を追加し、`Vec<T>` owner と rejected `item: T` owner を同じ payload で返す。owner-backed rejected aggregate は `vec_replace_rejected_with<T, R>` が callback へ両 owner を同時に渡す eliminator とし、non-Copy caller に片方の owner だけを取り出させない。
+- focused verification:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_copy_replace_emits_replace_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_replace_drop_old_closes_old_slot -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_replace_drop_old_failure_recovers_owners -- --test-threads=1 --exact --nocapture`
+  - `trunk build`
+  - `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/replace.nepl --no-tree -o tmp/vec-replace-lifecycle-doctest.json -j 1 --dist web/dist`
+
 # 2026-05-22 Agent 1 Vec pop Copy tail MoveOut lifecycle
 
 - `ISS-20260522T210245685Z-VEC-POP-MUST-MOVE-OUT-REMOVED-SLOT-T-8E07FCEA` を追加して解決した。`plan.md` は確認済みで、変更していない。
