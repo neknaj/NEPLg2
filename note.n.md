@@ -6,6 +6,7 @@
 - `vec_realloc_region_error_region<T>` は削除した。旧 `RegionToken<T>` owner の回収は public accessor にせず、`push` の private grow failure branch で `VecPushError<T>` へ包み直す。
 - source policy は public owner recovery accessor の Copy-only 方針を維持しつつ、private storage-only RegionToken realloc helper を構造で識別するように更新した。
 - `nepl-core/tests/resource_ir.rs` に `DropPayload` の storage-only realloc helper が Copy raw-access invariant を通らず Resource IR check できる回帰テストを追加した。
+- subagent 監査で、`Vec` wrapper では realloc 成功後に old/new `RegionToken` refs を同時に保持できないため、storage relocate proof を `core/mem` private realloc boundary に置く必要があると確認した。`ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C` として分離した。
 
 # 2026-05-22 Agent 1 Vec storage invariant split
 

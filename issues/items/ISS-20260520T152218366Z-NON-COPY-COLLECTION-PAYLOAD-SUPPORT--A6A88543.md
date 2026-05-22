@@ -121,6 +121,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 同日に [ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9](./ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9.md) で、`Vec` grow の `vec_realloc_region_or_keep<T>` を private storage-only helper として整理し、`.T: Copy` 境界を外した。`VecReallocRegionError<T>` と grow failure recovery は public API へ出さず、`push` 実装 file 内で `VecPushError<T>` に包み直す。これにより non-Copy payload grow の前提になる `RegionToken<T>` 再確保境界は Copy raw-access proof から独立したが、public `push<T>` 自体の non-Copy 解禁は item owner recovery / storage relocate / slot initialization proof 接続が完了するまで本 issue の残件である。
 
+同日の subagent 監査で、`Vec` wrapper では `realloc_region_bytes_keep<T>` 後に old/new `RegionToken<T>` refs を同時に渡せないことを確認し、[ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C](./ISS-20260522T081343069Z-CORE-MEM-REALLOC-MUST-EMIT-STORAGE-R-F2C9506C.md) を追加した。storage relocate proof は `Vec` module 固有処理ではなく、`core/mem` private realloc boundary で raw realloc success proof と同時に発行する設計へ進める。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。
