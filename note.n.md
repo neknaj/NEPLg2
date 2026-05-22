@@ -1,10 +1,19 @@
 # 2026-05-22 Agent 1 core/mem realloc non-Copy initialized slot regression
 
+# 2026-05-22 Agent 1 core/mem marker authority public surface negative
+
+- `ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE` を解決した。`plan.md` は変更していない。
+- `collection_slot_storage_relocate` marker authority が public callable surface に漏れないことを、regex source policy だけでなく compiler の typed diagnostic 経路で固定した。
+- `nepl-core/tests/effects.rs` に、public function が direct に `collection_slot_storage_relocate` を発行するケースと、private helper を public wrapper から到達可能にするケースの negative regression を追加した。どちらも `type.collection_slot_lifecycle_boundary_restricted` を要求する。
+- focused verification:
+  - `cargo test -p nepl-core --test effects collection_slot_storage_relocate_rejects_public -- --test-threads=1 --nocapture`: passed
+  - `cargo test -p nepl-core --test effects collection_slot_lifecycle_intrinsic_rejects_public -- --test-threads=1 --nocapture`: passed
+
 - `ISS-20260522T085403984Z-CORE-MEM-REALLOC-RELOCATION-NEEDS-NO-ECD6789A` を追加して解決した。`plan.md` は変更していない。
 - Hegel review により、直前の core/mem realloc relocation proof は実装方向は妥当だが、回帰テストが Copy payload の stdlib Vec grow と storage-only DropPayload realloc に偏り、non-Copy の initialized collection slot rekey を直接固定していないことを確認した。
 - `nepl-core/tests/resource_ir.rs` に `resource_ir_initialized_check_realloc_region_rekeys_noncopy_initialized_slot` を追加した。fixture は `RegionToken<DropPayload>` に実際の `DropPayload` を raw store し、`collection_slot_initialize_empty` で initialized slot state を作った後、public `realloc_region_bytes_keep<DropPayload>` を経由して grown storage 側で actual `Drop::drop` と `collection_slot_drop_traversal` を行う。
 - typed ResourceOp の検査で、core/mem private realloc boundary が `CollectionStorageRelocate` を持つこと、cleanup 側が `CollectionSlotDropTraversal` を持つことも固定した。
-- 同じ Hegel review で、public marker authority の拒否がまだ regex policy 寄りで typed negative regression としては弱いことも確認したため、`ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE` を追加した。これは次の core/mem boundary hardening として扱う。
+- 同じ Hegel review で、public marker authority の拒否がまだ regex policy 寄りで typed negative regression としては弱いことも確認したため、`ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE` を追加し、typed negative regression で別途解決した。
 - focused verification:
   - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_realloc_region_rekeys_noncopy_initialized_slot -- --test-threads=1 --exact --nocapture`: passed
 

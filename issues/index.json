@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T08:59:00.743Z",
+  "generated_at": "2026-05-22T09:03:01.282Z",
   "counts": {
     "total": 1226,
-    "open": 4,
-    "resolved": 1222,
+    "open": 3,
+    "resolved": 1223,
     "by_area": {
-      "core": {
-        "total": 606,
-        "open": 1,
-        "resolved": 605
-      },
       "stdlib": {
         "total": 314,
         "open": 2,
@@ -30,6 +25,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "core": {
+        "total": 606,
+        "open": 0,
+        "resolved": 606
       },
       "CORE": {
         "total": 5,
@@ -139,21 +139,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE",
-      "title": "core/mem marker authority boundary needs typed negative regression",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-22",
-      "updated": "2026-05-22",
-      "target": "nepl-core/src/resource/**, nodesrc/test_stdlib_core_mem_boundary.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE.md"
-    },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
       "title": "Non-Copy collection payload support needs compiler-issued owner and drop traversal",
@@ -9348,6 +9333,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T085403984Z-CORE-MEM-REALLOC-RELOCATION-NEEDS-NO-ECD6789A.md"
+    },
+    {
+      "id": "ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE",
+      "title": "core/mem marker authority boundary needs typed negative regression",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/**, nodesrc/test_stdlib_core_mem_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
