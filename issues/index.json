@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T22:02:57.413Z",
+  "generated_at": "2026-05-22T23:04:24.065Z",
   "counts": {
-    "total": 1231,
+    "total": 1233,
     "open": 3,
-    "resolved": 1228,
+    "resolved": 1230,
     "by_area": {
       "stdlib": {
-        "total": 319,
+        "total": 320,
         "open": 2,
-        "resolved": 317
+        "resolved": 318
       },
       "selfhost": {
         "total": 110,
@@ -52,9 +52,9 @@
         "resolved": 4
       },
       "compiler": {
-        "total": 15,
+        "total": 16,
         "open": 0,
-        "resolved": 15
+        "resolved": 16
       },
       "compiler/resource-ir": {
         "total": 6,
@@ -1263,6 +1263,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T191505124Z-DROP-TRAVERSAL-FULL-RANGE-CERTIFICAT-9BDAB140.md"
+    },
+    {
+      "id": "ISS-20260522T224620549Z-OWNER-SUMMARY-MUST-SEED-OWNER-TOKEN--89E3E5BE",
+      "title": "Owner summary must seed owner-token leaves for higher-order consumption",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/owner_summary_leaf.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T224620549Z-OWNER-SUMMARY-MUST-SEED-OWNER-TOKEN--89E3E5BE.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",
@@ -14538,6 +14553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T211933733Z-VEC-REPLACE-MUST-PROVE-SLOT-REPLACEM-3686CB53.md"
+    },
+    {
+      "id": "ISS-20260522T220632558Z-VEC-POP-MUST-SUPPORT-NON-COPY-MOVE-O-1ADE6C76",
+      "title": "Vec pop must support non-Copy move-out through owner-preserving API",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/mutation/pop.nepl, stdlib/alloc/collections/vec/types.nepl, nepl-core/src/resource/owner_summary_leaf.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nodesrc/test_stdlib_collection_cleanup_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T220632558Z-VEC-POP-MUST-SUPPORT-NON-COPY-MOVE-O-1ADE6C76.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

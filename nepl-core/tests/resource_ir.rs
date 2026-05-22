@@ -16137,7 +16137,7 @@ fn main <()*>i32> ():
                     || function.starts_with("vec_push_storage_checked__")
                     || function.starts_with("vec_push_slot_store_initialized__")
                     || function.starts_with("pop__")
-                    || function.starts_with("vec_pop_copy_move_out_initialized_slot__")
+                    || function.starts_with("vec_pop_move_out_initialized_slot__")
                     || function.starts_with("vec_pop_item__")
                     || function.starts_with("vec_pop_vec__")
                     || function.starts_with("free__")
@@ -16154,7 +16154,7 @@ fn main <()*>i32> ():
     );
     assert!(
         resource.functions.iter().any(|function| {
-            function.origin_name == "vec_pop_copy_move_out_initialized_slot"
+            function.origin_name == "vec_pop_move_out_initialized_slot"
                 && resource_function_ops_any(function, |op| {
                     matches!(
                         op,
@@ -16165,7 +16165,7 @@ fn main <()*>i32> ():
                     )
                 })
         }),
-        "Copy pop helper must emit single-slot MoveOut state proof:\n{}",
+        "Copy pop helper must emit single-slot MoveOut state proof through the shared helper:\n{}",
         resource.dump_text()
     );
     assert!(
@@ -16181,6 +16181,139 @@ fn main <()*>i32> ():
             }),
         "main must not retain initialized Copy Vec slots after pop/free: {:#?}",
         report.functions
+    );
+}
+
+#[test]
+fn resource_ir_initialized_check_vec_drop_pop_moves_out_tail_slot_and_recovers_owners() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn recover_drop_pop <(Vec<DropPayload>,Option<DropPayload>)*>i32> (next, item):
+    let len_ok <bool> eq len<DropPayload> &next 1
+    match item:
+        Option::Some value:
+            Drop::drop &value
+            free<DropPayload> next
+            if len_ok 0 1
+        Option::None:
+            free<DropPayload> next
+            1
+
+fn main <()*>i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+    let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
+    let popped <VecPop<DropPayload>> pop<DropPayload> v2
+    vec_pop_with<DropPayload,i32> popped @recover_drop_pop
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("recover_drop_pop__")
+                    || function.starts_with("push__")
+                    || function.starts_with("vec_push_storage_checked__")
+                    || function.starts_with("vec_push_slot_store_initialized__")
+                    || function.starts_with("pop__")
+                    || function.starts_with("vec_pop_storage_checked__")
+                    || function.starts_with("vec_pop_move_out_initialized_slot__")
+                    || function.starts_with("vec_pop_with__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec<DropPayload>.pop must move out the removed owner and recover both Vec and Option owners: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_pop_move_out_initialized_slot"
+                && resource_function_ops_any(function, |op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::MoveOut { .. },
+                            ..
+                        }
+                    )
+                })
+        }),
+        "Drop payload pop helper must emit single-slot MoveOut state proof:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .all(|function| function.origin_name != "vec_buffer_current_copy_invariant"),
+        "Drop payload pop must not route through Copy raw-access invariant:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("main__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "main must not retain initialized Drop payload Vec slots after pop recovery/free: {:#?}",
+        report.functions
+    );
+    let owner_report = check_resource_owner_obligations(&resource, &types);
+    let owner_diagnostics = owner_report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("main__")
+                || function.starts_with("recover_drop_pop__")
+                || function.starts_with("pop__")
+                || function.starts_with("vec_pop_storage_checked__")
+                || function.starts_with("vec_pop_move_out_initialized_slot__")
+                || function.starts_with("vec_pop_with__")
+                || function.starts_with("free__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        owner_diagnostics.is_empty(),
+        "Vec<DropPayload>.pop recovery must satisfy owner obligations across the vec_pop_with callback boundary: {:#?}\nresource:\n{}",
+        owner_diagnostics,
+        resource.dump_text()
     );
 }
 

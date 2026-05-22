@@ -18,14 +18,14 @@
 #import "../invariant" as *
 #import "core/field" as *
 
-//: ## vec_pop_copy_move_out_initialized_slot
-//: Copy payload の末尾 slot を raw load し、Resource IR 上で moved-out にする private helper
+//: ## vec_pop_move_out_initialized_slot
+//: 末尾 slot を raw load し、Resource IR 上で moved-out にする private helper
 //:
 //: ### [目的/もくてき]
-//: - `.T: Copy` の `pop` は caller に値を返すため、removed tail slot を raw load します。
+//: - `pop` は caller に removed payload owner を返すため、removed tail slot を raw load します。
 //: - raw load だけでは backing storage 上の initialized slot state が残るため、同じ source boundary で `collection_slot_move_out` marker を[発行/はっこう]します。
 //: - public `pop` body は raw pointer operation や lifecycle marker を open-code せず、`VecStorageInvariant` で metadata / extent を[検査/けんさ]してからこの helper に委譲します。
-fn vec_pop_copy_move_out_initialized_slot <.T: Copy> <(&RegionToken<.T>,i32)->.T> (storage, byte_off):
+fn vec_pop_move_out_initialized_slot <.T> <(&RegionToken<.T>,i32)->.T> (storage, byte_off):
     let data <MemPtr<.T>> region_ptr storage
     let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
     let raw <i32> mem_ptr_addr slot
@@ -33,58 +33,14 @@ fn vec_pop_copy_move_out_initialized_slot <.T: Copy> <(&RegionToken<.T>,i32)->.T
     #intrinsic "collection_slot_move_out" <.T> (storage, byte_off)
     loaded
 
-//: ## pop
-//: [末尾/まつび][要素/ようそ]を[取/と]り[出/だ]す
+//: ## vec_pop_storage_checked
+//: payload 種別に依存しない `pop` の storage / lifecycle checked implementation
 //:
 //: ### [目的/もくてき]
-//: - [末尾/まつび][要素/ようそ]を `Option` で[返/かえ]し、[長/なが]さを 1 [減/へ]らした `Vec` を[同時/どうじ]に[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - `len == 0` なら `Option::None` です。
-//: - [要素/ようそ]がある[場合/ばあい]は[最後/さいご]の 1 [件/けん]を typed `load` し、`len - 1` の `Vec` と[組/く]にして[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [返/かえ]り[値/あたい]は `VecPop<.T>` です。
-//: - [確保/かくほ]も[解放/かいほう]も[行/おこな]わないため O(1) です。
-//: - [現行/げんこう]の `pop` は `.T: Copy` に[限定/げんてい]します。removed tail slot の move-out proof は private helper で Resource IR に[渡/わた]していますが、non-Copy payload では `VecPop<T>` から `Vec<T>` と `Option<T>` の両 owner を同時に取り出す consuming API がまだ未設計なためです。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//:| #import "core/option" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push v0 4;
-//:     let p pop<i32> v1;
-//:     let next <Vec<i32>> vec_pop_vec<i32> p;
-//:     free<i32> next;
-//:     0
-//: ```
-//:
-//: neplg2:test[compile_fail]
-//: diag_codes: type.trait_bound.unsatisfied
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//:| #import "core/result" as *
-//: struct NonCopyPayload:
-//:     value <i32>
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<NonCopyPayload>> unwrap_ok new<NonCopyPayload>;
-//:     let p pop<NonCopyPayload> v0;
-//:     let _next <Vec<NonCopyPayload>> vec_pop_vec<NonCopyPayload> p;
-//:     0
-//: ```
-pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
+//: - `VecStorageInvariant` により `len`、`initialized_len`、`cap`、backing storage extent の相関を確認します。
+//: - 要素があるときだけ `vec_pop_move_out_initialized_slot` へ末尾 slot の move-out proof を委譲し、metadata を `next_len` にそろえた `VecPop` を返します。
+//: - Copy / Drop の public overload はこの helper を共有し、API 型境界だけを外側で表します。
+fn vec_pop_storage_checked <.T> <(Vec<.T>)->VecPop<.T>> (v):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
     let v_len <i32> *field::get_ref v_buffer_ref "len"
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
@@ -107,8 +63,107 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
                             VecPop<.T> vec_storage::vec_empty<.T> none<.T>
                         VecStorage::Owned v_region:
                             let byte_off <i32> mul next_len size_of<.T>
-                            let item <.T> vec_pop_copy_move_out_initialized_slot<.T> &v_region byte_off
+                            let item <.T> vec_pop_move_out_initialized_slot<.T> &v_region byte_off
                             VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
+
+//: ## pop
+//: [末尾/まつび][要素/ようそ]を[取/と]り[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - [末尾/まつび][要素/ようそ]を `Option` で[返/かえ]し、[長/なが]さを 1 [減/へ]らした `Vec` を[同時/どうじ]に[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `len == 0` なら `Option::None` です。
+//: - [要素/ようそ]がある[場合/ばあい]は[最後/さいご]の 1 [件/けん]を typed `load` し、`len - 1` の `Vec` と[組/く]にして[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [返/かえ]り[値/あたい]は `VecPop<.T>` です。
+//: - [確保/かくほ]も[解放/かいほう]も[行/おこな]わないため O(1) です。
+//: - `.T: Copy` では `vec_pop_item` / `vec_pop_vec` で従来どおり値を読むことができます。
+//: - `.T: Drop` payload では `vec_pop_with` を使い、更新後の `Vec` owner と `Option<T>` owner を同じ callback で同時に回収します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push v0 4;
+//:     let p pop<i32> v1;
+//:     let next <Vec<i32>> vec_pop_vec<i32> p;
+//:     free<i32> next;
+//:     0
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn finish <(Vec<DropPayload>,Option<DropPayload>)*>i32> (next, item):
+//:     let len_ok <bool> eq len<DropPayload> &next 0
+//:     match item:
+//:         Option::Some value:
+//:             Drop::drop &value
+//:             free<DropPayload> next
+//:             if len_ok 0 1
+//:         Option::None:
+//:             free<DropPayload> next
+//:             1
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 4)
+//:     let p <VecPop<DropPayload>> pop<DropPayload> v1
+//:     vec_pop_with<DropPayload,i32> p @finish
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.overload.no_match
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn ignore_plain <(Vec<NonCopyPayload>,Option<NonCopyPayload>)*>i32> (_next, _item):
+//:     0
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
+//:     let p pop<NonCopyPayload> v0;
+//:     vec_pop_with<NonCopyPayload,i32> p @ignore_plain
+//:     0
+//: ```
+pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
+    vec_pop_storage_checked<.T> v
+
+//: ## pop
+//: Drop payload の[末尾/まつび][要素/ようそ]を owner として[取/と]り[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の removed tail slot を move-out し、caller が `Option<T>` owner として受け取れるようにします。
+//: - `Drop::drop` は `pop` 内では行いません。caller が `Option::Some value` を match して使うか drop し、更新後の `Vec` owner も同じ control-flow で処理します。
+//:
+//: ### [注意/ちゅうい]
+//: - `vec_pop_vec<T: Copy>` は item owner を捨てる accessor なので、Drop payload では使えません。`vec_pop_with<T, R>` を使います。
+pub fn pop <.T: Drop> <(Vec<.T>)->VecPop<.T>> (v):
+    vec_pop_storage_checked<.T> v
 
 //: ## vec_drop_last_copy_initialized_slot
 //: Copy payload の末尾 slot を Resource IR 上で cleanup 済みにする private helper

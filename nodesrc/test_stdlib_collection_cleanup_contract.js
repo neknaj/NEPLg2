@@ -22,6 +22,8 @@ const privateStorageReallocHelperInspected = [];
 const privateProofBackedOwnerUpdateHelperInspected = [];
 const privateProofBackedTailCleanupHelperInspected = [];
 const ownerPreservingErrorRecoveryInspected = [];
+const ownerPreservingPopRecoveryInspected = [];
+const proofBackedPopMoveOutInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -87,9 +89,17 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (ownerPreservingErrorRecovery && !ownerPreservingErrorRecoveryInspected.includes(`${relPath}:${signature.name}`)) {
                     ownerPreservingErrorRecoveryInspected.push(`${relPath}:${signature.name}`);
                 }
+                const ownerPreservingPopRecovery = classifyOwnerPreservingPopRecovery(signature.name, typeSignature);
+                if (ownerPreservingPopRecovery && !ownerPreservingPopRecoveryInspected.includes(`${relPath}:${signature.name}`)) {
+                    ownerPreservingPopRecoveryInspected.push(`${relPath}:${signature.name}`);
+                }
                 const privateLifecycleProofHelper = !signature.isPublic
                     ? classifyPrivateCollectionLifecycleProofHelper(source, signature.name)
                     : null;
+                const proofBackedPopMoveOut = classifyProofBackedPopMoveOutSurface(source, signature.name, typeSignature);
+                if (proofBackedPopMoveOut && !proofBackedPopMoveOutInspected.includes(`${relPath}:${signature.name}`)) {
+                    proofBackedPopMoveOutInspected.push(`${relPath}:${signature.name}`);
+                }
                 if (privateLifecycleProofHelper) {
                     privateLifecycleProofHelperInspected.push(`${relPath}:${signature.name}`);
                 } else {
@@ -102,7 +112,7 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !ownerPreservingErrorRecovery) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !ownerPreservingErrorRecovery && !ownerPreservingPopRecovery && !proofBackedPopMoveOut) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
@@ -275,6 +285,17 @@ assert.ok(
 assert.ok(
     privateProofBackedTailCleanupHelperInspected.includes('stdlib/alloc/collections/vec/mutation/pop.nepl:vec_drop_last_storage_checked_drop'),
     'collection owner policy must classify Vec.drop_last Drop implementation as a private single-slot cleanup helper instead of a public Copy-only surface',
+);
+
+assert.ok(
+    proofBackedPopMoveOutInspected.includes('stdlib/alloc/collections/vec/mutation/pop.nepl:vec_pop_storage_checked')
+        && proofBackedPopMoveOutInspected.includes('stdlib/alloc/collections/vec/mutation/pop.nepl:pop'),
+    'collection owner policy must classify Vec.pop Drop move-out through storage invariant plus private MoveOut proof instead of requiring Copy',
+);
+
+assert.ok(
+    ownerPreservingPopRecoveryInspected.includes('stdlib/alloc/collections/vec/types.nepl:vec_pop_with'),
+    'collection pop owner recovery policy must allow Vec.pop only when Vec and Option<T> owners are passed to the same callback',
 );
 
 assert.ok(
@@ -574,6 +595,32 @@ function classifyOwnerPreservingRejectedEliminator(typeSignature) {
     return { kind: 'owner-preserving-rejected-eliminator' };
 }
 
+function classifyOwnerPreservingPopRecovery(name, typeSignature) {
+    if (name !== 'vec_pop_with') {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const popResult = functionType.parameters[0].trim();
+    const popMatch = popResult.match(/^VecPop<\.(\w+)>$/);
+    if (!popMatch) {
+        return null;
+    }
+
+    const genericName = popMatch[1];
+    const callback = functionType.parameters[1].replace(/\s+/g, '');
+    const returnType = functionType.returnType.replace(/\s+/g, '');
+    if (callback !== `(Vec<.${genericName}>,Option<.${genericName}>)*>${returnType}`) {
+        return null;
+    }
+
+    return { kind: 'owner-preserving-pop-recovery' };
+}
+
 function classifyFallibleOwnerConsumer(typeSignature) {
     if (!typeSignature) {
         return null;
@@ -809,6 +856,65 @@ function classifyProofBackedReplaceDropOldSurface(source, section, functionType)
     }
 
     return { kind: 'drop-capable-proof-backed-replace-drop-old-surface' };
+}
+
+function classifyProofBackedPopMoveOutSurface(source, functionName, typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 1) {
+        return null;
+    }
+
+    const ownerParam = functionType.parameters[0].trim();
+    const match = ownerParam.match(/^Vec<\.(\w+)>$/);
+    if (!match || functionType.returnType.trim() !== `VecPop<.${match[1]}>`) {
+        return null;
+    }
+
+    const sections = implementationFunctionSections(source, functionName);
+    if (sections.some((section) => classifyProofBackedPopMoveOutSection(source, section, match[1], new Set()))) {
+        return { kind: 'proof-backed-pop-move-out-surface' };
+    }
+
+    return null;
+}
+
+function classifyProofBackedPopMoveOutSection(source, section, genericName, seen) {
+    if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
+        return null;
+    }
+
+    const delegate = section.match(/\b([A-Za-z_][A-Za-z0-9_]*)<\.\w+>\s+v\b/);
+    if (delegate) {
+        const delegateName = delegate[1];
+        if (seen.has(delegateName)) {
+            return null;
+        }
+        seen.add(delegateName);
+        return implementationFunctionSections(source, delegateName)
+            .some((candidate) => classifyProofBackedPopMoveOutSection(source, candidate, genericName, seen));
+    }
+
+    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${genericName}>`).test(section)) {
+        return null;
+    }
+    if (!new RegExp(`\\bVecPop<\\.${genericName}>[\\s\\S]*\\bnone<\\.${genericName}>[\\s\\S]*\\bVecPop<\\.${genericName}>[\\s\\S]*\\bsome<\\.${genericName}>\\s+item`).test(section)) {
+        return null;
+    }
+
+    const helperNames = [...section.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)<\.\w+>\s+&[A-Za-z_][A-Za-z0-9_]*\s+byte_off\b/g)]
+        .map((helperMatch) => helperMatch[1]);
+    if (helperNames.length === 0) {
+        return null;
+    }
+    if (!helperNames.every((helperName) => classifyPrivateCollectionLifecycleProofHelper(source, helperName))) {
+        return null;
+    }
+
+    return { kind: 'proof-backed-pop-move-out-section' };
 }
 
 function classifyProofBackedTailDropSurface(source, section, functionType) {

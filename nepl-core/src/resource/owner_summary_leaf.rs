@@ -3,10 +3,11 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
-use crate::resource_primitives::type_is_raw_pointer;
+use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection};
+use super::owner_summary_owner_token_leaf::owner_token_raw_i32_leaf_projections;
 use super::owner_summary_variant_leaf::enum_owner_leaf_projections;
 use super::place_utils::place_with_suffix;
 
@@ -41,6 +42,9 @@ pub(super) fn owner_leaf_projections_mapped(
     seen: &mut BTreeSet<TypeId>,
 ) -> Vec<OwnerLeafProjection> {
     let mapped = mapped_type_id(types, ty, mapping);
+    if type_is_owner_token(types, mapped) {
+        return owner_token_raw_i32_leaf_projections(types, mapped);
+    }
     if !seen.insert(mapped) {
         return vec![OwnerLeafProjection {
             suffix: Vec::new(),
@@ -201,6 +205,52 @@ fn apply_owner_leaf_projections(
             suffix: Vec::new(),
             ty: mapped_type_id(types, base, mapping),
         }],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::ToString;
+    use alloc::vec;
+
+    use crate::resource_primitives::{CompilerMemoryFieldSpec, OWNER_TOKEN_TYPE_NAME};
+    use crate::source_map::CompilerMemoryType;
+    use crate::types::{TypeCtx, TypeKind};
+
+    use super::super::model::{Place, PlaceProjection};
+    use super::owner_leaf_places;
+
+    #[test]
+    fn owner_leaf_places_seed_owner_token_raw_field() {
+        let mut types = TypeCtx::new();
+        let type_param = types.fresh_var(Some("T".to_string()));
+        let i32_ty = types.i32();
+        let token_ty = types.register_named(
+            OWNER_TOKEN_TYPE_NAME.to_string(),
+            TypeKind::Struct {
+                name: OWNER_TOKEN_TYPE_NAME.to_string(),
+                type_params: vec![type_param],
+                fields: vec![i32_ty, i32_ty],
+                field_names: vec![
+                    CompilerMemoryFieldSpec::RawI32.name().to_string(),
+                    CompilerMemoryFieldSpec::SizeI32.name().to_string(),
+                ],
+            },
+        );
+        types.mark_compiler_memory_type(token_ty, CompilerMemoryType::OwnerToken);
+        let base = Place::local("token".to_string(), token_ty);
+
+        let leaves = owner_leaf_places(&types, &base);
+
+        assert_eq!(leaves.len(), 1);
+        assert_eq!(leaves[0].place.ty, i32_ty);
+        assert_eq!(
+            leaves[0].suffix,
+            vec![PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }]
+        );
     }
 }
 

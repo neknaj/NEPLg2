@@ -1,3 +1,22 @@
+# 2026-05-22 Agent 1 Vec pop non-Copy move-out and owner summary proof
+
+- `ISS-20260522T220632558Z-VEC-POP-MUST-SUPPORT-NON-COPY-MOVE-O-1ADE6C76` を fixed にした。作業中に発見した compiler 側の汎用問題 `ISS-20260522T224620549Z-OWNER-SUMMARY-MUST-SEED-OWNER-TOKEN--89E3E5BE` も同じ証明経路の根本原因として fixed にした。`plan.md` は確認済みで、変更していない。
+- `Vec.pop` は `Copy` / `Drop` overload を持ち、どちらも private `vec_pop_storage_checked<T>` に委譲する。storage metadata / extent は `VecStorageInvariant` で検査し、tail slot の raw load と `collection_slot_move_out` は private `vec_pop_move_out_initialized_slot<T>` に閉じた。
+- Drop payload の戻り値回収には `vec_pop_with<T, R>` を追加した。`Vec<T>` owner と `Option<T>` owner を同じ callback に渡す owner-preserving eliminator で、`vec_pop_vec<T: Copy>` のように片方の owner を捨てる accessor を Drop payload へ広げない。
+- doctest で `resource.owner.leak` が出た根本原因は、Resource IR owner summary が compiler-proven `RegionToken<T>` raw field を通常の owner leaf として seed せず、raw owner usage が既に検出できた場合だけ後追いで seed していたことだった。`owner_summary_leaf` で owner token raw field を最初から owner leaf projection として扱い、unknown indirect callback 経由の消費も direct call summary に載るようにした。stdlib 関数名 allowlist は追加していない。
+- focused verification:
+  - `cargo test -p nepl-core resource::owner_summary_leaf::tests::owner_leaf_places_seed_owner_token_raw_field -- --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_copy_pop_moves_out_tail_slot -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_pop_moves_out_tail_slot_and_recovers_owners -- --test-threads=1 --exact --nocapture`
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/mutation/pop.nepl -n 1 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/mutation/pop.nepl -n 2 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/mutation/pop.nepl -n 3 --dist web/dist`
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+
 # 2026-05-22 Agent 1 Vec replace lifecycle proof
 
 - `ISS-20260522T211933733Z-VEC-REPLACE-MUST-PROVE-SLOT-REPLACEM-3686CB53` を fixed にした。`plan.md` は確認済みで、変更していない。
