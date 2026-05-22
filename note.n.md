@@ -42239,6 +42239,8 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/parser_backend_responsibility_split_plan.md` の B3 進捗に今回の分割を反映した。
 - focused verification:
   - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core resource::initialized_summary_variant_build_tests -- --test-threads=1`: passed
+  - `cargo test -p nepl-core resource::initialized_summary_apply_param_tests -- --test-threads=1`: passed
   - `cargo fmt -p nepl-core --check`: passed
   - `cargo test -p nepl-core codegen_llvm::tests -- --nocapture`: 9 passed
   - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 10 passed
@@ -44885,6 +44887,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 根本原因は、`initialized_raw_memory.rs` が `RawMemoryOp` dispatch と raw dealloc 時の collection-slot release / refutation diagnostic emission を同居させ、dispatcher の監査単位を再び肥大化させていたこと。
 - raw dealloc の collection-slot release と `CollectionSlotRefuted` diagnostic への変換を `initialized_raw_memory_dealloc_collection.rs` へ分離し、dispatcher 本体は raw memory operation routing に集中させた。
 - `node nodesrc/test_resource_checker_responsibility.js` はこの blocker を通過し、次の既存 blocker として `initialized_summary.rs` 81/80 行超過を検出したため、別 issue `ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30` として分離した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+
+## 2026-05-22 Agent 1 initialized summary variant model split
+
+- `ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、raw initialization summary の core data contract に variant payload / requirement / condition model が同居し、`SummaryProjection` 化による field 増加で `initialized_summary.rs` が再び責務境界を超えたこと。
+- variant-specific な raw cell initialization summary model を `initialized_summary_variant_model.rs` へ分離し、`initialized_summary.rs` は function summary と return/param cell contract に集中させた。
+- `node nodesrc/test_resource_checker_responsibility.js` はこの blocker を通過し、次の既存 blocker として `initialized_variant.rs` 503-504/500 行超過を検出したため、別 issue `ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9` として分離した。
 - focused verification:
   - `cargo check -p nepl-core`: passed
   - `cargo fmt -p nepl-core --check`: passed

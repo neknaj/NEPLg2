@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use super::cell_state::raw_cell_suffix_after_address;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_summary::RawCellInitializationVariantParamRequirement;
+use super::initialized_summary_variant_model::RawCellInitializationVariantParamRequirement;
 use super::model::{RawMemoryOp, ResourceLocal, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
 use super::summary_projection::summary_suffix_for_params;

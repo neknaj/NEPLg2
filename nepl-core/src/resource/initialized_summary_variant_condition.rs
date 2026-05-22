@@ -3,8 +3,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_summary::RawCellInitializationVariantCondition;
 use super::initialized_summary_condition::RawCellValueCondition;
+use super::initialized_summary_variant_model::RawCellInitializationVariantCondition;
 use super::model::{Place, ResourceConditionFact, ResourceLocal};
 use super::place_utils::place_suffix_after_prefix;
 use super::summary_projection::summary_suffix_for_params;

@@ -11,6 +11,10 @@ use super::initialized_summary_byte_range_model::{
 pub(super) use super::initialized_summary_release_model::{
     RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
 };
+use super::initialized_summary_variant_model::{
+    RawCellInitializationVariantCondition, RawCellInitializationVariantParamCell,
+    RawCellInitializationVariantParamRequirement,
+};
 use super::model::PlaceProjection;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_projection::SummaryProjection;
@@ -51,30 +55,4 @@ pub(super) struct RawCellInitializationParamCell {
     pub(super) suffix: Vec<SummaryProjection>,
     pub(super) ty: TypeId,
     pub(super) holds_raw_address: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct RawCellInitializationVariantParamCell {
-    pub(super) variant: String,
-    pub(super) param_index: usize,
-    pub(super) suffix: Vec<SummaryProjection>,
-    pub(super) ty: TypeId,
-    pub(super) holds_raw_address: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct RawCellInitializationVariantParamRequirement {
-    pub(super) variant: String,
-    pub(super) param_index: usize,
-    pub(super) suffix: Vec<SummaryProjection>,
-    pub(super) ty: TypeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct RawCellInitializationVariantCondition {
-    pub(super) variant: String,
-    pub(super) param_index: usize,
-    pub(super) suffix: Vec<SummaryProjection>,
-    pub(super) ty: TypeId,
-    pub(super) condition: super::initialized_summary_condition::RawCellValueCondition,
 }

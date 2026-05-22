@@ -317,6 +317,7 @@ mod initialized_summary_variant_build;
 #[cfg(test)]
 mod initialized_summary_variant_build_tests;
 mod initialized_summary_variant_condition;
+mod initialized_summary_variant_model;
 mod initialized_summary_variant_requirement;
 mod initialized_summary_variant_type;
 mod initialized_summary_variant_unique;

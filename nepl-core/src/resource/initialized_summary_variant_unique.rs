@@ -2,8 +2,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use super::initialized_summary::RawCellInitializationVariantParamCell;
 use super::initialized_summary_byte_range_model::RawCellInitializationVariantParamByteRange;
+use super::initialized_summary_variant_model::RawCellInitializationVariantParamCell;
 
 pub(super) fn push_unique_variant_param_cell(
     cells: &mut Vec<RawCellInitializationVariantParamCell>,

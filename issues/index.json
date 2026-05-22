@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T03:14:44.578Z",
+  "generated_at": "2026-05-22T03:25:34.416Z",
   "counts": {
-    "total": 1218,
+    "total": 1219,
     "open": 4,
-    "resolved": 1214,
+    "resolved": 1215,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -12,9 +12,9 @@
         "resolved": 310
       },
       "core": {
-        "total": 601,
+        "total": 602,
         "open": 1,
-        "resolved": 600
+        "resolved": 601
       },
       "selfhost": {
         "total": 110,
@@ -155,8 +155,8 @@
       "file": "items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md"
     },
     {
-      "id": "ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30",
-      "title": "initialized summary model exceeds responsibility limit after projection growth",
+      "id": "ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9",
+      "title": "initialized variant module exceeds responsibility limit after summary model split",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -164,10 +164,10 @@
       "type": "maintenance",
       "created": "2026-05-22",
       "updated": "2026-05-22",
-      "target": "nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_variant.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30.md"
+      "file": "items/ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -16458,6 +16458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T030231180Z-INITIALIZED-RAW-MEMORY-DISPATCHER-EX-3FB72BA0.md"
+    },
+    {
+      "id": "ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30",
+      "title": "initialized summary model exceeds responsibility limit after projection growth",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",
