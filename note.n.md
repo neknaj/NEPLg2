@@ -1,3 +1,19 @@
+# 2026-05-22 Agent 1 Vec storage invariant split
+
+- `ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D` を解決した。`plan.md` は確認済みで、変更していない。
+- `VecCopyInvariant` に storage metadata / extent proof と Copy-only raw access proof が同居していたため、non-Copy lifecycle API が `Copy` proof に依存する構造になっていた。
+- `stdlib/alloc/collections/vec/invariant.nepl` に `VecStorageInvariantInvalid` / `VecStorageInvariant` と `vec_buffer_current_storage_invariant<T>` / `vec_current_storage_invariant<T>` を追加した。これにより `len` / `initialized_len` / `cap` / `VecStorage` / backing extent の相関を `.T: Copy` なしで検査できる。
+- `VecCopyInvariant` は raw payload access の境界として残し、`VecStorageInvariant` を exhaustive `match` で `VecCopyInvariant` に変換する wrapper にした。Copy-only raw access proof は維持し、metadata/extent proof の重複実装はなくした。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に source policy を追加し、storage proof が Copy 不要であること、Copy proof が storage proof に委譲すること、Copy proof 側に metadata/extent 検査が再複製されないことを監視する。
+- `nepl-core/tests/resource_ir.rs` に `Vec<DropPayload>` が `vec_current_storage_invariant` を使っても `vec_buffer_current_copy_invariant` へ流れない regression を追加した。
+- 残件は non-Copy `push` / grow / move-out / replace / owner-preserving error recovery の public API 接続である。今回の修正はその前提になる storage proof の責務分離であり、stdlib module allowlist は追加していない。
+- 検証:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `cargo fmt --check`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_storage_invariant_accepts_drop_payload_without_copy -- --test-threads=1 --exact --nocapture`
+
 # 2026-05-22 Agent 1 Vec Drop-bound empty allocation and cleanup
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の次段階として、`Vec<T>` の empty allocation と empty / initialized-prefix cleanup を `.T: Drop` に接続した。`plan.md` と Zenn の開発方針は確認済みで、`plan.md` 自体は変更していない。

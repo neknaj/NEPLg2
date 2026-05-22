@@ -117,6 +117,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 2026-05-22 の subagent 監査では、Resource IR 側の enum / match / generic proof boundary は概ね方針に沿っている一方、実 `stdlib/alloc/collections/vec/**` はまだ payload write / move-out / replace / grow / observer の多くで `.T: Copy` public API と `VecCopyInvariant` に依存していることを本 issue の残件として再確認した。現在は empty allocation と Drop-bound cleanup の入口が generic Resource IR proof へ接続された段階であり、次の大きな実装単位は `Vec<T>` の non-Copy `push` / grow / move-out / replace / error owner recovery を、stdlib module allowlist ではなく compiler-owned Resource IR marker と owner-preserving API 型に接続することである。
 
+同日に [ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D](./ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D.md) で、`VecCopyInvariant` から payload 非依存の `VecStorageInvariant` を分離した。これにより `len` / `initialized_len` / `cap` / `VecStorage` / backing extent の相関は `.T: Copy` なしで証明でき、Copy-only raw access proof は storage proof の wrapper に限定された。実 `Vec<T>` の non-Copy `push` / grow / move-out / replace はまだ本 issue の残件だが、次段階でそれらの API が使う storage metadata/extent proof は Copy raw access proof から独立した。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。
