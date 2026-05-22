@@ -57,6 +57,7 @@ mod collection_slot_state_merge;
 mod collection_slot_state_merge_tests;
 mod collection_slot_state_release;
 mod collection_slot_state_release_alias;
+mod collection_slot_state_release_alias_precondition;
 #[cfg(test)]
 mod collection_slot_state_release_tests;
 mod collection_slot_state_relocate;

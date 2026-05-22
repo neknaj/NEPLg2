@@ -44847,3 +44847,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core resource::collection_slot_summary_target_tests -- --test-threads=1`: passed
   - `cargo test -p nepl-core --test collection_slot_full_range public_owner_collection_api_uses_private_lifecycle_helpers -- --test-threads=1 --exact`: passed
   - `cargo check -p nepl-core`: passed
+
+## 2026-05-22 Agent 1 collection slot release alias responsibility split
+
+- `ISS-20260522T023831896Z-COLLECTION-SLOT-RELEASE-ALIAS-MODULE-0B5B1690` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、alias-aware storage release の mutation entrypoint と release precondition / tracked-state query が同じ module に同居し、Resource IR の責務分割 monitor が release alias module の肥大化を検出していたこと。
+- `collection_slot_state_release_alias.rs` は release mutation と alias set に基づく state 更新だけに絞った。`storage_release_precondition_with_aliases` と `storage_release_has_collection_state_with_aliases` は `collection_slot_state_release_alias_precondition.rs` へ分離し、dealloc 可否の証明と mutation を別責務として読める構造にした。
+- `node nodesrc/test_resource_checker_responsibility.js` はこの blocker を通過し、次の既存 blocker として `initialized_availability.rs` 173/120 行超過を検出したため、別 issue `ISS-20260522T025248689Z-INITIALIZED-AVAILABILITY-MODULE-EXCE-CF822B46` として分離した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core collection_slot_state_release --lib -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc -- --test-threads=1 --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_raw_dealloc -- --test-threads=1 --nocapture`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
