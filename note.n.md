@@ -45297,3 +45297,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
   - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
   - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/types.nepl -n 4 --dist web/dist`: passed
+
+## 2026-05-22 Agent 1 VecPartition owner-preserving eliminator
+
+- `ISS-20260522T234126652Z-VECPARTITION-RESULT-NEEDS-OWNER-PRES-79F55766` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`VecPartition<T>` が `matched` / `rest` の 2 本の `Vec<T>` owner を保持するのに、public recovery surface が Copy-bound observer と `vec_partition_free<T: Copy>` だけだったこと。future non-Copy partition で direct field projection を要求する形になる。
+- `vec_partition_with<T, R>` を追加し、`VecPartition<T>` を消費して `matched` / `rest` の両 owner を同じ callback `(Vec<T>, Vec<T>)->R` へ渡す形にした。
+- `partition<T: Copy>` 本体、`vec_partition_*_get<T: Copy>`、`vec_partition_free<T: Copy>` は現時点では維持した。non-Copy partition algorithm は move-out / output slot initialization / rollback / drop traversal の設計が必要なので別段階で扱う。
+- `vec_partition_with` の陽性 doctest は `partition` 経由が正しいが、focused local run では 240s command budget を超えた。直接 `VecPartition` constructor を成功例にするのは owner-backed aggregate policy に反するため、doctest は `type.owner_aggregate.constructor_restricted` の compile_fail safety fixture にし、fast positive fixture / compile-time 問題は `ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78` として分離した。
+- focused verification:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl -n 5 --dist web/dist`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `node nodesrc/issues.js index --dir issues`: passed
+  - `cargo fmt --check`: passed
+  - `git diff --check`: passed

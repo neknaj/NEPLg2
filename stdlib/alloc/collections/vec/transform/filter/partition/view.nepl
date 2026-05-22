@@ -143,12 +143,46 @@ pub fn vec_partition_rest_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (
     let rest <&Vec<.T>> field::get_ref parts "rest"
     vec_get::get<.T> rest idx
 
+//: ## vec_partition_with
+//: `VecPartition` の `matched` owner と `rest` owner を同じ callback に[渡/わた]す
+//:
+//: ### [目的/もくてき]
+//: - `VecPartition<T>` は 2 本の `Vec<T>` owner を[持/も]つ owner-backed aggregate です。
+//: - non-Copy payload の partition を追加するとき、caller が片方の field だけを[取/と]り[出/だ]す設計にはせず、この eliminator で両 owner を同じ control-flow へ[渡/わた]します。
+//: - cleanup、再結合、診断変換など、2 本の owner obligation を API 型から[消/け]さずに[実装/じっそう]できます。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.owner_aggregate.constructor_restricted
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn finish_partition <(Vec<i32>,Vec<i32>)*>i32> (matched, rest):
+//:     let ok <bool> and (eq len<i32> &matched 0) (eq len<i32> &rest 0)
+//:     free<i32> matched
+//:     free<i32> rest
+//:     if ok 0 1
+//: fn main <()*>i32> ():
+//:     let matched <Vec<i32>> vec_empty<i32>
+//:     let rest <Vec<i32>> vec_empty<i32>
+//:     // caller は `VecPartition` を直接構築せず、`partition` が返した値をこの eliminator に渡します。
+//:     let parts <VecPartition<i32>> VecPartition<i32> matched rest
+//:     vec_partition_with<i32,i32> parts @finish_partition
+//: ```
+pub fn vec_partition_with <.T,.R> <(VecPartition<.T>,(Vec<.T>,Vec<.T>)*>.R)*>.R> (parts, callback):
+    let matched <Vec<.T>> field::get parts "matched"
+    let rest <Vec<.T>> field::get parts "rest"
+    callback matched rest
+
 //: ## vec_partition_free
 //: `VecPartition` が[保持/ほじ]する 2 本の `Vec` owner を[解放/かいほう]する
 //:
 //: ### [目的/もくてき]
 //: - `matched` と `rest` の両方の owner を実装境界内で[取/と]り[出/だ]し、解放漏れを避けます。
 //: - caller は owner aggregate field を直接 projection せず、`VecPartition` 全体をこの関数へ[渡/わた]します。
+//: - `.T: Copy` の便宜 API として残します。non-Copy payload では `vec_partition_with<T, R>` を使い、callback 内で両 `Vec<T>` owner を回収します。
 //:
 //: neplg2:test
 //: exit_code: 0

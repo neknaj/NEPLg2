@@ -137,6 +137,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 2026-05-22 に [ISS-20260522T233025556Z-VEC-TRANSFORM-ERROR-RECOVERY-NEEDS-O-BEF07D14](./ISS-20260522T233025556Z-VEC-TRANSFORM-ERROR-RECOVERY-NEEDS-O-BEF07D14.md) を fixed にした。現行 transform family は引き続き `.T: Copy` 専用だが、`VecTransformError<T>` から入力 `Vec<T>` owner と `StdErrorKind` を同じ callback へ渡す `vec_transform_error_with<T, R>` を追加した。これにより future non-Copy transform の失敗時 recovery は direct field projection や Vec-only accessor ではなく、push / replace / pop と同じ owner-preserving callback boundary へ載せられる。`vec_transform_error_vec<T: Copy>` は error kind を返さない便宜 accessor として Copy-only のまま残す。
 
+2026-05-22 に [ISS-20260522T234126652Z-VECPARTITION-RESULT-NEEDS-OWNER-PRES-79F55766](./ISS-20260522T234126652Z-VECPARTITION-RESULT-NEEDS-OWNER-PRES-79F55766.md) を fixed にした。現行 `partition<T: Copy>` のアルゴリズムはまだ Copy-only のままだが、結果 payload `VecPartition<T>` から `matched` / `rest` の両 `Vec<T>` owner を同じ callback へ渡す `vec_partition_with<T, R>` を追加した。これにより future non-Copy partition は direct field projection や Copy-only `vec_partition_free<T: Copy>` に頼らず、2 本の owner obligation を同じ API boundary で回収できる。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。

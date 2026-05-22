@@ -23,6 +23,7 @@ const privateProofBackedOwnerUpdateHelperInspected = [];
 const privateProofBackedTailCleanupHelperInspected = [];
 const ownerPreservingErrorRecoveryInspected = [];
 const ownerPreservingPopRecoveryInspected = [];
+const ownerPreservingPartitionRecoveryInspected = [];
 const proofBackedPopMoveOutInspected = [];
 const violations = [];
 
@@ -93,6 +94,10 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (ownerPreservingPopRecovery && !ownerPreservingPopRecoveryInspected.includes(`${relPath}:${signature.name}`)) {
                     ownerPreservingPopRecoveryInspected.push(`${relPath}:${signature.name}`);
                 }
+                const ownerPreservingPartitionRecovery = classifyOwnerPreservingPartitionRecovery(signature.name, typeSignature);
+                if (ownerPreservingPartitionRecovery && !ownerPreservingPartitionRecoveryInspected.includes(`${relPath}:${signature.name}`)) {
+                    ownerPreservingPartitionRecoveryInspected.push(`${relPath}:${signature.name}`);
+                }
                 const privateLifecycleProofHelper = !signature.isPublic
                     ? classifyPrivateCollectionLifecycleProofHelper(source, signature.name)
                     : null;
@@ -112,7 +117,7 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !ownerPreservingErrorRecovery && !ownerPreservingPopRecovery && !proofBackedPopMoveOut) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !ownerPreservingErrorRecovery && !ownerPreservingPopRecovery && !ownerPreservingPartitionRecovery && !proofBackedPopMoveOut) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
@@ -304,6 +309,10 @@ assert.ok(
 assert.ok(
     ownerPreservingPopRecoveryInspected.includes('stdlib/alloc/collections/vec/types.nepl:vec_pop_with'),
     'collection pop owner recovery policy must allow Vec.pop only when Vec and Option<T> owners are passed to the same callback',
+);
+assert.ok(
+    ownerPreservingPartitionRecoveryInspected.includes('stdlib/alloc/collections/vec/transform/filter/partition/view.nepl:vec_partition_with'),
+    'collection partition owner recovery policy must allow VecPartition only when matched and rest Vec owners are passed to the same callback',
 );
 
 assert.ok(
@@ -652,6 +661,32 @@ function classifyOwnerPreservingPopRecovery(name, typeSignature) {
     }
 
     return { kind: 'owner-preserving-pop-recovery' };
+}
+
+function classifyOwnerPreservingPartitionRecovery(name, typeSignature) {
+    if (name !== 'vec_partition_with') {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const partitionResult = functionType.parameters[0].trim();
+    const partitionMatch = partitionResult.match(/^VecPartition<\.(\w+)>$/);
+    if (!partitionMatch) {
+        return null;
+    }
+
+    const genericName = partitionMatch[1];
+    const callback = functionType.parameters[1].replace(/\s+/g, '');
+    const returnType = functionType.returnType.replace(/\s+/g, '');
+    if (callback !== `(Vec<.${genericName}>,Vec<.${genericName}>)*>${returnType}`) {
+        return null;
+    }
+
+    return { kind: 'owner-preserving-partition-recovery' };
 }
 
 function classifyFallibleOwnerConsumer(typeSignature) {
