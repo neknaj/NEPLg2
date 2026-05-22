@@ -129,8 +129,8 @@ assert.match(
 );
 assert.match(
     queryCode,
-    /fn\s+len\s+<\.T:\s*Copy>\s+<\(&List<\.T>\)->i32>\s+\(lst\):/,
-    'List.len must borrow the owner and remain Copy-only while drop traversal is incomplete',
+    /fn\s+len\s+<\.T>\s+<\(&List<\.T>\)->i32>\s+\(lst\):/,
+    'List.len must borrow the owner and not require Copy for metadata-only observation',
 );
 assert.match(
     queryCode,

@@ -16,8 +16,8 @@ const code = src
 
 assert.match(
     code,
-    /fn\s+len\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(&CountingBloomFilter<\.T,\.H>\)->i32>\s+\(bf\):/,
-    "CountingBloomFilter.len must borrow the owner and remain Copy-only while drop traversal is incomplete",
+    /fn\s+len\s+<\.T,\.H>\s+<\(&CountingBloomFilter<\.T,\.H>\)->i32>\s+\(bf\):/,
+    "CountingBloomFilter.len must borrow the owner and not require Copy or HashKey for metadata-only observation",
 );
 assert.doesNotMatch(code, /fn\s+len\s+<[^>]+>\s+<\(CountingBloomFilter<\.T,\.H>\)->i32>/, "CountingBloomFilter.len must not consume the owner");
 

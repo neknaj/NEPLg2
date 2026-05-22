@@ -83,10 +83,10 @@ assert.match(apiCreateCode, /fn\s+with_capacity\s+<\.T:\s*Copy>\s+<\(i32\)\*>Res
 assert.match(apiPushCode, /fn\s+push\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>,\.T\)\*>Result<BinaryHeap<\.T>,\s*BinaryHeapPushError<\.T>>>/, 'BinaryHeap.push must expose heap mutation as an owner-preserving Result<BinaryHeap<T>, BinaryHeapPushError<T>>');
 assert.match(apiPushCode, /match\s+heap_alloc_slots<\.T>\s+grown_cap:[\s\S]*Result::Err\s+e:[\s\S]*Result::Err<BinaryHeap<\.T>,\s*BinaryHeapPushError<\.T>>\s+BinaryHeapPushError<\.T>\s+\(BinaryHeap<\.T>\s+len0\s+cap0\s+items\)\s+e/, 'BinaryHeap.push grow failure must return the consumed heap owner in BinaryHeapPushError');
 assert.doesNotMatch(apiPushCode, /Result::Err\s+e:[\s\S]{0,120}vec::free<Option<\.T>>\s+items[\s\S]{0,120}err<BinaryHeap<\.T>,\s*Diag>\s+e/, 'BinaryHeap.push must not destroy the consumed heap owner and return Diag only on grow failure');
-assert.match(apiObserverCode, /fn\s+len\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.len must borrow the owner and remain Copy-only while drop traversal is incomplete');
+assert.match(apiObserverCode, /fn\s+len\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.len must borrow the owner and not require Copy for metadata-only observation');
 assert.match(apiObserverCode, /#import\s+"core\/math"\s+as\s+\*/, 'BinaryHeap observer module must own the math operators used by is_empty and peek');
-assert.match(apiObserverCode, /fn\s+cap\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.cap must borrow the owner and remain Copy-only while drop traversal is incomplete');
-assert.match(apiObserverCode, /fn\s+is_empty\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)->bool>\s+\(hp\):/, 'BinaryHeap.is_empty must borrow the owner and remain Copy-only while drop traversal is incomplete');
+assert.match(apiObserverCode, /fn\s+cap\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.cap must borrow the owner and not require Copy for metadata-only observation');
+assert.match(apiObserverCode, /fn\s+is_empty\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->bool>\s+\(hp\):/, 'BinaryHeap.is_empty must borrow the owner and not require Copy for metadata-only observation');
 assert.match(apiObserverCode, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)->Option<\.T>>\s+\(hp\):/, 'BinaryHeap.peek must borrow the owner');
 assert.doesNotMatch(apiObserverCode, /fn\s+(?:len_ref|cap_ref|is_empty_ref|peek_ref)\b/, 'BinaryHeap must not keep duplicate *_ref observer surfaces');
 assert.doesNotMatch(apiObserverCode, /fn\s+(?:len|cap|is_empty|peek)\s+<[^>]+>\s+<\(BinaryHeap<\.T>\)/, 'BinaryHeap observers must not consume the owner');

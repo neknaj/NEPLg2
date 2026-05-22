@@ -289,7 +289,7 @@ pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H
 //:     free hm;
 //:     ok
 //: ```
-pub fn len <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>)->i32> (hm):
+pub fn len <.K,.V,.H> <(&HashMap<.K,.V,.H>)->i32> (hm):
     *field::get_ref hm "count"
 
 //: ## free

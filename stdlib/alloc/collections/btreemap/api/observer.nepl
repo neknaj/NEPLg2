@@ -39,7 +39,7 @@
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-pub fn len <.K: Copy,.V: Copy> <(&BTreeMap<.K,.V>)->i32> (hm):
+pub fn len <.K,.V> <(&BTreeMap<.K,.V>)->i32> (hm):
     *field::get_ref hm "len"
 
 //: ## contains

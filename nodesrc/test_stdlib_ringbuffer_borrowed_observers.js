@@ -30,8 +30,8 @@ for (const [name, resultTy] of [
 ]) {
     assert.match(
         code,
-        new RegExp(`fn\\s+${name}\\s+<\\.T:\\s*Copy>\\s+<\\(&RingBuffer<\\.T>\\)->${resultTy}>\\s+\\(rb\\):`),
-        `RingBuffer.${name} must borrow the owner and remain Copy-only while drop traversal is incomplete`,
+        new RegExp(`fn\\s+${name}\\s+<\\.T>\\s+<\\(&RingBuffer<\\.T>\\)->${resultTy}>\\s+\\(rb\\):`),
+        `RingBuffer.${name} must borrow the owner and not require Copy for metadata-only observation`,
     );
     assert.doesNotMatch(
         code,

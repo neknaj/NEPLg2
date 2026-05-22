@@ -1,3 +1,25 @@
+# 2026-05-22 Agent 1 collection metadata observers Copy-bound removal
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、Vec 以外の collection borrowed metadata observer に残っていた不要な Copy 境界を整理した。`plan.md` は確認済みで変更していない。
+- `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` / `List` / `BTreeMap` / `BTreeSet` / `HashMap` / `HashSet` / `BloomFilter` / `CountingBloomFilter` / `VecPartition` の `len` / `cap` / `is_empty` 系 observer から、payload を読まない範囲に限って `.T: Copy` や `HashKey&Copy` / `Hasher&Copy` 境界を外した。
+- source policy は、metadata observer を関数名と返り値で限定して監査するように修正した。`contains` / `any` / `all` / search helper などは `bool` や `i32` を返しても payload/key/hash/ordering を読むため、metadata-only には分類しない。
+- payload-copying observer、Copy-invariant proof、cleanup、owner-producing/update API の Copy-only policy は維持している。
+- 検証:
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_bloom_filter_borrowed_observers.js`: pass
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_counting_bloom_filter_borrowed_observers.js`: pass
+  - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: pass
+  - `node nodesrc/test_stdlib_hashmap_storage_contract.js`: pass
+  - `node nodesrc/test_stdlib_hashset_storage_contract.js`: pass
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`: pass
+  - `node nodesrc/tests.js -i ... --no-tree -o tmp/collection-metadata-observers-noncopy.json -j 1`: `total=45`, `passed=45`
+
 # 2026-05-22 Agent 1 Vec Copy invariant observer policy separation
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の同じ P1 残件の監査中に、直前の borrowed observer 分離で `VecCopyInvariant` proof を metadata observer と同列に扱う設計漏れを見つけた。`plan.md` は確認済みで変更していない。

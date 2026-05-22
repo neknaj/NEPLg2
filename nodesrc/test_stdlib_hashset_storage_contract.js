@@ -212,8 +212,8 @@ assert.match(
 
 assert.match(
     lenSection,
-    /fn\s+len\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(&HashSet<\.T,\.H>\)->i32>/,
-    'HashSet.len must be a borrow-based read API and remain Copy-only while drop traversal is incomplete',
+    /fn\s+len\s+<\.T,\.H>\s+<\(&HashSet<\.T,\.H>\)->i32>/,
+    'HashSet.len must be a borrow-based metadata read API without Copy or HashKey bounds',
 );
 
 assert.match(

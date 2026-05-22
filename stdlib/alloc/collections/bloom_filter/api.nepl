@@ -79,7 +79,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<
 //:     free bf
 //:     if ok 1 0
 //: ```
-pub fn len <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>)->i32> (bf):
+pub fn len <.T,.H> <(&BloomFilter<.T,.H>)->i32> (bf):
     *field::get_ref bf "nbits"
 
 //: ## insert

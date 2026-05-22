@@ -63,10 +63,15 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 }
             }
             const borrowedMetadataObserverGenerics = signature && generics.length > 0
-                ? borrowedCollectionOwnerMetadataObserverGenerics(typeSignature)
+                ? borrowedCollectionOwnerMetadataObserverGenerics(signature.name, typeSignature)
                 : null;
             if (borrowedMetadataObserverGenerics && borrowedMetadataObserverGenerics.size > 0) {
                 borrowedMetadataObserverInspected.push(`${relPath}:${signature.name}`);
+                const unnecessaryCopy = generics.filter((generic) => borrowedMetadataObserverGenerics.has(generic.name) && /\bCopy\b/.test(generic.bound ?? ''));
+                if (unnecessaryCopy.length > 0) {
+                    const names = unnecessaryCopy.map((generic) => `.${generic.name}`).join(', ');
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} borrowed metadata observer generic(s) ${names} must not carry Copy because it reads only header metadata`);
+                }
             }
             const borrowedCopyInvariantObserverCopyRequirement = signature && generics.length > 0
                 ? borrowedCollectionCopyInvariantObserverCopyRequirement(typeSignature)
@@ -231,7 +236,7 @@ for (const expected of [
 }
 
 assert.ok(
-    borrowedMetadataObserverInspected.length >= 28,
+    borrowedMetadataObserverInspected.length >= 26,
     `collection borrowed metadata observer policy must inspect scalar metadata observer surfaces, inspected only ${borrowedMetadataObserverInspected.length}`,
 );
 
@@ -506,13 +511,13 @@ function borrowedPayloadStorageViewCopyRequirement(typeSignature) {
     return genericNames(returnType);
 }
 
-function borrowedCollectionOwnerMetadataObserverGenerics(typeSignature) {
+function borrowedCollectionOwnerMetadataObserverGenerics(functionName, typeSignature) {
     if (!typeSignature) {
         return null;
     }
 
     const functionType = parseFunctionType(typeSignature);
-    if (!functionType || !isMetadataObserverReturn(functionType.returnType)) {
+    if (!functionType || !isMetadataObserverName(functionName) || !isMetadataObserverReturn(functionType.returnType)) {
         return null;
     }
 
@@ -579,6 +584,16 @@ function isMetadataObserverReturn(returnType) {
     const trimmed = returnType.trim();
     return trimmed === 'i32'
         || trimmed === 'bool';
+}
+
+function isMetadataObserverName(name) {
+    return [
+        'len',
+        'cap',
+        'is_empty',
+        'vec_partition_matched_len',
+        'vec_partition_rest_len',
+    ].includes(name);
 }
 
 function isPayloadCopyObserverReturn(returnType) {
