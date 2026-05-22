@@ -1,0 +1,90 @@
+//: # vec/storage/lifecycle
+//: non-Copy payload collection slot lifecycle proof helpers
+//:
+//: ### [目的/もくてき]
+//: - `Vec<T>` の non-Copy payload support で使う raw storage operation と Resource IR marker を、private helper として同じ境界に[閉/と]じます。
+//: - stdlib module 名の allowlist ではなく、raw store/load/drop/dealloc と `collection_slot_*` marker の対応を source lowering から[証明/しょうめい]できる形にします。
+//:
+//: ### [注意/ちゅうい]
+//: - この file は public storage facade から再公開しません。
+//: - 現時点では public `Vec.push` / `Vec.clear` / `Vec.free` の Copy-only 境界は維持します。これらの helper を public API lifecycle に接続する段階で、別途 doctest と source policy を更新します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/allocator" as allocator
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/traits/drop" as *
+
+//: ## vec_slot_store_initialized
+//: `RegionToken<T>` の byte offset へ payload を store し、slot initialized proof を発行する
+//:
+//: ### [目的/もくてき]
+//: - raw `store<T>` と `collection_slot_initialize_empty` marker を 1 つの source boundary に[並/なら]べ、Resource IR が store value proof と slot lifecycle event を対応付けられるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - `byte_off` の bounds / alignment と、`len` / `cap` との対応は caller 側の `OwnedBuffer` invariant と capacity proof が[担/にな]います。
+//: - `RegionToken<T>` は借用で受け取り、storage owner 自体は caller の owner aggregate に残します。
+fn vec_slot_store_initialized <.T> <(&RegionToken<.T>,i32,.T)*>()> (storage, byte_off, item):
+    let data <MemPtr<.T>> region_ptr storage
+    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+    let raw <i32> mem_ptr_addr slot
+    store<.T> raw item
+    #intrinsic "collection_slot_initialize_empty" <.T> (storage, byte_off)
+
+//: ## vec_slot_drop_initialized
+//: 1 slot の payload を actual Drop してから dropped proof を発行する
+//:
+//: ### [目的/もくてき]
+//: - raw `load<T>` だけを drop proof にせず、`Drop::drop &loaded` による destructor 実行と `collection_slot_drop_initialized` marker を対応付けます。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T: Drop` の payload に対して使います。state-only payload の一括 cleanup は別の API 設計で扱い、Drop proof を要求する helper と混ぜません。
+fn vec_slot_drop_initialized <.T: Drop> <(&RegionToken<.T>,i32)*>()> (storage, byte_off):
+    let data <MemPtr<.T>> region_ptr storage
+    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+    let raw <i32> mem_ptr_addr slot
+    let loaded <.T> load<.T> raw
+    Drop::drop &loaded
+    #intrinsic "collection_slot_drop_initialized" <.T> (storage, byte_off)
+
+//: ## vec_slot_drop_initialized_range
+//: initialized prefix 全体を actual Drop してから traversal proof を発行する
+//:
+//: ### [目的/もくてき]
+//: - `0 <= i < initialized_len` の各 slot について actual Drop を行い、最後に `collection_slot_drop_traversal` marker を発行します。
+//: - Resource IR の full-range certificate が、loop induction、raw load、Drop proof、initialized count をまとめて検査できる形にします。
+//:
+//: ### [注意/ちゅうい]
+//: - `initialized_len` は `OwnedBuffer.initialized_len` から渡します。
+//: - この helper は storage を解放しません。解放は `vec_storage_dealloc_proven` に分け、drop traversal と storage release の proof を混同しません。
+fn vec_slot_drop_initialized_range <.T: Drop> <(&RegionToken<.T>,i32)*>()> (storage, initialized_len):
+    let data <MemPtr<.T>> region_ptr storage
+    let mut i <i32> 0
+    while lt i initialized_len:
+        do:
+            let byte_off <i32> mul i size_of<.T>
+            let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+            let raw <i32> mem_ptr_addr slot
+            let loaded <.T> load<.T> raw
+            Drop::drop &loaded
+            set i add i 1
+    #intrinsic "collection_slot_drop_traversal" <.T> (storage, initialized_len)
+
+//: ## vec_storage_dealloc_proven
+//: raw dealloc と storage release proof を同じ owner token anchor で発行する
+//:
+//: ### [目的/もくてき]
+//: - `RegionToken<T>` の raw identity と size を使って allocator storage を解放し、`collection_slot_storage_dealloc` marker を発行します。
+//: - `MemPtr<T>` ではなく `RegionToken<T>` を anchor にすることで、non-owning pointer view と free obligation owner を分離します。
+//:
+//: ### [注意/ちゅうい]
+//: - `RegionToken<T>` は借用で受け取ります。この helper は owner-consuming public API の内部から呼び出し、呼び出し後に caller が token を再利用しない構造にします。
+fn vec_storage_dealloc_proven <.T> <(&RegionToken<.T>)*>()> (storage):
+    let data <MemPtr<.T>> region_ptr storage
+    let raw <i32> mem_ptr_addr data
+    let total_size <i32> region_size storage
+    allocator::dealloc_raw raw total_size
+    #intrinsic "collection_slot_storage_dealloc" <> (storage)

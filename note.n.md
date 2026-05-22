@@ -1,3 +1,16 @@
+# 2026-05-22 Agent 1 Vec private lifecycle proof helpers
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、public `Vec` lifecycle API の Copy-only 解除前に、実 stdlib 側で Resource IR の generic proof boundary を受ける private helper module を追加した。`plan.md` と Zenn の開発方針は確認済みで変更していない。
+- `stdlib/alloc/collections/vec/storage/lifecycle.nepl` を追加し、raw store / actual Drop / raw dealloc と `collection_slot_initialize_empty` / `collection_slot_drop_initialized` / `collection_slot_drop_traversal` / `collection_slot_storage_dealloc` marker を同じ source boundary に置いた。
+- この module は public `vec/storage` facade から再公開しない。`push` / `clear` / `free` の Copy-only 境界はまだ維持し、次段階で owner-preserving API 型と doctest に接続する。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に source policy を追加し、helper が private であること、raw operation と Resource IR marker が対応していること、storage facade から `lifecycle` を re-export しないことを監視する。
+- 検証:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`（CRLF warning のみ）
+  - `cargo test -p nepl-core --test collection_slot_full_range source_loop_drop_traversal_summary_cleans_caller_initialized_range -- --test-threads=1 --exact --nocapture`
+
 # 2026-05-22 Agent 1 Vec empty metadata constructor doctest contract
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、直前に non-Copy へ開いた `vec_empty<T>` の関数ドキュメント側にも回帰テストを追加した。`plan.md` と Zenn の開発方針は確認済みで変更していない。

@@ -15,6 +15,7 @@ const relPaths = [
     'stdlib/alloc/collections/vec/storage/alloc.nepl',
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
+    'stdlib/alloc/collections/vec/storage/lifecycle.nepl',
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/access/header.nepl',
     'stdlib/alloc/collections/vec/access/data.nepl',
@@ -103,7 +104,8 @@ const vecStorageAllocCode = codeByPath.get('stdlib/alloc/collections/vec/storage
 const vecStorageCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/storage/cleanup.nepl');
 const vecStorageCleanupSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/cleanup.nepl'), 'utf8');
 const vecStorageFillCode = codeByPath.get('stdlib/alloc/collections/vec/storage/fill.nepl');
-const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageApiCode, vecStorageFillCode, vecStorageAllocCode, vecStorageCleanupCode].join('\n');
+const vecStorageLifecycleCode = codeByPath.get('stdlib/alloc/collections/vec/storage/lifecycle.nepl');
+const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageApiCode, vecStorageFillCode, vecStorageAllocCode, vecStorageCleanupCode, vecStorageLifecycleCode].join('\n');
 const vecAccessRootCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
 const vecAccessHeaderCode = codeByPath.get('stdlib/alloc/collections/vec/access/header.nepl');
 const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/data.nepl');
@@ -203,7 +205,7 @@ for (const name of ['vec_empty', 'vec_alloc_empty', 'vec_free_storage', 'new', '
 for (const name of ['view', 'api', 'fill']) {
     assert.match(vecStorageRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/storage\\/${name}"\\s+as\\s+@merge`), `vec/storage.nepl must merge re-export storage/${name}.nepl`);
 }
-for (const name of ['alloc', 'cleanup']) {
+for (const name of ['alloc', 'cleanup', 'lifecycle']) {
     assert.doesNotMatch(vecStorageRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/storage\\/${name}"\\s+as\\s+@merge`), `vec/storage.nepl must not re-export internal storage/${name}.nepl`);
 }
 assert.doesNotMatch(vecStorageRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/storage.nepl must be a pure facade without implementation bodies');
@@ -225,6 +227,14 @@ assert.match(vecStorageApiCode, /alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_c
 assert.match(vecStorageCleanupCode, /\bfn\s+vec_free_storage\b/, 'vec/storage/cleanup.nepl must own vec_free_storage');
 assert.match(vecStorageCleanupCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>\s+<\(VecStorage<\.T>\)->\(\)>/, 'vec/storage/cleanup.nepl storage-only cleanup must take the owner-carrying storage enum and remain Copy-only until element drop traversal exists');
 assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must own filled');
+for (const name of ['vec_slot_store_initialized', 'vec_slot_drop_initialized', 'vec_slot_drop_initialized_range', 'vec_storage_dealloc_proven']) {
+    assert.match(vecStorageLifecycleCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/lifecycle.nepl must own private ${name}`);
+    assert.doesNotMatch(vecStorageLifecycleCode, new RegExp(`pub\\s+fn\\s+${name}\\b`), `vec/storage/lifecycle.nepl must not expose ${name} before public Vec lifecycle APIs are proven`);
+}
+assert.match(vecStorageLifecycleCode, /store<\.T>\s+raw\s+item[\s\S]*#intrinsic\s+"collection_slot_initialize_empty"\s+<\.T>\s+\(storage,\s*byte_off\)/, 'Vec lifecycle initialize helper must pair raw store with collection slot initialize proof');
+assert.match(vecStorageLifecycleCode, /let\s+loaded\s+<\.T>\s+load<\.T>\s+raw[\s\S]*Drop::drop\s+&loaded[\s\S]*#intrinsic\s+"collection_slot_drop_initialized"\s+<\.T>\s+\(storage,\s*byte_off\)/, 'Vec lifecycle single-slot drop helper must pair raw load and actual Drop with drop-initialized proof');
+assert.match(vecStorageLifecycleCode, /while\s+lt\s+i\s+initialized_len:[\s\S]*let\s+byte_off\s+<i32>\s+mul\s+i\s+size_of<\.T>[\s\S]*Drop::drop\s+&loaded[\s\S]*set\s+i\s+add\s+i\s+1[\s\S]*#intrinsic\s+"collection_slot_drop_traversal"\s+<\.T>\s+\(storage,\s*initialized_len\)/, 'Vec lifecycle range drop helper must use a 0..initialized_len loop and emit traversal proof after the loop');
+assert.match(vecStorageLifecycleCode, /allocator::dealloc_raw\s+raw\s+total_size[\s\S]*#intrinsic\s+"collection_slot_storage_dealloc"\s+<>\s+\(storage\)/, 'Vec lifecycle storage release helper must pair raw dealloc with storage-dealloc proof');
 for (const name of ['len', 'cap', 'data_mem_view', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
 }
@@ -360,6 +370,7 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/storage/alloc.nepl',
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
+    'stdlib/alloc/collections/vec/storage/lifecycle.nepl',
     'stdlib/alloc/collections/vec/transform/filter/select.nepl',
     'stdlib/alloc/collections/vec/transform/filter/partition/build.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
