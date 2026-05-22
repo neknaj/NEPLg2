@@ -44736,3 +44736,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test drop explicit_drop_trait_call_runs_once_and_suppresses_auto_drop -- --nocapture`: passed
   - `cargo check -p nepl-core`: passed
   - `cargo fmt --check -p nepl-core`: passed
+
+## 2026-05-22 Agent 1 source-level drop traversal range witness
+
+- `ISS-20260521T232236770Z-DROP-TRAVERSAL-RANGE-WITNESS-MISSES--0623A850` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、full-range certificate の drop witness が direct `ResourceOp::Drop` of raw-load output に寄り過ぎており、source-level `Drop::drop &loaded` が生成する `RawMemory::Load -> DeclareLocal -> Borrow -> pure Drop call -> ResourceOp::Drop` の実際の Resource IR 証明列を拾えなかったことだった。
+- `drop_witness_candidate` は raw-load output の直接一致ではなく、candidate load 以降の prefix を Resource IR state に適用し、直前 prefix では未証明かつ `collection_slot_drop_traversal_result` が成功する位置を witness drop index として採用するようにした。
+- source lowering が同じ load を `Call { UnsafeMemory::Load }` と `RawMemory { Load }` の連続 op として表すため、output / args が一致する直前 call だけを paired witness load として扱うようにした。stdlib helper 名や module 名による allowlist は追加していない。
+- witness 構築区間の preservation を別 module に分離し、純粋 call / raw address view / alias construction は effect と prefix state proof に基づいて通し、選択 witness 以外の protected storage load や protected anchor への直接書き込みは拒否する。
+- witness 後の `EndScope` は raw pointer / slot alias local を閉じるだけなら certificate を失効させず、result が protected anchor を外へ運ぶ場合は引き続き拒否する。
+- source-level negative regression として、`Drop::drop &loaded` 後かつ induction step 前の追加 raw load が full-range summary を維持しないことを固定した。
+- focused verification:
+  - `cargo test -p nepl-core --test collection_slot_full_range source_loop_drop_traversal_summary_cleans_caller_initialized_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test collection_slot_full_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized_accepts_actual_loaded_value_drop -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized_rejects_raw_load_without_drop -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib body_preserve -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed with CRLF normalization warnings only

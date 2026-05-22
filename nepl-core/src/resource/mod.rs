@@ -95,6 +95,7 @@ mod collection_slot_summary_build_range_preserve_op;
 #[cfg(test)]
 mod collection_slot_summary_build_range_preserve_tests;
 mod collection_slot_summary_build_range_preserve_witness;
+mod collection_slot_summary_build_range_preserve_witness_op;
 mod collection_slot_summary_build_range_step;
 mod collection_slot_summary_build_range_witness;
 mod collection_slot_summary_build_range_witness_drop;

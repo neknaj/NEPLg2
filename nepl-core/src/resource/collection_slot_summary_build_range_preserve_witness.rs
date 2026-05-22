@@ -1,12 +1,15 @@
 use super::collection_slot_summary_build_range_preserve_op::{
     op_preserves_place, op_preserves_place_after_drop_witness,
 };
+use super::collection_slot_summary_build_range_preserve_witness_op::{
+    op_loads_from_place, op_preserves_place_during_drop_witness,
+    paired_witness_load_call_preserves_place, unsafe_load_call_matches_raw_load,
+};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
-use super::model::{EffectOp, Place, RawMemoryOp, ResourceOp};
-use super::place_utils::place_suffix_after_prefix;
+use super::model::{Place, ResourceOp};
 
 pub(super) fn body_preserves_place_with_drop_witness(
     engine: &ResourceCheckEngine<'_>,
@@ -19,13 +22,24 @@ pub(super) fn body_preserves_place_with_drop_witness(
     let mut raw_aliases = initial_raw_aliases.clone();
     let mut function_aliases = FunctionAliasTable::default();
     for (op_index, op) in ops.iter().enumerate() {
-        if op_index != witness_load_index && op_loads_from_place(&raw_aliases, op, protected) {
+        let paired_witness_load_call = op_index + 1 == witness_load_index
+            && ops
+                .get(witness_load_index)
+                .is_some_and(|load| unsafe_load_call_matches_raw_load(op, load));
+        if !paired_witness_load_call
+            && op_index != witness_load_index
+            && op_loads_from_place(&raw_aliases, op, protected)
+        {
             return false;
         }
-        let preserves = if op_index > witness_drop_index {
-            op_preserves_place_after_drop_witness(engine, &raw_aliases, op, protected)
-        } else {
+        let preserves = if paired_witness_load_call {
+            paired_witness_load_call_preserves_place(op, protected)
+        } else if op_index == witness_load_index {
             op_preserves_place(engine, &raw_aliases, op, protected)
+        } else if op_index <= witness_drop_index {
+            op_preserves_place_during_drop_witness(&raw_aliases, op, protected)
+        } else {
+            op_preserves_place_after_drop_witness(engine, &raw_aliases, op, protected)
         };
         if !preserves {
             return false;
@@ -40,49 +54,4 @@ pub(super) fn body_preserves_place_with_drop_witness(
         );
     }
     true
-}
-
-fn op_loads_from_place(
-    raw_aliases: &RawCellAddressAliases,
-    op: &ResourceOp,
-    protected: &Place,
-) -> bool {
-    match op {
-        ResourceOp::RawMemory {
-            operation: RawMemoryOp::Load,
-            args,
-            ..
-        }
-        | ResourceOp::Call {
-            effect:
-                EffectOp::UnsafeMemory {
-                    operation: RawMemoryOp::Load,
-                },
-            args,
-            ..
-        } => args
-            .iter()
-            .any(|arg| place_touches(raw_aliases, arg, protected)),
-        ResourceOp::Call { .. } | ResourceOp::CallEffect { .. } | ResourceOp::RawMemory { .. } => {
-            false
-        }
-        _ => false,
-    }
-}
-
-fn place_touches(raw_aliases: &RawCellAddressAliases, left: &Place, right: &Place) -> bool {
-    places_touch(left, right)
-        || places_touch(
-            &raw_aliases.canonicalize_owner_cell_address(left),
-            &raw_aliases.canonicalize_owner_cell_address(right),
-        )
-        || places_touch(
-            &raw_aliases.canonicalize_scalar(left),
-            &raw_aliases.canonicalize_scalar(right),
-        )
-}
-
-fn places_touch(left: &Place, right: &Place) -> bool {
-    place_suffix_after_prefix(left, right).is_some()
-        || place_suffix_after_prefix(right, left).is_some()
 }

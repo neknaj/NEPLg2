@@ -85,6 +85,12 @@ pub(super) fn op_preserves_place_after_drop_witness(
     op: &ResourceOp,
     protected: &Place,
 ) -> bool {
+    if let ResourceOp::EndScope { locals, result, .. } = op {
+        return locals.iter().all(|local| !places_touch(local, protected))
+            && result
+                .as_ref()
+                .is_none_or(|result| !place_touches(raw_aliases, result, protected));
+    }
     op_preserves_place(engine, raw_aliases, op, protected)
         && !matches!(
             op,

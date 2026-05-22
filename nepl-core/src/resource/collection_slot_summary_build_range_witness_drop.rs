@@ -25,12 +25,14 @@ pub(super) struct LoopBodyCandidateSlot {
     pub(super) expected_ty: TypeId,
     pub(super) element_stride: usize,
     pub(super) load_index: usize,
-    pub(super) loaded: Place,
 }
 
 pub(super) fn drop_witness_candidate(
     engine: &ResourceCheckEngine<'_>,
+    state: &CollectionSlotSummaryBuildState,
     body_prefix: &[ResourceOp],
+    index: &Place,
+    initialized_count: &Place,
     candidate: LoopBodyCandidateSlot,
 ) -> Option<LoopBodyDropWitnessCandidate> {
     if candidate.element_stride != storage_size_bytes(engine.types, candidate.expected_ty)
@@ -38,14 +40,43 @@ pub(super) fn drop_witness_candidate(
     {
         return None;
     }
-    let drop_index = candidate_drop_index(&candidate, body_prefix)?;
-    Some(LoopBodyDropWitnessCandidate {
-        storage: candidate.storage,
+    let mut previous_prefix_drops = prefix_drops_symbolic_slot(
+        engine,
+        state,
+        body_prefix,
+        index,
+        initialized_count,
+        &drop_witness_at(&candidate, candidate.load_index),
+    );
+    for drop_index in candidate.load_index + 1..body_prefix.len() {
+        let witness = drop_witness_at(&candidate, drop_index);
+        let current_prefix_drops = prefix_drops_symbolic_slot(
+            engine,
+            state,
+            body_prefix,
+            index,
+            initialized_count,
+            &witness,
+        );
+        if !previous_prefix_drops && current_prefix_drops {
+            return Some(witness);
+        }
+        previous_prefix_drops = current_prefix_drops;
+    }
+    None
+}
+
+fn drop_witness_at(
+    candidate: &LoopBodyCandidateSlot,
+    drop_index: usize,
+) -> LoopBodyDropWitnessCandidate {
+    LoopBodyDropWitnessCandidate {
+        storage: candidate.storage.clone(),
         expected_ty: candidate.expected_ty,
         element_stride: candidate.element_stride,
         load_index: candidate.load_index,
         drop_index,
-    })
+    }
 }
 
 pub(super) fn prefix_drops_symbolic_slot(
@@ -89,14 +120,4 @@ pub(super) fn prefix_drops_symbolic_slot(
             candidate.expected_ty,
         )
         .is_ok()
-}
-
-fn candidate_drop_index(candidate: &LoopBodyCandidateSlot, ops: &[ResourceOp]) -> Option<usize> {
-    ops.iter()
-        .enumerate()
-        .skip(candidate.load_index + 1)
-        .find_map(|(op_index, op)| match op {
-            ResourceOp::Drop { place, .. } if *place == candidate.loaded => Some(op_index),
-            _ => None,
-        })
 }

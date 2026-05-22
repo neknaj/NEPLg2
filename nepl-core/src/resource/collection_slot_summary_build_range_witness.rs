@@ -3,8 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::collection_slot_summary_build_range_witness_drop::{
-    drop_witness_candidate, prefix_drops_symbolic_slot, LoopBodyCandidateSlot,
-    LoopBodyDropWitnessCandidate,
+    drop_witness_candidate, LoopBodyCandidateSlot, LoopBodyDropWitnessCandidate,
 };
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::initialized::ResourceCheckEngine;
@@ -42,7 +41,6 @@ pub(super) fn loop_body_candidate_slots(
                                 expected_ty: output.ty,
                                 element_stride,
                                 load_index: op_index,
-                                loaded: output.clone(),
                             },
                         );
                     }
@@ -52,9 +50,8 @@ pub(super) fn loop_body_candidate_slots(
         propagate_candidate_alias_facts(engine, &mut raw_aliases, &mut function_aliases, op);
     }
     out.into_iter()
-        .filter_map(|candidate| drop_witness_candidate(engine, ops, candidate))
-        .filter(|candidate| {
-            prefix_drops_symbolic_slot(engine, state, ops, index, initialized_count, candidate)
+        .filter_map(|candidate| {
+            drop_witness_candidate(engine, state, ops, index, initialized_count, candidate)
         })
         .collect()
 }

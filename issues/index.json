@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T23:17:25.563Z",
+  "generated_at": "2026-05-21T23:58:40.331Z",
   "counts": {
-    "total": 1206,
+    "total": 1207,
     "open": 3,
-    "resolved": 1203,
+    "resolved": 1204,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 590,
+        "total": 591,
         "open": 0,
-        "resolved": 590
+        "resolved": 591
       },
       "CORE": {
         "total": 5,
@@ -9168,6 +9168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T225837153Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-SUR-83ACCED9.md"
+    },
+    {
+      "id": "ISS-20260521T232236770Z-DROP-TRAVERSAL-RANGE-WITNESS-MISSES--0623A850",
+      "title": "Drop traversal range witness misses source-level Drop call proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-21",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/collection_slot_summary_build_range_witness*.rs, nepl-core/tests/collection_slot_full_range.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260521T232236770Z-DROP-TRAVERSAL-RANGE-WITNESS-MISSES--0623A850.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

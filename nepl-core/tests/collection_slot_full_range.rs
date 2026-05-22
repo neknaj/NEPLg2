@@ -121,7 +121,45 @@ fn source_loop_drop_traversal_rejects_step_two_as_full_range_proof() {
     );
 }
 
+#[test]
+fn source_loop_drop_traversal_rejects_after_witness_raw_load_as_full_range_proof() {
+    let source = full_range_drop_traversal_source_with_after_drop(
+        "0",
+        "add i 1",
+        "            let again <LocalOwner> load<LocalOwner> raw\n",
+    );
+    let (module, types) = typecheck_stdlib_source(
+        &source,
+        "alloc/collections/vec/source_after_witness_raw_load.nepl",
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc { slot_ty },
+                ..
+            } if function.starts_with("caller__") && *slot_ty == owned_ty
+        )),
+        "an extra source-level raw load after the witness drop must not certify the full initialized range: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
 fn full_range_drop_traversal_source(start_index: &str, increment_expr: &str) -> String {
+    full_range_drop_traversal_source_with_after_drop(start_index, increment_expr, "")
+}
+
+fn full_range_drop_traversal_source_with_after_drop(
+    start_index: &str,
+    increment_expr: &str,
+    after_drop: &str,
+) -> String {
     format!(
         r#"
 #indent 4
@@ -153,7 +191,7 @@ fn cleanup_all <(&RegionToken<LocalOwner>,i32)*>i32> (storage, initialized_len):
             let raw <i32> mem_ptr_addr slot
             let loaded <LocalOwner> load<LocalOwner> raw
             Drop::drop &loaded
-            set i {increment_expr}
+{after_drop}            set i {increment_expr}
     #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage, initialized_len)
     0
 
