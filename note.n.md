@@ -1,3 +1,13 @@
+# 2026-05-22 Agent 1 public owner collection error recovery proof
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、public owner aggregate API が `Result::Err` で collection owner を返す経路を Resource IR の generic proof で保持できるか確認した。`plan.md` は確認済みで変更していない。
+- `nepl-core/tests/collection_slot_full_range.rs` に `public_owner_collection_error_recovery_preserves_live_slot_state` を追加した。
+- この regression は、private lifecycle helper で non-Copy slot を初期化した後、public API が `OwnerCollection` を error payload として caller へ返し、caller の match bind 後に cleanup / full-range drop traversal / storage release を行う経路を固定する。
+- 結果として、owner-preserving error recovery は `Vec` 名や `Result` 名の allowlist ではなく、source-derived return transfer と Resource IR summary replay により live slot state を保持できることを確認した。
+- 実 `stdlib/alloc/collections/vec/**` の `.T: Copy` public API 解除はまだ本 issue の残件であり、次は実 Vec lifecycle と owner-preserving API 型へ接続する。
+- 検証:
+  - `cargo test -p nepl-core --test collection_slot_full_range public_owner_collection_error_recovery_preserves_live_slot_state -- --test-threads=1 --exact --nocapture`: pass
+
 # 2026-05-22 Agent 1 collection slot lifecycle public surface proof
 
 - `ISS-20260522T014532659Z-COLLECTION-SLOT-LIFECYCLE-SOURCE-CAP-8C046921` を追加して fixed にした。`plan.md` と Zenn の開発方針は確認済みで変更していない。
