@@ -94,6 +94,33 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn drop_capability_requires_method_named_drop() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+
+trait DropLike:
+    #capability drop
+    fn release <(&Self)*>()> (self):
+        ()
+
+struct Guard:
+    id <i32>
+
+impl DropLike for Guard:
+    fn release <(&Guard)*>()> (self):
+        ()
+
+fn main <()->i32> ():
+    let g <Guard> Guard 1;
+    0
+"#;
+    compile_drop_err_has_type_code(source, TypeDiagnosticCode::TraitDropMethodMissing);
+}
+
+#[test]
 fn drop_impl_rejects_copy_primitive_target() {
     let source = r#"
 #target wasm

@@ -541,6 +541,13 @@ pub fn typecheck(
                     let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
                     methods.insert(m.name.name.clone(), sig);
                 }
+                if capabilities.contains(&TraitCapability::Drop) && !methods.contains_key("drop") {
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::TraitDropMethodMissing,
+                        "drop capability trait must define a method named 'drop'",
+                        t.name.span,
+                    ));
+                }
                 traits.insert(
                     t.name.name.clone(),
                     TraitInfo {

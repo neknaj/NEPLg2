@@ -44771,3 +44771,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`: passed
   - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --nocapture`: passed
   - `cargo test -p nepl-core --test collection_slot_full_range -- --nocapture`: passed
+
+## 2026-05-22 Agent 1 drop capability explicit method boundary
+
+- `ISS-20260522T004417565Z-DROP-CAPABILITY-ACCEPTS-NON-DROP-FIR-5F29D95E` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`#capability drop` trait に `drop` method が無い場合でも、Resource lowering / coverage と auto drop insertion が trait の先頭 method を destructor として代用する fallback を持っていたこと。
+- `TypeDiagnosticCode::TraitDropMethodMissing` を追加し、Drop capability trait は明示的な `drop` method を持つ場合だけ妥当とした。
+- `DropCallIdentityIndex` と `find_drop_plan` から先頭 method fallback を削除し、静的検査の drop proof と runtime auto destructor call が同じ明示的 destructor 定義だけに基づくようにした。
+- 実 `Vec<T>` non-Copy lifecycle 接続の調査では、public stdlib function へ `collection_slot_*` intrinsic を足すだけでは source capability の設計に反することを確認した。次の大きな作業は、public `Vec` source から raw store/load/drop/dealloc semantics を汎用 Resource IR proof として合成する設計に絞る。
+- focused verification:
+  - `cargo test -p nepl-core --test drop drop_capability_requires_method_named_drop -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop drop_capability_parses_and_compiles -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof -- --nocapture`: passed

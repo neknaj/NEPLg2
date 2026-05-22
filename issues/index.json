@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T00:33:31.562Z",
+  "generated_at": "2026-05-22T00:48:18.895Z",
   "counts": {
-    "total": 1208,
+    "total": 1209,
     "open": 3,
-    "resolved": 1205,
+    "resolved": 1206,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 592,
+        "total": 593,
         "open": 0,
-        "resolved": 592
+        "resolved": 593
       },
       "CORE": {
         "total": 5,
@@ -9198,6 +9198,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T001042250Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-TRE-E748C0BF.md"
+    },
+    {
+      "id": "ISS-20260522T004417565Z-DROP-CAPABILITY-ACCEPTS-NON-DROP-FIR-5F29D95E",
+      "title": "Drop capability accepts non-drop first method as destructor",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/diagnostic_codes.rs, nepl-core/src/typecheck/driver.rs, nepl-core/src/resource/drop_call_identity.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/tests/drop.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T004417565Z-DROP-CAPABILITY-ACCEPTS-NON-DROP-FIR-5F29D95E.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

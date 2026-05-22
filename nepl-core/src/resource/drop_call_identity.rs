@@ -23,15 +23,10 @@ impl DropCallIdentityIndex {
             {
                 continue;
             }
-            let Some(method_name) = tr
-                .methods
-                .contains_key("drop")
-                .then(|| String::from("drop"))
-                .or_else(|| tr.methods.keys().next().cloned())
-            else {
+            if !tr.methods.contains_key("drop") {
                 continue;
-            };
-            drop_trait_methods.insert((tr.name.clone(), method_name));
+            }
+            drop_trait_methods.insert((tr.name.clone(), String::from("drop")));
         }
 
         let mut drop_impl_origins = BTreeSet::new();

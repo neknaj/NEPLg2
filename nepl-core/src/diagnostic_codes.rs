@@ -123,6 +123,7 @@ pub enum TypeDiagnosticCode {
     StructTypeParamBoundsUnsupported,
     TraitTypeParamsUnsupported,
     TraitMethodTypeParamsUnsupported,
+    TraitDropMethodMissing,
     ImplInherentUnsupported,
     ImplTypeParamsUnsupported,
     TraitUnknown,
@@ -414,6 +415,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::StructTypeParamBoundsUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::TraitTypeParamsUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::TraitMethodTypeParamsUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::TraitDropMethodMissing),
     DiagnosticCode::Type(TypeDiagnosticCode::ImplInherentUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::ImplTypeParamsUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::TraitUnknown),
@@ -840,6 +842,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::TraitMethodTypeParamsUnsupported => {
                 "type.trait_method.type_params_unsupported"
             }
+            TypeDiagnosticCode::TraitDropMethodMissing => "type.trait.drop_method_missing",
             TypeDiagnosticCode::ImplInherentUnsupported => "type.impl.inherent_unsupported",
             TypeDiagnosticCode::ImplTypeParamsUnsupported => "type.impl.type_params_unsupported",
             TypeDiagnosticCode::TraitUnknown => "type.trait.unknown",
@@ -986,6 +989,9 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::TraitMethodTypeParamsUnsupported => {
                 "trait methods cannot have type parameters yet"
+            }
+            TypeDiagnosticCode::TraitDropMethodMissing => {
+                "drop capability trait must define a drop method"
             }
             TypeDiagnosticCode::ImplInherentUnsupported => "inherent impl is not supported yet",
             TypeDiagnosticCode::ImplTypeParamsUnsupported => {

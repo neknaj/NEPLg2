@@ -533,14 +533,12 @@ fn find_drop_plan(module: &HirModule, unit_ty: TypeId) -> Option<DropPlan> {
         {
             continue;
         }
-        let method_name = if tr.methods.contains_key("drop") {
-            String::from("drop")
-        } else {
-            tr.methods.keys().next().cloned()?
-        };
+        if !tr.methods.contains_key("drop") {
+            continue;
+        }
         return Some(DropPlan {
             trait_application: HirTraitApplication::new(tr.name.clone(), Vec::new()),
-            method_id: HirTraitMethodId::from_name(method_name),
+            method_id: HirTraitMethodId::from_name(String::from("drop")),
             unit_ty,
         });
     }
