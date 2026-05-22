@@ -105,18 +105,18 @@ pub fn vec_push_error_vec <.T: Copy> <(VecPushError<.T>)->Vec<.T>> (e):
     field::get e "vec"
 
 //: ## VecReallocRegionError
-//: grow [失敗/しっぱい]時に旧 `RegionToken` owner を[返/かえ]す内部 payload
-pub struct VecReallocRegionError<.T>:
+//: grow [失敗/しっぱい]時に旧 `RegionToken` owner を[返/かえ]す private payload
+//:
+//: ### [注意/ちゅうい]
+//: - この型は `Vec.push` 実装 file の内部だけで使います。public error recovery surface へは出さず、`VecPushError<T>` が public API として返す owner を表します。
+//: - payload slot を読まない storage owner 操作なので `.T: Copy` は要求しません。
+struct VecReallocRegionError<.T>:
     region <RegionToken<.T>>
     error <StdErrorKind>
 
 //: vec_realloc_region_error_kind: grow [失敗/しっぱい]の error kind を[読/よ]む
-pub fn vec_realloc_region_error_kind <.T> <(&VecReallocRegionError<.T>)->StdErrorKind> (e):
+fn vec_realloc_region_error_kind <.T> <(&VecReallocRegionError<.T>)->StdErrorKind> (e):
     *field::get_ref e "error"
-
-//: vec_realloc_region_error_region: grow [失敗/しっぱい]で[戻/もど]された旧 region owner を[取/と]り[出/だ]す
-pub fn vec_realloc_region_error_region <.T: Copy> <(VecReallocRegionError<.T>)->RegionToken<.T>> (e):
-    field::get e "region"
 
 //: ## vec_next_capacity
 //: `push` に[必要/ひつよう]な次 capacity を allocator payload 上限内で[計算/けいさん]する
@@ -181,7 +181,8 @@ fn vec_next_capacity <.T> <(i32)->Result<i32, StdErrorKind>> (cap0):
 //:
 //: ### [注意/ちゅうい]
 //: - 成功時は返った token が storage owner です。失敗時は旧 token が `VecReallocRegionError.region` に[戻/もど]ります。
-pub fn vec_realloc_region_or_keep <.T: Copy> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, VecReallocRegionError<.T>>> (region, new_cap):
+//: - payload の raw load / raw store は行いません。この helper は storage owner の再確保境界だけを扱うため、`.T: Copy` を要求しません。
+fn vec_realloc_region_or_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, VecReallocRegionError<.T>>> (region, new_cap):
     let elem_size <i32> size_of<.T>
     if:
         or le new_cap 0 le elem_size 0
@@ -244,7 +245,7 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
                                             Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                         Result::Err e:
                                             let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
-                                            let old_region <RegionToken<.T>> vec_realloc_region_error_region<.T> e
+                                            let old_region <RegionToken<.T>> field::get e "region"
                                             Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned old_region))) error
                 else:
                     match v_storage:

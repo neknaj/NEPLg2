@@ -18,6 +18,7 @@ const borrowedCopyInvariantObserverInspected = [];
 const borrowedPayloadCopyObserverInspected = [];
 const borrowedStorageViewInspected = [];
 const privateLifecycleProofHelperInspected = [];
+const privateStorageReallocHelperInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -56,6 +57,12 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
             const ownerSurfaceCopyRequirement = signature && generics.length > 0
                 ? collectionOwnerSurfaceCopyRequirement(typeSignature)
                 : null;
+            const privateStorageReallocHelper = signature && !signature.isPublic
+                ? classifyPrivateStorageReallocHelper(source, signature.name, typeSignature)
+                : null;
+            if (privateStorageReallocHelper && !privateStorageReallocHelperInspected.includes(`${relPath}:${signature.name}`)) {
+                privateStorageReallocHelperInspected.push(`${relPath}:${signature.name}`);
+            }
             if (ownerSurfaceCopyRequirement && ownerSurfaceCopyRequirement.size > 0) {
                 const privateLifecycleProofHelper = !signature.isPublic
                     ? classifyPrivateCollectionLifecycleProofHelper(source, signature.name)
@@ -72,7 +79,7 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
@@ -199,7 +206,6 @@ assert.ok(
 
 for (const expected of [
     'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_error_vec',
-    'stdlib/alloc/collections/vec/mutation/push.nepl:vec_realloc_region_error_region',
     'stdlib/alloc/collections/vec/types.nepl:vec_transform_error_vec',
     'stdlib/alloc/collections/vec/sort/merge/api.nepl:vec_sort_merge_error_vec',
     'stdlib/alloc/collections/stack/types.nepl:stack_push_error_stack',
@@ -219,6 +225,11 @@ for (const expected of [
         `collection owner accessor policy did not inspect expected error owner accessor: ${expected}`,
     );
 }
+
+assert.ok(
+    privateStorageReallocHelperInspected.includes('stdlib/alloc/collections/vec/mutation/push.nepl:vec_realloc_region_or_keep'),
+    'collection owner policy must classify Vec grow as a private storage-only RegionToken realloc helper instead of a public owner recovery surface',
+);
 
 assert.ok(
     popOwnerAccessorInspected.length >= 6,
@@ -621,6 +632,35 @@ function classifyDropCapableOwnerSurface(source, functionName, typeSignature) {
     }
 
     return { kind: 'drop-capable-owner-surface' };
+}
+
+function classifyPrivateStorageReallocHelper(source, functionName, typeSignature) {
+    const section = implementationFunctionSection(source, functionName);
+    if (!section || /^\s*pub\s+fn\b/.test(section)) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const [storageParam, sizeParam] = functionType.parameters.map((parameter) => parameter.trim());
+    const returnType = functionType.returnType.trim();
+    if (!/^RegionToken<\.\w+>$/.test(storageParam) || sizeParam !== 'i32') {
+        return null;
+    }
+    if (!/^Result<RegionToken<\.\w+>,\s*\w+<\.\w+>>$/.test(returnType)) {
+        return null;
+    }
+    if (!/\brealloc_region_bytes_keep<\.\w+>/.test(section)) {
+        return null;
+    }
+    if (/\b(?:load<|store<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
+        return null;
+    }
+
+    return { kind: 'private-storage-realloc-helper' };
 }
 
 function classifyDropCapableCleanup(source, functionName) {

@@ -52,6 +52,10 @@ Run the collection cleanup contract doctests and Vec source policy regression.
 
 これは non-Copy collection の完成ではない。`OwnedBuffer<T>` の initialized prefix、moved slot、drop traversal、compiler-issued owner token が入るまでは、error payload からの owner recovery も Copy-only collection 契約に閉じる。
 
+## 2026-05-22 Agent 1 追記
+
+`ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9` で、internal grow recovery は public owner accessor として残さず、`push.nepl` 内 private storage-only helper へ整理した。したがって本 issue の public Copy-only recovery 方針は `vec_push_error_vec<T>` / `vec_transform_error_vec<T>` / `vec_sort_merge_error_vec<T>` に適用し、`RegionToken<T>` 再確保 helper は payload slot を読まない private storage owner operation として Copy 境界から分離する。
+
 検証:
 
 - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`

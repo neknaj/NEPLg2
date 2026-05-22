@@ -119,6 +119,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 同日に [ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D](./ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D.md) で、`VecCopyInvariant` から payload 非依存の `VecStorageInvariant` を分離した。これにより `len` / `initialized_len` / `cap` / `VecStorage` / backing extent の相関は `.T: Copy` なしで証明でき、Copy-only raw access proof は storage proof の wrapper に限定された。実 `Vec<T>` の non-Copy `push` / grow / move-out / replace はまだ本 issue の残件だが、次段階でそれらの API が使う storage metadata/extent proof は Copy raw access proof から独立した。
 
+同日に [ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9](./ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9.md) で、`Vec` grow の `vec_realloc_region_or_keep<T>` を private storage-only helper として整理し、`.T: Copy` 境界を外した。`VecReallocRegionError<T>` と grow failure recovery は public API へ出さず、`push` 実装 file 内で `VecPushError<T>` に包み直す。これにより non-Copy payload grow の前提になる `RegionToken<T>` 再確保境界は Copy raw-access proof から独立したが、public `push<T>` 自体の non-Copy 解禁は item owner recovery / storage relocate / slot initialization proof 接続が完了するまで本 issue の残件である。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。
