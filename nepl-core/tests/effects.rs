@@ -933,6 +933,61 @@ fn helper <(RegionToken<i32>,RegionToken<i32>)->()> (old, new):
 }
 
 #[test]
+fn collection_slot_storage_relocate_rejects_public_stdlib_callable_surface() {
+    let src = r#"
+#entry public_relocate
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+pub fn public_relocate <(&RegionToken<i32>,&RegionToken<i32>)->()> (old, new):
+    #intrinsic "collection_slot_storage_relocate" <> (old, new)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_storage_relocate_rejects_public_wrapper_reachability() {
+    let src = r#"
+#entry public_relocate
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn internal_relocate <(&RegionToken<i32>,&RegionToken<i32>)->()> (old, new):
+    #intrinsic "collection_slot_storage_relocate" <> (old, new)
+
+pub fn public_relocate <(&RegionToken<i32>,&RegionToken<i32>)->()> (old, new):
+    internal_relocate old new
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/slot_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
 fn collection_slot_drop_traversal_accepts_matching_owner_token_type() {
     let src = r#"
 #entry helper
