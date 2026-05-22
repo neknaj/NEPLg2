@@ -1,3 +1,15 @@
+# 2026-05-22 Agent 1 collection slot lifecycle public surface proof
+
+- `ISS-20260522T014532659Z-COLLECTION-SLOT-LIFECYCLE-SOURCE-CAP-8C046921` を追加して fixed にした。`plan.md` と Zenn の開発方針は確認済みで変更していない。
+- 根本原因は、collection slot lifecycle source capability が ordinary public reachability を public surface 判定に使っており、public collection API が private marker helper を内部実装として呼ぶだけの構造まで、public alias / raw wrapper と同じ authority leak として拒否していたことだった。
+- 修正後は public alias / alias chain と transparent forwarding wrapper / wrapper chain を public marker exposure graph で追跡し、public `MemPtr` signature を持つ raw API だけ ordinary call graph で private helper 到達を拒否する。
+- owner aggregate を public boundary にする collection API は private lifecycle helper を内部で使っても source capability を失わない。安全性は後段の typecheck / Resource IR proof が raw store/load/drop/relocate/storage release を generic proof として検査する。
+- 検証:
+  - `cargo test -p nepl-core loader::tests::collection_slot_lifecycle_boundary_is_internal_not_public_surface -- --test-threads=1 --exact --nocapture`: pass
+  - `cargo test -p nepl-core --test effects collection_slot_lifecycle_intrinsic_rejects_public_raw_adapter_reachability -- --test-threads=1 --exact --nocapture`: pass
+  - `cargo test -p nepl-core --test effects collection_slot_lifecycle_intrinsic_rejects_public -- --test-threads=1 --nocapture`: pass
+  - `cargo test -p nepl-core --test effects collection_slot_lifecycle_intrinsic_accepts_matching_stdlib_anchor -- --test-threads=1 --exact --nocapture`: pass
+
 # 2026-05-22 Agent 1 raw realloc collection-managed non-Copy relocation
 
 - `ISS-20260522T012056297Z-RAW-REALLOC-REJECTS-COLLECTION-MANAG-95C9800C` を追加して fixed にした。`plan.md` は確認済みで変更していない。

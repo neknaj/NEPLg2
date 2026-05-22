@@ -1104,11 +1104,42 @@ mod tests {
             "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
             "pub fn public_slot internal_slot;\n",
         );
+        let public_alias_chain_src = concat!(
+            "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+            "fn alias_slot internal_slot;\n",
+            "pub fn public_slot alias_slot;\n",
+        );
         let public_wrapper_src = concat!(
             "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
             "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
             "pub fn public_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
             "    internal_slot ptr offset\n",
+        );
+        let public_wrapper_chain_src = concat!(
+            "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+            "fn wrapper_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    internal_slot ptr offset\n",
+            "pub fn public_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    wrapper_slot ptr offset\n",
+        );
+        let public_raw_adapter_src = concat!(
+            "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+            "pub fn public_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    let copied_offset offset\n",
+            "    internal_slot ptr copied_offset\n",
+        );
+        let encapsulated_public_api_src = concat!(
+            "pub struct CollectionOwner<.T>:\n",
+            "    raw <i32>\n",
+            "fn internal_slot <.T> <(MemPtr<.T>,i32)->()> (ptr, offset):\n",
+            "    #intrinsic \"collection_slot_initialize_empty\" <.T> (ptr, offset)\n",
+            "pub fn push_like <.T> <(CollectionOwner<.T>)->CollectionOwner<.T>> (owner):\n",
+            "    let ptr owner\n",
+            "    internal_slot ptr 0\n",
+            "    owner\n",
         );
 
         let internal_capabilities = load_source_capabilities(&loader, path.clone(), internal_src);
@@ -1135,12 +1166,49 @@ mod tests {
             "public aliases must not re-export internal collection slot lifecycle lowering helpers"
         );
 
-        let wrapper_capabilities = load_source_capabilities(&loader, path, public_wrapper_src);
+        let alias_chain_capabilities =
+            load_source_capabilities(&loader, path.clone(), public_alias_chain_src);
+        assert!(
+            !alias_chain_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "public alias chains must not re-export internal collection slot lifecycle lowering helpers"
+        );
+
+        let wrapper_capabilities =
+            load_source_capabilities(&loader, path.clone(), public_wrapper_src);
         assert!(
             !wrapper_capabilities.allows_collection_slot_lifecycle_boundary(
                 CollectionSlotLifecyclePrimitive::InitializeEmpty
             ),
             "public wrappers must not indirectly expose collection slot lifecycle lowering helpers"
+        );
+
+        let wrapper_chain_capabilities =
+            load_source_capabilities(&loader, path.clone(), public_wrapper_chain_src);
+        assert!(
+            !wrapper_chain_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "public wrapper chains must not indirectly expose collection slot lifecycle lowering helpers"
+        );
+
+        let raw_adapter_capabilities =
+            load_source_capabilities(&loader, path.clone(), public_raw_adapter_src);
+        assert!(
+            !raw_adapter_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "public raw-pointer APIs must not expose collection slot lifecycle helpers through local adapters"
+        );
+
+        let encapsulated_public_api_capabilities =
+            load_source_capabilities(&loader, path, encapsulated_public_api_src);
+        assert!(
+            encapsulated_public_api_capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::InitializeEmpty
+            ),
+            "public collection APIs may use private lifecycle helpers internally when they do not re-export the raw marker boundary"
         );
     }
 

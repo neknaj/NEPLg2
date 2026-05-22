@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T01:28:40.141Z",
+  "generated_at": "2026-05-22T01:52:39.651Z",
   "counts": {
-    "total": 1211,
+    "total": 1212,
     "open": 3,
-    "resolved": 1208,
+    "resolved": 1209,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 594,
+        "total": 595,
         "open": 0,
-        "resolved": 594
+        "resolved": 595
       },
       "CORE": {
         "total": 5,
@@ -9243,6 +9243,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-6-stdlib--self-host-準備",
       "file": "items/ISS-20260522T012056297Z-RAW-REALLOC-REJECTS-COLLECTION-MANAG-95C9800C.md"
+    },
+    {
+      "id": "ISS-20260522T014532659Z-COLLECTION-SLOT-LIFECYCLE-SOURCE-CAP-8C046921",
+      "title": "Collection slot lifecycle source capability treats internal collection APIs as public marker surfaces",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/source_capability/proof.rs, nepl-core/src/loader.rs, nepl-core/tests/effects.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-6-stdlib--self-host-準備",
+      "file": "items/ISS-20260522T014532659Z-COLLECTION-SLOT-LIFECYCLE-SOURCE-CAP-8C046921.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

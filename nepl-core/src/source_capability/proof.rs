@@ -2,9 +2,12 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::{Module, PrefixExpr, Stmt, StructDef, Visibility};
+use crate::ast::{
+    FnBody, FnDef, Module, PrefixExpr, PrefixItem, Stmt, StructDef, Symbol, TypeExpr, Visibility,
+};
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
 use crate::hir::HirBody;
+use crate::qualified_name::member_tail;
 use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
 use crate::source_capability::binding::SourceCapabilityBindingKind;
 use crate::source_capability::owner_aggregate::OwnerAggregateEvidenceContext;
@@ -41,7 +44,7 @@ struct RawOperationFunctionFrame {
 fn collect_source_capability_proof(module: &Module) -> SourceCapabilityProof {
     let owner_context = OwnerAggregateEvidenceContext::from_module(module);
     let lifecycle_public_surface_functions =
-        CollectionSlotLifecycleSurfaceAnalysis::public_reachable_lifecycle_functions(module);
+        CollectionSlotLifecycleSurfaceAnalysis::public_exposed_lifecycle_functions(module);
     let mut collector = SourceCapabilityProofCollector {
         owner_context: &owner_context,
         lifecycle_public_surface_functions,
@@ -262,45 +265,97 @@ impl SourceCapabilityObserver for SourceCapabilityProofCollector<'_> {
 #[derive(Debug, Default)]
 struct CollectionSlotLifecycleSurfaceAnalysis {
     public_roots: BTreeSet<String>,
+    public_raw_pointer_roots: BTreeSet<String>,
     direct_lifecycle_functions: BTreeSet<String>,
-    call_edges: BTreeMap<String, BTreeSet<String>>,
+    ordinary_call_edges: BTreeMap<String, BTreeSet<String>>,
+    public_surface_edges: BTreeMap<String, BTreeSet<String>>,
     function_stack: Vec<String>,
 }
 
 impl CollectionSlotLifecycleSurfaceAnalysis {
-    fn public_reachable_lifecycle_functions(module: &Module) -> BTreeSet<String> {
+    fn public_exposed_lifecycle_functions(module: &Module) -> BTreeSet<String> {
         let mut analysis = Self::default();
-        analysis.collect_alias_edges(module);
+        analysis.collect_public_surface_edges(module);
         walk_module_capability_evidence(module, &mut analysis);
-        analysis.direct_lifecycle_functions_reachable_from_public_roots()
+        analysis.direct_lifecycle_functions_exposed_from_public_roots()
     }
 
-    fn collect_alias_edges(&mut self, module: &Module) {
+    fn collect_public_surface_edges(&mut self, module: &Module) {
+        let top_level_callables = top_level_callables(module);
         for stmt in &module.root.items {
-            let Stmt::FnAlias(alias) = stmt else {
-                continue;
-            };
-            self.call_edges
-                .entry(alias.name.name.clone())
-                .or_default()
-                .insert(alias.target.name.clone());
-            if alias.vis == Visibility::Pub {
-                self.public_roots.insert(alias.name.name.clone());
-            }
+            self.collect_public_surface_edges_from_stmt(stmt, &top_level_callables);
         }
     }
 
-    fn direct_lifecycle_functions_reachable_from_public_roots(&self) -> BTreeSet<String> {
-        let mut reachable = BTreeSet::new();
-        let mut stack: Vec<String> = self.public_roots.iter().cloned().collect();
-        while let Some(name) = stack.pop() {
-            if !reachable.insert(name.clone()) {
-                continue;
+    fn collect_public_surface_edges_from_stmt(
+        &mut self,
+        stmt: &Stmt,
+        top_level_callables: &BTreeSet<String>,
+    ) {
+        match stmt {
+            Stmt::FnDef(def) => self.collect_public_surface_edges_from_function(
+                def,
+                def.vis == Visibility::Pub,
+                top_level_callables,
+            ),
+            Stmt::FnAlias(alias) => {
+                self.public_surface_edges
+                    .entry(alias.name.name.clone())
+                    .or_default()
+                    .insert(alias.target.name.clone());
+                if alias.vis == Visibility::Pub {
+                    self.public_roots.insert(alias.name.name.clone());
+                }
             }
-            if let Some(callees) = self.call_edges.get(&name) {
-                stack.extend(callees.iter().cloned());
+            Stmt::Impl(def) => {
+                for method in &def.methods {
+                    self.collect_public_surface_edges_from_function(
+                        method,
+                        method.vis == Visibility::Pub,
+                        top_level_callables,
+                    );
+                }
+            }
+            Stmt::Directive(_)
+            | Stmt::StructDef(_)
+            | Stmt::EnumDef(_)
+            | Stmt::Wasm(_)
+            | Stmt::LlvmIr(_)
+            | Stmt::Trait(_)
+            | Stmt::Expr(_)
+            | Stmt::ExprSemi(_, _) => {}
+        }
+    }
+
+    fn collect_public_surface_edges_from_function(
+        &mut self,
+        def: &FnDef,
+        exported: bool,
+        top_level_callables: &BTreeSet<String>,
+    ) {
+        self.public_surface_edges
+            .entry(def.name.name.clone())
+            .or_default();
+        if exported {
+            self.public_roots.insert(def.name.name.clone());
+            if type_expr_contains_mem_ptr(&def.signature) {
+                self.public_raw_pointer_roots.insert(def.name.name.clone());
             }
         }
+        if let Some(target) = transparent_forward_target(def, top_level_callables) {
+            self.public_surface_edges
+                .entry(def.name.name.clone())
+                .or_default()
+                .insert(target);
+        }
+    }
+
+    fn direct_lifecycle_functions_exposed_from_public_roots(&self) -> BTreeSet<String> {
+        let mut reachable =
+            self.reachable_from_roots(&self.public_roots, &self.public_surface_edges);
+        reachable.extend(
+            self.reachable_from_roots(&self.public_raw_pointer_roots, &self.ordinary_call_edges),
+        );
         self.direct_lifecycle_functions
             .iter()
             .filter(|name| reachable.contains(*name))
@@ -308,18 +363,26 @@ impl CollectionSlotLifecycleSurfaceAnalysis {
             .collect()
     }
 
-    fn current_function_name(&self) -> Option<&str> {
-        self.function_stack.last().map(String::as_str)
+    fn reachable_from_roots(
+        &self,
+        roots: &BTreeSet<String>,
+        edges: &BTreeMap<String, BTreeSet<String>>,
+    ) -> BTreeSet<String> {
+        let mut reachable = BTreeSet::new();
+        let mut stack: Vec<String> = roots.iter().cloned().collect();
+        while let Some(name) = stack.pop() {
+            if !reachable.insert(name.clone()) {
+                continue;
+            }
+            if let Some(callees) = edges.get(&name) {
+                stack.extend(callees.iter().cloned());
+            }
+        }
+        reachable
     }
 
-    fn insert_current_call_edge(&mut self, target: &str) {
-        let Some(current) = self.function_stack.last().cloned() else {
-            return;
-        };
-        self.call_edges
-            .entry(current)
-            .or_default()
-            .insert(String::from(target));
+    fn current_function_name(&self) -> Option<&str> {
+        self.function_stack.last().map(String::as_str)
     }
 }
 
@@ -334,17 +397,13 @@ impl SourceCapabilityObserver for CollectionSlotLifecycleSurfaceAnalysis {
         if exported {
             self.public_roots.insert(String::from(name));
         }
-        self.call_edges.entry(String::from(name)).or_default();
+        self.ordinary_call_edges
+            .entry(String::from(name))
+            .or_default();
+        self.public_surface_edges
+            .entry(String::from(name))
+            .or_default();
         self.function_stack.push(String::from(name));
-    }
-
-    fn observe_named_function_end(
-        &mut self,
-        _name: &str,
-        _span: Span,
-        _scope: &SourceCapabilityScope,
-    ) {
-        self.function_stack.pop();
     }
 
     fn observe_call_head_symbol(
@@ -358,8 +417,22 @@ impl SourceCapabilityObserver for CollectionSlotLifecycleSurfaceAnalysis {
             scope.shadow_kind_symbol_or_qualifier(symbol),
             Some(SourceCapabilityBindingKind::TopLevelCallable)
         ) {
-            self.insert_current_call_edge(symbol);
+            if let Some(current) = self.current_function_name() {
+                self.ordinary_call_edges
+                    .entry(String::from(current))
+                    .or_default()
+                    .insert(String::from(symbol));
+            }
         }
+    }
+
+    fn observe_named_function_end(
+        &mut self,
+        _name: &str,
+        _span: Span,
+        _scope: &SourceCapabilityScope,
+    ) {
+        self.function_stack.pop();
     }
 
     fn observe_intrinsic(
@@ -376,5 +449,103 @@ impl SourceCapabilityObserver for CollectionSlotLifecycleSurfaceAnalysis {
                     .insert(String::from(current));
             }
         }
+    }
+}
+
+fn top_level_callables(module: &Module) -> BTreeSet<String> {
+    module
+        .root
+        .items
+        .iter()
+        .filter_map(|stmt| match stmt {
+            Stmt::FnDef(def) => Some(def.name.name.clone()),
+            Stmt::FnAlias(alias) => Some(alias.name.name.clone()),
+            Stmt::Directive(_)
+            | Stmt::StructDef(_)
+            | Stmt::EnumDef(_)
+            | Stmt::Wasm(_)
+            | Stmt::LlvmIr(_)
+            | Stmt::Trait(_)
+            | Stmt::Impl(_)
+            | Stmt::Expr(_)
+            | Stmt::ExprSemi(_, _) => None,
+        })
+        .collect()
+}
+
+fn transparent_forward_target(
+    def: &FnDef,
+    top_level_callables: &BTreeSet<String>,
+) -> Option<String> {
+    let expr = single_body_expr(def)?;
+    let mut items = expr.items.iter();
+    let target = plain_identifier(items.next()?)?;
+    if !top_level_callables.contains(target) {
+        return None;
+    }
+    let mut forwarded_params = items;
+    for param in &def.params {
+        if plain_identifier(forwarded_params.next()?)? != param.name {
+            return None;
+        }
+    }
+    if forwarded_params.next().is_some() {
+        return None;
+    }
+    Some(String::from(target))
+}
+
+fn single_body_expr(def: &FnDef) -> Option<&PrefixExpr> {
+    let FnBody::Parsed(block) = &def.body else {
+        return None;
+    };
+    let [stmt] = block.items.as_slice() else {
+        return None;
+    };
+    match stmt {
+        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => Some(expr),
+        Stmt::Directive(_)
+        | Stmt::FnDef(_)
+        | Stmt::FnAlias(_)
+        | Stmt::StructDef(_)
+        | Stmt::EnumDef(_)
+        | Stmt::Wasm(_)
+        | Stmt::LlvmIr(_)
+        | Stmt::Trait(_)
+        | Stmt::Impl(_) => None,
+    }
+}
+
+fn plain_identifier(item: &PrefixItem) -> Option<&str> {
+    let PrefixItem::Symbol(Symbol::Ident(ident, type_args, forced_value)) = item else {
+        return None;
+    };
+    if *forced_value || !type_args.is_empty() {
+        return None;
+    }
+    Some(ident.name.as_str())
+}
+
+fn type_expr_contains_mem_ptr(ty: &TypeExpr) -> bool {
+    match ty.as_unspanned() {
+        TypeExpr::Named(name) => member_tail(name) == "MemPtr",
+        TypeExpr::Apply(base, args) => {
+            type_expr_contains_mem_ptr(base) || args.iter().any(type_expr_contains_mem_ptr)
+        }
+        TypeExpr::Boxed(inner) | TypeExpr::Reference(inner, _) => type_expr_contains_mem_ptr(inner),
+        TypeExpr::Tuple(items) => items.iter().any(type_expr_contains_mem_ptr),
+        TypeExpr::Function { params, result, .. } => {
+            params.iter().any(type_expr_contains_mem_ptr) || type_expr_contains_mem_ptr(result)
+        }
+        TypeExpr::Unit
+        | TypeExpr::I32
+        | TypeExpr::U8
+        | TypeExpr::F32
+        | TypeExpr::Bool
+        | TypeExpr::Char
+        | TypeExpr::Never
+        | TypeExpr::Str
+        | TypeExpr::Label(_) => false,
+        TypeExpr::Spanned(_, _) => unreachable!("as_unspanned removes nested spans"),
     }
 }
