@@ -42218,6 +42218,8 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 同じ policy 実行で `codegen_llvm.rs` が 4217 行となり既存 limit 4189 を超えていることが判明したため、別 issue `ISS-20260516T065711051Z-LLVM-CODEGEN-RESPONSIBILITY-FREEZE-R-0530B190` を追加した。
 - focused verification:
   - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_raw_dealloc -- --test-threads=1 --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc -- --test-threads=1 --nocapture`: passed
   - `cargo fmt -p nepl-core --check`: passed
   - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 10 passed
   - `cargo test -p nepl-core --test layout -- --nocapture`: 4 passed
@@ -44873,6 +44875,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_realloc_rekeys_collection_managed_non_copy_raw_cell -- --test-threads=1 --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_relocate_accepts_live_non_copy_payload_after_realloc -- --test-threads=1 --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_raw_dealloc -- --test-threads=1 --nocapture`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+
+## 2026-05-22 Agent 1 initialized raw memory dispatcher split
+
+- `ISS-20260522T030231180Z-INITIALIZED-RAW-MEMORY-DISPATCHER-EX-3FB72BA0` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`initialized_raw_memory.rs` が `RawMemoryOp` dispatch と raw dealloc 時の collection-slot release / refutation diagnostic emission を同居させ、dispatcher の監査単位を再び肥大化させていたこと。
+- raw dealloc の collection-slot release と `CollectionSlotRefuted` diagnostic への変換を `initialized_raw_memory_dealloc_collection.rs` へ分離し、dispatcher 本体は raw memory operation routing に集中させた。
+- `node nodesrc/test_resource_checker_responsibility.js` はこの blocker を通過し、次の既存 blocker として `initialized_summary.rs` 81/80 行超過を検出したため、別 issue `ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30` として分離した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
   - `cargo fmt -p nepl-core --check`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed

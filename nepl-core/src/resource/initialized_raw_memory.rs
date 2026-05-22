@@ -1,14 +1,13 @@
 use crate::span::Span;
-use alloc::string::ToString;
 
 use super::cell_state::CellTable;
-use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
+use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerStorageExtent, Place, RawMemoryOp};
 use super::raw_cell_lifecycle::RawCellLifecycleEvent;
 use super::raw_realloc::PendingRawReallocs;
-use super::report::{ResourceCheckDiagnostic, ResourceCheckOperation};
+use super::report::ResourceCheckOperation;
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn check_raw_memory(
@@ -162,37 +161,5 @@ impl ResourceCheckEngine<'_> {
                 }
             }
         }
-    }
-
-    fn release_collection_slots_for_raw_dealloc(
-        &mut self,
-        collection_slots: &mut CollectionSlotStateTable,
-        raw_aliases: &RawCellAddressAliases,
-        storage: &Place,
-        span: Span,
-    ) -> bool {
-        match collection_slots
-            .release_storage_if_collection_tracked_with_aliases(storage, raw_aliases)
-        {
-            Ok(()) => true,
-            Err(refutation) => {
-                self.report_raw_dealloc_collection_slot_refutation(refutation, span);
-                false
-            }
-        }
-    }
-
-    fn report_raw_dealloc_collection_slot_refutation(
-        &mut self,
-        refutation: CollectionSlotTableRefutation,
-        span: Span,
-    ) {
-        self.diagnostics
-            .push(ResourceCheckDiagnostic::CollectionSlotRefuted {
-                function: self.function.to_string(),
-                target: refutation.slot,
-                reason: refutation.reason,
-                span,
-            });
     }
 }

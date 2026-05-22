@@ -281,6 +281,7 @@ mod initialized_raw_fill;
 mod initialized_raw_memory;
 mod initialized_raw_memory_access;
 mod initialized_raw_memory_bulk;
+mod initialized_raw_memory_dealloc_collection;
 mod initialized_raw_view;
 mod initialized_rekey;
 mod initialized_scalar_flow;
