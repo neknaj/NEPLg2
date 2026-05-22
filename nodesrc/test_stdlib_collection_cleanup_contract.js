@@ -13,6 +13,7 @@ const popOwnerAccessorInspected = [];
 const fallibleOwnerConsumerInspected = [];
 const ownerSurfaceInspected = [];
 const borrowedMetadataObserverInspected = [];
+const borrowedCopyInvariantObserverInspected = [];
 const borrowedPayloadCopyObserverInspected = [];
 const borrowedStorageViewInspected = [];
 const violations = [];
@@ -66,6 +67,17 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 : null;
             if (borrowedMetadataObserverGenerics && borrowedMetadataObserverGenerics.size > 0) {
                 borrowedMetadataObserverInspected.push(`${relPath}:${signature.name}`);
+            }
+            const borrowedCopyInvariantObserverCopyRequirement = signature && generics.length > 0
+                ? borrowedCollectionCopyInvariantObserverCopyRequirement(typeSignature)
+                : null;
+            if (borrowedCopyInvariantObserverCopyRequirement && borrowedCopyInvariantObserverCopyRequirement.size > 0) {
+                borrowedCopyInvariantObserverInspected.push(`${relPath}:${signature.name}`);
+                const missingCopy = generics.filter((generic) => borrowedCopyInvariantObserverCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
+                if (missingCopy.length > 0) {
+                    const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} borrowed Copy-invariant proof observer generic(s) ${names} must carry Copy because the proof authorizes Copy-only raw access`);
+                }
             }
             const borrowedPayloadCopyObserverCopyRequirement = signature && generics.length > 0
                 ? borrowedCollectionPayloadCopyObserverCopyRequirement(typeSignature)
@@ -227,8 +239,6 @@ for (const expected of [
     'stdlib/alloc/collections/vec/access/header.nepl:len',
     'stdlib/alloc/collections/vec/access/header.nepl:cap',
     'stdlib/alloc/collections/vec/access/header.nepl:is_empty',
-    'stdlib/alloc/collections/vec/invariant.nepl:vec_buffer_current_copy_invariant',
-    'stdlib/alloc/collections/vec/invariant.nepl:vec_current_copy_invariant',
     'stdlib/alloc/collections/vec/transform/filter/partition/view.nepl:vec_partition_matched_len',
     'stdlib/alloc/collections/vec/transform/filter/partition/view.nepl:vec_partition_rest_len',
     'stdlib/alloc/collections/stack/api.nepl:len',
@@ -256,6 +266,21 @@ for (const expected of [
     assert.ok(
         borrowedMetadataObserverInspected.some((entry) => entry.includes(expected)),
         `collection borrowed metadata observer policy did not inspect expected signature: ${expected}`,
+    );
+}
+
+assert.ok(
+    borrowedCopyInvariantObserverInspected.length >= 2,
+    `collection borrowed Copy-invariant proof observer policy must inspect raw-access proof surfaces, inspected only ${borrowedCopyInvariantObserverInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/vec/invariant.nepl:vec_buffer_current_copy_invariant',
+    'stdlib/alloc/collections/vec/invariant.nepl:vec_current_copy_invariant',
+]) {
+    assert.ok(
+        borrowedCopyInvariantObserverInspected.some((entry) => entry.includes(expected)),
+        `collection borrowed Copy-invariant proof observer policy did not inspect expected signature: ${expected}`,
     );
 }
 
@@ -302,7 +327,7 @@ for (const expected of [
     );
 }
 
-assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed payload-copying observers, and borrowed payload storage views must remain Copy-only:\n${violations.join('\n')}`);
+assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed Copy-invariant proof observers, borrowed payload-copying observers, and borrowed payload storage views must remain Copy-only:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
 
@@ -527,11 +552,33 @@ function borrowedCollectionPayloadCopyObserverCopyRequirement(typeSignature) {
     return required;
 }
 
+function borrowedCollectionCopyInvariantObserverCopyRequirement(typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.returnType.trim() !== 'VecCopyInvariant') {
+        return null;
+    }
+
+    const required = new Set();
+    for (const parameter of functionType.parameters) {
+        const trimmed = parameter.trim();
+        if (!trimmed.startsWith('&')) {
+            continue;
+        }
+        for (const name of ownerAggregateGenericNames(trimmed)) {
+            required.add(name);
+        }
+    }
+    return required;
+}
+
 function isMetadataObserverReturn(returnType) {
     const trimmed = returnType.trim();
     return trimmed === 'i32'
-        || trimmed === 'bool'
-        || trimmed === 'VecCopyInvariant';
+        || trimmed === 'bool';
 }
 
 function isPayloadCopyObserverReturn(returnType) {

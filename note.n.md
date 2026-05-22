@@ -1,3 +1,12 @@
+# 2026-05-22 Agent 1 Vec Copy invariant observer policy separation
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の同じ P1 残件の監査中に、直前の borrowed observer 分離で `VecCopyInvariant` proof を metadata observer と同列に扱う設計漏れを見つけた。`plan.md` は確認済みで変更していない。
+- `VecCopyInvariant` は `len` / `cap` のような観測値ではなく、Copy-only raw access の前提証明を返す API なので `.T: Copy` を要求し続ける必要がある。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` を、borrowed metadata observer、borrowed Copy-invariant proof observer、borrowed payload-copying observer の三分類に分けた。metadata observer は Copy 不要だが、Copy-invariant proof と payload-copying observer は Copy-only policy で監視する。
+- 検証:
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+
 # 2026-05-22 Agent 1 Vec borrowed header metadata observers
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、`Vec<T>` の借用 metadata observer と payload lifecycle API の責務分離を進めた。`plan.md` は確認済みで変更していない。
