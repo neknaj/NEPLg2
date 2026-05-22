@@ -20,5 +20,37 @@
 //: - Empty state は runtime allocation も `RegionToken<T>` owner も[持/も]ちません。
 //: - `new` / `with_capacity` / `vec_alloc_empty` / `push` / `clear` / `free` / payload access は storage allocation、initialized slot、または payload lifecycle を扱うため、Resource IR proof へ接続されるまでは Copy-only のままです。
 //: - non-Copy payload に対して許されるのは、空 storage の metadata observation だけです。payload move/drop と storage release は compiler-issued owner token と initialized/moved/drop state の証明により別途[扱/あつか]います。
+//:
+//: ### [使用例/しようれい]
+//: non-Copy payload でも、空 storage の metadata は[観測/かんそく]できます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//:
+//: fn main <()->i32> ():
+//:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>
+//:     let ok <bool> is_empty<NonCopyPayload> &v
+//:     if ok 0 1
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//:
+//: fn main <()->i32> ():
+//:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>
+//:     free<NonCopyPayload> v
+//:     0
+//: ```
 pub fn vec_empty <.T> <()->Vec<.T>> ():
     Vec<.T> (OwnedBuffer<.T> 0 0 0 VecStorage<.T>::Empty)

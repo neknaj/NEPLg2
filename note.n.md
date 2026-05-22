@@ -1,3 +1,14 @@
+# 2026-05-22 Agent 1 Vec empty metadata constructor doctest contract
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、直前に non-Copy へ開いた `vec_empty<T>` の関数ドキュメント側にも回帰テストを追加した。`plan.md` と Zenn の開発方針は確認済みで変更していない。
+- `vec_empty<T>` の doc comment に、non-Copy payload の empty metadata observation が通る使用例と、同じ `Vec<NonCopyPayload>` を `free<T>` へ渡すと Copy-only lifecycle 境界で拒否される compile_fail を追加した。
+- これにより、許可範囲が zero-allocation Empty metadata constructor に限られ、payload lifecycle / storage release は Resource IR proof pending のまま残ることを関数ドキュメントからも確認できる。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/storage/view.nepl --no-tree -o tmp/vec-empty-doc-contract.json -j 1 --dist web/dist --assert-io`: total=2, passed=2
+
 # 2026-05-22 Agent 1 Vec empty metadata constructor non-Copy
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、`Vec<T>` の zero-allocation empty constructor と payload lifecycle API の責務を分離した。`plan.md` と Zenn の開発方針は確認済みで変更していない。
