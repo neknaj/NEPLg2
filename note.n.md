@@ -44824,3 +44824,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc -- --nocapture`: passed
   - `cargo check -p nepl-core`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-22 Agent 1 public owner collection API Resource IR proof
+
+- `ISS-20260522T020722026Z-PUBLIC-OWNER-COLLECTION-API-LACKS-RE-C74A0802` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、source capability が public owner aggregate API を Resource IR へ渡せるようになった一方で、public API から private collection lifecycle helper を通して non-Copy slot initialize / drop traversal / storage dealloc まで end-to-end に証明する source-level regression がなかったこと。
+- 調査中に `MemPtr<T>` と `&RegionToken<T>` を別引数で受ける helper も試したが、関数単体のソースから両者の alias 関係を証明できないため `OwnerTransferRequiresValueProof` で拒否された。これは安全側の挙動なので、未表現の alias precondition に依存する設計は採用しない。
+- 回帰テストは public `OwnerCollection` API が private helper を呼ぶ形にしつつ、private helper 内で `&RegionToken<T>` から `region_ptr` / `MemPtr<T>` を導出する。これにより `MemPtr = non-owning view`、`RegionToken = owner storage anchor` の責務分割をソース由来の generic Resource IR proof で確認できる。
+- focused verification:
+  - `cargo test -p nepl-core --test collection_slot_full_range public_owner_collection_api_uses_private_lifecycle_helpers -- --test-threads=1 --exact --nocapture`: passed

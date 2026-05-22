@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T01:52:39.651Z",
+  "generated_at": "2026-05-22T02:09:21.883Z",
   "counts": {
-    "total": 1212,
+    "total": 1213,
     "open": 3,
-    "resolved": 1209,
+    "resolved": 1210,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 595,
+        "total": 596,
         "open": 0,
-        "resolved": 595
+        "resolved": 596
       },
       "CORE": {
         "total": 5,
@@ -9258,6 +9258,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-6-stdlib--self-host-準備",
       "file": "items/ISS-20260522T014532659Z-COLLECTION-SLOT-LIFECYCLE-SOURCE-CAP-8C046921.md"
+    },
+    {
+      "id": "ISS-20260522T020722026Z-PUBLIC-OWNER-COLLECTION-API-LACKS-RE-C74A0802",
+      "title": "Public owner collection API lacks Resource IR end-to-end proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/tests/collection_slot_full_range.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T020722026Z-PUBLIC-OWNER-COLLECTION-API-LACKS-RE-C74A0802.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
