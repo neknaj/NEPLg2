@@ -4289,6 +4289,39 @@ fn collect_direct_raw_memory_ops(ops: &[ResourceOp], operations: &mut Vec<RawMem
     }
 }
 
+fn resource_ops_any(ops: &[ResourceOp], predicate: fn(&ResourceOp) -> bool) -> bool {
+    ops.iter().any(|op| {
+        predicate(op)
+            || match op {
+                ResourceOp::Branch {
+                    then_ops, else_ops, ..
+                } => resource_ops_any(then_ops, predicate) || resource_ops_any(else_ops, predicate),
+                ResourceOp::Loop {
+                    condition_ops,
+                    body_ops,
+                    ..
+                } => {
+                    resource_ops_any(condition_ops, predicate)
+                        || resource_ops_any(body_ops, predicate)
+                }
+                ResourceOp::Match { arms, .. } => {
+                    arms.iter().any(|arm| resource_ops_any(&arm.ops, predicate))
+                }
+                _ => false,
+            }
+    })
+}
+
+fn resource_function_ops_any(
+    function: &ResourceFunction,
+    predicate: fn(&ResourceOp) -> bool,
+) -> bool {
+    function
+        .blocks
+        .iter()
+        .any(|block| resource_ops_any(&block.ops, predicate))
+}
+
 #[test]
 fn resource_ir_effect_check_counts_host_effect_operations() {
     let types = TypeCtx::new();
@@ -15575,6 +15608,139 @@ fn main <()*>i32> ():
             }),
         "main must not retain initialized Vec collection slots after clear/free: {:#?}",
         report.functions
+    );
+}
+
+#[test]
+fn resource_ir_initialized_check_vec_drop_new_free_closes_empty_stdlib_lifecycle() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn main <()*>i32> ():
+    let v <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    free<DropPayload> v
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec<DropPayload>.new -> free must close empty Drop-capable storage lifecycle: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_cleanup_drop_initialized_prefix"
+                && resource_function_ops_any(function, |op| matches!(op, ResourceOp::Drop { .. }))
+                && resource_function_ops_any(function, |op| {
+                    matches!(op, ResourceOp::CollectionSlotDropTraversal { .. })
+                })
+        }),
+        "Drop-capable Vec.free must lower through the private helper that pairs Drop::drop proof with full-range traversal:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_cleanup_release_storage"
+                && resource_function_ops_any(function, |op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            ..
+                        }
+                    )
+                })
+        }),
+        "Drop-capable Vec.free must still release storage through the private raw dealloc proof helper:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_initialized_check_vec_drop_with_capacity_clear_free_closes_empty_stdlib_lifecycle() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn main <()*>i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok with_capacity<DropPayload> 2
+    let v1 <Vec<DropPayload>> clear<DropPayload> v0
+    free<DropPayload> v1
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("clear__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec<DropPayload>.with_capacity -> clear -> free must close Drop-capable lifecycle proofs: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    let drop_cleanup_calls = resource
+        .functions
+        .iter()
+        .filter(|function| function.origin_name == "vec_cleanup_drop_initialized_prefix")
+        .count();
+    assert!(
+        drop_cleanup_calls >= 1,
+        "Drop-capable Vec.clear/free must monomorphize the Drop traversal helper at least once:\n{}",
+        resource.dump_text()
     );
 }
 

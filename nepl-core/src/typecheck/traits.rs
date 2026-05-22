@@ -10,6 +10,7 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::diagnostics::type_error;
+use super::signature::signature_type_string;
 use super::type_expr::{type_from_expr, LabelEnv};
 
 #[derive(Debug, Clone)]
@@ -213,6 +214,44 @@ impl BoundEnv {
             .map(|(type_param, bounds)| (*type_param, bounds.as_slice()))
     }
 
+    pub(super) fn signature_equivalent(
+        &self,
+        ctx: &TypeCtx,
+        type_params: &[TypeId],
+        other: &Self,
+        other_type_params: &[TypeId],
+    ) -> bool {
+        self.normalized_signature_bounds(ctx, type_params)
+            == other.normalized_signature_bounds(ctx, other_type_params)
+    }
+
+    fn normalized_signature_bounds(&self, ctx: &TypeCtx, type_params: &[TypeId]) -> Vec<String> {
+        let generics = signature_generic_names(ctx, type_params);
+        let mut normalized = Vec::new();
+        for (type_param, bounds) in self.iter() {
+            let type_param_name = signature_type_string(ctx, type_param.type_id(), &generics);
+            for bound in bounds {
+                let args = bound
+                    .application
+                    .args
+                    .iter()
+                    .map(|arg| signature_type_string(ctx, *arg, &generics))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let trait_self = signature_type_string(ctx, bound.trait_self_ty, &generics);
+                normalized.push(format!(
+                    "{}:{}<{}>:{}",
+                    type_param_name,
+                    bound.application.trait_id.as_str(),
+                    args,
+                    trait_self
+                ));
+            }
+        }
+        normalized.sort();
+        normalized
+    }
+
     pub(super) fn has_trait_application_bound(
         &self,
         ctx: &TypeCtx,
@@ -229,6 +268,14 @@ impl BoundEnv {
             ctx.resolve_id(tp.type_id()) == resolved && bounds.iter().any(matches_bound)
         })
     }
+}
+
+fn signature_generic_names(ctx: &TypeCtx, type_params: &[TypeId]) -> BTreeMap<TypeId, String> {
+    let mut generics = BTreeMap::new();
+    for (index, type_param) in type_params.iter().enumerate() {
+        generics.insert(ctx.resolve_id(*type_param), format!("$T{index}"));
+    }
+    generics
 }
 
 #[derive(Debug, Clone)]

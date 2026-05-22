@@ -150,6 +150,7 @@ impl<'a> BlockChecker<'a> {
                                 self.import_resolution,
                                 &f.name.name,
                                 ty,
+                                &BoundEnv::new(),
                                 f.name.span,
                                 self.ctx,
                             ) {
@@ -205,6 +206,7 @@ impl<'a> BlockChecker<'a> {
                                 self.import_resolution,
                                 &f.name.name,
                                 ty,
+                                &BoundEnv::new(),
                                 f.name.span,
                                 self.ctx,
                             )

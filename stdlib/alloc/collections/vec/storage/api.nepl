@@ -25,6 +25,7 @@
 #import "core/math" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "core/traits/drop" as *
 #import "../types" as *
 #import "./alloc" as alloc
 
@@ -41,7 +42,8 @@
 //: ### [注意/ちゅうい]
 //: - [初期/しょき][容量/ようりょう]は[固定値/こていち] 8 です。
 //: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
-//: - `.T: Copy` 専用です。non-Copy payload collection は `OwnedBuffer<T>` と element drop/free obligation が[設計/せっけい]されるまで[確保/かくほ]できません。
+//: - この overload は `.T: Copy` payload 用です。`.T: Drop` payload は、Drop traversal proof を持つ別 overload が[受/う]け[持/も]ちます。
+//: - `.T` が `Copy` でも `Drop` でもない場合、allocated storage を安全に閉じる capability がないため[受/う]け[付/つ]けません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]も O(1) です。
@@ -79,6 +81,52 @@
 pub fn new <.T: Copy> <()->Result<Vec<.T>, StdErrorKind>> ():
     alloc::vec_alloc_empty<.T> 8
 
+//: ## new
+//: Drop payload の[空/から] `Vec<.T>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の owning payload を将来[格納/かくのう]できる `Vec<.T>` の storage owner を[作/つく]ります。
+//:
+//: ### [実装/じっそう]
+//: - `len = initialized_len = 0` のため、この constructor は payload を[生成/せいせい]せず、Drop を[呼/よ]びません。
+//: - storage owner の解放責任は `VecStorage::Owned(region)` に[保持/ほじ]され、`free<.T>` の Drop overload が initialized prefix cleanup と raw dealloc proof を同じ implementation boundary で[閉/と]じます。
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn main <()*>i32> ():
+//:     let v <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     free<DropPayload> v
+//:     0
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.overload.no_match
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//: struct PlainPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let _v <Vec<PlainPayload>> unwrap_ok new<PlainPayload>;
+//:     0
+//: ```
+pub fn new <.T: Drop> <()->Result<Vec<.T>, StdErrorKind>> ():
+    alloc::vec_alloc_empty<.T> 8
+
 //: ## with_capacity
 //: [初期/しょき][容量/ようりょう]を[指定/してい]して `Vec<.T>` を[作/つく]る
 //:
@@ -93,7 +141,7 @@ pub fn new <.T: Copy> <()->Result<Vec<.T>, StdErrorKind>> ():
 //: - `cap = 0` でも[動作/どうさ]し、`cap` observer は 0 を[返/かえ]します。
 //: - `cap < 0` は[不正/ふせい]な[容量/ようりょう]として `StdErrorKind::InvalidOperation` を[返/かえ]します。
 //: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
-//: - `.T: Copy` 専用です。non-Copy payload の[容量/ようりょう][予約/よやく]は、drop traversal と failure cleanup を表す型が[入/はい]ってから[追加/ついか]します。
+//: - この overload は `.T: Copy` payload 用です。`.T: Drop` payload は、Drop cleanup proof を持つ別 overload を[使/つか]います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
@@ -128,6 +176,57 @@ pub fn new <.T: Copy> <()->Result<Vec<.T>, StdErrorKind>> ():
 //:     0
 //: ```
 pub fn with_capacity <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
+    if:
+        lt cap 0
+        then:
+            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
+        else:
+            alloc::vec_alloc_empty<.T> cap
+
+//: ## with_capacity
+//: Drop payload の[初期/しょき][容量/ようりょう]を[指定/してい]して `Vec<.T>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の payload について、要素をまだ[初期化/しょきか]しない storage owner だけを[確保/かくほ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `cap < 0` は Copy overload と同じく `StdErrorKind::InvalidOperation` です。
+//: - `cap > 0` でも `initialized_len = 0` のため、直後の `free<.T>` は storage release だけで完了します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn main <()*>i32> ():
+//:     let v <Vec<DropPayload>> unwrap_ok with_capacity<DropPayload> 3
+//:     let ok <bool> eq cap<DropPayload> &v 3
+//:     free<DropPayload> v
+//:     if ok 0 1
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.overload.no_match
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//: struct PlainPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let _v <Vec<PlainPayload>> unwrap_ok with_capacity<PlainPayload> 4;
+//:     0
+//: ```
+pub fn with_capacity <.T: Drop> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
     if:
         lt cap 0
         then:

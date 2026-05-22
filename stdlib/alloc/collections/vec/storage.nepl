@@ -7,7 +7,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `storage/view` は empty storage constructor を[所有/しょゆう]します。
-//: - `storage/api` は `new` / `with_capacity` を[所有/しょゆう]し、internal allocation helper へ[委譲/いじょう]します。
+//: - `storage/api` は `new` / `with_capacity` を[所有/しょゆう]し、`.T: Copy` / `.T: Drop` の overload から internal allocation helper へ[委譲/いじょう]します。
 //: - `storage/fill` は同一 Copy 値で[初期化/しょきか]する constructor を[所有/しょゆう]します。
 //: - `storage/alloc` / `storage/cleanup` は implementation module が明示 import する internal helper であり、この public facade からは再公開しません。
 //:

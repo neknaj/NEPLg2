@@ -69,11 +69,12 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (emptyOwnerMetadataConstructor) {
                     emptyOwnerMetadataConstructorInspected.push(`${relPath}:${signature.name}`);
                 }
+                const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
-                        violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
+                        violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
                 }
             }
@@ -135,10 +136,19 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 privateLifecycleProofHelperInspected.push(`${relPath}:${signature.name}`);
             }
         }
+        const privateLifecycleProofHelper = !signature.isPublic
+            ? classifyPrivateCollectionLifecycleProofHelper(source, signature.name)
+            : null;
+        const storageReleaseOnlyLifecycleHelper = privateLifecycleProofHelper
+            ? classifyStorageReleaseOnlyLifecycleHelper(source, signature.name)
+            : null;
+        const dropCapableCleanup = classifyDropCapableCleanup(source, signature.name);
         const missingCopy = generics.filter((generic) => !/\bCopy\b/.test(generic.bound ?? ''));
         if (missingCopy.length > 0) {
-            const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
-            violations.push(`${relPath}:${index + 1}: ${signature.name} cleanup generic(s) ${names} must carry Copy until collection drop traversal exists`);
+            if (!storageReleaseOnlyLifecycleHelper && !dropCapableCleanup) {
+                const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                violations.push(`${relPath}:${index + 1}: ${signature.name} cleanup generic(s) ${names} must carry Copy or a structurally proven Drop traversal/storage-release proof`);
+            }
         }
     }
 }
@@ -276,6 +286,7 @@ for (const expected of [
 for (const expected of [
     'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_slot_store_initialized',
     'stdlib/alloc/collections/vec/mutation/cleanup.nepl:vec_cleanup_copy_initialized_prefix',
+    'stdlib/alloc/collections/vec/mutation/cleanup.nepl:vec_cleanup_drop_initialized_prefix',
     'stdlib/alloc/collections/vec/mutation/cleanup.nepl:vec_cleanup_release_storage',
 ]) {
     assert.ok(
@@ -577,6 +588,75 @@ function classifyEmptyOwnerMetadataConstructor(source, functionName, typeSignatu
     return { kind: 'empty-owner-metadata-constructor' };
 }
 
+function classifyDropCapableOwnerSurface(source, functionName, typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType) {
+        return null;
+    }
+
+    const returnType = functionType.returnType.trim();
+    if (!/\b(?:Vec|OwnedBuffer|VecStorage)<\.T>/.test(returnType)) {
+        return null;
+    }
+
+    const section = implementationFunctionSections(source, functionName)
+        .find((candidate) => /<\.\w+:\s*Drop>/.test(candidate));
+    if (!section) {
+        return null;
+    }
+
+    const writesPayloadSlots = /\bstore<\.T>|\bload<\.T>|\bmem_copy\b|\bmem_move\b|\bcollection_slot_initialize_empty\b|\bcollection_slot_move_out\b/.test(section);
+    if (writesPayloadSlots) {
+        return null;
+    }
+
+    const delegatesEmptyAllocation = /\balloc::vec_alloc_empty<\.T>/.test(section);
+    const constructsZeroInitializedAllocation = /\balloc_region<\.T>[\s\S]*OwnedBuffer<\.T>\s+0\s+0\s+\w+\s+\(VecStorage<\.T>::Owned\s+\w+\)/.test(section);
+    if (!delegatesEmptyAllocation && !constructsZeroInitializedAllocation) {
+        return null;
+    }
+
+    return { kind: 'drop-capable-owner-surface' };
+}
+
+function classifyDropCapableCleanup(source, functionName) {
+    const section = implementationFunctionSections(source, functionName)
+        .find((candidate) => /<\.\w+:\s*Drop>/.test(candidate));
+    if (!section) {
+        return null;
+    }
+
+    const hasActualDropTraversal = /\bwhile\b[\s\S]*\bload<[^>]+>[\s\S]*\bDrop::drop\b[\s\S]*#intrinsic\s+"collection_slot_drop_traversal"/.test(section);
+    const delegatesToDropTraversalHelper = /\bvec_cleanup_drop_initialized_prefix<\.\w+>/.test(section);
+    if (!hasActualDropTraversal && !delegatesToDropTraversalHelper) {
+        return null;
+    }
+
+    return { kind: 'drop-capable-cleanup' };
+}
+
+function classifyStorageReleaseOnlyLifecycleHelper(source, functionName) {
+    const section = implementationFunctionSection(source, functionName);
+    if (!section || /^\s*pub\s+fn\b/.test(section)) {
+        return null;
+    }
+
+    const markers = [...section.matchAll(/#intrinsic\s+"(collection_slot_[^"]+)"/g)].map((match) => match[1]);
+    if (markers.length !== 1 || markers[0] !== 'collection_slot_storage_dealloc') {
+        return null;
+    }
+
+    if (!/\b(?:dealloc_region|dealloc_raw|allocator::dealloc_raw|allocator::dealloc_region)\b/.test(section)) {
+        return null;
+    }
+
+    return { kind: 'storage-release-only-lifecycle-helper' };
+}
+
 function classifyPrivateCollectionLifecycleProofHelper(source, functionName) {
     const section = implementationFunctionSection(source, functionName);
     if (!section || /^\s*pub\s+fn\b/.test(section)) {
@@ -621,19 +701,27 @@ function markerHasLocalRawLifecycleEvidence(section, marker) {
 }
 
 function implementationFunctionSection(source, functionName) {
-    const startPattern = new RegExp(`(?:^|\\n)\\s*(?:pub\\s+)?fn\\s+${functionName}\\b`);
-    const startMatch = startPattern.exec(source);
-    if (!startMatch) {
-        return null;
-    }
+    return implementationFunctionSections(source, functionName)[0] ?? null;
+}
 
-    const startIndex = startMatch.index;
-    const rest = source.slice(startIndex + startMatch[0].length);
-    const nextMatch = /\n\s*(?:pub\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*\b/.exec(rest);
-    if (!nextMatch) {
-        return source.slice(startIndex);
+function implementationFunctionSections(source, functionName) {
+    const startPattern = new RegExp(`(?:^|\\n)\\s*(?:pub\\s+)?fn\\s+${functionName}\\b`);
+    const sections = [];
+    let searchFrom = 0;
+    while (searchFrom < source.length) {
+        const startMatch = startPattern.exec(source.slice(searchFrom));
+        if (!startMatch) {
+            break;
+        }
+        const startIndex = searchFrom + startMatch.index;
+        const restStart = startIndex + startMatch[0].length;
+        const rest = source.slice(restStart);
+        const nextMatch = /\n\s*(?:pub\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*\b/.exec(rest);
+        const endIndex = nextMatch ? restStart + nextMatch.index : source.length;
+        sections.push(source.slice(startIndex, endIndex));
+        searchFrom = endIndex;
     }
-    return source.slice(startIndex, startIndex + startMatch[0].length + nextMatch.index);
+    return sections;
 }
 
 function borrowedPayloadStorageViewCopyRequirement(typeSignature) {

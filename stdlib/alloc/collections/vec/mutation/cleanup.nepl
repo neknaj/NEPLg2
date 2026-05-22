@@ -14,6 +14,7 @@
 #import "../types" as *
 #import "core/math" as *
 #import "core/traits/copy" as *
+#import "core/traits/drop" as *
 
 //: ## vec_cleanup_copy_initialized_prefix
 //: Copy payload の initialized prefix を Resource IR 上で cleanup 済みにする
@@ -37,6 +38,29 @@ fn vec_cleanup_copy_initialized_prefix <.T: Copy> <(&RegionToken<.T>,i32)->()> (
             set i add i 1
     #intrinsic "collection_slot_drop_traversal" <.T> (storage, initialized_len)
 
+//: ## vec_cleanup_drop_initialized_prefix
+//: Drop payload の initialized prefix を実際の `Drop::drop` 呼び出しで cleanup する
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の `Vec` が保持する initialized prefix 全体を[走査/そうさ]し、各 slot の loaded value に対する actual Drop proof を Resource IR に[渡/わた]します。
+//: - source 上の `load -> Drop::drop -> collection_slot_drop_traversal` を同じ private helper に[閉/と]じ、stdlib module 名の allowlist ではなく compiler の generic full-range certificate で storage release の前提を[証明/しょうめい]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この helper は destructor を[呼/よ]ぶため impure です。
+//: - `i = 0` から `initialized_len` 未満まで 1 ずつ進む単純な全範囲走査にし、Resource IR の range certificate が source の loop 形状を[検査/けんさ]できるようにします。
+fn vec_cleanup_drop_initialized_prefix <.T: Drop> <(&RegionToken<.T>,i32)*>()> (storage, initialized_len):
+    let data <MemPtr<.T>> region_ptr storage
+    let mut i <i32> 0
+    while lt i initialized_len:
+        do:
+            let byte_off <i32> mul i size_of<.T>
+            let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+            let raw <i32> mem_ptr_addr slot
+            let loaded <.T> load<.T> raw
+            Drop::drop &loaded
+            set i add i 1
+    #intrinsic "collection_slot_drop_traversal" <.T> (storage, initialized_len)
+
 //: ## vec_cleanup_release_storage
 //: `RegionToken` storage の raw release と Resource IR storage dealloc proof を同じ private 境界で発行する
 //:
@@ -46,7 +70,7 @@ fn vec_cleanup_copy_initialized_prefix <.T: Copy> <(&RegionToken<.T>,i32)->()> (
 //:
 //: ### [注意/ちゅうい]
 //: - caller は事前に initialized prefix cleanup を完了してからこの helper を[呼/よ]びます。
-fn vec_cleanup_release_storage <.T: Copy> <(RegionToken<.T>)->()> (region):
+fn vec_cleanup_release_storage <.T> <(RegionToken<.T>)->()> (region):
     let raw <i32> field::get region "raw"
     let total_size <i32> field::get region "size"
     allocator::dealloc_raw raw total_size
@@ -99,6 +123,32 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
             vec_cleanup_copy_initialized_prefix<.T> &region v_initialized_len
             Vec<.T> (OwnedBuffer<.T> 0 0 v_cap (VecStorage<.T>::Owned region))
 
+//: ## clear
+//: Drop payload の[要素/ようそ]をすべて[削除/さくじょ]する
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の initialized prefix にある各 payload へ `Drop::drop` を[実行/じっこう]し、`len` / `initialized_len` を 0 にした `Vec` owner を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `Owned` storage では private helper `vec_cleanup_drop_initialized_prefix` を[呼/よ]びます。
+//: - helper 内の loop と `Drop::drop` 呼び出しが Resource IR の full-range cleanup proof になり、compiler は storage release 前の live slot 残りを generic に[検査/けんさ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - destructor を[呼/よ]ぶため impure です。
+//: - storage 自体は[保持/ほじ]し、再利用できる[空/から] `Vec` を[返/かえ]します。
+pub fn clear <.T: Drop> <(Vec<.T>)*>Vec<.T>> (v):
+    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
+    let v_cap <i32> *field::get_ref v_buffer_ref "cap"
+    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
+    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+    match v_storage:
+        VecStorage::Empty:
+            Vec<.T> (OwnedBuffer<.T> 0 0 v_cap VecStorage<.T>::Empty)
+        VecStorage::Owned region:
+            vec_cleanup_drop_initialized_prefix<.T> &region v_initialized_len
+            Vec<.T> (OwnedBuffer<.T> 0 0 v_cap (VecStorage<.T>::Owned region))
+
 //: ## free
 //: [内部/ないぶ]メモリを[解放/かいほう]する
 //:
@@ -112,7 +162,7 @@ pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
 //: - `cap = 0` の[空/から]ベクタでも[呼/よ]べます。
-//: - 現行 public API は `.T: Copy` に[限定/げんてい]します。non-Copy payload の Drop 実行証明は別段階で導入します。
+//: - この overload は `.T: Copy` payload 用です。`.T: Drop` payload は actual `Drop::drop` proof を使う別 overload で[扱/あつか]います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -140,4 +190,29 @@ pub fn free <.T: Copy> <(Vec<.T>)->()> (v):
             ()
         VecStorage::Owned region:
             vec_cleanup_copy_initialized_prefix<.T> &region v_initialized_len
+            vec_cleanup_release_storage<.T> region
+
+//: ## free
+//: Drop payload の[内部/ないぶ]メモリを[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の initialized prefix を actual Drop proof で[閉/と]じてから、`VecStorage::Owned` の storage owner を[解放/かいほう]します。
+//:
+//: ### [実装/じっそう]
+//: - `VecStorage::Owned(region)` では `vec_cleanup_drop_initialized_prefix` の full-range cleanup proof と `vec_cleanup_release_storage` の raw dealloc proof を[連続/れんぞく]させます。
+//: - `VecStorage::Empty` は owner token も initialized slot も[持/も]たないため何もしません。
+//:
+//: ### [注意/ちゅうい]
+//: - destructor を[呼/よ]ぶため impure です。
+//: - payload が `Copy` でも `Drop` でもない型は、この overload でも Copy overload でも[受/う]け[付/つ]けません。
+pub fn free <.T: Drop> <(Vec<.T>)*>()> (v):
+    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
+    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
+    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+    match v_storage:
+        VecStorage::Empty:
+            ()
+        VecStorage::Owned region:
+            vec_cleanup_drop_initialized_prefix<.T> &region v_initialized_len
             vec_cleanup_release_storage<.T> region

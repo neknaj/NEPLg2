@@ -13,7 +13,8 @@
 //: ### [注意/ちゅうい]
 //: - `get` / `pop` は[存在/そんざい]しない[位置/いち]を `Option::None` で[返/かえ]します。
 //: - `replace` は[範囲外/はんいがい]では[失敗/しっぱい]にせず、[何/なに]も[変更/へんこう]しません。
-//: - [現行/げんこう]の `push` / `pop` / `sort` / `clear` / `free` / scan 系 API は `.T: Copy` の `Vec` に[限定/げんてい]します。non-Copy payload は `OwnedBuffer<T>` と owner-preserving update API が[入/はい]るまで[受/う]け[付/つ]けません。
+//: - `new` / `with_capacity` / `clear` / `free` は `.T: Drop` payload でも使えます。Drop 版 cleanup は private helper 内の source-level `Drop::drop` と Resource IR full-range proof により initialized prefix を[閉/と]じます。
+//: - `push` / `pop` / `sort` / scan 系 API は、move-out、replace、owner-preserving failure recovery が[完全/かんぜん]に型へ出るまで `.T: Copy` の `Vec` に[限定/げんてい]します。
 //: - unchecked raw element helper は root facade から再公開しません。
 //: - [再確保/さいかくほ]が[起/お]きると[内部/ないぶ]バッファの[番地/ばんち]は[変/か]わりえます。
 //:

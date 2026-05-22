@@ -10,9 +10,8 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::diagnostics::resolve_warning;
-use super::env::{Binding, BindingKind, Env};
-use super::signature::same_function_signature;
-use super::FieldAccessorKind;
+use super::env::{same_callable_signature_and_bounds, Binding, BindingKind, Env};
+use super::{BoundEnv, FieldAccessorKind};
 
 pub(super) fn emit_shadow_warning(
     diagnostics: &mut Vec<Diagnostic>,
@@ -50,6 +49,7 @@ pub(super) fn find_same_signature_func_in_file<'a>(
     env: &'a Env,
     name: &str,
     ty: TypeId,
+    type_param_bounds: &BoundEnv,
     span: Span,
     ctx: &TypeCtx,
 ) -> Option<&'a Binding> {
@@ -57,7 +57,7 @@ pub(super) fn find_same_signature_func_in_file<'a>(
         b.span != span
             && b.span.file_id == span.file_id
             && matches!(b.kind, BindingKind::Func { .. })
-            && same_function_signature(ctx, b.ty, ty)
+            && same_callable_signature_and_bounds(ctx, b, ty, type_param_bounds)
     })
 }
 
@@ -66,6 +66,7 @@ pub(super) fn find_visible_same_signature_func<'a>(
     import_resolution: &ImportResolution,
     name: &str,
     ty: TypeId,
+    type_param_bounds: &BoundEnv,
     span: Span,
     ctx: &TypeCtx,
 ) -> Option<&'a Binding> {
@@ -78,7 +79,7 @@ pub(super) fn find_visible_same_signature_func<'a>(
                 &b.name,
             )
             && matches!(b.kind, BindingKind::Func { .. })
-            && same_function_signature(ctx, b.ty, ty)
+            && same_callable_signature_and_bounds(ctx, b, ty, type_param_bounds)
     })
 }
 
@@ -87,11 +88,20 @@ pub(super) fn find_visible_nonshadow_same_signature_func<'a>(
     import_resolution: &ImportResolution,
     name: &str,
     ty: TypeId,
+    type_param_bounds: &BoundEnv,
     span: Span,
     ctx: &TypeCtx,
 ) -> Option<&'a Binding> {
-    find_visible_same_signature_func(env, import_resolution, name, ty, span, ctx)
-        .filter(|b| b.no_shadow && b.defined)
+    find_visible_same_signature_func(
+        env,
+        import_resolution,
+        name,
+        ty,
+        type_param_bounds,
+        span,
+        ctx,
+    )
+    .filter(|b| b.no_shadow && b.defined)
 }
 
 pub(super) fn find_invalid_same_file_overload<'a>(

@@ -1852,6 +1852,109 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn overload_selection_bound_distinguished_same_signature_candidates_do_not_shadow() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CopyPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+trait DropPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+struct Owned:
+    value <i32>
+
+impl CopyPayload for i32:
+    fn score <(i32)->i32> (_self):
+        1
+
+impl DropPayload for Owned:
+    fn score <(Owned)->i32> (_self):
+        2
+
+fn choose <.T: CopyPayload> <(.T)->i32> (value):
+    CopyPayload::score value
+
+fn choose <.T: DropPayload> <(.T)->i32> (value):
+    DropPayload::score value
+
+fn main <()->i32> ():
+    let owned <Owned> Owned 5
+    choose owned
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked
+            .diagnostics
+            .iter()
+            .all(|diag| diag.severity != Severity::Error),
+        "expected bound-distinguished overloads to typecheck, got {:?}",
+        checked.diagnostics
+    );
+    assert!(
+        checked.diagnostics.iter().all(|diag| {
+            diag.code != DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable)
+        }),
+        "different trait bounds must not be reported as same-signature shadowing: {:?}",
+        checked.diagnostics
+    );
+}
+
+#[test]
+fn overload_selection_prunes_unproven_bound_candidates_inside_generic_body() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CopyPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+trait DropPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+struct Owned:
+    value <i32>
+
+impl CopyPayload for i32:
+    fn score <(i32)->i32> (_self):
+        1
+
+impl DropPayload for Owned:
+    fn score <(Owned)->i32> (_self):
+        2
+
+fn default_score <.T: CopyPayload> <()->i32> ():
+    1
+
+fn default_score <.T: DropPayload> <()->i32> ():
+    2
+
+fn score_drop <.T: DropPayload> <()->i32> ():
+    default_score<.T>
+
+fn main <()->i32> ():
+    score_drop<Owned>
+"#;
+    assert_eq!(run_main_i32(src), 2);
+}
+
+#[test]
 fn overload_selection_checks_bounds_after_expected_result_inference() {
     let src = r#"
 #entry main

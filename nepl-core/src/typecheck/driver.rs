@@ -906,9 +906,14 @@ pub fn typecheck(
                 if crate::log::is_verbose() {
                     driver_log!("typecheck: registering global func {}", f.name.name);
                 }
-                if let Some(prev) =
-                    find_same_signature_func_in_file(&env, &f.name.name, ty, f.name.span, &ctx)
-                {
+                if let Some(prev) = find_same_signature_func_in_file(
+                    &env,
+                    &f.name.name,
+                    ty,
+                    &bounds_map,
+                    f.name.span,
+                    &ctx,
+                ) {
                     diagnostics.push(
                         resolve_warning(
                             ResolveDiagnosticCode::ShadowSameSignatureCallable,
@@ -947,6 +952,7 @@ pub fn typecheck(
                             &import_resolution,
                             &f.name.name,
                             ty,
+                            &bounds_map,
                             f.name.span,
                             &ctx,
                         ) {
@@ -998,6 +1004,7 @@ pub fn typecheck(
                             &import_resolution,
                             &f.name.name,
                             ty,
+                            &bounds_map,
                             f.name.span,
                             &ctx,
                         )
@@ -1013,7 +1020,7 @@ pub fn typecheck(
                     ));
                     continue;
                 }
-                env.remove_duplicate_func_in_file(&f.name.name, ty, f.name.span, &ctx);
+                env.remove_duplicate_func_in_file(&f.name.name, ty, &bounds_map, f.name.span, &ctx);
                 let has_cross_file_duplicate =
                     env.qualify_same_signature_func_symbols(&f.name.name, ty, &ctx);
                 let symbol = if has_cross_file_duplicate {
@@ -1111,9 +1118,14 @@ pub fn typecheck(
             ));
         }
         for (ty, symbol, effect, arity, builtin, field_accessor, bounds, captures) in target_infos {
-            if let Some(prev) =
-                find_same_signature_func_in_file(&env, &alias.name.name, ty, alias.name.span, &ctx)
-            {
+            if let Some(prev) = find_same_signature_func_in_file(
+                &env,
+                &alias.name.name,
+                ty,
+                &bounds,
+                alias.name.span,
+                &ctx,
+            ) {
                 diagnostics.push(
                     resolve_warning(
                         ResolveDiagnosticCode::ShadowSameSignatureCallable,
@@ -1144,6 +1156,7 @@ pub fn typecheck(
                         &import_resolution,
                         &alias.name.name,
                         ty,
+                        &bounds,
                         alias.name.span,
                         &ctx,
                     ) {
@@ -1195,6 +1208,7 @@ pub fn typecheck(
                         &import_resolution,
                         &alias.name.name,
                         ty,
+                        &bounds,
                         alias.name.span,
                         &ctx,
                     )
@@ -1210,7 +1224,7 @@ pub fn typecheck(
                 ));
                 break;
             }
-            env.remove_duplicate_func_in_file(&alias.name.name, ty, alias.name.span, &ctx);
+            env.remove_duplicate_func_in_file(&alias.name.name, ty, &bounds, alias.name.span, &ctx);
             env.insert_global(Binding {
                 name: alias.name.name.clone(),
                 ty,

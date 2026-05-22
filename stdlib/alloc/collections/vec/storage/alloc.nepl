@@ -14,6 +14,7 @@
 #import "core/math" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "core/traits/drop" as *
 #import "../types" as *
 #import "./view" as view
 
@@ -26,8 +27,31 @@
 //: ### [実装/じっそう]
 //:
 //: ### [注意/ちゅうい]
-//: - [現行/げんこう]の `Vec` allocation constructor は `.T: Copy` に[限定/げんてい]します。non-Copy payload 用の drop traversal / owner-preserving cleanup がない[状態/じょうたい]で backing storage を[確保/かくほ]すると、解放できない owner を[作/つく]るためです。
+//: - この overload は `.T: Copy` payload 用です。Copy payload は destructor 実行なしで initialized prefix を閉じられるため、`clear` / `free` の Copy cleanup helper へ接続できます。
+//: - `requested_cap > 0` でも `len = initialized_len = 0` の storage だけを[作/つく]ります。要素 slot の初期化は `push` などの mutation API が別の lifecycle proof で[行/おこな]います。
 pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
+    if:
+        le requested_cap 0
+        then:
+            Result::Ok<Vec<.T>, StdErrorKind> view::vec_empty<.T>
+        else:
+            match alloc_region<.T> requested_cap:
+                Result::Ok region:
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> 0 0 requested_cap (VecStorage<.T>::Owned region))
+                Result::Err _e:
+                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+
+//: ## vec_alloc_empty
+//: Drop payload 用の[空/から] `Vec` storage を[確保/かくほ]する
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の payload について、まだ要素を 1 つも[初期化/しょきか]していない `Vec<.T>` を[作/つく]ります。
+//: - constructor 自体は slot を[生成/せいせい]しないため、Drop 実行は不要です。将来の cleanup は `mutation/cleanup` の Drop traversal helper が `initialized_len` の範囲だけを[処理/しょり]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T: Drop` を要求するのは、allocated storage owner を後で `free` / `clear` が安全に閉じられることを API 型で[表/あらわ]すためです。
+//: - `.T` が `Copy` でも `Drop` でもない場合、この overload は[選択/せんたく]されません。
+pub fn vec_alloc_empty <.T: Drop> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
     if:
         le requested_cap 0
         then:

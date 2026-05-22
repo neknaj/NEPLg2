@@ -1,3 +1,21 @@
+# 2026-05-22 Agent 1 Vec Drop-bound empty allocation and cleanup
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の次段階として、`Vec<T>` の empty allocation と empty / initialized-prefix cleanup を `.T: Drop` に接続した。`plan.md` と Zenn の開発方針は確認済みで、`plan.md` 自体は変更していない。
+- 根本原因は 2 つだった。stdlib 側では `new` / `with_capacity` / `clear` / `free` が Copy-only のままで、actual `Drop::drop` と `collection_slot_drop_traversal` proof を使う入口がなかった。compiler 側では同一 function type で trait bound だけが違う overload を登録・選択すると、bound を signature identity として扱えず Copy-bound overload が Drop-bound overload を shadow / duplicate / narrow していた。
+- `stdlib/alloc/collections/vec/storage/alloc.nepl` と `storage/api.nepl` に `T: Drop` の empty allocation overload を追加した。これは storage owner だけを作り initialized slot は作らないため、payload lifecycle proof を捏造しない。
+- `stdlib/alloc/collections/vec/mutation/cleanup.nepl` に `vec_cleanup_drop_initialized_prefix`、`clear<T: Drop>`、`free<T: Drop>` を追加し、raw load した payload に `Drop::drop` を実行してから `collection_slot_drop_traversal` と storage dealloc proof を消費する構造にした。
+- `nepl-core/src/typecheck/**` は function type だけでなく normalized trait-bound signature も用いて same-signature overload を扱う。overload 集合では現在の generic 関数契約から証明できない bound candidate を選ばず、単一候補の generic call は従来どおり trait-bound diagnostic に渡す。
+- 残件は non-Copy `push` / grow / move-out / replace / payload observer / owner-preserving error recovery の実 public API 接続である。今回の範囲は empty allocation と cleanup proof の入口であり、stdlib module allowlist は追加していない。
+- 検証:
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --test neplg2 overload_selection_ -- --test-threads=1 --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_new_free_closes_empty_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_with_capacity_clear_free_closes_empty_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_push_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_clear_then_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+
 # 2026-05-22 Agent 1 source-level Drop proof investigation
 
 - `ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE` を調査した。現在の issue metadata は `fixed/resolved` で、現行実装では source-level `Drop::drop &place` を runtime destructor call として残しつつ、Resource IR lowering が追加の `ResourceOp::Drop` proof を発行する。
