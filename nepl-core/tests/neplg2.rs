@@ -1812,6 +1812,89 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn overload_selection_filters_unsatisfied_trait_bound_candidates() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CopyPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+trait DropPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+struct Owned:
+    value <i32>
+
+impl CopyPayload for i32:
+    fn score <(i32)->i32> (_self):
+        1
+
+impl DropPayload for Owned:
+    fn score <(Owned)->i32> (_self):
+        2
+
+fn choose <.T: CopyPayload> <(.T)->i32> (value):
+    CopyPayload::score value
+
+fn choose <.T: DropPayload> <(.T)->i32> (value):
+    DropPayload::score value
+
+fn main <()->i32> ():
+    let owned <Owned> Owned 5
+    choose owned
+"#;
+    assert_eq!(run_main_i32(src), 2);
+}
+
+#[test]
+fn overload_selection_checks_bounds_after_expected_result_inference() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CopyPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+trait DropPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+struct Owned:
+    value <i32>
+
+struct Tag<.T>:
+    code <i32>
+
+impl CopyPayload for i32:
+    fn score <(i32)->i32> (_self):
+        1
+
+impl DropPayload for Owned:
+    fn score <(Owned)->i32> (_self):
+        2
+
+fn make <.T: CopyPayload> <()->Tag<.T>> ():
+    Tag<.T> 1
+
+fn make <.T: DropPayload> <()->Tag<.T>> ():
+    Tag<.T> 2
+
+fn main <()->i32> ():
+    let _tag <Tag<Owned>> make
+    0
+"#;
+    compile_ok(src);
+}
+
+#[test]
 fn trait_method_call_with_impl_compiles() {
     let src = r#"
 #entry main

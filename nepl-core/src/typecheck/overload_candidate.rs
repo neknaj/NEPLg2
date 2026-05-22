@@ -24,6 +24,7 @@ pub(super) enum OverloadCandidateRejection {
     ArgumentType,
     ExpectedResult,
     GenericConstraintConflict,
+    TraitBoundUnsatisfied,
 }
 
 #[derive(Clone, Copy)]
@@ -45,7 +46,8 @@ impl OverloadCandidateRejection {
             OverloadCandidateRejection::InstantiatedNotFunction
             | OverloadCandidateRejection::ArgumentType
             | OverloadCandidateRejection::ExpectedResult
-            | OverloadCandidateRejection::GenericConstraintConflict => {
+            | OverloadCandidateRejection::GenericConstraintConflict
+            | OverloadCandidateRejection::TraitBoundUnsatisfied => {
                 OverloadCandidateMaterializationPhase::AfterInstantiation
             }
         }
@@ -68,6 +70,7 @@ pub(super) struct OverloadCandidateStats {
     argument_type: usize,
     expected_result: usize,
     generic_constraint_conflict: usize,
+    trait_bound_unsatisfied: usize,
 }
 
 impl OverloadCandidateStats {
@@ -108,6 +111,7 @@ impl OverloadCandidateStats {
             OverloadCandidateRejection::GenericConstraintConflict => {
                 self.generic_constraint_conflict += 1
             }
+            OverloadCandidateRejection::TraitBoundUnsatisfied => self.trait_bound_unsatisfied += 1,
         }
     }
 

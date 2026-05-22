@@ -1,3 +1,16 @@
+# 2026-05-22 Agent 1 source-level Drop proof investigation
+
+- `ISS-20260521T214612047Z-SOURCE-LEVEL-DROP-CALLS-DO-NOT-PRODU-730918AE` を調査した。現在の issue metadata は `fixed/resolved` で、現行実装では source-level `Drop::drop &place` を runtime destructor call として残しつつ、Resource IR lowering が追加の `ResourceOp::Drop` proof を発行する。
+- 根本原因は、当初 `HirExprKind::Drop` と `ResourceOp::Drop` の lowering 経路は存在したが、source parser/typecheck が source-level drop 構文から `HirExprKind::Drop` を作らず、`Drop::drop` も通常の `FuncRef::Trait` call として扱われていたことだった。destructor 実行と static loaded-value drop proof を結ぶ identity bridge がなく、collection slot `DropInitialized` / `DropTraversal` が actual loaded-value drop proof を消費できなかった。
+- 関連実装は `nepl-core/src/typecheck/trait_call_apply.rs` の trait self type inference、`nepl-core/src/resource/drop_call_identity.rs` の Drop capability method / monomorphized impl call 識別、`nepl-core/src/resource/lower_drop_call.rs` と `nepl-core/src/resource/lower.rs` の call lowering 後 proof 発行、`nepl-core/src/resource/coverage_hir*.rs` の coverage count、`nepl-core/src/resource/collection_slot_summary_build_range_witness*.rs` の traversal witness 判定である。
+- 既存回帰は `resource_ir_collection_slot_source_drop_initialized_accepts_actual_loaded_value_drop`、`resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof`、`resource_ir_collection_slot_source_drop_initialized_rejects_raw_load_without_drop`、`source_loop_drop_traversal_summary_cleans_caller_initialized_range`、`source_loop_non_copy_load_only_does_not_certify_drop_traversal_range`、`explicit_drop_trait_call_runs_once_and_suppresses_auto_drop`。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_initialized -- --test-threads=1 --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_monomorphized_drop_trait_call_still_emits_drop_proof -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test collection_slot_full_range source_loop_drop_traversal_summary_cleans_caller_initialized_range -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test drop explicit_drop_trait_call_runs_once_and_suppresses_auto_drop -- --test-threads=1 --exact --nocapture`
+- `plan.md` 自体は変更していない。
+
 # 2026-05-22 Agent 1 collection cleanup policy private lifecycle helper classification
 
 - `ISS-20260522T052027322Z-COLLECTION-CLEANUP-POLICY-MISCLASSIF-563F7F4F` を追加し、`nodesrc/test_stdlib_collection_cleanup_contract.js` が non-`pub` lifecycle proof helper を public owner surface と誤分類する問題を修正した。
@@ -45061,3 +45074,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_vec_free_region_token_cleanup -- --test-threads=1 --exact --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_push_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`: passed
   - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_clear_then_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`: passed
+
+## 2026-05-22 Agent 1 bound-aware overload selection
+
+- `ISS-20260522T061235279Z-OVERLOAD-SELECTION-IGNORES-TRAIT-BOU-4831A61B` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、same-signature generic overload を候補選択中に trait bound を見ずに dedup しており、`Copy` bound の候補が `Drop` bound の候補を shadow できたこと。これは non-Copy `Vec<T>` cleanup API を同名 public API として進める前提を壊す。
+- overload 候補が複数ある場合だけ、instantiated type argument と関数 type parameter bound を照合し、具体型に対して明らかに満たせない候補を signature dedup 前に落とすようにした。
+- 単一候補の generic call は従来どおり選択後に `TraitBoundUnsatisfied` を出すため、既存診断の意味を変えていない。未確定型変数は pending bound として残し、必要十分な探索に留める。
+- focused verification:
+  - `cargo test -p nepl-core --test neplg2 overload_selection_ -- --test-threads=1 --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 trait_bound_missing_impl_is_error -- --test-threads=1 --exact --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 trait_bound_satisfied_in_generic -- --test-threads=1 --exact --nocapture`: passed

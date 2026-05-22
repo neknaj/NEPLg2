@@ -154,7 +154,9 @@ impl<'a> BlockChecker<'a> {
 
             let checkpoint = self.ctx.checkpoint();
             stats.record_materialized();
-            let (inst_ty, instantiated_type_args) = if !explicit_type_args.is_empty() {
+            let (inst_ty, instantiated_type_args, type_arg_mapping) = if !explicit_type_args
+                .is_empty()
+            {
                 let mut mapping = BTreeMap::new();
                 for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
                     insert_substitution_mapping(self.ctx, &mut mapping, *p, *a);
@@ -168,10 +170,10 @@ impl<'a> BlockChecker<'a> {
                     self.ctx
                         .function(Vec::new(), substituted_params, substituted_result, effect),
                     Vec::new(),
+                    mapping,
                 )
             } else {
-                let (inst_ty, args, _mapping) = self.ctx.instantiate(binding.ty);
-                (inst_ty, args)
+                self.ctx.instantiate(binding.ty)
             };
 
             let func_ty = self.ctx.get(inst_ty);
@@ -283,6 +285,23 @@ impl<'a> BlockChecker<'a> {
                         first_generic_conflict = Some(conflict);
                     }
                     stats.record_rejection(OverloadCandidateRejection::GenericConstraintConflict);
+                    ok = false;
+                }
+            }
+            if ok && bindings.len() > 1 {
+                let type_param_bounds = match &binding.kind {
+                    BindingKind::Func {
+                        type_param_bounds, ..
+                    } => type_param_bounds,
+                    _ => unreachable!("callable binding must be a function"),
+                };
+                if !self.selected_function_trait_bounds_may_satisfy(
+                    binding.ty,
+                    inst_ty,
+                    type_param_bounds,
+                    &type_arg_mapping,
+                ) {
+                    stats.record_rejection(OverloadCandidateRejection::TraitBoundUnsatisfied);
                     ok = false;
                 }
             }

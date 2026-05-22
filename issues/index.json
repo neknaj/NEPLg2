@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T05:22:41.000Z",
+  "generated_at": "2026-05-22T06:18:27.927Z",
   "counts": {
-    "total": 1220,
+    "total": 1221,
     "open": 3,
-    "resolved": 1217,
+    "resolved": 1218,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 602,
+        "total": 603,
         "open": 0,
-        "resolved": 602
+        "resolved": 603
       },
       "CORE": {
         "total": 5,
@@ -9288,6 +9288,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T021811244Z-RAW-INITIALIZATION-SUMMARIES-KEEP-CA-01C86BF8.md"
+    },
+    {
+      "id": "ISS-20260522T061235279Z-OVERLOAD-SELECTION-IGNORES-TRAIT-BOU-4831A61B",
+      "title": "Overload selection ignores trait bounds for same-signature generic candidates",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/typecheck/overload_selection.rs, nepl-core/src/typecheck/trait_bound_apply.rs, nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T061235279Z-OVERLOAD-SELECTION-IGNORES-TRAIT-BOU-4831A61B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
