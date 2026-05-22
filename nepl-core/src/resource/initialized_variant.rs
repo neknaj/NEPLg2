@@ -9,8 +9,10 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_raw_memory_access::raw_memory_load_reads_zero_initialized_runtime_cell;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
-use super::initialized_summary_byte_range_model::RawCellInitializationParamCount;
 use super::initialized_summary_variant_model::RawCellInitializationVariantCondition;
+use super::initialized_variant_count::{
+    pending_variant_count_place, pending_variant_count_source, PendingVariantRawByteRangeCount,
+};
 use super::model::{Place, ResourceMatchPattern};
 use super::place_utils::projected_place_with_concrete_type;
 use super::report::ResourceCheckOperation;
@@ -49,19 +51,6 @@ struct PendingVariantRawByteRangeInitialization {
     count: PendingVariantRawByteRangeCount,
     unit: InitializedRawRangeUnit,
     ty: crate::types::TypeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum PendingVariantRawByteRangeCount {
-    ArgProjection {
-        arg: Place,
-        suffix: Vec<super::model::PlaceProjection>,
-        ty: crate::types::TypeId,
-    },
-    KnownI32 {
-        value: i32,
-        ty: crate::types::TypeId,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -450,49 +439,6 @@ impl PendingVariantRawCellInitializations {
             return;
         }
         self.unreachable_variants.push(entry);
-    }
-}
-
-fn pending_variant_count_source(
-    types: &TypeCtx,
-    raw_aliases: &RawCellAddressAliases,
-    args: &[Place],
-    count: &RawCellInitializationParamCount,
-) -> Option<PendingVariantRawByteRangeCount> {
-    match count {
-        RawCellInitializationParamCount::ParamProjection {
-            param_index,
-            suffix,
-            ty,
-        } => {
-            let arg = raw_aliases.canonicalize_scalar(args.get(*param_index)?);
-            let suffix = instantiate_summary_suffix_with_types(types, args, arg.ty, suffix, *ty)?;
-            Some(PendingVariantRawByteRangeCount::ArgProjection {
-                arg,
-                suffix,
-                ty: *ty,
-            })
-        }
-        RawCellInitializationParamCount::KnownI32 { value, ty } => {
-            Some(PendingVariantRawByteRangeCount::KnownI32 {
-                value: *value,
-                ty: *ty,
-            })
-        }
-    }
-}
-
-fn pending_variant_count_place(
-    types: &TypeCtx,
-    raw_aliases: &RawCellAddressAliases,
-    count: &PendingVariantRawByteRangeCount,
-) -> Place {
-    match count {
-        PendingVariantRawByteRangeCount::ArgProjection { arg, suffix, ty } => {
-            let arg = raw_aliases.canonicalize_scalar(arg);
-            projected_place_with_concrete_type(types, &arg, suffix, *ty)
-        }
-        PendingVariantRawByteRangeCount::KnownI32 { value, ty } => Place::i32_constant(*value, *ty),
     }
 }
 

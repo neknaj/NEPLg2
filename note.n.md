@@ -44904,3 +44904,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt -p nepl-core --check`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-22 Agent 1 initialized variant count split
+
+- `ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`initialized_variant.rs` が match arm replay / pending state 管理に加えて、pending variant byte-range count の source 解決と caller-side place 具体化も抱えていたこと。
+- `PendingVariantRawByteRangeCount` と count source / count place helpers を `initialized_variant_count.rs` へ分離し、variant replay 本体と byte-range count instantiation の責務を分けた。
+- `node nodesrc/test_resource_checker_responsibility.js` は全体 pass となり、Resource IR responsibility gate は現時点の main で通過している。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core resource::initialized_summary_variant_build_tests -- --test-threads=1`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

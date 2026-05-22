@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T03:25:34.416Z",
+  "generated_at": "2026-05-22T03:33:48.063Z",
   "counts": {
     "total": 1219,
-    "open": 4,
-    "resolved": 1215,
+    "open": 3,
+    "resolved": 1216,
     "by_area": {
       "stdlib": {
         "total": 312,
         "open": 2,
         "resolved": 310
-      },
-      "core": {
-        "total": 602,
-        "open": 1,
-        "resolved": 601
       },
       "selfhost": {
         "total": 110,
@@ -30,6 +25,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "core": {
+        "total": 602,
+        "open": 0,
+        "resolved": 602
       },
       "CORE": {
         "total": 5,
@@ -153,21 +153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md"
-    },
-    {
-      "id": "ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9",
-      "title": "initialized variant module exceeds responsibility limit after summary model split",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "maintenance",
-      "created": "2026-05-22",
-      "updated": "2026-05-22",
-      "target": "nepl-core/src/resource/initialized_variant.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -16473,6 +16458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T031252045Z-INITIALIZED-SUMMARY-MODEL-EXCEEDS-RE-C686AE30.md"
+    },
+    {
+      "id": "ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9",
+      "title": "initialized variant module exceeds responsibility limit after summary model split",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/initialized_variant.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

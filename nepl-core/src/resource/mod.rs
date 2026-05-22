@@ -322,6 +322,7 @@ mod initialized_summary_variant_requirement;
 mod initialized_summary_variant_type;
 mod initialized_summary_variant_unique;
 mod initialized_variant;
+mod initialized_variant_count;
 mod lower;
 mod lower_aggregate;
 mod lower_aggregate_projection;
