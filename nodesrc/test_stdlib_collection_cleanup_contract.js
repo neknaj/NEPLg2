@@ -19,6 +19,7 @@ const borrowedPayloadCopyObserverInspected = [];
 const borrowedStorageViewInspected = [];
 const privateLifecycleProofHelperInspected = [];
 const privateStorageReallocHelperInspected = [];
+const privateProofBackedOwnerUpdateHelperInspected = [];
 const ownerPreservingErrorRecoveryInspected = [];
 const violations = [];
 
@@ -65,8 +66,14 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
             const privateStorageReallocHelper = signature && !signature.isPublic
                 ? classifyPrivateStorageReallocHelper(source, signature.name, typeSignature)
                 : null;
+            const privateProofBackedOwnerUpdateHelper = signature && !signature.isPublic
+                ? classifyPrivateProofBackedOwnerUpdateHelper(source, signature.name, typeSignature)
+                : null;
             if (privateStorageReallocHelper && !privateStorageReallocHelperInspected.includes(`${relPath}:${signature.name}`)) {
                 privateStorageReallocHelperInspected.push(`${relPath}:${signature.name}`);
+            }
+            if (privateProofBackedOwnerUpdateHelper && !privateProofBackedOwnerUpdateHelperInspected.includes(`${relPath}:${signature.name}`)) {
+                privateProofBackedOwnerUpdateHelperInspected.push(`${relPath}:${signature.name}`);
             }
             if (ownerSurfaceCopyRequirement && ownerSurfaceCopyRequirement.size > 0) {
                 const ownerPreservingErrorRecovery = classifyOwnerPreservingErrorRecovery(signature.name, typeSignature);
@@ -88,7 +95,7 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !ownerPreservingErrorRecovery) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !ownerPreservingErrorRecovery) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
@@ -243,6 +250,11 @@ for (const expected of [
 assert.ok(
     privateStorageReallocHelperInspected.includes('stdlib/alloc/collections/vec/mutation/push.nepl:vec_realloc_region_or_keep'),
     'collection owner policy must classify Vec grow as a private storage-only RegionToken realloc helper instead of a public owner recovery surface',
+);
+
+assert.ok(
+    privateProofBackedOwnerUpdateHelperInspected.includes('stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_storage_checked'),
+    'collection owner policy must classify Vec.push implementation as a private storage-invariant owner update helper instead of a public Copy-only surface',
 );
 
 assert.ok(
@@ -659,6 +671,11 @@ function classifyDropCapableOwnerSurface(source, functionName, typeSignature) {
         return null;
     }
 
+    const proofBackedOwnerUpdate = classifyProofBackedOwnerUpdateSurface(source, section, functionType);
+    if (proofBackedOwnerUpdate) {
+        return proofBackedOwnerUpdate;
+    }
+
     const writesPayloadSlots = /\bstore<\.T>|\bload<\.T>|\bmem_copy\b|\bmem_move\b|\bcollection_slot_initialize_empty\b|\bcollection_slot_move_out\b/.test(section);
     if (writesPayloadSlots) {
         return null;
@@ -671,6 +688,85 @@ function classifyDropCapableOwnerSurface(source, functionName, typeSignature) {
     }
 
     return { kind: 'drop-capable-owner-surface' };
+}
+
+function classifyProofBackedOwnerUpdateSurface(source, section, functionType) {
+    if (functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const [ownerParam, itemParam] = functionType.parameters.map((parameter) => parameter.trim());
+    const returnType = functionType.returnType.trim();
+    const match = ownerParam.match(/^Vec<\.(\w+)>$/);
+    if (!match || itemParam !== `.${match[1]}`) {
+        return null;
+    }
+    if (returnType !== `Result<Vec<.${match[1]}>, VecPushError<.${match[1]}>>`) {
+        return null;
+    }
+    if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
+        return null;
+    }
+
+    const delegateMatch = section.match(/\b([A-Za-z_][A-Za-z0-9_]*)<\.\w+>\s+v\s+item\b/);
+    if (!delegateMatch) {
+        return null;
+    }
+    const helper = classifyPrivateProofBackedOwnerUpdateHelper(source, delegateMatch[1]);
+    if (!helper) {
+        return null;
+    }
+    return { kind: 'drop-capable-proof-backed-owner-surface' };
+}
+
+function classifyPrivateProofBackedOwnerUpdateHelper(source, functionName, typeSignature = null) {
+    const section = implementationFunctionSection(source, functionName);
+    if (!section || /^\s*pub\s+fn\b/.test(section)) {
+        return null;
+    }
+
+    const signature = typeSignature ?? parseTypeSignature(section.match(/^\s*fn\s+[A-Za-z_][A-Za-z0-9_]*\s*(.*)$/m)?.[1] ?? '');
+    const functionType = signature ? parseFunctionType(signature) : null;
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const [ownerParam, itemParam] = functionType.parameters.map((parameter) => parameter.trim());
+    const returnType = functionType.returnType.trim();
+    const payloadMatch = ownerParam.match(/^Vec<\.(\w+)>$/);
+    if (!payloadMatch || itemParam !== `.${payloadMatch[1]}`) {
+        return null;
+    }
+    const payload = payloadMatch[1];
+    if (returnType !== `Result<Vec<.${payload}>, VecPushError<.${payload}>>`) {
+        return null;
+    }
+    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${payload}>`).test(section)) {
+        return null;
+    }
+    if (!new RegExp(`\\bVecStorageInvariant::Invalid\\b[\\s\\S]*\\bVecStorageInvariant::Valid\\b`).test(section)) {
+        return null;
+    }
+    if (/\bVecCopyInvariant\b|\bvec_buffer_current_copy_invariant\b/.test(section)) {
+        return null;
+    }
+    if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
+        return null;
+    }
+    if (!new RegExp(`\\bVecPushRejected<\\.${payload}>[\\s\\S]*\\bitem\\b`).test(section)) {
+        return null;
+    }
+
+    const slotHelperNames = [...section.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)<\.\w+>\s+&[A-Za-z_][A-Za-z0-9_]*\s+byte_off\s+item\b/g)]
+        .map((match) => match[1]);
+    if (slotHelperNames.length === 0) {
+        return null;
+    }
+    if (!slotHelperNames.every((helperName) => classifyPrivateCollectionLifecycleProofHelper(source, helperName))) {
+        return null;
+    }
+
+    return { kind: 'private-proof-backed-owner-update-helper' };
 }
 
 function classifyPrivateStorageReallocHelper(source, functionName, typeSignature) {

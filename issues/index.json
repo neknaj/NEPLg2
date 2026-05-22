@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T09:23:22.164Z",
+  "generated_at": "2026-05-22T09:44:51.761Z",
   "counts": {
-    "total": 1227,
+    "total": 1228,
     "open": 3,
-    "resolved": 1224,
+    "resolved": 1225,
     "by_area": {
       "stdlib": {
-        "total": 315,
+        "total": 316,
         "open": 2,
-        "resolved": 313
+        "resolved": 314
       },
       "selfhost": {
         "total": 110,
@@ -14478,6 +14478,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T090905300Z-VEC-PUSH-FAILURE-MUST-RETURN-REJECTE-21E0522B.md"
+    },
+    {
+      "id": "ISS-20260522T093518180Z-VEC-PUSH-MUST-ACCEPT-DROP-PAYLOAD-TH-6C6190D3",
+      "title": "Vec push must accept Drop payload through storage invariant and Resource IR slot proof",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/mutation/push.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nodesrc/test_stdlib_collection_cleanup_contract.js, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T093518180Z-VEC-PUSH-MUST-ACCEPT-DROP-PAYLOAD-TH-6C6190D3.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -1,3 +1,18 @@
+# 2026-05-22 Agent 1 Vec Drop payload push success path
+
+- `ISS-20260522T093518180Z-VEC-PUSH-MUST-ACCEPT-DROP-PAYLOAD-TH-6C6190D3` を解決した。`plan.md` は確認済みで、変更していない。
+- `Vec.push` の public surface を `push<T: Copy>` / `push<T: Drop>` の overload にし、どちらも private `vec_push_storage_checked<T>` へ委譲する構造にした。
+- `vec_push_storage_checked<T>` は `VecStorageInvariant` を match して payload 非依存に storage metadata / extent を検査し、`VecCopyInvariant` / `vec_buffer_current_copy_invariant` を使わない。tail slot の raw store は private `vec_push_slot_store_initialized<T>` へ閉じ、`collection_slot_initialize_empty` marker authority を public に出さない。
+- `VecPushRejected<T>` による failure owner recovery を維持したまま、Drop payload の success path と grow path を Resource IR で確認した。`Vec<DropPayload>.new -> push -> free` と `with_capacity -> push -> push(grow) -> free` は `InitializeEmpty`、`CollectionStorageRelocate`、actual `Drop::drop`、drop traversal が閉じる。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` は、Drop-capable owner update を関数名 allowlist ではなく source structure で分類するように更新した。public Drop overload は raw operation / marker を持たず、private helper が `VecStorageInvariant`、owner-preserving rejected payload、private slot lifecycle proof を持つ場合だけ Copy 境界なしを許す。
+- focused verification:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_push_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_push_grow_relocates_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_grow_relocates_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+- `nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md ...` は 120 秒で timeout したため停止した。partial JSON では現行 `web/dist` 側が collection lifecycle intrinsic を unknown として扱う既知の stale-dist 系失敗が多数出ており、今回の Rust Resource IR focused regression では Drop payload push/grow 自体は通過している。
+
 # 2026-05-22 Agent 1 core/mem realloc non-Copy initialized slot regression
 
 # 2026-05-22 Agent 1 core/mem marker authority public surface negative

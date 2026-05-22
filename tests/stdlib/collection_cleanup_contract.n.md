@@ -91,10 +91,10 @@ fn main <()->i32> ():
     0
 ```
 
-## vec_with_capacity_rejects_non_copy_payload
+## vec_with_capacity_rejects_plain_payload_without_copy_or_drop
 
 neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -113,10 +113,38 @@ fn main <()->i32> ():
     0
 ```
 
-## vec_push_rejects_non_copy_payload
+## vec_push_accepts_drop_payload
+
+neplg2:test
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn main <()->i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+    let ok <bool> eq len<DropPayload> &v1 1
+    free<DropPayload> v1
+    if ok 0 1
+```
+
+## vec_push_rejects_plain_payload_without_copy_or_drop
 
 neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -127,7 +155,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value <i32>
 
-fn push_non_copy_vec <(Vec<CleanupPayload>, CleanupPayload)->Result<Vec<CleanupPayload>, VecPushError<CleanupPayload>>> (v, item):
+fn push_plain_vec <(Vec<CleanupPayload>, CleanupPayload)->Result<Vec<CleanupPayload>, VecPushError<CleanupPayload>>> (v, item):
     push<CleanupPayload> v item
 
 fn main <()->i32> ():
