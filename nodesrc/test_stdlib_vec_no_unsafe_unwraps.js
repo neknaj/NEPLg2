@@ -15,7 +15,6 @@ const relPaths = [
     'stdlib/alloc/collections/vec/storage/alloc.nepl',
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
-    'stdlib/alloc/collections/vec/storage/lifecycle.nepl',
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/access/header.nepl',
     'stdlib/alloc/collections/vec/access/data.nepl',
@@ -104,8 +103,7 @@ const vecStorageAllocCode = codeByPath.get('stdlib/alloc/collections/vec/storage
 const vecStorageCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/storage/cleanup.nepl');
 const vecStorageCleanupSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/cleanup.nepl'), 'utf8');
 const vecStorageFillCode = codeByPath.get('stdlib/alloc/collections/vec/storage/fill.nepl');
-const vecStorageLifecycleCode = codeByPath.get('stdlib/alloc/collections/vec/storage/lifecycle.nepl');
-const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageApiCode, vecStorageFillCode, vecStorageAllocCode, vecStorageCleanupCode, vecStorageLifecycleCode].join('\n');
+const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageApiCode, vecStorageFillCode, vecStorageAllocCode, vecStorageCleanupCode].join('\n');
 const vecAccessRootCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
 const vecAccessHeaderCode = codeByPath.get('stdlib/alloc/collections/vec/access/header.nepl');
 const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/data.nepl');
@@ -227,14 +225,6 @@ assert.match(vecStorageApiCode, /alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_c
 assert.match(vecStorageCleanupCode, /\bfn\s+vec_free_storage\b/, 'vec/storage/cleanup.nepl must own vec_free_storage');
 assert.match(vecStorageCleanupCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>\s+<\(VecStorage<\.T>\)->\(\)>/, 'vec/storage/cleanup.nepl storage-only cleanup must take the owner-carrying storage enum and remain Copy-only until element drop traversal exists');
 assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must own filled');
-for (const name of ['vec_slot_store_initialized', 'vec_slot_drop_initialized', 'vec_slot_drop_initialized_range', 'vec_storage_dealloc_proven']) {
-    assert.match(vecStorageLifecycleCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/lifecycle.nepl must own private ${name}`);
-    assert.doesNotMatch(vecStorageLifecycleCode, new RegExp(`pub\\s+fn\\s+${name}\\b`), `vec/storage/lifecycle.nepl must not expose ${name} before public Vec lifecycle APIs are proven`);
-}
-assert.match(vecStorageLifecycleCode, /store<\.T>\s+raw\s+item[\s\S]*#intrinsic\s+"collection_slot_initialize_empty"\s+<\.T>\s+\(storage,\s*byte_off\)/, 'Vec lifecycle initialize helper must pair raw store with collection slot initialize proof');
-assert.match(vecStorageLifecycleCode, /let\s+loaded\s+<\.T>\s+load<\.T>\s+raw[\s\S]*Drop::drop\s+&loaded[\s\S]*#intrinsic\s+"collection_slot_drop_initialized"\s+<\.T>\s+\(storage,\s*byte_off\)/, 'Vec lifecycle single-slot drop helper must pair raw load and actual Drop with drop-initialized proof');
-assert.match(vecStorageLifecycleCode, /while\s+lt\s+i\s+initialized_len:[\s\S]*let\s+byte_off\s+<i32>\s+mul\s+i\s+size_of<\.T>[\s\S]*Drop::drop\s+&loaded[\s\S]*set\s+i\s+add\s+i\s+1[\s\S]*#intrinsic\s+"collection_slot_drop_traversal"\s+<\.T>\s+\(storage,\s*initialized_len\)/, 'Vec lifecycle range drop helper must use a 0..initialized_len loop and emit traversal proof after the loop');
-assert.match(vecStorageLifecycleCode, /allocator::dealloc_raw\s+raw\s+total_size[\s\S]*#intrinsic\s+"collection_slot_storage_dealloc"\s+<>\s+\(storage\)/, 'Vec lifecycle storage release helper must pair raw dealloc with storage-dealloc proof');
 for (const name of ['len', 'cap', 'data_mem_view', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
 }
@@ -370,7 +360,6 @@ for (const relPath of [
     'stdlib/alloc/collections/vec/storage/alloc.nepl',
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
-    'stdlib/alloc/collections/vec/storage/lifecycle.nepl',
     'stdlib/alloc/collections/vec/transform/filter/select.nepl',
     'stdlib/alloc/collections/vec/transform/filter/partition/build.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
@@ -408,6 +397,11 @@ assert.match(pushSection, /let\s+v_buffer\s+<OwnedBuffer<\.T>>\s+field::get\s+v\
 assert.match(pushSection, /let\s+v_initialized_len\s+<i32>\s+\*field::get_ref\s+v_buffer_ref\s+"initialized_len"/, 'Vec.push must read and preserve initialized_len separately from len on failure paths');
 assert.match(pushSection, /let\s+v_invariant\s+<VecCopyInvariant>\s+vec_buffer_current_copy_invariant<\.T>\s+v_buffer_ref[\s\S]*match\s+v_invariant:[\s\S]*VecCopyInvariant::Invalid\s+_reason:[\s\S]*VecPushError<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage\)\)\s+StdErrorKind::InvalidOperation/, 'Vec.push must reject malformed OwnedBuffer metadata through typed invariant match before raw store or grow');
 assert.match(pushSection, /fn\s+push\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*VecPushError<\.T>>>/, 'Vec.push must return an owner-preserving VecPushError payload on failure');
+assert.match(vecMutationPushCode, /\bfn\s+vec_push_slot_store_initialized\s+<\.T>\s+<\(&RegionToken<\.T>,i32,\.T\)->\(\)>/, 'Vec.push must keep collection slot initialization in a private implementation helper');
+assert.doesNotMatch(vecMutationPushCode, /\bpub\s+fn\s+vec_push_slot_store_initialized\b/, 'Vec.push lifecycle helper must not become a direct-import public marker boundary');
+assert.match(vecMutationPushCode, /fn\s+vec_push_slot_store_initialized[\s\S]*store<\.T>\s+raw\s+item[\s\S]*#intrinsic\s+"collection_slot_initialize_empty"\s+<\.T>\s+\(storage,\s*byte_off\)/, 'Vec.push lifecycle helper must pair raw store with collection slot initialize proof');
+assert.doesNotMatch(pushSection, /\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<\.T>)\b/, 'Vec.push public body must not open-code raw slot store; slot initialization must go through vec_push_slot_store_initialized');
+assert.match(pushSection, /let\s+byte_off\s+<i32>\s+mul\s+v_len\s+size_of<\.T>[\s\S]*vec_push_slot_store_initialized<\.T>\s+&grown_region\s+byte_off\s+item[\s\S]*let\s+byte_off\s+<i32>\s+mul\s+v_len\s+size_of<\.T>[\s\S]*vec_push_slot_store_initialized<\.T>\s+&grown_region\s+byte_off\s+item[\s\S]*let\s+byte_off\s+<i32>\s+mul\s+v_len\s+size_of<\.T>[\s\S]*vec_push_slot_store_initialized<\.T>\s+&v_region\s+byte_off\s+item/, 'Vec.push must route Empty allocation, Owned grow, and in-place append stores through the same lifecycle proof helper');
 assert.match(vecCode, /fn\s+vec_next_capacity\s+<\.T>\s+<\(i32\)->Result<i32,\s*StdErrorKind>>[\s\S]*size_of<\.T>[\s\S]*max_alloc_payload_bytes[\s\S]*StdErrorKind::CapacityExceeded[\s\S]*half_limit[\s\S]*Result<i32,\s*StdErrorKind>::Ok\s+mul\s+cap0\s+2/, 'Vec.push growth must prove next capacity against element size and allocator payload bounds before doubling');
 assert.match(pushSection, /match\s+vec_next_capacity<\.T>\s+v_cap:[\s\S]*Result::Err\s+grow_error:[\s\S]*VecPushError<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage\)\)\s+grow_error[\s\S]*Result::Ok\s+grown_cap:/, 'Vec.push must compute grow capacity through the checked capacity helper and return the Vec owner on grow proof failure');
 assert.match(pushSection, /match\s+v_storage:[\s\S]*VecStorage::Empty:[\s\S]*alloc_region<\.T>\s+grown_cap[\s\S]*Result::Err<Vec<\.T>,\s*VecPushError<\.T>>\s+VecPushError<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+VecStorage<\.T>::Empty\)\)\s+StdErrorKind::OutOfMemory[\s\S]*VecStorage::Owned\s+v_region:[\s\S]*vec_realloc_region_or_keep<\.T>\s+v_region\s+grown_cap/, 'Vec.push must return the consumed Vec owner through VecPushError on Empty allocation failure and keep Owned grow transfer in RegionToken form');

@@ -1,3 +1,18 @@
+# 2026-05-22 Agent 1 Vec push lifecycle helper connection
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の次段階として、public `Vec.push` の Copy-only contract は維持したまま、success path の raw slot store を同一 implementation file 内の private helper へ寄せた。`plan.md` と Zenn の開発方針は確認済みで変更していない。
+- いったん `storage/lifecycle.nepl` への共有 helper 切り出しを検証したが、non-public helper は別 file から名前解決できず、public helper は `collection_slot_*` marker authority を direct import 可能にして source capability に反するため撤回した。shared module は削除し、`push.nepl` 内 private `vec_push_slot_store_initialized` に raw store と `collection_slot_initialize_empty` marker を閉じ込めた。
+- `stdlib/alloc/collections/vec/mutation/push.nepl` は `push` public body で `region_ptr` / `mem_ptr_addr` / `mem_ptr_add` / `store<T>` を open-code せず、Empty allocation、Owned grow、in-place append の 3 経路すべてで `vec_push_slot_store_initialized` を呼ぶ。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に、`push` が direct raw store を再導入しないこと、全 success path が同じ private helper を使うこと、helper を public 化しないことの source policy を追加した。
+- 検証:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`（CRLF warning のみ）
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_vec_push_error_owner_does_not_leak_through_result_err -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_recursive_vec_result_err_does_not_keep_inactive_ok_owner -- --test-threads=1 --exact --nocapture`
+  - `cargo test -p nepl-core --test collection_slot_full_range public_owner_collection_api_uses_private_lifecycle_helpers -- --test-threads=1 --exact --nocapture`
+
 # 2026-05-22 Agent 1 Vec private lifecycle proof helpers
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、public `Vec` lifecycle API の Copy-only 解除前に、実 stdlib 側で Resource IR の generic proof boundary を受ける private helper module を追加した。`plan.md` と Zenn の開発方針は確認済みで変更していない。

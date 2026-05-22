@@ -20,6 +20,23 @@
 #import "../invariant" as *
 #import "core/field" as *
 
+//: ## vec_push_slot_store_initialized
+//: `push` の payload store と slot initialization proof を同じ private 境界で発行する
+//:
+//: ### [目的/もくてき]
+//: - raw `store<T>` と `collection_slot_initialize_empty` marker を `push` implementation file 内の private helper に[閉/と]じます。
+//: - public `push` 本体は `RegionToken<T>` owner と byte offset を渡すだけにし、raw pointer projection と Resource IR marker の対応をこの helper で一貫して[扱/あつか]います。
+//:
+//: ### [注意/ちゅうい]
+//: - この helper は public にしません。`collection_slot_*` marker authority は direct import 可能な public helper として[公開/こうかい]せず、public collection API の内部実装だけが使います。
+//: - `byte_off` の bounds / alignment と、`len` / `cap` との対応は caller 側の `VecCopyInvariant` と capacity proof が[担/にな]います。
+fn vec_push_slot_store_initialized <.T> <(&RegionToken<.T>,i32,.T)->()> (storage, byte_off, item):
+    let data <MemPtr<.T>> region_ptr storage
+    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+    let raw <i32> mem_ptr_addr slot
+    store<.T> raw item
+    #intrinsic "collection_slot_initialize_empty" <.T> (storage, byte_off)
+
 //: ## push
 //: [末尾/まつび]に[要素/ようそ]を[追加/ついか]する
 //:
@@ -211,8 +228,8 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
                                             match alloc_region<.T> grown_cap:
                                                 Result::Ok grown_region:
                                                     let next_len <i32> add v_len 1
-                                                    let grown_data <MemPtr<.T>> region_ptr &grown_region
-                                                    store<.T> add mem_ptr_addr grown_data mul v_len size_of<.T> item
+                                                    let byte_off <i32> mul v_len size_of<.T>
+                                                    vec_push_slot_store_initialized<.T> &grown_region byte_off item
                                                     Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                                 Result::Err _e:
                                                     Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::OutOfMemory
@@ -222,8 +239,8 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
                                     match vec_realloc_region_or_keep<.T> v_region grown_cap:
                                         Result::Ok grown_region:
                                             let next_len <i32> add v_len 1
-                                            let grown_data <MemPtr<.T>> region_ptr &grown_region
-                                            store<.T> add mem_ptr_addr grown_data mul v_len size_of<.T> item
+                                            let byte_off <i32> mul v_len size_of<.T>
+                                            vec_push_slot_store_initialized<.T> &grown_region byte_off item
                                             Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                         Result::Err e:
                                             let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
@@ -235,6 +252,6 @@ pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, ite
                             Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) StdErrorKind::InvalidOperation
                         VecStorage::Owned v_region:
                             let next_len <i32> add v_len 1
-                            let v_data <MemPtr<.T>> region_ptr &v_region
-                            store<.T> add mem_ptr_addr v_data mul v_len size_of<.T> item
+                            let byte_off <i32> mul v_len size_of<.T>
+                            vec_push_slot_store_initialized<.T> &v_region byte_off item
                             Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
