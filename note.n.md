@@ -1,3 +1,16 @@
+# 2026-05-22 Agent 1 Vec borrowed header metadata observers
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、`Vec<T>` の借用 metadata observer と payload lifecycle API の責務分離を進めた。`plan.md` は確認済みで変更していない。
+- `stdlib/alloc/collections/vec/access/header.nepl` の `len` / `cap` / `is_empty` から `.T: Copy` 境界を外した。これらは `&Vec<T>` から `OwnedBuffer` の header metadata だけを読む API であり、payload の copy / move-out / drop / storage release 権限を発生させないため、non-Copy payload を拒否する根拠がない。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` は、借用 metadata observer の監査と payload-copying observer / borrowed storage view の Copy 必須監査を分離した。`Option<T>` を返して payload を複製する observer、`Vec<Option<T>>` storage view、owner-producing / cleanup / error recovery surface は引き続き Copy-only policy で監視する。
+- `nodesrc/test_stdlib_vec_borrowed_observers.js` は、Vec header observer が owner を消費せず、かつ metadata-only observation に Copy を要求しないことを固定する回帰へ更新した。
+- 実 `Vec<T>` の non-Copy `push` / `clear` / `free` / `get` / `pop` はまだ完了していない。今回の範囲は、Resource IR の generic proof boundary が担当する payload lifecycle と、stdlib header metadata observation を混同しないための段階的整理である。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: pass
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/header.nepl --no-tree -o tmp/vec-header-observers-noncopy.json -j 1`: `total=3`, `passed=3`
+
 # 2026-05-22 Agent 1 public owner collection error recovery proof
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、public owner aggregate API が `Result::Err` で collection owner を返す経路を Resource IR の generic proof で保持できるか確認した。`plan.md` は確認済みで変更していない。

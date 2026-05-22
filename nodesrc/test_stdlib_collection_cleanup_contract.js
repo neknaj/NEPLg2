@@ -12,7 +12,8 @@ const ownerAccessorInspected = [];
 const popOwnerAccessorInspected = [];
 const fallibleOwnerConsumerInspected = [];
 const ownerSurfaceInspected = [];
-const borrowedOwnerObserverInspected = [];
+const borrowedMetadataObserverInspected = [];
+const borrowedPayloadCopyObserverInspected = [];
 const borrowedStorageViewInspected = [];
 const violations = [];
 
@@ -60,15 +61,21 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                     violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
                 }
             }
-            const borrowedOwnerObserverCopyRequirement = signature && generics.length > 0
-                ? borrowedCollectionOwnerObserverCopyRequirement(typeSignature)
+            const borrowedMetadataObserverGenerics = signature && generics.length > 0
+                ? borrowedCollectionOwnerMetadataObserverGenerics(typeSignature)
                 : null;
-            if (borrowedOwnerObserverCopyRequirement && borrowedOwnerObserverCopyRequirement.size > 0) {
-                borrowedOwnerObserverInspected.push(`${relPath}:${signature.name}`);
-                const missingCopy = generics.filter((generic) => borrowedOwnerObserverCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
+            if (borrowedMetadataObserverGenerics && borrowedMetadataObserverGenerics.size > 0) {
+                borrowedMetadataObserverInspected.push(`${relPath}:${signature.name}`);
+            }
+            const borrowedPayloadCopyObserverCopyRequirement = signature && generics.length > 0
+                ? borrowedCollectionPayloadCopyObserverCopyRequirement(typeSignature)
+                : null;
+            if (borrowedPayloadCopyObserverCopyRequirement && borrowedPayloadCopyObserverCopyRequirement.size > 0) {
+                borrowedPayloadCopyObserverInspected.push(`${relPath}:${signature.name}`);
+                const missingCopy = generics.filter((generic) => borrowedPayloadCopyObserverCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
                     const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
-                    violations.push(`${relPath}:${index + 1}: ${signature.name} borrowed collection owner observer generic(s) ${names} must carry Copy until collection drop traversal exists`);
+                    violations.push(`${relPath}:${index + 1}: ${signature.name} borrowed payload-copying observer generic(s) ${names} must carry Copy until non-Copy slot copy-out is proven`);
                 }
             }
             const borrowedStorageViewCopyRequirement = signature && generics.length > 0
@@ -212,8 +219,8 @@ for (const expected of [
 }
 
 assert.ok(
-    borrowedOwnerObserverInspected.length >= 28,
-    `collection borrowed owner observer policy must inspect scalar observer surfaces, inspected only ${borrowedOwnerObserverInspected.length}`,
+    borrowedMetadataObserverInspected.length >= 28,
+    `collection borrowed metadata observer policy must inspect scalar metadata observer surfaces, inspected only ${borrowedMetadataObserverInspected.length}`,
 );
 
 for (const expected of [
@@ -247,8 +254,32 @@ for (const expected of [
     'stdlib/alloc/collections/counting_bloom_filter/api.nepl:len',
 ]) {
     assert.ok(
-        borrowedOwnerObserverInspected.some((entry) => entry.includes(expected)),
-        `collection borrowed owner observer policy did not inspect expected signature: ${expected}`,
+        borrowedMetadataObserverInspected.some((entry) => entry.includes(expected)),
+        `collection borrowed metadata observer policy did not inspect expected signature: ${expected}`,
+    );
+}
+
+assert.ok(
+    borrowedPayloadCopyObserverInspected.length >= 20,
+    `collection borrowed payload-copying observer policy must inspect Option<T> observer surfaces, inspected only ${borrowedPayloadCopyObserverInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/vec/query/get.nepl:get',
+    'stdlib/alloc/collections/vec/query/aggregate.nepl:reduce',
+    'stdlib/alloc/collections/vec/query/predicate.nepl:find',
+    'stdlib/alloc/collections/vec/types.nepl:vec_pop_item',
+    'stdlib/alloc/collections/stack/api.nepl:peek',
+    'stdlib/alloc/collections/queue/api.nepl:peek',
+    'stdlib/alloc/collections/deque/api.nepl:peek_front',
+    'stdlib/alloc/collections/ringbuffer/api.nepl:peek',
+    'stdlib/alloc/collections/binary_heap/api/observer.nepl:peek',
+    'stdlib/alloc/collections/list/query.nepl:get',
+    'stdlib/alloc/collections/btreemap/api/observer.nepl:get',
+]) {
+    assert.ok(
+        borrowedPayloadCopyObserverInspected.some((entry) => entry.includes(expected)),
+        `collection borrowed payload-copying observer policy did not inspect expected signature: ${expected}`,
     );
 }
 
@@ -271,7 +302,7 @@ for (const expected of [
     );
 }
 
-assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, and borrowed payload storage views must remain Copy-only:\n${violations.join('\n')}`);
+assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed payload-copying observers, and borrowed payload storage views must remain Copy-only:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
 
@@ -450,13 +481,36 @@ function borrowedPayloadStorageViewCopyRequirement(typeSignature) {
     return genericNames(returnType);
 }
 
-function borrowedCollectionOwnerObserverCopyRequirement(typeSignature) {
+function borrowedCollectionOwnerMetadataObserverGenerics(typeSignature) {
     if (!typeSignature) {
         return null;
     }
 
     const functionType = parseFunctionType(typeSignature);
-    if (!functionType || !isScalarObserverReturn(functionType.returnType)) {
+    if (!functionType || !isMetadataObserverReturn(functionType.returnType)) {
+        return null;
+    }
+
+    const observed = new Set();
+    for (const parameter of functionType.parameters) {
+        const trimmed = parameter.trim();
+        if (!trimmed.startsWith('&')) {
+            continue;
+        }
+        for (const name of ownerAggregateGenericNames(trimmed)) {
+            observed.add(name);
+        }
+    }
+    return observed;
+}
+
+function borrowedCollectionPayloadCopyObserverCopyRequirement(typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || !isPayloadCopyObserverReturn(functionType.returnType)) {
         return null;
     }
 
@@ -473,12 +527,15 @@ function borrowedCollectionOwnerObserverCopyRequirement(typeSignature) {
     return required;
 }
 
-function isScalarObserverReturn(returnType) {
+function isMetadataObserverReturn(returnType) {
     const trimmed = returnType.trim();
     return trimmed === 'i32'
         || trimmed === 'bool'
-        || trimmed === 'VecCopyInvariant'
-        || /^Option<\./.test(trimmed);
+        || trimmed === 'VecCopyInvariant';
+}
+
+function isPayloadCopyObserverReturn(returnType) {
+    return /^Option<\./.test(returnType.trim());
 }
 
 function ownerAggregateGenericNames(text) {

@@ -8,7 +8,6 @@
 
 #import "core/math" as *
 #import "core/field" as field
-#import "core/traits/copy" as *
 #import "../types" as *
 #import "core/field" as *
 
@@ -23,6 +22,8 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
+//: - payload そのものは[読/よ]まず、`OwnedBuffer` の `len` metadata だけを[借用/しゃくよう]して[読/よ]むため `.T: Copy` は[要求/ようきゅう]しません。
+//: - non-Copy payload の move-out / drop / storage release は別 API と Resource IR の slot lifecycle proof が[担当/たんとう]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
@@ -44,7 +45,7 @@
 //:     free<i32> v1;
 //:     if ok 0 1
 //: ```
-pub fn len <.T: Copy> <(&Vec<.T>)->i32> (v):
+pub fn len <.T> <(&Vec<.T>)->i32> (v):
     let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     *field::get_ref buffer "len"
 
@@ -59,6 +60,8 @@ pub fn len <.T: Copy> <(&Vec<.T>)->i32> (v):
 //:
 //: ### [注意/ちゅうい]
 //: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
+//: - payload ではなく backing storage の capacity metadata を[読/よ]む API なので `.T: Copy` は[要求/ようきゅう]しません。
+//: - capacity は storage [解放/かいほう]や initialized slot cleanup の[証明/しょうめい]ではなく、観測用 metadata です。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
@@ -78,7 +81,7 @@ pub fn len <.T: Copy> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn cap <.T: Copy> <(&Vec<.T>)->i32> (v):
+pub fn cap <.T> <(&Vec<.T>)->i32> (v):
     let buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
     *field::get_ref buffer "cap"
 
@@ -93,6 +96,8 @@ pub fn cap <.T: Copy> <(&Vec<.T>)->i32> (v):
 //:
 //: ### [注意/ちゅうい]
 //: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
+//: - `len` と同じく header metadata だけを[読/よ]むため `.T: Copy` は[要求/ようきゅう]しません。
+//: - non-Copy payload を[取/と]り[出/だ]したり storage を[解放/かいほう]したりする[権限/けんげん]は、この observer からは[発生/はっせい]しません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -111,5 +116,5 @@ pub fn cap <.T: Copy> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn is_empty <.T: Copy> <(&Vec<.T>)->bool> (v):
+pub fn is_empty <.T> <(&Vec<.T>)->bool> (v):
     eq len<.T> v 0

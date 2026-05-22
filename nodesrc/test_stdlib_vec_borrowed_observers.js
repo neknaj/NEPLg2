@@ -69,8 +69,13 @@ for (const [name, resultTy] of [
 ]) {
     assert.match(
         vecCode,
-        new RegExp(`fn\\s+${name}\\s+<\\.T:\\s*Copy>\\s+<\\(&Vec<\\.T>\\)->${resultTy}>\\s+\\(v\\):`),
-        `Vec.${name} must borrow the owner and remain Copy-only while drop traversal is incomplete`,
+        new RegExp(`fn\\s+${name}\\s+<\\.T>\\s+<\\(&Vec<\\.T>\\)->${resultTy}>\\s+\\(v\\):`),
+        `Vec.${name} must borrow the owner and accept non-Copy payloads because it reads only header metadata`,
+    );
+    assert.doesNotMatch(
+        vecCode,
+        new RegExp(`fn\\s+${name}\\s+<\\.T:\\s*Copy>\\s+<\\(&Vec<\\.T>\\)->${resultTy}>`),
+        `Vec.${name} must not impose Copy on metadata-only observation`,
     );
     assert.doesNotMatch(
         vecCode,
