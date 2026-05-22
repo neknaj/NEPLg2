@@ -473,7 +473,7 @@ impl ResourceCheckEngine<'_> {
                     raw_aliases,
                     self.types,
                 );
-                pending_reallocs.certify_success(&pending.source, &pending.result);
+                pending_reallocs.certify_success(&pending.storage_source, &pending.result);
                 raw_aliases.clear(&pending.source);
                 raw_aliases.mark(&pending.result);
             }

@@ -110,8 +110,10 @@ impl ResourceOwnerCheckEngine<'_> {
                         owners.set_state(output, OwnerState::MaybeFreed { storage: None });
                         raw_aliases.mark(output);
                         raw_views.clear(output);
+                        let storage_source = raw_aliases.canonicalize_owner_cell_address(ptr);
                         pending_reallocs.mark(
                             ptr,
+                            &storage_source,
                             output,
                             OwnerStorageExtent::payload_bytes(new_size),
                             Vec::new(),
@@ -137,7 +139,14 @@ impl ResourceOwnerCheckEngine<'_> {
                         owners.set_state(output, OwnerState::MaybeFreed { storage: None });
                         raw_aliases.mark(output);
                         raw_views.clear(output);
-                        pending_reallocs.mark(ptr, output, OwnerStorageExtent::Unknown, Vec::new());
+                        let storage_source = raw_aliases.canonicalize_owner_cell_address(ptr);
+                        pending_reallocs.mark(
+                            ptr,
+                            &storage_source,
+                            output,
+                            OwnerStorageExtent::Unknown,
+                            Vec::new(),
+                        );
                     }
                 }
             }
