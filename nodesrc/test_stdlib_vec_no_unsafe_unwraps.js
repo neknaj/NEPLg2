@@ -210,7 +210,9 @@ assert.doesNotMatch(vecStorageRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'v
 for (const name of ['vec_empty']) {
     assert.match(vecStorageViewCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/view.nepl must own ${name}`);
 }
-assert.match(vecStorageViewCode, /pub\s+fn\s+vec_empty\s+<\.T:\s*Copy>\s+<\(\)->Vec<\.T>>/, 'Vec.empty typed constructor must remain public and Copy-only until OwnedBuffer initialized drop traversal exists');
+assert.match(vecStorageViewCode, /pub\s+fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>/, 'Vec.empty typed constructor may accept non-Copy payloads because it constructs only zero-allocation Empty storage');
+assert.match(vecStorageViewCode, /Vec<\.T>\s+\(OwnedBuffer<\.T>\s+0\s+0\s+0\s+VecStorage<\.T>::Empty\)/, 'Vec.empty must construct the exact zero-length Empty OwnedBuffer shape');
+assert.doesNotMatch(vecStorageViewCode, /\b(?:alloc_region|alloc_region_bytes|dealloc_region|realloc_region|mem_ptr_wrap|field::get|field::get_ref|load<|store<)\b|VecStorage<\.T>::Owned/, 'Vec.empty must not allocate, project, or touch runtime storage when non-Copy payloads are permitted');
 assert.doesNotMatch(vecStorageViewCode, /pub\s+fn\s+vec_empty_region\b/, 'Vec empty RegionToken sentinel helper must remain private to storage/view.nepl');
 assert.doesNotMatch(vecStorageViewCode, /\bfn\s+vec_storage_mem_ptr\b/, 'Vec storage MemPtr projection must not be exposed as a lower-level storage-state helper');
 assert.match(vecStorageAllocCode, /\bfn\s+vec_alloc_empty\b/, 'vec/storage/alloc.nepl must own vec_alloc_empty');
@@ -375,9 +377,9 @@ for (const relPath of [
 assert.match(ownedBufferSection, /len\s+<i32>[\s\S]*initialized_len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*storage\s+<VecStorage<\.T>>/, 'OwnedBuffer must own len/initialized_len/cap/storage so live length, initialized prefix, and free obligation state are separated from the Vec facade');
 assert.match(vecStructSection, /buffer\s+<OwnedBuffer<\.T>>/, 'Vec must be a facade over OwnedBuffer instead of storing backing storage directly');
 assert.doesNotMatch(vecStructSection, /\b(?:len|initialized_len|cap|storage)\s+</, 'Vec facade must not reintroduce direct len/initialized_len/cap/storage fields');
-assert.match(vecCode, /pub\s+fn\s+vec_empty\s+<\.T:\s*Copy>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+\(OwnedBuffer<\.T>\s+0\s+0\s+0\s+VecStorage<\.T>::Empty\)/, 'Vec.empty must construct typed Empty storage through OwnedBuffer without a zero-length RegionToken sentinel and remain Copy-only');
+assert.match(vecCode, /pub\s+fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+\(OwnedBuffer<\.T>\s+0\s+0\s+0\s+VecStorage<\.T>::Empty\)/, 'Vec.empty must construct typed Empty storage through OwnedBuffer without a zero-length RegionToken sentinel');
 assert.doesNotMatch(vecCode, /OwnedBuffer<\.[TU]>\s+(?:v_len\s+v_cap|next_len\s+v_cap|src_len\s+out_cap|keep_len\s+out_cap|left_len\s+left_cap|right_len\s+right_cap|0\s+0\s+VecStorage<\.[TU]>::Empty|0\s+requested_cap|n\s+n\s+\(VecStorage)/, 'Vec implementation must not regress to the old three-field OwnedBuffer constructor shape');
-assert.match(vecStorageViewSource, /OwnedBuffer<T>[\s\S]*vec_empty\s+<\.T:\s*Copy>/, 'Vec.empty documentation must explain the temporary Copy-only contract until OwnedBuffer initialized drop traversal exists');
+assert.match(vecStorageViewSource, /non-Copy[\s\S]*Empty[\s\S]*Resource IR proof/, 'Vec.empty documentation must explain the non-Copy Empty metadata boundary and keep payload lifecycle on Resource IR proof');
 assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T:\s*Copy>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*alloc_region<\.T>\s+requested_cap[\s\S]*VecStorage<\.T>::Owned\s+region/, 'Vec empty construction must use Empty for zero capacity and Owned(region) for allocated RegionToken storage');
 assert.match(vecCode, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*vec_alloc_empty<\.T>\s+8/, 'Vec.new must remain Copy-only until non-Copy cleanup exists');
 assert.match(vecStorageApiSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*new<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*with_capacity<NonCopyPayload>/, 'Vec allocation constructors must reject non-Copy payloads in doctests');

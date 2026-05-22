@@ -50,10 +50,9 @@ fn main <()->i32> ():
     0
 ```
 
-## vec_empty_rejects_non_copy_payload
+## vec_empty_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -64,11 +63,10 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value <i32>
 
-fn make_empty_vec <()->Vec<CleanupPayload>> ():
-    vec_empty<CleanupPayload>
-
 fn main <()->i32> ():
-    0
+    let v <Vec<CleanupPayload>> vec_empty<CleanupPayload>
+    let ok <bool> is_empty<CleanupPayload> &v
+    if ok 0 1
 ```
 
 ## vec_new_rejects_non_copy_payload
@@ -158,10 +156,9 @@ fn main <()->i32> ():
     0
 ```
 
-## vec_len_rejects_non_copy_payload
+## vec_len_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -179,10 +176,9 @@ fn main <()->i32> ():
     0
 ```
 
-## vec_cap_rejects_non_copy_payload
+## vec_cap_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -222,10 +218,9 @@ fn main <()->i32> ():
     0
 ```
 
-## vec_partition_len_rejects_non_copy_payload
+## vec_partition_len_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -589,10 +584,9 @@ fn main <()->i32> ():
     0
 ```
 
-## queue_len_rejects_non_copy_payload
+## queue_len_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -610,10 +604,9 @@ fn main <()->i32> ():
     0
 ```
 
-## deque_len_rejects_non_copy_payload
+## deque_len_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -631,10 +624,9 @@ fn main <()->i32> ():
     0
 ```
 
-## binary_heap_len_rejects_non_copy_payload
+## binary_heap_len_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -652,10 +644,9 @@ fn main <()->i32> ():
     0
 ```
 
-## list_len_rejects_non_copy_payload
+## list_len_allows_non_copy_payload_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -694,10 +685,9 @@ fn main <()->i32> ():
     0
 ```
 
-## btreemap_len_rejects_non_copy_value
+## btreemap_len_allows_non_copy_value_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4
@@ -715,10 +705,9 @@ fn main <()->i32> ():
     0
 ```
 
-## hashmap_len_rejects_non_copy_value
+## hashmap_len_allows_non_copy_value_metadata_observation
 
-neplg2:test[compile_fail]
-diag_code: type.trait_bound.unsatisfied
+neplg2:test
 ```neplg2
 #entry main
 #indent 4

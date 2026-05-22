@@ -1,3 +1,16 @@
+# 2026-05-22 Agent 1 Vec empty metadata constructor non-Copy
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、`Vec<T>` の zero-allocation empty constructor と payload lifecycle API の責務を分離した。`plan.md` と Zenn の開発方針は確認済みで変更していない。
+- `stdlib/alloc/collections/vec/storage/view.nepl` の `vec_empty<T>` から `.T: Copy` 境界を外した。これは `OwnedBuffer<T> 0 0 0 VecStorage<T>::Empty` だけを構築し、runtime allocation、`RegionToken<T>` owner、initialized slot を作らないため、payload copy / move-out / drop / storage release の権限を発生させない。
+- `new` / `with_capacity` / `vec_alloc_empty` / `push` / `clear` / `free` / payload access / `VecCopyInvariant` は引き続き Copy-only または Resource IR proof pending として残した。
+- source policy は `vec_empty<T>` を関数名だけで許可せず、zero-length Empty `OwnedBuffer` の exact shape と raw allocation / storage access の不在を検査するようにした。
+- `tests/stdlib/collection_cleanup_contract.n.md` に残っていた metadata observer の古い compile_fail 期待を、non-Copy payload の metadata observation が通る contract へ更新した。cleanup / payload-copying / owner-moving API の compile_fail は維持している。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/storage/view.nepl -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/vec-empty-noncopy-metadata.json -j 1 --dist web/dist --assert-io`: total=53, passed=53
+
 # 2026-05-22 Agent 1 collection metadata observers Copy-bound removal
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の P1 残件として、Vec 以外の collection borrowed metadata observer に残っていた不要な Copy 境界を整理した。`plan.md` は確認済みで変更していない。

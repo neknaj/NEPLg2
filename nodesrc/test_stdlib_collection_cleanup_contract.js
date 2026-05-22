@@ -12,6 +12,7 @@ const ownerAccessorInspected = [];
 const popOwnerAccessorInspected = [];
 const fallibleOwnerConsumerInspected = [];
 const ownerSurfaceInspected = [];
+const emptyOwnerMetadataConstructorInspected = [];
 const borrowedMetadataObserverInspected = [];
 const borrowedCopyInvariantObserverInspected = [];
 const borrowedPayloadCopyObserverInspected = [];
@@ -56,10 +57,16 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 : null;
             if (ownerSurfaceCopyRequirement && ownerSurfaceCopyRequirement.size > 0) {
                 ownerSurfaceInspected.push(`${relPath}:${signature.name}`);
+                const emptyOwnerMetadataConstructor = classifyEmptyOwnerMetadataConstructor(source, signature.name, typeSignature);
+                if (emptyOwnerMetadataConstructor) {
+                    emptyOwnerMetadataConstructorInspected.push(`${relPath}:${signature.name}`);
+                }
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
-                    violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
+                    if (!emptyOwnerMetadataConstructor) {
+                        const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
+                        violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
+                    }
                 }
             }
             const borrowedMetadataObserverGenerics = signature && generics.length > 0
@@ -234,6 +241,12 @@ for (const expected of [
         `collection owner surface policy did not inspect expected signature: ${expected}`,
     );
 }
+
+assert.deepEqual(
+    emptyOwnerMetadataConstructorInspected,
+    ['stdlib/alloc/collections/vec/storage/view.nepl:vec_empty'],
+    'only structurally proven zero-allocation Empty owner constructors may omit Copy on owner-producing generic collection surfaces',
+);
 
 assert.ok(
     borrowedMetadataObserverInspected.length >= 26,
@@ -491,6 +504,51 @@ function collectionOwnerSurfaceCopyRequirement(typeSignature) {
     }
 
     return required;
+}
+
+function classifyEmptyOwnerMetadataConstructor(source, functionName, typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 0) {
+        return null;
+    }
+
+    const returnType = functionType.returnType.trim();
+    if (returnType !== 'Vec<.T>') {
+        return null;
+    }
+
+    const section = implementationFunctionSection(source, functionName);
+    if (!section) {
+        return null;
+    }
+
+    const constructsEmptyOwnedBuffer = /Vec<\.T>\s+\(OwnedBuffer<\.T>\s+0\s+0\s+0\s+VecStorage<\.T>::Empty\)/.test(section);
+    const touchesRuntimeStorage = /\b(?:alloc_region|alloc_region_bytes|dealloc_region|realloc_region|mem_ptr_wrap|field::get|field::get_ref|load<|store<)\b|VecStorage<\.T>::Owned/.test(section);
+    if (!constructsEmptyOwnedBuffer || touchesRuntimeStorage) {
+        return null;
+    }
+
+    return { kind: 'empty-owner-metadata-constructor' };
+}
+
+function implementationFunctionSection(source, functionName) {
+    const startPattern = new RegExp(`(?:^|\\n)\\s*(?:pub\\s+)?fn\\s+${functionName}\\b`);
+    const startMatch = startPattern.exec(source);
+    if (!startMatch) {
+        return null;
+    }
+
+    const startIndex = startMatch.index;
+    const rest = source.slice(startIndex + startMatch[0].length);
+    const nextMatch = /\n\s*(?:pub\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*\b/.exec(rest);
+    if (!nextMatch) {
+        return source.slice(startIndex);
+    }
+    return source.slice(startIndex, startIndex + startMatch[0].length + nextMatch.index);
 }
 
 function borrowedPayloadStorageViewCopyRequirement(typeSignature) {

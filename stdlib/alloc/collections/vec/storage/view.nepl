@@ -6,7 +6,6 @@
 
 #indent 4
 
-#import "core/traits/copy" as *
 #import "../types" as *
 
 //: ## vec_empty
@@ -14,11 +13,12 @@
 //:
 //: ### [目的/もくてき]
 //: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorage::Empty` で空 storage を[表/あらわ]します。
-//: - `OwnedBuffer<T>` と initialized prefix drop traversal が[完成/かんせい]するまでは、`Vec<T>` 自体も `.T: Copy` の public collection owner としてだけ[作/つく]ります。
+//: - `Empty` storage は runtime allocation、`RegionToken<T>` owner、initialized slot をどれも[持/も]たないため、payload の copy / move-out / drop / storage release 権限を[発生/はっせい]させません。
+//: - そのため、この constructor だけは non-Copy payload の `Vec<T>` metadata owner を[作/つく]れます。
 //:
 //: ### [制約/せいやく]
 //: - Empty state は runtime allocation も `RegionToken<T>` owner も[持/も]ちません。
-//: - non-Copy payload を[許/ゆる]すと、後続の `free` / `clear` / `push` / `pop` が扱えない `Vec<NonCopyPayload>` を safe surface へ[出/だ]せます。
-//: - non-Copy collection は、compiler-issued owner token と initialized/moved/drop state による `OwnedBuffer<T>` 設計へ[移行/いこう]してから別 API として[解禁/かいきん]します。
-pub fn vec_empty <.T: Copy> <()->Vec<.T>> ():
+//: - `new` / `with_capacity` / `vec_alloc_empty` / `push` / `clear` / `free` / payload access は storage allocation、initialized slot、または payload lifecycle を扱うため、Resource IR proof へ接続されるまでは Copy-only のままです。
+//: - non-Copy payload に対して許されるのは、空 storage の metadata observation だけです。payload move/drop と storage release は compiler-issued owner token と initialized/moved/drop state の証明により別途[扱/あつか]います。
+pub fn vec_empty <.T> <()->Vec<.T>> ():
     Vec<.T> (OwnedBuffer<.T> 0 0 0 VecStorage<.T>::Empty)
