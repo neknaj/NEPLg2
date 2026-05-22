@@ -249,6 +249,8 @@ mod initialized_alias_tests;
 mod initialized_alias_type_size;
 mod initialized_alias_utils;
 mod initialized_availability;
+mod initialized_availability_collection;
+mod initialized_availability_diagnostic;
 mod initialized_call;
 mod initialized_call_args;
 mod initialized_call_effect;

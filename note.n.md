@@ -44861,3 +44861,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_raw_dealloc -- --test-threads=1 --nocapture`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed
+
+## 2026-05-22 Agent 1 initialized availability responsibility split
+
+- `ISS-20260522T025248689Z-INITIALIZED-AVAILABILITY-MODULE-EXCE-CF822B46` を fixed にした。`plan.md` は変更していない。
+- 根本原因は、`initialized_availability.rs` が通常の cell availability / by-value consumption と、collection slot state による raw realloc 前の live non-Copy raw cell 証明、CellUnavailable diagnostic emission を同居させていたこと。
+- `initialized_availability.rs` は availability / consumption 本体に絞り、collection slot proof は `initialized_availability_collection.rs`、diagnostic emission は `initialized_availability_diagnostic.rs` へ分離した。
+- `node nodesrc/test_resource_checker_responsibility.js` はこの blocker を通過し、次の既存 blocker として `initialized_raw_memory.rs` 198/190 行超過を検出したため、別 issue `ISS-20260522T030231180Z-INITIALIZED-RAW-MEMORY-DISPATCHER-EX-3FB72BA0` として分離した。
+- focused verification:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_realloc_rekeys_collection_managed_non_copy_raw_cell -- --test-threads=1 --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_relocate_accepts_live_non_copy_payload_after_realloc -- --test-threads=1 --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_raw_dealloc -- --test-threads=1 --nocapture`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed

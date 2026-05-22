@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T02:53:42.154Z",
+  "generated_at": "2026-05-22T03:03:22.419Z",
   "counts": {
-    "total": 1216,
+    "total": 1217,
     "open": 4,
-    "resolved": 1212,
+    "resolved": 1213,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -12,9 +12,9 @@
         "resolved": 310
       },
       "core": {
-        "total": 599,
+        "total": 600,
         "open": 1,
-        "resolved": 598
+        "resolved": 599
       },
       "selfhost": {
         "total": 110,
@@ -155,8 +155,8 @@
       "file": "items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md"
     },
     {
-      "id": "ISS-20260522T025248689Z-INITIALIZED-AVAILABILITY-MODULE-EXCE-CF822B46",
-      "title": "initialized availability module exceeds responsibility limit",
+      "id": "ISS-20260522T030231180Z-INITIALIZED-RAW-MEMORY-DISPATCHER-EX-3FB72BA0",
+      "title": "initialized raw memory dispatcher exceeds responsibility limit again",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -164,10 +164,10 @@
       "type": "maintenance",
       "created": "2026-05-22",
       "updated": "2026-05-22",
-      "target": "nepl-core/src/resource/initialized_availability.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_raw_memory.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260522T025248689Z-INITIALIZED-AVAILABILITY-MODULE-EXCE-CF822B46.md"
+      "file": "items/ISS-20260522T030231180Z-INITIALIZED-RAW-MEMORY-DISPATCHER-EX-3FB72BA0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -16428,6 +16428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T023831896Z-COLLECTION-SLOT-RELEASE-ALIAS-MODULE-0B5B1690.md"
+    },
+    {
+      "id": "ISS-20260522T025248689Z-INITIALIZED-AVAILABILITY-MODULE-EXCE-CF822B46",
+      "title": "initialized availability module exceeds responsibility limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/initialized_availability.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T025248689Z-INITIALIZED-AVAILABILITY-MODULE-EXCE-CF822B46.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",
