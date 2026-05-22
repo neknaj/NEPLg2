@@ -1,3 +1,15 @@
+# 2026-05-22 Agent 1 Vec pop Copy tail MoveOut lifecycle
+
+- `ISS-20260522T210245685Z-VEC-POP-MUST-MOVE-OUT-REMOVED-SLOT-T-8E07FCEA` を追加して解決した。`plan.md` は確認済みで、変更していない。
+- `Vec.push` が initialized slot state を作るようになったため、`Vec.pop<T: Copy>` も removed tail slot を raw load するだけではなく `collection_slot_move_out` で明示的に閉じる必要があった。
+- `vec_pop_copy_move_out_initialized_slot<T>` を private helper として追加し、raw load と `collection_slot_move_out` marker を同じ source boundary に置いた。public `pop` body は `VecStorageInvariant` を match し、raw pointer operation / marker / `VecDataView` / `VecCopyInvariant` を open-code しない。
+- non-Copy `pop` はまだ解禁していない。`VecPop<T>` から `Vec<T>` と `Option<T>` の両 owner を取り出す consuming API 設計が必要なため、現時点では `.T: Copy` 境界と `vec_pop_vec<T: Copy>` policy を維持する。
+- focused verification:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_copy_pop_moves_out_tail_slot -- --test-threads=1 --exact --nocapture`
+
 # 2026-05-22 Agent 1 Vec drop_last Drop payload lifecycle
 
 - `ISS-20260522T095020801Z-VEC-DROP-LAST-MUST-CLOSE-REMOVED-SLO-3691EA21` を解決した。`plan.md` は確認済みで、変更していない。

@@ -16099,6 +16099,92 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_vec_copy_pop_moves_out_tail_slot() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>
+    let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v0 7
+    let v2 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v1 9
+    let popped <VecPop<i32>> pop<i32> v2
+    let item <Option<i32>> vec_pop_item<i32> &popped
+    let next <Vec<i32>> vec_pop_vec<i32> popped
+    free<i32> next
+    match item:
+        Option::Some value:
+            value
+        Option::None:
+            1
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("push__")
+                    || function.starts_with("vec_push_storage_checked__")
+                    || function.starts_with("vec_push_slot_store_initialized__")
+                    || function.starts_with("pop__")
+                    || function.starts_with("vec_pop_copy_move_out_initialized_slot__")
+                    || function.starts_with("vec_pop_item__")
+                    || function.starts_with("vec_pop_vec__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec<i32>.pop must move out the removed Copy tail slot before free: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_pop_copy_move_out_initialized_slot"
+                && resource_function_ops_any(function, |op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event: CollectionSlotLifecycleEvent::MoveOut { .. },
+                            ..
+                        }
+                    )
+                })
+        }),
+        "Copy pop helper must emit single-slot MoveOut state proof:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        report
+            .functions
+            .iter()
+            .find(|function| function.name.starts_with("main__"))
+            .is_some_and(|function| {
+                function
+                    .final_collection_slots
+                    .iter()
+                    .all(|entry| !matches!(entry.state, CollectionSlotState::Initialized(_)))
+            }),
+        "main must not retain initialized Copy Vec slots after pop/free: {:#?}",
+        report.functions
+    );
+}
+
+#[test]
 fn resource_ir_initialized_check_vec_drop_drop_last_closes_tail_slot() {
     let source = r#"
 #entry main

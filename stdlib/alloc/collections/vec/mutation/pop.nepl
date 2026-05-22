@@ -15,9 +15,23 @@
 #import "core/traits/drop" as *
 #import "../types" as *
 #import "../storage" as vec_storage
-#import "../access/data" as *
 #import "../invariant" as *
 #import "core/field" as *
+
+//: ## vec_pop_copy_move_out_initialized_slot
+//: Copy payload の末尾 slot を raw load し、Resource IR 上で moved-out にする private helper
+//:
+//: ### [目的/もくてき]
+//: - `.T: Copy` の `pop` は caller に値を返すため、removed tail slot を raw load します。
+//: - raw load だけでは backing storage 上の initialized slot state が残るため、同じ source boundary で `collection_slot_move_out` marker を[発行/はっこう]します。
+//: - public `pop` body は raw pointer operation や lifecycle marker を open-code せず、`VecStorageInvariant` で metadata / extent を[検査/けんさ]してからこの helper に委譲します。
+fn vec_pop_copy_move_out_initialized_slot <.T: Copy> <(&RegionToken<.T>,i32)->.T> (storage, byte_off):
+    let data <MemPtr<.T>> region_ptr storage
+    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
+    let raw <i32> mem_ptr_addr slot
+    let loaded <.T> load<.T> raw
+    #intrinsic "collection_slot_move_out" <.T> (storage, byte_off)
+    loaded
 
 //: ## pop
 //: [末尾/まつび][要素/ようそ]を[取/と]り[出/だ]す
@@ -32,7 +46,7 @@
 //: ### [注意/ちゅうい]
 //: - [返/かえ]り[値/あたい]は `VecPop<.T>` です。
 //: - [確保/かくほ]も[解放/かいほう]も[行/おこな]わないため O(1) です。
-//: - [現行/げんこう]の `pop` は `.T: Copy` に[限定/げんてい]します。`OwnedBuffer<T>` と initialized cell の moved/uninitialized [状態/じょうたい]が[入/はい]るまでは、non-Copy payload を raw `load` で[取/と]り[出/だ]した[後/あと]の storage cell [状態/じょうたい]を[安全/あんぜん]に[表現/ひょうげん]できないためです。
+//: - [現行/げんこう]の `pop` は `.T: Copy` に[限定/げんてい]します。removed tail slot の move-out proof は private helper で Resource IR に[渡/わた]していますが、non-Copy payload では `VecPop<T>` から `Vec<T>` と `Option<T>` の両 owner を同時に取り出す consuming API がまだ未設計なためです。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -75,32 +89,26 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
     let v_len <i32> *field::get_ref v_buffer_ref "len"
     let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
     let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant <VecCopyInvariant> vec_buffer_current_copy_invariant<.T> v_buffer_ref
-    let v_data_view <VecDataView<.T>> data_mem_view<.T> &v
+    let v_invariant <VecStorageInvariant> vec_buffer_current_storage_invariant<.T> v_buffer_ref
     let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
     let v_storage <VecStorage<.T>> field::get v_buffer "storage"
     match v_invariant:
-        VecCopyInvariant::Invalid _reason:
+        VecStorageInvariant::Invalid _reason:
             VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
-        VecCopyInvariant::Valid:
+        VecStorageInvariant::Valid:
             if:
                 eq v_len 0
                 then:
                     VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
                 else:
+                    let next_len <i32> sub v_len 1
                     match v_storage:
                         VecStorage::Empty:
                             VecPop<.T> vec_storage::vec_empty<.T> none<.T>
                         VecStorage::Owned v_region:
-                            match v_data_view:
-                                VecDataView::Empty:
-                                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned v_region))) none<.T>
-                                VecDataView::Invalid _reason:
-                                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned v_region))) none<.T>
-                                VecDataView::Data v_data:
-                                    let next_len <i32> sub v_len 1
-                                    let item <.T> load<.T> add mem_ptr_addr v_data mul next_len size_of<.T>
-                                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
+                            let byte_off <i32> mul next_len size_of<.T>
+                            let item <.T> vec_pop_copy_move_out_initialized_slot<.T> &v_region byte_off
+                            VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
 
 //: ## vec_drop_last_copy_initialized_slot
 //: Copy payload の末尾 slot を Resource IR 上で cleanup 済みにする private helper

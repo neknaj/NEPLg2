@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T20:56:12.571Z",
+  "generated_at": "2026-05-22T21:11:05.239Z",
   "counts": {
-    "total": 1229,
+    "total": 1230,
     "open": 3,
-    "resolved": 1226,
+    "resolved": 1227,
     "by_area": {
       "stdlib": {
-        "total": 317,
+        "total": 318,
         "open": 2,
-        "resolved": 315
+        "resolved": 316
       },
       "selfhost": {
         "total": 110,
@@ -14508,6 +14508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T095020801Z-VEC-DROP-LAST-MUST-CLOSE-REMOVED-SLO-3691EA21.md"
+    },
+    {
+      "id": "ISS-20260522T210245685Z-VEC-POP-MUST-MOVE-OUT-REMOVED-SLOT-T-8E07FCEA",
+      "title": "Vec pop must move out removed slot through Resource IR proof",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/mutation/pop.nepl, stdlib/alloc/collections/vec/types.nepl, nepl-core/tests/resource_ir.rs, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T210245685Z-VEC-POP-MUST-MOVE-OUT-REMOVED-SLOT-T-8E07FCEA.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
