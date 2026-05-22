@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T07:48:39.212Z",
+  "generated_at": "2026-05-22T08:07:32.852Z",
   "counts": {
-    "total": 1222,
+    "total": 1223,
     "open": 3,
-    "resolved": 1219,
+    "resolved": 1220,
     "by_area": {
       "stdlib": {
-        "total": 313,
+        "total": 314,
         "open": 2,
-        "resolved": 311
+        "resolved": 312
       },
       "selfhost": {
         "total": 110,
@@ -14403,6 +14403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D.md"
+    },
+    {
+      "id": "ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9",
+      "title": "Vec reallocation helper still requires Copy despite storage-only ownership",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/mutation/push.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

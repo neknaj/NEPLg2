@@ -15756,6 +15756,96 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_storage_realloc_helper_accepts_drop_payload_without_copy() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn local_realloc_region_or_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, RegionReallocError<.T>>> (region, new_cap):
+    let elem_size <i32> size_of<.T>
+    let new_bytes <i32> mul new_cap elem_size
+    match realloc_region_bytes_keep<.T> region new_bytes:
+        Result::Ok grown_region:
+            Result::Ok<RegionToken<.T>, RegionReallocError<.T>> grown_region
+        Result::Err e:
+            Result::Err<RegionToken<.T>, RegionReallocError<.T>> e
+
+fn main <()*>i32> ():
+    match alloc_region<DropPayload> 1:
+        Result::Ok region:
+            match local_realloc_region_or_keep<DropPayload> region 2:
+                Result::Ok grown:
+                    match dealloc_region<DropPayload> grown:
+                        Result::Ok _:
+                            0
+                        Result::Err _:
+                            1
+                Result::Err e:
+                    let old <RegionToken<DropPayload>> region_realloc_error_region<DropPayload> e
+                    match dealloc_region<DropPayload> old:
+                        Result::Ok _:
+                            0
+                        Result::Err _:
+                            1
+        Result::Err _:
+            0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("local_realloc_region_or_keep__")
+                    || function.starts_with("realloc_region_bytes_keep__")
+                    || function.starts_with("region_realloc_error_region__")
+                    || function.starts_with("dealloc_region__")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "storage-only RegionToken realloc helper must accept Drop payloads without Copy slot proof: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .any(|function| function.origin_name == "local_realloc_region_or_keep"),
+        "Drop payload storage-only realloc helper must be monomorphized without requiring Copy:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .all(|function| function.origin_name != "vec_buffer_current_copy_invariant"),
+        "storage-only realloc must not route through Vec Copy raw-access invariant:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_initialized_check_vec_drop_with_capacity_clear_free_closes_empty_stdlib_lifecycle() {
     let source = r#"
 #entry main

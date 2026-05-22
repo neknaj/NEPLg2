@@ -1,3 +1,12 @@
+# 2026-05-22 Agent 1 Vec storage-only realloc helper Copy-bound removal
+
+- `ISS-20260522T075552429Z-VEC-REALLOCATION-HELPER-STILL-REQUIR-3BDD08E9` を解決した。`plan.md` は確認済みで、変更していない。
+- `Vec` grow の `vec_realloc_region_or_keep<T>` は `RegionToken<T>` storage owner の再確保と失敗時回収だけを扱うにもかかわらず `.T: Copy` を要求していたため、non-Copy `push` / grow の前提を不必要に狭めていた。
+- `VecReallocRegionError<T>`、`vec_realloc_region_error_kind<T>`、`vec_realloc_region_or_keep<T>` を `push.nepl` 内 private 境界へ閉じ、`vec_realloc_region_or_keep<T>` から `.T: Copy` を外した。
+- `vec_realloc_region_error_region<T>` は削除した。旧 `RegionToken<T>` owner の回収は public accessor にせず、`push` の private grow failure branch で `VecPushError<T>` へ包み直す。
+- source policy は public owner recovery accessor の Copy-only 方針を維持しつつ、private storage-only RegionToken realloc helper を構造で識別するように更新した。
+- `nepl-core/tests/resource_ir.rs` に `DropPayload` の storage-only realloc helper が Copy raw-access invariant を通らず Resource IR check できる回帰テストを追加した。
+
 # 2026-05-22 Agent 1 Vec storage invariant split
 
 - `ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D` を解決した。`plan.md` は確認済みで、変更していない。
