@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-21T23:58:40.331Z",
+  "generated_at": "2026-05-22T00:33:31.562Z",
   "counts": {
-    "total": 1207,
+    "total": 1208,
     "open": 3,
-    "resolved": 1204,
+    "resolved": 1205,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -27,9 +27,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 591,
+        "total": 592,
         "open": 0,
-        "resolved": 591
+        "resolved": 592
       },
       "CORE": {
         "total": 5,
@@ -9183,6 +9183,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T232236770Z-DROP-TRAVERSAL-RANGE-WITNESS-MISSES--0623A850.md"
+    },
+    {
+      "id": "ISS-20260522T001042250Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-TRE-E748C0BF",
+      "title": "Drop traversal range certificate treats expression output anchor writes as preserving",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/collection_slot_summary_build_range_lifetime.rs, nepl-core/src/resource/collection_slot_summary_build_range_step.rs, nepl-core/src/resource/collection_slot_summary_build_range_step_expr.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T001042250Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-TRE-E748C0BF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

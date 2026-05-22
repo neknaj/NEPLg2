@@ -1,13 +1,11 @@
 extern crate alloc;
 
-use alloc::vec;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 
-use crate::ast::Effect;
-
-use super::model::{
-    EffectOp, Place, RawMemoryOp, ResourceCallTarget, ResourceExprKind, ResourceOp,
+use super::collection_slot_summary_build_range_step_expr::{
+    effect_is_proof_pure, loop_step_expr_effect, LoopStepExprEffect,
 };
+use super::model::{EffectOp, Place, RawMemoryOp, ResourceCallTarget, ResourceOp};
 use super::place_utils::place_suffix_after_prefix;
 
 pub(super) fn loop_body_increment_step(ops: &[ResourceOp], index: &Place) -> Option<usize> {
@@ -18,22 +16,27 @@ pub(super) fn loop_body_increment_step(ops: &[ResourceOp], index: &Place) -> Opt
     let mut step = None;
     for (op_index, op) in ops.iter().enumerate() {
         match op {
-            ResourceOp::Expr {
-                kind: ResourceExprKind::LiteralI32(1),
-                output,
-                ..
-            } => push_place(&mut one_values, output),
-            ResourceOp::Expr {
-                kind:
-                    ResourceExprKind::LocalRead | ResourceExprKind::Call | ResourceExprKind::Intrinsic,
-                ..
-            } => {}
-            ResourceOp::Expr { output, .. } => clear_place_facts(
-                output,
-                &mut index_aliases,
-                &mut one_values,
-                &mut increment_values,
-            ),
+            ResourceOp::Expr { kind, output, .. } => {
+                match loop_step_expr_effect(kind, output, &index) {
+                    LoopStepExprEffect::Marker => {}
+                    LoopStepExprEffect::Reject => return None,
+                    LoopStepExprEffect::LiteralOne(output) => {
+                        clear_place_facts(
+                            output,
+                            &mut index_aliases,
+                            &mut one_values,
+                            &mut increment_values,
+                        );
+                        push_place(&mut one_values, output);
+                    }
+                    LoopStepExprEffect::Clear(output) => clear_place_facts(
+                        output,
+                        &mut index_aliases,
+                        &mut one_values,
+                        &mut increment_values,
+                    ),
+                }
+            }
             ResourceOp::Read { source, output, .. } | ResourceOp::Move { source, output, .. } => {
                 if place_in(&index_aliases, source) {
                     push_place(&mut index_aliases, output);
@@ -166,17 +169,6 @@ fn i32_adds_one_to_index(
     };
     (place_in(index_aliases, left) && place_in(one_values, right))
         || (place_in(index_aliases, right) && place_in(one_values, left))
-}
-
-fn effect_is_proof_pure(effect: &EffectOp) -> bool {
-    matches!(
-        effect,
-        EffectOp::Pure
-            | EffectOp::UserCall {
-                effect: Effect::Pure,
-                ..
-            }
-    )
 }
 
 fn place_touches(left: &Place, right: &Place) -> bool {

@@ -13,6 +13,17 @@ fn collection_slot_summary_loop_induction_certifies_forall_drop_traversal() {
 }
 
 #[test]
+fn collection_slot_summary_loop_induction_rejects_expr_index_overwrite() {
+    let out =
+        collect_loop_induction_summary_ops(LoopBodyInterference::OverwriteIndexWithOneBeforeStep);
+
+    assert!(
+        !has_forall_range_summary(&out),
+        "an expression output that overwrites the loop index must not preserve the one-step proof: {out:#?}"
+    );
+}
+
+#[test]
 fn collection_slot_summary_loop_induction_rejects_tail_storage_mutation() {
     let out = collect_loop_induction_summary_ops(LoopBodyInterference::AssignStorageAfterStep);
 

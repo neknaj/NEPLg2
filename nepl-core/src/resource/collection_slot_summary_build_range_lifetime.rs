@@ -2,7 +2,7 @@ use crate::types::TypeCtx;
 
 use super::collection_slot_summary_build_state::CollectionSlotDropTraversalRangeCertificateCandidate;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, RawMemoryOp, ResourceExprKind, ResourceMatchArm, ResourceOp};
+use super::model::{Place, RawMemoryOp, ResourceMatchArm, ResourceOp};
 use super::place_utils::place_suffix_after_prefix;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,17 +43,10 @@ fn op_invalidates(
     op: &ResourceOp,
 ) -> bool {
     match op {
-        ResourceOp::Expr {
-            kind:
-                ResourceExprKind::LocalRead
-                | ResourceExprKind::Call
-                | ResourceExprKind::Intrinsic
-                | ResourceExprKind::Loop,
-            ..
+        ResourceOp::Expr { output, .. } | ResourceOp::Read { output, .. } => {
+            writes_candidate_anchor_direct(candidate, output)
         }
-        | ResourceOp::Read { .. } => false,
-        ResourceOp::Expr { output, .. }
-        | ResourceOp::Borrow { output, .. }
+        ResourceOp::Borrow { output, .. }
         | ResourceOp::FunctionValue { output, .. }
         | ResourceOp::RawAddressAlias { target: output, .. }
         | ResourceOp::RawAddressView { target: output, .. }
@@ -245,6 +238,13 @@ fn writes_candidate_anchor(
 ) -> bool {
     touches_candidate_storage(raw_aliases, candidate, place)
         || touches_candidate_count(raw_aliases, candidate, place)
+}
+
+fn writes_candidate_anchor_direct(
+    candidate: &CollectionSlotDropTraversalRangeCertificateCandidate,
+    place: &Place,
+) -> bool {
+    places_touch(place, &candidate.storage) || places_touch(place, &candidate.initialized_count)
 }
 
 fn consumes_candidate_anchor(

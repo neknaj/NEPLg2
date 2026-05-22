@@ -44759,3 +44759,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_resource_checker_responsibility.js`: passed
   - `node nodesrc/issues.js check --dir issues`: passed
   - `git diff --check`: passed with CRLF normalization warnings only
+
+## 2026-05-22 Agent 1 drop traversal certificate expression-output anchor writes
+
+- `ISS-20260522T001042250Z-DROP-TRAVERSAL-RANGE-CERTIFICATE-TRE-E748C0BF` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、full-range drop traversal certificate の寿命判定が `ResourceOp::Expr` / `Read` を一律 preserve 側へ寄せており、output が `storage` または `initialized_count` 自体を直接上書きする場合も certificate を維持できたこと。
+- `collection_slot_summary_build_range_lifetime` は、`Expr` / `Read` の output が certificate anchor を直接上書きする場合だけ失効させる。`Read storage -> temporary` や source lowering が `Call` / `Read` の後に出す `Expr::Call` / `Expr::LocalRead` の分類 marker は実値生成 op ではないため、不必要には失効させない。
+- loop induction step recognizer は `LiteralI32(1)` などの expression output が loop index 自体を書き換える body を `i += 1` proof として扱わないようにした。
+- subagent 監査では、Resource IR の enum / match / generic proof boundary は現方針に概ね合っている一方、実 `Vec<T>` の non-Copy public lifecycle はまだ Copy-only API から移行していないと確認した。この残件は親 issue `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` に追記した。
+- focused verification:
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_induction -- --nocapture`: passed
+  - `cargo test -p nepl-core --lib collection_slot_summary_loop_certificate -- --nocapture`: passed
+  - `cargo test -p nepl-core --test collection_slot_full_range -- --nocapture`: passed

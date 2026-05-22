@@ -1,10 +1,8 @@
 extern crate alloc;
-
-use alloc::{boxed::Box, string::ToString, vec, vec::Vec};
-
 use crate::ast::Effect;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
+use alloc::{boxed::Box, string::ToString, vec, vec::Vec};
 
 use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
@@ -27,6 +25,7 @@ use super::report::ResourceCheckDeferred;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum LoopBodyInterference {
     None,
+    OverwriteIndexWithOneBeforeStep,
     AssignStorageAfterStep,
     MoveToStorageAfterStep,
     MoveToInitializedCountAfterStep,
@@ -112,7 +111,7 @@ pub(super) fn collect_loop_induction_summary_ops(
                 name: "add".to_string(),
                 type_args: Vec::new(),
             },
-            args: vec![index.clone(), one],
+            args: vec![index.clone(), one.clone()],
             effect: EffectOp::Pure,
             span,
         },
@@ -124,6 +123,9 @@ pub(super) fn collect_loop_induction_summary_ops(
     ];
     match interference {
         LoopBodyInterference::None => {}
+        LoopBodyInterference::OverwriteIndexWithOneBeforeStep => {
+            body_ops.insert(3, literal_i32_op(1, index.clone(), i32_ty, span));
+        }
         LoopBodyInterference::AssignStorageAfterStep => {
             body_ops.push(literal_i32_op(7, replacement_storage.clone(), i32_ty, span));
             body_ops.push(ResourceOp::Assign {
