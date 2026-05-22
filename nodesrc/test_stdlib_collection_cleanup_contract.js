@@ -17,6 +17,7 @@ const borrowedMetadataObserverInspected = [];
 const borrowedCopyInvariantObserverInspected = [];
 const borrowedPayloadCopyObserverInspected = [];
 const borrowedStorageViewInspected = [];
+const privateLifecycleProofHelperInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -56,14 +57,21 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 ? collectionOwnerSurfaceCopyRequirement(typeSignature)
                 : null;
             if (ownerSurfaceCopyRequirement && ownerSurfaceCopyRequirement.size > 0) {
-                ownerSurfaceInspected.push(`${relPath}:${signature.name}`);
+                const privateLifecycleProofHelper = !signature.isPublic
+                    ? classifyPrivateCollectionLifecycleProofHelper(source, signature.name)
+                    : null;
+                if (privateLifecycleProofHelper) {
+                    privateLifecycleProofHelperInspected.push(`${relPath}:${signature.name}`);
+                } else {
+                    ownerSurfaceInspected.push(`${relPath}:${signature.name}`);
+                }
                 const emptyOwnerMetadataConstructor = classifyEmptyOwnerMetadataConstructor(source, signature.name, typeSignature);
                 if (emptyOwnerMetadataConstructor) {
                     emptyOwnerMetadataConstructorInspected.push(`${relPath}:${signature.name}`);
                 }
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy until collection drop traversal exists`);
                     }
@@ -242,6 +250,15 @@ for (const expected of [
     );
 }
 
+for (const expected of [
+    'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_slot_store_initialized',
+]) {
+    assert.ok(
+        privateLifecycleProofHelperInspected.some((entry) => entry.includes(expected)),
+        `collection policy did not structurally classify expected private lifecycle proof helper: ${expected}`,
+    );
+}
+
 assert.deepEqual(
     emptyOwnerMetadataConstructorInspected,
     ['stdlib/alloc/collections/vec/storage/view.nepl:vec_empty'],
@@ -345,7 +362,7 @@ for (const expected of [
     );
 }
 
-assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed Copy-invariant proof observers, borrowed payload-copying observers, and borrowed payload storage views must remain Copy-only:\n${violations.join('\n')}`);
+assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed Copy-invariant proof observers, borrowed payload-copying observers, borrowed payload storage views, and public lifecycle surfaces must remain Copy-only:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
 
@@ -370,11 +387,11 @@ function readImplementation(relPath) {
 }
 
 function parseFunctionSignature(line) {
-    const match = line.match(/^\s*(?:pub\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*(.*)$/);
+    const match = line.match(/^\s*(pub\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*(.*)$/);
     if (!match) {
         return null;
     }
-    return { name: match[1], afterName: match[2].trimStart() };
+    return { isPublic: Boolean(match[1]), name: match[2], afterName: match[3].trimStart() };
 }
 
 function isCleanupFunction(name) {
@@ -533,6 +550,48 @@ function classifyEmptyOwnerMetadataConstructor(source, functionName, typeSignatu
     }
 
     return { kind: 'empty-owner-metadata-constructor' };
+}
+
+function classifyPrivateCollectionLifecycleProofHelper(source, functionName) {
+    const section = implementationFunctionSection(source, functionName);
+    if (!section || /^\s*pub\s+fn\b/.test(section)) {
+        return null;
+    }
+
+    const markers = [...section.matchAll(/#intrinsic\s+"(collection_slot_[^"]+)"/g)].map((match) => match[1]);
+    if (markers.length === 0) {
+        return null;
+    }
+
+    if (!markers.every((marker) => markerHasLocalRawLifecycleEvidence(section, marker))) {
+        return null;
+    }
+
+    return { kind: 'private-collection-lifecycle-proof-helper' };
+}
+
+function markerHasLocalRawLifecycleEvidence(section, marker) {
+    switch (marker) {
+        case 'collection_slot_initialize_empty':
+            return /\bstore<[^>]+>/.test(section);
+        case 'collection_slot_move_out':
+        case 'collection_slot_borrow_read':
+            return /\bload<[^>]+>/.test(section);
+        case 'collection_slot_drop_initialized':
+            return /\bload<[^>]+>[\s\S]*\bDrop::drop\b/.test(section);
+        case 'collection_slot_drop_traversal':
+            return /\bwhile\b[\s\S]*\bload<[^>]+>[\s\S]*\bDrop::drop\b/.test(section);
+        case 'collection_slot_storage_dealloc':
+            return /\b(?:dealloc_region|dealloc_raw|allocator::dealloc_raw|allocator::dealloc_region)\b/.test(section);
+        case 'collection_slot_storage_relocate':
+            return /\b(?:realloc_region|realloc_raw|allocator::realloc_raw|allocator::realloc_region)\b/.test(section);
+        case 'collection_slot_replace_return_old':
+            return /\bload<[^>]+>[\s\S]*\bstore<[^>]+>/.test(section);
+        case 'collection_slot_replace_drop_old':
+            return /\bload<[^>]+>[\s\S]*\bDrop::drop\b[\s\S]*\bstore<[^>]+>/.test(section);
+        default:
+            return false;
+    }
 }
 
 function implementationFunctionSection(source, functionName) {

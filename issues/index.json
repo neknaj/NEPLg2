@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T03:33:48.063Z",
+  "generated_at": "2026-05-22T05:22:41.000Z",
   "counts": {
-    "total": 1219,
+    "total": 1220,
     "open": 3,
-    "resolved": 1216,
+    "resolved": 1217,
     "by_area": {
       "stdlib": {
         "total": 312,
@@ -116,6 +116,11 @@
         "open": 0,
         "resolved": 1
       },
+      "tooling": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
+      },
       "tools": {
         "total": 7,
         "open": 0,
@@ -130,11 +135,6 @@
         "total": 2,
         "open": 0,
         "resolved": 2
-      },
-      "tooling": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
       }
     }
   },
@@ -15513,6 +15513,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A.md"
+    },
+    {
+      "id": "ISS-20260522T052027322Z-COLLECTION-CLEANUP-POLICY-MISCLASSIF-563F7F4F",
+      "title": "Collection cleanup policy misclassifies private lifecycle proof helpers",
+      "area": "tooling",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nodesrc/test_stdlib_collection_cleanup_contract.js, stdlib/alloc/collections/vec/mutation/*.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T052027322Z-COLLECTION-CLEANUP-POLICY-MISCLASSIF-563F7F4F.md"
     },
     {
       "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",

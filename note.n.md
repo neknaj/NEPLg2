@@ -1,3 +1,15 @@
+# 2026-05-22 Agent 1 collection cleanup policy private lifecycle helper classification
+
+- `ISS-20260522T052027322Z-COLLECTION-CLEANUP-POLICY-MISCLASSIF-563F7F4F` を追加し、`nodesrc/test_stdlib_collection_cleanup_contract.js` が non-`pub` lifecycle proof helper を public owner surface と誤分類する問題を修正した。
+- `vec_push_slot_store_initialized` のような helper は、public API ではなく marker authority を同一 implementation boundary に閉じるための private proof helper である。検査は関数名 allowlist ではなく、non-`pub` かつ `collection_slot_*` marker と対応 raw operation が同一 body にある構造を要求する。
+- public collection API / ordinary owner surface / borrowed payload observer / Copy-invariant observer の Copy-only 監視は維持した。private helper を public 化した場合は private lifecycle helper 分類に入らない。
+- 検証:
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`（CRLF warning のみ）
+
 # 2026-05-22 Agent 1 Vec push Resource IR lifecycle regression
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` の回帰テスト補強として、実 `alloc/collections/vec` を import した `Vec.push` が `CollectionSlotLifecycleEvent::InitializeEmpty` へ lower されることを Rust 側で検査する。
