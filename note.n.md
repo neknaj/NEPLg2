@@ -1,3 +1,16 @@
+# 2026-05-22 Agent 1 Vec pop policy/doc sync
+
+- `ISS-20260522T231155242Z-VEC-POP-POLICY-AND-DOCS-STILL-DESCRI-54A525A5` を追加して fixed にした。`Vec.pop` の Drop payload 対応後に、root facade doc と borrowed observer policy がまだ Copy-only 前提で説明していた問題を解消した。`plan.md` は確認済みで、変更していない。
+- `stdlib/alloc/collections/vec.nepl` と `vec/types.nepl` の説明を、`pop<T: Copy>` / `pop<T: Drop>`、private move-out proof、`vec_pop_with<T, R>` による owner-preserving recovery に合わせた。`get`、borrowed `replace`、transform / sort、`vec_pop_item`、`vec_pop_vec` は payload copy-out または item owner discard を伴うため Copy-only のまま残す境界も明記した。
+- `nodesrc/test_stdlib_vec_borrowed_observers.js` は、`pop<T: Drop>` と `vec_pop_with<T, R>` を監視し、同時に `vec_pop_item<T: Copy>` / `vec_pop_vec<T: Copy>` が Drop payload へ広がらないことを固定するように更新した。
+- focused verification:
+  - `node --check nodesrc/test_stdlib_vec_borrowed_observers.js`
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+
 # 2026-05-22 Agent 1 Vec pop non-Copy move-out and owner summary proof
 
 - `ISS-20260522T220632558Z-VEC-POP-MUST-SUPPORT-NON-COPY-MOVE-O-1ADE6C76` を fixed にした。作業中に発見した compiler 側の汎用問題 `ISS-20260522T224620549Z-OWNER-SUMMARY-MUST-SEED-OWNER-TOKEN--89E3E5BE` も同じ証明経路の根本原因として fixed にした。`plan.md` は確認済みで、変更していない。

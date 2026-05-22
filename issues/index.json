@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T23:04:24.065Z",
+  "generated_at": "2026-05-22T23:14:30.547Z",
   "counts": {
-    "total": 1233,
+    "total": 1234,
     "open": 3,
-    "resolved": 1230,
+    "resolved": 1231,
     "by_area": {
       "stdlib": {
         "total": 320,
@@ -82,9 +82,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 14,
+        "total": 15,
         "open": 0,
-        "resolved": 14
+        "resolved": 15
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -9798,6 +9798,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260518T222113382Z-COLLECTION-OWNER-RETURNING-ERROR-ACC-F869A5C5.md"
+    },
+    {
+      "id": "ISS-20260522T231155242Z-VEC-POP-POLICY-AND-DOCS-STILL-DESCRI-54A525A5",
+      "title": "Vec pop policy and docs still describe Copy-only surface after Drop move-out support",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec.nepl, stdlib/alloc/collections/vec/types.nepl, nodesrc/test_stdlib_vec_borrowed_observers.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T231155242Z-VEC-POP-POLICY-AND-DOCS-STILL-DESCRI-54A525A5.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",

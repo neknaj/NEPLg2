@@ -54,13 +54,13 @@ pub enum VecStorage<.T>:
 //: ### [実装/じっそう]
 //: - `len` は public `Vec` API から[観測/かんそく]できる live element [長/なが]さです。
 //: - `initialized_len` は storage 先頭から[何件/なんけん]が初期化済み cell として drop / move state の対象になるかを[表/あらわ]す prefix [長/なが]です。
-//: - `.T: Copy` の mutation API は `len == initialized_len` を[保/たも]ちます。`.T: Drop` の `clear` / `free` は initialized prefix を actual Drop traversal で[閉/と]じてから `initialized_len` を 0 にします。
+//: - `.T: Copy` の mutation API と `.T: Drop` の `push` / `pop` / `replace_drop_old` は、private lifecycle proof を通して `len == initialized_len` を[保/たも]ちます。`.T: Drop` の `clear` / `free` は initialized prefix を actual Drop traversal で[閉/と]じてから `initialized_len` を 0 にします。
 //: - `cap` は backing storage の[容量/ようりょう]です。
 //: - `storage` は `VecStorage<.T>` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
 //:
 //: ### [注意/ちゅうい]
-//: - `new` / `with_capacity` / `push` / `drop_last` / `clear` / `free` は `.T: Drop` payload でも使えますが、`pop` / `get` / `replace` / transform / sort は move-out、replace、failure recovery の owner state が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。
-//: - non-Copy payload を[扱/あつか]う最終 API では、`OwnedBuffer` に move-out / replace state と owner-preserving error payload をさらに[接続/せつぞく]します。
+//: - `new` / `with_capacity` / `push` / `pop` / `replace_drop_old` / `drop_last` / `clear` / `free` は `.T: Drop` payload でも使えます。`get`、borrowed `replace`、transform / sort は payload copy-out や owner-preserving transform design が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。
+//: - non-Copy payload を[扱/あつか]う API は、`VecPushRejected<T>`、`VecReplaceRejected<T>`、`VecPop<T>` と eliminator callback により、`Vec` owner と item owner を同じ型境界で[回収/かいしゅう]できる形にします。
 //:
 //: neplg2:test[compile_fail]
 //: diag_codes: type.owner_aggregate.constructor_restricted
@@ -130,7 +130,7 @@ pub struct VecPushRejected<.T>:
 //:
 //: ### [目的/もくてき]
 //: - `rejected` に、消費した `Vec<.T>` と[挿入/そうにゅう]されなかった `item` の owner を[保持/ほじ]します。
-//: - 現行 `push` は `.T: Copy` に[限定/げんてい]していますが、non-Copy 対応時も失敗時 owner の[行方/ゆくえ]が API 型に[現/あらわ]れるよう、この型を先に owner-preserving surface にします。
+//: - `push` は `.T: Copy` と `.T: Drop` の overload を持ちます。失敗時 owner の[行方/ゆくえ]が API 型に[現/あらわ]れるよう、`Vec` と rejected item を同じ payload に[保持/ほじ]します。
 //: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner [回収/かいしゅう]と error [確認/かくにん]を別操作にします。
 pub struct VecPushError<.T>:
     rejected <VecPushRejected<.T>>
@@ -187,6 +187,7 @@ pub fn vec_transform_error_vec <.T: Copy> <(VecTransformError<.T>)->Vec<.T>> (e)
 //: ### [目的/もくてき]
 //: - `.Pair` の数値 field ではなく、`vec` と `item` を名前付き field として Resource IR に渡します。
 //: - 返却された `vec` owner を呼び出し側が明示的に回収できます。
+//: - Drop payload では `vec_pop_with<T, R>` を使い、更新後 `Vec<T>` owner と popped `Option<T>` owner を同じ callback に[渡/わた]します。
 //:
 //: neplg2:test
 //: exit_code: 0
@@ -254,7 +255,7 @@ pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
 //: - owner を[含/ふく]む field projection は `Vec` 実装境界に[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
-//: - `VecPop` には[取/と]り[出/だ]した `Option<T>` も[含/ふく]まれます。この accessor はその item を[返/かえ]さないため、現行の drop traversal 未実装段階では `.T: Copy` に[限定/げんてい]します。
+//: - `VecPop` には[取/と]り[出/だ]した `Option<T>` も[含/ふく]まれます。この accessor はその item を[返/かえ]さずに[捨/す]てるため、`.T: Copy` に[限定/げんてい]します。Drop payload では `vec_pop_with<T, R>` を[使/つか]います。
 //:
 //: neplg2:test
 //: exit_code: 0
