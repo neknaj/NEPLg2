@@ -133,6 +133,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 2026-05-22 に [ISS-20260522T220632558Z-VEC-POP-MUST-SUPPORT-NON-COPY-MOVE-O-1ADE6C76](./ISS-20260522T220632558Z-VEC-POP-MUST-SUPPORT-NON-COPY-MOVE-O-1ADE6C76.md) を fixed にした。`pop<T: Drop>` は `VecStorageInvariant` と private `vec_pop_move_out_initialized_slot<T>` を使って tail slot の raw load と `MoveOut` proof を閉じ、`VecPop<T>` を返す。non-Copy owner recovery は `vec_pop_with<T, R>` が `Vec<T>` と `Option<T>` を同じ callback に同時に渡す形にしたため、`vec_pop_vec<T: Copy>` のように item owner を落とす accessor を Drop payload へ拡張していない。実装中に [ISS-20260522T224620549Z-OWNER-SUMMARY-MUST-SEED-OWNER-TOKEN--89E3E5BE](./ISS-20260522T224620549Z-OWNER-SUMMARY-MUST-SEED-OWNER-TOKEN--89E3E5BE.md) も fixed にし、owner token leaf を summary seed へ載せることで high-order eliminator の owner consumption を generic Resource IR owner summary で証明できるようにした。`Vec<DropPayload>.pop -> vec_pop_with -> free/drop` は initialized slot MoveOut と owner obligation の両方で regression 化した。
 
+2026-05-22 に [ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD](./ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD.md) を fixed にした。`VecPushRejected<T>` には `vec_push_rejected_with<T, R>` を追加し、Drop payload の push failure branch でも `Vec<T>` owner と rejected `T` owner を同じ callback で回収できるようにした。`vec_push_error_vec<T: Copy>` は item owner を返さない legacy accessor として Copy-only に留める。`Vec<DropPayload>.push` の Err branch が `vec_push_error_rejected -> vec_push_rejected_with -> free/drop` で owner obligation を閉じることを Resource IR regression として固定した。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。

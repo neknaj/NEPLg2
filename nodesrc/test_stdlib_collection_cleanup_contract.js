@@ -242,6 +242,10 @@ assert.ok(
     'collection owner accessor policy must allow Vec.push rejected owner recovery only when the accessor returns the Vec and rejected item together',
 );
 assert.ok(
+    ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_rejected_with'),
+    'collection owner accessor policy must allow Vec.push rejected payload elimination only when Vec and rejected item are passed to the same callback',
+);
+assert.ok(
     ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/mutation/replace.nepl:vec_replace_error_rejected'),
     'collection owner accessor policy must allow Vec.replace_drop_old rejected owner recovery only when the accessor returns the Vec and rejected item together',
 );

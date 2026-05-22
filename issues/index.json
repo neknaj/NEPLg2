@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T23:14:30.547Z",
+  "generated_at": "2026-05-22T23:24:22.441Z",
   "counts": {
-    "total": 1234,
+    "total": 1235,
     "open": 3,
-    "resolved": 1231,
+    "resolved": 1232,
     "by_area": {
       "stdlib": {
-        "total": 320,
+        "total": 321,
         "open": 2,
-        "resolved": 318
+        "resolved": 319
       },
       "selfhost": {
         "total": 110,
@@ -14583,6 +14583,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T220632558Z-VEC-POP-MUST-SUPPORT-NON-COPY-MOVE-O-1ADE6C76.md"
+    },
+    {
+      "id": "ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD",
+      "title": "Vec push failure recovery needs owner-preserving rejected eliminator",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/mutation/push.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nodesrc/test_stdlib_collection_cleanup_contract.js, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

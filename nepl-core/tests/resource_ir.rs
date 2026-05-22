@@ -12751,6 +12751,80 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_vec_push_drop_error_rejected_with_recovers_owners() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn recover_failed_push <(Vec<DropPayload>,DropPayload)*>i32> (returned, rejected):
+    Drop::drop &rejected
+    free<DropPayload> returned
+    1
+
+fn push_or_recover <(Vec<DropPayload>,DropPayload)*>i32> (items, item):
+    match push<DropPayload> items item:
+        Result::Ok out:
+            free<DropPayload> out
+            0
+        Result::Err err:
+            let rejected <VecPushRejected<DropPayload>> vec_push_error_rejected<DropPayload> err
+            vec_push_rejected_with<DropPayload,i32> rejected @recover_failed_push
+
+fn main <()*>i32> ():
+    let items <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    push_or_recover items (DropPayload 7)
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("main__")
+                || function.starts_with("push_or_recover__")
+                || function.starts_with("recover_failed_push__")
+                || function.starts_with("vec_push_error_rejected__")
+                || function.starts_with("vec_push_rejected_with__")
+                || function.starts_with("push__")
+                || function.starts_with("free__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Vec<DropPayload>.push failure recovery must satisfy owner obligations through vec_push_rejected_with callback boundary: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .any(|function| function.origin_name == "vec_push_rejected_with"),
+        "actual stdlib Vec.push rejected eliminator must be present in Resource IR:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_transfers_nested_btree_insert_error_owner_through_helper() {
     let source = r#"
 #entry main

@@ -127,11 +127,52 @@ pub fn vec_push_error_kind <.T> <(&VecPushError<.T>)->StdErrorKind> (e):
 pub fn vec_push_error_rejected <.T> <(VecPushError<.T>)->VecPushRejected<.T>> (e):
     field::get e "rejected"
 
+//: ## vec_push_rejected_with
+//: `push` [失敗/しっぱい] payload の `Vec` owner と rejected item owner を同じ callback に[渡/わた]す
+//:
+//: ### [目的/もくてき]
+//: - `VecPushRejected<T>` は owner-backed aggregate なので、non-Copy payload では利用側が片方の field だけを[取/と]り[出/だ]す設計にはしません。
+//: - この eliminator が `vec` と `item` を同時に取り出し、caller が渡した callback へ両 owner を同じ control-flow 上で[渡/わた]します。
+//: - cleanup、retry、診断変換など、push failure recovery を rejected item owner を[隠/かく]さず[実装/じっそう]できます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn recover_failed_push <(Vec<DropPayload>,DropPayload)*>i32> (returned, rejected):
+//:     Drop::drop &rejected
+//:     free<DropPayload> returned
+//:     1
+//: fn push_or_recover <(Vec<DropPayload>,DropPayload)*>i32> (items, item):
+//:     match push<DropPayload> items item:
+//:         Result::Ok out:
+//:             free<DropPayload> out
+//:             0
+//:         Result::Err e:
+//:             let rejected <VecPushRejected<DropPayload>> vec_push_error_rejected<DropPayload> e
+//:             vec_push_rejected_with<DropPayload,i32> rejected @recover_failed_push
+//: fn main <()*>i32> ():
+//:     let items <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     push_or_recover items (DropPayload 7)
+//: ```
+pub fn vec_push_rejected_with <.T,.R> <(VecPushRejected<.T>,(Vec<.T>,.T)*>.R)*>.R> (rejected, callback):
+    let vec <Vec<.T>> field::get rejected "vec"
+    let item <.T> field::get rejected "item"
+    callback vec item
+
 //: ## vec_push_error_vec
 //: `push` [失敗/しっぱい]で[戻/もど]された `Vec` owner を[取/と]り[出/だ]す
 //:
 //: ### [注意/ちゅうい]
-//: - この accessor は `.T: Copy` 専用です。`item` owner を一緒に[返/かえ]さないため、non-Copy payload では `vec_push_error_rejected<T>` を[使/つか]って `Vec` と `item` を同時に[回収/かいしゅう]します。
+//: - この accessor は `.T: Copy` 専用です。`item` owner を一緒に[返/かえ]さないため、non-Copy payload では `vec_push_error_rejected<T>` と `vec_push_rejected_with<T, R>` を[使/つか]って `Vec` と `item` を同時に[回収/かいしゅう]します。
 pub fn vec_push_error_vec <.T: Copy> <(VecPushError<.T>)->Vec<.T>> (e):
     let rejected <VecPushRejected<.T>> vec_push_error_rejected<.T> e
     field::get rejected "vec"

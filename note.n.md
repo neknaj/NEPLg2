@@ -1,3 +1,16 @@
+# 2026-05-22 Agent 1 Vec push rejected owner eliminator
+
+- `ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD` を追加して fixed にした。`plan.md` は確認済みで、変更していない。
+- `VecPushRejected<T>` に `vec_push_rejected_with<T, R>` を追加し、Drop payload の push failure branch でも `Vec<T>` owner と rejected `T` owner を同じ callback に渡せるようにした。`vec_push_error_vec<T: Copy>` は item owner を返さない accessor なので Copy-only のまま維持する。
+- Resource IR 回帰として `Vec<DropPayload>` の `push` Err branch で `vec_push_error_rejected -> vec_push_rejected_with -> free/drop` するケースを追加し、callback 境界で owner obligation が閉じることを確認した。
+- focused verification:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_vec_push_drop_error_rejected_with_recovers_owners -- --test-threads=1 --exact --nocapture`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/mutation/push.nepl -n 4 --dist web/dist`
+
 # 2026-05-22 Agent 1 Vec pop policy/doc sync
 
 - `ISS-20260522T231155242Z-VEC-POP-POLICY-AND-DOCS-STILL-DESCRI-54A525A5` を追加して fixed にした。`Vec.pop` の Drop payload 対応後に、root facade doc と borrowed observer policy がまだ Copy-only 前提で説明していた問題を解消した。`plan.md` は確認済みで、変更していない。
