@@ -15686,6 +15686,76 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_vec_storage_invariant_accepts_drop_payload_without_copy() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/invariant" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn main <()*>i32> ():
+    let v <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let ok <bool> match vec_current_storage_invariant<DropPayload> &v:
+        VecStorageInvariant::Valid:
+            true
+        VecStorageInvariant::Invalid _reason:
+            false
+    free<DropPayload> v
+    if ok 0 1
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("vec_buffer_current_storage_invariant__")
+                    || function.starts_with("free__")
+                    || function.starts_with("vec_cleanup_")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "VecStorageInvariant must be usable for Drop payloads without Copy raw-access proof: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .any(|function| function.origin_name == "vec_buffer_current_storage_invariant"),
+        "storage invariant observer must be monomorphized for Drop payloads:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .all(|function| function.origin_name != "vec_buffer_current_copy_invariant"),
+        "Drop payload storage observer must not route through Copy raw-access invariant:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_initialized_check_vec_drop_with_capacity_clear_free_closes_empty_stdlib_lifecycle() {
     let source = r#"
 #entry main

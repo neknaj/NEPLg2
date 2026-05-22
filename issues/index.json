@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T07:20:26.978Z",
+  "generated_at": "2026-05-22T07:48:39.212Z",
   "counts": {
-    "total": 1221,
+    "total": 1222,
     "open": 3,
-    "resolved": 1218,
+    "resolved": 1219,
     "by_area": {
       "stdlib": {
-        "total": 312,
+        "total": 313,
         "open": 2,
-        "resolved": 310
+        "resolved": 311
       },
       "selfhost": {
         "total": 110,
@@ -14388,6 +14388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T141821436Z-BORROWED-COLLECTION-OBSERVERS-ACCEPT-FD13ABC1.md"
+    },
+    {
+      "id": "ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D",
+      "title": "Vec non-Copy lifecycle needs storage invariant separated from Copy raw-access proof",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/invariant.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T073914640Z-VEC-NON-COPY-LIFECYCLE-NEEDS-STORAGE-645ED85D.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
