@@ -6,6 +6,7 @@ use super::cell_state::{place_suffix_after_address_prefix, CellTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary_byte_range_model::RawCellInitializationParamCount;
 use super::model::{CellState, Place, ResourceLocal};
+use super::summary_projection::summary_suffix_for_params;
 
 pub(super) fn collect_param_count_sources(
     cells: &CellTable,
@@ -37,6 +38,9 @@ pub(super) fn collect_param_count_sources(
                     let Some(suffix) =
                         place_suffix_after_address_prefix(&entry_alias, &param_alias)
                     else {
+                        continue;
+                    };
+                    let Some(suffix) = summary_suffix_for_params(params, &suffix) else {
                         continue;
                     };
                     push_unique_param_count(

@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T02:09:21.883Z",
+  "generated_at": "2026-05-22T02:40:12.586Z",
   "counts": {
-    "total": 1213,
-    "open": 3,
-    "resolved": 1210,
+    "total": 1215,
+    "open": 4,
+    "resolved": 1211,
     "by_area": {
       "stdlib": {
         "total": 312,
         "open": 2,
         "resolved": 310
+      },
+      "core": {
+        "total": 598,
+        "open": 1,
+        "resolved": 597
       },
       "selfhost": {
         "total": 110,
@@ -25,11 +30,6 @@
         "total": 2,
         "open": 0,
         "resolved": 2
-      },
-      "core": {
-        "total": 596,
-        "open": 0,
-        "resolved": 596
       },
       "CORE": {
         "total": 5,
@@ -153,6 +153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md"
+    },
+    {
+      "id": "ISS-20260522T023831896Z-COLLECTION-SLOT-RELEASE-ALIAS-MODULE-0B5B1690",
+      "title": "Collection slot release alias module exceeds responsibility limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/collection_slot_state_release_alias.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T023831896Z-COLLECTION-SLOT-RELEASE-ALIAS-MODULE-0B5B1690.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -9273,6 +9288,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T020722026Z-PUBLIC-OWNER-COLLECTION-API-LACKS-RE-C74A0802.md"
+    },
+    {
+      "id": "ISS-20260522T021811244Z-RAW-INITIALIZATION-SUMMARIES-KEEP-CA-01C86BF8",
+      "title": "Raw initialization summaries keep callee-local symbolic offsets",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "nepl-core/src/resource/initialized_summary*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T021811244Z-RAW-INITIALIZATION-SUMMARIES-KEEP-CA-01C86BF8.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

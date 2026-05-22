@@ -7,6 +7,7 @@ use crate::types::TypeId;
 
 use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::model::PlaceProjection;
+use super::summary_projection::SummaryProjection;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationReturnByteRange {
@@ -32,7 +33,7 @@ pub(super) enum RawCellInitializationReturnCount {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationParamByteRange {
     pub(super) address_param_index: usize,
-    pub(super) address_suffix: Vec<PlaceProjection>,
+    pub(super) address_suffix: Vec<SummaryProjection>,
     pub(super) address_ty: TypeId,
     pub(super) count: RawCellInitializationParamCount,
     pub(super) unit: InitializedRawRangeUnit,
@@ -43,7 +44,7 @@ pub(super) struct RawCellInitializationParamByteRange {
 pub(super) enum RawCellInitializationParamCount {
     ParamProjection {
         param_index: usize,
-        suffix: Vec<PlaceProjection>,
+        suffix: Vec<SummaryProjection>,
         ty: TypeId,
     },
     KnownI32 {
@@ -56,7 +57,7 @@ pub(super) enum RawCellInitializationParamCount {
 pub(super) struct RawCellInitializationVariantParamByteRange {
     pub(super) variant: String,
     pub(super) address_param_index: usize,
-    pub(super) address_suffix: Vec<PlaceProjection>,
+    pub(super) address_suffix: Vec<SummaryProjection>,
     pub(super) address_ty: TypeId,
     pub(super) count: RawCellInitializationParamCount,
     pub(super) unit: InitializedRawRangeUnit,

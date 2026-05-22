@@ -44833,3 +44833,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 回帰テストは public `OwnerCollection` API が private helper を呼ぶ形にしつつ、private helper 内で `&RegionToken<T>` から `region_ptr` / `MemPtr<T>` を導出する。これにより `MemPtr = non-owning view`、`RegionToken = owner storage anchor` の責務分割をソース由来の generic Resource IR proof で確認できる。
 - focused verification:
   - `cargo test -p nepl-core --test collection_slot_full_range public_owner_collection_api_uses_private_lifecycle_helpers -- --test-threads=1 --exact --nocapture`: passed
+
+## 2026-05-22 Agent 1 raw initialization summary projection
+
+- `ISS-20260522T021811244Z-RAW-INITIALIZATION-SUMMARIES-KEEP-CA-01C86BF8` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、collection slot summary では symbolic offset を typed summary projection に移していた一方、raw initialization summary の parameter cell / byte range / variant facts が plain `PlaceProjection` のままだったこと。callee parameter に由来する `ResourceOffset::Symbolic` / `ScaledSymbolic` が caller actual へ置換されず、caller Resource IR state に stale callee-local symbolic place を残し得た。
+- `SummaryPlace` / `SummaryProjection` / `SummaryOffset` を Resource IR 共通の parameterized projection model として切り出し、collection slot summary は既存 wrapper からこの共通 model を使うようにした。
+- raw initialization summary は `param_cells`、`param_byte_ranges`、variant param cell / byte range / requirement / condition の suffix を `SummaryProjection` に移行した。summary build は parameter-relative に相対化できない symbolic operand を含む suffix を発行せず、caller apply は必ず caller arguments で instantiate してから cell / byte-range state を更新する。
+- この修正は `MemPtr<T>` と `RegionToken<T>` を型だけで同一視するものではない。未表現 alias precondition を暗黙許可せず、source から parameterized projection として証明できる範囲だけを generic Resource IR summary に載せる。
+- `nodesrc/test_resource_checker_responsibility.js` には新規 `summary_projection.rs` / focused test module を監視対象として登録した。監視はそこを通過した後、既存の `collection_slot_state_release_alias.rs` 130/120 行超過で停止するため、別 issue `ISS-20260522T023831896Z-COLLECTION-SLOT-RELEASE-ALIAS-MODULE-0B5B1690` として分離した。
+- focused verification:
+  - `cargo test -p nepl-core resource::initialized_summary_apply_param_tests -- --test-threads=1`: passed
+  - `cargo test -p nepl-core resource::collection_slot_summary_target_tests -- --test-threads=1`: passed
+  - `cargo test -p nepl-core --test collection_slot_full_range public_owner_collection_api_uses_private_lifecycle_helpers -- --test-threads=1 --exact`: passed
+  - `cargo check -p nepl-core`: passed

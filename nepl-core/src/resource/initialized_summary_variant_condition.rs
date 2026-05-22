@@ -7,6 +7,7 @@ use super::initialized_summary::RawCellInitializationVariantCondition;
 use super::initialized_summary_condition::RawCellValueCondition;
 use super::model::{Place, ResourceConditionFact, ResourceLocal};
 use super::place_utils::place_suffix_after_prefix;
+use super::summary_projection::summary_suffix_for_params;
 use super::variant_name::normalize_variant_name;
 
 pub(super) fn collect_variant_param_condition(
@@ -24,6 +25,9 @@ pub(super) fn collect_variant_param_condition(
         for (param_index, param) in params.iter().enumerate() {
             for param_alias in raw_aliases.aliases_for(&param.place) {
                 let Some(suffix) = place_suffix_after_prefix(&condition_alias, &param_alias) else {
+                    continue;
+                };
+                let Some(suffix) = summary_suffix_for_params(params, &suffix) else {
                     continue;
                 };
                 push_unique_variant_condition(

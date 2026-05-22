@@ -7,6 +7,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationVariantParamRequirement;
 use super::model::{RawMemoryOp, ResourceLocal, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
+use super::summary_projection::summary_suffix_for_params;
 use super::variant_name::normalize_variant_name;
 
 pub(super) fn collect_variant_param_required_raw_cells(
@@ -35,6 +36,9 @@ pub(super) fn collect_variant_param_required_raw_cells(
             for (param_index, param) in params.iter().enumerate() {
                 for param_alias in raw_aliases.aliases_for(&param.place) {
                     let Some(suffix) = raw_cell_suffix_after_address(&cell, &param_alias) else {
+                        continue;
+                    };
+                    let Some(suffix) = summary_suffix_for_params(params, &suffix) else {
                         continue;
                     };
                     push_unique_variant_param_requirement(

@@ -6,7 +6,7 @@ use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_apply_return::mark_known_raw_address;
 use super::initialized_summary_byte_range_model::RawCellInitializationParamCount;
 use super::model::Place;
-use super::place_utils::projected_place_with_concrete_type;
+use super::summary_projection::instantiate_summary_suffix_on_base_with_types;
 
 pub(super) fn apply_param_initialization_summary(
     types: &TypeCtx,
@@ -20,7 +20,11 @@ pub(super) fn apply_param_initialization_summary(
             continue;
         };
         let arg = raw_aliases.canonicalize(arg);
-        let place = projected_place_with_concrete_type(types, &arg, &cell.suffix, cell.ty);
+        let Some(place) =
+            instantiate_summary_suffix_on_base_with_types(types, args, &arg, &cell.suffix, cell.ty)
+        else {
+            continue;
+        };
         cells.mark_initialized(&place);
         if cell.holds_raw_address {
             mark_known_raw_address(raw_aliases, &place);
@@ -31,12 +35,15 @@ pub(super) fn apply_param_initialization_summary(
             continue;
         };
         let address_arg = raw_aliases.canonicalize(address_arg);
-        let address = projected_place_with_concrete_type(
+        let Some(address) = instantiate_summary_suffix_on_base_with_types(
             types,
+            args,
             &address_arg,
             &range.address_suffix,
             range.address_ty,
-        );
+        ) else {
+            continue;
+        };
         let Some(count) = param_count_source_place(types, raw_aliases, args, &range.count) else {
             continue;
         };
@@ -58,9 +65,7 @@ fn param_count_source_place(
             ty,
         } => {
             let count_arg = raw_aliases.canonicalize_scalar(args.get(*param_index)?);
-            Some(projected_place_with_concrete_type(
-                types, &count_arg, suffix, *ty,
-            ))
+            instantiate_summary_suffix_on_base_with_types(types, args, &count_arg, suffix, *ty)
         }
         RawCellInitializationParamCount::KnownI32 { value, ty } => {
             Some(Place::i32_constant(*value, *ty))

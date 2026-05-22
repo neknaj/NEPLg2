@@ -286,6 +286,8 @@ mod initialized_str_layout;
 mod initialized_summary;
 mod initialized_summary_apply;
 mod initialized_summary_apply_param;
+#[cfg(test)]
+mod initialized_summary_apply_param_tests;
 mod initialized_summary_apply_return;
 mod initialized_summary_build;
 mod initialized_summary_byte_range_model;
@@ -469,6 +471,7 @@ mod storage_origin;
 mod summary;
 mod summary_dependency;
 mod summary_index;
+mod summary_projection;
 mod summary_worklist;
 mod summary_worklist_order;
 mod timing;

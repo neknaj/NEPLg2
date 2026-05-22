@@ -8,7 +8,8 @@ use super::cell_state::{place_suffix_after_address_prefix, CellTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary_byte_range_model::RawCellInitializationParamByteRange;
 use super::initialized_summary_param_byte_range_count::collect_param_count_sources;
-use super::model::{Place, PlaceProjection, ResourceLocal};
+use super::model::{Place, ResourceLocal};
+use super::summary_projection::{summary_suffix_for_params, SummaryProjection};
 
 pub(super) fn collect_param_initialized_raw_byte_ranges(
     out: &mut Vec<RawCellInitializationParamByteRange>,
@@ -44,13 +45,16 @@ fn collect_param_value_suffixes(
     raw_aliases: &RawCellAddressAliases,
     value: &Place,
     params: &[ResourceLocal],
-) -> Vec<(usize, Vec<PlaceProjection>, TypeId)> {
+) -> Vec<(usize, Vec<SummaryProjection>, TypeId)> {
     let mut out = Vec::new();
     for value_alias in raw_aliases.aliases_for(value) {
         for (param_index, param) in params.iter().enumerate() {
             for param_alias in raw_aliases.aliases_for(&param.place) {
                 let Some(suffix) = place_suffix_after_address_prefix(&value_alias, &param_alias)
                 else {
+                    continue;
+                };
+                let Some(suffix) = summary_suffix_for_params(params, &suffix) else {
                     continue;
                 };
                 push_unique_param_suffix(&mut out, param_index, suffix, value_alias.ty);
@@ -70,9 +74,9 @@ fn push_unique_param_byte_range(
 }
 
 fn push_unique_param_suffix(
-    suffixes: &mut Vec<(usize, Vec<PlaceProjection>, TypeId)>,
+    suffixes: &mut Vec<(usize, Vec<SummaryProjection>, TypeId)>,
     param_index: usize,
-    suffix: Vec<PlaceProjection>,
+    suffix: Vec<SummaryProjection>,
     ty: TypeId,
 ) {
     if !suffixes

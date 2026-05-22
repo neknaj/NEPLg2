@@ -13,6 +13,7 @@ pub(super) use super::initialized_summary_release_model::{
 };
 use super::model::PlaceProjection;
 use super::summary_index::{FunctionSummary, SummaryIndex};
+use super::summary_projection::SummaryProjection;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationFunctionSummary {
@@ -47,7 +48,7 @@ pub(super) struct RawCellInitializationReturnCell {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationParamCell {
     pub(super) param_index: usize,
-    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) suffix: Vec<SummaryProjection>,
     pub(super) ty: TypeId,
     pub(super) holds_raw_address: bool,
 }
@@ -56,7 +57,7 @@ pub(super) struct RawCellInitializationParamCell {
 pub(super) struct RawCellInitializationVariantParamCell {
     pub(super) variant: String,
     pub(super) param_index: usize,
-    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) suffix: Vec<SummaryProjection>,
     pub(super) ty: TypeId,
     pub(super) holds_raw_address: bool,
 }
@@ -65,7 +66,7 @@ pub(super) struct RawCellInitializationVariantParamCell {
 pub(super) struct RawCellInitializationVariantParamRequirement {
     pub(super) variant: String,
     pub(super) param_index: usize,
-    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) suffix: Vec<SummaryProjection>,
     pub(super) ty: TypeId,
 }
 
@@ -73,7 +74,7 @@ pub(super) struct RawCellInitializationVariantParamRequirement {
 pub(super) struct RawCellInitializationVariantCondition {
     pub(super) variant: String,
     pub(super) param_index: usize,
-    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) suffix: Vec<SummaryProjection>,
     pub(super) ty: TypeId,
     pub(super) condition: super::initialized_summary_condition::RawCellValueCondition,
 }

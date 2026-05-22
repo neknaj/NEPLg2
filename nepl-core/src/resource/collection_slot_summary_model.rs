@@ -8,11 +8,11 @@ use crate::types::TypeId;
 use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
-use super::collection_slot_summary_projection::CollectionSlotLifecycleSummaryProjection;
 use super::collection_slot_summary_return_model::{
     CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
 use super::summary_index::{FunctionSummary, SummaryIndex};
+use super::summary_projection::SummaryPlace;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleFunctionSummary {
@@ -101,12 +101,7 @@ pub(super) enum CollectionSlotLifecycleSummaryRelocateProof {
     RawStorageRelocation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct CollectionSlotLifecycleSummaryPlace {
-    pub(super) parameter_index: usize,
-    pub(super) suffix: Vec<CollectionSlotLifecycleSummaryProjection>,
-    pub(super) ty: TypeId,
-}
+pub(super) type CollectionSlotLifecycleSummaryPlace = SummaryPlace;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleReturnPath {

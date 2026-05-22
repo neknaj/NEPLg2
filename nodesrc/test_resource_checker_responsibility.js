@@ -2499,6 +2499,7 @@ const maxLines = new Map([
     ['initialized_alias_type_size.rs', 260],
     ['initialized_summary_apply.rs', 130],
     ['initialized_summary_apply_param.rs', 100],
+    ['initialized_summary_apply_param_tests.rs', 180],
     ['initialized_summary_apply_return.rs', 120],
     ['initialized_summary_build.rs', 260],
     ['initialized_summary_byte_range_model.rs', 80],
@@ -2537,6 +2538,7 @@ const maxLines = new Map([
     ['raw_pointer_type.rs', 120],
     ['raw_pointer_type_tests.rs', 80],
     ['storage_origin.rs', 320],
+    ['summary_projection.rs', 280],
 ]);
 
 const monitoredResourceFiles = new Set(maxLines.keys());

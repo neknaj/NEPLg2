@@ -6,6 +6,7 @@ use super::cell_state::{raw_cell_suffix_after_address, CellTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationParamCell;
 use super::model::{CellState, ResourceLocal};
+use super::summary_projection::summary_suffix_for_params;
 
 pub(super) fn collect_param_initialized_raw_cells(
     out: &mut Vec<RawCellInitializationParamCell>,
@@ -24,6 +25,9 @@ pub(super) fn collect_param_initialized_raw_cells(
                 for param_alias in &param_aliases {
                     let Some(suffix) = raw_cell_suffix_after_address(&cell_alias, param_alias)
                     else {
+                        continue;
+                    };
+                    let Some(suffix) = summary_suffix_for_params(params, &suffix) else {
                         continue;
                     };
                     push_unique_param_cell(
