@@ -253,6 +253,10 @@ assert.ok(
     ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/mutation/replace.nepl:vec_replace_rejected_with'),
     'collection owner accessor policy must allow Vec.replace_drop_old rejected payload elimination only when Vec and rejected item are passed to the same callback',
 );
+assert.ok(
+    ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/types.nepl:vec_transform_error_with'),
+    'collection owner accessor policy must allow Vec transform error elimination only when Vec owner and error kind are passed to the same callback',
+);
 
 for (const expected of [
     'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_error_vec',
@@ -550,6 +554,9 @@ function classifyOwnerPreservingErrorRecovery(name, typeSignature) {
     if (!typeSignature) {
         return null;
     }
+    if (name === 'vec_transform_error_with') {
+        return classifyOwnerPreservingVecTransformErrorEliminator(typeSignature);
+    }
     if (/_rejected_with$/.test(name)) {
         return classifyOwnerPreservingRejectedEliminator(typeSignature);
     }
@@ -597,6 +604,28 @@ function classifyOwnerPreservingRejectedEliminator(typeSignature) {
     }
 
     return { kind: 'owner-preserving-rejected-eliminator' };
+}
+
+function classifyOwnerPreservingVecTransformErrorEliminator(typeSignature) {
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const errorPayload = functionType.parameters[0].trim();
+    const errorMatch = errorPayload.match(/^VecTransformError<\.(\w+)>$/);
+    if (!errorMatch) {
+        return null;
+    }
+
+    const genericName = errorMatch[1];
+    const callback = functionType.parameters[1].replace(/\s+/g, '');
+    const returnType = functionType.returnType.replace(/\s+/g, '');
+    if (callback !== `(Vec<.${genericName}>,StdErrorKind)*>${returnType}`) {
+        return null;
+    }
+
+    return { kind: 'owner-preserving-transform-error-eliminator' };
 }
 
 function classifyOwnerPreservingPopRecovery(name, typeSignature) {

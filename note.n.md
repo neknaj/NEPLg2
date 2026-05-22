@@ -45284,3 +45284,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
   - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+
+## 2026-05-22 Agent 1 Vec transform error owner-preserving eliminator
+
+- `ISS-20260522T233025556Z-VEC-TRANSFORM-ERROR-RECOVERY-NEEDS-O-BEF07D14` を作成して fixed にした。`plan.md` は変更していない。
+- 根本原因は、`VecTransformError<T>` が消費済み入力 `Vec<T>` owner と `StdErrorKind` を保持する owner-backed aggregate であるにもかかわらず、public recovery surface が `vec_transform_error_vec<T: Copy>` だけだったこと。将来 non-Copy transform を追加すると direct field projection や Vec-only accessor に寄りやすい。
+- `vec_transform_error_with<T, R>` を追加し、`Vec<T>` owner と Copy な `StdErrorKind` を同じ callback `(Vec<T>, StdErrorKind)->R` へ渡す形にした。
+- `vec_transform_error_vec<T: Copy>` は error kind を返さない便宜 accessor なので Copy-only のまま残した。non-Copy transform の失敗時 recovery は `vec_transform_error_with` を使う方針に統一する。
+- focused verification:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/types.nepl -n 4 --dist web/dist`: passed

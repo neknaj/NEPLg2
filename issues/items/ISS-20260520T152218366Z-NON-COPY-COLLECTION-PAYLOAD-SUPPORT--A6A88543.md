@@ -135,6 +135,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 2026-05-22 に [ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD](./ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD.md) を fixed にした。`VecPushRejected<T>` には `vec_push_rejected_with<T, R>` を追加し、Drop payload の push failure branch でも `Vec<T>` owner と rejected `T` owner を同じ callback で回収できるようにした。`vec_push_error_vec<T: Copy>` は item owner を返さない legacy accessor として Copy-only に留める。`Vec<DropPayload>.push` の Err branch が `vec_push_error_rejected -> vec_push_rejected_with -> free/drop` で owner obligation を閉じることを Resource IR regression として固定した。
 
+2026-05-22 に [ISS-20260522T233025556Z-VEC-TRANSFORM-ERROR-RECOVERY-NEEDS-O-BEF07D14](./ISS-20260522T233025556Z-VEC-TRANSFORM-ERROR-RECOVERY-NEEDS-O-BEF07D14.md) を fixed にした。現行 transform family は引き続き `.T: Copy` 専用だが、`VecTransformError<T>` から入力 `Vec<T>` owner と `StdErrorKind` を同じ callback へ渡す `vec_transform_error_with<T, R>` を追加した。これにより future non-Copy transform の失敗時 recovery は direct field projection や Vec-only accessor ではなく、push / replace / pop と同じ owner-preserving callback boundary へ載せられる。`vec_transform_error_vec<T: Copy>` は error kind を返さない便宜 accessor として Copy-only のまま残す。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。

@@ -173,11 +173,48 @@ pub struct VecTransformError<.T>:
 pub fn vec_transform_error_kind <.T> <(&VecTransformError<.T>)->StdErrorKind> (e):
     *field::get_ref e "error"
 
+//: ## vec_transform_error_with
+//: transform [失敗/しっぱい] payload の入力 `Vec` owner と error kind を同じ callback に[渡/わた]す
+//:
+//: ### [目的/もくてき]
+//: - `VecTransformError<T>` は owner-backed aggregate なので、non-Copy payload では利用側が field を直接[分解/ぶんかい]して入力 `Vec` owner だけを[取/と]り[出/だ]す設計にはしません。
+//: - この eliminator が `vec` owner と `StdErrorKind` を同じ callback 境界に[渡/わた]し、caller が cleanup、再試行、診断変換を同じ control-flow で[実装/じっそう]できるようにします。
+//: - 現行 transform family はまだ `.T: Copy` 専用ですが、将来 non-Copy transform を追加するときの失敗時 recovery surface はこの関数を使います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn inc <(i32)->i32> (x):
+//:     add x 1
+//: fn recover_transform <(Vec<i32>,StdErrorKind)*>i32> (returned, _error):
+//:     free<i32> returned
+//:     1
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>
+//:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v0 1
+//:     match map<i32,i32> v1 @inc:
+//:         Result::Ok out:
+//:             let ok <bool> eq len<i32> &out 1
+//:             free<i32> out
+//:             if ok 0 1
+//:         Result::Err e:
+//:             vec_transform_error_with<i32,i32> e @recover_transform
+//: ```
+pub fn vec_transform_error_with <.T,.R> <(VecTransformError<.T>,(Vec<.T>,StdErrorKind)*>.R)*>.R> (e, callback):
+    let vec <Vec<.T>> field::get e "vec"
+    let error <StdErrorKind> field::get e "error"
+    callback vec error
+
 //: ## vec_transform_error_vec
 //: transform [失敗/しっぱい]で[戻/もど]された入力 `Vec` owner を[取/と]り[出/だ]す
 //:
 //: ### [注意/ちゅうい]
-//: - 現行 transform family は `.T: Copy` 専用です。non-Copy payload の入力 owner は、move-out / drop traversal を型で[表/あらわ]せる API までこの accessor から[出/だ]しません。
+//: - 現行 transform family は `.T: Copy` 専用です。non-Copy payload の入力 owner は、owner と error kind を同時に[渡/わた]す `vec_transform_error_with<T, R>` から[回収/かいしゅう]します。
+//: - この accessor は error kind を返さず入力 `Vec` owner だけを[取/と]り[出/だ]すため、Copy payload の便宜 API に[限定/げんてい]します。
 pub fn vec_transform_error_vec <.T: Copy> <(VecTransformError<.T>)->Vec<.T>> (e):
     field::get e "vec"
 

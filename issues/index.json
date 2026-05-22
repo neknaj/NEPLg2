@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T23:24:22.441Z",
+  "generated_at": "2026-05-22T23:37:00.387Z",
   "counts": {
-    "total": 1235,
+    "total": 1236,
     "open": 3,
-    "resolved": 1232,
+    "resolved": 1233,
     "by_area": {
       "stdlib": {
-        "total": 321,
+        "total": 322,
         "open": 2,
-        "resolved": 319
+        "resolved": 320
       },
       "selfhost": {
         "total": 110,
@@ -14598,6 +14598,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD.md"
+    },
+    {
+      "id": "ISS-20260522T233025556Z-VEC-TRANSFORM-ERROR-RECOVERY-NEEDS-O-BEF07D14",
+      "title": "Vec transform error recovery needs owner-preserving eliminator before non-Copy transform",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-22",
+      "updated": "2026-05-22",
+      "target": "stdlib/alloc/collections/vec/types.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T233025556Z-VEC-TRANSFORM-ERROR-RECOVERY-NEEDS-O-BEF07D14.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
