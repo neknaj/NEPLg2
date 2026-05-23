@@ -1,3 +1,12 @@
+# 2026-05-24 Agent 1 project-wide status report
+
+- `plan.md` / `todo.md` / `note.n.md` / `doc/` / `issues/` / `nepl-core/` / `stdlib/` / `stdlib/neplg2/` / `nodesrc/` / `web/` を俯瞰し、`doc/project_status_report_20260524.md` に現状レポートを作成した。`plan.md` は確認のみで変更していない。
+- `repo_metrics.ts` も実行し、全体が 3,225 files / 533,032 lines / 3,315 test cases、主要領域が `nepl-core` 166,981 tracked lines、`stdlib` 70,205 tracked lines、`nodesrc` 40,810 tracked lines であることを記録した。
+- 現在の主作業は静的検査大規模修正 Stage 6 / non-Copy collection lifecycle。`Vec` の push/grow/free/clear/pop/replace/query は Resource IR proof boundary へ進んだが、transform と sort はまだ残件で、親 issue は close しない。
+- Rust 実装は Resource IR 周辺の分割が進んでいる一方、`parser.rs` / `codegen_llvm.rs` / `loader.rs` / `codegen_wasm.rs` / `compiler.rs` / `types.rs` などが flat な巨大ファイルとして残る。non-Copy collection lifecycle 後の階層化対象として明記した。
+- selfhost は `stdlib/neplg2/` の階層構造自体は比較的整っているが、compiler としては部分実装に留まる。Rust 側の階層化で得た phase boundary を doc に反映してから実装再開する方針を明記した。
+- source policy は warn-only で 6 件の警告がある。`collection_slot_event_target.rs` の responsibility 監視漏れ、`TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted` の registry 漏れ、`codegen_wasm.rs` freeze limit 超過などは、次の静的検査作業で先に潰すべき current drift として扱う。
+
 # 2026-05-23 Agent 1 non-Copy Vec transform/sort 残件切り出し
 
 - `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` はまだ fixed にしていない。`push` / grow / free / clear / pop / replace / borrowed query は Resource IR proof boundary へ進んだが、transform / sort が Copy-by-value raw access 前提に残る。
