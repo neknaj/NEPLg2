@@ -12,7 +12,7 @@ pub(super) struct I32OffsetFact {
     pub(super) offset: i64,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32OffsetFacts {
     facts: Vec<I32OffsetFact>,
 }

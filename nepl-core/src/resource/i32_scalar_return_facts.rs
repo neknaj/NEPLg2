@@ -5,8 +5,9 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId};
 
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_i32_condition_context::I32ConditionQueryContext;
 use super::model::{I32ValueCondition, Place, PlaceProjection, ResourceLocal};
-use super::owner_summary_i32_condition_leaf::i32_leaf_places_for_conditions;
+use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::place_utils::{place_suffix_after_prefix, projected_place_with_concrete_type};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -101,8 +102,28 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix(
     value: &Place,
     target_suffix: &[PlaceProjection],
 ) -> I32ScalarReturnFacts {
+    let mut cache = I32LeafProjectionCache::default();
+    collect_i32_scalar_return_facts_for_value_suffix_cached(
+        params,
+        types,
+        raw_aliases,
+        value,
+        target_suffix,
+        &mut cache,
+    )
+}
+
+pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached(
+    params: &[ResourceLocal],
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    value: &Place,
+    target_suffix: &[PlaceProjection],
+    leaf_cache: &mut I32LeafProjectionCache,
+) -> I32ScalarReturnFacts {
     let mut facts = I32ScalarReturnFacts::default();
-    for leaf in i32_leaf_places_for_conditions(types, value) {
+    let mut condition_context = I32ConditionQueryContext::default();
+    for leaf in leaf_cache.leaf_places_for_conditions(types, value) {
         let mut return_projection = target_suffix.to_vec();
         return_projection.extend(leaf.suffix);
         collect_i32_scalar_return_leaf_facts(
@@ -110,10 +131,18 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix(
             raw_aliases,
             &leaf.place,
             &return_projection,
+            &mut condition_context,
             &mut facts,
         );
     }
-    collect_i32_scalar_parameter_conditions(params, types, raw_aliases, &mut facts);
+    collect_i32_scalar_parameter_conditions(
+        params,
+        types,
+        raw_aliases,
+        leaf_cache,
+        &mut condition_context,
+        &mut facts,
+    );
     facts
 }
 
@@ -126,6 +155,7 @@ pub(super) fn translate_i32_scalar_return_facts_for_call(
     callee_facts: &I32ScalarReturnFacts,
 ) -> I32ScalarReturnFacts {
     let mut facts = I32ScalarReturnFacts::default();
+    let mut condition_context = I32ConditionQueryContext::default();
     for alias in &callee_facts.aliases {
         let Some(arg) = args.get(alias.parameter_index) else {
             continue;
@@ -142,6 +172,7 @@ pub(super) fn translate_i32_scalar_return_facts_for_call(
             raw_aliases,
             &source,
             &return_projection,
+            &mut condition_context,
             &mut facts,
         );
     }
@@ -163,6 +194,7 @@ pub(super) fn translate_i32_scalar_return_facts_for_call(
             &return_projection,
             offset.scalar_ty,
             offset.offset,
+            &mut condition_context,
             &mut facts,
         );
     }
@@ -303,6 +335,7 @@ fn collect_i32_scalar_return_leaf_facts(
     raw_aliases: &RawCellAddressAliases,
     leaf: &Place,
     return_projection: &[PlaceProjection],
+    condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
     if let Some(value) = raw_aliases.i32_value(leaf) {
@@ -315,7 +348,13 @@ fn collect_i32_scalar_return_leaf_facts(
             },
         );
     }
-    collect_i32_scalar_return_conditions(raw_aliases, leaf, return_projection, facts);
+    collect_i32_scalar_return_conditions(
+        raw_aliases,
+        leaf,
+        return_projection,
+        condition_context,
+        facts,
+    );
     for scalar_alias in raw_aliases.scalar_aliases_for_value(leaf) {
         for (parameter_index, param) in params.iter().enumerate() {
             let Some(parameter_projection) = place_suffix_after_prefix(&scalar_alias, &param.place)
@@ -333,7 +372,14 @@ fn collect_i32_scalar_return_leaf_facts(
             );
         }
     }
-    collect_i32_scalar_parameter_conditions_for_source(params, raw_aliases, leaf, leaf.ty, facts);
+    collect_i32_scalar_parameter_conditions_for_source(
+        params,
+        raw_aliases,
+        leaf,
+        leaf.ty,
+        condition_context,
+        facts,
+    );
     collect_i32_scalar_return_offset_facts(
         params,
         raw_aliases,
@@ -341,6 +387,7 @@ fn collect_i32_scalar_return_leaf_facts(
         return_projection,
         leaf.ty,
         0,
+        condition_context,
         facts,
     );
 }
@@ -349,10 +396,15 @@ fn collect_i32_scalar_return_conditions(
     raw_aliases: &RawCellAddressAliases,
     source: &Place,
     return_projection: &[PlaceProjection],
+    condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
     for condition in I32_SCALAR_SUMMARY_CONDITIONS {
-        if raw_aliases.i32_condition_is_known_true(source, condition) {
+        if raw_aliases.i32_condition_is_known_true_with_context(
+            source,
+            condition,
+            condition_context,
+        ) {
             push_unique_i32_scalar_return_condition(
                 &mut facts.return_conditions,
                 I32ScalarReturnCondition {
@@ -372,6 +424,7 @@ fn collect_i32_scalar_return_offset_facts(
     return_projection: &[PlaceProjection],
     scalar_ty: TypeId,
     additional_offset: i64,
+    condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
     collect_i32_scalar_parameter_conditions_for_source(
@@ -379,6 +432,7 @@ fn collect_i32_scalar_return_offset_facts(
         raw_aliases,
         source,
         scalar_ty,
+        condition_context,
         facts,
     );
     for scalar_alias in raw_aliases.scalar_aliases_for_value(source) {
@@ -408,6 +462,7 @@ fn collect_i32_scalar_return_offset_facts(
             raw_aliases,
             &base,
             scalar_ty,
+            condition_context,
             facts,
         );
         for scalar_alias in raw_aliases.scalar_aliases_for_value(&base) {
@@ -437,10 +492,15 @@ fn collect_i32_scalar_parameter_conditions_for_source(
     raw_aliases: &RawCellAddressAliases,
     source: &Place,
     scalar_ty: TypeId,
+    condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
     for condition in I32_SCALAR_SUMMARY_CONDITIONS {
-        if raw_aliases.i32_condition_is_known_true(source, condition) {
+        if raw_aliases.i32_condition_is_known_true_with_context(
+            source,
+            condition,
+            condition_context,
+        ) {
             collect_i32_scalar_parameter_condition_fact(
                 params,
                 raw_aliases,
@@ -457,12 +517,18 @@ fn collect_i32_scalar_parameter_conditions(
     params: &[ResourceLocal],
     types: &TypeCtx,
     raw_aliases: &RawCellAddressAliases,
+    leaf_cache: &mut I32LeafProjectionCache,
+    condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
     for (parameter_index, param) in params.iter().enumerate() {
-        for leaf in i32_leaf_places_for_conditions(types, &param.place) {
+        for leaf in leaf_cache.leaf_places_for_conditions(types, &param.place) {
             for condition in I32_SCALAR_SUMMARY_CONDITIONS {
-                if raw_aliases.i32_condition_is_known_true(&leaf.place, condition) {
+                if raw_aliases.i32_condition_is_known_true_with_context(
+                    &leaf.place,
+                    condition,
+                    condition_context,
+                ) {
                     push_unique_i32_scalar_parameter_condition(
                         &mut facts.parameter_conditions,
                         I32ScalarParameterCondition {

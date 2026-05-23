@@ -12,7 +12,7 @@ pub(super) struct I32ScaleFact {
     pub(super) scale: usize,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32ScaleFacts {
     facts: Vec<I32ScaleFact>,
 }

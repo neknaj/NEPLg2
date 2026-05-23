@@ -11,7 +11,7 @@ pub(super) struct I32DifferenceFact {
     pub(super) difference: Place,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32DifferenceFacts {
     pub(super) facts: Vec<I32DifferenceFact>,
 }

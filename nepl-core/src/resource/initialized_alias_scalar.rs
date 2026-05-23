@@ -6,7 +6,7 @@ use super::initialized_alias_i32::{condition_implication, I32ConditionFact, I32V
 use super::model::{I32ValueCondition, Place};
 use super::place_utils::{place_suffix_after_prefix, replace_place_prefix};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32AliasFacts {
     values: Vec<I32ValueFact>,
     conditions: Vec<I32ConditionFact>,

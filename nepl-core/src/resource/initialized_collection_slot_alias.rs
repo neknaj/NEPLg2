@@ -2,6 +2,7 @@ use crate::span::Span;
 
 use super::cell_state::CellTable;
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
+use super::collection_slot_event_target::collection_slot_event_target;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
 use super::collection_slot_state_table::CollectionSlotStateTable;
@@ -13,7 +14,6 @@ use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryEventPro
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
-use super::raw_cell_value_flow_alias::canonical_raw_cell_place_with_aliases;
 use super::raw_realloc::PendingRawReallocs;
 
 impl ResourceCheckEngine<'_> {
@@ -27,7 +27,7 @@ impl ResourceCheckEngine<'_> {
         event: CollectionSlotLifecycleEvent,
         span: Span,
     ) {
-        let target = canonical_raw_cell_place_with_aliases(target, raw_aliases);
+        let target = collection_slot_event_target(target, event, raw_aliases);
         self.apply_collection_slot_lifecycle_with_proofs(
             cells,
             collection_slots,
@@ -52,7 +52,7 @@ impl ResourceCheckEngine<'_> {
         proof: CollectionSlotLifecycleSummaryEventProof,
         span: Span,
     ) {
-        let target = canonical_raw_cell_place_with_aliases(target, raw_aliases);
+        let target = collection_slot_event_target(target, event, raw_aliases);
         self.apply_collection_slot_lifecycle_with_proofs(
             cells,
             collection_slots,

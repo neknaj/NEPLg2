@@ -14,7 +14,7 @@ use super::model::{Place, PlaceProjection, ResourceOffset};
 use super::place_utils::{
     push_unique_place, replace_embedded_place_prefixes, replace_place_prefix, should_track,
 };
-use super::raw_cell_value_flow_alias::raw_cell_place_with_canonical_symbolic_offsets;
+use super::raw_cell_value_flow_alias::place_with_canonical_symbolic_offsets;
 
 impl CollectionSlotStateTable {
     pub(super) fn transfer_storage_prefix(
@@ -328,10 +328,7 @@ fn replace_storage_transfer_place_with_aliases(
     } else {
         moved
     };
-    Some(raw_cell_place_with_canonical_symbolic_offsets(
-        &moved,
-        raw_aliases,
-    ))
+    Some(place_with_canonical_symbolic_offsets(&moved, raw_aliases))
 }
 
 fn replace_embedded_storage_transfer_prefixes(
@@ -537,10 +534,10 @@ fn storage_transfer_alias_candidates(
     }
     let canonical_owner = raw_aliases.canonicalize_owner_cell_address(source);
     push_unique_place(&mut candidates, &canonical_owner);
-    let canonical_offset = raw_cell_place_with_canonical_symbolic_offsets(source, raw_aliases);
+    let canonical_offset = place_with_canonical_symbolic_offsets(source, raw_aliases);
     push_unique_place(&mut candidates, &canonical_offset);
     let canonical_owner_offset =
-        raw_cell_place_with_canonical_symbolic_offsets(&canonical_owner, raw_aliases);
+        place_with_canonical_symbolic_offsets(&canonical_owner, raw_aliases);
     push_unique_place(&mut candidates, &canonical_owner_offset);
     candidates
 }

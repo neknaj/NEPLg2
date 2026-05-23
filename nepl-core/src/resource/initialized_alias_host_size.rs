@@ -13,7 +13,7 @@ pub(super) struct HostSizeFact {
     kind: HostSizeKind,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct HostSizeFacts {
     facts: Vec<HostSizeFact>,
 }

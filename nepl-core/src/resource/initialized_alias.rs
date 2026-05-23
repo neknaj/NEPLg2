@@ -30,7 +30,7 @@ pub(super) struct ProjectedRawCellAddressAlias {
     pub(super) right_ty: TypeId,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct RawCellAddressAliases {
     groups: Vec<Vec<Place>>,
     marked: Vec<Place>,

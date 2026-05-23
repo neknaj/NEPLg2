@@ -27,13 +27,20 @@ impl RawCellAddressAliases {
         place: &Place,
         condition: I32ValueCondition,
     ) -> bool {
-        self.i32_condition_truth_inner(
+        self.i32_condition_is_known_true_with_context(
             place,
             condition,
-            0,
-            false,
             &mut I32ConditionQueryContext::default(),
-        ) == Some(true)
+        )
+    }
+
+    pub(super) fn i32_condition_is_known_true_with_context(
+        &self,
+        place: &Place,
+        condition: I32ValueCondition,
+        context: &mut I32ConditionQueryContext,
+    ) -> bool {
+        self.i32_condition_truth_inner(place, condition, 0, false, context) == Some(true)
     }
 
     pub(super) fn i32_condition_truth_inner(

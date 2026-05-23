@@ -10,7 +10,7 @@ use super::cell_state::CellTable;
 use super::condition_fact::record_condition_fact_value_constraints;
 use super::function_alias::FunctionAliasTable;
 use super::i32_scalar_return_facts::{
-    apply_i32_scalar_return_facts, collect_i32_scalar_return_facts_for_value_suffix,
+    apply_i32_scalar_return_facts, collect_i32_scalar_return_facts_for_value_suffix_cached,
     I32ScalarParameterCondition, I32ScalarReturnAlias, I32ScalarReturnCondition,
     I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset,
 };
@@ -22,6 +22,7 @@ use super::model::{
     AggregateKind, Place, PlaceProjection, ResourceCallTarget, ResourceFunction, ResourceModule,
     ResourceOp, ResourceTerminator,
 };
+use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::place_utils::{
     construct_aggregate_field_place, match_bind_payload_place, projection_result_type,
     reference_target_place, replace_place_prefix, type_can_seed_raw_address_alias,
@@ -45,14 +46,14 @@ impl FunctionSummary for I32ScalarReturnSummary {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 struct I32ScalarPathState {
     raw_aliases: RawCellAddressAliases,
     function_aliases: FunctionAliasTable,
     concrete_variants: I32ScalarConcreteVariants,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 struct I32ScalarConcreteVariants {
     entries: Vec<I32ScalarConcreteVariant>,
 }
@@ -149,6 +150,7 @@ fn function_i32_scalar_return_summary(
     let mut return_condition_paths = Vec::new();
     let mut parameter_condition_paths = Vec::new();
     let mut projection_paths = Vec::new();
+    let mut i32_leaf_cache = I32LeafProjectionCache::default();
     for block in &function.blocks {
         let states = i32_scalar_path_states_after_ops(
             vec![initial_i32_scalar_path_state(function, types)],
@@ -162,12 +164,13 @@ fn function_i32_scalar_return_summary(
                 let path_facts = value
                     .as_ref()
                     .map(|value| {
-                        collect_i32_scalar_return_facts_for_value_suffix(
+                        collect_i32_scalar_return_facts_for_value_suffix_cached(
                             &function.params,
                             types,
                             &state.raw_aliases,
                             value,
                             &[],
+                            &mut i32_leaf_cache,
                         )
                     })
                     .unwrap_or_default();
@@ -180,6 +183,7 @@ fn function_i32_scalar_return_summary(
                                 value,
                                 &path_facts,
                                 &state.concrete_variants,
+                                &mut i32_leaf_cache,
                             )
                         })
                         .unwrap_or_default(),
@@ -192,6 +196,13 @@ fn function_i32_scalar_return_summary(
             }
         }
     }
+    let aliases = merge_i32_scalar_return_fact_paths(alias_paths, &projection_paths);
+    let offsets = merge_i32_scalar_return_fact_paths(offset_paths, &projection_paths);
+    let constants = merge_i32_scalar_return_fact_paths(constant_paths, &projection_paths);
+    let return_conditions =
+        merge_i32_scalar_return_fact_paths(return_condition_paths, &projection_paths);
+    let parameter_conditions =
+        merge_i32_scalar_parameter_condition_paths(parameter_condition_paths);
     I32ScalarReturnSummary {
         function: function.name.clone(),
         parameters: function
@@ -200,16 +211,11 @@ fn function_i32_scalar_return_summary(
             .map(|param| param.place.clone())
             .collect(),
         facts: I32ScalarReturnFacts {
-            aliases: merge_i32_scalar_return_fact_paths(alias_paths, &projection_paths),
-            offsets: merge_i32_scalar_return_fact_paths(offset_paths, &projection_paths),
-            constants: merge_i32_scalar_return_fact_paths(constant_paths, &projection_paths),
-            return_conditions: merge_i32_scalar_return_fact_paths(
-                return_condition_paths,
-                &projection_paths,
-            ),
-            parameter_conditions: merge_i32_scalar_parameter_condition_paths(
-                parameter_condition_paths,
-            ),
+            aliases,
+            offsets,
+            constants,
+            return_conditions,
+            parameter_conditions,
         },
     }
 }
@@ -258,9 +264,20 @@ fn i32_scalar_path_states_after_ops(
                 types,
             ));
         }
+        dedupe_i32_scalar_path_states(&mut next);
         states = next;
     }
     states
+}
+
+fn dedupe_i32_scalar_path_states(states: &mut Vec<I32ScalarPathState>) {
+    let mut unique = Vec::new();
+    for state in states.drain(..) {
+        if !unique.iter().any(|existing| existing == &state) {
+            unique.push(state);
+        }
+    }
+    *states = unique;
 }
 
 fn i32_scalar_path_states_after_op(
@@ -455,11 +472,10 @@ fn i32_scalar_return_fact_projections(
     value: &Place,
     facts: &I32ScalarReturnFacts,
     concrete_variants: &I32ScalarConcreteVariants,
+    leaf_cache: &mut I32LeafProjectionCache,
 ) -> Vec<Vec<PlaceProjection>> {
     let mut projections = Vec::new();
-    for leaf in
-        super::owner_summary_i32_condition_leaf::i32_leaf_places_for_conditions(types, value)
-    {
+    for leaf in leaf_cache.leaf_places_for_conditions(types, value) {
         if !concrete_variants.projection_is_possible(types, value, &leaf.suffix) {
             continue;
         }

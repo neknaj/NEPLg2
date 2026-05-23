@@ -5,12 +5,12 @@ use alloc::vec::Vec;
 use super::model::{AggregateKind, Place};
 use super::place_utils::construct_aggregate_field_place;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct FunctionAliasTable {
     entries: Vec<FunctionAliasEntry>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct FunctionAliasEntry {
     place: Place,
     functions: Vec<String>,

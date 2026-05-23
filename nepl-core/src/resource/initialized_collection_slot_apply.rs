@@ -5,6 +5,7 @@ use alloc::string::ToString;
 
 use super::cell_state::CellTable;
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
+use super::collection_slot_event_target::collection_slot_event_target;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer_proof::CollectionSlotOwnerTransferProof;
 use super::collection_slot_state_table::CollectionSlotStateTable;
@@ -33,12 +34,7 @@ impl ResourceCheckEngine<'_> {
         span: Span,
     ) {
         let canonical_target = raw_aliases
-            .map(|raw_aliases| {
-                super::raw_cell_value_flow_alias::canonical_raw_cell_place_with_aliases(
-                    target,
-                    raw_aliases,
-                )
-            })
+            .map(|raw_aliases| collection_slot_event_target(target, event, raw_aliases))
             .unwrap_or_else(|| target.clone());
         let target = &canonical_target;
         let result = match event {
@@ -109,10 +105,7 @@ impl ResourceCheckEngine<'_> {
         if let Err(refutation) = result {
             let diagnostic_target = raw_aliases
                 .map(|raw_aliases| {
-                    super::raw_cell_value_flow_alias::canonical_raw_cell_place_with_aliases(
-                        &refutation.slot,
-                        raw_aliases,
-                    )
+                    collection_slot_event_target(&refutation.slot, event, raw_aliases)
                 })
                 .unwrap_or(refutation.slot);
             self.diagnostics

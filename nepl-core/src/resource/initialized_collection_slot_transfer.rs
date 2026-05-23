@@ -4,8 +4,8 @@ use alloc::string::ToString;
 
 use crate::span::Span;
 
-use super::collection_slot_owner_carrier::type_carries_collection_slot_owner;
 use super::collection_slot_state_table::CollectionSlotStateTable;
+use super::collection_slot_storage_carrier::type_can_carry_collection_slot_storage;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
@@ -20,7 +20,7 @@ impl ResourceCheckEngine<'_> {
         span: Span,
     ) {
         if self.types.is_copy(source.ty)
-            || !type_carries_collection_slot_owner(self.types, source.ty)
+            || !type_can_carry_collection_slot_storage(self.types, source.ty)
         {
             return;
         }
@@ -36,7 +36,7 @@ impl ResourceCheckEngine<'_> {
         span: Span,
     ) {
         if self.types.is_copy(source.ty)
-            || !type_carries_collection_slot_owner(self.types, source.ty)
+            || !type_can_carry_collection_slot_storage(self.types, source.ty)
         {
             return;
         }
@@ -50,7 +50,7 @@ impl ResourceCheckEngine<'_> {
         target: &Place,
         span: Span,
     ) {
-        if !type_carries_collection_slot_owner(self.types, source.ty) {
+        if !type_can_carry_collection_slot_storage(self.types, source.ty) {
             return;
         }
         if let Err(refutation) = collection_slots.transfer_storage_prefix(source, target) {
@@ -72,7 +72,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &RawCellAddressAliases,
         span: Span,
     ) {
-        if !type_carries_collection_slot_owner(self.types, source.ty) {
+        if !type_can_carry_collection_slot_storage(self.types, source.ty) {
             return;
         }
         if let Err(refutation) =

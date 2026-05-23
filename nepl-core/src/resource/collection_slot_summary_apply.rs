@@ -3,8 +3,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::cell_state::CellTable;
-use super::collection_slot_owner_carrier::type_carries_collection_slot_owner;
 use super::collection_slot_state_table::CollectionSlotStateTable;
+use super::collection_slot_storage_carrier::type_can_carry_collection_slot_storage;
 use super::collection_slot_summary_apply_return_path::CollectionSlotReturnPathState;
 use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummary;
 use super::function_alias::FunctionAliasTable;
@@ -146,7 +146,8 @@ impl ResourceCheckEngine<'_> {
         args: &[Place],
     ) {
         for arg in args {
-            if !self.types.is_copy(arg.ty) && type_carries_collection_slot_owner(self.types, arg.ty)
+            if !self.types.is_copy(arg.ty)
+                && type_can_carry_collection_slot_storage(self.types, arg.ty)
             {
                 collection_slots.clear_storage_prefix_with_aliases(arg, raw_aliases);
             }

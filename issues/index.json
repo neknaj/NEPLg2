@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-23T01:56:36.814Z",
+  "generated_at": "2026-05-23T03:09:50.429Z",
   "counts": {
     "total": 1240,
-    "open": 4,
-    "resolved": 1236,
+    "open": 3,
+    "resolved": 1237,
     "by_area": {
       "stdlib": {
         "total": 325,
         "open": 2,
         "resolved": 323
-      },
-      "core": {
-        "total": 607,
-        "open": 1,
-        "resolved": 606
       },
       "selfhost": {
         "total": 110,
@@ -30,6 +25,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "core": {
+        "total": 607,
+        "open": 0,
+        "resolved": 607
       },
       "CORE": {
         "total": 5,
@@ -153,21 +153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md"
-    },
-    {
-      "id": "ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD",
-      "title": "Vec DropPayload Resource IR summary stages exceed focused test budget",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-05-23",
-      "updated": "2026-05-23",
-      "target": "nepl-core/src/resource/**, nepl-core/tests/resource_ir.rs, stdlib/alloc/collections/vec/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -16773,6 +16758,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T032238561Z-INITIALIZED-VARIANT-MODULE-EXCEEDS-R-FE81E4F9.md"
+    },
+    {
+      "id": "ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD",
+      "title": "Vec DropPayload Resource IR summary stages exceed focused test budget",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-23",
+      "updated": "2026-05-23",
+      "target": "nepl-core/src/resource/**, nepl-core/tests/resource_ir.rs, stdlib/alloc/collections/vec/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

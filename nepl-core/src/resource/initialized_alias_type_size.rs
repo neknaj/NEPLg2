@@ -21,7 +21,7 @@ struct I32TypeSizeScaleFact {
     ty: TypeId,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32TypeSizeFacts {
     sizes: Vec<I32TypeSizeFact>,
     scales: Vec<I32TypeSizeScaleFact>,

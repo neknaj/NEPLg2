@@ -1,3 +1,21 @@
+# 2026-05-23 Agent 1 Vec DropPayload Resource IR summary budget
+
+- `ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD` を fixed にした。`plan.md` は確認済みで、変更していない。
+- i32 scalar summary 側は `I32ConditionQueryContext` と leaf projection cache を summary 内で共有し、条件照会・return fact 変換の再計算を削減した。path state は `PartialEq/Eq` により exact dedupe できるようにし、同一状態の重複伝播を抑えた。
+- collection slot summary 側は `collection_slot_summary_relevance` を追加し、signature carrier、直接 lifecycle op、call/function-value dependency から必要な関数だけを source-derived に再計算する。stdlib 関数名 allowlist や budget skip は使っていない。
+- 作業中に、collection slot storage と owner token carrier の責務混同、raw cell 用 zero-offset canonicalization を collection slot identity に流用していた問題を発見し、`collection_slot_storage_carrier` と `collection_slot_event_target` に分離した。
+- 実測では `resource_ir_vec_borrow_at_predicate_or_observes_drop_payload_without_move` が約 39.78s、`resource_ir_initialized_check_vec_drop_push_free_closes_stdlib_lifecycle` が約 37.39s。修正前の約 84s から大きく短縮し、collection slot call summary と direct storage move の回帰も通した。
+- focused verification:
+  - `cargo fmt --check`
+  - `git diff --check`
+  - `cargo test -q -p nepl-core collection_slot_call_summary -- --nocapture`
+  - `cargo test -q -p nepl-core resource::collection_slot_storage_carrier::tests -- --nocapture`
+  - `cargo test -q -p nepl-core resource::collection_slot_summary_relevance::tests -- --nocapture`
+  - `cargo test -q -p nepl-core resource::collection_slot_summary_build::tests -- --nocapture`
+  - `cargo test -q -p nepl-core --test resource_ir resource_ir_collection_slot_move_transfers_slot_state_to_output -- --exact --nocapture`
+  - `NEPL_COMPILE_STAGE_TIMING=1 cargo test -p nepl-core --test resource_ir resource_ir_vec_borrow_at_predicate_or_observes_drop_payload_without_move -- --test-threads=1 --exact --nocapture`
+  - `NEPL_COMPILE_STAGE_TIMING=1 cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_push_free_closes_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+
 # 2026-05-23 Agent 1 Vec borrowed slot observer
 
 - `ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61` を fixed にした。`plan.md` は確認済みで、変更していない。

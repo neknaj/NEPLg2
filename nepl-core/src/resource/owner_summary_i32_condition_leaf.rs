@@ -12,14 +12,39 @@ use super::owner_summary_leaf::{
 };
 use super::place_utils::place_with_suffix;
 
+#[derive(Default)]
+pub(super) struct I32LeafProjectionCache {
+    entries: Vec<(TypeId, Vec<OwnerLeafProjection>)>,
+}
+
+impl I32LeafProjectionCache {
+    pub(super) fn leaf_places_for_conditions(
+        &mut self,
+        types: &TypeCtx,
+        base: &Place,
+    ) -> Vec<OwnerLeafPlace> {
+        self.projections(types, base.ty)
+            .into_iter()
+            .map(|leaf| OwnerLeafPlace {
+                place: place_with_suffix(base, &leaf.suffix, leaf.ty),
+                suffix: leaf.suffix,
+            })
+            .collect()
+    }
+
+    fn projections(&mut self, types: &TypeCtx, ty: TypeId) -> Vec<OwnerLeafProjection> {
+        if let Some((_, projections)) = self.entries.iter().find(|(entry_ty, _)| *entry_ty == ty) {
+            return projections.clone();
+        }
+        let projections =
+            i32_leaf_projections_mapped(types, ty, &BTreeMap::new(), &mut BTreeSet::new());
+        self.entries.push((ty, projections.clone()));
+        projections
+    }
+}
+
 pub(super) fn i32_leaf_places_for_conditions(types: &TypeCtx, base: &Place) -> Vec<OwnerLeafPlace> {
-    i32_leaf_projections_mapped(types, base.ty, &BTreeMap::new(), &mut BTreeSet::new())
-        .into_iter()
-        .map(|leaf| OwnerLeafPlace {
-            place: place_with_suffix(base, &leaf.suffix, leaf.ty),
-            suffix: leaf.suffix,
-        })
-        .collect()
+    I32LeafProjectionCache::default().leaf_places_for_conditions(types, base)
 }
 
 fn i32_leaf_projections_mapped(

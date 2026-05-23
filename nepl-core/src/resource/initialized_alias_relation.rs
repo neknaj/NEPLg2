@@ -12,7 +12,7 @@ pub(super) struct I32RelationFact {
     pub(super) right: Place,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32RelationFacts {
     pub(super) relations: Vec<I32RelationFact>,
 }

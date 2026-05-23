@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use super::model::{Place, PlaceRoot};
 use super::place_utils::{place_suffix_after_prefix, place_with_suffix};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct RawValueOrigins {
     origins: Vec<ValueOrigin>,
 }

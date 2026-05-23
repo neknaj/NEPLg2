@@ -26,6 +26,7 @@ pub(super) fn owner_leaf_places(types: &TypeCtx, base: &Place) -> Vec<OwnerLeafP
         .collect()
 }
 
+#[derive(Clone)]
 pub(super) struct OwnerLeafProjection {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,

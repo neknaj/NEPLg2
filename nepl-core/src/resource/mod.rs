@@ -39,6 +39,7 @@ mod collection_slot_drop_traversal_slots;
 mod collection_slot_drop_traversal_summary;
 mod collection_slot_drop_traversal_summary_proof;
 mod collection_slot_drop_traversal_symbolic_range;
+mod collection_slot_event_target;
 mod collection_slot_lifecycle;
 mod collection_slot_lifecycle_model;
 #[cfg(test)]
@@ -73,6 +74,7 @@ mod collection_slot_state_table_tests;
 mod collection_slot_state_transfer;
 #[cfg(test)]
 mod collection_slot_state_transfer_tests;
+mod collection_slot_storage_carrier;
 mod collection_slot_storage_release_proof;
 mod collection_slot_summary_apply;
 mod collection_slot_summary_apply_return_path;
@@ -110,6 +112,7 @@ mod collection_slot_summary_event_proof;
 mod collection_slot_summary_match_state;
 mod collection_slot_summary_model;
 mod collection_slot_summary_projection;
+mod collection_slot_summary_relevance;
 mod collection_slot_summary_replay;
 mod collection_slot_summary_replay_drop_traversal;
 #[cfg(test)]
