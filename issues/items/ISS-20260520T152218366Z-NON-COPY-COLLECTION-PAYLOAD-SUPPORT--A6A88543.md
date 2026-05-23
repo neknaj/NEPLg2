@@ -143,6 +143,12 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 
 同日の監査で、`filter` / `partition` / `take_while` / `drop_while` を non-Copy payload へ拡張する前に、by-value predicate `(.T)->bool` を borrowed predicate 境界へ置き換える必要があることを確認し、[ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61](./ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61.md) として分離した。`BorrowRead` の Resource IR state proof は存在するが、実 `Vec<T>` の public API には証明済み slot から `&T` を callback scope 内だけに materialize する observer 境界がない。したがって transform の `.T: Copy` 制約は、`VecStorageInvariant` + `CollectionSlotLifecycleEvent::BorrowRead` + borrow escape rejection による汎用境界を実装するまで外さない。
 
+2026-05-23 に [ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F](./ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F.md) を fixed にした。`count_ref` / `find_index_ref` / `any_ref` / `all_ref` は `BorrowRead` backed の `(&T)->bool` query として実装済みで、payload copy-out query は Copy-only のまま維持する。修正中に、Vec push/grow/return summary 後に initialized slot state が returned storage projection へ戻らない Resource IR 欠落も修正した。
+
+同日の再監査で、親 issue はまだ close しないと判断した。`push` / `grow` / `free` / `clear` / `pop` / `replace` / borrowed query は generic Resource IR proof boundary へ進んだ一方、`map` / `filter` / `take_while` / `drop_while` / `partition` はまだ Copy-by-value transform に残る。この実装単位は [ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1](./ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md) として切り出した。
+
+同じ再監査で、`Vec` sort は raw load/store/swap と `Ord&Copy` 前提に残るため、transform engine とは別に borrowed comparison と slot swap lifecycle proof を設計する必要があると判断した。この残件は [ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90](./ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90.md) として分離した。
+
 ## 問題
 
 現状の安全性は「non-Copy payload collection を許可しない」ことで成立している。これは旧バグの再発防止としては正しいが、self-host compiler の中核では長期的に不足する。

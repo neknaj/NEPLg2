@@ -78,6 +78,10 @@ non-Copy transform はこの observer を共有する。`filter` / `partition` /
 
 2026-05-23 追記: scoped borrowed observer は transform の前提だけでなく、scalar / index だけを返す query にも先に適用する。`count` / `any` / `all` / `find` の既存 API は `(.T)->...` で payload を値として predicate へ渡すため Copy-only のまま維持し、`count_ref` / `any_ref` / `all_ref` / `find_index_ref` を別 API として追加する。これらは `VecStorageInvariant` と `borrow_at_predicate_or` を通して `BorrowRead` proof を使い、payload owner を `Vec` 内に残す。`find_ref -> &T` のように borrowed ref を返す API は lifetime escape の入口になるため作らない。関連 issue は [ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F](../../issues/items/ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F.md)。
 
+2026-05-23 追記 2: 監査の結果、`Vec` の non-Copy collection support はまだ transform / sort を残す。`push` / grow / free / clear / pop / replace / borrowed query は Resource IR proof boundary へ進んだが、`map` / `filter` / prefix / `partition` は Copy-by-value transform であり、`filter` だけを個別に特例化する設計は採用しない。次は [ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1](../../issues/items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md) で、borrowed predicate observation、slot `MoveOut`、output `InitializeEmpty`、discard actual drop、rollback cleanup を 1 つの generic transform engine として設計・実装する。
+
+2026-05-23 追記 3: sort は transform より後に扱う。現行 sort は raw swap と `Ord&Copy` comparison に依存するため、non-Copy payload へ進めるには borrowed comparison `(&T,&T)->bool` と slot swap lifecycle proof が必要である。この残件は [ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90](../../issues/items/ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90.md) で追跡し、raw shallow swap を例外扱いしない。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

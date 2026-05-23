@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-23T05:04:59.729Z",
+  "generated_at": "2026-05-23T05:20:31.586Z",
   "counts": {
-    "total": 1241,
-    "open": 3,
+    "total": 1243,
+    "open": 5,
     "resolved": 1238,
     "by_area": {
       "stdlib": {
-        "total": 326,
-        "open": 2,
+        "total": 328,
+        "open": 4,
         "resolved": 324
       },
       "selfhost": {
@@ -155,6 +155,21 @@
       "file": "items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md"
     },
     {
+      "id": "ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1",
+      "title": "Vec non-Copy transforms need borrowed predicate move engine",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-23",
+      "updated": "2026-05-23",
+      "target": "stdlib/alloc/collections/vec/transform/**, nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
       "title": "NEPLg2 self-host compiler が部分実装に留まっている",
       "area": "selfhost",
@@ -183,6 +198,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90",
+      "title": "Vec non-Copy sort needs borrowed comparison and slot swap lifecycle proof",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-23",
+      "updated": "2026-05-23",
+      "target": "stdlib/alloc/collections/vec/sort/**, nepl-core/src/resource/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",

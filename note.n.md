@@ -1,3 +1,10 @@
+# 2026-05-23 Agent 1 non-Copy Vec transform/sort 残件切り出し
+
+- `ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543` はまだ fixed にしていない。`push` / grow / free / clear / pop / replace / borrowed query は Resource IR proof boundary へ進んだが、transform / sort が Copy-by-value raw access 前提に残る。
+- `ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1` を追加した。`map` / `filter` / prefix / `partition` を borrowed predicate observation、slot `MoveOut`、output `InitializeEmpty`、discard actual drop、rollback cleanup へ接続する実装単位として扱う。
+- `ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90` を追加した。sort は raw shallow swap と `Ord&Copy` comparison を non-Copy へ拡張できないため、borrowed comparison と slot swap lifecycle proof の設計から始める。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` から新 issue へリンクし、親 issue に最新の close 判定と残件を追記した。
+
 # 2026-05-23 Agent 1 Vec borrowed predicate query and Resource IR slot summary
 
 - `ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F` を fixed にした。`plan.md` は確認済みで、変更していない。
