@@ -68,3 +68,5 @@ source policy は `vec_partition_with` の signature と field extraction / call
 - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は `vec_partition_with` の ownership-preserving signature と実装境界を監視する。
 - `nodesrc/test_stdlib_collection_cleanup_contract.js` は `vec_partition_with` を `VecPartition` 専用の owner-preserving recovery surface として分類し、Copy bound なしで認める条件を callback signature に限定した。
 - `vec_partition_with` の doctest は direct constructor を成功例にせず、通常 source が owner-backed aggregate を合成できないことを `type.owner_aggregate.constructor_restricted` で固定する。
+
+2026-05-23 追記: [ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78](./ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78.md) で、`vec_partition_from_parts<T>` を stdlib 内の safe constructor boundary として追加した。これは direct constructor 公開ではなく、2 本の `Vec<T>` owner を `VecPartition<T>` へ束ねる API 型を明示するためのもの。positive doctest は `vec_partition_from_parts -> vec_partition_with` の経路で通し、direct constructor compile_fail は維持した。

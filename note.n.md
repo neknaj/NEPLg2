@@ -1,3 +1,17 @@
+# 2026-05-23 Agent 1 Vec partition positive owner fixture
+
+- `ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78` を fixed にした。`plan.md` は確認済みで、変更していない。
+- `partition<T: Copy>` 本体を通る positive fixture は local 240s command budget を超え、`vec_partition_with<T, R>` の所有権回収境界を見るには広すぎた。direct constructor を成功例にすると `type.owner_aggregate.constructor_restricted` を壊すため採用していない。
+- `stdlib/alloc/collections/vec/transform/filter/partition/view.nepl` に `vec_partition_from_parts<T>(Vec<T>, Vec<T>) -> VecPartition<T>` を追加した。これは 2 本の `Vec<T>` owner を payload copy/drop/storage release なしで named aggregate に束ねる safe stdlib boundary であり、消費は `vec_partition_with<T, R>` が callback へ両 owner を同時に渡す。
+- source policy は `vec_partition_from_parts` を単なる関数名例外にせず、`(Vec<.T>, Vec<.T>) -> VecPartition<.T>` の同一 generic owner-preserving signature を確認するようにした。
+- focused verification:
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl -n 5 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl -n 6 --dist web/dist`
+
 # 2026-05-22 Agent 1 Vec push rejected owner eliminator
 
 - `ISS-20260522T231831254Z-VEC-PUSH-FAILURE-RECOVERY-NEEDS-OWNE-5765BBFD` を追加して fixed にした。`plan.md` は確認済みで、変更していない。

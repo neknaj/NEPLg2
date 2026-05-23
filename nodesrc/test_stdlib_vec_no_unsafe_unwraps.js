@@ -306,8 +306,8 @@ assert.match(vecTransformFilterPartitionRootCode, /pub\s+#import\s+"\.\/partitio
 assert.match(vecTransformFilterPartitionRootCode, /pub\s+#import\s+"\.\/partition\/view"\s+as\s+@merge/, 'vec/transform/filter/partition.nepl must merge re-export partition/view.nepl');
 assert.doesNotMatch(vecTransformFilterPartitionRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/transform/filter/partition.nepl must be a pure facade without implementation bodies');
 assert.match(vecTransformFilterPartitionBuildCode, /\bfn\s+partition\b/, 'vec/transform/filter/partition/build.nepl must own partition');
-assert.doesNotMatch(vecTransformFilterPartitionBuildCode, /\bvec_partition_(?:matched|rest|with|free)/, 'vec/transform/filter/partition/build.nepl must not own VecPartition observer/free APIs');
-for (const name of ['vec_partition_matched_len', 'vec_partition_rest_len', 'vec_partition_matched_get', 'vec_partition_rest_get', 'vec_partition_with', 'vec_partition_free']) {
+assert.doesNotMatch(vecTransformFilterPartitionBuildCode, /\bvec_partition_(?:matched|rest|from_parts|with|free)/, 'vec/transform/filter/partition/build.nepl must not own VecPartition observer/free APIs');
+for (const name of ['vec_partition_matched_len', 'vec_partition_rest_len', 'vec_partition_matched_get', 'vec_partition_rest_get', 'vec_partition_from_parts', 'vec_partition_with', 'vec_partition_free']) {
     assert.match(vecTransformFilterPartitionViewCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform/filter/partition/view.nepl must own ${name}`);
 }
 assert.doesNotMatch(vecTransformFilterPartitionViewCode, /\bfn\s+partition\b/, 'vec/transform/filter/partition/view.nepl must not own partition construction');
@@ -408,6 +408,7 @@ assert.doesNotMatch(vecCode, /(?:->|Result<)\.Pair\b|Tuple:/, 'Vec must not retu
 assert.doesNotMatch(vecCode, /\bVec<\.[TU]>\s+(?:[A-Za-z_]\w*|\d+)\s+(?:[A-Za-z_]\w*|\d+)\s+(?:VecStorage|[A-Za-z_]\w*)/, 'Vec constructors must pass a single OwnedBuffer payload instead of direct len/cap/storage fields');
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Vec.pop result must be a named struct with an owned Vec field');
 assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s\S]*rest\s+<Vec<\.T>>/, 'Vec.partition result must be a named struct with both owned Vec fields');
+assert.match(vecTransformFilterPartitionViewCode, /fn\s+vec_partition_from_parts\s+<\.T>\s+<\(Vec<\.T>,Vec<\.T>\)->VecPartition<\.T>>[\s\S]*VecPartition<\.T>\s+matched\s+rest/, 'Vec.partition result must provide a safe owner-preserving constructor wrapper instead of exposing direct aggregate construction to user source');
 assert.match(vecTransformFilterPartitionViewCode, /fn\s+vec_partition_with\s+<\.T,\.R>\s+<\(VecPartition<\.T>,\(Vec<\.T>,Vec<\.T>\)\*>\.R\)\*>\.R>[\s\S]*let\s+matched\s+<Vec<\.T>>\s+field::get\s+parts\s+"matched"[\s\S]*let\s+rest\s+<Vec<\.T>>\s+field::get\s+parts\s+"rest"[\s\S]*callback\s+matched\s+rest/, 'Vec.partition result must provide a generic owner-preserving eliminator that returns matched and rest Vec owners together');
 assert.match(vecTransformFilterPartitionViewSource, /neplg2:test\[compile_fail\][\s\S]*diag_code:\s*type\.owner_aggregate\.constructor_restricted[\s\S]*let\s+parts\s+<VecPartition<i32>>\s+VecPartition<i32>/, 'Vec.partition docs must keep user-source direct VecPartition construction as a compile_fail safety fixture');
 for (const relPath of walkNeplFiles(path.join(repoRoot, 'stdlib'))) {

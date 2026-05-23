@@ -24,6 +24,7 @@ const privateProofBackedTailCleanupHelperInspected = [];
 const ownerPreservingErrorRecoveryInspected = [];
 const ownerPreservingPopRecoveryInspected = [];
 const ownerPreservingPartitionRecoveryInspected = [];
+const ownerPreservingPartitionConstructorInspected = [];
 const proofBackedPopMoveOutInspected = [];
 const violations = [];
 
@@ -98,6 +99,10 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (ownerPreservingPartitionRecovery && !ownerPreservingPartitionRecoveryInspected.includes(`${relPath}:${signature.name}`)) {
                     ownerPreservingPartitionRecoveryInspected.push(`${relPath}:${signature.name}`);
                 }
+                const ownerPreservingPartitionConstructor = classifyOwnerPreservingPartitionConstructor(signature.name, typeSignature);
+                if (ownerPreservingPartitionConstructor && !ownerPreservingPartitionConstructorInspected.includes(`${relPath}:${signature.name}`)) {
+                    ownerPreservingPartitionConstructorInspected.push(`${relPath}:${signature.name}`);
+                }
                 const privateLifecycleProofHelper = !signature.isPublic
                     ? classifyPrivateCollectionLifecycleProofHelper(source, signature.name)
                     : null;
@@ -117,7 +122,7 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !ownerPreservingErrorRecovery && !ownerPreservingPopRecovery && !ownerPreservingPartitionRecovery && !proofBackedPopMoveOut) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !ownerPreservingErrorRecovery && !ownerPreservingPopRecovery && !ownerPreservingPartitionRecovery && !ownerPreservingPartitionConstructor && !proofBackedPopMoveOut) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
@@ -313,6 +318,10 @@ assert.ok(
 assert.ok(
     ownerPreservingPartitionRecoveryInspected.includes('stdlib/alloc/collections/vec/transform/filter/partition/view.nepl:vec_partition_with'),
     'collection partition owner recovery policy must allow VecPartition only when matched and rest Vec owners are passed to the same callback',
+);
+assert.ok(
+    ownerPreservingPartitionConstructorInspected.includes('stdlib/alloc/collections/vec/transform/filter/partition/view.nepl:vec_partition_from_parts'),
+    'collection partition owner constructor policy must allow VecPartition construction only when both Vec owners are consumed into the named aggregate',
 );
 
 assert.ok(
@@ -687,6 +696,32 @@ function classifyOwnerPreservingPartitionRecovery(name, typeSignature) {
     }
 
     return { kind: 'owner-preserving-partition-recovery' };
+}
+
+function classifyOwnerPreservingPartitionConstructor(name, typeSignature) {
+    if (name !== 'vec_partition_from_parts') {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const first = functionType.parameters[0].trim();
+    const second = functionType.parameters[1].trim();
+    const firstMatch = first.match(/^Vec<\.(\w+)>$/);
+    const secondMatch = second.match(/^Vec<\.(\w+)>$/);
+    if (!firstMatch || !secondMatch || firstMatch[1] !== secondMatch[1]) {
+        return null;
+    }
+
+    const returnMatch = functionType.returnType.trim().match(/^VecPartition<\.(\w+)>$/);
+    if (!returnMatch || returnMatch[1] !== firstMatch[1]) {
+        return null;
+    }
+
+    return { kind: 'owner-preserving-partition-constructor' };
 }
 
 function classifyFallibleOwnerConsumer(typeSignature) {

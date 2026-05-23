@@ -143,6 +143,38 @@ pub fn vec_partition_rest_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (
     let rest <&Vec<.T>> field::get_ref parts "rest"
     vec_get::get<.T> rest idx
 
+//: ## vec_partition_from_parts
+//: 2 本の `Vec` owner を `VecPartition` に[束/たば]ねる
+//:
+//: ### [目的/もくてき]
+//: - caller が `VecPartition<T>` の direct constructor を[使/つか]わなくても、2 本の `Vec<T>` owner を 1 つの named result にまとめられるようにします。
+//: - `matched` / `rest` の owner obligation はそのまま `VecPartition<T>` に[移/うつ]るため、payload の copy、drop、storage release は行いません。
+//: - `vec_partition_with<T, R>` と対になる safe constructor boundary です。field を直接[触/さわ]らず、constructor と eliminator の型で owner flow を表します。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/storage/view" as *
+//:| #import "alloc/collections/vec/mutation/cleanup" as *
+//:| #import "alloc/collections/vec/access/header" as *
+//:| #import "alloc/collections/vec/transform/filter/partition/view" as *
+//:| #import "core/math" as *
+//: fn finish_partition <(Vec<i32>,Vec<i32>)*>i32> (matched, rest):
+//:     let ok <bool> and (eq len<i32> &matched 0) (eq len<i32> &rest 0)
+//:     free<i32> matched
+//:     free<i32> rest
+//:     if ok 0 1
+//: fn main <()*>i32> ():
+//:     let matched <Vec<i32>> vec_empty<i32>
+//:     let rest <Vec<i32>> vec_empty<i32>
+//:     let parts <VecPartition<i32>> vec_partition_from_parts<i32> matched rest
+//:     vec_partition_with<i32,i32> parts @finish_partition
+//: ```
+pub fn vec_partition_from_parts <.T> <(Vec<.T>,Vec<.T>)->VecPartition<.T>> (matched, rest):
+    VecPartition<.T> matched rest
+
 //: ## vec_partition_with
 //: `VecPartition` の `matched` owner と `rest` owner を同じ callback に[渡/わた]す
 //:

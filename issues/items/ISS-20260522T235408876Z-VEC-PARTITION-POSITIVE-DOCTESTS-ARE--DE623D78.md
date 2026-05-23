@@ -2,13 +2,13 @@
 id: ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78
 title: "Vec.partition positive doctests are too broad for focused owner-recovery regression"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: performance
 created: 2026-05-22
-updated: 2026-05-22
-target: "stdlib/alloc/collections/vec/transform/filter/partition/view.nepl, stdlib/alloc/collections/vec/transform/filter/partition/build.nepl, nodesrc/tests.js"
+updated: 2026-05-23
+target: "stdlib/alloc/collections/vec/transform/filter/partition/view.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nodesrc/test_stdlib_collection_cleanup_contract.js"
 ---
 
 # ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78: Vec.partition positive doctests are too broad for focused owner-recovery regression
@@ -56,3 +56,22 @@ target: "stdlib/alloc/collections/vec/transform/filter/partition/view.nepl, stdl
 - direct user-source `VecPartition<T>` construction は引き続き `type.owner_aggregate.constructor_restricted` で拒否される。
 - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
 - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+
+## 対応結果
+
+2026-05-23 に fixed。
+
+- `partition` 本体を通る positive fixture は、実アルゴリズム、monomorphization、Resource IR summary、doctest fixture の広い範囲を同時に起動するため local 240s command budget を超えた。これは `vec_partition_with<T, R>` 自体の所有権回収境界を確認する focused regression としては過大だった。
+- direct user-source constructor を成功例にすると `type.owner_aggregate.constructor_restricted` を壊すため採用していない。代わりに `partition/view.nepl` 内に `vec_partition_from_parts<T>(Vec<T>, Vec<T>) -> VecPartition<T>` を追加し、2 本の `Vec<T>` owner を同一 generic の owner-backed aggregate へ束ねる safe constructor boundary を設けた。
+- `vec_partition_from_parts<T>` は payload copy、drop、storage release を行わず、`matched` / `rest` の free obligation を `VecPartition<T>` に移すだけである。実消費は `vec_partition_with<T, R>` が callback へ両 owner を同時に渡すため、owner recovery discipline は direct field projection に依存しない。
+- source policy は `vec_partition_from_parts` を関数名だけで許可せず、`(Vec<.T>, Vec<.T>) -> VecPartition<.T>` の構造を確認するようにした。これにより stdlib allowlist 的な抜け道ではなく、owner-preserving API 型の形を監査する。
+- `vec_partition_from_parts -> vec_partition_with` の positive doctest は compile 30.033s / total 30.070s で通過した。direct constructor compile_fail doctest も引き続き `type.owner_aggregate.constructor_restricted` で通過した。
+
+追加検証:
+
+- `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+- `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+- `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+- `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl -n 5 --dist web/dist`
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/transform/filter/partition/view.nepl -n 6 --dist web/dist`

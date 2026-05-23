@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-22T23:57:37.024Z",
+  "generated_at": "2026-05-23T00:28:37.783Z",
   "counts": {
     "total": 1238,
-    "open": 4,
-    "resolved": 1234,
+    "open": 3,
+    "resolved": 1235,
     "by_area": {
       "stdlib": {
         "total": 324,
-        "open": 3,
-        "resolved": 321
+        "open": 2,
+        "resolved": 322
       },
       "selfhost": {
         "total": 110,
@@ -183,21 +183,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78",
-      "title": "Vec.partition positive doctests are too broad for focused owner-recovery regression",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-05-22",
-      "updated": "2026-05-22",
-      "target": "stdlib/alloc/collections/vec/transform/filter/partition/view.nepl, stdlib/alloc/collections/vec/transform/filter/partition/build.nepl, nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -18453,6 +18438,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T142914786Z-COLLECTION-OBSERVER-DOCTESTS-STILL-U-19B433D2.md"
+    },
+    {
+      "id": "ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78",
+      "title": "Vec.partition positive doctests are too broad for focused owner-recovery regression",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-22",
+      "updated": "2026-05-23",
+      "target": "stdlib/alloc/collections/vec/transform/filter/partition/view.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nodesrc/test_stdlib_collection_cleanup_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",
