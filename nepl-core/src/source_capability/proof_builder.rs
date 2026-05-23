@@ -1,7 +1,7 @@
 use alloc::string::String;
 
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::source_map::{
     CompilerMemoryField, CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan,
     SourceCapabilityUseSite,
@@ -21,6 +21,7 @@ pub(in crate::source_capability) enum SourceCapabilityProofFact {
     CompilerMemoryFieldBoundary(CompilerMemoryField),
     CompilerMemoryTypeDefinition(CompilerMemoryType),
     CollectionSlotLifecycleBoundary(CollectionSlotLifecyclePrimitive),
+    CollectionSlotBorrowBoundary(CollectionSlotBorrowPrimitive),
 }
 
 #[derive(Debug, Default)]
@@ -104,6 +105,12 @@ impl SourceCapabilityProof {
             }
             SourceCapabilityProofFact::CollectionSlotLifecycleBoundary(primitive) => {
                 self.insert_use_site(SourceCapabilityUseSite::CollectionSlotLifecycleBoundary {
+                    primitive,
+                    span: Self::site_span(span),
+                });
+            }
+            SourceCapabilityProofFact::CollectionSlotBorrowBoundary(primitive) => {
+                self.insert_use_site(SourceCapabilityUseSite::CollectionSlotBorrowBoundary {
                     primitive,
                     span: Self::site_span(span),
                 });

@@ -1,3 +1,18 @@
+# 2026-05-23 Agent 1 Vec borrowed slot observer
+
+- `ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61` を fixed にした。`plan.md` は確認済みで、変更していない。
+- `collection_slot_borrow_ref<T>` を typed `CollectionSlotBorrowPrimitive::BorrowRef` として追加し、source capability、typecheck、Resource IR lowering、coverage、Wasm/LLVM codegen precheck に接続した。stdlib 関数名 allowlist ではなく、compiler-owned stdlib source evidence と enum primitive で境界を閉じている。
+- Resource IR では同じ typed slot に `BorrowRead` と shared `Borrow` を発行する。MoveOut 後の borrow は slot-state checker が拒否し、slot 由来の `&T` は `StorageOffset` projection により return escape を borrow checker が拒否する。
+- `stdlib/alloc/collections/vec/access/borrow.nepl` に `borrow_at_predicate_or<T>(&Vec<T>, i32, (&T)->bool, bool)->bool` を追加した。任意 `R` 戻り値 observer は borrow escape / owner summary の性能と soundness を固めるまで公開しない。
+- 作業中に、既存 `Vec<DropPayload>.push -> free` と新規 observer の実 stdlib regression がともに約 84 秒かかり、`resource_initialized_i32_scalar_summaries` と `resource_initialized_collection_slot_summaries` が支配的であることを確認した。これは `ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD` として分離した。
+- focused verification:
+  - `cargo test -q -p nepl-core collection_slot_borrow -- --nocapture`
+  - `cargo test -q -p nepl-core resource_ir_collection_slot_borrow_ref -- --nocapture`
+  - `cargo test -q -p nepl-core collection_slot_borrow_intrinsic_lowers_state_proof_and_shared_borrow -- --nocapture`
+  - `cargo test -q -p nepl-core resource_ir_vec_borrow_at_predicate_or -- --nocapture`
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib\alloc\collections\vec\access\borrow.nepl --no-tree -o tmp\agent1-vec-borrow-doctest.json -j 1 --dist web\dist --assert-io`
+
 # 2026-05-23 Agent 1 Vec partition positive owner fixture
 
 - `ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78` を fixed にした。`plan.md` は確認済みで、変更していない。

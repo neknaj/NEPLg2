@@ -27,7 +27,7 @@ use crate::layout::{
     enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
     storage_align_bytes, storage_size_bytes, tuple_field_layouts_by_result,
 };
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::runtime_helpers::{self, RuntimeHelperKind};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::span::Span;
@@ -1774,6 +1774,51 @@ fn gen_expr(
                 gen_i32_arithmetic_intrinsic(
                     ctx, kind, args, expr.span, name_map, sig_map, strings, locals, insts,
                 )?
+            } else if CollectionSlotBorrowPrimitive::from_intrinsic_name(name).is_some() {
+                if args.len() != 2 {
+                    return Err(codegen_error(
+                        format!("invalid collection slot borrow intrinsic '{}'", name),
+                        expr.span,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicUnknown,
+                            ),
+                        ),
+                    ));
+                }
+                let Some(ValType::I32) =
+                    gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?
+                else {
+                    return Err(codegen_error(
+                        "collection slot borrow target must lower to an address",
+                        expr.span,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicUnknown,
+                            ),
+                        ),
+                    ));
+                };
+                insts.push(Instruction::I32Load(MemArg {
+                    offset: 0,
+                    align: 2,
+                    memory_index: 0,
+                }));
+                let Some(ValType::I32) =
+                    gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?
+                else {
+                    return Err(codegen_error(
+                        "collection slot borrow offset must lower to i32",
+                        expr.span,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicUnknown,
+                            ),
+                        ),
+                    ));
+                };
+                insts.push(Instruction::I32Add);
+                Some(ValType::I32)
             } else if CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some() {
                 for arg in args {
                     if gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts)?.is_some() {

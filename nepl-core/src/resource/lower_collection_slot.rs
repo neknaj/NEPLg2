@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use crate::hir::HirExpr;
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -10,7 +10,7 @@ use super::lower::LoweringEnvironment;
 use super::lower_raw_address::{
     raw_address_offset_from_actual_arg, raw_address_source_from_actual_arg,
 };
-use super::model::{Place, ResourceOp};
+use super::model::{BorrowKind, Place, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
 
 pub(super) fn push_collection_slot_lifecycle_intrinsic(
@@ -46,6 +46,43 @@ pub(super) fn push_collection_slot_lifecycle_intrinsic(
     ops.push(ResourceOp::CollectionSlotLifecycle {
         target,
         event,
+        span,
+    });
+    true
+}
+
+pub(super) fn push_collection_slot_borrow_intrinsic(
+    name: &str,
+    type_args: &[TypeId],
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    output: &Place,
+    ops: &mut Vec<ResourceOp>,
+    env: &LoweringEnvironment,
+    span: Span,
+) -> bool {
+    let Some(primitive) = CollectionSlotBorrowPrimitive::from_intrinsic_name(name) else {
+        return false;
+    };
+    let Some(source) =
+        collection_slot_borrow_source(primitive, type_args, hir_args, arg_places, env)
+    else {
+        return true;
+    };
+    let Some(event) = collection_slot_lifecycle_event(primitive.lifecycle_event(), type_args)
+    else {
+        return true;
+    };
+    ops.push(ResourceOp::CollectionSlotLifecycle {
+        target: source.clone(),
+        event,
+        span,
+    });
+    ops.push(ResourceOp::Borrow {
+        source,
+        output: output.clone(),
+        kind: BorrowKind::Shared,
+        synthetic: false,
         span,
     });
     true
@@ -127,6 +164,27 @@ fn collection_slot_lifecycle_target(
         source.into_place_and_view(env.types.i32()).place
     };
     Some(raw)
+}
+
+fn collection_slot_borrow_source(
+    primitive: CollectionSlotBorrowPrimitive,
+    type_args: &[TypeId],
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    match primitive {
+        CollectionSlotBorrowPrimitive::BorrowRef => {
+            let value_ty = type_args.first().copied()?;
+            let source = raw_address_source_from_actual_arg(0, hir_args, arg_places, env)?;
+            let offset = raw_address_offset_from_actual_arg(1, hir_args, arg_places, env);
+            let raw = source
+                .with_added_offset(offset)
+                .into_place_and_view(env.types.i32())
+                .place;
+            Some(raw_memory_cell_place(&raw, value_ty))
+        }
+    }
 }
 
 fn collection_slot_lifecycle_event(

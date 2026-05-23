@@ -24,7 +24,9 @@ use super::lower_call::{
     call_effect_skeleton, func_ref_base_name, function_value_effect, intrinsic_effect_skeleton,
     lower_call_target, resource_effect_from_internal,
 };
-use super::lower_collection_slot::push_collection_slot_lifecycle_intrinsic;
+use super::lower_collection_slot::{
+    push_collection_slot_borrow_intrinsic, push_collection_slot_lifecycle_intrinsic,
+};
 use super::lower_condition::resource_condition_fact;
 use super::lower_drop_call::push_source_drop_call_resource_proof;
 use super::lower_layout_intrinsic::{
@@ -798,6 +800,25 @@ pub(super) fn lower_expr_skeleton(
                 });
                 output
             } else {
+                let output = ctx.temporary(expr.ty);
+                if push_collection_slot_borrow_intrinsic(
+                    name,
+                    type_args,
+                    args,
+                    &arg_places,
+                    &output,
+                    ops,
+                    env,
+                    expr.span,
+                ) {
+                    ops.push(ResourceOp::Expr {
+                        kind: ResourceExprKind::Borrow,
+                        output: output.clone(),
+                        ty: expr.ty,
+                        span: expr.span,
+                    });
+                    return output;
+                }
                 let lowered_collection_slot_lifecycle = push_collection_slot_lifecycle_intrinsic(
                     name,
                     type_args,
@@ -813,7 +834,7 @@ pub(super) fn lower_expr_skeleton(
                         size_of_type_arg(name, type_args).map(ResourceExprKind::LayoutSizeOf)
                     })
                     .unwrap_or(ResourceExprKind::Intrinsic);
-                let output = push_expr(ops, kind, expr, ctx);
+                let output = push_expr_with_output(ops, kind, expr, output);
                 push_named_raw_address_semantics(
                     helper_base_name(name),
                     args,
@@ -887,6 +908,21 @@ fn push_expr(
     ctx: &mut LoweringContext,
 ) -> Place {
     let output = ctx.temporary(expr.ty);
+    ops.push(ResourceOp::Expr {
+        kind,
+        output: output.clone(),
+        ty: expr.ty,
+        span: expr.span,
+    });
+    output
+}
+
+fn push_expr_with_output(
+    ops: &mut Vec<ResourceOp>,
+    kind: ResourceExprKind,
+    expr: &HirExpr,
+    output: Place,
+) -> Place {
     ops.push(ResourceOp::Expr {
         kind,
         output: output.clone(),

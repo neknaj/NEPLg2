@@ -11,6 +11,11 @@ pub enum CollectionSlotLifecyclePrimitive {
     StorageRelocate,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum CollectionSlotBorrowPrimitive {
+    BorrowRef,
+}
+
 impl CollectionSlotLifecyclePrimitive {
     pub(crate) fn from_intrinsic_name(name: &str) -> Option<Self> {
         match name {
@@ -117,6 +122,39 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::DropTraversal => Some(0),
             Self::ReplaceReturnOld | Self::ReplaceDropOld => Some(0),
             Self::StorageDealloc | Self::StorageRelocate => None,
+        }
+    }
+}
+
+impl CollectionSlotBorrowPrimitive {
+    pub(crate) fn from_intrinsic_name(name: &str) -> Option<Self> {
+        match name {
+            "collection_slot_borrow_ref" => Some(Self::BorrowRef),
+            _ => None,
+        }
+    }
+
+    pub(crate) const fn intrinsic_name(self) -> &'static str {
+        match self {
+            Self::BorrowRef => "collection_slot_borrow_ref",
+        }
+    }
+
+    pub(crate) const fn type_arg_count(self) -> usize {
+        match self {
+            Self::BorrowRef => 1,
+        }
+    }
+
+    pub(crate) const fn argument_count(self) -> usize {
+        match self {
+            Self::BorrowRef => 2,
+        }
+    }
+
+    pub(crate) const fn lifecycle_event(self) -> CollectionSlotLifecyclePrimitive {
+        match self {
+            Self::BorrowRef => CollectionSlotLifecyclePrimitive::BorrowRead,
         }
     }
 }

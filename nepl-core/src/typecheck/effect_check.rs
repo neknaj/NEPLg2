@@ -7,7 +7,7 @@ use crate::effects::{
     RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
 };
 use crate::hir::HirBody;
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::span::Span;
 
 use super::diagnostics::effect_error;
@@ -144,6 +144,17 @@ impl<'a> BlockChecker<'a> {
             return false;
         };
         source_map.collection_slot_lifecycle_boundary_allowed_at(span, primitive)
+    }
+
+    pub(super) fn collection_slot_borrow_boundary_allowed(
+        &self,
+        primitive: CollectionSlotBorrowPrimitive,
+        span: Span,
+    ) -> bool {
+        let Some(source_map) = self.source_map else {
+            return false;
+        };
+        source_map.collection_slot_borrow_boundary_allowed_at(span, primitive)
     }
 
     pub(super) fn raw_callee_is_proven_pure(&self, callee: &str) -> bool {

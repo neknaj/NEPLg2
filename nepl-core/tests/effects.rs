@@ -638,6 +638,106 @@ fn helper <(MemPtr<i32>,i32)->()> (ptr, offset):
 }
 
 #[test]
+fn collection_slot_borrow_intrinsic_requires_source_evidence() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(&RegionToken<i32>,i32)->()> (storage, offset):
+    let _borrowed <&i32>:
+        #intrinsic "collection_slot_borrow_ref" <i32> (storage, offset)
+    ()
+"#;
+
+    assert_has_diag(
+        check_source(src, CompileTarget::Wasm),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_borrow_intrinsic_accepts_matching_stdlib_anchor() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(&RegionToken<i32>,i32)->()> (storage, offset):
+    let _borrowed <&i32>:
+        #intrinsic "collection_slot_borrow_ref" <i32> (storage, offset)
+    ()
+"#;
+
+    check_source_with_canonical_mem_types(
+        src,
+        "alloc/collections/vec/borrow_boundary.nepl",
+        CompileTarget::Wasm,
+    )
+    .expect("stdlib collection slot borrow intrinsic with matching owner token anchor is allowed");
+}
+
+#[test]
+fn collection_slot_borrow_intrinsic_rejects_raw_pointer_anchor() {
+    let src = r#"
+#entry helper
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+fn helper <(MemPtr<i32>,i32)->&i32> (ptr, offset):
+    #intrinsic "collection_slot_borrow_ref" <i32> (ptr, offset)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/borrow_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+        ),
+    );
+}
+
+#[test]
+fn collection_slot_borrow_intrinsic_rejects_public_stdlib_callable_surface() {
+    let src = r#"
+#entry public_slot
+#no_prelude
+#indent 4
+#target wasm
+
+#import "core/mem/types" as *
+
+pub fn public_slot <(&RegionToken<i32>,i32)->&i32> (storage, offset):
+    #intrinsic "collection_slot_borrow_ref" <i32> (storage, offset)
+"#;
+
+    assert_has_diag(
+        check_source_with_canonical_mem_types(
+            src,
+            "alloc/collections/vec/borrow_boundary.nepl",
+            CompileTarget::Wasm,
+        ),
+        DiagnosticCode::Type(
+            nepl_core::diagnostic_codes::TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+        ),
+    );
+}
+
+#[test]
 fn collection_slot_lifecycle_intrinsic_rejects_public_stdlib_callable_surface() {
     let src = r#"
 #entry public_slot

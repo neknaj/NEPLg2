@@ -18,8 +18,8 @@ use super::borrow_usage::{
 };
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    BorrowKind, BorrowState, BorrowStateEntry, Place, PlaceRoot, ResourceBlock, ResourceFunction,
-    ResourceModule, ResourceOp, ResourceTerminator,
+    BorrowKind, BorrowState, BorrowStateEntry, Place, PlaceProjection, PlaceRoot, ResourceBlock,
+    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::report::{
     ResourceBorrowCheckDeferred, ResourceBorrowCheckReport, ResourceBorrowDiagnostic,
@@ -450,10 +450,18 @@ impl ResourceBorrowCheckEngine<'_> {
         let PlaceRoot::Local(name) = &source.root else {
             return false;
         };
+        if source
+            .projections
+            .iter()
+            .any(|projection| matches!(projection, PlaceProjection::StorageOffset(_)))
+        {
+            return false;
+        }
         self.parameter_names.iter().any(|param| param == name)
-            && source.projections.first().is_some_and(|projection| {
-                matches!(projection, super::model::PlaceProjection::Deref)
-            })
+            && source
+                .projections
+                .first()
+                .is_some_and(|projection| matches!(projection, PlaceProjection::Deref))
     }
 
     fn check_source_exclusive(

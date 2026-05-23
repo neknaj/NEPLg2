@@ -10,7 +10,9 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
-pub use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+pub use crate::resource_primitives::{
+    CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive,
+};
 use crate::span::{FileId, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -117,6 +119,10 @@ pub enum SourceCapabilityUseSite {
     },
     CollectionSlotLifecycleBoundary {
         primitive: CollectionSlotLifecyclePrimitive,
+        span: SourceCapabilitySpan,
+    },
+    CollectionSlotBorrowBoundary {
+        primitive: CollectionSlotBorrowPrimitive,
         span: SourceCapabilitySpan,
     },
 }
@@ -267,6 +273,17 @@ impl SourceCapabilities {
             span: SourceCapabilitySpan::from_span(span),
         })
     }
+
+    pub fn allows_collection_slot_borrow_boundary_at(
+        &self,
+        primitive: CollectionSlotBorrowPrimitive,
+        span: Span,
+    ) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::CollectionSlotBorrowBoundary {
+            primitive,
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -377,6 +394,15 @@ impl SourceMap {
     ) -> bool {
         self.capabilities(span.file_id)
             .allows_collection_slot_lifecycle_boundary_at(primitive, span)
+    }
+
+    pub fn collection_slot_borrow_boundary_allowed_at(
+        &self,
+        span: Span,
+        primitive: CollectionSlotBorrowPrimitive,
+    ) -> bool {
+        self.capabilities(span.file_id)
+            .allows_collection_slot_borrow_boundary_at(primitive, span)
     }
 
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {

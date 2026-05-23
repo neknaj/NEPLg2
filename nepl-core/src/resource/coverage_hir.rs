@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::types::TypeCtx;
 
 use super::coverage::ResourceCoverageCounts;
@@ -225,6 +225,9 @@ impl HirCoverageContext<'_> {
                 {
                     counts.raw_memory_ops += 1;
                 }
+                if let Some(primitive) = CollectionSlotBorrowPrimitive::from_intrinsic_name(name) {
+                    hir_collection_slot_borrow_coverage(primitive, args, counts, types);
+                }
                 if let Some(primitive) = CollectionSlotLifecyclePrimitive::from_intrinsic_name(name)
                 {
                     if primitive.requires_storage_pair() {
@@ -246,6 +249,28 @@ impl HirCoverageContext<'_> {
                 counts.deref_projections += 1;
                 hir_place_expr_coverage(inner, counts, types, string_literals);
             }
+        }
+    }
+}
+
+fn hir_collection_slot_borrow_coverage(
+    primitive: CollectionSlotBorrowPrimitive,
+    args: &[HirExpr],
+    counts: &mut ResourceCoverageCounts,
+    types: &TypeCtx,
+) {
+    match primitive {
+        CollectionSlotBorrowPrimitive::BorrowRef => {
+            counts.collection_slot_lifecycle_ops += 1;
+            counts.borrows += 1;
+            if args.first().is_some_and(|arg| {
+                super::coverage_hir_projection::expr_requires_reference_deref_for_projection(
+                    types, arg,
+                )
+            }) {
+                counts.deref_projections += 1;
+            }
+            counts.deref_projections += 1;
         }
     }
 }

@@ -25226,6 +25226,241 @@ fn borrow_then_move <(&RegionToken<LocalOwner>,LocalOwner)->LocalOwner> (storage
 }
 
 #[test]
+fn resource_ir_collection_slot_borrow_ref_preserves_initialized_slot_and_borrows_cell() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn read_value <(&LocalOwner)->i32> (payload):
+    *field::get_ref payload "value"
+
+fn borrow_ref_then_move <(&RegionToken<LocalOwner>,LocalOwner)->LocalOwner> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let borrowed <&LocalOwner>:
+        #intrinsic "collection_slot_borrow_ref" <LocalOwner> (storage, 0)
+    let _value <i32> read_value borrowed
+    let loaded <LocalOwner> load<LocalOwner> addr
+    #intrinsic "collection_slot_move_out" <LocalOwner> (storage, 0)
+    loaded
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/borrow_ref_slot_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let init_report = check_resource_initialized_moves(&resource, &types);
+    let borrow_report = check_resource_borrow_lifetimes(&resource, &types);
+
+    assert!(
+        init_report.diagnostics.is_empty(),
+        "collection_slot_borrow_ref must preserve initialized slot state and allow later move-out: {:#?}\nresource:\n{}",
+        init_report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        borrow_report.diagnostics.is_empty(),
+        "collection_slot_borrow_ref must create a scoped shared borrow that ends after last use: {:#?}\nresource:\n{}",
+        borrow_report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "borrow_ref_then_move"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotLifecycle {
+                            event:
+                                CollectionSlotLifecycleEvent::BorrowRead { expected_ty },
+                            ..
+                        } if *expected_ty == owned_ty
+                    )
+                })
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::Borrow {
+                            source,
+                            kind: BorrowKind::Shared,
+                            ..
+                        } if source.ty == owned_ty
+                    )
+                })
+        }),
+        "borrow-ref lowering must emit both BorrowRead state proof and a shared borrow of the typed slot:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_borrow_ref_rejects_moved_slot() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn borrow_ref_after_move <(&RegionToken<LocalOwner>,LocalOwner)->LocalOwner> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let loaded <LocalOwner> load<LocalOwner> addr
+    #intrinsic "collection_slot_move_out" <LocalOwner> (storage, 0)
+    let _borrowed <&LocalOwner>:
+        #intrinsic "collection_slot_borrow_ref" <LocalOwner> (storage, 0)
+    loaded
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/borrow_ref_moved_slot_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CollectionSlotRefuted {
+                function,
+                reason:
+                    CollectionSlotLifecycleRefutation::Unavailable {
+                        operation: CollectionSlotLifecycleOp::BorrowRead,
+                        state: CollectionSlotState::Moved(found_ty),
+                    },
+                ..
+            } if function.starts_with("borrow_ref_after_move__") && *found_ty == owned_ty
+        )),
+        "collection_slot_borrow_ref after a proven move-out must be rejected as moved: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_collection_slot_borrow_ref_cannot_escape_return() {
+    let source = r#"
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
+#import "core/mem/types" as *
+
+struct LocalOwner:
+    value <i32>
+
+fn borrow_ref_escape <(&RegionToken<LocalOwner>,LocalOwner)->&LocalOwner> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let addr <i32> mem_ptr_addr data
+    store<LocalOwner> addr payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    #intrinsic "collection_slot_borrow_ref" <LocalOwner> (storage, 0)
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/collections/vec/borrow_ref_escape_source.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceBorrowDiagnostic::BorrowConflict {
+                function,
+                operation: ResourceBorrowOperation::ReturnValue,
+                ..
+            } if function.starts_with("borrow_ref_escape__")
+        )),
+        "collection slot borrows are scoped observer borrows and must not escape through function returns: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_vec_borrow_at_predicate_or_observes_drop_payload_without_move() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn is_value_42 <(&DropPayload)->bool> (item):
+    eq *field::get_ref item "value" 42
+
+fn main <()*>i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 42)
+    let ok <bool> borrow_at_predicate_or<DropPayload> &v1 0 @is_value_42 false
+    free<DropPayload> v1
+    if ok 0 1
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let init_report = check_resource_initialized_moves(&resource, &types);
+    let borrow_report = check_resource_borrow_lifetimes(&resource, &types);
+
+    assert!(
+        init_report.diagnostics.is_empty(),
+        "Vec borrowed observer must not move initialized Drop payload slots: {:#?}\nresource:\n{}",
+        init_report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        borrow_report.diagnostics.is_empty(),
+        "Vec borrowed observer must keep the slot reference scoped to the callback: {:#?}\nresource:\n{}",
+        borrow_report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_source_borrow_read_rejects_moved_slot() {
     let source = r#"
 #indent 4

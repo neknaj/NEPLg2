@@ -4,7 +4,7 @@ use crate::effects::{
     RawBodyDirectCallee, RawBodyMemoryOp, RawMemoryOp,
 };
 use crate::hir::HirBody;
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::source_capability::binding::SourceCapabilityBindingKind;
 use crate::source_capability::compiler_memory_field::{
     compiler_memory_field_intrinsic_evidence, compiler_memory_field_symbol_evidence,
@@ -115,6 +115,7 @@ pub(in crate::source_capability) fn dispatch_source_capability_proof_event(
             match collection_slot_surface {
                 CollectionSlotLifecycleSourceSurface::InternalCallable => {
                     collect_collection_slot_lifecycle_evidence(sink, name, name_span);
+                    collect_collection_slot_borrow_evidence(sink, name, name_span);
                 }
                 CollectionSlotLifecycleSourceSurface::PublicCallableSurface => {}
             }
@@ -151,6 +152,19 @@ fn collect_collection_slot_lifecycle_evidence(
     if let Some(primitive) = CollectionSlotLifecyclePrimitive::from_intrinsic_name(name) {
         sink.proof_mut().insert_fact(
             SourceCapabilityProofFact::CollectionSlotLifecycleBoundary(primitive),
+            span,
+        );
+    }
+}
+
+fn collect_collection_slot_borrow_evidence(
+    sink: &mut impl SourceCapabilityProofSink,
+    name: &str,
+    span: Span,
+) {
+    if let Some(primitive) = CollectionSlotBorrowPrimitive::from_intrinsic_name(name) {
+        sink.proof_mut().insert_fact(
+            SourceCapabilityProofFact::CollectionSlotBorrowBoundary(primitive),
             span,
         );
     }

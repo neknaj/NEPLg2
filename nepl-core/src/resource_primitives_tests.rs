@@ -154,6 +154,20 @@ fn collection_slot_lifecycle_primitive_uses_old_type_as_replace_target() {
 }
 
 #[test]
+fn collection_slot_borrow_primitive_maps_to_borrow_read_lifecycle() {
+    assert_eq!(
+        CollectionSlotBorrowPrimitive::from_intrinsic_name("collection_slot_borrow_ref"),
+        Some(CollectionSlotBorrowPrimitive::BorrowRef)
+    );
+    assert_eq!(
+        CollectionSlotBorrowPrimitive::BorrowRef.lifecycle_event(),
+        CollectionSlotLifecyclePrimitive::BorrowRead
+    );
+    assert_eq!(CollectionSlotBorrowPrimitive::BorrowRef.type_arg_count(), 1);
+    assert_eq!(CollectionSlotBorrowPrimitive::BorrowRef.argument_count(), 2);
+}
+
+#[test]
 fn same_name_structs_are_not_memory_types_without_proven_identity() {
     let mut types = TypeCtx::new();
     let type_param = types.fresh_var(Some("T".to_string()));

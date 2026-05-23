@@ -2,13 +2,13 @@
 id: ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61
 title: "Vec non-Copy transforms need scoped borrowed slot observer"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-23
 updated: 2026-05-23
-target: "stdlib/alloc/collections/vec/access/data.nepl, stdlib/alloc/collections/vec/query/get.nepl, nepl-core/src/intrinsic_kinds.rs, nepl-core/src/resource"
+target: "stdlib/alloc/collections/vec/access/borrow.nepl, stdlib/alloc/collections/vec/access.nepl, nepl-core/src/resource/**, nepl-core/src/typecheck/**, nepl-core/src/source_capability/**, nepl-core/src/codegen_*"
 ---
 
 # ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61: Vec non-Copy transforms need scoped borrowed slot observer
@@ -59,3 +59,25 @@ focused regression は次を満たす。
 - source policy が non-Copy observer の raw `MemPtr<T>` / `VecDataView<T>` 露出を拒否する。
 - 既存の Copy `get` / `filter` / `partition` doctest が引き続き有効である。
 - predicate-style transform の `.T: Copy` 制約を外す前に、by-value `(.T)->bool` ではなく borrowed observer boundary を通ることを検査する。
+
+## 解決内容
+
+- `collection_slot_borrow_ref<T>(&RegionToken<T>, i32) -> &T` を `CollectionSlotBorrowPrimitive::BorrowRef` として typed enum に追加し、文字列だけの ad hoc intrinsic 判定にしない形で primitive / source capability / typecheck / Resource IR / codegen に接続した。
+- `collection_slot_borrow_ref` は compiler-owned stdlib source evidence を持つ private implementation boundary だけで使える。public stdlib callable surface や user source からは拒否され、raw `MemPtr<T>` anchor も受け付けない。
+- Resource IR lowering は同じ typed slot に対して `CollectionSlotLifecycleEvent::BorrowRead` と `ResourceOp::Borrow { kind: Shared }` を発行する。`BorrowRead` は initialized slot state を保持し、MoveOut 後の borrow は generic slot-state checker が拒否する。
+- slot 由来の `&T` は `StorageOffset` projection を持つ scoped observer borrow として扱い、function return escape を borrow checker が拒否する。
+- stdlib 側に `alloc/collections/vec/access/borrow.nepl` を追加し、public API は `borrow_at_predicate_or<T>(&Vec<T>, i32, (&T)->bool, bool)->bool` に絞った。任意 `R` 戻り値 observer は、borrow escape / owner summary の性能と soundness を別途固めるまで公開しない。
+- `VecDataView<T>` / `MemPtr<T>` を non-Copy observer の public surface へ出さず、`VecStorageInvariant` と typed `BorrowRead` proof から callback scope 内の `&T` だけを materialize する設計にした。
+
+## 検証結果
+
+- `cargo test -q -p nepl-core collection_slot_borrow -- --nocapture`: pass
+- `cargo test -q -p nepl-core resource_ir_collection_slot_borrow_ref -- --nocapture`: pass
+- `cargo test -q -p nepl-core collection_slot_borrow_intrinsic_lowers_state_proof_and_shared_borrow -- --nocapture`: pass
+- `cargo test -q -p nepl-core resource_ir_vec_borrow_at_predicate_or -- --nocapture`: pass（約 83.74s。既存 `Vec<DropPayload>.push -> free` regression と同程度の Resource IR summary cost）
+- `trunk build`: pass
+- `node nodesrc/tests.js -i stdlib\alloc\collections\vec\access\borrow.nepl --no-tree -o tmp\agent1-vec-borrow-doctest.json -j 1 --dist web\dist --assert-io`: pass
+
+## 関連する新規 issue
+
+- [ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD](./ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD.md): 実 stdlib `Vec<DropPayload>` の focused Resource IR regression が 80 秒級になる performance 残件。`collection_slot_borrow_ref` 個別の失敗ではなく、既存 `push -> free` と同じ `resource_initialized_i32_scalar_summaries` / `resource_initialized_collection_slot_summaries` の計算量問題として分離した。

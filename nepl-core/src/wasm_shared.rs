@@ -11,7 +11,7 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{BackendDiagnosticCode, DiagnosticCode, WasmDiagnosticCode};
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction, HirModule, HirParam};
 use crate::intrinsic_kinds::{CoreIntrinsicKind, FieldAccessorKind, ScalarIntrinsicKind};
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 use wasm_encoder::{Instruction, MemArg, ValType};
@@ -361,6 +361,7 @@ pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
         || ScalarIntrinsicKind::from_intrinsic_name(name).is_some()
         || I32ArithmeticPrimitive::from_codegen_intrinsic_name(name).is_some()
         || CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some()
+        || CollectionSlotBorrowPrimitive::from_intrinsic_name(name).is_some()
 }
 
 fn parse_local<F>(text: &str, lookup_local: &mut F) -> Option<u32>

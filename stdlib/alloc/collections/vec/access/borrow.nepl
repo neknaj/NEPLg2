@@ -1,0 +1,97 @@
+//: # vec/access/borrow
+//: `Vec` slot の borrowed observer
+//:
+//: ### [目的/もくてき]
+//: - non-Copy payload を値として[取/と]り[出/だ]さず、`&T` を callback scope の[中/なか]だけで[観測/かんそく]します。
+//: - `VecStorageInvariant` と compiler-owned `BorrowRead` proof を[組/く]み[合/あ]わせ、initialized slot を[保/たも]ったまま observer を[呼/よ]びます。
+//:
+//: ### [注意/ちゅうい]
+//: - `MemPtr<T>` や `VecDataView<T>` は[返/かえ]しません。borrowed observer は raw pointer view ではなく、Resource IR の borrow / lifetime proof に[接続/せつぞく]する API です。
+//: - `&T` を[返/かえ]す helper は[提供/ていきょう]しません。借用は callback 呼び出しの[間/あいだ]だけ[有効/ゆうこう]です。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/field" as field
+#import "../types" as *
+#import "../invariant" as *
+
+//: ## vec_borrow_slot_predicate
+//: storage slot を[借用/しゃくよう]し、predicate にだけ `&T` を[渡/わた]す private helper
+//:
+//: ### [目的/もくてき]
+//: - `collection_slot_borrow_ref` を public callable surface へ[出/だ]さず、この implementation file 内の private boundary に[閉/と]じます。
+//: - `BorrowRead` state proof と `&T` materialization を同じ compiler-owned intrinsic から[発行/はっこう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - caller は `VecStorageInvariant`、index bounds、storage variant を[確認/かくにん]してからこの helper を[呼/よ]びます。
+//: - `slot_ref` は predicate へ[渡/わた]すだけで、この helper から直接[返/かえ]しません。
+fn vec_borrow_slot_predicate <.T> <(&RegionToken<.T>,i32,(&.T)->bool)->bool> (storage, byte_off, predicate):
+    let slot_ref <&.T>:
+        #intrinsic "collection_slot_borrow_ref" <.T> (storage, byte_off)
+    predicate slot_ref
+
+//: ## borrow_at_predicate_or
+//: `Vec` の index が[有効/ゆうこう]なら `&T` を predicate に[渡/わた]し、そうでなければ fallback を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - non-Copy payload を copy-out せず、判定だけを行う observer API を[提供/ていきょう]します。
+//: - `get<T: Copy>` と[異/こと]なり、要素 owner を[移動/いどう]せず、slot の initialized state を[維持/いじ]します。
+//:
+//: ### [実装/じっそう]
+//: - `Vec` facade から `OwnedBuffer` と `VecStorage` を[借用/しゃくよう]します。
+//: - `VecStorageInvariant::Valid`、`0 <= idx < len`、`VecStorage::Owned(region)` を[確認/かくにん]した branch だけで slot borrow を[作/つく]ります。
+//: - slot offset は `idx * size_of<T>` で[計算/けいさん]します。capacity と storage extent の整合性は invariant が[保証/ほしょう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `predicate` は `&T` を[受/う]け[取/と]りますが、戻り値は `bool` に[固定/こてい]します。参照を戻り値や aggregate の field として外へ[逃/に]がす API shape は[提供/ていきょう]しません。
+//: - invalid metadata、範囲外 index、empty storage はすべて `fallback` を[返/かえ]します。
+//: - 現行 API は pure predicate 用です。effectful traversal は、同じ scoped observer 設計を保った別 overload として[追加/ついか]します。
+//: - 例は軽量な `i32` で示します。API は payload を move しないため、non-Copy payload の predicate でも同じ呼び出し形を使います。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/access/borrow" as *
+//:| #import "alloc/collections/vec/mutation/cleanup" as *
+//:| #import "alloc/collections/vec/storage/api" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn is_42 <(&i32)->bool> (item):
+//:     eq *item 42
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>
+//:     let observed <bool> borrow_at_predicate_or<i32> &v0 0 @is_42 false
+//:     free<i32> v0
+//:     if not observed 0 1
+//: ```
+pub fn borrow_at_predicate_or <.T> <(&Vec<.T>,i32,(&.T)->bool,bool)->bool> (v, idx, predicate, fallback):
+    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+    let v_len <i32> *field::get_ref v_buffer "len"
+    let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
+    match vec_current_storage_invariant<.T> v:
+        VecStorageInvariant::Invalid _reason:
+            fallback
+        VecStorageInvariant::Valid:
+            if:
+                lt idx 0
+                then:
+                    fallback
+                else:
+                    if:
+                        le v_len idx
+                        then:
+                            fallback
+                        else:
+                            match v_storage:
+                                VecStorage::Empty:
+                                    fallback
+                                VecStorage::Owned region:
+                                    let byte_off <i32> mul idx size_of<.T>
+                                    vec_borrow_slot_predicate<.T> region byte_off predicate

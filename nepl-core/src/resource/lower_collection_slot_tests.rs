@@ -11,8 +11,8 @@ use crate::hir::{
 use crate::resource::collection_slot_lifecycle::{
     CollectionSlotLifecycleEvent, CollectionSlotReplacement,
 };
-use crate::resource::model::{PlaceProjection, ResourceOffset, ResourceOp};
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource::model::{BorrowKind, PlaceProjection, ResourceOffset, ResourceOp};
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::source_map::CompilerMemoryType;
 use crate::span::{FileId, Span};
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -256,4 +256,87 @@ fn collection_slot_lifecycle_intrinsic_lowers_replace_owner_policy() {
             old_owner: CollectionSlotReplacement::DropOldOwner,
         }
     );
+}
+
+#[test]
+fn collection_slot_borrow_intrinsic_lowers_state_proof_and_shared_borrow() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let payload_ty = types.register_named(
+        "Payload".to_string(),
+        TypeKind::Struct {
+            name: "Payload".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["value".to_string()],
+        },
+    );
+    let owner_ty = owner_token_type(&mut types);
+    let ref_owner_ty = types.reference(owner_ty, false);
+    let ref_payload_ty = types.reference(payload_ty, false);
+    let expr = HirExpr {
+        ty: ref_payload_ty,
+        kind: HirExprKind::Intrinsic {
+            name: CollectionSlotBorrowPrimitive::BorrowRef
+                .intrinsic_name()
+                .to_string(),
+            type_args: vec![payload_ty],
+            args: vec![
+                HirExpr {
+                    ty: ref_owner_ty,
+                    kind: HirExprKind::AddrOf(Box::new(var("region", owner_ty))),
+                    span: test_span(),
+                },
+                literal_i32(i32_ty, 8),
+            ],
+        },
+        span: test_span(),
+    };
+    let module = main_with_expr(
+        &mut types,
+        vec![HirParam {
+            name: "region".to_string(),
+            ty: owner_ty,
+            mutable: false,
+        }],
+        expr,
+    );
+
+    let resource = lower_hir_module(&module, &types);
+    let ops = &resource.functions[0].blocks[0].ops;
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::CollectionSlotLifecycle {
+            target,
+            event: CollectionSlotLifecycleEvent::BorrowRead { expected_ty },
+            ..
+        } if target.ty == payload_ty
+            && *expected_ty == payload_ty
+            && target.projections.iter().any(|projection| matches!(
+                projection,
+                PlaceProjection::StorageOffset(ResourceOffset::Known(8))
+            ))
+            && target.projections.iter().any(|projection| matches!(
+                projection,
+                PlaceProjection::Deref
+            ))
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Borrow {
+            source,
+            kind: BorrowKind::Shared,
+            synthetic: false,
+            ..
+        } if source.ty == payload_ty
+            && source.projections.iter().any(|projection| matches!(
+                projection,
+                PlaceProjection::StorageOffset(ResourceOffset::Known(8))
+            ))
+            && source.projections.iter().any(|projection| matches!(
+                projection,
+                PlaceProjection::Deref
+            ))
+    )));
 }

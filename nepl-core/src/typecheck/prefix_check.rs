@@ -10,7 +10,9 @@ use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
-use crate::resource_primitives::{compiler_memory_value_type, CollectionSlotLifecyclePrimitive};
+use crate::resource_primitives::{
+    compiler_memory_value_type, CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive,
+};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::source_map::CompilerMemoryType;
 use crate::span::Span;
@@ -289,6 +291,112 @@ impl<'a> BlockChecker<'a> {
                     args[1].span,
                 ));
             }
+        }
+    }
+
+    fn collection_slot_borrow_intrinsic_type_id(
+        &mut self,
+        primitive: CollectionSlotBorrowPrimitive,
+        type_args: &[TypeId],
+        span: Span,
+    ) -> TypeId {
+        let expected_type_args = primitive.type_arg_count();
+        if type_args.len() != expected_type_args {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicTypeArgArityMismatch,
+                format!(
+                    "{} expects {} type arguments",
+                    primitive.intrinsic_name(),
+                    expected_type_args
+                ),
+                span,
+            ));
+            return self.ctx.unit();
+        }
+        self.ctx.reference(type_args[0], false)
+    }
+
+    fn validate_collection_slot_borrow_intrinsic(
+        &mut self,
+        primitive: CollectionSlotBorrowPrimitive,
+        type_args: &[TypeId],
+        args: &[HirExpr],
+        span: Span,
+        capability_span: Span,
+    ) {
+        if !self.collection_slot_borrow_boundary_allowed(primitive, capability_span) {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted,
+                "collection slot borrow intrinsic requires compiler-proven source evidence",
+                capability_span,
+            ));
+        }
+
+        let expected_type_args = primitive.type_arg_count();
+        if type_args.len() != expected_type_args {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicTypeArgArityMismatch,
+                format!(
+                    "collection slot borrow intrinsic expects {} type arguments",
+                    expected_type_args
+                ),
+                span,
+            ));
+        }
+
+        let expected_args = primitive.argument_count();
+        if args.len() != expected_args {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                format!(
+                    "collection slot borrow intrinsic expects {} arguments",
+                    expected_args
+                ),
+                span,
+            ));
+            return;
+        }
+
+        if let Some(anchor) = args.first() {
+            match self.collection_slot_lifecycle_anchor(anchor.ty) {
+                Some(anchor_kind) => {
+                    if !anchor_kind.is_owner_token() {
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                            "collection slot borrow target must be a compiler owner token",
+                            anchor.span,
+                        ));
+                    } else if !anchor_kind.is_borrowed_owner_token() {
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                            "collection slot borrow target must be borrowed",
+                            anchor.span,
+                        ));
+                    }
+                    self.validate_collection_slot_lifecycle_anchor_value_type(
+                        anchor_kind,
+                        type_args,
+                        anchor.span,
+                    );
+                }
+                None => {
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                        "collection slot borrow target must be a borrowed compiler owner token with an element type",
+                        anchor.span,
+                    ));
+                }
+            }
+        }
+
+        let offset_ty = args[1].ty;
+        let i32_ty = self.ctx.i32();
+        if let Err(_) = self.ctx.unify(offset_ty, i32_ty) {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot borrow offset must be i32 byte offset",
+                args[1].span,
+            ));
         }
     }
 
@@ -1479,6 +1587,8 @@ impl<'a> BlockChecker<'a> {
                         ScalarIntrinsicKind::from_intrinsic_name(intrin.name.as_str());
                     let collection_slot_lifecycle_intrinsic =
                         CollectionSlotLifecyclePrimitive::from_intrinsic_name(intrin.name.as_str());
+                    let collection_slot_borrow_intrinsic =
+                        CollectionSlotBorrowPrimitive::from_intrinsic_name(intrin.name.as_str());
                     let ty = if let Some(core_intrinsic) = core_intrinsic {
                         self.core_intrinsic_type_id(core_intrinsic, &type_args, *sp)
                     } else if let Some(field_accessor) = field_accessor_intrinsic {
@@ -1492,6 +1602,12 @@ impl<'a> BlockChecker<'a> {
                         self.scalar_intrinsic_type_id(scalar_intrinsic.output_type())
                     } else if collection_slot_lifecycle_intrinsic.is_some() {
                         self.ctx.unit()
+                    } else if let Some(collection_slot_borrow) = collection_slot_borrow_intrinsic {
+                        self.collection_slot_borrow_intrinsic_type_id(
+                            collection_slot_borrow,
+                            &type_args,
+                            *sp,
+                        )
                     } else {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::IntrinsicUnknown,
@@ -1704,6 +1820,16 @@ impl<'a> BlockChecker<'a> {
 
                     if let Some(primitive) = collection_slot_lifecycle_intrinsic {
                         self.validate_collection_slot_lifecycle_intrinsic(
+                            primitive,
+                            &type_args,
+                            &args,
+                            *sp,
+                            intrin.name_span,
+                        );
+                    }
+
+                    if let Some(primitive) = collection_slot_borrow_intrinsic {
+                        self.validate_collection_slot_borrow_intrinsic(
                             primitive,
                             &type_args,
                             &args,

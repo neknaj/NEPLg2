@@ -8,7 +8,7 @@ use crate::ast::{
 use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
 use crate::hir::HirBody;
 use crate::qualified_name::member_tail;
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::source_capability::binding::SourceCapabilityBindingKind;
 use crate::source_capability::owner_aggregate::OwnerAggregateEvidenceContext;
 use crate::source_capability::proof_builder::SourceCapabilityProof;
@@ -443,7 +443,9 @@ impl SourceCapabilityObserver for CollectionSlotLifecycleSurfaceAnalysis {
         _name_span: Span,
         _scope: &SourceCapabilityScope,
     ) {
-        if CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some() {
+        if CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some()
+            || CollectionSlotBorrowPrimitive::from_intrinsic_name(name).is_some()
+        {
             if let Some(current) = self.current_function_name() {
                 self.direct_lifecycle_functions
                     .insert(String::from(current));

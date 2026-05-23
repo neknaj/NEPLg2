@@ -807,7 +807,9 @@ mod tests {
     use super::*;
 
     use crate::effects::{RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
-    use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+    use crate::resource_primitives::{
+        CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive,
+    };
     use crate::source_map::{CompilerMemoryField, CompilerMemoryType, SourceCapabilityUseSite};
     use crate::span::Span;
 
@@ -825,6 +827,10 @@ mod tests {
         fn allows_collection_slot_lifecycle_boundary(
             &self,
             primitive: CollectionSlotLifecyclePrimitive,
+        ) -> bool;
+        fn allows_collection_slot_borrow_boundary(
+            &self,
+            primitive: CollectionSlotBorrowPrimitive,
         ) -> bool;
     }
 
@@ -938,6 +944,21 @@ mod tests {
                 matches!(
                     site,
                     SourceCapabilityUseSite::CollectionSlotLifecycleBoundary {
+                        primitive: site_primitive,
+                        ..
+                    } if *site_primitive == primitive
+                )
+            })
+        }
+
+        fn allows_collection_slot_borrow_boundary(
+            &self,
+            primitive: CollectionSlotBorrowPrimitive,
+        ) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::CollectionSlotBorrowBoundary {
                         primitive: site_primitive,
                         ..
                     } if *site_primitive == primitive
@@ -1081,6 +1102,46 @@ mod tests {
                 CollectionSlotLifecyclePrimitive::InitializeEmpty
             ),
             "matching source text outside configured stdlib must not receive collection slot lifecycle authority"
+        );
+    }
+
+    #[test]
+    fn collection_slot_borrow_boundary_uses_typed_source_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "collections", "vec", "borrow_boundary.nepl"],
+        ));
+        let src = concat!(
+            "fn helper <.T> <(&RegionToken<.T>,i32)->&.T> (storage, offset):\n",
+            "    #intrinsic \"collection_slot_borrow_ref\" <.T> (storage, offset)\n",
+        );
+        let capabilities = load_source_capabilities(&loader, path, src);
+
+        assert!(
+            capabilities
+                .allows_collection_slot_borrow_boundary(CollectionSlotBorrowPrimitive::BorrowRef),
+            "private compiler-owned slot borrow helpers must receive exact borrow-ref authority"
+        );
+        assert!(
+            !capabilities.allows_collection_slot_lifecycle_boundary(
+                CollectionSlotLifecyclePrimitive::BorrowRead
+            ),
+            "borrow-ref materialization authority must not silently authorize unit BorrowRead intrinsics"
+        );
+
+        let user_capabilities = load_source_capabilities(
+            &loader,
+            canonicalize_path(&path_from_segments(
+                "C:/nepl-test/user",
+                &["borrow_boundary.nepl"],
+            )),
+            src,
+        );
+        assert!(
+            !user_capabilities
+                .allows_collection_slot_borrow_boundary(CollectionSlotBorrowPrimitive::BorrowRef),
+            "matching source text outside configured stdlib must not receive slot borrow authority"
         );
     }
 

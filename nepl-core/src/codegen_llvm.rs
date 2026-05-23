@@ -28,7 +28,7 @@ use crate::layout::{
 use crate::llvm_ir::{
     collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
 };
-use crate::resource_primitives::CollectionSlotLifecyclePrimitive;
+use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::runtime_helpers::{helper_base_name, helper_candidates, RuntimeHelperKind};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
 use crate::source_map::SourceMap;
@@ -3298,6 +3298,55 @@ fn lower_hir_expr(
             }
             if let Some(kind) = ScalarIntrinsicKind::from_intrinsic_name(name) {
                 return scalar_intrinsic::lower_scalar_intrinsic(types, ctx, kind, args);
+            }
+            if CollectionSlotBorrowPrimitive::from_intrinsic_name(name).is_some() {
+                if args.len() != 2 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: collection slot borrow intrinsic '{}' expects two args in '{}'",
+                        name,
+                        ctx.function_name
+                    );
+                }
+                let Some(token_v) = lower_hir_expr(types, ctx, &args[0])? else {
+                    llvm_codegen_bail!(
+                        "internal compiler error: collection slot borrow target must produce an address in '{}'",
+                        ctx.function_name
+                    );
+                };
+                if token_v.ty != LlTy::I32 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: collection slot borrow target must lower to i32 in '{}' (got {:?})",
+                        ctx.function_name,
+                        token_v.ty
+                    );
+                }
+                let Some(offset_v) = lower_hir_expr(types, ctx, &args[1])? else {
+                    llvm_codegen_bail!(
+                        "internal compiler error: collection slot borrow offset must produce i32 in '{}'",
+                        ctx.function_name
+                    );
+                };
+                if offset_v.ty != LlTy::I32 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: collection slot borrow offset must lower to i32 in '{}' (got {:?})",
+                        ctx.function_name,
+                        offset_v.ty
+                    );
+                }
+                let token_ptr8 = ctx.linear_i8_ptr_from_i32(token_v.repr.as_str());
+                let raw_ptr = ctx.next_tmp();
+                let raw = ctx.next_tmp();
+                let addr = ctx.next_tmp();
+                ctx.push_line(&format!(
+                    "  {} = bitcast i8* {} to i32*",
+                    raw_ptr, token_ptr8
+                ));
+                ctx.push_line(&format!("  {} = load i32, i32* {}, align 1", raw, raw_ptr));
+                ctx.push_line(&format!("  {} = add i32 {}, {}", addr, raw, offset_v.repr));
+                return Ok(Some(LlValue {
+                    ty: LlTy::I32,
+                    repr: addr,
+                }));
             }
             if CollectionSlotLifecyclePrimitive::from_intrinsic_name(name).is_some() {
                 for arg in args {
