@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-23T00:28:37.783Z",
+  "generated_at": "2026-05-23T00:38:33.433Z",
   "counts": {
-    "total": 1238,
-    "open": 3,
+    "total": 1239,
+    "open": 4,
     "resolved": 1235,
     "by_area": {
       "stdlib": {
-        "total": 324,
-        "open": 2,
+        "total": 325,
+        "open": 3,
         "resolved": 322
       },
       "selfhost": {
@@ -148,11 +148,26 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-20",
-      "updated": "2026-05-22",
+      "updated": "2026-05-23",
       "target": "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543.md"
+    },
+    {
+      "id": "ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61",
+      "title": "Vec non-Copy transforms need scoped borrowed slot observer",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-23",
+      "updated": "2026-05-23",
+      "target": "stdlib/alloc/collections/vec/access/data.nepl, stdlib/alloc/collections/vec/query/get.nepl, nepl-core/src/intrinsic_kinds.rs, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

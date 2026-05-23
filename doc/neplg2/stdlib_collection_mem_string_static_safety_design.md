@@ -70,6 +70,12 @@
 
 2026-05-21 追記 6: fallible collection API は失敗時にも collection owner / item owner を `Result::Err` や専用 error enum payload に戻すため、Resource IR の collection slot state も enum payload return に追従する必要がある。Rust compiler 側では collection slot return summary が direct parameter return だけでなく、source `ResourceOp` の enum / struct / tuple construct、branch / match value、local forwarding を辿り、parameter-relative slot state を return payload suffix へ移すようにした。これにより caller が `Err recovered` を match bind した後も、`recovered` 配下の live initialized slot を storage dealloc で検出できる。関連 issue は [ISS-20260521T065624831Z-COLLECTION-SLOT-STATE-RETURN-SUMMARY-4591B626](../../issues/items/ISS-20260521T065624831Z-COLLECTION-SLOT-STATE-RETURN-SUMMARY-4591B626.md)。
 
+2026-05-23 追記: `filter` / `partition` / `take_while` / `drop_while` の non-Copy 化は、`.T: Copy` 制約を外すだけでは行わない。現行 predicate は `(.T)->bool` であり、non-Copy payload では predicate 呼び出しそのものが slot owner を値として消費してしまう。判定のために必要なのは owner transfer ではなく `BorrowRead` であるため、まず Vec slot borrowed observer boundary を作る。
+
+この boundary は `VecStorageInvariant` で `len` / `initialized_len` / `cap` / backing extent を証明し、対象 slot が initialized であることを `CollectionSlotLifecycleEvent::BorrowRead` で検査した上で、`&T` を callback scope 内にだけ渡す。`&T` は戻り値や owner aggregate field として外へ逃がさず、raw `MemPtr<T>` や `VecDataView<T>` を non-Copy payload へ開かない。`data_mem_view<T: Copy>` は Copy raw access proof の API として維持し、borrow observer と混同しない。
+
+non-Copy transform はこの observer を共有する。`filter` / `partition` / prefix transform ごとの個別 proof engine や stdlib function allowlist は作らず、Resource IR の generic slot state、borrow/lifetime、owner summary で安全性を証明する。実装順は、(1) borrowed observer と borrow escape rejection、(2) `map` / prefix 系の move-out・output initialization・rollback、(3) 左右 2 本の output owner を扱う `partition` の順にする。関連 issue は [ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61](../../issues/items/ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

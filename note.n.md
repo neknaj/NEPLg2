@@ -45329,3 +45329,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js index --dir issues`: passed
   - `cargo fmt --check`: passed
   - `git diff --check`: passed
+
+## 2026-05-23 Agent 1 Vec borrowed slot observer design issue
+
+- `ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61` を作成し、`stdlib_collection_mem_string_static_safety_design.md` と `static_check_complexity_reduction_plan.md` に関連設計を追記した。`plan.md` は変更していない。
+- 根本原因は、`filter` / `partition` / prefix transform の predicate が `(.T)->bool` であり、`.T: Copy` を外すと predicate 呼び出しが non-Copy payload owner を消費してしまうこと。`get<T: Copy>` や `data_mem_view<T: Copy>` を緩めると raw pointer escape と Copy raw access proof の混同を再導入する。
+- 方針は、`VecStorageInvariant` で storage/extent を証明し、Resource IR の `CollectionSlotLifecycleEvent::BorrowRead` で initialized slot を維持したまま `&T` を callback scope 内にだけ materialize する汎用 observer boundary を先に実装すること。transform ごとの個別 proof engine や stdlib allowlist は作らない。
+- 次の実装候補は、source-level borrowed observer API と borrow escape rejection の設計確認、その後に non-Copy predicate transform の段階的解禁である。

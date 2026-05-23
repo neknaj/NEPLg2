@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-20
-updated: 2026-05-22
+updated: 2026-05-23
 target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 ---
 
@@ -140,6 +140,8 @@ target: "stdlib/alloc/collections/**, stdlib/core/mem/**, nepl-core/src/**"
 2026-05-22 に [ISS-20260522T234126652Z-VECPARTITION-RESULT-NEEDS-OWNER-PRES-79F55766](./ISS-20260522T234126652Z-VECPARTITION-RESULT-NEEDS-OWNER-PRES-79F55766.md) を fixed にした。現行 `partition<T: Copy>` のアルゴリズムはまだ Copy-only のままだが、結果 payload `VecPartition<T>` から `matched` / `rest` の両 `Vec<T>` owner を同じ callback へ渡す `vec_partition_with<T, R>` を追加した。これにより future non-Copy partition は direct field projection や Copy-only `vec_partition_free<T: Copy>` に頼らず、2 本の owner obligation を同じ API boundary で回収できる。
 
 2026-05-23 に [ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78](./ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78.md) を fixed にした。`partition` 本体を通る positive fixture は local 240s command budget を超えるため、owner recovery 境界の focused regression としては過大だった。`VecPartition<T>` direct constructor は引き続き通常 source で `type.owner_aggregate.constructor_restricted` により拒否しつつ、`vec_partition_from_parts<T>(Vec<T>, Vec<T>) -> VecPartition<T>` を stdlib boundary に追加した。これにより 2 本の `Vec<T>` owner を payload copy/drop なしで named aggregate に移し、`vec_partition_with<T, R>` が両 owner を同じ callback へ渡す positive path を高速に検証できる。
+
+同日の監査で、`filter` / `partition` / `take_while` / `drop_while` を non-Copy payload へ拡張する前に、by-value predicate `(.T)->bool` を borrowed predicate 境界へ置き換える必要があることを確認し、[ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61](./ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61.md) として分離した。`BorrowRead` の Resource IR state proof は存在するが、実 `Vec<T>` の public API には証明済み slot から `&T` を callback scope 内だけに materialize する observer 境界がない。したがって transform の `.T: Copy` 制約は、`VecStorageInvariant` + `CollectionSlotLifecycleEvent::BorrowRead` + borrow escape rejection による汎用境界を実装するまで外さない。
 
 ## 問題
 
