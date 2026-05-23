@@ -17,6 +17,7 @@ const borrowedMetadataObserverInspected = [];
 const borrowedCopyInvariantObserverInspected = [];
 const borrowedPayloadCopyObserverInspected = [];
 const borrowedStorageViewInspected = [];
+const scopedBorrowedPredicateObserverInspected = [];
 const privateLifecycleProofHelperInspected = [];
 const privateStorageReallocHelperInspected = [];
 const privateProofBackedOwnerUpdateHelperInspected = [];
@@ -68,6 +69,12 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
             const ownerSurfaceCopyRequirement = signature && generics.length > 0
                 ? collectionOwnerSurfaceCopyRequirement(typeSignature)
                 : null;
+            const scopedBorrowedPredicateObserver = signature && generics.length > 0
+                ? classifyScopedBorrowedPredicateObserver(typeSignature)
+                : null;
+            if (scopedBorrowedPredicateObserver && !scopedBorrowedPredicateObserverInspected.includes(`${relPath}:${signature.name}`)) {
+                scopedBorrowedPredicateObserverInspected.push(`${relPath}:${signature.name}`);
+            }
             const privateStorageReallocHelper = signature && !signature.isPublic
                 ? classifyPrivateStorageReallocHelper(source, signature.name, typeSignature)
                 : null;
@@ -502,7 +509,26 @@ for (const expected of [
     );
 }
 
-assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed Copy-invariant proof observers, borrowed payload-copying observers, borrowed payload storage views, and public lifecycle surfaces must remain Copy-only:\n${violations.join('\n')}`);
+assert.ok(
+    scopedBorrowedPredicateObserverInspected.length >= 6,
+    `collection scoped borrowed predicate policy must inspect Vec BorrowRead observer surfaces, inspected only ${scopedBorrowedPredicateObserverInspected.length}`,
+);
+
+for (const expected of [
+    'stdlib/alloc/collections/vec/access/borrow.nepl:vec_borrow_slot_predicate',
+    'stdlib/alloc/collections/vec/access/borrow.nepl:borrow_at_predicate_or',
+    'stdlib/alloc/collections/vec/query/aggregate.nepl:count_ref',
+    'stdlib/alloc/collections/vec/query/predicate.nepl:find_index_ref',
+    'stdlib/alloc/collections/vec/query/predicate.nepl:any_ref',
+    'stdlib/alloc/collections/vec/query/predicate.nepl:all_ref',
+]) {
+    assert.ok(
+        scopedBorrowedPredicateObserverInspected.some((entry) => entry.includes(expected)),
+        `collection scoped borrowed predicate policy did not inspect expected signature: ${expected}`,
+    );
+}
+
+assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed Copy-invariant proof observers, borrowed payload-copying observers, borrowed payload storage views, scoped borrowed predicate observers, and public lifecycle surfaces must remain Copy-only or structurally proof-backed:\n${violations.join('\n')}`);
 
 console.log('stdlib collection cleanup contract regression passed');
 
@@ -759,6 +785,10 @@ function collectionOwnerSurfaceCopyRequirement(typeSignature) {
         return null;
     }
 
+    if (classifyScopedBorrowedPredicateObserver(typeSignature)) {
+        return new Set();
+    }
+
     const required = new Set();
     const ownerGenericNames = new Set();
     for (const text of [...functionType.parameters, functionType.returnType]) {
@@ -800,6 +830,9 @@ function collectionOwnerSurfaceCopyRequirement(typeSignature) {
         }
 
         const parameterGenericNames = genericNames(trimmed);
+        if (isScopedBorrowedPredicateCallbackParameter(trimmed, ownerGenericNames)) {
+            continue;
+        }
         if (setIntersects(ownerGenericNames, parameterGenericNames)) {
             exposesPayloadThroughByValueInput = true;
             for (const name of parameterGenericNames) {
@@ -817,6 +850,65 @@ function collectionOwnerSurfaceCopyRequirement(typeSignature) {
     }
 
     return required;
+}
+
+function classifyScopedBorrowedPredicateObserver(typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || !['bool', 'i32', 'Option<i32>'].includes(functionType.returnType.trim())) {
+        return null;
+    }
+
+    const ownerGenericNames = new Set();
+    for (const parameter of functionType.parameters) {
+        for (const name of ownerAggregateGenericNames(parameter)) {
+            ownerGenericNames.add(name);
+        }
+    }
+    if (ownerGenericNames.size === 0) {
+        return null;
+    }
+
+    const hasBorrowedOwnerParameter = functionType.parameters.some((parameter) => {
+        const trimmed = parameter.trim();
+        return trimmed.startsWith('&') && setIntersects(ownerGenericNames, ownerAggregateGenericNames(trimmed));
+    });
+    const hasScopedPredicate = functionType.parameters.some((parameter) => isScopedBorrowedPredicateCallbackParameter(parameter.trim(), ownerGenericNames));
+    if (!hasBorrowedOwnerParameter || !hasScopedPredicate) {
+        return null;
+    }
+
+    const returnGenericNames = genericNames(functionType.returnType);
+    if (setIntersects(ownerGenericNames, returnGenericNames)) {
+        return null;
+    }
+
+    return { kind: 'scoped-borrowed-predicate-observer' };
+}
+
+function isScopedBorrowedPredicateCallbackParameter(parameter, ownerGenericNames) {
+    const callbackType = parseFunctionType(`<${parameter}>`);
+    if (!callbackType || callbackType.returnType.trim() !== 'bool') {
+        return false;
+    }
+
+    let observesOwnerGeneric = false;
+    for (const callbackParameter of callbackType.parameters) {
+        const trimmed = callbackParameter.trim();
+        const callbackGenericNames = genericNames(trimmed);
+        if (!setIntersects(ownerGenericNames, callbackGenericNames)) {
+            continue;
+        }
+        if (!trimmed.startsWith('&')) {
+            return false;
+        }
+        observesOwnerGeneric = true;
+    }
+
+    return observesOwnerGeneric && !setIntersects(ownerGenericNames, genericNames(callbackType.returnType));
 }
 
 function classifyEmptyOwnerMetadataConstructor(source, functionName, typeSignature) {

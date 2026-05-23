@@ -25461,6 +25461,69 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_vec_borrowed_predicate_queries_observe_drop_payload_without_move() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn is_positive <(&DropPayload)->bool> (item):
+    lt 0 *field::get_ref item "value"
+
+fn is_value_9 <(&DropPayload)->bool> (item):
+    eq *field::get_ref item "value" 9
+
+fn main <()*>i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+    let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
+    let count_ok <bool> eq count_ref<DropPayload> &v2 @is_positive 2
+    let any_ok <bool> any_ref<DropPayload> &v2 @is_value_9
+    let all_ok <bool> all_ref<DropPayload> &v2 @is_positive
+    let index_ok <bool> match find_index_ref<DropPayload> &v2 @is_value_9:
+        Option::Some idx:
+            eq idx 1
+        Option::None:
+            false
+    free<DropPayload> v2
+    if and (and count_ok any_ok) (and all_ok index_ok) 0 1
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let init_report = check_resource_initialized_moves(&resource, &types);
+    let borrow_report = check_resource_borrow_lifetimes(&resource, &types);
+
+    assert!(
+        init_report.diagnostics.is_empty(),
+        "Vec borrowed predicate queries must not move initialized Drop payload slots: {:#?}\nresource:\n{}",
+        init_report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        borrow_report.diagnostics.is_empty(),
+        "Vec borrowed predicate queries must keep slot references scoped to callbacks: {:#?}\nresource:\n{}",
+        borrow_report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_source_borrow_read_rejects_moved_slot() {
     let source = r#"
 #indent 4

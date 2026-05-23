@@ -76,6 +76,8 @@
 
 non-Copy transform はこの observer を共有する。`filter` / `partition` / prefix transform ごとの個別 proof engine や stdlib function allowlist は作らず、Resource IR の generic slot state、borrow/lifetime、owner summary で安全性を証明する。実装順は、(1) borrowed observer と borrow escape rejection、(2) `map` / prefix 系の move-out・output initialization・rollback、(3) 左右 2 本の output owner を扱う `partition` の順にする。関連 issue は [ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61](../../issues/items/ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61.md)。
 
+2026-05-23 追記: scoped borrowed observer は transform の前提だけでなく、scalar / index だけを返す query にも先に適用する。`count` / `any` / `all` / `find` の既存 API は `(.T)->...` で payload を値として predicate へ渡すため Copy-only のまま維持し、`count_ref` / `any_ref` / `all_ref` / `find_index_ref` を別 API として追加する。これらは `VecStorageInvariant` と `borrow_at_predicate_or` を通して `BorrowRead` proof を使い、payload owner を `Vec` 内に残す。`find_ref -> &T` のように borrowed ref を返す API は lifetime escape の入口になるため作らない。関連 issue は [ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F](../../issues/items/ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F.md)。
+
 ## 2026-04-30 再レビュー結果
 
 基準: remote main `bbaf2a5` 取り込み後。

@@ -1,7 +1,6 @@
 use alloc::vec::Vec;
 
 use super::collection_slot_lifecycle::CollectionSlotState::{MaybeReleased, Released};
-use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
 use super::collection_slot_summary_projection::summary_suffix_for_params;
@@ -21,7 +20,7 @@ pub(super) fn collect_return_facts_from_terminator(
     out_transfers: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     out: &mut Vec<CollectionSlotLifecycleReturnSlot>,
     out_paths: &mut Vec<CollectionSlotLifecycleReturnPath>,
-    collection_slots: &CollectionSlotStateTable,
+    state_at_return: &CollectionSlotSummaryBuildState,
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
     block_entry_state: &CollectionSlotSummaryBuildState,
@@ -36,7 +35,10 @@ pub(super) fn collect_return_facts_from_terminator(
     };
     collect_return_transfers_from_ops(out_transfers, engine, params, block_entry_state, ops, value);
     collect_return_paths_from_ops(out_paths, engine, params, block_entry_state, ops, value);
-    for entry in collection_slots.entries_covered_by_storage(value) {
+    for entry in state_at_return
+        .collection_slots
+        .entries_covered_by_storage_with_aliases(value, &state_at_return.raw_aliases)
+    {
         let Some(suffix) = place_suffix_after_prefix(&entry.slot, value) else {
             continue;
         };
@@ -53,8 +55,14 @@ pub(super) fn collect_return_facts_from_terminator(
         );
     }
     for (markers, state) in [
-        (collection_slots.released_storage(), Released),
-        (collection_slots.maybe_released_storage(), MaybeReleased),
+        (
+            state_at_return.collection_slots.released_storage(),
+            Released,
+        ),
+        (
+            state_at_return.collection_slots.maybe_released_storage(),
+            MaybeReleased,
+        ),
     ] {
         collect_return_storage_markers(out, params, markers, value, state);
     }

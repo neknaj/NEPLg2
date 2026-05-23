@@ -95,7 +95,6 @@ pub(super) fn translate_summary_ops_through_args(
                 else {
                     continue;
                 };
-                let actual = raw_aliases.canonicalize_owner_cell_address(&actual);
                 if let Some(target) = summary_place_for_params_with_aliases_and_types(
                     params,
                     Some(engine.types),

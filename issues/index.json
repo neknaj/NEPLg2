@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-23T03:09:50.429Z",
+  "generated_at": "2026-05-23T05:04:59.729Z",
   "counts": {
-    "total": 1240,
+    "total": 1241,
     "open": 3,
-    "resolved": 1237,
+    "resolved": 1238,
     "by_area": {
       "stdlib": {
-        "total": 325,
+        "total": 326,
         "open": 2,
-        "resolved": 323
+        "resolved": 324
       },
       "selfhost": {
         "total": 110,
@@ -14643,6 +14643,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260523T003359949Z-VEC-NON-COPY-TRANSFORMS-NEED-SCOPED--CEE50B61.md"
+    },
+    {
+      "id": "ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F",
+      "title": "Vec query needs scoped borrowed predicate observers for non-Copy payloads",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-23",
+      "updated": "2026-05-23",
+      "target": "stdlib/alloc/collections/vec/query/**, nepl-core/src/resource/**, nepl-core/tests/resource_ir.rs, nodesrc/test_stdlib_vec_borrowed_observers.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -41,7 +41,16 @@ pub(super) fn collect_return_paths_from_value_to_suffix(
         return;
     }
     for path in return_path_states_after_ops(engine, params, start, ops) {
-        collect_direct_return_path(out, engine, params, path, value, target_suffix, target_ty);
+        collect_direct_return_path(
+            out,
+            engine,
+            params,
+            path,
+            ops,
+            value,
+            target_suffix,
+            target_ty,
+        );
     }
 }
 
@@ -50,6 +59,7 @@ fn collect_direct_return_path(
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
     path: ReturnPathBuildState,
+    ops: &[ResourceOp],
     value: &Place,
     target_suffix: &[PlaceProjection],
     target_ty: crate::types::TypeId,
@@ -74,6 +84,14 @@ fn collect_direct_return_path(
             );
         }
     }
+    collect_storage_relocate_return_transfers(
+        &mut return_transfers,
+        params,
+        &path,
+        ops,
+        value,
+        target_suffix,
+    );
     collect_return_slots_for_value(&mut return_slots, params, &path.state, value, target_suffix);
     let i32_scalar_facts = collect_i32_scalar_return_facts_for_value_suffix(
         params,
@@ -90,6 +108,55 @@ fn collect_direct_return_path(
                 return_transfers,
                 return_slots,
                 i32_scalar_facts,
+            },
+        );
+    }
+}
+
+fn collect_storage_relocate_return_transfers(
+    out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    params: &[ResourceLocal],
+    path: &ReturnPathBuildState,
+    ops: &[ResourceOp],
+    value: &Place,
+    target_suffix: &[PlaceProjection],
+) {
+    for op in ops {
+        let ResourceOp::CollectionStorageRelocate {
+            old_storage,
+            new_storage,
+            ..
+        } = op
+        else {
+            continue;
+        };
+        let old_storage = path
+            .state
+            .raw_aliases
+            .canonicalize_owner_cell_address(old_storage);
+        let new_storage = path
+            .state
+            .raw_aliases
+            .canonicalize_owner_cell_address(new_storage);
+        let Some(storage_suffix) = place_suffix_after_prefix(&new_storage, value) else {
+            continue;
+        };
+        let Some(source) =
+            summary_place_for_params_with_aliases(params, &path.state.raw_aliases, &old_storage)
+        else {
+            continue;
+        };
+        let mut composed_target_suffix = target_suffix.to_vec();
+        composed_target_suffix.extend(storage_suffix);
+        let Some(target_suffix) = summary_suffix_for_params(params, &composed_target_suffix) else {
+            continue;
+        };
+        push_return_transfer(
+            out,
+            CollectionSlotLifecycleReturnTransfer {
+                source,
+                target_suffix,
+                target_ty: new_storage.ty,
             },
         );
     }

@@ -15,7 +15,7 @@
 //: - `replace` は[範囲外/はんいがい]では[失敗/しっぱい]にせず、[何/なに]も[変更/へんこう]しません。
 //: - `new` / `with_capacity` / `push` / `pop` / `drop_last` / `clear` / `free` は `.T: Drop` payload でも使えます。`push` は payload 非依存の `VecStorageInvariant` と private slot initialize proof で tail slot へ[移動/いどう]し、`pop` は private move-out proof と `vec_pop_with` により更新後 `Vec` owner と removed `Option<T>` owner を同時に[回収/かいしゅう]できるようにします。`drop_last` と Drop 版 cleanup は source-level `Drop::drop` と Resource IR proof により removed / initialized slot を[閉/と]じます。
 //: - `push` の failure surface は `VecPushRejected<T>` で `Vec` と rejected item を同時に[返/かえ]します。`pop` の result surface は `VecPop<T>` と `vec_pop_with<T, R>` で `Vec` と item option を同じ callback に[渡/わた]します。成功時も失敗時も item owner の[行方/ゆくえ]が API 型と Resource IR proof に[残/のこ]るため、Copy raw-access proof へ[依存/いぞん]しません。
-//: - `get`、`vec_pop_item`、`vec_pop_vec`、`sort`、scan 系 API は、payload を copy して読む、または一部 owner を[捨/す]てる accessor であるため `.T: Copy` に[限定/げんてい]します。Drop payload では owner-preserving API を[使/つか]います。
+//: - `get`、`vec_pop_item`、`vec_pop_vec`、`sort`、値渡し scan 系 API は、payload を copy して読む、または一部 owner を[捨/す]てる accessor であるため `.T: Copy` に[限定/げんてい]します。Drop payload では owner-preserving API や `count_ref` / `find_index_ref` / `any_ref` / `all_ref` の scoped borrowed predicate API を[使/つか]います。
 //: - unchecked raw element helper は root facade から再公開しません。
 //: - [再確保/さいかくほ]が[起/お]きると[内部/ないぶ]バッファの[番地/ばんち]は[変/か]わりえます。
 //:

@@ -3,9 +3,11 @@
 //:
 //: ### [目的/もくてき]
 //: - count/fold/reduce を query facade から[分離/ぶんり]し、borrowed owner から Copy 要素を[読/よ]む[集約/しゅうやく]処理をこの module に[集約/しゅうやく]します。
+//: - non-Copy payload を値として[読/よ]まない predicate count は、scoped borrowed observer として同じ module に[置/お]きます。
 //:
 //: ### [注意/ちゅうい]
 //: - 要素の読み取りは `get<T: Copy>` を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
+//: - `count_ref` は payload を copy-out せず、`BorrowRead` proof を[使/つか]う borrowed predicate API です。
 
 #indent 4
 
@@ -15,6 +17,7 @@
 #import "core/traits/copy" as *
 #import "../types" as *
 #import "../invariant" as *
+#import "../access/borrow" as vec_borrow
 #import "./get" as vec_get
 #import "core/field" as *
 
@@ -69,6 +72,65 @@ pub fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
                                 else ()
                         Option::None:
                             ()
+                    set i add i 1
+            out
+
+//: count_ref: 借用 predicate で[条件/じょうけん]を[満/み]たす[要素数/ようそすう]を[数/かぞ]える
+//:
+//: ### [目的/もくてき]
+//: - non-Copy payload を `get<T: Copy>` で[読/よ]み[出/だ]さず、各 slot を `&T` として predicate に[渡/わた]します。
+//: - 戻り値は `i32` だけなので、要素 owner は `Vec` の中に[残/のこ]ります。
+//:
+//: ### [実装/じっそう]
+//: - 走査前に `VecStorageInvariant` を[確認/かくにん]し、metadata が不正なら 0 を[返/かえ]します。
+//: - 各 index では `borrow_at_predicate_or` を[使/つか]い、範囲外や storage 不整合が起きた場合は predicate false として[扱/あつか]います。
+//:
+//: ### [注意/ちゅうい]
+//: - predicate は `(&T)->bool` です。`T` を値として[返/かえ]す `find` / `reduce` とは[別/べつ]の API です。
+//: - borrowed ref は callback の[間/あいだ]だけ[有効/ゆうこう]で、この関数から[返/かえ]しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/field" as field
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn is_even_payload <(&DropPayload)->bool> (item):
+//:     eq rem_s *field::get_ref item "value" 2 0
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 2)
+//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 3)
+//:     let ok <bool> eq count_ref<DropPayload> &v2 @is_even_payload 1
+//:     free<DropPayload> v2
+//:     if ok 0 1
+//: ```
+pub fn count_ref <.T> <(&Vec<.T>, (&.T)->bool)->i32> (v, p):
+    match vec_current_storage_invariant<.T> v:
+        VecStorageInvariant::Invalid _reason:
+            0
+        VecStorageInvariant::Valid:
+            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+            let src_len <i32> *field::get_ref v_buffer "len"
+            let mut out <i32> 0
+            let mut i <i32> 0
+            while lt i src_len:
+                do:
+                    if:
+                        vec_borrow::borrow_at_predicate_or<.T> v i p false
+                        then set out add out 1
+                        else ()
                     set i add i 1
             out
 

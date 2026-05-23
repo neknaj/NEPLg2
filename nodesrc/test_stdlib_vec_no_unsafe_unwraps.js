@@ -18,6 +18,7 @@ const relPaths = [
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/access/header.nepl',
     'stdlib/alloc/collections/vec/access/data.nepl',
+    'stdlib/alloc/collections/vec/access/borrow.nepl',
     'stdlib/alloc/collections/vec/transform.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
     'stdlib/alloc/collections/vec/transform/filter.nepl',
@@ -107,7 +108,8 @@ const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageApiCod
 const vecAccessRootCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
 const vecAccessHeaderCode = codeByPath.get('stdlib/alloc/collections/vec/access/header.nepl');
 const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/data.nepl');
-const vecAccessCode = [vecAccessRootCode, vecAccessHeaderCode, vecAccessDataCode].join('\n');
+const vecAccessBorrowCode = codeByPath.get('stdlib/alloc/collections/vec/access/borrow.nepl');
+const vecAccessCode = [vecAccessRootCode, vecAccessHeaderCode, vecAccessDataCode, vecAccessBorrowCode].join('\n');
 const vecTransformRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
 const vecTransformMapCode = codeByPath.get('stdlib/alloc/collections/vec/transform/map.nepl');
 const vecTransformFilterRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter.nepl');
@@ -180,6 +182,10 @@ const reduceSection = between(vecCode, 'fn reduce ', 'fn find ');
 const findSection = between(vecCode, 'fn find ', 'fn any ');
 const anySection = between(vecCode, 'fn any ', 'fn all ');
 const allSection = between(vecCode, 'fn all ', 'fn free ');
+const countRefSection = publicFunctionSection(vecQueryAggregateCode, 'count_ref');
+const findIndexRefSection = publicFunctionSection(vecQueryPredicateCode, 'find_index_ref');
+const anyRefSection = publicFunctionSection(vecQueryPredicateCode, 'any_ref');
+const allRefSection = publicFunctionSection(vecQueryPredicateCode, 'all_ref');
 const freeSection = vecCode.slice(vecCode.indexOf('fn free '));
 const ownedBufferSection = between(vecTypesCode, 'pub struct OwnedBuffer<.T>:', 'pub struct Vec<.T>:');
 const vecStructSection = between(vecTypesCode, 'pub struct Vec<.T>:', 'pub struct VecPushError<.T>:');
@@ -541,6 +547,17 @@ assert.match(reduceSection, /fn\s+reduce\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T
 assert.match(findSection, /fn\s+find\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->Option<\.T>>/, 'Vec.find must borrow the Vec owner and require Copy elements');
 assert.match(anySection, /fn\s+any\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->bool>/, 'Vec.any must borrow the Vec owner and require Copy elements');
 assert.match(allSection, /fn\s+all\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->bool>/, 'Vec.all must borrow the Vec owner and require Copy elements');
+for (const [name, section, signature] of [
+    ['count_ref', countRefSection, /fn\s+count_ref\s+<\.T>\s+<\(&Vec<\.T>,\s*\(&\.T\)->bool\)->i32>/],
+    ['find_index_ref', findIndexRefSection, /fn\s+find_index_ref\s+<\.T>\s+<\(&Vec<\.T>,\s*\(&\.T\)->bool\)->Option<i32>>/],
+    ['any_ref', anyRefSection, /fn\s+any_ref\s+<\.T>\s+<\(&Vec<\.T>,\s*\(&\.T\)->bool\)->bool>/],
+    ['all_ref', allRefSection, /fn\s+all_ref\s+<\.T>\s+<\(&Vec<\.T>,\s*\(&\.T\)->bool\)->bool>/],
+]) {
+    assert.match(section, signature, `Vec.${name} must expose a non-Copy scoped borrowed predicate signature`);
+    assert.match(section, /vec_current_storage_invariant<\.T>[\s\S]*VecStorageInvariant::Invalid\s+_reason:[\s\S]*(?:false|0|none<i32>)[\s\S]*VecStorageInvariant::Valid:/, `Vec.${name} must prove payload-independent storage metadata before scanning`);
+    assert.match(section, /borrow_at_predicate_or<\.T>\s+v\s+i\s+p\s+false/, `Vec.${name} must reuse the compiler-owned BorrowRead observer boundary`);
+    assert.doesNotMatch(section, /\bVecCopyInvariant\b|\bvec_(?:buffer_)?current_copy_invariant\b|\bvec_get::get<\.T>\b|\bload<\.T>\b|\bdata_mem_view<\.T>\b/, `Vec.${name} must not copy out payloads or use raw Copy access`);
+}
 assert.match(mapSection, /fn\s+map\s+<\.T:\s*Copy,\s*\.U:\s*Copy>/, 'Vec.map must require Copy input and output elements until non-Copy element drop traversal exists');
 assert.match(vecTransformFilterCode, /fn\s+filter\s+<\.T:\s*Copy>/, 'Vec.filter must require Copy elements for predicate scans and output copy');
 assert.match(vecTransformPrefixCode, /fn\s+take_while\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<Vec<\.T>,\s*VecTransformError<\.T>>>[\s\S]*Result::Err<Vec<\.T>,\s*VecTransformError<\.T>>\s+VecTransformError<\.T>\s+v\s+e/, 'Vec.take_while must require Copy elements and return input owner on output allocation failure');

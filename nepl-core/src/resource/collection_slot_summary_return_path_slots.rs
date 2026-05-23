@@ -51,7 +51,10 @@ pub(super) fn collect_return_slots_for_value(
     value: &Place,
     target_suffix: &[PlaceProjection],
 ) {
-    for entry in state.collection_slots.entries_covered_by_storage(value) {
+    for entry in state
+        .collection_slots
+        .entries_covered_by_storage_with_aliases(value, &state.raw_aliases)
+    {
         let Some(suffix) = place_suffix_after_prefix(&entry.slot, value) else {
             continue;
         };

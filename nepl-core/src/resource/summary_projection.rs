@@ -561,35 +561,27 @@ fn summary_offset_for_scalar_with_shift_inner(
         if let Some(value) = raw_aliases.i32_value(place) {
             return known_summary_offset_from_i64(i64::from(value).checked_add(offset)?, scale);
         }
-        if let Some((source, source_scale)) = raw_aliases.i32_scaled_source(place) {
-            let scale = scale.checked_mul(source_scale)?;
-            if let Some(summary) = summary_offset_for_scalar_with_shift_inner(
-                params,
-                types,
-                raw_aliases,
-                &source,
-                scale,
-                offset,
-                visited,
-            ) {
-                return Some(summary);
-            }
+        if let Some(summary) = summary_offset_for_scaled_source_candidates(
+            params,
+            types,
+            raw_aliases,
+            place,
+            scale,
+            offset,
+            visited,
+        ) {
+            return Some(summary);
         }
-        if let (Some(types), Some((source, element_ty))) =
-            (types, raw_aliases.i32_type_size_scaled_source(place))
-        {
-            let scale = scale.checked_mul(storage_size_bytes(types, element_ty))?;
-            if let Some(summary) = summary_offset_for_scalar_with_shift_inner(
-                params,
-                Some(types),
-                raw_aliases,
-                &source,
-                scale,
-                offset,
-                visited,
-            ) {
-                return Some(summary);
-            }
+        if let Some(summary) = summary_offset_for_type_size_scaled_source_candidates(
+            params,
+            types,
+            raw_aliases,
+            place,
+            scale,
+            offset,
+            visited,
+        ) {
+            return Some(summary);
         }
         for (source, source_offset) in raw_aliases.i32_offset_sources(place) {
             let combined_offset = source_offset.checked_add(offset)?;
@@ -628,6 +620,81 @@ fn summary_offset_for_scalar_with_shift_inner(
     })();
     visited.pop();
     result
+}
+
+fn summary_offset_for_scaled_source_candidates(
+    params: &[ResourceLocal],
+    types: Option<&TypeCtx>,
+    raw_aliases: &RawCellAddressAliases,
+    place: &Place,
+    scale: usize,
+    offset: i64,
+    visited: &mut Vec<Place>,
+) -> Option<SummaryOffset> {
+    let mut out = None;
+    for (source, source_scale) in raw_aliases.i32_scaled_source_candidates(place) {
+        let Some(scale) = scale.checked_mul(source_scale) else {
+            continue;
+        };
+        let Some(summary) = summary_offset_for_scalar_with_shift_inner(
+            params,
+            types,
+            raw_aliases,
+            &source,
+            scale,
+            offset,
+            visited,
+        ) else {
+            continue;
+        };
+        merge_summary_offset_candidate(&mut out, summary)?;
+    }
+    out
+}
+
+fn summary_offset_for_type_size_scaled_source_candidates(
+    params: &[ResourceLocal],
+    types: Option<&TypeCtx>,
+    raw_aliases: &RawCellAddressAliases,
+    place: &Place,
+    scale: usize,
+    offset: i64,
+    visited: &mut Vec<Place>,
+) -> Option<SummaryOffset> {
+    let types = types?;
+    let mut out = None;
+    for (source, element_ty) in raw_aliases.i32_type_size_scaled_source_candidates(place) {
+        let Some(scale) = scale.checked_mul(storage_size_bytes(types, element_ty)) else {
+            continue;
+        };
+        let Some(summary) = summary_offset_for_scalar_with_shift_inner(
+            params,
+            Some(types),
+            raw_aliases,
+            &source,
+            scale,
+            offset,
+            visited,
+        ) else {
+            continue;
+        };
+        merge_summary_offset_candidate(&mut out, summary)?;
+    }
+    out
+}
+
+fn merge_summary_offset_candidate(
+    out: &mut Option<SummaryOffset>,
+    candidate: SummaryOffset,
+) -> Option<()> {
+    match out {
+        Some(existing) if existing != &candidate => None,
+        Some(_) => Some(()),
+        None => {
+            *out = Some(candidate);
+            Some(())
+        }
+    }
 }
 
 fn summary_offset_operand_for_params(

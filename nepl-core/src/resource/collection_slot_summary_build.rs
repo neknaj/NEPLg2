@@ -125,7 +125,7 @@ fn function_collection_slot_lifecycle_summary(
             &mut return_transfers,
             &mut return_slots,
             &mut return_paths,
-            &state.collection_slots,
+            &state,
             &engine,
             &function.params,
             &block_entry_state,

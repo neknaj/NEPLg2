@@ -147,15 +147,25 @@ impl RawCellAddressAliases {
 
     pub(super) fn i32_scaled_source(&self, place: &Place) -> Option<(Place, usize)> {
         let mut out = None;
+        for candidate in self.i32_scaled_source_candidates(place) {
+            match &out {
+                Some(existing) if existing != &candidate => return None,
+                Some(_) => {}
+                None => out = Some(candidate),
+            }
+        }
+        out
+    }
+
+    pub(super) fn i32_scaled_source_candidates(&self, place: &Place) -> Vec<(Place, usize)> {
+        let mut out = Vec::new();
         for (source, scale) in self
             .i32_scales
             .scaled_sources_for_aliases(&self.scalar_aliases_for(place))
         {
             let candidate = (self.canonicalize_scalar(&source), scale);
-            match &out {
-                Some(existing) if existing != &candidate => return None,
-                Some(_) => {}
-                None => out = Some(candidate),
+            if !out.iter().any(|existing| existing == &candidate) {
+                out.push(candidate);
             }
         }
         out

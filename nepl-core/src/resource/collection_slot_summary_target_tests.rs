@@ -128,6 +128,72 @@ fn summary_target_rewrites_symbolic_operand_through_scalar_alias() {
 }
 
 #[test]
+fn summary_target_rewrites_ambiguous_scaled_scalar_alias_to_parameter_projection() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let callee_storage = local("storage", i32_ty);
+    let caller_vec = local("v", i32_ty);
+    let caller_vec_len = caller_vec
+        .clone()
+        .with_projection(
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            i32_ty,
+        )
+        .with_projection(
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            i32_ty,
+        );
+    let local_len = local("v_len", i32_ty);
+    let loaded_len = Place::temporary(ResourceId(8), i32_ty);
+    let byte_off = local("byte_off", i32_ty);
+    let target = callee_storage
+        .clone()
+        .with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
+                place: Box::new(byte_off.clone()),
+            }),
+            i32_ty,
+        )
+        .with_projection(PlaceProjection::Deref, i32_ty);
+    let mut raw_aliases = RawCellAddressAliases::default();
+    raw_aliases.copy_scalar_facts_if_tracked(&caller_vec_len, &local_len);
+    raw_aliases.copy_scalar_facts_if_tracked(&local_len, &loaded_len);
+    raw_aliases.add_i32_scale(&loaded_len, &byte_off, 4);
+    let params = [param("storage", callee_storage), param("v", caller_vec)];
+
+    let summary = summary_place_for_params_with_aliases(&params, &raw_aliases, &target)
+        .expect("summary target");
+
+    let Some(CollectionSlotLifecycleSummaryProjection::StorageOffset(
+        CollectionSlotLifecycleSummaryOffset::ScaledSymbolic { place, scale },
+    )) = summary.suffix.first()
+    else {
+        panic!("summary must keep scaled symbolic offset: {summary:#?}");
+    };
+    assert_eq!(*scale, 4);
+    assert_eq!(place.parameter_index, 1);
+    assert_eq!(
+        place.suffix,
+        [
+            CollectionSlotLifecycleSummaryProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            CollectionSlotLifecycleSummaryProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+        ]
+    );
+}
+
+#[test]
 fn return_suffix_translation_rewrites_symbolic_operand_through_wrapper_args() {
     let types = TypeCtx::new();
     let i32_ty = types.i32();

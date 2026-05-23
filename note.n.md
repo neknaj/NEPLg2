@@ -1,3 +1,28 @@
+# 2026-05-23 Agent 1 Vec borrowed predicate query and Resource IR slot summary
+
+- `ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F` を fixed にした。`plan.md` は確認済みで、変更していない。
+- `Vec<T>` の `count_ref` / `find_index_ref` / `any_ref` / `all_ref` を追加し、non-Copy payload を値として取り出さず `(&T)->bool` predicate だけを callback scope 内で呼ぶ query API にした。既存の payload copy-out query は `T: Copy` 境界を維持する。
+- 根本原因は stdlib query だけではなく、`Vec<DropPayload>` の push / grow / return summary 後に collection slot initialized state が returned storage projection へ再接続されず、`BorrowRead` が uninitialized slot と見なすことだった。
+- Resource IR では collection slot return/path summary を alias-aware にし、storage relocate と returned storage の prefix 変換を通して initialized slot state を保持するようにした。あわせて ambiguous i32 scale alias に対し、strict API は維持しつつ summary generation 専用の candidate enumeration で parameter 由来 offset proof へ要約できるようにした。
+- focused verification:
+  - `cargo fmt --check`
+  - `git diff --check`
+  - `node nodesrc/issues.js check --dir issues`
+  - `node --check nodesrc/test_stdlib_vec_borrowed_observers.js`
+  - `node --check nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node --check nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+  - `cargo test -q -p nepl-core resource::collection_slot_summary_target_tests::summary_target_rewrites_ambiguous_scaled_scalar_alias_to_parameter_projection -- --test-threads=1 --exact --nocapture`
+  - `cargo test -q -p nepl-core --test resource_ir resource_ir_vec_borrowed_predicate_queries_observe_drop_payload_without_move -- --test-threads=1 --exact --nocapture`
+  - `cargo test -q -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_push_grow_relocates_stdlib_lifecycle -- --test-threads=1 --exact --nocapture`
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/query/aggregate.nepl -n 2 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/query/predicate.nepl -n 2 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/query/predicate.nepl -n 4 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/query/predicate.nepl -n 6 --dist web/dist`
+
 # 2026-05-23 Agent 1 Vec DropPayload Resource IR summary budget
 
 - `ISS-20260523T014105503Z-VEC-DROPPAYLOAD-RESOURCE-IR-SUMMARY--873A5BCD` を fixed にした。`plan.md` は確認済みで、変更していない。

@@ -3,9 +3,11 @@
 //:
 //: ### [目的/もくてき]
 //: - find/any/all を query facade から[分離/ぶんり]し、predicate による scan 処理をこの module に[集約/しゅうやく]します。
+//: - non-Copy payload を copy-out しない predicate scan は、`&T` を callback scope に[閉/と]じる `*_ref` API として[提供/ていきょう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - 要素の読み取りは `get<T: Copy>` を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
+//: - `*_ref` API は `get` を[使/つか]わず、`BorrowRead` proof を[発行/はっこう]する borrowed observer boundary を[通/とお]ります。
 
 #indent 4
 
@@ -15,6 +17,7 @@
 #import "core/traits/copy" as *
 #import "../types" as *
 #import "../invariant" as *
+#import "../access/borrow" as vec_borrow
 #import "./get" as vec_get
 #import "core/field" as *
 
@@ -83,6 +86,70 @@ pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
                     set i add i 1
             out
 
+//: find_index_ref: 借用 predicate に[合/あ]う[最初/さいしょ]の index を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `find<T: Copy>` のように要素を `Option<T>` として copy-out せず、見つかった[位置/いち]だけを `Option<i32>` で[返/かえ]します。
+//: - non-Copy payload の owner は `Vec` の slot に[残/のこ]り、predicate は `&T` を callback scope 内で[観測/かんそく]します。
+//:
+//: ### [実装/じっそう]
+//: - `VecStorageInvariant` を先に[確認/かくにん]し、metadata が不正なら `None` です。
+//: - 各 slot は `borrow_at_predicate_or` で[借用/しゃくよう]し、true になった最初の index で[打/う]ち[切/き]ります。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/field" as field
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn is_value_9 <(&DropPayload)->bool> (item):
+//:     eq *field::get_ref item "value" 9
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
+//:     let ok <bool> match find_index_ref<DropPayload> &v2 @is_value_9:
+//:         Option::Some idx:
+//:             eq idx 1
+//:         Option::None:
+//:             false
+//:     free<DropPayload> v2
+//:     if ok 0 1
+//: ```
+pub fn find_index_ref <.T> <(&Vec<.T>, (&.T)->bool)->Option<i32>> (v, p):
+    match vec_current_storage_invariant<.T> v:
+        VecStorageInvariant::Invalid _reason:
+            none<i32>
+        VecStorageInvariant::Valid:
+            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+            let src_len <i32> *field::get_ref v_buffer "len"
+            let mut out <Option<i32>> none<i32>
+            let mut active <bool> true
+            let mut i <i32> 0
+            while and active lt i src_len:
+                do:
+                    if:
+                        vec_borrow::borrow_at_predicate_or<.T> v i p false
+                        then:
+                            set out some<i32> i
+                            set active false
+                        else:
+                            ()
+                    set i add i 1
+            out
+
 //: any: [条件/じょうけん]を[満/み]たす[要素/ようそ]が 1 つでもあるか[判定/はんてい]する
 //:
 //: ### [目的/もくてき]
@@ -136,6 +203,56 @@ pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
                     set i add i 1
             out
 
+//: any_ref: 借用 predicate を[満/み]たす[要素/ようそ]が 1 つでもあるか[判定/はんてい]する
+//:
+//: ### [目的/もくてき]
+//: - non-Copy payload を値として[取/と]り[出/だ]さず、`&T` predicate だけで[存在/そんざい][判定/はんてい]します。
+//:
+//: ### [実装/じっそう]
+//: - `VecStorageInvariant` が invalid なら false です。
+//: - true が[見/み]つかった時点で[走査/そうさ]を[終了/しゅうりょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/field" as field
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn is_value_5 <(&DropPayload)->bool> (item):
+//:     eq *field::get_ref item "value" 5
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 5)
+//:     let ok <bool> any_ref<DropPayload> &v1 @is_value_5
+//:     free<DropPayload> v1
+//:     if ok 0 1
+//: ```
+pub fn any_ref <.T> <(&Vec<.T>, (&.T)->bool)->bool> (v, p):
+    match vec_current_storage_invariant<.T> v:
+        VecStorageInvariant::Invalid _reason:
+            false
+        VecStorageInvariant::Valid:
+            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+            let src_len <i32> *field::get_ref v_buffer "len"
+            let mut out <bool> false
+            let mut i <i32> 0
+            while and lt i src_len not out:
+                do:
+                    set out vec_borrow::borrow_at_predicate_or<.T> v i p false
+                    set i add i 1
+            out
+
 //: all: [全要素/ぜんようそ]が[条件/じょうけん]を[満/み]たすか[判定/はんてい]する
 //:
 //: ### [目的/もくてき]
@@ -186,5 +303,57 @@ pub fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
                             set out p item
                         Option::None:
                             set out false
+                    set i add i 1
+            out
+
+//: all_ref: [全要素/ぜんようそ]が借用 predicate を[満/み]たすか[判定/はんてい]する
+//:
+//: ### [目的/もくてき]
+//: - non-Copy payload を copy-out せず、各 slot を `&T` として predicate に[渡/わた]します。
+//: - [空/から] `Vec` では true です。
+//:
+//: ### [実装/じっそう]
+//: - `VecStorageInvariant` が invalid なら false です。
+//: - false が[見/み]つかった時点で[走査/そうさ]を[終了/しゅうりょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/field" as field
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//: struct DropPayload:
+//:     value <i32>
+//: impl Drop for DropPayload:
+//:     fn drop <(&DropPayload)*>()> (_self):
+//:         ()
+//: fn is_positive <(&DropPayload)->bool> (item):
+//:     lt 0 *field::get_ref item "value"
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
+//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
+//:     let ok <bool> all_ref<DropPayload> &v2 @is_positive
+//:     free<DropPayload> v2
+//:     if ok 0 1
+//: ```
+pub fn all_ref <.T> <(&Vec<.T>, (&.T)->bool)->bool> (v, p):
+    match vec_current_storage_invariant<.T> v:
+        VecStorageInvariant::Invalid _reason:
+            false
+        VecStorageInvariant::Valid:
+            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+            let src_len <i32> *field::get_ref v_buffer "len"
+            let mut out <bool> true
+            let mut i <i32> 0
+            while and lt i src_len out:
+                do:
+                    set out vec_borrow::borrow_at_predicate_or<.T> v i p false
                     set i add i 1
             out

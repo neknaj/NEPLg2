@@ -7,6 +7,7 @@ use super::collection_slot_summary_projection;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceLocal};
+use super::raw_cell_value_flow_alias::raw_cell_place_alias_candidates;
 use crate::types::TypeCtx;
 
 #[cfg(test)]
@@ -54,19 +55,7 @@ pub(super) fn summary_place_for_params_with_aliases_and_types(
     raw_aliases: &RawCellAddressAliases,
     target: &Place,
 ) -> Option<CollectionSlotLifecycleSummaryPlace> {
-    let mut candidates = Vec::new();
-    push_unique_place(&mut candidates, target);
-    let canonical_target = raw_aliases.canonicalize_owner_cell_address(target);
-    push_unique_place(&mut candidates, &canonical_target);
-    for alias in raw_aliases.raw_address_aliases_for_value(target) {
-        push_unique_place(&mut candidates, &alias);
-    }
-    for alias in raw_aliases.raw_address_aliases_for_value(&canonical_target) {
-        push_unique_place(&mut candidates, &alias);
-    }
-    for alias in raw_aliases.prefix_aliases_for(target) {
-        push_unique_place(&mut candidates, &alias);
-    }
+    let mut candidates = raw_cell_place_alias_candidates(target, raw_aliases);
     for alias in raw_aliases.scalar_aliases_for_value(target) {
         push_unique_place(&mut candidates, &alias);
     }

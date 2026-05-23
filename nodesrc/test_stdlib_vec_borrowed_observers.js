@@ -17,6 +17,7 @@ const vecRelPaths = [
     "stdlib/alloc/collections/vec/access.nepl",
     "stdlib/alloc/collections/vec/access/header.nepl",
     "stdlib/alloc/collections/vec/access/data.nepl",
+    "stdlib/alloc/collections/vec/access/borrow.nepl",
     "stdlib/alloc/collections/vec/query.nepl",
     "stdlib/alloc/collections/vec/query/get.nepl",
     "stdlib/alloc/collections/vec/query/aggregate.nepl",
@@ -119,6 +120,25 @@ for (const [name, signature] of [
         `Vec.${name} must traverse through a borrowed owner and copy values explicitly`,
     );
 }
+
+for (const [name, signature] of [
+    ["count_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->i32>"],
+    ["find_index_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->Option<i32>>"],
+    ["any_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->bool>"],
+    ["all_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->bool>"],
+]) {
+    assert.match(
+        vecCode,
+        new RegExp(`fn\\s+${name}\\s+<\\.T>\\s+${signature}\\s+\\(`),
+        `Vec.${name} must expose a scoped borrowed predicate surface for non-Copy payloads`,
+    );
+    assert.doesNotMatch(
+        vecCode,
+        new RegExp(`fn\\s+${name}\\s+<\\.T:\\s*Copy>`),
+        `Vec.${name} must not impose Copy because it returns only scalar/index information`,
+    );
+}
+assert.match(vecCode, /fn\s+borrow_at_predicate_or\s+<\.T>\s+<\(&Vec<\.T>,i32,\(&\.T\)->bool,bool\)->bool>/, "Vec borrowed predicate helpers must route through the scoped slot observer");
 
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, "Vec.pop must return a named owner-bearing result");
 assert.match(vecCode, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->VecPop<\.T>>[\s\S]*fn\s+pop\s+<\.T:\s*Drop>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, "Vec.pop must expose Copy and Drop owner-consuming overloads after move-out cell state is proven");

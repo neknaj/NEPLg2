@@ -4,10 +4,11 @@ use super::collection_slot_lifecycle::{
     apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
     CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
-use super::collection_slot_state_identity::same_collection_slot_identity;
+use super::collection_slot_state_identity::{place_covers_slot, same_collection_slot_identity};
+use super::collection_slot_state_merge::merge_collection_slot_states;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
-use super::place_utils::should_track;
+use super::place_utils::{replace_place_prefix, should_track};
 use super::raw_cell_value_flow_alias::{
     raw_cell_place_alias_candidates, raw_cell_places_equivalent,
 };
@@ -86,6 +87,37 @@ impl CollectionSlotStateTable {
             .find(|entry| slot_matches_alias_candidates(&entry.slot, &candidates, raw_aliases))
             .map(|entry| entry.state)
             .unwrap_or(CollectionSlotState::Uninitialized)
+    }
+
+    pub(super) fn entries_covered_by_storage_with_aliases(
+        &self,
+        storage: &Place,
+        raw_aliases: &RawCellAddressAliases,
+    ) -> Vec<CollectionSlotStateEntry> {
+        let storage_candidates = raw_cell_place_alias_candidates(storage, raw_aliases);
+        let mut entries = Vec::<CollectionSlotStateEntry>::new();
+        for entry in &self.slots {
+            let Some(storage_candidate) = storage_candidates
+                .iter()
+                .find(|candidate| place_covers_slot(&entry.slot, candidate))
+            else {
+                continue;
+            };
+            let slot = replace_place_prefix(&entry.slot, storage_candidate, storage)
+                .unwrap_or_else(|| entry.slot.clone());
+            if let Some(existing) = entries
+                .iter_mut()
+                .find(|existing| same_collection_slot_identity(&existing.slot, &slot))
+            {
+                existing.state = merge_collection_slot_states(existing.state, entry.state);
+            } else {
+                entries.push(CollectionSlotStateEntry {
+                    slot,
+                    state: entry.state,
+                });
+            }
+        }
+        entries
     }
 
     pub fn apply_slot_event(

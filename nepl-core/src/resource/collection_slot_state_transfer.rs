@@ -89,17 +89,6 @@ impl CollectionSlotStateTable {
         Ok(())
     }
 
-    pub(super) fn entries_covered_by_storage(
-        &self,
-        storage: &Place,
-    ) -> Vec<CollectionSlotStateEntry> {
-        self.slots
-            .iter()
-            .filter(|entry| place_covers_slot(&entry.slot, storage))
-            .cloned()
-            .collect()
-    }
-
     pub(super) fn clear_storage_prefix(&mut self, storage: &Place) {
         self.slots
             .retain(|entry| !place_covers_slot(&entry.slot, storage));

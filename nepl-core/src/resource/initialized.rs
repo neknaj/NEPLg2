@@ -1,8 +1,7 @@
 extern crate alloc;
 
-use alloc::vec::Vec;
-
 use crate::types::{TypeCtx, TypeId, TypeKind};
+use alloc::vec::Vec;
 
 use super::cell_state::CellTable;
 use super::collection_slot_lifecycle::{

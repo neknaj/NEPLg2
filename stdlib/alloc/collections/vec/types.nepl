@@ -59,7 +59,7 @@ pub enum VecStorage<.T>:
 //: - `storage` は `VecStorage<.T>` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
 //:
 //: ### [注意/ちゅうい]
-//: - `new` / `with_capacity` / `push` / `pop` / `replace_drop_old` / `drop_last` / `clear` / `free` は `.T: Drop` payload でも使えます。`get`、borrowed `replace`、transform / sort は payload copy-out や owner-preserving transform design が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。
+//: - `new` / `with_capacity` / `push` / `pop` / `replace_drop_old` / `drop_last` / `clear` / `free` は `.T: Drop` payload でも使えます。`get`、borrowed `replace`、値渡し query、transform / sort は payload copy-out や owner-preserving transform design が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。scalar / index だけを[返/かえ]す `*_ref` query は `BorrowRead` proof により `.T: Copy` を[要求/ようきゅう]しません。
 //: - non-Copy payload を[扱/あつか]う API は、`VecPushRejected<T>`、`VecReplaceRejected<T>`、`VecPop<T>` と eliminator callback により、`Vec` owner と item owner を同じ型境界で[回収/かいしゅう]できる形にします。
 //:
 //: neplg2:test[compile_fail]

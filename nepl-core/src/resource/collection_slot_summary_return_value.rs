@@ -14,7 +14,7 @@ use super::collection_slot_summary_return_unique::push_return_transfer;
 use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::initialized::ResourceCheckEngine;
 use super::model::{Place, ResourceOp};
-use super::place_utils::construct_aggregate_field_place;
+use super::place_utils::{construct_aggregate_field_place, place_suffix_after_prefix};
 
 pub(super) fn collect_return_transfers_from_value_to_suffix(
     out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
@@ -44,6 +44,14 @@ pub(super) fn collect_return_transfers_from_value_to_suffix(
             );
         }
     }
+    collect_return_transfers_from_storage_relocates(
+        out,
+        params,
+        &state_at_value,
+        ops,
+        value,
+        target_suffix,
+    );
     collect_return_transfers_from_value_producer(
         out,
         engine,
@@ -54,6 +62,55 @@ pub(super) fn collect_return_transfers_from_value_to_suffix(
         target_suffix,
         target_ty,
     );
+}
+
+fn collect_return_transfers_from_storage_relocates(
+    out: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
+    params: &[super::model::ResourceLocal],
+    state_at_value: &CollectionSlotSummaryBuildState,
+    ops: &[ResourceOp],
+    value: &Place,
+    target_suffix: &[super::model::PlaceProjection],
+) {
+    for op in ops {
+        let ResourceOp::CollectionStorageRelocate {
+            old_storage,
+            new_storage,
+            ..
+        } = op
+        else {
+            continue;
+        };
+        let old_storage = state_at_value
+            .raw_aliases
+            .canonicalize_owner_cell_address(old_storage);
+        let new_storage = state_at_value
+            .raw_aliases
+            .canonicalize_owner_cell_address(new_storage);
+        let Some(storage_suffix) = place_suffix_after_prefix(&new_storage, value) else {
+            continue;
+        };
+        let Some(source) = summary_place_for_params_with_aliases(
+            params,
+            &state_at_value.raw_aliases,
+            &old_storage,
+        ) else {
+            continue;
+        };
+        let mut composed_target_suffix = target_suffix.to_vec();
+        composed_target_suffix.extend(storage_suffix);
+        let Some(target_suffix) = summary_suffix_for_params(params, &composed_target_suffix) else {
+            continue;
+        };
+        push_return_transfer(
+            out,
+            CollectionSlotLifecycleReturnTransfer {
+                source,
+                target_suffix,
+                target_ty: new_storage.ty,
+            },
+        );
+    }
 }
 
 fn collect_return_transfers_from_value_producer(

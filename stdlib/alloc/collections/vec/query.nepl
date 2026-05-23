@@ -4,15 +4,17 @@
 //: ### [目的/もくてき]
 //: - root `Vec` module から get/count/fold/reduce/find/any/all を[分離/ぶんり]します。
 //: - この file は public re-export だけを[持/も]ち、query 実装本体は責務別 submodule が[所有/しょゆう]します。
+//: - non-Copy payload を値として[読/よ]まない `count_ref` / `find_index_ref` / `any_ref` / `all_ref` も、同じ query facade から[公開/こうかい]します。
 //:
 //: ### [実装/じっそう]
 //: - `query/get` は index lookup を[所有/しょゆう]します。
-//: - `query/aggregate` は count/fold/reduce の[集約/しゅうやく]処理を[所有/しょゆう]します。
-//: - `query/predicate` は find/any/all の predicate scan を[所有/しょゆう]します。
+//: - `query/aggregate` は count/fold/reduce と borrowed count の[集約/しゅうやく]処理を[所有/しょゆう]します。
+//: - `query/predicate` は find/any/all と borrowed predicate scan を[所有/しょゆう]します。
 //: - `as @merge` により `#import "alloc/collections/vec/query" as q` の qualified API も[維持/いじ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - raw storage の読み取りは、範囲検査を所有する submodule の private helper に[閉/と]じます。
+//: - `get` / `find` / `reduce` のように payload を値として[返/かえ]す API は Copy-only のままです。`*_ref` API は scalar や index だけを[返/かえ]し、payload owner を `Vec` に[残/のこ]します。
 
 #indent 4
 #import "core/field" as *
