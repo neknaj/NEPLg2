@@ -2,8 +2,8 @@
 id: ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60
 title: "NEPLg2.1 source policy regexes still expect old type syntax"
 area: tests
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: maintenance
 created: 2026-05-24
@@ -67,6 +67,9 @@ Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aw
 - resource responsibility policy は未監視だった transform-range 関連 module を登録し、既存 resource module の現在の実装行 baseline へ更新した。これはコメント量の制限ではなく、実装本体の追加肥大を検出する baseline である。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 17 件から 14 件へ減少した。残件は selfhost 系に集中した。
 - `cargo test -p nepl-core` は今回差分外の resource unit 4 件で失敗するため、`ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729` として分離した。
+- selfhost 系 14 件を subagent 調査とローカル確認で分類し、すべて NEPLg2.1 表記移行に伴う stale source expectation と確認した。実装未達やコメント増加を阻害する検査は主因ではなかった。
+- selfhost policy は `legacyTypeSyntaxView` 経由で executable source view を正規化し、`Result` 直持ち、`Vec.get` 経由の argv read、typed diagnostic enum、typed Option absence、HIR payload/range 分離などの意味契約を弱めずに検査するようにした。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は source policy warning 0 件になった。
 
 ## 検証
 
@@ -109,3 +112,23 @@ node nodesrc/run_source_policy_regressions.js without stale NEPLg2.0 syntax fail
 - `trunk build`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint8.json` (13/13 passed)
 - `cargo test -p nepl-core` failed in unrelated resource unit tests tracked by `ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729`.
+- `node nodesrc/test_selfhost_outcome_no_raw_result_cell.js`
+- `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
+- `node nodesrc/test_selfhost_diag_code_enum.js`
+- `node nodesrc/test_selfhost_builtin_signature_payload.js`
+- `node nodesrc/test_selfhost_type_record_payload.js`
+- `node nodesrc/test_selfhost_hir_range_payload.js`
+- `node nodesrc/test_selfhost_mono_instance_absence.js`
+- `node nodesrc/test_selfhost_hir_expr_id_absence.js`
+- `node nodesrc/test_selfhost_def_id_absence.js`
+- `node nodesrc/test_selfhost_hir_expr_payload.js`
+- `node nodesrc/test_selfhost_hir_report_contract.js`
+- `node nodesrc/test_selfhost_name_resolver_report_contract.js`
+- `node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`
+- `node nodesrc/test_selfhost_string_helpers_boundary.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only` (0 warnings)
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
+- `node nodesrc/neplg21_syntax_migrate.js --check`
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint9.json` (13/13 passed)

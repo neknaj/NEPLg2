@@ -6,11 +6,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { parseFile } = require("./parser");
 const { HIR_FACADE, readHirSource } = require("./selfhost_hir_sources");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = HIR_FACADE;
 const file = path.join(repoRoot, relPath);
-const source = readHirSource(repoRoot);
+const source = legacyTypeSyntaxView(readHirSource(repoRoot));
 const parsed = parseFile(file);
 
 const expectedCheckCounts = [6, 7, 7];

@@ -4,17 +4,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { readTokenSource } = require('./selfhost_token_sources');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 
 function read(rel) {
-    return fs.readFileSync(path.join(repoRoot, rel), 'utf8');
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, rel), 'utf8'));
 }
 
 const stringSrc = read('stdlib/alloc/string.nepl');
 const stringSearchSrc = read('stdlib/alloc/string/search.nepl');
 const stringSearchCompareSrc = read('stdlib/alloc/string/search/compare.nepl');
-const tokenSrc = readTokenSource(repoRoot);
+const tokenSrc = legacyTypeSyntaxView(readTokenSource(repoRoot));
 const lexerSrc = [
     'stdlib/neplg2/core/syntax/lexer.nepl',
     'stdlib/neplg2/core/syntax/lexer/indent.nepl',

@@ -4,9 +4,10 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const { readHirSource } = require("./selfhost_hir_sources");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
-const hir = readHirSource(repoRoot);
+const hir = legacyTypeSyntaxView(readHirSource(repoRoot));
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");

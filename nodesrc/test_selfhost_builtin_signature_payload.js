@@ -4,9 +4,10 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const { readPreludeSource } = require("./selfhost_prelude_sources");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
-const prelude = readPreludeSource(repoRoot);
+const prelude = legacyTypeSyntaxView(readPreludeSource(repoRoot));
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");

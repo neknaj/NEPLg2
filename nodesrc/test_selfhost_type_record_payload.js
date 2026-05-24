@@ -4,9 +4,10 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const { readTySource } = require("./selfhost_ty_sources");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
-const ty = readTySource(repoRoot);
+const ty = legacyTypeSyntaxView(readTySource(repoRoot));
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");

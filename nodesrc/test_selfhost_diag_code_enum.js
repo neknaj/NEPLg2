@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 const { readDiagSource } = require('./selfhost_diag_sources');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const root = path.resolve(__dirname, '..');
 
@@ -68,12 +69,12 @@ function assertLeafCodeMapping({ enumName, functionName, prefix }) {
   }
 }
 
-const diag = readDiagSource(root);
+const diag = legacyTypeSyntaxView(readDiagSource(root));
 const reporter = [
   read('stdlib/neplg2/cli/reporter/render/single.nepl'),
   read('stdlib/neplg2/cli/reporter/render/collection.nepl'),
-].join('\n');
-const lexer = read('stdlib/neplg2/core/syntax/lexer.nepl');
+].map(legacyTypeSyntaxView).join('\n');
+const lexer = legacyTypeSyntaxView(read('stdlib/neplg2/core/syntax/lexer.nepl'));
 const neplg2Files = [];
 
 function walk(dir) {
@@ -157,7 +158,7 @@ assert.doesNotMatch(lexer, /\b(?:pub\s+)?enum\s+LexErrorCode:/, 'lexer must use 
 assert.doesNotMatch(lexer, /\blex_error_code_name\b/, 'lexer must not stringify codes before SelfhostDiagnostic');
 
 for (const rel of neplg2Files) {
-  const src = read(rel);
+  const src = legacyTypeSyntaxView(read(rel));
   assert.doesNotMatch(
     src,
     /selfhost_diag_(?:new|info|warning|error)\s+"[^"]+"/,

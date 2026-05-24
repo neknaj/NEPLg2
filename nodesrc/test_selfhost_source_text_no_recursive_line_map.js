@@ -3,10 +3,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const file = 'stdlib/neplg2/core/infra/text.nepl';
-const src = fs.readFileSync(path.join(repoRoot, file), 'utf8');
+const src = legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
 const lines = src.split(/\r?\n/);
 
 function functionBlock(name) {

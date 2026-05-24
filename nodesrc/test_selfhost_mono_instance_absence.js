@@ -4,10 +4,11 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const monoPath = "stdlib/neplg2/core/mono/mono.nepl";
-const mono = fs.readFileSync(path.join(repoRoot, monoPath), "utf8").replace(/\r\n/g, "\n");
+const mono = legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, monoPath), "utf8").replace(/\r\n/g, "\n"));
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");

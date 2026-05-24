@@ -45815,3 +45815,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed.
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint8.json`: 13/13 passed.
   - `cargo test -p nepl-core`: failed in `resource::effect_return_escape_tests::return_escape_protects_region_token_identity_inside_result_owner_payload`, `resource::effect_return_escape_tests::return_escape_treats_final_owner_carrier_payload_as_protected`, `resource::i32_call_facts_tests::records_i32_constant_result_for_mangled_add_call`, and `resource::i32_call_facts_tests::records_i32_difference_result_for_mangled_sub_call`.
+
+## 2026-05-25 Agent 1 selfhost source policy syntax view completion
+
+- `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` の最終 checkpoint として、selfhost 系 14 件の stale source expectation を解消した。`plan.md` は変更していない。
+- subagent 調査とローカル確認の結果、14 件はすべて NEPLg2.1 表記移行に伴う旧 `<...>` regex / 旧 source expectation であり、selfhost 実装未達やコメント増加を阻害する検査は主因ではなかった。
+- selfhost policy は `legacyTypeSyntaxView` 経由で executable source view を正規化し、`Result` 直持ち、`Vec.get` 経由の argv read、typed diagnostic enum、typed Option absence、HIR payload/range 分離などの意味契約を弱めずに検査するようにした。
+- full source policy warn-only は 14 件から 0 件へ減少した。
+- `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` は `fixed` / `resolved: true` に更新した。
+- focused verification:
+  - `node nodesrc/test_selfhost_outcome_no_raw_result_cell.js`: passed.
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: passed.
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: passed.
+  - `node nodesrc/test_selfhost_builtin_signature_payload.js`: passed.
+  - `node nodesrc/test_selfhost_type_record_payload.js`: passed.
+  - `node nodesrc/test_selfhost_hir_range_payload.js`: passed.
+  - `node nodesrc/test_selfhost_mono_instance_absence.js`: passed.
+  - `node nodesrc/test_selfhost_hir_expr_id_absence.js`: passed.
+  - `node nodesrc/test_selfhost_def_id_absence.js`: passed.
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: passed.
+  - `node nodesrc/test_selfhost_hir_report_contract.js`: passed.
+  - `node nodesrc/test_selfhost_name_resolver_report_contract.js`: passed.
+  - `node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`: passed.
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed.
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed with 0 warnings.
+  - `node nodesrc/issues.js check --dir issues`: passed.
+  - `git diff --check`: passed with CRLF warnings only.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
+  - `trunk build`: passed.
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint9.json`: 13/13 passed.
