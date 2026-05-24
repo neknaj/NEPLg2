@@ -1,4 +1,6 @@
-# stdlib / tests / tutorials NEPLg3 移行計画
+# stdlib / tests / tutorials NEPLg3 移行計画 draft
+
+この文書は NEPLg3 向けの過去計画であり、2026-05-24 時点の NEPLg2.1 表層構文移行の正ではない。NEPLg2.1 では `stdlib/`、`tests/`、`tutorials/` を同一ディレクトリ内で更新する。現在の移行方針は [NEPLg2.1 surface syntax migration plan](../neplg2/neplg21_syntax_migration_plan.md) を参照する。
 
 最終更新: 2026-03-17
 

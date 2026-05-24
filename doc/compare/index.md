@@ -1,7 +1,8 @@
-# NEPLg2.0 → NEPLg3 変更点まとめ
+# NEPLg2.0 → NEPLg3 変更点まとめ draft
 
-NEPLg2.0（現行実装）から NEPLg3（目標仕様）への主要な変更を記したドキュメント群。
-ここでいう NEPLg3 は、Zenn #1「カリー化」と Zenn #2「型と制御構文」で明示されたコア構文を正とする。
+NEPLg2.0 から NEPLg3 への過去比較資料。
+
+2026-05-24 時点の現行開発対象は NEPLg2 から NEPLg2.1 への表層構文移行であり、この比較資料は現在の正仕様ではない。NEPLg2.1 の移行方針は [NEPLg2.1 surface syntax migration plan](../neplg2/neplg21_syntax_migration_plan.md) を参照する。
 
 ---
 

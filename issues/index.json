@@ -1,19 +1,24 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-24T03:51:29.575Z",
+  "generated_at": "2026-05-24T09:04:54.279Z",
   "counts": {
-    "total": 1244,
-    "open": 6,
+    "total": 1247,
+    "open": 9,
     "resolved": 1238,
     "by_area": {
       "core": {
-        "total": 608,
-        "open": 1,
+        "total": 609,
+        "open": 2,
         "resolved": 607
       },
+      "doc": {
+        "total": 3,
+        "open": 1,
+        "resolved": 2
+      },
       "stdlib": {
-        "total": 328,
-        "open": 4,
+        "total": 329,
+        "open": 5,
         "resolved": 324
       },
       "selfhost": {
@@ -65,11 +70,6 @@
         "total": 1,
         "open": 0,
         "resolved": 1
-      },
-      "doc": {
-        "total": 2,
-        "open": 0,
-        "resolved": 2
       },
       "docs": {
         "total": 8,
@@ -140,6 +140,51 @@
   },
   "issues": [
     {
+      "id": "ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30",
+      "title": "NEPLg2.1 syntax migration needs frontend lowering boundary",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/typecheck/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30.md"
+    },
+    {
+      "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",
+      "title": "README and docs must distinguish NEPLg2.1 from unstable NEPLg3",
+      "area": "doc",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "doc",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "README.md, doc/README.md, doc/neplg2/**, doc/neplg3/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC.md"
+    },
+    {
+      "id": "ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754",
+      "title": "NEPLg2.1 corpus migration needs semantic generic rewrite",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "maintenance",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "stdlib/**, tests/**, tutorials/**, doc/examples/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754.md"
+    },
+    {
       "id": "ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37",
       "title": "Resource IR needs transform range lifecycle certificate",
       "area": "core",
@@ -178,7 +223,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-23",
-      "updated": "2026-05-23",
+      "updated": "2026-05-24",
       "target": "stdlib/alloc/collections/vec/transform/**, nepl-core/src/resource/**",
       "legacy_id": "",
       "source": "",

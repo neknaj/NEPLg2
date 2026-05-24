@@ -8,6 +8,8 @@
 NEPLg2 は、**式指向**・**前置記法**・**オフサイドルール**を中核にした WebAssembly 向け言語です。
 ブロックは `:` + インデントで表現し、`if` / `while` / `match` なども式として扱います。
 
+現在の主作業は、現行 NEPLg2 を NEPLg2.1 表層構文へ切り替える移行です。NEPLg2.1 では `%` 型注釈、prefix 型式、`\` 関数リテラル、明示 generic postfix 撤廃を導入します。NEPLg3 はまだ未着手・未確定の将来設計であり、現在の実装や移行作業の正仕様ではありません。
+
 ## すぐ触る
 
 - Web Playground: <https://neknaj.github.io/NEPLg2/>
@@ -23,27 +25,27 @@ NEPLg2 は、**式指向**・**前置記法**・**オフサイドルール**を�
 
 ## クイックサンプル
 
-以下は Zenn #1 / #2 を正とした NEPLg3 コア構文の例です。
+以下は NEPLg2.1 移行後の表層構文例です。
 
 ```neplg2
 #indent 4
 
 use core::math as *
 
-let classify \score:
+fn classify %fn i32 str \score:
     if ge score 90
         "A"
         if ge score 70
             "B"
             "C"
 
-let main \():
+fn main %impure fn () i32 \():
     block:
         ; classify 85
-        ()
+        0
 ```
 
-現行の Rust 実装とチュートリアルには NEPLg2.0 / 旧 2.1 案の記法が一部残っています。Zenn #1 / #2 を正とした設計文書は [`doc/neplg3/spec/`](doc/neplg3/spec/index.md) を参照してください。
+NEPLg2.1 の移行計画は [`doc/neplg2/neplg21_syntax_migration_plan.md`](doc/neplg2/neplg21_syntax_migration_plan.md) を参照してください。現行の Rust 実装、stdlib、tutorial には NEPLg2.0 の角括弧記法が残っており、この branch で移行します。
 
 ## チュートリアル
 
@@ -101,23 +103,23 @@ NO_COLOR=false node nodesrc/tests.js -i tests -i stdlib -o /tmp/tests-dual-full.
 
 CLI でのコンパイル・実行方法の詳細は [`doc/cli.md`](doc/cli.md) を参照してください。
 
-## NEPLg3 への移行計画
+## NEPLg2.1 移行と NEPLg3
 
-現在 **NEPLg3** の設計・実装を並行して進めています。NEPLg3 は Zenn #1 / #2 を正とし、カリー化された関数型記法、`%` の式レベル型注釈、`let <name> <expr>`、`if cond a b` / `match pattern expr` / `block:` などのコア構文を含む次世代仕様です。
+現在進行中の変更は **NEPLg2.1** への表層構文移行です。これは現行 `nepl-core/`、`stdlib/`、`tests/`、`tutorials/` を同一ラインで更新する作業であり、`nepl-core-g3` の新規実装ではありません。
 
-| 対象 | 現行 (NEPLg2.0) | 開発中 (NEPLg3) |
+NEPLg3 は将来の次世代仕様として検討されていますが、まだ仕様も実装も確定していません。`doc/neplg3/` と `doc/migration/` は参考資料であり、NEPLg2.1 移行の正仕様として扱いません。
+
+| 対象 | 現行 | 移行後 |
 |---|---|---|
-| コンパイラ | `nepl-core/` | `nepl-core-g3/`（未着手） |
-| 標準ライブラリ | `stdlib/`（凍結） | `stdlib-g3/`（Stage 2 以降） |
-| テスト | `tests/`（凍結） | `tests-g3/`（Stage 1 以降） |
-| チュートリアル | `tutorials/`（凍結） | `tutorials-g3/`（先行作成可） |
-
-`nepl-core-g3` の Stage 6 到達時に一括切り替えを行い、古いディレクトリは archive します。
+| コンパイラ | `nepl-core/` NEPLg2.0 表層構文 | `nepl-core/` NEPLg2.1 表層構文 |
+| 標準ライブラリ | `stdlib/` 角括弧記法混在 | `stdlib/` NEPLg2.1 記法 |
+| テスト | `tests/` 角括弧記法混在 | `tests/` NEPLg2.1 記法 |
+| チュートリアル | `tutorials/` 角括弧記法混在 | `tutorials/` NEPLg2.1 記法 |
+| selfhost | Rust 実装を踏まえて設計更新待ち | NEPLg2.1 frontend 実装後に設計更新 |
 
 詳細:
-- 言語仕様: [`doc/neplg3/spec/`](doc/neplg3/spec/index.md)
-- コンパイラ実装設計: [`doc/neplg3/impl/`](doc/neplg3/impl/index.md)
-- stdlib / tests / tutorials 移行計画: [`doc/migration/index.md`](doc/migration/index.md)
+- NEPLg2.1 表層構文移行: [`doc/neplg2/neplg21_syntax_migration_plan.md`](doc/neplg2/neplg21_syntax_migration_plan.md)
+- NEPLg3 参考資料: [`doc/neplg3/`](doc/neplg3/README.md)
 
 ## 開発ドキュメント
 

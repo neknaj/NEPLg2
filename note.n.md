@@ -1,3 +1,18 @@
+# 2026-05-24 Agent 1 NEPLg2.1 syntax migration kickoff
+
+- `fix/transform-range-lifecycle-certificate-20260524` は `dd469a39` で main へ fast-forward merge / push し、local/remote branch を削除した。Discord 報告も送信済み。
+- 新 branch `feature/neplg21-syntax-migration-20260524` を作成した。
+- Zenn 方針を 2026-05-24 更新版で再確認した。試作段階では後方互換維持より、設計整合性・静的検査・issue 管理・ドキュメント同期を優先する。
+- NEPLg2.1 移行用に次の P0 issue を追加した。
+  - `ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30`
+  - `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754`
+  - `ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC`
+- `doc/neplg2/neplg21_syntax_migration_plan.md` を追加し、NEPLg2.1 は現行 `nepl-core/` と既存 `stdlib/` / `tests/` を更新する移行であり、NEPLg3 ではないことを明記した。
+- `README.md` / `doc/README.md` / `doc/neplg2/README.md` / `doc/neplg3/README.md` / `doc/neplg3/spec/index.md` / `doc/migration/index.md` / `doc/compare/index.md` を、NEPLg2.1 と NEPLg3 draft を混同しない表現へ更新した。
+- subagent 調査結果:
+  - frontend 側は `%` 型注釈と `\` lambda を既存 AST/HIR に正規化し、Resource IR へ構文差分を漏らさない方針が妥当。
+  - corpus 側は `<TypeExpr>` の機械変換と、generic postfix / lambda / compile_fail fixture の semantic rewrite を分ける必要がある。
+
 # 2026-05-24 Agent 1 TransformRange rollback cleanup summary
 
 - partial output rollback cleanup は `CollectionSlotTransformRangeCertificate` に新 field を足さず、failure / early-exit path 側の明示的な `CollectionSlotDropTraversal` summary として扱う方針にした。
