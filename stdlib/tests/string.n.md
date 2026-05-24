@@ -205,19 +205,19 @@ fn main %impure fn () i32 \():
     let builder_result %Result str str:
         match string_builder_new_result:
             Result::Err e:
-                Result<str,str>::Err e
+                Result::Err e
             Result::Ok sb0:
                 match sb_append_result sb0 "Error: ":
                     Result::Err e:
-                        Result<str,str>::Err e
+                        Result::Err e
                     Result::Ok sb1:
                         match sb_append_i32_result sb1 404:
                             Result::Err e:
-                                Result<str,str>::Err e
+                                Result::Err e
                             Result::Ok sb2:
                                 match sb_append_result sb2 " Not Found":
                                     Result::Err e:
-                                        Result<str,str>::Err e
+                                        Result::Err e
                                     Result::Ok sb3:
                                         sb_build_result sb3
     let report:

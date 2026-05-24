@@ -112,7 +112,9 @@ LLM/手動判断が必要なもの:
 
 - `stdlib/tests/string.n.md` の `byte_at` / `find` result を `%Option i32` typed local に置き、`unwrap_or<i32>` / `is_none<i32>` を postfix なしの `unwrap_or` / `is_none` へ移行した。
 - `std/test` pipe argument 内の nested call から typed local へ分けることで、semantic evidence を明示しながら call reduction の探索も小さくした。
+- `builder_result` の `%Result str str` local annotation で戻り値が固定される `Result<str,str>::Err e` 4 箇所も `Result::Err e` へ移行した。
 - direct `nepl-cli.exe --check` smoke で、`byte_at` / `find` の更新後 local binding 形は pass した。
+- direct `nepl-cli.exe --check` smoke で、postfix-free `builder_result` の nested match 形は pass した。
 - `std/test` つき完全 `string_byte_at` smoke は旧 postfix 形でも 180s timeout するため、この checkpoint 固有の regression ではない既知の長時間化として扱った。
 
 ### 2026-05-24 core char Result constructor postfix cleanup checkpoint
