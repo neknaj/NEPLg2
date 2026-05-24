@@ -51,8 +51,8 @@ fn main %impure fn () i32 \():
 
     let r5 %Result i32 i32 ok<i32,i32> 6;
     let r6 %Result i32 i32 ok<i32,i32> -1;
-    let r7 %Result i32 i32 and_then<i32,i32,i32> r5 positive_double;
-    let r8 %Result i32 i32 and_then<i32,i32,i32> r6 positive_double;
+    let r7 %Result i32 i32 and_then r5 positive_double;
+    let r8 %Result i32 i32 and_then r6 positive_double;
     let r7_value %i32 unwrap_ok<i32,i32> r7;
     let r8_value %i32 unwrap_err<i32,i32> r8;
 

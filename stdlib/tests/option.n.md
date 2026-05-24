@@ -29,8 +29,8 @@ fn main %impure fn () i32 \():
     let unwrap_some %i32 unwrap<i32> some<i32> 99;
     let unwrap_or_some %i32 unwrap_or<i32> some<i32> 10 5;
     let unwrap_or_none %i32 unwrap_or<i32> none<i32> 5;
-    let and_then_some %i32 unwrap<i32> and_then<i32,i32> some<i32> 6 positive_double;
-    let and_then_none %bool is_none<i32> and_then<i32,i32> some<i32> -1 positive_double;
+    let and_then_some %i32 unwrap<i32> and_then some<i32> 6 positive_double;
+    let and_then_none %bool is_none<i32> and_then some<i32> -1 positive_double;
     let original %Option i32 some<i32> 77
     let copied %Option i32 *&original
     let copied_value %i32 unwrap<i32> copied;

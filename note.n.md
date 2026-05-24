@@ -45587,3 +45587,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: passed.
   - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
   - `node nodesrc/issues.js check --dir issues`: passed.
+
+## 2026-05-24 Agent 1 Option/Result and_then call-site postfix removal
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の小 checkpoint として、`stdlib/tests/option.n.md` と `stdlib/tests/result.n.md` の `and_then<...>` call site を `and_then` へ移行した。`plan.md` は変更していない。
+- option 側は `some<i32> 6` と `positive_double : fn i32 Option i32`、外側の `unwrap<i32>` / `is_none<i32>` が consumer になるため、`.T = i32` / `.U = i32` を解ける。
+- result 側は `r5` / `r6 : Result i32 i32` と `positive_double : fn i32 Result i32 i32`、`let r7 %Result i32 i32` が `.T` / `.U` / `.E` を固定する。
+- `some<i32>` / `unwrap<i32>` / `unwrap_ok<i32,i32>` などは今回の推論 evidence として残し、同時に広げない判断にした。subagent review でも blocking issue はなかった。
+- focused verification:
+  - `cargo test -p nepl-core --test functions function_neplg21_overloaded_generic_call_uses_ascribed_result_without_type_args -- --nocapture`: passed.
+  - stdin direct option smoke with postfix-free `and_then`: passed.
+  - stdin direct result smoke with postfix-free `and_then`: passed.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
+  - `trunk build`: passed.
+- known limitation:
+  - `node nodesrc/run_doctest.js -i stdlib/tests/result.n.md -n 1 --dist web/dist` and `node nodesrc/run_doctest.js -i stdlib/tests/option.n.md -n 1 --dist web/dist` timed out at 240s after `trunk build`; the stale pre-build run failed at compile because `web/dist` did not yet include the Rust typechecker fix.
