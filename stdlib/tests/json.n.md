@@ -37,9 +37,11 @@ fn main %impure fn () i32 \():
     let jn1 %JsonValue json_null
     set checks checks_push checks check json_is_null jn1
     let jn2 %JsonValue json_null
-    set checks checks_push checks check is_none<bool> json_as_bool jn2
+    let jn2_bool %Option bool json_as_bool jn2
+    set checks checks_push checks check is_none jn2_bool
     let jn3 %JsonValue json_null
-    set checks checks_push checks check is_none<i32> json_as_number jn3
+    let jn3_number %Option i32 json_as_number jn3
+    set checks checks_push checks check is_none jn3_number
 
     let jt1 %JsonValue json_bool true
     match json_as_bool jt1:
@@ -55,7 +57,8 @@ fn main %impure fn () i32 \():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "json_as_bool false returned None"
     let jt2 %JsonValue json_bool true
-    set checks checks_push checks check is_none<i32> json_as_number jt2
+    let jt2_number %Option i32 json_as_number jt2
+    set checks checks_push checks check is_none jt2_number
 
     let jnum1 %JsonValue json_number 123
     match json_as_number jnum1:
@@ -64,7 +67,8 @@ fn main %impure fn () i32 \():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "json_as_number returned None"
     let jnum2 %JsonValue json_number 123
-    set checks checks_push checks check is_none<bool> json_as_bool jnum2
+    let jnum2_bool %Option bool json_as_bool jnum2
+    set checks checks_push checks check is_none jnum2_bool
 
     let s %str "hello"
     let js1 %JsonValue json_string s
@@ -74,7 +78,8 @@ fn main %impure fn () i32 \():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "json_as_string returned None"
     let js2 %JsonValue json_string s
-    set checks checks_push checks check is_none<i32> json_as_number js2
+    let js2_number %Option i32 json_as_number js2
+    set checks checks_push checks check is_none js2_number
 
     let arr1 %JsonArray unwrap_ok json_array_new
     let ja1 %JsonValue json_array arr1

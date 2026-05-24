@@ -25,6 +25,12 @@
   - `node nodesrc\tests.js -i stdlib\alloc\string\byte_index.nepl --no-tree -o tmp\string-byte-index-generic-postfix.json -j 1 --dist web\dist`: passed.
   - `node nodesrc\tests.js -i stdlib\alloc\string\find.nepl --no-tree -o tmp\string-find-generic-postfix.json -j 1 --dist web\dist --assert-io`: compile timeout after 60000ms. direct smoke は通っており、`std/test` 付き find doctest の長時間化として扱う。
 
+# 2026-05-24 Agent 1 NEPLg2.1 JSON Copy Option observer checkpoint
+
+- `stdlib/tests/json.n.md` の `json_as_bool` / `json_as_number` 結果を `%Option bool` / `%Option i32` local に置き、`is_none<bool>` / `is_none<i32>` を postfix なしの `is_none` へ移行した。
+- `json_as_string` の `Option str` observer 2 箇所は、owner-bearing payload を同じ Copy payload checkpoint に混ぜないため残した。
+- `node nodesrc\tests.js -i stdlib\tests\json.n.md --no-tree -o tmp\json-generic-postfix.json -j 1 --dist web\dist --assert-io` は compile timeout after 60000ms。`tmp\neplg21_json_is_none_copy_smoke.neplg2` の direct `nepl-cli.exe --check --target std` で、今回の Copy payload observer 形は pass した。
+
 # 2026-05-24 Agent 1 NEPLg2.1 frontend/corpus checkpoint
 
 - Rust lexer/parser に `Percent` / `Backslash` を追加し、`%T` 型注釈、prefix 型式、`\a\b:` / `\():` lambda 引数を既存 AST/HIR へ正規化する経路を追加した。

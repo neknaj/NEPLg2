@@ -137,6 +137,12 @@ LLM/手動判断が必要なもの:
 - doctest コメント内の `is_none<i32>` 例は、nested generic consumer に頼らず `%Option i32` local を置いて `is_none` に渡す形へ移行した。
 - `node nodesrc/tests.js` の対象 file runner では `access.nepl` が 1/1 pass、`byte_index.nepl` が 5/5 pass。`find.nepl` は std/test 付き doctest が compile timeout after 60000ms になったため、direct `nepl-cli.exe --check --target core` smoke で `byte_at` / `checked_string_byte_at` / `string_bytes_cmp` / `find` の postfix-free shape を確認した。
 
+### 2026-05-24 JSON Copy Option observer postfix cleanup checkpoint
+
+- `stdlib/tests/json.n.md` の `json_as_bool` / `json_as_number` 結果を `%Option bool` / `%Option i32` local に置き、Copy payload に限って `is_none<bool>` / `is_none<i32>` を postfix なしの `is_none` へ移行した。
+- `json_as_string` の `Option str` observer 2 箇所は、owner-bearing payload を Copy payload checkpoint に混ぜないため残した。
+- `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/json-generic-postfix.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。`tmp/neplg21_json_is_none_copy_smoke.neplg2` の direct `nepl-cli.exe --check --target std` で今回の call shape は pass した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
